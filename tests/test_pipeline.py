@@ -308,6 +308,70 @@ class TestAreaRouting(unittest.TestCase):
         self.assertGreater(coverage["unassigned"]["top_score"], 0)
 
 
+class TestForkMode(unittest.TestCase):
+    """Same engine, opposite meanings.
+
+    In an uprev a missing fact means Chromium cleaned up. Across a fork it
+    means the vendor removed it -- a deliberate decision that must survive
+    every rebase. Reading a fork comparison with uprev semantics scores every
+    intentional divergence as upstream housekeeping.
+    """
+
+    def _diff(self, old_facts, new_facts, mode):
+        from chromedrift.diff import diff_snapshots
+        return diff_snapshots(snap("148.0.0.0", old_facts),
+                              snap("148.0.0.0", new_facts),
+                              platform="windows", mode=mode)
+
+    def test_removal_means_cleanup_upstream_but_deletion_in_a_fork(self):
+        old = [feature("Shipped", "enabled")]
+        uprev = self._diff(old, [], "uprev")[0]
+        fork = self._diff(old, [], "fork")[0]
+
+        self.assertIn("flag_retired_on", uprev.signals)
+        self.assertIn("fork_dropped", fork.signals)
+        # The fork case is the more serious of the two: we removed it on
+        # purpose, and the next rebase brings it back.
+        self.assertGreater(fork.severity, uprev.severity)
+
+    def test_changed_default_is_an_override_in_fork_mode(self):
+        old = [feature("Foo", "disabled")]
+        new = [feature("Foo", "enabled")]
+        fork = self._diff(old, new, "fork")[0]
+        self.assertIn("fork_default_override", fork.signals)
+
+    def test_addition_means_the_vendor_added_it(self):
+        fork = self._diff([], [feature("VendorOnly", "enabled")], "fork")[0]
+        self.assertIn("fork_added", fork.signals)
+        self.assertNotIn("new_feature_on_by_default", fork.signals)
+
+    def test_rename_pairing_is_disabled_across_a_fork(self):
+        """Removal plus addition sharing a variable is a rename over time.
+
+        Across a fork it means the vendor replaced one thing with another,
+        which is two decisions, not one rename -- collapsing them hides one.
+        """
+        old = [Fact(kind="pref", key="old.path", name="old.path",
+                    path="pref_names.h", attrs={"var": "kHomePage"})]
+        new = [Fact(kind="pref", key="new.path", name="new.path",
+                    path="pref_names.h", attrs={"var": "kHomePage"})]
+
+        uprev = self._diff(old, new, "uprev")
+        self.assertEqual(len(uprev), 1)
+        self.assertIn("pref_renamed", uprev[0].signals)
+
+        fork = self._diff(old, new, "fork")
+        self.assertEqual(len(fork), 2)
+        self.assertEqual({c.change_type for c in fork}, {"added", "removed"})
+
+    def test_every_fork_signal_has_a_label_and_severity(self):
+        from chromedrift.diff import FORK_LABELS, FORK_SIGNALS, SIGNAL_LABELS, SIGNAL_SEVERITY
+        for name in FORK_SIGNALS:
+            self.assertIn(name, SIGNAL_LABELS, name)
+            self.assertIn(name, SIGNAL_SEVERITY, name)
+        self.assertEqual(set(FORK_SIGNALS), set(FORK_LABELS))
+
+
 class TestClustering(unittest.TestCase):
     """One upstream change arrives as fragments; they must read as one story."""
 

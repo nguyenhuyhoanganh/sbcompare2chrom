@@ -21,7 +21,7 @@ from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
 from . import cluster
-from .diff import diff_snapshots, summarize
+from .diff import MODE_FORK, MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
 from .model import Report, read_json, write_json
@@ -67,8 +67,9 @@ def cmd_diff(args: argparse.Namespace) -> int:
                          platform=args.platform, local_src=args.local_src,
                          refresh=args.refresh, log=_log)
     changes = diff_snapshots(old, new, platform=args.platform.lower(),
-                             target_milestone=new.milestone)
-    print(f"{len(changes)} semantic changes  {old.ref} -> {new.ref}")
+                             target_milestone=new.milestone, mode=args.mode)
+    print(f"{len(changes)} semantic changes  {old.ref} -> {new.ref} "
+          f"[{args.mode}]")
     for kind, counts in summarize(changes).items():
         print(f"  {kind:24s} +{counts['added']:<5d} -{counts['removed']:<5d} "
               f"~{counts['modified']}")
@@ -102,20 +103,26 @@ def cmd_run(args: argparse.Namespace) -> int:
     out_dir = args.out
     os.makedirs(out_dir, exist_ok=True)
 
+    # Each side can come from its own checkout. Comparing a vendor fork against
+    # upstream needs exactly that: two different trees, neither of which is a
+    # Chromium tag. A single --local-src would point both sides at one tree.
+    from_src = args.from_src or args.local_src
+    to_src = args.to_src or args.local_src
+
     _log(f"[1/6] snapshot {args.from_ref}")
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=args.local_src,
+                         platform=args.platform, local_src=from_src,
                          refresh=args.refresh, log=_log)
     _log(f"[2/6] snapshot {args.to_ref}")
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=args.local_src,
+                         platform=args.platform, local_src=to_src,
                          refresh=args.refresh, log=_log)
 
     _log("[3/6] diff")
     platform = args.platform.lower()
     changes = diff_snapshots(old, new, platform=platform,
-                             target_milestone=new.milestone)
-    _log(f"  {len(changes)} semantic changes")
+                             target_milestone=new.milestone, mode=args.mode)
+    _log(f"  {len(changes)} semantic changes ({args.mode} mode)")
 
     _log("[4/6] downstream profile")
     if args.profile:
@@ -182,6 +189,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "platform": platform,
             "generated": _now(),
             "target_set": args.target_set,
+            "mode": args.mode,
             "facts_from": len(old.facts),
             "facts_to": len(new.facts),
             "profile": touch.provenance,
@@ -419,9 +427,19 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--platform", default="Android",
                         help="platform whose defaults matter (default: Android)")
     common.add_argument("--local-src", default=None,
-                        help="use an existing Chromium checkout instead of gitiles")
+                        help="use an existing checkout instead of gitiles "
+                             "(applies to both sides)")
+    common.add_argument("--from-src", default=None,
+                        help="checkout for the FROM side only")
+    common.add_argument("--to-src", default=None,
+                        help="checkout for the TO side only, e.g. a vendor fork")
     common.add_argument("--refresh", action="store_true",
                         help="ignore caches and refetch")
+    common.add_argument("--mode", default=MODE_UPREV, choices=MODES,
+                        help="uprev: upstream over time (default). "
+                             "fork: upstream vs a vendor fork at the same "
+                             "milestone, where a missing fact means the vendor "
+                             "removed it")
 
     sub = parser.add_subparsers(dest="command", required=True)
 

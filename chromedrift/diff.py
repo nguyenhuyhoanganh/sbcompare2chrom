@@ -154,6 +154,43 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "origin_trial_change": 35,
 }
 
+# Two comparisons, one engine, opposite meanings.
+#
+#   uprev: upstream at time A vs upstream at time B. "Removed" means Chromium
+#          cleaned something up, which is usually harmless.
+#   fork:  upstream vs a vendor fork at the same milestone. "Removed" means the
+#          vendor deleted it -- a deliberate product decision that must survive
+#          every future rebase.
+#
+# Running a fork comparison with uprev semantics would label every intentional
+# divergence as upstream housekeeping and score it near zero.
+MODE_UPREV = "uprev"
+MODE_FORK = "fork"
+MODES = (MODE_UPREV, MODE_FORK)
+
+# Fork-mode signals. The question is not "did behaviour change" but "is this
+# divergence we own, and what happens to it at the next rebase".
+FORK_SIGNALS: Dict[str, int] = {
+    "fork_dropped": 65,          # vendor removed something upstream has
+    "fork_added": 45,            # vendor added something upstream lacks
+    "fork_default_override": 60,  # vendor ships a different default
+    "fork_modified": 45,         # vendor changed the declaration
+    "fork_ui_removed": 60,       # vendor removed a page or control
+    "fork_ui_added": 45,
+}
+
+FORK_LABELS: Dict[str, str] = {
+    "fork_dropped": "We removed this; upstream still has it. A future rebase "
+                    "reintroduces it unless the patch is carried",
+    "fork_added": "We added this; upstream has no equivalent. Watch for "
+                  "upstream shipping something that collides",
+    "fork_default_override": "We ship a different default from upstream",
+    "fork_modified": "We changed this declaration",
+    "fork_ui_removed": "We removed this page or control",
+    "fork_ui_added": "We added this page or control",
+}
+
+
 SIGNAL_LABELS: Dict[str, str] = {
     "android_enabled_by_default": "Now ON by default on Android",
     "android_disabled_by_default": "Now OFF by default on Android",
@@ -198,6 +235,12 @@ SIGNAL_LABELS: Dict[str, str] = {
     "origin_trial_change": "Origin trial wiring changed",
 }
 
+# Fork-mode entries live in their own dicts above so the two vocabularies stay
+# readable, then merge here so every consumer -- reports, prompts, scoring --
+# looks signals up in one place.
+SIGNAL_SEVERITY.update(FORK_SIGNALS)
+SIGNAL_LABELS.update(FORK_LABELS)
+
 
 # ---------------------------------------------------------------------------
 
@@ -224,7 +267,8 @@ def _android_status(fact: Fact) -> str:
 
 
 def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
-                   target_milestone: Optional[int] = None) -> List[Change]:
+                   target_milestone: Optional[int] = None,
+                   mode: str = MODE_UPREV) -> List[Change]:
     """Produce the semantic change list between two snapshots.
 
     Refuses to compare snapshots built from different target sets: one side
@@ -250,7 +294,7 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
         old_fact = old_index.get(uid)
         if old_fact is None:
             changes.append(_make_change(ADDED, None, new_fact, platform,
-                                        target_milestone))
+                                        target_milestone, mode=mode))
             continue
         before = _meaningful(old_fact)
         after = _meaningful(new_fact)
@@ -263,14 +307,19 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
         if not deltas:
             continue
         changes.append(_make_change(MODIFIED, old_fact, new_fact, platform,
-                                    target_milestone, deltas))
+                                    target_milestone, deltas, mode=mode))
 
     for uid, old_fact in old_index.items():
         if uid not in new_index:
             changes.append(_make_change(REMOVED, old_fact, None, platform,
-                                        target_milestone))
+                                        target_milestone, mode=mode))
 
-    changes = _detect_renames(changes)
+    if mode == MODE_UPREV:
+        # Pairing a removal with an addition by C++ variable detects a rename
+        # over time. Across a fork the same pattern means the vendor replaced
+        # one thing with another, which is not a rename and must not be
+        # collapsed into one.
+        changes = _detect_renames(changes)
     changes.sort(key=lambda c: (-c.severity, c.kind, c.key))
     return changes
 
@@ -278,7 +327,8 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
 def _make_change(change_type: str, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
-                 deltas: Optional[Dict[str, List]] = None) -> Change:
+                 deltas: Optional[Dict[str, List]] = None,
+                 mode: str = MODE_UPREV) -> Change:
     fact = new_fact or old_fact
     assert fact is not None
     paths = sorted({p for p in ((old_fact.path if old_fact else ""),
@@ -294,7 +344,7 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
         paths=paths,
     )
     change.signals = _signals_for(change, old_fact, new_fact, platform,
-                                  target_milestone)
+                                  target_milestone, mode=mode)
     change.severity = _severity_for(change)
     return change
 
@@ -309,9 +359,42 @@ def _severity_for(change: Change) -> int:
     return max(base, floor)
 
 
+def _fork_signals(change: Change, platform: str) -> List[str]:
+    """Divergence semantics: the vendor did this, not Chromium.
+
+    Direction matters. The comparison is run as upstream -> fork, so a fact
+    missing on the fork side is something *we* removed, not something upstream
+    dropped.
+    """
+    kind = change.kind
+    ui_kinds = (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE)
+
+    if change.change_type == REMOVED:
+        return ["fork_ui_removed"] if kind in ui_kinds else ["fork_dropped"]
+    if change.change_type == ADDED:
+        return ["fork_ui_added"] if kind in ui_kinds else ["fork_added"]
+
+    signals = ["fork_modified"]
+    if kind in (KIND_BASE_FEATURE, KIND_BLINK_RUNTIME):
+        states = change.deltas.get("platform_state") or change.deltas.get(
+            "platform_status")
+        flipped = False
+        if isinstance(states, list) and len(states) == 2:
+            old = states[0].get(platform) if isinstance(states[0], dict) else None
+            new = states[1].get(platform) if isinstance(states[1], dict) else None
+            flipped = old != new
+        if flipped or "default_state" in change.deltas or "status" in change.deltas:
+            signals.append("fork_default_override")
+    return signals
+
+
 def _signals_for(change: Change, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
-                 target_milestone: Optional[int]) -> List[str]:
+                 target_milestone: Optional[int],
+                 mode: str = MODE_UPREV) -> List[str]:
+    if mode == MODE_FORK:
+        return _fork_signals(change, platform)
+
     signals: List[str] = []
     kind = change.kind
 
