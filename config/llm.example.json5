@@ -1,0 +1,44 @@
+// Internal LLM endpoint configuration.
+//
+// The client speaks plain HTTP via urllib -- no SDK, no pip install -- because
+// the deployment target is usually a network where adding a dependency is a
+// procurement conversation.
+{
+  // "openai"    : any OpenAI-compatible /chat/completions endpoint.
+  //               vLLM, TGI, Ollama and most internal gateways speak this.
+  // "anthropic" : the Messages API.
+  // "echo"      : no network at all. Returns a deterministic stub so the
+  //               pipeline can be developed and demoed offline. Reports say
+  //               loudly when this was used.
+  provider: "openai",
+
+  base_url: "http://ai-gateway.internal/v1",
+  model: "internal-200k",
+
+  // Read from the environment, never stored in the repo.
+  api_key_env: "CHROMEDRIFT_LLM_KEY",
+
+  // ---------------------------------------------------------------------
+  // Context budget.  The pipeline packs change records into batches against
+  // these numbers, so they must match the deployed model or requests will be
+  // rejected for length.
+  // ---------------------------------------------------------------------
+  context_window: 200000,
+  max_output_tokens: 8000,
+
+  // Headroom for the system prompt, the areas block and formatting slack.
+  reserve_tokens: 4000,
+
+  temperature: 0.1,
+  timeout: 300,
+  retries: 3,
+
+  // Hard cap on requests per run. A four-milestone uprev with --top 150 is
+  // normally 2-4 requests; this exists so a misconfiguration cannot quietly
+  // turn into hundreds.
+  max_requests: 40,
+
+  // Anything your gateway needs on top.
+  // extra_headers: { "X-Team": "browser-platform" },
+  // extra_body: { "top_p": 0.9 },
+}

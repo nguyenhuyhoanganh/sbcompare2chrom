@@ -1,0 +1,125 @@
+// Downstream browser profile.
+//
+// This is the half of the analysis Chromium cannot tell you: which parts of
+// the tree YOUR fork actually depends on.  The quality of the "Must fix"
+// bucket is a direct function of how honest this file is.
+//
+// Everything below is illustrative.  Replace the paths, symbols and areas
+// with your real fork's inventory before trusting the output.
+{
+  name: "Samsung Internet",
+  platform: "android",          // whose default states matter
+  chromium_base: "139.0.7258.155",
+
+  // ---------------------------------------------------------------------
+  // Evidence sources.  Use whichever you have; they combine.
+  // ---------------------------------------------------------------------
+
+  // 1. A directory of .patch / .diff files -- the usual shape of a vendor
+  //    fork.  Both the touched paths and the identifiers inside the hunks
+  //    are extracted, and the identifiers are what drive scoring.
+  patch_dirs: ["../examples/demo-patches"],
+
+  // 2. A full source fork tracked in git.  Resolves via
+  //    `git diff --name-only <upstream_ref>`.
+  // git: { repo: "/work/sbrowser/src", upstream_ref: "139.0.7258.155" },
+
+  // 3. A hand-maintained list, for teams that track ownership in a doc.
+  //    A trailing slash (or a name with no extension) means "prefix".
+  modified_paths: [
+    "content/public/common/content_features.cc",
+    "third_party/blink/renderer/modules/mediastream/",
+  ],
+  // modified_paths_file: "owned-paths.txt",
+
+  // 4. Your own (non-Chromium) source, scanned for references to Chromium
+  //    feature names, switches and prefs.  This catches code that depends on
+  //    a feature without patching the file that declares it.
+  // source_roots: ["/work/sbrowser/sbrowser_chrome"],
+
+  // 5. Symbols you know you depend on, regardless of the above.
+  symbols: [
+    "BackForwardCache",
+    "kBackForwardCache",
+    "ServiceWorkerAutoPreload",
+    "PaymentRequest",
+  ],
+
+  // ---------------------------------------------------------------------
+  // Owned areas: what the product is made of, and what it costs us when
+  // Chromium moves underneath each one.  `weight` is 0-100 and feeds the
+  // impact score; `owner` lands in the report so findings route themselves.
+  // ---------------------------------------------------------------------
+  areas: [
+    {
+      id: "media",
+      title: "Video & media playback",
+      weight: 90,
+      owner: "media-team",
+      notes: "Custom video controls, PiP, secure decode path.",
+      paths: ["media/", "content/browser/media/",
+              "third_party/blink/renderer/modules/mediastream/",
+              "third_party/blink/renderer/modules/mediasource/"],
+      symbols: ["Media", "Video", "Audio", "Codec", "Picture", "Autoplay"],
+    },
+    {
+      id: "webapi",
+      title: "Web platform surface",
+      weight: 70,
+      owner: "webplatform-team",
+      notes: "Compatibility of the API surface our users' sites rely on.",
+      paths: ["third_party/blink/renderer/", "third_party/blink/public/"],
+      symbols: [],
+    },
+    {
+      id: "privacy",
+      title: "Privacy, tracking protection & ad blocking",
+      weight: 85,
+      owner: "privacy-team",
+      notes: "Content blocker integration and cookie policy overrides.",
+      paths: ["components/content_settings/", "net/cookies/",
+              "components/privacy_sandbox/", "services/network/"],
+      symbols: ["Cookie", "Tracking", "PrivacySandbox", "ThirdParty", "Fenced"],
+    },
+    {
+      id: "ui",
+      title: "Browser UI & Android integration",
+      weight: 80,
+      owner: "ui-team",
+      notes: "Custom toolbar, tab UI, gesture navigation.",
+      paths: ["chrome/browser/ui/android/", "ui/android/",
+              "content/browser/renderer_host/"],
+      symbols: ["Android", "Toolbar", "Tab", "Gesture", "Omnibox"],
+    },
+    {
+      id: "network",
+      title: "Network stack & data saving",
+      weight: 75,
+      owner: "network-team",
+      paths: ["net/", "services/network/", "components/data_reduction_proxy/"],
+      symbols: ["Http", "Quic", "Dns", "Proxy", "Prefetch", "Preconnect"],
+    },
+    {
+      id: "payments",
+      title: "Samsung Pay & payments",
+      weight: 85,
+      owner: "payments-team",
+      paths: ["components/payments/", "content/browser/payments/"],
+      symbols: ["Payment", "Wallet"],
+    },
+    {
+      id: "extensions",
+      title: "Extension support",
+      weight: 60,
+      owner: "extensions-team",
+      paths: ["extensions/", "chrome/browser/extensions/"],
+      symbols: ["Extension", "ContentScript", "DeclarativeNetRequest"],
+    },
+  ],
+
+  // Trees this product never compiles.  Findings here are scored down hard.
+  ignore_paths: [
+    "chromeos/", "ash/", "ios/", "fuchsia/", "chrome/browser/ash/",
+    "chromecast/", "remoting/",
+  ],
+}
