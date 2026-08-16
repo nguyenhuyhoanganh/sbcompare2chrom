@@ -28,7 +28,7 @@ from .model import (
     Change,
     Finding,
 )
-from .sbprofile import TouchSet, change_tokens
+from .sbprofile import UNASSIGNED, TouchSet, change_tokens
 
 # Signals that mean "someone has to do something", regardless of score, once
 # there is any downstream evidence attached.
@@ -87,7 +87,7 @@ def score_change(change: Change, touch: TouchSet) -> Finding:
     tokens = change_tokens(change)
     matched_paths = touch.match_paths(change.paths)
     matched_symbols = touch.match_symbols(tokens)
-    areas = touch.match_areas(change.paths, tokens)
+    areas = touch.match_areas(change, tokens)
 
     finding.matched_paths = matched_paths
     finding.matched_symbols = matched_symbols
@@ -169,7 +169,52 @@ def score_all(changes: List[Change], touch: TouchSet) -> List[Finding]:
     return findings
 
 
-def summarize_findings(findings: List[Finding]) -> Dict[str, object]:
+def area_coverage(findings: List[Finding], touch: Optional[TouchSet] = None
+                  ) -> Dict[str, object]:
+    """Per-area counts plus what fell outside every area.
+
+    The unassigned count is not a footnote. Scoping a report by area while
+    silently dropping whatever matched nothing is the surest way to lose
+    findings: on M148 -> M151 the unassigned set held 281 findings scoring 60+,
+    including the ten most severe in the whole report. Reporting the number
+    makes both the gap and the quality of the area definitions visible.
+    """
+    rows: Dict[str, Dict[str, object]] = {}
+    unassigned: List[Finding] = []
+
+    for finding in findings:
+        if not finding.areas:
+            unassigned.append(finding)
+            continue
+        for area_id in finding.areas:
+            row = rows.setdefault(area_id, {"total": 0, "actionable": 0, "top_score": 0})
+            row["total"] = int(row["total"]) + 1
+            if finding.bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW):
+                row["actionable"] = int(row["actionable"]) + 1
+            row["top_score"] = max(int(row["top_score"]), finding.score)
+
+    if touch is not None:
+        for area_id, row in rows.items():
+            area = touch.area_by_id(area_id)
+            if area:
+                row["title"] = area.title or area.id
+                row["owner"] = area.owner
+                row["kind"] = area.kind
+
+    return {
+        "areas": dict(sorted(rows.items(), key=lambda kv: -int(kv[1]["total"]))),
+        "unassigned": {
+            "total": len(unassigned),
+            "actionable": sum(1 for f in unassigned
+                              if f.bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW)),
+            "scoring_60_plus": sum(1 for f in unassigned if f.score >= 60),
+            "top_score": max((f.score for f in unassigned), default=0),
+        },
+    }
+
+
+def summarize_findings(findings: List[Finding],
+                       touch: Optional[TouchSet] = None) -> Dict[str, object]:
     by_bucket: Dict[str, int] = {}
     by_area: Dict[str, int] = {}
     by_signal: Dict[str, int] = {}
@@ -186,4 +231,5 @@ def summarize_findings(findings: List[Finding]) -> Dict[str, object]:
         "by_signal": dict(sorted(by_signal.items(), key=lambda kv: -kv[1])),
         "with_evidence": sum(
             1 for f in findings if f.matched_paths or f.matched_symbols),
+        "coverage": area_coverage(findings, touch),
     }

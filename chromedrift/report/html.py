@@ -78,7 +78,10 @@ function match(f){
   const t=q.value.trim().toLowerCase();
   if(fb.value&&f.bucket!==fb.value)return false;
   if(fk.value&&f.kind!==fk.value)return false;
-  if(fa.value&&!(f.areas||[]).includes(fa.value))return false;
+  if(fa.value){
+    if(fa.value==='__none__'){ if((f.areas||[]).length) return false; }
+    else if(!(f.areas||[]).includes(fa.value)) return false;
+  }
   if(!t)return true;
   return (f.name+' '+f.kind+' '+(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
     +' '+(f.verdict||'')+' '+(f.rationale||'')).toLowerCase().includes(t);
@@ -189,6 +192,7 @@ def render(report: Report, platform: str = "android") -> str:
 
     kinds = sorted({r["kind"] for r in rows})
     areas = sorted({a for r in rows for a in r["areas"]})
+    unassigned_count = sum(1 for r in rows if not r["areas"])
 
     cards = "".join(
         f'<div class="card {b.replace("must_fix","must")}">'
@@ -233,7 +237,8 @@ platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}
 <select id="fk"><option value="">All surfaces</option>
 {''.join(option(k, KIND_LABELS.get(k,k)) for k in kinds)}</select>
 <select id="fa"><option value="">All areas</option>
-{''.join(option(a) for a in areas)}</select>
+{''.join(option(a) for a in areas)}
+{option("__none__", f"(no area) — {unassigned_count}") if unassigned_count else ""}</select>
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table>

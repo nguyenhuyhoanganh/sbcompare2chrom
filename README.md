@@ -60,7 +60,7 @@ Chỉ riêng trong một file, M139 có **170/170** khai báo kiểu cũ, M143 c
 
 Các bước tất định (trích xuất, chuẩn hoá, so sánh, chấm điểm) làm phần nặng và lọc từ vài nghìn thay đổi xuống còn vài chục mục đáng chú ý. Model AI chỉ nhận danh sách đã lọc và xếp hạng đó.
 
-Nhờ vậy, với cửa sổ ngữ cảnh 200k, **150 mục gói gọn trong 1 request khoảng 26k token** — thay vì hàng trăm request nếu đưa mã nguồn thô vào.
+Nhờ vậy, với cửa sổ ngữ cảnh 200k, **toàn bộ 2.226 thay đổi chỉ tốn ~189k token = 2 request** — thay vì hàng trăm request nếu đưa mã nguồn thô vào. Chi tiết ở [Phần 6](#phần-6-chia-việc-theo-vùng--và-cái-bẫy-thứ-hai).
 
 ---
 
@@ -133,9 +133,9 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 ## Phần 4. Dự án gồm những gì
 
-Toàn bộ là **Python thuần, 6.346 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
+Toàn bộ là **Python thuần, 6.697 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.228 dòng tài liệu** và **60 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **70 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -284,7 +284,14 @@ python3 -m chromedrift snapshot   # trích bề mặt tính năng của MỘT ph
 python3 -m chromedrift diff       # so ngữ nghĩa giữa HAI phiên bản
 python3 -m chromedrift profile    # xem hồ sơ downstream giải ra cái gì
 python3 -m chromedrift run        # chạy toàn bộ: snapshot → diff → chấm điểm → AI → báo cáo
-python3 -m chromedrift report     # dựng lại báo cáo từ report.json đã có
+python3 -m chromedrift report     # dựng lại báo cáo, lọc được theo vùng
+```
+
+Riêng `report` có hai tuỳ chọn đáng nhớ, giải thích kỹ ở Phần 6:
+
+```bash
+python3 -m chromedrift report out/report.json --list-areas       # có những vùng nào
+python3 -m chromedrift report out/report.json --area downloads   # cắt lát cho 1 đội
 ```
 
 Tách thành sáu lệnh không phải để trang trí. Bước đắt (tải về) và bước bạn chỉnh đi chỉnh lại (chấm điểm, prompt, báo cáo) có chi phí hoàn toàn khác nhau. Chạy lại được nửa rẻ trên cache ấm là khác biệt giữa một công cụ người ta tinh chỉnh và một công cụ người ta chạy đúng một lần.
@@ -317,16 +324,132 @@ Chạy M148 → M151 cho Windows:
 2.226 thay đổi có ý nghĩa
 
 must fix:        0     (vì chưa cấu hình hồ sơ downstream thật)
-needs review:  191
-opportunity: 1.035
-fyi:         1.000
+needs review:  349
+opportunity: 1.018
+fyi:           859
 ```
 
 Lưu ý dòng `must fix: 0`: nó có nghĩa là **chưa cung cấp bằng chứng**, không phải "bản nâng cấp này sạch". Không có hồ sơ trỏ vào patch hoặc source thật thì không mục nào lên được Must fix, và báo cáo có ghi rõ điều đó.
 
 ---
 
-## Phần 6. Cái chưa có
+## Phần 6. Chia việc theo vùng — và cái bẫy thứ hai
+
+Khi mở rộng ra nhiều mảng (Download, Bookmark, History, Add-ons, Settings…), câu hỏi tự nhiên là: *"làm sao giới hạn để AI khỏi phải xử lý quá nhiều?"*
+
+Tôi đã đo trước khi làm, và **giả định đó sai**.
+
+### AI không phải nút thắt
+
+```
+Gửi TOÀN BỘ 2.226 findings   ≈ 189.000 token
+Cửa sổ ngữ cảnh              = 200.000 token
+=> chỉ cần 2 request
+```
+
+Trước đó công cụ mặc định cắt còn 150 mục (26k token) — tức chỉ dùng **14%** khả năng. Cắt bớt để "tiết kiệm AI" là giải quyết một vấn đề không tồn tại. Mặc định đó đã bỏ.
+
+Nút thắt thật là **thời gian đọc của con người**. 2.226 dòng thì không ai đọc hết.
+
+### Cái bẫy: lọc trước khi phân tích sẽ mất phần quan trọng nhất
+
+Cách làm tự nhiên là lọc ngay từ đầu: *"lần này chỉ phân tích Download thôi"*. Tôi thử và đo:
+
+```
+Định nghĩa vùng chỉ theo tính năng sản phẩm:
+  1.802 / 2.226 findings  (81%)  KHÔNG khớp vùng nào
+  trong đó 281 mục điểm >= 60
+  và cả 10 mục điểm cao nhất toàn báo cáo đều nằm trong nhóm này
+```
+
+10 mục cao nhất là `CreateLanguageModel`, `CreateSummarizer`, `AttachDevToolsSession`… — Mojo đổi chữ ký, 80 điểm, vỡ âm thầm lúc chạy. Chúng **không thuộc tính năng sản phẩm nào** vì chúng là hạ tầng dùng chung.
+
+Lọc theo vùng sản phẩm sẽ vứt sạch phần đầu danh sách.
+
+### Giải pháp: phân tích hết, lọc lúc đọc
+
+| | Lọc đầu vào (sai) | Lọc đầu ra (đã làm) |
+|---|---|---|
+| Phân tích | chỉ vùng đã chọn | **luôn phân tích hết** |
+| Chi phí | tiết kiệm không đáng kể | 2 request |
+| Rủi ro | mất 281 mục điểm cao | không mất gì |
+| Đổi vùng | phải chạy lại toàn bộ | dựng lại tức thì, không gọi AI |
+
+```bash
+# Phân tích một lần — report.json luôn chứa TẤT CẢ
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --platform Windows \
+  --profile config/sb-profile.json5
+
+# Xem có những vùng nào
+python3 -m chromedrift report out/report.json --list-areas
+
+# Cắt lát cho từng đội — không chạy lại, không gọi AI lần nữa
+python3 -m chromedrift report out/report.json --area downloads --out downloads
+python3 -m chromedrift report out/report.json --area ipc       --out ipc
+```
+
+### Ba loại vùng, không phải một
+
+Đây là chỗ quyết định chất lượng. Định nghĩa vùng có ba loại, khai bằng trường `kind`:
+
+- **`product`** — có đội sở hữu rõ ràng: Downloads, Bookmarks, History, Extensions, Media
+- **`infra`** — hạ tầng cắt ngang, không thuộc tính năng nào nhưng **chứa các mục nghiêm trọng nhất**: Mojo, Web IDL
+- **`platform`** — nền chung: cờ tính năng, pref, tham số dòng lệnh
+
+Chỉ định nghĩa loại `product` là sai lầm kinh điển — chính là kết quả 81% ở trên.
+
+Và mỗi vùng khớp được bằng **năm cách**, chỉ cần trúng một là nhận:
+
+```json5
+{
+  id: "downloads",
+  kind: "product",
+  owner: "downloads-team",
+  paths:   ["components/download/", "chrome/browser/download/"],  // tiền tố đường dẫn
+  symbols: ["Download"],                                          // khớp chuỗi con trong tên
+  prefs:   ["download."],                                         // tiền tố khoá thiết lập
+  flags:   ["kDownload", "kParallelDownload"],                    // tiền tố tên cờ
+  kinds:   [],                                                    // sở hữu trọn một loại dữ liệu
+}
+```
+
+Cần năm cách vì Chromium không tổ chức code theo tính năng sản phẩm: "Download" nằm rải ở `components/`, `chrome/browser/`, `content/`, cộng thêm pref, cờ và Mojo.
+
+### Kết quả sau khi làm
+
+Với định nghĩa đủ ba loại vùng, phần không thuộc vùng nào **giảm từ 1.802 xuống 190** (81% → 8,5%):
+
+```
+flags         882 findings,   9 actionable  [release-team]
+webapi        768 findings,  83 actionable  [webplatform-team]
+settings      169 findings, 125 actionable  [settings-team]
+media         135 findings,  23 actionable  [media-team]
+ipc           112 findings,  51 actionable  [platform-team]
+network        95 findings,  15 actionable  [network-team]
+extensions     35 findings,  13 actionable  [extensions-team]
+downloads      16 findings,   3 actionable  [downloads-team]
+bookmarks       8 findings,   0 actionable  [bookmarks-team]
+history         4 findings,   0 actionable  [history-team]
+(no area)     190 findings,  53 actionable, 50 scoring 60+   ← chưa có chủ
+```
+
+### Luật bắt buộc: phần thừa phải hiện ra
+
+Dòng cuối là phần quan trọng nhất của thiết kế này. Chia vùng mà **im lặng nuốt phần không khớp** là cách chắc chắn nhất để bỏ lọt lỗi.
+
+Nên công cụ **luôn in con số đó**, và cảnh báo khi trong đó có mục điểm cao:
+
+```
+⚠️ 50 unassigned findings score 60 or more (highest: 87). These belong to no
+   area, so no per-area report shows them. Either extend the area definitions
+   or review this set explicitly.
+```
+
+Xem được luôn bằng `--area _unassigned`. Con số này cũng là **thước đo chất lượng định nghĩa vùng**: 190 mục còn lại đều là cờ tầng content (accessibility, một số tính năng Android) — danh sách đó chính là chỉ dẫn để bổ sung vùng tiếp theo.
+
+---
+
+## Phần 7. Cái chưa có
 
 Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch.
 
@@ -338,7 +461,7 @@ Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấ
 
 ---
 
-## Phần 7. Skill cho agent
+## Phần 8. Skill cho agent
 
 Thư mục `skills/analyzing-chromium-uprevs/` là gói kiến thức để đưa lên agent nội bộ, viết theo chuẩn Agent Skills chính thức:
 
@@ -355,13 +478,13 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 
 ---
 
-## Phần 8. Kiểm thử
+## Phần 9. Kiểm thử
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-**60 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**70 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -369,7 +492,7 @@ Nên chạy lại sau mỗi lần sửa `diff.py` hoặc `impact.py` — đó l�
 
 ---
 
-## Phần 9. Cấu trúc mã nguồn
+## Phần 10. Cấu trúc mã nguồn
 
 ```
 chromedrift/
@@ -378,21 +501,21 @@ chromedrift/
   snapshot.py     104        gộp tải + trích xuất thành một ảnh chụp có cache
   extract/        1.361      6 bộ đọc + tiện ích quét C++ + bộ đọc JSON5
   diff.py         482        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
-  sbprofile.py    392        dựng tập chạm của fork từ patch/git/quét mã
-  impact.py       189        chấm điểm và phân loại, kèm lý do đọc được
-  model.py        367        cấu trúc dữ liệu dùng chung, đọc/ghi JSON
+  sbprofile.py    455        tập chạm của fork + định nghĩa vùng (5 cách khớp)
+  impact.py       235        chấm điểm, phân loại, và báo cáo độ phủ vùng
+  model.py        396        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
   ai/             845        ngân sách ngữ cảnh, client, prompt, map-reduce
-  report/         554        markdown + bảng điều khiển HTML tự chứa
+  report/         616        markdown + bảng điều khiển HTML tự chứa
   enrich/         175        ngữ cảnh từ chromestatus
-  cli.py          454        6 lệnh dòng lệnh
+  cli.py          512        6 lệnh dòng lệnh
 ```
 
 Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và chạy lại độc lập được.
 
 ---
 
-## Phần 10. Đọc thêm
+## Phần 11. Đọc thêm
 
 - **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.
 - **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — gói kiến thức cho agent.

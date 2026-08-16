@@ -74,6 +74,17 @@ def ai_status_note(summary: dict) -> str:
     return ""
 
 
+def _cell(value: object, limit: int = 60) -> str:
+    """Table cells must stay readable.
+
+    A Mojo signature can run past 400 characters; pasted into a table it
+    destroys the row and the reader learns nothing anyway. The full value is
+    always in the details block below.
+    """
+    text = _esc(value)
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
 def _state_arrow(finding: Finding, platform: str) -> str:
     change = finding.change
     for key in ("platform_state", "platform_status"):
@@ -86,7 +97,7 @@ def _state_arrow(finding: Finding, platform: str) -> str:
     for key in ("default_state", "status", "signature", "value"):
         delta = change.deltas.get(key)
         if isinstance(delta, list) and len(delta) == 2:
-            return f"{_esc(delta[0])} → {_esc(delta[1])}"
+            return f"{_cell(delta[0], 46)} → {_cell(delta[1], 46)}"
     return change.change_type
 
 
@@ -151,6 +162,8 @@ def render(report: Report, platform: str = "android",
                    f"{summary.get('with_evidence', 0)} intersect our fork.")
         out.append("")
 
+    out.append(_render_coverage(summary))
+
     # -- AI brief -------------------------------------------------------
     # Only when there is something to say. An empty "Assessment" heading reads
     # as a failed analysis rather than a skipped one.
@@ -207,6 +220,50 @@ def render(report: Report, platform: str = "android",
     out.append("## How this was produced")
     out.append("")
     out.append(_render_provenance(report))
+    return "\n".join(out)
+
+
+def _render_coverage(summary: dict) -> str:
+    """Where findings landed by area, and how many landed nowhere.
+
+    The unassigned row is the point of this section. Routing a report to teams
+    by area quietly drops whatever matched no area, and that leftover is where
+    cross-cutting infrastructure changes live -- often the most severe ones.
+    """
+    coverage = (summary or {}).get("coverage") or {}
+    areas = coverage.get("areas") or {}
+    unassigned = coverage.get("unassigned") or {}
+    if not areas and not unassigned.get("total"):
+        return ""
+
+    out = ["## Coverage by area", ""]
+    if summary.get("filtered_to_area"):
+        out.insert(0, "")
+        out.insert(0, f"> Showing only area **{summary['filtered_to_area']}** — "
+                      f"{summary.get('filtered_from_total', '?')} findings in the "
+                      f"full report.")
+    out.append("| Area | Findings | Actionable | Kind | Owner |")
+    out.append("|---|---:|---:|---|---|")
+    for area_id, row in areas.items():
+        out.append(f"| {area_id} | {row.get('total', 0)} | "
+                   f"{row.get('actionable', 0)} | {row.get('kind', '')} | "
+                   f"{row.get('owner', '')} |")
+    total = unassigned.get("total", 0)
+    if total:
+        out.append(f"| **_unassigned** | **{total}** | "
+                   f"**{unassigned.get('actionable', 0)}** | — | **nobody** |")
+    out.append("")
+    if unassigned.get("scoring_60_plus"):
+        out.append(
+            f"⚠️ {unassigned['scoring_60_plus']} unassigned findings score 60 or "
+            f"more (highest: {unassigned.get('top_score', 0)}). These belong to "
+            f"no area, so no per-area report shows them. Either extend the area "
+            f"definitions or review this set explicitly."
+        )
+        out.append("")
+    out.append("Re-render one area with "
+               "`chromedrift report <report.json> --area <id>`.")
+    out.append("")
     return "\n".join(out)
 
 

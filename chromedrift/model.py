@@ -308,6 +308,35 @@ class Report:
     def by_bucket(self, bucket: str) -> List[Finding]:
         return [f for f in self.findings if f.bucket == bucket]
 
+    def filtered(self, area: Optional[str]) -> "Report":
+        """A view of this report narrowed to one area.
+
+        Filtering happens here, at render time, and never before analysis:
+        the JSON always holds every finding, so slicing per team costs nothing
+        and cannot hide anything. Pass ``"_unassigned"`` for the leftover.
+        """
+        if not area:
+            return self
+        if area == "_unassigned":
+            keep = [f for f in self.findings if not f.areas]
+        else:
+            keep = [f for f in self.findings if area in f.areas]
+        return Report(
+            from_ref=self.from_ref,
+            to_ref=self.to_ref,
+            findings=keep,
+            summary=dict(self.summary, filtered_to_area=area,
+                         filtered_from_total=len(self.findings)),
+            meta=self.meta,
+        )
+
+    def known_areas(self) -> List[str]:
+        seen: Dict[str, int] = {}
+        for f in self.findings:
+            for a in f.areas:
+                seen[a] = seen.get(a, 0) + 1
+        return [a for a, _ in sorted(seen.items(), key=lambda kv: -kv[1])]
+
     def to_dict(self) -> dict:
         return {
             "schema": SCHEMA_VERSION,

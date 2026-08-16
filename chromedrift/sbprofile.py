@@ -41,24 +41,60 @@ _PATCH_PATH_RE = re.compile(r"^\+\+\+ [ab]/(.+?)(?:\t.*)?$", re.MULTILINE)
 _DIFF_GIT_RE = re.compile(r"^diff --git a/(.+?) b/(.+?)$", re.MULTILINE)
 
 
+# Areas come in three kinds, and mixing them up is how a scoped report loses
+# its most severe findings. Measured on M148 -> M151: defining only product
+# areas left 1,802 of 2,226 findings unassigned, including every one of the ten
+# highest-severity items (Mojo signature changes score 80 and belong to no
+# product).
+AREA_PRODUCT = "product"    # Downloads, Bookmarks, History - has an owning team
+AREA_INFRA = "infra"        # Mojo, IDL, process model - cross-cutting
+AREA_PLATFORM = "platform"  # flags, prefs, switches - cuts across everything
+AREA_KINDS = (AREA_PRODUCT, AREA_INFRA, AREA_PLATFORM)
+
+UNASSIGNED = "_unassigned"
+
+
 @dataclass
 class Area:
-    """A named part of the product, with the Chromium surface it depends on."""
+    """A named part of the product, with the Chromium surface it depends on.
+
+    Matching is deliberately multi-modal. Chromium is not organized by product
+    feature: "downloads" spans components/, chrome/browser/ and content/, plus
+    prefs, flags and Mojo interfaces. Path and symbol matching alone reaches
+    only a fraction of that, so prefs, flags and fact kinds match too.
+    """
 
     id: str
     title: str = ""
     weight: int = 50          # 0-100; how much a change here costs us
+    kind: str = AREA_PRODUCT
     paths: List[str] = field(default_factory=list)     # path prefixes
     symbols: List[str] = field(default_factory=list)   # substring match
+    prefs: List[str] = field(default_factory=list)     # pref key prefixes
+    flags: List[str] = field(default_factory=list)     # feature/var name prefixes
+    kinds: List[str] = field(default_factory=list)     # fact kinds owned outright
     owner: str = ""
     notes: str = ""
 
     def matches_path(self, path: str) -> bool:
-        return any(path.startswith(p.rstrip("/") ) for p in self.paths) if self.paths else False
+        return any(path.startswith(p.rstrip("/")) for p in self.paths) if self.paths else False
 
     def matches_symbol(self, token: str) -> bool:
         low = token.lower()
         return any(s.lower() in low for s in self.symbols) if self.symbols else False
+
+    def matches_pref(self, key: str) -> bool:
+        return any(key.startswith(p) for p in self.prefs) if self.prefs else False
+
+    def matches_flag(self, name: str) -> bool:
+        if not self.flags:
+            return False
+        bare = name[1:] if name[:1] == "k" and name[1:2].isupper() else name
+        return any(name.startswith(f) or bare.startswith(f.lstrip("k"))
+                   for f in self.flags)
+
+    def matches_kind(self, fact_kind: str) -> bool:
+        return fact_kind in self.kinds if self.kinds else False
 
 
 @dataclass
@@ -90,16 +126,34 @@ class TouchSet:
     def match_symbols(self, tokens: Iterable[str]) -> List[str]:
         return sorted({t for t in tokens if t and t in self.symbols})
 
-    def match_areas(self, paths: Sequence[str], tokens: Iterable[str]) -> List[Area]:
+    def match_areas(self, change, tokens: Iterable[str]) -> List[Area]:
+        """Every area this change belongs to. May be empty -- see UNASSIGNED.
+
+        Order of checks is cheapest first; any single match claims the area.
+        """
         token_list = [t for t in tokens if t]
         out = []
         for area in self.areas:
-            if any(area.matches_path(p) for p in paths):
+            if area.matches_kind(change.kind):
                 out.append(area)
                 continue
+            if any(area.matches_path(p) for p in change.paths):
+                out.append(area)
+                continue
+            if change.kind == "pref" and area.matches_pref(change.key):
+                out.append(area)
+                continue
+            if change.kind in ("base_feature", "feature_param", "blink_runtime_feature"):
+                var = ((change.after or change.before) or {}).get("var", "")
+                if area.matches_flag(change.name) or (var and area.matches_flag(var)):
+                    out.append(area)
+                    continue
             if any(area.matches_symbol(t) for t in token_list):
                 out.append(area)
         return out
+
+    def area_by_id(self, area_id: str) -> Optional[Area]:
+        return next((a for a in self.areas if a.id == area_id), None)
 
     def has_evidence(self) -> bool:
         return bool(self.modified_paths or self.modified_prefixes or self.symbols)
@@ -132,12 +186,21 @@ def load_profile(path: str, snapshots: Optional[Sequence[Snapshot]] = None,
     )
 
     for raw in profile.get("areas", []):
+        kind = raw.get("kind", AREA_PRODUCT)
+        if kind not in AREA_KINDS:
+            log(f"  ! area {raw.get('id')}: unknown kind {kind!r}, "
+                f"treating as {AREA_PRODUCT}")
+            kind = AREA_PRODUCT
         touch.areas.append(Area(
             id=raw.get("id") or raw.get("title", "area"),
             title=raw.get("title", raw.get("id", "")),
             weight=int(raw.get("weight", 50)),
+            kind=kind,
             paths=list(raw.get("paths", [])),
             symbols=list(raw.get("symbols", [])),
+            prefs=list(raw.get("prefs", [])),
+            flags=list(raw.get("flags", [])),
+            kinds=list(raw.get("kinds", [])),
             owner=raw.get("owner", ""),
             notes=raw.get("notes", ""),
         ))

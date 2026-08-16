@@ -46,74 +46,162 @@
   ],
 
   // ---------------------------------------------------------------------
-  // Owned areas: what the product is made of, and what it costs us when
-  // Chromium moves underneath each one.  `weight` is 0-100 and feeds the
-  // impact score; `owner` lands in the report so findings route themselves.
+  // Owned areas.  These do three jobs at once: they boost the impact score,
+  // they group findings into coherent batches for the model, and they route
+  // the report to the team that owns each part.
+  //
+  // `kind` matters more than it looks:
+  //
+  //   product   a feature with an owning team (Downloads, Bookmarks)
+  //   infra     cross-cutting plumbing (Mojo, IDL) that belongs to no feature
+  //   platform  flags, prefs and switches, which cut across everything
+  //
+  // Defining only `product` areas is the classic mistake.  Measured on
+  // M148 -> M151, product areas alone left 1,802 of 2,226 findings unassigned
+  // -- including all ten of the highest-severity items, which were Mojo
+  // signature changes belonging to no product.  The report always prints the
+  // unassigned count; treat a large one as a gap in this list, not as noise.
+  //
+  // Five matchers are available and any one of them claims the finding:
+  //   paths    path prefixes
+  //   symbols  substring match on names (keep these specific)
+  //   prefs    preference key prefixes
+  //   flags    feature / variable name prefixes
+  //   kinds    fact kinds owned outright (mojo_method, idl_member, ...)
   // ---------------------------------------------------------------------
   areas: [
+    // -- product areas ---------------------------------------------------
+    {
+      id: "downloads",
+      title: "Downloads",
+      kind: "product",
+      weight: 75,
+      owner: "downloads-team",
+      paths: ["components/download/", "chrome/browser/download/",
+              "content/browser/download/"],
+      symbols: ["Download"],
+      prefs: ["download."],
+      flags: ["kDownload", "kParallelDownload"],
+    },
+    {
+      id: "bookmarks",
+      title: "Bookmarks",
+      kind: "product",
+      weight: 70,
+      owner: "bookmarks-team",
+      paths: ["components/bookmarks/", "chrome/browser/bookmarks/"],
+      symbols: ["Bookmark"],
+      prefs: ["bookmark"],
+      flags: ["kBookmark"],
+    },
+    {
+      id: "history",
+      title: "History",
+      kind: "product",
+      weight: 70,
+      owner: "history-team",
+      paths: ["components/history/", "chrome/browser/history/"],
+      symbols: ["History", "VisitedLink"],
+      prefs: ["history"],
+      flags: ["kHistory"],
+    },
+    {
+      id: "extensions",
+      title: "Extensions / add-ons",
+      kind: "product",
+      weight: 60,
+      owner: "extensions-team",
+      paths: ["extensions/", "chrome/browser/extensions/",
+              "components/declarative_net_request/"],
+      symbols: ["Extension", "ContentScript", "DeclarativeNetRequest"],
+      flags: ["kExtension"],
+    },
+    {
+      id: "settings",
+      title: "Settings UI",
+      kind: "product",
+      weight: 70,
+      owner: "settings-team",
+      notes: "Settings WebUI extractors are not built yet; this area currently catches prefs and settings-named flags only.",
+      paths: ["chrome/browser/resources/settings/",
+              "chrome/browser/ui/webui/settings/"],
+      symbols: ["Settings"],
+      kinds: ["pref"],
+    },
     {
       id: "media",
       title: "Video & media playback",
+      kind: "product",
       weight: 90,
       owner: "media-team",
       notes: "Custom video controls, PiP, secure decode path.",
       paths: ["media/", "content/browser/media/",
               "third_party/blink/renderer/modules/mediastream/",
               "third_party/blink/renderer/modules/mediasource/"],
-      symbols: ["Media", "Video", "Audio", "Codec", "Picture", "Autoplay"],
-    },
-    {
-      id: "webapi",
-      title: "Web platform surface",
-      weight: 70,
-      owner: "webplatform-team",
-      notes: "Compatibility of the API surface our users' sites rely on.",
-      paths: ["third_party/blink/renderer/", "third_party/blink/public/"],
-      symbols: [],
+      symbols: ["Media", "Video", "Audio", "Codec", "PictureInPicture", "Autoplay"],
+      flags: ["kMedia", "kAudio", "kVideo"],
     },
     {
       id: "privacy",
       title: "Privacy, tracking protection & ad blocking",
+      kind: "product",
       weight: 85,
       owner: "privacy-team",
-      notes: "Content blocker integration and cookie policy overrides.",
       paths: ["components/content_settings/", "net/cookies/",
-              "components/privacy_sandbox/", "services/network/"],
+              "components/privacy_sandbox/"],
       symbols: ["Cookie", "Tracking", "PrivacySandbox", "ThirdParty", "Fenced"],
-    },
-    {
-      id: "ui",
-      title: "Browser UI & Android integration",
-      weight: 80,
-      owner: "ui-team",
-      notes: "Custom toolbar, tab UI, gesture navigation.",
-      paths: ["chrome/browser/ui/android/", "ui/android/",
-              "content/browser/renderer_host/"],
-      symbols: ["Android", "Toolbar", "Tab", "Gesture", "Omnibox"],
+      prefs: ["profile.content_settings", "profile.cookie"],
     },
     {
       id: "network",
-      title: "Network stack & data saving",
+      title: "Network stack",
+      kind: "product",
       weight: 75,
       owner: "network-team",
-      paths: ["net/", "services/network/", "components/data_reduction_proxy/"],
-      symbols: ["Http", "Quic", "Dns", "Proxy", "Prefetch", "Preconnect"],
+      paths: ["net/", "services/network/"],
+      symbols: ["Quic", "Dns", "Prefetch", "Preconnect"],
+      flags: ["kHttp", "kQuic", "kDns"],
     },
     {
       id: "payments",
       title: "Samsung Pay & payments",
+      kind: "product",
       weight: 85,
       owner: "payments-team",
       paths: ["components/payments/", "content/browser/payments/"],
       symbols: ["Payment", "Wallet"],
     },
+
+    // -- infra areas: no product owns these, but they carry the most
+    //    severe findings, so they need an owner of their own.
     {
-      id: "extensions",
-      title: "Extension support",
-      weight: 60,
-      owner: "extensions-team",
-      paths: ["extensions/", "chrome/browser/extensions/"],
-      symbols: ["Extension", "ContentScript", "DeclarativeNetRequest"],
+      id: "ipc",
+      title: "Process boundary (Mojo)",
+      kind: "infra",
+      weight: 80,
+      owner: "platform-team",
+      notes: "Mojo signature changes break silently at runtime, not at build.",
+      kinds: ["mojo_method", "mojo_interface"],
+    },
+    {
+      id: "webapi",
+      title: "Web platform surface",
+      kind: "infra",
+      weight: 70,
+      owner: "webplatform-team",
+      notes: "Compatibility of the API surface our users' sites rely on.",
+      kinds: ["idl_interface", "idl_member", "blink_runtime_feature"],
+    },
+
+    // -- platform area: the catch-all for configuration surface.  Listed
+    //    last so more specific areas claim what they can first.
+    {
+      id: "flags",
+      title: "Feature flags & switches",
+      kind: "platform",
+      weight: 40,
+      owner: "release-team",
+      kinds: ["flag_entry", "switch", "feature_param"],
     },
   ],
 

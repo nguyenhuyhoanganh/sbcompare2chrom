@@ -256,6 +256,99 @@ class TestImpactScoring(unittest.TestCase):
         self.assertEqual(findings[0].bucket, "opportunity")
 
 
+class TestAreaRouting(unittest.TestCase):
+    """Areas route findings to teams; the leftover must stay visible."""
+
+    def _finding(self, fact, touch):
+        old = snap("148.0.0.0", [])
+        new = snap("151.0.0.0", [fact])
+        return score_change(diff_snapshots(old, new, platform="windows")[0], touch)
+
+    def test_matches_by_pref_prefix(self):
+        pref = Fact(kind="pref", key="download.default_directory",
+                    name="download.default_directory", path="pref_names.h",
+                    attrs={"var": "kDownloadDefaultDirectory"})
+        touch = TouchSet(platform="windows",
+                         areas=[Area(id="downloads", prefs=["download."])])
+        self.assertEqual(self._finding(pref, touch).areas, ["downloads"])
+
+    def test_matches_by_flag_prefix_on_variable_or_name(self):
+        touch = TouchSet(platform="windows",
+                         areas=[Area(id="downloads", flags=["kDownload"])])
+        self.assertEqual(
+            self._finding(feature("DownloadLater", "enabled"), touch).areas,
+            ["downloads"])
+
+    def test_matches_by_fact_kind(self):
+        """Cross-cutting infrastructure belongs to no product but needs an owner."""
+        method = Fact(kind="mojo_method", key="blink.mojom.Foo.Bar", name="Bar",
+                      path="a.mojom", attrs={"interface": "blink.mojom.Foo",
+                                             "signature": "Bar()"})
+        touch = TouchSet(platform="windows",
+                         areas=[Area(id="ipc", kind="infra",
+                                     kinds=["mojo_method"])])
+        self.assertEqual(self._finding(method, touch).areas, ["ipc"])
+
+    def test_unmatched_finding_has_no_area(self):
+        touch = TouchSet(platform="windows",
+                         areas=[Area(id="downloads", paths=["components/download/"])])
+        self.assertEqual(self._finding(feature("Unrelated", "enabled"), touch).areas, [])
+
+    def test_coverage_counts_the_leftover(self):
+        from chromedrift.impact import area_coverage
+
+        touch = TouchSet(platform="windows",
+                         areas=[Area(id="downloads", flags=["kDownload"])])
+        mine = self._finding(feature("DownloadLater", "enabled"), touch)
+        orphan = self._finding(feature("Unrelated", "enabled"), touch)
+        coverage = area_coverage([mine, orphan], touch)
+
+        self.assertEqual(coverage["areas"]["downloads"]["total"], 1)
+        self.assertEqual(coverage["unassigned"]["total"], 1)
+        self.assertGreater(coverage["unassigned"]["top_score"], 0)
+
+
+class TestReportFiltering(unittest.TestCase):
+    """Filtering happens at render time, never before analysis."""
+
+    def _report(self):
+        from chromedrift.model import Change, Finding, Report
+
+        def mk(name, areas, score):
+            return Finding(
+                change=Change(change_type="modified", kind="base_feature",
+                              key=name, name=name),
+                areas=areas, score=score, bucket="review")
+
+        return Report(from_ref="148.0.0.0", to_ref="151.0.0.0",
+                      findings=[mk("A", ["downloads"], 70),
+                                mk("B", ["ipc"], 80),
+                                mk("C", [], 90)])
+
+    def test_filter_keeps_only_that_area(self):
+        sliced = self._report().filtered("downloads")
+        self.assertEqual([f.change.key for f in sliced.findings], ["A"])
+
+    def test_unassigned_is_addressable(self):
+        """The leftover must be reachable, or it silently disappears."""
+        sliced = self._report().filtered("_unassigned")
+        self.assertEqual([f.change.key for f in sliced.findings], ["C"])
+
+    def test_filtering_does_not_mutate_the_full_report(self):
+        report = self._report()
+        report.filtered("downloads")
+        self.assertEqual(len(report.findings), 3)
+
+    def test_filter_records_what_it_hid(self):
+        sliced = self._report().filtered("ipc")
+        self.assertEqual(sliced.summary["filtered_to_area"], "ipc")
+        self.assertEqual(sliced.summary["filtered_from_total"], 3)
+
+    def test_no_area_returns_everything(self):
+        report = self._report()
+        self.assertIs(report.filtered(None), report)
+
+
 class TestPatchEvidence(unittest.TestCase):
     def test_symbols_come_from_hunk_bodies(self):
         patch = (

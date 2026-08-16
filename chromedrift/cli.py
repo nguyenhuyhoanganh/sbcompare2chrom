@@ -126,8 +126,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         _log("  no --profile given: scoring on intrinsic severity only")
 
     findings = score_all(changes, touch)
-    finding_summary = summarize_findings(findings)
+    finding_summary = summarize_findings(findings, touch)
     _log(f"  {finding_summary['with_evidence']} findings intersect our fork")
+    _log_coverage(finding_summary.get("coverage") or {})
 
     milestone_brief = None
     if not args.no_enrich:
@@ -301,9 +302,57 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _log_coverage(coverage: dict) -> None:
+    """Always show where findings landed, including what landed nowhere."""
+    areas = coverage.get("areas") or {}
+    unassigned = coverage.get("unassigned") or {}
+    if not areas and not unassigned.get("total"):
+        return
+    _log("  area coverage:")
+    for area_id, row in areas.items():
+        owner = f" [{row['owner']}]" if row.get("owner") else ""
+        _log(f"    {area_id:22s} {row['total']:5d} findings, "
+             f"{row['actionable']} actionable{owner}")
+    total = unassigned.get("total", 0)
+    if total:
+        _log(f"    {'(no area)':22s} {total:5d} findings, "
+             f"{unassigned.get('actionable', 0)} actionable, "
+             f"{unassigned.get('scoring_60_plus', 0)} scoring 60+")
+        if unassigned.get("scoring_60_plus"):
+            _log("      ^ these have no owner. Assign an area or review them "
+                 "explicitly; a scoped report will not show them.")
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     report = Report.from_dict(read_json(args.report))
     platform = report.meta.get("platform", "android")
+
+    if args.list_areas:
+        coverage = (report.summary or {}).get("coverage") or {}
+        rows = coverage.get("areas") or {}
+        print(f"{len(report.findings)} findings in {args.report}\n")
+        for area_id, row in rows.items():
+            owner = f"  owner={row['owner']}" if row.get("owner") else ""
+            kind = f"  kind={row['kind']}" if row.get("kind") else ""
+            print(f"  {area_id:22s} {row['total']:5d} findings, "
+                  f"{row['actionable']} actionable{kind}{owner}")
+        un = coverage.get("unassigned") or {}
+        if un.get("total"):
+            print(f"  {'_unassigned':22s} {un['total']:5d} findings, "
+                  f"{un.get('actionable', 0)} actionable, "
+                  f"{un.get('scoring_60_plus', 0)} scoring 60+")
+        print("\nRe-render one slice with:  --area <id>")
+        return 0
+
+    if args.area:
+        known = set(report.known_areas()) | {"_unassigned"}
+        if args.area not in known:
+            _log(f"error: unknown area {args.area!r}. Known: "
+                 f"{', '.join(sorted(known)) or '(none)'}")
+            return 1
+        report = report.filtered(args.area)
+        _log(f"  filtered to area {args.area!r}: {len(report.findings)} findings")
+
     if args.format in ("md", "both"):
         text = md_report.render(report, platform=platform)
         _emit(text, args.out, ".md")
@@ -391,8 +440,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--profile", help="downstream profile json5")
     p.add_argument("--llm", help="LLM config json5")
     p.add_argument("--out", default="out", help="output directory (default: out)")
-    p.add_argument("--top", type=int, default=150,
-                   help="max findings sent to the model (default: 150)")
+    # Default 0 = no cap. Measured on M148 -> M151: the full non-FYI set is
+    # 1,226 findings, about 105k tokens, which fits one 200k-window request.
+    # An arbitrary cap was discarding 93% of the analysis to save a cost that
+    # does not exist; bound it only for very wide uprevs or small windows.
+    p.add_argument("--top", type=int, default=0,
+                   help="cap findings sent to the model (default: 0 = no cap)")
     p.add_argument("--no-ai", action="store_true", help="skip the AI stage")
     p.add_argument("--no-enrich", action="store_true",
                    help="skip chromestatus enrichment")
@@ -405,10 +458,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--llm", help="also validate (and ping) an LLM config")
     p.set_defaults(func=cmd_check)
 
-    p = sub.add_parser("report", help="re-render a saved report.json")
+    p = sub.add_parser("report",
+                       help="re-render a saved report.json, optionally one area")
     p.add_argument("report", help="path to report.json")
     p.add_argument("--format", default="md", choices=("md", "html", "both"))
     p.add_argument("--out", help="output path (stdout if omitted)")
+    p.add_argument("--area",
+                   help="render only this area, or _unassigned for the leftover")
+    p.add_argument("--list-areas", action="store_true",
+                   help="list areas present in the report and exit")
     p.set_defaults(func=cmd_report)
 
     return parser
