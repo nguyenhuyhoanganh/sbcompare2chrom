@@ -700,5 +700,6 @@ Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và 
 
 ## Phần 12. Đọc thêm
 
+- **[HANDOFF.md](HANDOFF.md)** — danh sách việc cần chạy tại công ty, trên máy có source SB và mạng nội bộ. Có checkbox theo dõi tiến độ, lệnh copy-paste, và mẫu báo cáo lại. Đây là những việc không làm được từ bên ngoài.
 - **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.
 - **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — gói kiến thức cho agent.
