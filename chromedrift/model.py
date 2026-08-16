@@ -28,7 +28,10 @@ from typing import Any, Dict, Iterable, List, Optional
 #      "minimal" snapshot could contain the full fact set.
 #   3: the "default" target set gained the desktop WebUI surfaces, so a
 #      version 2 snapshot named "default" no longer means the same thing.
-SCHEMA_VERSION = 3
+#   4: base_feature facts record the preprocessor guards enclosing them.
+#      Snapshots without that attribute compare as different from ones with
+#      it, which made an identical tree look 1,369 facts diverged.
+SCHEMA_VERSION = 4
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

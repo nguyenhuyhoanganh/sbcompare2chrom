@@ -467,6 +467,90 @@ class TestProvenance(unittest.TestCase):
         self.assertEqual(report.debt(), [])
 
 
+class TestVendorShadowing(unittest.TestCase):
+    """A fork shadows upstream with a build flag instead of editing it.
+
+    Both implementations ship; a build flag picks one. Upstream's branch stays
+    byte-identical, so a value comparison reports nothing while the branch that
+    actually runs is the vendor's.
+    """
+
+    MARKERS = None
+
+    def setUp(self):
+        from chromedrift.coverage import VendorMarkers
+        self.MARKERS = VendorMarkers(
+            macros=["SBROWSER"], symbol_prefixes=["kSbrowser"],
+            path_markers=["sbrowser/"])
+
+    def _fact(self, name, state="enabled", conditions=(), path="a_features.cc"):
+        f = feature(name, state, path=path)
+        f.attrs["conditions"] = list(conditions)
+        return f
+
+    def test_identical_value_behind_a_vendor_guard_is_shadowed_not_untouched(self):
+        from chromedrift.coverage import SHADOWED, analyze
+
+        report = analyze(
+            fork=snap("sb", [self._fact("Foo", "enabled",
+                                        ["defined(SBROWSER_CUSTOM)"])]),
+            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
+            markers=self.MARKERS)
+
+        # The value matches exactly. Only the guard reveals the shadow.
+        self.assertEqual(report.verdicts[0].state, SHADOWED)
+        self.assertEqual(report.verdicts[0].guards, ["defined(SBROWSER_CUSTOM)"])
+
+    def test_unguarded_identical_declaration_is_untouched(self):
+        from chromedrift.coverage import UNTOUCHED, analyze
+
+        report = analyze(
+            fork=snap("sb", [self._fact("Foo", "enabled")]),
+            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
+            markers=self.MARKERS)
+        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
+
+    def test_platform_guard_is_not_a_vendor_guard(self):
+        """#if BUILDFLAG(IS_WIN) is upstream's own, not ours."""
+        from chromedrift.coverage import UNTOUCHED, analyze
+
+        report = analyze(
+            fork=snap("sb", [self._fact("Foo", "enabled",
+                                        ["BUILDFLAG(IS_WIN)"])]),
+            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
+            markers=self.MARKERS)
+        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
+
+    def test_guards_used_reports_what_each_flag_covers(self):
+        from chromedrift.coverage import analyze
+
+        report = analyze(
+            fork=snap("sb", [self._fact("A", "enabled", ["defined(SBROWSER_UI)"]),
+                             self._fact("B", "enabled", ["defined(SBROWSER_UI)"])]),
+            upstream=snap("148.0.0.0", [self._fact("A"), self._fact("B")]),
+            markers=self.MARKERS)
+        self.assertEqual(report.guards_used(), {"defined(SBROWSER_UI)": 2})
+
+    def test_without_markers_the_analysis_is_skipped_not_guessed(self):
+        from chromedrift.coverage import VendorMarkers, analyze
+
+        report = analyze(
+            fork=snap("sb", [self._fact("Foo", "enabled", ["defined(X)"])]),
+            upstream=snap("148.0.0.0", [self._fact("Foo")]),
+            markers=VendorMarkers())
+        self.assertFalse(report.markers_configured)
+        self.assertEqual(report.verdicts, [])
+
+    def test_guard_appearing_is_itself_a_change(self):
+        """The value never moves; the guard around it does."""
+        old = self._fact("Foo", "enabled")
+        new = self._fact("Foo", "enabled", ["defined(SBROWSER_CUSTOM)"])
+        changes = diff_snapshots(snap("148.0.0.0", [old]), snap("sb", [new]),
+                                 platform="windows")
+        self.assertEqual(len(changes), 1)
+        self.assertIn("conditions", changes[0].deltas)
+
+
 class TestClustering(unittest.TestCase):
     """One upstream change arrives as fragments; they must read as one story."""
 

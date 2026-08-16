@@ -48,7 +48,10 @@ from .model import (
 # Attributes whose change carries downstream meaning.  Anything outside this
 # list is treated as bookkeeping.
 MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
-    KIND_BASE_FEATURE: ("default_state", "platform_state"),
+    # "conditions" matters because a vendor fork shadows upstream with a
+    # build flag rather than editing it: the guard appearing or
+    # disappearing is the change, while the value stays identical.
+    KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions"),
     KIND_FEATURE_PARAM: ("default", "type", "feature"),
     KIND_BLINK_RUNTIME: (
         "status", "platform_status", "android_status", "base_feature",

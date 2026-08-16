@@ -17,10 +17,11 @@ import sys
 from typing import List, Optional
 
 from . import __version__
+from . import jsonc
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
-from . import cluster, provenance
+from . import cluster, coverage, provenance
 from .diff import MODE_FORK, MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
@@ -353,6 +354,18 @@ def cmd_provenance(args: argparse.Namespace) -> int:
             where = f" (matches {v.matches})" if v.matches else ""
             print(f"  {v.state:12s} {v.kind:22s} {v.key[:44]:44s}{where}")
 
+    # Value comparison alone cannot see a declaration the fork shadows with a
+    # build flag, because upstream's branch is genuinely unchanged.
+    if args.profile:
+        markers = coverage.VendorMarkers.from_profile(jsonc.load(args.profile))
+        cov = coverage.analyze(fork=fork, upstream=upstream[-1], markers=markers)
+        print()
+        for line in coverage.summarize(cov):
+            print(line)
+        if args.out:
+            write_json(args.out.replace(".json", "") + ".coverage.json",
+                       cov.to_dict())
+
     if args.out:
         write_json(args.out, report.to_dict())
         print(f"\nwritten: {args.out}")
@@ -537,6 +550,8 @@ def build_parser() -> argparse.ArgumentParser:
                         "(default: the newest one given)")
     p.add_argument("--limit", type=int, default=25,
                    help="how many debt items to print (default: 25)")
+    p.add_argument("--profile",
+                   help="profile json5 with vendor_markers, for shadow analysis")
     p.add_argument("--out", help="write the full report JSON here")
     p.set_defaults(func=cmd_provenance)
 

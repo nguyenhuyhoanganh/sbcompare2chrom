@@ -28,6 +28,8 @@ from ..model import KIND_BASE_FEATURE, KIND_FEATURE_PARAM, Fact
 from ._cpp import (
     balanced_args,
     collapse_ws,
+    conditional_spans,
+    enclosing_conditions,
     line_of,
     mask_comments,
     resolve_platform_state,
@@ -79,9 +81,14 @@ def _platform_states(block: str) -> dict:
 def extract(text: str, rel_path: str) -> List[Fact]:
     """Parse one C++ source file into base_feature / feature_param facts."""
     masked = mask_comments(text)
+    # A vendor fork adds its code beside upstream's and picks between them with
+    # a build flag, so the guard around a declaration is as informative as the
+    # declaration. Without it, a feature the vendor has quietly shadowed reads
+    # as identical to upstream.
+    spans = conditional_spans(masked)
     facts: List[Fact] = []
 
-    facts.extend(_extract_base_feature_macro(masked, rel_path))
+    facts.extend(_extract_base_feature_macro(masked, rel_path, spans))
     facts.extend(_extract_legacy_feature(masked, rel_path))
     facts.extend(_extract_feature_params(masked, rel_path))
     return facts
@@ -90,7 +97,8 @@ def extract(text: str, rel_path: str) -> List[Fact]:
 # ---------------------------------------------------------------------------
 
 
-def _extract_base_feature_macro(masked: str, rel_path: str) -> List[Fact]:
+def _extract_base_feature_macro(masked: str, rel_path: str,
+                                spans=()) -> List[Fact]:
     facts: List[Fact] = []
     for m in _BASE_FEATURE_RE.finditer(masked):
         open_idx = masked.index("(", m.start())
@@ -125,6 +133,7 @@ def _extract_base_feature_macro(masked: str, rel_path: str) -> List[Fact]:
                 "default_state": state,
                 "platform_state": _platform_states(inner),
                 "declared_form": "macro3" if len(args) >= 3 else "macro2",
+                "conditions": enclosing_conditions(list(spans), m.start()),
             },
         ))
     return facts

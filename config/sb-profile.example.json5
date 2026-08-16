@@ -46,6 +46,37 @@
   ],
 
   // ---------------------------------------------------------------------
+  // How to recognise our own code inside the merged tree.
+  //
+  // A fork of this shape does not overwrite Chromium. It merges the new
+  // Chromium in whole, keeps its own implementation beside it, and picks
+  // between them at build time:
+  //
+  //     #if defined(SBROWSER_CUSTOM_DOWNLOADS)
+  //       ... ours, which is what actually ships ...
+  //     #else
+  //       ... Chromium's, untouched since the merge ...
+  //     #endif
+  //
+  // Both are present, so comparing values finds nothing: upstream's branch
+  // really is identical to upstream. The branch that runs is the other one.
+  // That is how "we match M148" can be true and misleading at once.
+  //
+  // These markers are what `chromedrift provenance --profile` uses to tell a
+  // shadowed declaration from an untouched one. Names differ per vendor and
+  // are never guessed -- leave this out and the shadow analysis is skipped
+  // rather than producing invented matches.
+  // ---------------------------------------------------------------------
+  vendor_markers: {
+    // Build flags naming our code, matched as substrings, case-insensitive.
+    macros: ["SBROWSER", "SAMSUNG", "S_TERRACE"],
+    // Prefixes on our own feature and variable names.
+    symbol_prefixes: ["kSbrowser", "kSamsung"],
+    // Directories that are ours outright.
+    path_markers: ["sbrowser/", "samsung/"],
+  },
+
+  // ---------------------------------------------------------------------
   // Owned areas.  These do three jobs at once: they boost the impact score,
   // they group findings into coherent batches for the model, and they route
   // the report to the team that owns each part.

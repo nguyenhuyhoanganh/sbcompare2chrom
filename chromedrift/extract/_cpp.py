@@ -293,6 +293,80 @@ def eval_condition(expr: str, platform: str) -> Optional[bool]:
     return _CondEval(_tokenize(expr), platform).parse_or()
 
 
+_MACRO_RE = re.compile(r"\b(?:BUILDFLAG|defined)\s*\(\s*(\w+)\s*\)|\b([A-Z][A-Z0-9_]{2,})\b")
+
+
+def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
+    """``(start, end, expression)`` for every ``#if`` block in a file.
+
+    The guard that matters usually wraps the whole declaration rather than
+    sitting inside it, so a caller needs to ask "what conditions enclose this
+    offset", not "what conditions appear in this snippet".
+    """
+    spans: List[Tuple[int, int, str]] = []
+    stack: List[Tuple[int, str]] = []
+    offset = 0
+    for raw_line in text.splitlines(keepends=True):
+        m = _DIRECTIVE_RE.match(raw_line)
+        if m:
+            directive, rest = m.group(1), m.group(2).strip()
+            if directive in ("if", "ifdef", "ifndef"):
+                expr = rest
+                if directive == "ifdef":
+                    expr = f"defined({rest})"
+                elif directive == "ifndef":
+                    expr = f"!defined({rest})"
+                stack.append((offset + len(raw_line), expr))
+            elif directive in ("elif", "else"):
+                if stack:
+                    start, expr = stack.pop()
+                    spans.append((start, offset, expr))
+                    new_expr = rest if directive == "elif" else f"!({expr})"
+                    stack.append((offset + len(raw_line), new_expr))
+            elif directive == "endif":
+                if stack:
+                    start, expr = stack.pop()
+                    spans.append((start, offset, expr))
+        offset += len(raw_line)
+    while stack:  # unterminated #if: treat as running to end of file
+        start, expr = stack.pop()
+        spans.append((start, len(text), expr))
+    return spans
+
+
+def enclosing_conditions(spans: List[Tuple[int, int, str]], index: int) -> List[str]:
+    return [expr for start, end, expr in spans if start <= index < end]
+
+
+def condition_macros(block: str) -> List[str]:
+    """Every preprocessor macro named in the ``#if`` directives of a block.
+
+    A vendor fork does not usually replace upstream code; it adds its own
+    beside it and picks between them at build time::
+
+        #if defined(SBROWSER_CUSTOM_DOWNLOADS)
+          ... Samsung's implementation ...
+        #else
+          ... Chromium's ...
+        #endif
+
+    Both versions ship. Comparing values alone reports such a declaration as
+    identical to upstream, because upstream's branch really is untouched --
+    while the branch that actually runs is the vendor's. Recording the macro
+    names makes that visible, and lets a profile say which of them are ours.
+    """
+    macros: List[str] = []
+    for raw_line in block.splitlines():
+        m = _DIRECTIVE_RE.match(raw_line)
+        if not m or m.group(1) in ("else", "endif"):
+            continue
+        for a, b in _MACRO_RE.findall(m.group(2)):
+            name = a or b
+            if name and name not in macros:
+                macros.append(name)
+    return macros
+
+
 _DIRECTIVE_RE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")
 
 
