@@ -44,7 +44,10 @@ def blink(name, android_status):
 
 
 def snap(ref, facts):
-    return Snapshot(ref=ref, facts=facts, milestone=int(ref.split(".")[0]))
+    # A ref is not always a version: a fork snapshot is labelled by branch.
+    head = ref.split(".")[0]
+    return Snapshot(ref=ref, facts=facts,
+                    milestone=int(head) if head.isdigit() else None)
 
 
 class TestDiffSemantics(unittest.TestCase):
@@ -370,6 +373,98 @@ class TestForkMode(unittest.TestCase):
             self.assertIn(name, SIGNAL_LABELS, name)
             self.assertIn(name, SIGNAL_SEVERITY, name)
         self.assertEqual(set(FORK_SIGNALS), set(FORK_LABELS))
+
+
+class TestProvenance(unittest.TestCase):
+    """A two-way diff cannot tell a decision from merge debt. Three-way can.
+
+    A fork built by repeatedly merging newer Chromium accumulates both, and
+    they look identical against a single upstream version: our value differs.
+    Comparing against the series the fork was merged from separates them --
+    matching an older version exactly means nobody decided anything.
+    """
+
+    def _run(self, fork_facts, series, base=None):
+        from chromedrift.provenance import analyze
+        return analyze(fork=snap("sb", fork_facts),
+                       upstream=[snap(ref, facts) for ref, facts in series],
+                       base_ref=base)
+
+    def test_matching_an_older_version_is_debt_not_a_decision(self):
+        from chromedrift.provenance import STALE
+
+        report = self._run(
+            [feature("Foo", "disabled")],                       # our value
+            [("143.0.0.0", [feature("Foo", "disabled")]),        # matches here
+             ("148.0.0.0", [feature("Foo", "enabled")])])        # base moved on
+
+        v = report.verdicts[0]
+        self.assertEqual(v.state, STALE)
+        self.assertEqual(v.matches, "143.0.0.0")
+        self.assertTrue(v.is_debt())
+
+    def test_matching_no_upstream_version_is_a_decision(self):
+        from chromedrift.provenance import DIVERGED
+
+        report = self._run(
+            [feature("Foo", "disabled")],
+            [("143.0.0.0", [feature("Foo", "enabled")]),
+             ("148.0.0.0", [feature("Foo", "enabled")])])
+
+        self.assertEqual(report.verdicts[0].state, DIVERGED)
+        self.assertFalse(report.verdicts[0].is_debt())
+
+    def test_added_after_our_base_is_debt_we_never_took(self):
+        from chromedrift.provenance import MISSING_NEW
+
+        report = self._run(
+            [],
+            [("143.0.0.0", []),
+             ("148.0.0.0", [feature("NewUpstream", "enabled")])])
+
+        v = report.verdicts[0]
+        self.assertEqual(v.state, MISSING_NEW)
+        self.assertTrue(v.is_debt())
+
+    def test_present_since_the_oldest_version_but_absent_is_our_removal(self):
+        from chromedrift.provenance import MISSING_OLD
+
+        report = self._run(
+            [],
+            [("143.0.0.0", [feature("Always", "enabled")]),
+             ("148.0.0.0", [feature("Always", "enabled")])])
+
+        v = report.verdicts[0]
+        self.assertEqual(v.state, MISSING_OLD)
+        self.assertFalse(v.is_debt())   # a removal we chose, not debt
+
+    def test_fact_upstream_never_had_is_ours(self):
+        from chromedrift.provenance import VENDOR_ONLY
+
+        report = self._run(
+            [feature("SamsungOnly", "enabled")],
+            [("143.0.0.0", []), ("148.0.0.0", [])])
+
+        self.assertEqual(report.verdicts[0].state, VENDOR_ONLY)
+
+    def test_stale_reports_the_newest_version_we_still_match(self):
+        """How far behind we are, not merely that we are behind."""
+        report = self._run(
+            [feature("Foo", "disabled")],
+            [("139.0.0.0", [feature("Foo", "disabled")]),
+             ("143.0.0.0", [feature("Foo", "disabled")]),
+             ("148.0.0.0", [feature("Foo", "enabled")])])
+        self.assertEqual(report.verdicts[0].matches, "143.0.0.0")
+
+    def test_in_sync_is_not_debt(self):
+        from chromedrift.provenance import IN_SYNC
+
+        report = self._run(
+            [feature("Foo", "enabled")],
+            [("143.0.0.0", [feature("Foo", "disabled")]),
+             ("148.0.0.0", [feature("Foo", "enabled")])])
+        self.assertEqual(report.verdicts[0].state, IN_SYNC)
+        self.assertEqual(report.debt(), [])
 
 
 class TestClustering(unittest.TestCase):

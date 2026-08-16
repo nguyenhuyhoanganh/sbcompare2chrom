@@ -20,7 +20,7 @@ from . import __version__
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
-from . import cluster
+from . import cluster, provenance
 from .diff import MODE_FORK, MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
@@ -320,6 +320,45 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_provenance(args: argparse.Namespace) -> int:
+    """Separate deliberate divergence from merge debt.
+
+    A two-way diff cannot tell "we changed this on purpose" from "a merge
+    dropped this and nobody noticed". Comparing the fork against the *series*
+    of upstream versions it was merged from can: matching an older version
+    exactly means we are stale, not that we decided anything.
+    """
+    _log(f"fork snapshot: {args.fork}")
+    fork = build_snapshot(args.fork, args.cache, args.target_set,
+                          platform=args.platform, local_src=args.fork_src,
+                          refresh=args.refresh, log=_log)
+
+    upstream = []
+    for ref in args.upstream:
+        _log(f"upstream snapshot: {ref}")
+        upstream.append(build_snapshot(ref, args.cache, args.target_set,
+                                       platform=args.platform,
+                                       refresh=args.refresh, log=_log))
+
+    report = provenance.analyze(upstream=upstream, fork=fork,
+                                base_ref=args.base)
+    print()
+    for line in provenance.summarize(report):
+        print(line)
+
+    debt = report.debt()
+    if debt:
+        print(f"\nTop merge debt ({min(len(debt), args.limit)} of {len(debt)}):")
+        for v in debt[: args.limit]:
+            where = f" (matches {v.matches})" if v.matches else ""
+            print(f"  {v.state:12s} {v.kind:22s} {v.key[:44]:44s}{where}")
+
+    if args.out:
+        write_json(args.out, report.to_dict())
+        print(f"\nwritten: {args.out}")
+    return 0
+
+
 def _log_coverage(coverage: dict) -> None:
     """Always show where findings landed, including what landed nowhere."""
     areas = coverage.get("areas") or {}
@@ -485,6 +524,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--profile", help="also validate a downstream profile")
     p.add_argument("--llm", help="also validate (and ping) an LLM config")
     p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("provenance", parents=[common],
+                       help="separate deliberate divergence from merge debt")
+    p.add_argument("fork", help="label for the fork snapshot, e.g. sb-main-dev")
+    p.add_argument("upstream", nargs="+",
+                   help="upstream refs oldest first, e.g. 143.0.x 148.0.x")
+    p.add_argument("--fork-src", required=True,
+                   help="path to the fork checkout")
+    p.add_argument("--base", default=None,
+                   help="which upstream ref the fork claims to be based on "
+                        "(default: the newest one given)")
+    p.add_argument("--limit", type=int, default=25,
+                   help="how many debt items to print (default: 25)")
+    p.add_argument("--out", help="write the full report JSON here")
+    p.set_defaults(func=cmd_provenance)
 
     p = sub.add_parser("report",
                        help="re-render a saved report.json, optionally one area")
