@@ -35,6 +35,9 @@ from .model import (
     KIND_MOJO_METHOD,
     KIND_PREF,
     KIND_SWITCH,
+    KIND_WEBUI_CONTROL,
+    KIND_WEBUI_GATE,
+    KIND_WEBUI_ROUTE,
     MODIFIED,
     REMOVED,
     Change,
@@ -59,6 +62,9 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_SWITCH: ("var",),
     KIND_PREF: ("var",),
     KIND_FLAG_ENTRY: ("expiry_milestone",),
+    KIND_WEBUI_ROUTE: ("route", "parent", "guards"),
+    KIND_WEBUI_CONTROL: ("control", "pref", "label", "build_conditions"),
+    KIND_WEBUI_GATE: ("expression", "features", "enabled_checks"),
 }
 
 # Base severity per (kind, change_type).  Impact scoring adjusts these using
@@ -97,6 +103,15 @@ BASE_SEVERITY: Dict[Tuple[str, str], int] = {
     (KIND_FLAG_ENTRY, REMOVED): 30,
     (KIND_FLAG_ENTRY, ADDED): 5,
     (KIND_FLAG_ENTRY, MODIFIED): 15,
+    (KIND_WEBUI_ROUTE, REMOVED): 55,
+    (KIND_WEBUI_ROUTE, ADDED): 40,
+    (KIND_WEBUI_ROUTE, MODIFIED): 45,
+    (KIND_WEBUI_CONTROL, REMOVED): 35,
+    (KIND_WEBUI_CONTROL, ADDED): 25,
+    (KIND_WEBUI_CONTROL, MODIFIED): 30,
+    (KIND_WEBUI_GATE, REMOVED): 40,
+    (KIND_WEBUI_GATE, ADDED): 25,
+    (KIND_WEBUI_GATE, MODIFIED): 45,
 }
 
 # Signals are the human-readable "why this matters" labels, with a severity
@@ -123,6 +138,17 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "switch_renamed": 60,
     "feature_string_renamed": 75,
     "declaration_moved": 25,
+    "ui_page_removed": 55,
+    "ui_page_added": 40,
+    "ui_page_regated": 45,
+    "ui_page_moved": 30,
+    "ui_control_type_changed": 45,
+    "ui_control_repointed": 50,
+    "ui_control_removed": 35,
+    "ui_control_added": 25,
+    "ui_gate_changed": 45,
+    "ui_gate_removed": 40,
+    "ui_gate_added": 25,
     "param_default_changed": 40,
     "flag_expiring": 45,
     "origin_trial_change": 35,
@@ -153,6 +179,20 @@ SIGNAL_LABELS: Dict[str, str] = {
     "feature_string_renamed": "Finch feature name renamed (field trials and "
                               "--enable-features stop matching)",
     "declaration_moved": "Declaration moved to another file",
+    "ui_page_removed": "Settings/WebUI page removed",
+    "ui_page_added": "New Settings/WebUI page",
+    "ui_page_regated": "Page now shown under a different flag — check whether "
+                       "users saw the switch in an earlier milestone",
+    "ui_page_moved": "Page URL or parent changed",
+    "ui_control_type_changed": "Control type changed (e.g. dropdown became a "
+                               "toggle)",
+    "ui_control_repointed": "Control now writes a different preference",
+    "ui_control_removed": "Control removed from the page",
+    "ui_control_added": "New control on the page",
+    "ui_gate_changed": "Visibility condition changed",
+    "ui_gate_removed": "Visibility condition removed — what it guarded "
+                       "is now unconditional, or went with it",
+    "ui_gate_added": "New visibility condition",
     "param_default_changed": "Feature parameter default changed",
     "flag_expiring": "Flag scheduled for removal",
     "origin_trial_change": "Origin trial wiring changed",
@@ -296,6 +336,20 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     elif kind == KIND_FEATURE_PARAM:
         if "default" in change.deltas:
             signals.append("param_default_changed")
+    elif kind == KIND_WEBUI_ROUTE:
+        signals += _webui_route_signals(change)
+    elif kind == KIND_WEBUI_CONTROL:
+        signals += _webui_control_signals(change)
+    elif kind == KIND_WEBUI_GATE:
+        if change.change_type == REMOVED:
+            # The condition itself is gone: whatever it guarded is now
+            # unconditional, or the thing it guarded went with it.
+            signals.append("ui_gate_removed")
+        elif change.change_type == ADDED:
+            signals.append("ui_gate_added")
+        elif ("expression" in change.deltas or "features" in change.deltas
+              or "enabled_checks" in change.deltas):
+            signals.append("ui_gate_changed")
     elif kind == KIND_FLAG_ENTRY:
         if change.change_type in (ADDED, MODIFIED) and new_fact is not None:
             expiry = new_fact.attrs.get("expiry_milestone")
@@ -359,6 +413,44 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
             signals.append("default_flip_on")
         elif new_default == "disabled":
             signals.append("default_flip_off")
+    return signals
+
+
+def _webui_route_signals(change: Change) -> List[str]:
+    """A page vanishing from the route table is usually a migration.
+
+    Chromium replaces a page by declaring both versions at once, each behind
+    its own flag, then deleting the old one once the new flag has shipped. So
+    a removal here is only alarming if nothing else took its place, and the
+    guard is what tells them apart -- see `guards` on the fact.
+    """
+    if change.change_type == REMOVED:
+        return ["ui_page_removed"]
+    if change.change_type == ADDED:
+        return ["ui_page_added"]
+    signals: List[str] = []
+    if "guards" in change.deltas:
+        # The condition deciding whether users see this page moved. The
+        # user-visible switch happened whenever that flag flipped, which is
+        # usually earlier than either version being compared.
+        signals.append("ui_page_regated")
+    if "route" in change.deltas or "parent" in change.deltas:
+        signals.append("ui_page_moved")
+    return signals
+
+
+def _webui_control_signals(change: Change) -> List[str]:
+    if change.change_type == REMOVED:
+        return ["ui_control_removed"]
+    if change.change_type == ADDED:
+        return ["ui_control_added"]
+    signals: List[str] = []
+    if "control" in change.deltas:
+        signals.append("ui_control_type_changed")
+    if "pref" in change.deltas:
+        # The control still exists but now writes somewhere else: the old
+        # preference is orphaned and the new one starts from its default.
+        signals.append("ui_control_repointed")
     return signals
 
 

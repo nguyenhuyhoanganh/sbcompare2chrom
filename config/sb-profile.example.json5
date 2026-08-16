@@ -122,11 +122,11 @@
       kind: "product",
       weight: 70,
       owner: "settings-team",
-      notes: "Settings WebUI extractors are not built yet; this area currently catches prefs and settings-named flags only.",
+      kinds: ["webui_route", "webui_control", "webui_gate"],
       paths: ["chrome/browser/resources/settings/",
               "chrome/browser/ui/webui/settings/"],
       symbols: ["Settings"],
-      kinds: ["pref"],
+      prefs: [],
     },
     {
       id: "media",

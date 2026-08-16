@@ -308,6 +308,88 @@ class TestAreaRouting(unittest.TestCase):
         self.assertGreater(coverage["unassigned"]["top_score"], 0)
 
 
+class TestClustering(unittest.TestCase):
+    """One upstream change arrives as fragments; they must read as one story."""
+
+    def _finding(self, kind, key, attrs, score=50):
+        from chromedrift.model import Change, Finding
+        return Finding(
+            change=Change(change_type="modified", kind=kind, key=key,
+                          name=key.split("/")[-1], before=dict(attrs),
+                          after=dict(attrs)),
+            score=score, bucket="review")
+
+    def test_route_gate_feature_form_one_cluster(self):
+        from chromedrift.cluster import build_clusters
+
+        route = self._finding("webui_route", "settings/SITE_SETTINGS_LNA",
+                              {"surface": "settings", "route": "lna",
+                               "guards": ["enableLna"]}, 70)
+        gate = self._finding("webui_gate", "enableLna",
+                             {"features": ["kLnaChecks"]}, 60)
+        flag = self._finding("base_feature", "LnaChecks", {}, 50)
+        clusters = build_clusters([route, gate, flag])
+
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(len(next(iter(clusters.values()))), 3)
+
+    def test_guard_on_either_side_links_the_route(self):
+        """A migration re-gates a page; reading only the new guard splits it."""
+        from chromedrift.cluster import build_clusters
+        from chromedrift.model import Change, Finding
+
+        moved = Finding(
+            change=Change(change_type="modified", kind="webui_route",
+                          key="settings/PAGE", name="PAGE",
+                          before={"guards": ["oldGate"]},
+                          after={"guards": ["newGate"]},
+                          deltas={"guards": [["oldGate"], ["newGate"]]}),
+            score=60, bucket="review")
+        old_gate = self._finding("webui_gate", "oldGate", {"features": []}, 40)
+        new_gate = self._finding("webui_gate", "newGate", {"features": []}, 40)
+
+        clusters = build_clusters([moved, old_gate, new_gate])
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(len(next(iter(clusters.values()))), 3)
+
+    def test_control_joins_the_route_it_labels(self):
+        """SITE_SETTINGS_LNA and siteSettingsLna are one identifier."""
+        from chromedrift.cluster import build_clusters
+
+        route = self._finding("webui_route", "settings/SITE_SETTINGS_LNA",
+                              {"surface": "settings", "guards": []}, 60)
+        control = self._finding("webui_control",
+                                "settings/site_settings/label:siteSettingsLna",
+                                {"surface": "settings", "page": "site_settings",
+                                 "label": "siteSettingsLna"}, 40)
+        clusters = build_clusters([route, control])
+        self.assertEqual(len(clusters), 1)
+
+    def test_blink_flag_without_a_declared_feature_stays_alone(self):
+        """base_feature: "none" means there is no link. Do not invent one."""
+        from chromedrift.cluster import build_clusters
+
+        blink = self._finding("blink_runtime_feature", "LnaSplitPermissions",
+                              {"base_feature": "none"}, 20)
+        flag = self._finding("base_feature", "LnaChecksSplitPermissions", {}, 50)
+        self.assertEqual(build_clusters([blink, flag]), {})
+
+    def test_blink_flag_joins_via_its_declared_feature(self):
+        from chromedrift.cluster import build_clusters
+
+        blink = self._finding("blink_runtime_feature", "SomeApi",
+                              {"base_feature": "kBackingFeature"}, 20)
+        flag = self._finding("base_feature", "BackingFeature", {}, 50)
+        self.assertEqual(len(build_clusters([blink, flag])), 1)
+
+    def test_unrelated_findings_are_not_clustered(self):
+        from chromedrift.cluster import build_clusters
+
+        a = self._finding("base_feature", "Alpha", {})
+        b = self._finding("base_feature", "Beta", {})
+        self.assertEqual(build_clusters([a, b]), {})
+
+
 class TestReportFiltering(unittest.TestCase):
     """Filtering happens at render time, never before analysis."""
 

@@ -98,10 +98,19 @@ size. Record them; do not promote them to capability.
 ## Current tool coverage
 
 `chromedrift` covers flags, Blink runtime features, Web IDL, Mojo, switches,
-prefs and chrome://flags metadata. It does **not** read
-`chrome/browser/resources/settings/`, so a run produces **zero** settings-page
-facts.
+prefs, chrome://flags metadata, **and the desktop WebUI surfaces**: page routes,
+controls and visibility gates.
 
-When asked which settings pages changed, either extend the tool with extractors
-for the three desktop sources above, or inspect those files directly — and say
-which you did. Do not infer page-level answers from the flag list alone.
+The same three extractors read every `chrome://` surface, not only settings.
+Eight are tracked by default — settings, history, downloads, bookmarks,
+extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
+per version. Measured at M151: 108 routes, 633 controls, 668 gates.
+
+Related fragments are grouped into one story by `cluster.py`, using links the
+data declares (a route names its guard, a guard names its features) rather than
+name similarity. The Local Network Access migration collapses 7 fragments
+across 4 surfaces into a single row.
+
+Chromium has roughly 130 WebUI surfaces; adding another is one line in
+`targets.py`. Only the declarative parts are read — the route table and the
+HTML templates, not the TypeScript behaviour.

@@ -20,6 +20,7 @@ from . import __version__
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
+from . import cluster
 from .diff import diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
@@ -126,7 +127,16 @@ def cmd_run(args: argparse.Namespace) -> int:
         _log("  no --profile given: scoring on intrinsic severity only")
 
     findings = score_all(changes, touch)
+    # Group related findings before anything reads them. One upstream change
+    # arrives as fragments across several surfaces; ungrouped they contradict
+    # each other.
+    clusters = cluster.annotate(findings)
+    if clusters:
+        biggest = max(len(m) for m in clusters.values())
+        _log(f"  {len(clusters)} clusters link related findings "
+             f"(largest: {biggest} findings)")
     finding_summary = summarize_findings(findings, touch)
+    finding_summary["clusters"] = cluster.summarize(clusters)
     _log(f"  {finding_summary['with_evidence']} findings intersect our fork")
     _log_coverage(finding_summary.get("coverage") or {})
 

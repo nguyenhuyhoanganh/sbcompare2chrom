@@ -164,10 +164,13 @@ State these limits in every report. A clean report does not imply a clean uprev.
 - **Implementation-only changes.** The tool reads declarations (macros, IDL,
   mojom, string constants, JSON/JSON5 manifests). Behaviour changed entirely
   inside a function body is invisible.
-- **The settings UI.** `chrome/browser/resources/settings/` is not in the target
-  set; a run produces **zero** settings-page facts. If asked which settings
-  pages changed, say the tool does not answer that yet rather than inferring it
-  from the flag list.
+- **WebUI surfaces beyond the eight tracked.** Page routes, controls and
+  visibility gates are read for settings, history, downloads, bookmarks,
+  extensions, password_manager, new_tab_page and print_preview. Chromium has
+  roughly 130 such surfaces; the rest are unread until added to `targets.py`.
+- **Page behaviour.** Only the declarative parts of a WebUI surface are read:
+  the route table and the HTML templates. Logic in the accompanying TypeScript
+  is not.
 - **Fork divergence.** The tool compares upstream to upstream. `--profile` is
   evidence *matching*, not a diff of the fork against Chromium.
 - **Anything outside the repository**: server-side Finch configs, launch

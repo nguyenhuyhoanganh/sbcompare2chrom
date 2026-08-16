@@ -133,9 +133,9 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 ## Phần 4. Dự án gồm những gì
 
-Toàn bộ là **Python thuần, 6.697 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
+Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **70 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **76 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -159,8 +159,36 @@ Mỗi bộ đọc là hai hàm thuần: *"file này có thuộc phần tôi đ�
 | `mojom.py` | File `.mojom` | Giao diện giữa các tiến trình, kèm chữ ký phương thức |
 | `constants.py` | `*_switches.cc`, `pref_names.h` | Tham số dòng lệnh và khoá thiết lập người dùng |
 | `flags_metadata.py` | `flag-metadata.json` | Công tắc nào **sắp bị xoá** ở phiên bản tới |
+| `webui_routes.py` | `route.ts` | Danh sách trang của màn hình `chrome://`, **kèm điều kiện hiển thị** |
+| `webui_controls.py` | template `.html` | Từng điều khiển, **loại của nó**, và thiết lập nó gắn vào |
+| `webui_gates.py` | `*_ui.cc` | Mắt xích nối điều kiện giao diện với công tắc |
 
-Hỗ trợ cho cả sáu là `_cpp.py` — bộ quét văn bản C++. Nó làm ba việc mà nếu làm ẩu sẽ sai kết quả:
+#### Ba bộ đọc WebUI dùng chung cho mọi màn hình, không riêng Settings
+
+`chrome://settings`, `chrome://history`, `chrome://downloads`, `chrome://bookmarks`, `chrome://extensions` và khoảng 130 màn hình `chrome://` khác **đều xây theo cùng một cách**: một trang web nằm dưới `chrome/browser/resources/`. Nên ba bộ đọc trên đọc được tất cả, không đóng khung riêng cho Settings. Hiện theo dõi 8 bề mặt, thêm một cái chỉ là thêm một dòng trong `targets.py`:
+
+```
+settings, history, downloads, bookmarks,
+extensions, password_manager, new_tab_page, print_preview
+```
+
+Chi phí thêm: **~1,7 MB** cho cả 8 bề mặt, cộng 3,2 MB cho handler C++.
+
+Chúng nối thành chuỗi ba chặng, và **phải đi đủ cả ba** mới ra kết luận đúng:
+
+```
+route.ts                          trang nào tồn tại
+   ↓ bị canh bởi
+loadTimeData key                  điều kiện hiển thị
+   ↓ được gán giá trị ở
+settings_ui.cc  →  base::Feature  công tắc thật
+```
+
+Dừng ở chặng đầu chính là rơi vào bẫy Local Network Access ở Phần 3.
+
+Loại điều khiển nằm thẳng trong tên thẻ (`settings-toggle-button` là nút gạt, `settings-dropdown-menu` là danh sách xổ xuống, `cr-radio-group` là nhóm nút chọn), nên **"đổi dropdown thành select button" bắt được ngay** bằng phép so tên thẻ.
+
+Hỗ trợ cho các bộ đọc C++ là `_cpp.py` — bộ quét văn bản C++. Nó làm ba việc mà nếu làm ẩu sẽ sai kết quả:
 
 - **Che comment mà giữ nguyên độ dài file**, để số dòng báo cáo vẫn chính xác.
 - **Cắt đối số cân bằng ngoặc**, bỏ qua ngoặc nằm trong chuỗi ký tự.
@@ -320,13 +348,13 @@ Chạy M148 → M151 cho Windows:
 
 ```
 1 phút 36 giây
-22.109 facts trích được
-2.226 thay đổi có ý nghĩa
+23.519 facts trích được
+2.500 thay đổi có ý nghĩa, gom thành 25 cụm
 
 must fix:        0     (vì chưa cấu hình hồ sơ downstream thật)
-needs review:  349
-opportunity: 1.018
-fyi:           859
+needs review:  365
+opportunity: 1.141
+fyi:           994
 ```
 
 Lưu ý dòng `must fix: 0`: nó có nghĩa là **chưa cung cấp bằng chứng**, không phải "bản nâng cấp này sạch". Không có hồ sơ trỏ vào patch hoặc source thật thì không mục nào lên được Must fix, và báo cáo có ghi rõ điều đó.
@@ -449,7 +477,52 @@ Xem được luôn bằng `--area _unassigned`. Con số này cũng là **thư�
 
 ---
 
-## Phần 7. Cái chưa có
+## Phần 7. Gom mảnh vụn thành một câu chuyện
+
+Một thay đổi của Chromium không bao giờ đến gọn một chỗ. Nó vỡ thành nhiều mảnh rải trên mọi bề mặt mà công cụ đọc.
+
+Ca Local Network Access sinh ra **đúng 7 mảnh**:
+
+```
+webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS         bị xoá
+webui_route    SITE_SETTINGS_LOCAL_NETWORK                đổi điều kiện canh
+webui_gate     enableLocalNetworkAccessSplitPermissions   bị xoá
+webui_gate     enableLocalNetworkAccessSetting            đổi biểu thức
+webui_control  label:siteSettingsLocalNetworkAccess       bị xoá
+base_feature   LocalNetworkAccessChecksSplitPermissions   cờ đã ship rồi gỡ
+blink_runtime  LocalNetworkAccessSplitPermissions         cờ thử nghiệm bỏ
+```
+
+Đọc rời từng dòng thì chúng **mâu thuẫn nhau**: dòng trên nói một trang bị xoá, dòng dưới nói một trang xuất hiện. Đọc thành một cụm thì nó nói một điều đơn giản và đúng: *trang chuyển sang mô hình tách quyền, người dùng đã có từ M148, việc duy nhất là cập nhật tham chiếu đường dẫn cũ*.
+
+### Gom bằng quan hệ thật, không bằng tên giống nhau
+
+Đây là điểm tôi cho là quan trọng. Cách dễ nhất là gom theo tiền tố tên (`kLocalNetworkAccess*`), nhưng đó là phỏng đoán. Công cụ gom bằng **liên kết mà chính dữ liệu đã khai**:
+
+```
+route  --khai tên guard-->  gate  --khai tên feature-->  base_feature
+control  --khai label-->  route
+feature_param  --khai feature cha-->  base_feature
+blink  --khai base_feature-->  base_feature
+```
+
+Mỗi mũi tên là một trường dữ liệu có thật, không phải suy đoán. Kết quả là cụm chính xác chứ không phải gần đúng.
+
+### Chỗ cố tình không gom
+
+Mảnh thứ 7 — `blink_runtime LocalNetworkAccessSplitPermissions` — **đứng riêng**, và đó là đúng. Fact của nó khai rõ:
+
+```json5
+{ name: "LocalNetworkAccessSplitPermissions", base_feature: "none" }
+```
+
+Chromium nói thẳng: cờ này **không có** feature C++ tương ứng. Tên nó gần giống `LocalNetworkAccessChecksSplitPermissions` nhưng "gần giống" không phải là quan hệ. Nối vào sẽ là bịa ra một liên kết mà nguồn phủ nhận. Công cụ để nó riêng lẻ.
+
+Trên lần chạy thật M148 → M151: **25 cụm**, lớn nhất 7 mảnh. Báo cáo có hẳn mục *"Related changes, grouped"* xếp theo điểm cao nhất trong cụm.
+
+---
+
+## Phần 8. Cái chưa có
 
 Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch.
 
@@ -461,7 +534,7 @@ Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấ
 
 ---
 
-## Phần 8. Skill cho agent
+## Phần 9. Skill cho agent
 
 Thư mục `skills/analyzing-chromium-uprevs/` là gói kiến thức để đưa lên agent nội bộ, viết theo chuẩn Agent Skills chính thức:
 
@@ -478,13 +551,13 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 
 ---
 
-## Phần 9. Kiểm thử
+## Phần 10. Kiểm thử
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-**70 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**76 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -492,15 +565,16 @@ Nên chạy lại sau mỗi lần sửa `diff.py` hoặc `impact.py` — đó l�
 
 ---
 
-## Phần 10. Cấu trúc mã nguồn
+## Phần 11. Cấu trúc mã nguồn
 
 ```
 chromedrift/
   acquire.py      364 dòng   tải nguồn qua Gitiles hoặc từ checkout local
   targets.py      109        khai báo tải file nào, kèm lý do
   snapshot.py     104        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/        1.361      6 bộ đọc + tiện ích quét C++ + bộ đọc JSON5
-  diff.py         482        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
+  extract/        1.822      9 bộ đọc + tiện ích quét C++
+  diff.py         556        so sánh ngữ nghĩa, 35 nhãn, nhận diện đổi tên
+  cluster.py      196        gom mảnh vụn thành một câu chuyện
   sbprofile.py    455        tập chạm của fork + định nghĩa vùng (5 cách khớp)
   impact.py       235        chấm điểm, phân loại, và báo cáo độ phủ vùng
   model.py        396        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
@@ -515,7 +589,7 @@ Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và 
 
 ---
 
-## Phần 11. Đọc thêm
+## Phần 12. Đọc thêm
 
 - **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.
 - **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — gói kiến thức cho agent.

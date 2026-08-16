@@ -12,7 +12,17 @@ import os
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ..model import Fact, dedupe_facts
-from . import base_features, blink_runtime, constants, flags_metadata, mojom, web_idl
+from . import (
+    base_features,
+    blink_runtime,
+    constants,
+    flags_metadata,
+    mojom,
+    web_idl,
+    webui_controls,
+    webui_gates,
+    webui_routes,
+)
 
 Extractor = Tuple[str, Callable[[str], bool], Callable[[str, str], List[Fact]]]
 
@@ -23,6 +33,9 @@ REGISTRY: List[Extractor] = [
     ("mojom", mojom.applies_to, mojom.extract),
     ("constants", constants.applies_to, constants.extract),
     ("flags_metadata", flags_metadata.applies_to, flags_metadata.extract),
+    ("webui_routes", webui_routes.applies_to, webui_routes.extract),
+    ("webui_controls", webui_controls.applies_to, webui_controls.extract),
+    ("webui_gates", webui_gates.applies_to, webui_gates.extract),
 ]
 
 # Directories that only add noise: generated output, tests and platform trees a

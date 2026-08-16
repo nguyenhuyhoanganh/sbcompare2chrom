@@ -75,6 +75,11 @@ scripts, CI automation, QA harnesses.
 | Signal | Meaning |
 |---|---|
 | `web_api_added` | New web API surface — test coverage, possible adoption |
+| `ui_page_added` / `ui_page_removed` | A chrome:// page appeared or disappeared. **Check its guard before concluding** — see traps.md |
+| `ui_page_regated` | The page is now shown under a different flag. The user-visible switch happened when that flag flipped, usually earlier |
+| `ui_control_type_changed` | A control changed type, e.g. dropdown became a toggle |
+| `ui_control_repointed` | The control now writes a different preference; the old one is orphaned |
+| `ui_gate_changed` / `ui_gate_removed` | The condition deciding a page's visibility moved |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
 | `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |

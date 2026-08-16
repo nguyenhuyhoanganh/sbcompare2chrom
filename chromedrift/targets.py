@@ -19,6 +19,24 @@ from .acquire import FetchTarget
 _CPP = (".cc", ".h")
 _IDL = (".idl",)
 _MOJOM = (".mojom",)
+# Only the declarative parts of a WebUI surface: the templates that declare
+# controls, and the route table that declares pages.  The rest of the
+# TypeScript is behaviour, which this tool does not read.
+_WEBUI_TEMPLATES = (".html", "route.ts", "routes.ts")
+
+# chrome:// surfaces worth tracking.  There are ~130 under
+# chrome/browser/resources/; these are the user-facing ones a downstream
+# browser normally ships and customizes.  Add a line to cover another.
+WEBUI_SURFACES = (
+    "settings",
+    "history",
+    "downloads",
+    "bookmarks",
+    "extensions",
+    "password_manager",
+    "new_tab_page",
+    "print_preview",
+)
 
 
 def default_targets() -> List[FetchTarget]:
@@ -84,6 +102,20 @@ def default_targets() -> List[FetchTarget]:
         #    are scheduled for deletion, i.e. future forced work.
         FetchTarget("chrome/browser/flag-metadata.json", "file",
                     note="flag expiry milestones"),
+
+        # -- Desktop WebUI surfaces.  Settings, History, Downloads, Bookmarks
+        #    and Extensions are all web pages built the same way, so one set
+        #    of extractors reads all of them.  Only the route tables and HTML
+        #    templates are pulled, which keeps this to ~1.7 MB for all eight.
+        *(FetchTarget(f"chrome/browser/resources/{surface}", "tree",
+                      _WEBUI_TEMPLATES, note=f"chrome://{surface} UI")
+          for surface in WEBUI_SURFACES),
+
+        # -- The C++ side of those pages: where each loadTimeData key that
+        #    guards a page gets its value, usually from a base::Feature.
+        #    This is the middle hop between a page and the flag behind it.
+        FetchTarget("chrome/browser/ui/webui", "tree", (".cc",),
+                    note="WebUI handlers: loadTimeData -> feature"),
     ]
 
 

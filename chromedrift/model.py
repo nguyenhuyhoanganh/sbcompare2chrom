@@ -26,7 +26,9 @@ from typing import Any, Dict, Iterable, List, Optional
 #   2: extraction is scoped to the declared target set. Version 1 snapshots
 #      took their scope from whatever the shared per-ref tree cache held, so a
 #      "minimal" snapshot could contain the full fact set.
-SCHEMA_VERSION = 2
+#   3: the "default" target set gained the desktop WebUI surfaces, so a
+#      version 2 snapshot named "default" no longer means the same thing.
+SCHEMA_VERSION = 3
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -42,6 +44,12 @@ KIND_MOJO_METHOD = "mojo_method"
 KIND_SWITCH = "switch"
 KIND_PREF = "pref"
 KIND_FLAG_ENTRY = "flag_entry"
+# Desktop WebUI. Settings, History, Downloads, Bookmarks, Extensions and ~130
+# other chrome:// pages are all built the same way, and form one chain:
+#   route -> loadTimeData guard -> base::Feature
+KIND_WEBUI_ROUTE = "webui_route"
+KIND_WEBUI_CONTROL = "webui_control"
+KIND_WEBUI_GATE = "webui_gate"
 
 ALL_KINDS = (
     KIND_BASE_FEATURE,
@@ -54,6 +62,9 @@ ALL_KINDS = (
     KIND_SWITCH,
     KIND_PREF,
     KIND_FLAG_ENTRY,
+    KIND_WEBUI_ROUTE,
+    KIND_WEBUI_CONTROL,
+    KIND_WEBUI_GATE,
 )
 
 # Human labels used in reports.
@@ -68,6 +79,9 @@ KIND_LABELS = {
     KIND_SWITCH: "Command-line switch",
     KIND_PREF: "Preference",
     KIND_FLAG_ENTRY: "chrome://flags entry",
+    KIND_WEBUI_ROUTE: "WebUI page",
+    KIND_WEBUI_CONTROL: "WebUI control",
+    KIND_WEBUI_GATE: "WebUI visibility gate",
 }
 
 ADDED = "added"

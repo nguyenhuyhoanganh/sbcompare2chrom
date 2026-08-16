@@ -162,6 +162,7 @@ def render(report: Report, platform: str = "android",
                    f"{summary.get('with_evidence', 0)} intersect our fork.")
         out.append("")
 
+    out.append(_render_clusters(summary))
     out.append(_render_coverage(summary))
 
     # -- AI brief -------------------------------------------------------
@@ -220,6 +221,30 @@ def render(report: Report, platform: str = "android",
     out.append("## How this was produced")
     out.append("")
     out.append(_render_provenance(report))
+    return "\n".join(out)
+
+
+def _render_clusters(summary: dict) -> str:
+    """Related findings, grouped into one story each.
+
+    Read individually, the fragments of one upstream change contradict each
+    other -- a page removed here, a page added there. Grouped, they read as
+    what actually happened.
+    """
+    rows = (summary or {}).get("clusters") or []
+    rows = [r for r in rows if r.get("size", 0) > 1][:12]
+    if not rows:
+        return ""
+    out = ["## Related changes, grouped", "",
+           "Each row is one upstream change arriving across several surfaces. "
+           "Read the group, not the individual rows.", "",
+           "| Top score | Story | Fragments | Surfaces |",
+           "|---:|---|---:|---|"]
+    for r in rows:
+        kinds = ", ".join(KIND_LABELS.get(k, k) for k in r.get("kinds", []))
+        out.append(f"| {r.get('top_score', 0)} | `{_cell(r.get('label', ''), 44)}` "
+                   f"| {r.get('size', 0)} | {_cell(kinds, 70)} |")
+    out.append("")
     return "\n".join(out)
 
 
