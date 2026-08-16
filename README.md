@@ -522,13 +522,106 @@ Trên lần chạy thật M148 → M151: **25 cụm**, lớn nhất 7 mảnh. B�
 
 ---
 
-## Phần 8. Cái chưa có
+## Phần 8. Cái chưa có — và cái cố ý không làm
 
-Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch.
+Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch. Hai loại khác nhau: *chưa làm* (có thể làm, chỉ là chưa) và *cố ý không làm* (đánh đổi có chủ ý).
 
-- **Thay đổi nằm hoàn toàn trong thân hàm.** Công cụ đọc *khai báo*, không đọc logic. Một thay đổi hành vi không đụng khai báo nào sẽ không hiện ra. Đây là đánh đổi có chủ ý để bỏ được việc tải 100 GB.
-- **Giao diện Settings.** Thư mục `chrome/browser/resources/settings/` **không** nằm trong danh sách tải, nên một lần chạy sinh ra **0 dữ liệu về trang settings**. Nếu câu hỏi là "trang settings nào đổi", công cụ **chưa** trả lời được — phải nói thẳng điều đó thay vì suy từ danh sách công tắc.
-- **So sánh fork với Chromium.** Công cụ so upstream với upstream. Tuỳ chọn `--profile` là *đối chiếu bằng chứng* (mã của ta có nhắc tới ký hiệu này không), không phải diff giữa fork và bản gốc.
+### 8.1 CHƯA LÀM — các màn hình `chrome://` khác
+
+Công cụ đang theo dõi 8 bề mặt. Chromium có 132 thư mục dưới `chrome/browser/resources/`, nhưng con số đó gây hiểu nhầm. Đếm kỹ:
+
+```
+132  tổng
+  8  đang theo dõi     settings, history, downloads, bookmarks,
+                       extensions, password_manager, new_tab_page, print_preview
+ 39  trang debug       chrome://net-internals, chrome://discards, chrome://device-log...
+                       → người dùng KHÔNG BAO GIỜ thấy
+  9  chỉ ChromeOS      ash, help_app, input_ime...
+                       → sản phẩm Windows không compile
+ 76  còn lại, trong đó ~29 đáng cân nhắc
+```
+
+**Con số thật là ~29, không phải 130.**
+
+Đáng cân nhắc thêm: `autofill, browser_switch, certificate_manager, compose, default_browser, enterprise, feedback, lens, management, media, media_router, pdf, search_engine_choice, shopping, side_panel, signin, tab_search, toolbar, wallet, webauthn, whats_new`...
+
+**Thêm cụ thể là dòng nào.** Trong `chromedrift/targets.py`:
+
+```python
+WEBUI_SURFACES = (
+    "settings",
+    "history",
+    ...
+    "pdf",        # ← thêm dòng này là xong
+)
+```
+
+Không cần viết parser mới, không sửa gì khác — ba bộ đọc đã tổng quát cho mọi bề mặt và tự nhận file mới.
+
+**Vì sao không thêm hết luôn.** Vì nút thắt là *thời gian đọc của người*, không phải chi phí máy (8 bề mặt chỉ tốn 1,7 MB). Thêm `chrome://net-internals` chỉ làm dài danh sách chứ không ai quan tâm. Chọn theo nhu cầu thật tốt hơn là bật hết.
+
+### 8.2 CỐ Ý KHÔNG LÀM — logic TypeScript
+
+Mỗi trang WebUI có hai file song song:
+
+```
+downloads_page.html   ← ĐỌC   khai báo: có điều khiển nào, loại gì, gắn pref nào
+downloads_page.ts     ← BỎ    hành vi:  khi nào hiện, bấm vào thì làm gì
+```
+
+**Ví dụ thật ở M151.** Trong `.html` công cụ đọc được:
+
+```html
+<template is="dom-if" if="[[autoOpenDownloads_]]" restamp>
+    ... nút "Xoá tất cả" ...
+</template>
+```
+
+Công cụ biết: *có một khối bị canh bởi điều kiện tên `autoOpenDownloads_`*.
+
+Trong `.ts` công cụ không đọc:
+
+```ts
+autoOpenDownloads_: boolean;
+autoOpenDownloads_ = autoOpen;    // autoOpen là trạng thái lúc chạy
+```
+
+Công cụ **không biết** khi nào điều kiện đó đúng — nó phụ thuộc người dùng có đặt loại file tự mở hay không, tức trạng thái runtime chứ không phải khai báo.
+
+**Quy mô điểm mù.** Đo trên 332 file template của 8 bề mặt:
+
+```
+602  khối điều kiện <template is="dom-if"> / dom-repeat
+460  ràng buộc hidden="[[...]]"
+37%  điều khiển nằm trong một khối điều kiện
+```
+
+Khoảng **một phần ba điều khiển** có điều kiện hiển thị mà công cụ không giải được.
+
+**Bắt được gì, sót gì:**
+
+| | |
+|---|---|
+| Thêm/bớt một điều khiển | ✅ |
+| Đổi loại điều khiển (dropdown → toggle) | ✅ |
+| Đổi pref mà điều khiển ghi vào | ✅ |
+| Thêm/bớt trang, đổi điều kiện canh **trang** | ✅ |
+| Đổi logic quyết định khi nào **điều khiển** hiện | ❌ |
+| Đổi việc bấm nút thì làm gì | ❌ |
+| Đổi cách sắp xếp, lọc danh sách | ❌ |
+
+**Ba lý do cố ý bỏ:**
+
+1. **Đọc logic là phân tích luồng dữ liệu, không phải quét cú pháp.** Để biết `autoOpenDownloads_` khi nào đúng phải lần theo callback, và cả trạng thái từ C++ gửi sang. Nó sẽ sai ngay khi Chromium viết lại một hàm.
+2. **Phá vỡ nguyên tắc "không cần tải Chromium về".** Phần khai báo vài MB; đọc logic thì phải kéo cả cây TypeScript, và vẫn không đủ vì logic nối sang C++.
+3. **Nhất quán với tầng C++.** Công cụ cũng không đọc thân hàm C++ — chỉ đọc macro khai báo. Đọc được logic một bên thì phải đọc cả hai, và lúc đó nó thành một compiler chứ không còn là công cụ 40 MB chạy trong 90 giây.
+
+**Cái gì bù lại.** Chuỗi `route → guard → flag` bù được phần quan trọng nhất: điều kiện hiển thị ở cấp **trang**, vì Chromium khai nó dưới dạng `loadTimeData` chứ không phải logic. Đó là lý do ca Local Network Access truy được đến tận cùng. Phần không bù được là điều kiện ở cấp **điều khiển bên trong trang** — chỗ đó chỉ **so sánh ảnh chụp giao diện** mới trả lời được, đúng vai trò kiểm chứng cuối như mô tả ở Phần 6.
+
+### 8.3 Các giới hạn còn lại
+
+- **Thay đổi nằm hoàn toàn trong thân hàm C++.** Cùng lý do như 8.2, ở tầng khác.
+- **So sánh fork với Chromium.** Công cụ so upstream với upstream. `--profile` là *đối chiếu bằng chứng* (mã của ta có nhắc tới ký hiệu này không), không phải diff giữa fork và bản gốc.
 - **Mọi thứ ngoài repo:** cấu hình Finch phía server, script khởi chạy, hệ thống test tự động.
 - **Giao diện đã render.** Không ảnh chụp, không bố cục, không phát hiện lỗi hiển thị.
 
@@ -562,6 +655,22 @@ python3 -m unittest discover -s tests
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
 Nên chạy lại sau mỗi lần sửa `diff.py` hoặc `impact.py` — đó là hai chỗ chứa các quyết định phân loại.
+
+### Đối chứng với dữ liệu thật
+
+Test đơn vị chỉ chứng minh code làm đúng cái tôi nghĩ. Để kiểm xem nó có đúng *thực tế* không, tôi viết lại bộ trích bằng **phương pháp khác hẳn** (bỏ hết chỉ thị tiền xử lý, tách theo dấu `;`, regex khác) rồi so trên `content_features.cc` giữa M148 và M151:
+
+```
+Phương pháp độc lập :  19 thêm,  9 bỏ
+Công cụ báo         :  19 thêm,  8 bỏ
+
+Mục thêm  : khớp 19/19, không sót, không thừa
+Mục bỏ    : lệch 1  —  AndroidEnableBackgroundMediaCapturing
+```
+
+Truy mục lệch đó thì hoá ra **công cụ đúng, phép đối chứng của tôi sai**: feature không bị xoá mà **chuyển từ `content_features.cc` sang `media_switches.cc`**, và công cụ báo đúng là `declaration_moved` (mức 25, thấp). Phép đối chứng chỉ nhìn một file nên không thấy.
+
+Nói cách khác: **0 sai lệch thật**, và ở mục duy nhất khác nhau thì công cụ chính xác hơn cách kiểm.
 
 ---
 
