@@ -9,6 +9,7 @@ what actually happened. Read this column first.
 - Behaviour unchanged (cleanup)
 - Silent breaks
 - Structural
+- Fork-comparison signals (`--mode fork`)
 - Bucket meanings
 - Scoring
 
@@ -18,19 +19,22 @@ Users experience a difference. This is the short list that matters.
 
 | Signal | Meaning |
 |---|---|
-| `android_enabled_by_default` | Now ON by default on our platform |
-| `android_disabled_by_default` | Now OFF by default on our platform |
+| `enabled_by_default` | Now ON by default **on Windows** |
+| `disabled_by_default` | Now OFF by default **on Windows** |
 | `default_flip_on` | Global default flipped on |
 | `default_flip_off` | Global default flipped off — usually a rollback |
 | `web_api_shipped` | Web API reached stable; sites will start using it |
 | `web_api_unshipped` | Web API pulled back from stable — rare, investigate |
 | `web_api_removed` | Real API removal, detected from IDL. Site-visible break |
+| `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
 | `ipc_removed` | Mojo interface or method removed |
 
-The platform-named signals are computed for the platform passed via
-`--platform`. A feature can flip on desktop and stay put on the platform you
-ship, or the reverse.
+The first two are resolved for Windows specifically, by walking the `#if
+BUILDFLAG(...)` chain around the declaration. The global default and the
+Windows default routinely disagree, which is why `default_flip_*` and
+`enabled_by_default` are separate rows: the first says what Chromium wrote, the
+second says what our users get.
 
 ## Behaviour unchanged (cleanup)
 
@@ -77,21 +81,45 @@ scripts, CI automation, QA harnesses.
 | `web_api_added` | New web API surface — test coverage, possible adoption |
 | `ui_page_added` / `ui_page_removed` | A chrome:// page appeared or disappeared. **Check its guard before concluding** — see traps.md |
 | `ui_page_regated` | The page is now shown under a different flag. The user-visible switch happened when that flag flipped, usually earlier |
+| `ui_page_moved` | The page's URL or parent route changed |
 | `ui_control_type_changed` | A control changed type, e.g. dropdown became a toggle |
 | `ui_control_repointed` | The control now writes a different preference; the old one is orphaned |
-| `ui_gate_changed` / `ui_gate_removed` | The condition deciding a page's visibility moved |
+| `ui_control_added` / `ui_control_removed` | A control appeared or disappeared on a page |
+| `ui_gate_changed` / `ui_gate_removed` / `ui_gate_added` | The condition deciding a page's visibility moved, went away, or appeared |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
 | `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |
 
+## Fork-comparison signals (`--mode fork`)
+
+A different run entirely: upstream Chromium against **our fork at the same
+milestone**, rather than upstream against its own future. Direction is fixed as
+upstream → fork, so these signals describe what *we* did, not what Chromium did.
+An uprev signal never appears in a fork report and vice versa.
+
+| Signal | Meaning |
+|---|---|
+| `fork_dropped` | We removed something upstream still has. **The next rebase brings it back** unless a patch carries the removal |
+| `fork_added` | We have something upstream does not. Our own divergence, already shipped, to be carried through every future merge |
+| `fork_default_override` | We ship a different default from upstream. A rebase can silently revert it |
+| `fork_modified` | Our declaration differs from upstream's in some other way |
+| `fork_ui_removed` / `fork_ui_added` | We removed or added a page or control |
+
+The hard question these cannot answer on their own is whether a difference is a
+*decision* or *debt* — someone chose it, or a merge quietly dropped it. Two-way
+comparison cannot tell them apart. `chromedrift provenance` can, by comparing
+the fork against the series of upstream versions it was merged from: matching an
+older version exactly means stale, not decided. Read that report alongside this
+one.
+
 ## Bucket meanings
 
-| Bucket | Meaning | Action |
-|---|---|---|
-| Must fix | We reference the symbol AND it changed | Assume work |
-| Needs review | We touch the area, or severity is high enough to confirm | Triage by hand |
-| New opportunity | New capability | Product decision |
-| FYI | Recorded for completeness | Do not read line by line |
+| Bucket | Uprev meaning | Fork meaning | Action |
+|---|---|---|---|
+| Must fix | We reference the symbol AND it changed | Divergence we depend on; a rebase undoes it silently | Assume work |
+| Needs review | We touch the area, or severity is high enough to confirm | Divergence with no clear owner: keep ours, or take upstream's | Triage by hand |
+| New opportunity | New capability | *Never used* — nothing in a fork comparison is an opportunity | Product decision |
+| FYI | Recorded for completeness | Same | Do not read line by line |
 
 Only **symbol-level** evidence promotes a finding to Must fix. A path match
 means "somewhere in a file we also touch" — `content_features.cc` declares

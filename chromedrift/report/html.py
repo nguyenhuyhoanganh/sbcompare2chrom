@@ -201,7 +201,11 @@ def render(report: Report, platform: str = "windows") -> str:
         for b in BUCKET_ORDER
     )
 
+    mode = md_report.mode_of(report)
     notes = []
+    subtitle = md_report.MODE_SUBTITLES.get(mode)
+    if subtitle:
+        notes.append(html.escape(subtitle.replace("**", "").replace("*", "")))
     status_note = md_report.ai_status_note(report.summary or {})
     if status_note:
         # Markdown emphasis is meaningless here; keep the words, drop the marks.
@@ -218,10 +222,10 @@ def render(report: Report, platform: str = "windows") -> str:
 
     option = lambda v, label="": f'<option value="{html.escape(v)}">{html.escape(label or v)}</option>'
 
-    return f"""<title>Chromium Uprev Drift</title>
+    return f"""<title>{html.escape(md_report.MODE_TITLES[mode])}</title>
 <style>{_CSS}</style>
 <div class="wrap">
-<h1>Chromium uprev impact</h1>
+<h1>{html.escape(md_report.MODE_TITLES[mode])}</h1>
 <div class="sub"><code>{html.escape(report.from_ref)}</code> →
 <code>{html.escape(report.to_ref)}</code> ·
 {html.escape(str(meta.get('product','downstream browser')))} ·

@@ -61,6 +61,7 @@ class CatalogReport:
     total_files: int = 0
     candidates: List[CatalogEntry] = field(default_factory=list)
     target_paths: List[str] = field(default_factory=list)
+    partitions: List[str] = field(default_factory=list)
 
     def covered(self) -> List[CatalogEntry]:
         return [c for c in self.candidates if c.covered]
@@ -83,6 +84,7 @@ class CatalogReport:
     def to_dict(self) -> dict:
         return {
             "ref": self.ref,
+            "partitions": self.partitions,
             "total_files": self.total_files,
             "candidates": len(self.candidates),
             "covered": len(self.covered()),
@@ -126,10 +128,16 @@ def list_tree(ref: str, workdir: Optional[str] = None,
     return paths
 
 
-def target_prefixes(target_set: str = "default") -> Set[str]:
-    """What the fetch list actually reaches: exact files plus tree roots."""
+def target_prefixes(target_set: str = "default",
+                    partitions: Optional[Sequence[str]] = None) -> Set[str]:
+    """What the fetch list actually reaches: exact files plus tree roots.
+
+    Partitions belong here: a coverage number measured against the full target
+    list, while the run being described only fetches one partition, is a
+    reassuring number about a scan that never happened.
+    """
     out: Set[str] = set()
-    for target in get_targets(target_set):
+    for target in get_targets(target_set, partitions):
         out.add(target.path if target.kind == "file" else target.path.rstrip("/") + "/")
     return out
 
@@ -145,9 +153,11 @@ def _is_covered(path: str, prefixes: Iterable[str]) -> bool:
 
 
 def analyze(paths: Sequence[str], ref: str, target_set: str = "default",
-            include_irrelevant: bool = False) -> CatalogReport:
-    prefixes = target_prefixes(target_set)
+            include_irrelevant: bool = False,
+            partitions: Optional[Sequence[str]] = None) -> CatalogReport:
+    prefixes = target_prefixes(target_set, partitions)
     report = CatalogReport(ref=ref, total_files=len(paths),
+                           partitions=sorted(partitions) if partitions else [],
                            target_paths=sorted(prefixes))
 
     for path in paths:
@@ -167,14 +177,19 @@ def analyze(paths: Sequence[str], ref: str, target_set: str = "default",
 
 
 def summarize(report: CatalogReport, limit: int = 30) -> List[str]:
+    scope = ("the current target set" if not report.partitions
+             else f"partition(s) {'+'.join(report.partitions)}")
     lines = [
         f"{report.total_files:,} files at {report.ref}",
         f"{len(report.candidates)} could declare features "
         f"(by filename, excluding tests and platforms we do not ship)",
-        f"{len(report.covered())} covered by the current target set "
+        f"{len(report.covered())} covered by {scope} "
         f"({report.coverage_pct()}%)",
         f"{len(report.missing())} not fetched",
     ]
+    if report.partitions:
+        lines.append("  (a partitioned run covers less by design; this "
+                     "percentage describes that run, not the full target set)")
     by_area = report.missing_by_area()
     if by_area:
         lines.append("")

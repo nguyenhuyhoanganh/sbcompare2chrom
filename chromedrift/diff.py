@@ -39,6 +39,9 @@ from .model import (
     KIND_WEBUI_CONTROL,
     KIND_WEBUI_GATE,
     KIND_WEBUI_ROUTE,
+    MODE_FORK,
+    MODE_UPREV,
+    MODES,
     MODIFIED,
     REMOVED,
     Change,
@@ -158,20 +161,10 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "origin_trial_change": 35,
 }
 
-# Two comparisons, one engine, opposite meanings.
+# MODE_UPREV / MODE_FORK / MODES are defined in model.py and re-exported here,
+# because every stage downstream of this one -- scoring, prompts, reports --
+# also has to know which comparison it is describing.
 #
-#   uprev: upstream at time A vs upstream at time B. "Removed" means Chromium
-#          cleaned something up, which is usually harmless.
-#   fork:  upstream vs a vendor fork at the same milestone. "Removed" means the
-#          vendor deleted it -- a deliberate product decision that must survive
-#          every future rebase.
-#
-# Running a fork comparison with uprev semantics would label every intentional
-# divergence as upstream housekeeping and score it near zero.
-MODE_UPREV = "uprev"
-MODE_FORK = "fork"
-MODES = (MODE_UPREV, MODE_FORK)
-
 # Fork-mode signals. The question is not "did behaviour change" but "is this
 # divergence we own, and what happens to it at the next rebase".
 FORK_SIGNALS: Dict[str, int] = {

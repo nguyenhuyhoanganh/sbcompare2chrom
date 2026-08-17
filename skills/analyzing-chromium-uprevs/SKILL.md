@@ -67,7 +67,6 @@ Ask for anything missing. Never guess the platform.
 python3 -m chromedrift check          # verify machine, network, configs
 
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --platform Windows \
   --profile config/sb-profile.json5 \
   --llm config/llm.json5 \
   --out out/M148_to_M151

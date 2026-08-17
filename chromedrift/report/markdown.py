@@ -17,6 +17,8 @@ from ..model import (
     BUCKET_ORDER,
     BUCKET_REVIEW,
     KIND_LABELS,
+    MODE_FORK,
+    MODE_UPREV,
     Finding,
     Report,
 )
@@ -28,6 +30,45 @@ VERDICT_LABELS = {
     "no_impact": "no impact",
     "unknown": "unknown",
 }
+
+# The same table means two different things depending on which comparison ran,
+# and the wording is what tells a reader which one they are holding. Titling a
+# fork comparison "uprev impact" and offering the vendor's own customizations
+# as "new capability we could adopt" is not a cosmetic slip -- it inverts the
+# reading of every row.
+MODE_TITLES = {
+    MODE_UPREV: "Chromium uprev impact",
+    MODE_FORK: "Fork divergence from upstream",
+}
+
+MODE_SUBTITLES = {
+    MODE_FORK: "Comparison runs **upstream → our fork** at the same milestone. "
+               "Everything below is a difference we own: *removed* means we "
+               "dropped something upstream still has, *added* means we carry "
+               "something upstream does not.",
+}
+
+_BUCKET_MEANINGS = {
+    MODE_UPREV: {
+        BUCKET_MUST_FIX: "We touch this and it changed. Assume work is needed.",
+        BUCKET_REVIEW: "Either we touch it, or it is severe enough to confirm.",
+        BUCKET_OPPORTUNITY: "New capability we could adopt.",
+        "fyi": "Recorded for completeness.",
+    },
+    MODE_FORK: {
+        BUCKET_MUST_FIX: "Divergence we depend on. A rebase undoes it silently "
+                         "unless a patch carries it.",
+        BUCKET_REVIEW: "Divergence with no clear owner. Decide: keep it, or "
+                       "take upstream's version.",
+        BUCKET_OPPORTUNITY: "Not used in a fork comparison.",
+        "fyi": "Recorded for completeness.",
+    },
+}
+
+
+def mode_of(report: Report) -> str:
+    mode = (report.meta or {}).get("mode") or MODE_UPREV
+    return mode if mode in MODE_TITLES else MODE_UPREV
 
 
 def _esc(text: object) -> str:
@@ -121,7 +162,8 @@ def render(report: Report, platform: str = "windows",
     summary = report.summary or {}
     ai_summary = summary.get("ai") or {}
 
-    out.append(f"# Chromium uprev impact: {report.from_ref} → {report.to_ref}")
+    mode = mode_of(report)
+    out.append(f"# {MODE_TITLES[mode]}: {report.from_ref} → {report.to_ref}")
     out.append("")
     meta = report.meta or {}
     out.append(
@@ -129,6 +171,9 @@ def render(report: Report, platform: str = "windows",
         f"platform **{platform}** · generated {meta.get('generated', '')}"
     )
     out.append("")
+    if MODE_SUBTITLES.get(mode):
+        out.append(MODE_SUBTITLES[mode])
+        out.append("")
 
     # -- verdict --------------------------------------------------------
     if ai_summary.get("headline"):
@@ -144,13 +189,12 @@ def render(report: Report, platform: str = "windows",
     out.append("")
     out.append("| Bucket | Count | Meaning |")
     out.append("|---|---:|---|")
-    meanings = {
-        BUCKET_MUST_FIX: "We touch this and it changed. Assume work is needed.",
-        BUCKET_REVIEW: "Either we touch it, or it is severe enough to confirm.",
-        BUCKET_OPPORTUNITY: "New capability we could adopt.",
-        "fyi": "Recorded for completeness.",
-    }
+    meanings = _BUCKET_MEANINGS[mode]
     for bucket in BUCKET_ORDER:
+        # A bucket a mode never fills would only add a confusing empty row.
+        if mode == MODE_FORK and bucket == BUCKET_OPPORTUNITY \
+                and not counts.get(bucket, 0):
+            continue
         out.append(f"| {BUCKET_LABELS[bucket]} | {counts.get(bucket, 0)} | "
                    f"{meanings.get(bucket, '')} |")
     out.append("")

@@ -379,15 +379,12 @@ Tách thành sáu lệnh không phải để trang trí. Bước đắt (tải v
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --platform Windows \
   --profile config/sb-profile.json5 \
   --llm config/llm.json5 \
   --out out/M148_to_M151
 ```
 
-Hai tuỳ chọn quan trọng:
-
-**`--platform` không phải để trang trí.** Nếu bỏ qua, bạn đọc mặc định toàn cục thay vì mặc định trên nền tảng mình ship, và có thể ra kết luận ngược.
+Một điểm quan trọng:
 
 **Luôn ghi phiên bản đầy đủ, đừng dùng số milestone trần.** `151` sẽ giải ra bản stable mới nhất *tại thời điểm chạy*, và nó trôi. Ví dụ thật: `ServiceWorkerAutoPreload` BẬT ở `143.0.7499.40` nhưng TẮT ở `143.0.7499.194` — cùng milestone, khác bản vá, vì bị revert. Hai lần chạy cách nhau vài tuần có thể cho kết luận khác nhau và cả hai đều đúng.
 
@@ -454,7 +451,7 @@ Lọc theo vùng sản phẩm sẽ vứt sạch phần đầu danh sách.
 
 ```bash
 # Phân tích một lần — report.json luôn chứa TẤT CẢ
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --platform Windows \
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --profile config/sb-profile.json5
 
 # Xem có những vùng nào

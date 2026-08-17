@@ -106,6 +106,23 @@ ADDED = "added"
 REMOVED = "removed"
 MODIFIED = "modified"
 
+# Two comparisons, one engine, opposite meanings.
+#
+#   uprev: upstream at time A vs upstream at time B. "Removed" means Chromium
+#          cleaned something up, which is usually harmless.
+#   fork:  upstream vs a vendor fork at the same milestone. "Removed" means the
+#          vendor deleted it -- a deliberate product decision that must survive
+#          every future rebase, and "added" is divergence to carry, not a
+#          capability on offer.
+#
+# These live here rather than in diff.py because the inversion does not stop at
+# the diff. Scoring, the model prompt and the report all describe a change in
+# words that are only true for one of the two, so each of them has to be told
+# which comparison it is looking at.
+MODE_UPREV = "uprev"
+MODE_FORK = "fork"
+MODES = (MODE_UPREV, MODE_FORK)
+
 
 # ---------------------------------------------------------------------------
 # Facts

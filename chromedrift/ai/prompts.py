@@ -23,7 +23,7 @@ import json
 from typing import Dict, List, Optional, Sequence
 
 from ..diff import SIGNAL_LABELS
-from ..model import KIND_LABELS, Finding
+from ..model import KIND_LABELS, MODE_FORK, MODE_UPREV, Finding
 from ..sbprofile import Area, TouchSet
 
 SYSTEM_MAP = """\
@@ -41,8 +41,9 @@ feature's name.
 what evidence would settle it. This is expected and useful; guessing is not.
 - "we_reference" evidence means the vendor's own source or patches touch this \
 symbol or file. That is the strongest signal that action is required.
-- Prefer concrete actions ("re-test PiP on Windows 14", "rebase patch in \
-render_widget_host_view_windows.cc") over generic advice ("monitor this").
+- Prefer concrete actions ("re-test picture-in-picture on Windows 11", "rebase \
+our patch in render_widget_host_view_aura.cc") over generic advice ("monitor \
+this"). Name a file only if the record names it; do not invent paths.
 - Be brief. One or two sentences per field.
 
 Return ONLY a JSON object, no prose around it:
@@ -61,6 +62,57 @@ Verdicts:
 - no_impact: safe to ignore for this product
 - unknown: evidence insufficient
 """
+
+# Fork comparison: the same records, read the other way round.
+#
+# Reusing SYSTEM_MAP here would be actively misleading. It frames every record
+# as "Chromium changed something between two of its own versions", so the model
+# reads a missing fact as upstream cleanup. In a fork comparison a missing fact
+# is something *the vendor deleted on purpose*, and an extra one is the
+# vendor's own code -- the opposite conclusion, from the same JSON.
+SYSTEM_MAP_FORK = """\
+You are a browser platform engineer comparing a downstream vendor browser (a \
+Chromium fork shipped on Windows) against the upstream Chromium release it was \
+merged from. Both sides are at the same milestone.
+
+Direction matters and is fixed: the comparison runs upstream -> our fork.
+
+- "removed" means WE removed something upstream still has. The next rebase \
+brings it back unless a patch carries the removal. It is not upstream cleanup.
+- "added" means WE have something upstream does not. It is our own divergence, \
+already shipped, and it has to survive every future merge. It is NOT a new \
+capability to consider adopting.
+- "modified" means our declaration differs from upstream's. Decide whether that \
+reads as a deliberate product decision or as a merge that quietly missed an \
+upstream change.
+
+For each record decide what the difference IS and what it costs to keep.
+
+Rules:
+- Judge only from the evidence in the record. Do NOT infer behaviour from a \
+name, and do not assume a difference is intentional just because it exists.
+- If the evidence cannot tell a decision from an accident, use verdict \
+"unknown" and say what would settle it (a commit message, an owner, a bug id). \
+This is the common and correct answer here; guessing is not.
+- Be brief. One or two sentences per field.
+
+Return ONLY a JSON object, no prose around it:
+{"assessments":[{"id":"<exact id from the record>",
+  "verdict":"breaks_us|behaviour_change|adopt|no_impact|unknown",
+  "rationale":"why, citing the evidence",
+  "action":"what to do, or empty if none",
+  "effort":"none|small|medium|large|unknown",
+  "risk":"low|medium|high|unknown",
+  "test_hint":"what to test, or empty"}]}
+
+Verdicts, in fork terms:
+- breaks_us: the next rebase silently undoes this, or our side no longer builds
+- behaviour_change: our users see something different from upstream's
+- adopt: upstream's version is better and we should drop ours
+- no_impact: the difference is cosmetic or already dead code
+- unknown: cannot tell decision from accident with what is here
+"""
+
 
 SYSTEM_REDUCE = """\
 You are writing the executive summary of a Chromium uprev impact report for a \
@@ -176,14 +228,27 @@ def render_milestone_brief(entries: Sequence[dict]) -> str:
     return "\n".join(lines)
 
 
+def system_for(mode: str = MODE_UPREV) -> str:
+    """The system prompt matching the comparison actually being run."""
+    return SYSTEM_MAP_FORK if mode == MODE_FORK else SYSTEM_MAP
+
+
+def _comparison_line(mode: str, from_ref: str, to_ref: str) -> str:
+    if mode == MODE_FORK:
+        return (f"FORK COMPARISON: upstream {from_ref} -> our fork {to_ref} "
+                f"(same milestone; every difference below is ours)")
+    return f"UPREV: {from_ref} -> {to_ref}"
+
+
 def build_map_prompt(findings: Sequence[Finding], touch: TouchSet,
                      from_ref: str, to_ref: str,
                      relevant_areas: Optional[Sequence[Area]] = None,
-                     milestone_brief: Optional[Sequence[dict]] = None) -> str:
+                     milestone_brief: Optional[Sequence[dict]] = None,
+                     mode: str = MODE_UPREV) -> str:
     areas = relevant_areas if relevant_areas is not None else touch.areas
     header = [
         f"PRODUCT: {touch.name} (Chromium fork, platform: {touch.platform})",
-        f"UPREV: {from_ref} -> {to_ref}",
+        _comparison_line(mode, from_ref, to_ref),
         "",
         "OUR OWNED AREAS:",
         render_areas(areas),
@@ -204,11 +269,12 @@ def build_map_prompt(findings: Sequence[Finding], touch: TouchSet,
 
 def build_reduce_prompt(assessments: List[dict], findings: Sequence[Finding],
                         touch: TouchSet, from_ref: str, to_ref: str,
-                        bucket_counts: Dict[str, int]) -> str:
+                        bucket_counts: Dict[str, int],
+                        mode: str = MODE_UPREV) -> str:
     by_id = {f.uid: f for f in findings}
     lines = [
         f"PRODUCT: {touch.name} (platform: {touch.platform})",
-        f"UPREV: {from_ref} -> {to_ref}",
+        _comparison_line(mode, from_ref, to_ref),
         f"Triage buckets: {json.dumps(bucket_counts)}",
         "",
         "ASSESSMENTS:",

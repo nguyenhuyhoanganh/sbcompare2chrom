@@ -72,7 +72,7 @@ python3 -m chromedrift check
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --platform Windows --no-ai --no-enrich --out out/smoke
+  --no-ai --no-enrich --out out/smoke
 ```
 
 **Kỳ vọng**: khoảng 90 giây, ~2.500 semantic changes, sinh 3 file trong `out/smoke/`.
@@ -188,7 +188,7 @@ python3 -m chromedrift profile config/sb-profile.json5
 cd /đường/dẫn/sbrowser/src && git checkout main/dev && cd -
 
 python3 -m chromedrift snapshot sb-main-dev \
-  --local-src /đường/dẫn/sbrowser/src --platform Windows
+  --local-src /đường/dẫn/sbrowser/src
 ```
 
 **Kỳ vọng**: khoảng 20.000+ facts, phân bố các loại gần giống Chromium thuần.
@@ -204,7 +204,7 @@ python3 -m chromedrift snapshot sb-main-dev \
 ```bash
 python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
   --to-src /đường/dẫn/sbrowser/src \
-  --platform Windows --profile config/sb-profile.json5 \
+  --profile config/sb-profile.json5 \
   --no-ai --out out/sb-vs-m148
 ```
 
@@ -221,7 +221,7 @@ python3 -m chromedrift provenance sb-main-dev \
   <dãy-phiên-bản-từ-việc-1.2> \
   --fork-src /đường/dẫn/sbrowser/src \
   --profile config/sb-profile.json5 \
-  --platform Windows --out out/provenance.json
+  --out out/provenance.json
 ```
 
 Ví dụ: `provenance sb-main-dev 120.0.x 131.0.x 139.0.x 148.0.7778.217 ...`
@@ -296,7 +296,7 @@ python3 -m chromedrift check --llm config/llm.json5
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
-  --to-src /đường/dẫn/sbrowser/src --platform Windows \
+  --to-src /đường/dẫn/sbrowser/src \
   --profile config/sb-profile.json5 --llm config/llm.json5 \
   --out out/sb-ai
 ```

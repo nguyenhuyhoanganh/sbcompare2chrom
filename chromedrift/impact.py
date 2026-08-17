@@ -21,14 +21,12 @@ from .model import (
     BUCKET_MUST_FIX,
     BUCKET_OPPORTUNITY,
     BUCKET_REVIEW,
-    KIND_BASE_FEATURE,
-    KIND_BLINK_RUNTIME,
-    MODIFIED,
-    REMOVED,
+    MODE_FORK,
+    MODE_UPREV,
     Change,
     Finding,
 )
-from .sbprofile import UNASSIGNED, TouchSet, change_tokens
+from .sbprofile import TouchSet, change_tokens
 
 # Signals that mean "someone has to do something", regardless of score, once
 # there is any downstream evidence attached.
@@ -51,6 +49,17 @@ OPPORTUNITY_SIGNALS = {
     "web_api_shipped",
     "web_api_added",
     "new_feature_on_by_default",
+}
+
+# Fork mode inverts what "added" and "removed" mean, and the bucket names have
+# to follow. A fact the vendor added is not a capability on offer -- it is
+# divergence the team already owns and has to keep carrying through every
+# rebase. Bucketing it as "New opportunity" tells the team their own
+# customization is something they might like to adopt.
+FORK_CARRY_SIGNALS = {
+    "fork_dropped",            # a rebase silently puts it back
+    "fork_default_override",   # a rebase silently reverts the default
+    "fork_ui_removed",
 }
 
 # Symbol evidence outweighs path evidence on purpose.  Patching a file that
@@ -77,7 +86,8 @@ def _platform_applicable(change: Change, platform: str) -> Optional[bool]:
     return None
 
 
-def score_change(change: Change, touch: TouchSet) -> Finding:
+def score_change(change: Change, touch: TouchSet,
+                 mode: str = MODE_UPREV) -> Finding:
     finding = Finding(change=change)
     score = change.severity
     reasons: List[str] = [
@@ -131,19 +141,28 @@ def score_change(change: Change, touch: TouchSet) -> Finding:
     score = max(0, min(100, score))
     finding.score = score
     finding.reasons = reasons
-    finding.bucket = _bucket(change, finding, score)
+    finding.bucket = _bucket(change, finding, score, mode)
     return finding
 
 
-def _bucket(change: Change, finding: Finding, score: int) -> str:
+def _bucket(change: Change, finding: Finding, score: int,
+            mode: str = MODE_UPREV) -> str:
     # Only symbol-level evidence is specific enough to promote something to
     # "must fix" on its own; a path match means "somewhere in a file we also
     # touch", which is a reason to look, not a reason to act.
     evidence = bool(finding.matched_symbols)
     weak_evidence = bool(finding.matched_paths)
-    breaking = bool(set(change.signals) & BREAKING_SIGNALS)
-    opportunity = bool(set(change.signals) & OPPORTUNITY_SIGNALS) or (
-        change.change_type == ADDED)
+
+    if mode == MODE_FORK:
+        # Nothing in a fork comparison is an opportunity: both sides are code
+        # that already exists, and every difference is either ours to defend or
+        # upstream's to absorb.
+        breaking = bool(set(change.signals) & FORK_CARRY_SIGNALS)
+        opportunity = False
+    else:
+        breaking = bool(set(change.signals) & BREAKING_SIGNALS)
+        opportunity = bool(set(change.signals) & OPPORTUNITY_SIGNALS) or (
+            change.change_type == ADDED)
 
     if evidence and (breaking or score >= 60):
         return BUCKET_MUST_FIX
@@ -163,8 +182,9 @@ def _bucket(change: Change, finding: Finding, score: int) -> str:
     return BUCKET_FYI
 
 
-def score_all(changes: List[Change], touch: TouchSet) -> List[Finding]:
-    findings = [score_change(c, touch) for c in changes]
+def score_all(changes: List[Change], touch: TouchSet,
+              mode: str = MODE_UPREV) -> List[Finding]:
+    findings = [score_change(c, touch, mode) for c in changes]
     findings.sort(key=lambda f: (-f.score, f.change.kind, f.change.key))
     return findings
 

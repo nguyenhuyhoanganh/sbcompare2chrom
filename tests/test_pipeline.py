@@ -383,6 +383,87 @@ class TestForkMode(unittest.TestCase):
         self.assertEqual(set(FORK_SIGNALS), set(FORK_LABELS))
 
 
+class TestForkModeSurvivesTheDiff(unittest.TestCase):
+    """The inversion has to hold all the way to the page a human reads.
+
+    Every test above this one stops at `diff.py`, and for a while that was
+    exactly where fork semantics stopped too: scoring, the model prompt and the
+    report all kept their uprev wording, so a feature the vendor had added
+    appeared under "New opportunity -- new capability we could adopt". The
+    fork signals were right and everything downstream of them was wrong.
+    """
+
+    def _fork_findings(self, old_facts, new_facts):
+        from chromedrift.model import MODE_FORK
+        changes = diff_snapshots(snap("148.0.0.0", old_facts),
+                                 snap("sb-main-dev", new_facts),
+                                 mode=MODE_FORK)
+        return score_all(changes, TouchSet(name="SB", platform="windows"),
+                         mode=MODE_FORK)
+
+    def test_vendor_addition_is_not_an_opportunity(self):
+        finding = self._fork_findings([], [feature("SbrowserSauce", "enabled")])[0]
+        self.assertIn("fork_added", finding.change.signals)
+        # Our own shipped customization is not a capability on offer.
+        self.assertNotEqual(finding.bucket, "opportunity")
+
+    def test_no_finding_lands_in_opportunity_in_fork_mode(self):
+        findings = self._fork_findings(
+            [feature("Dropped", "enabled"), feature("Flipped", "enabled")],
+            [feature("Flipped", "disabled"), feature("Added", "enabled")],
+        )
+        self.assertTrue(findings)
+        self.assertEqual([f for f in findings if f.bucket == "opportunity"], [])
+
+    def test_divergence_we_reference_must_be_carried(self):
+        touch = TouchSet(name="SB", platform="windows", symbols={"kDropped"})
+        from chromedrift.model import MODE_FORK
+        changes = diff_snapshots(snap("148.0.0.0", [feature("Dropped", "enabled")]),
+                                 snap("sb-main-dev", []), mode=MODE_FORK)
+        finding = score_all(changes, touch, mode=MODE_FORK)[0]
+        # We removed it and our own source names it: the next rebase puts it
+        # back, so this is work, not trivia.
+        self.assertEqual(finding.bucket, "must_fix")
+
+    def test_uprev_mode_keeps_its_opportunity_bucket(self):
+        """The fork branch must not quietly change uprev behaviour."""
+        changes = diff_snapshots(snap("148.0.0.0", []),
+                                 snap("151.0.0.0", [feature("Shiny", "enabled")]))
+        finding = score_all(changes, TouchSet(name="SB", platform="windows"))[0]
+        self.assertEqual(finding.bucket, "opportunity")
+
+    def test_report_says_which_comparison_it_is(self):
+        from chromedrift.model import MODE_FORK, Report
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+
+        findings = self._fork_findings([], [feature("SbrowserSauce", "enabled")])
+        report = Report(from_ref="148.0.0.0", to_ref="sb-main-dev",
+                        findings=findings, meta={"mode": MODE_FORK})
+        for text in (md_report.render(report), html_report.render(report)):
+            self.assertNotIn("uprev impact", text.lower())
+            self.assertIn("upstream", text.lower())
+        # ...and an uprev report is still an uprev report.
+        uprev = Report(from_ref="148.0.0.0", to_ref="151.0.0.0", findings=[])
+        self.assertIn("uprev impact", md_report.render(uprev).lower())
+
+    def test_model_is_told_the_direction(self):
+        from chromedrift.ai.prompts import SYSTEM_MAP, build_map_prompt, system_for
+        from chromedrift.model import MODE_FORK, MODE_UPREV
+
+        self.assertIs(system_for(MODE_UPREV), SYSTEM_MAP)
+        fork_system = system_for(MODE_FORK)
+        self.assertIsNot(fork_system, SYSTEM_MAP)
+        self.assertIn("WE removed", fork_system)
+
+        touch = TouchSet(name="SB", platform="windows")
+        findings = self._fork_findings([], [feature("SbrowserSauce", "enabled")])
+        prompt = build_map_prompt(findings, touch, "148.0.0.0", "sb-main-dev",
+                                  mode=MODE_FORK)
+        self.assertIn("FORK COMPARISON", prompt)
+        self.assertNotIn("UPREV:", prompt)
+
+
 class TestProvenance(unittest.TestCase):
     """A two-way diff cannot tell a decision from merge debt. Three-way can.
 
@@ -534,6 +615,171 @@ class TestPartitions(unittest.TestCase):
         new.meta = {"target_set": "default", "partitions": ["downloads"]}
         with self.assertRaises(ValueError):
             diff_snapshots(old, new)
+
+
+class TestDocumentedInterface(unittest.TestCase):
+    """The docs are the interface for people who never read the source.
+
+    Both halves of this drifted at once and neither showed up in a test run:
+    `--platform` was removed from the CLI while eight documented commands kept
+    passing it (they now exit with an argparse error before doing any work),
+    and the skill's signal reference still named `android_enabled_by_default`
+    after the rename, while missing every fork-mode signal -- the ones the SB
+    comparison produces exclusively.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DOCS = ("README.md", "SETUP.md", "HANDOFF.md",
+            "skills/analyzing-chromium-uprevs/SKILL.md",
+            "skills/analyzing-chromium-uprevs/reference/signals.md",
+            "skills/analyzing-chromium-uprevs/reference/traps.md",
+            "skills/analyzing-chromium-uprevs/reference/settings-surface.md")
+
+    def _read(self, rel):
+        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_every_documented_command_parses(self):
+        import contextlib
+        import io
+        import re
+
+        from chromedrift.cli import build_parser
+
+        pattern = re.compile(r"python3?\s+-m\s+chromedrift\s+((?:[^\n\\]|\\\n)*)")
+        rejected = []
+        for doc in self.DOCS:
+            for match in pattern.finditer(self._read(doc)):
+                raw = match.group(1).replace("\\\n", " ").split("#")[0].strip()
+                argv = [a for a in raw.split() if not a.startswith("$")]
+                # Prose quoting a bare subcommand, or a snippet with an elided
+                # argument, is not a command anyone is expected to paste.
+                if len(argv) < 2 or "…" in raw or "<" in raw or "--version" in argv:
+                    continue
+                buf = io.StringIO()
+                try:
+                    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
+                        build_parser().parse_args(argv)
+                except SystemExit:
+                    rejected.append(f"{doc}: chromedrift {raw[:70]}")
+        self.assertEqual(rejected, [], "documented commands the CLI rejects")
+
+    def test_the_signal_reference_matches_the_signals(self):
+        import re
+
+        from chromedrift.diff import SIGNAL_LABELS, SIGNAL_SEVERITY
+
+        real = set(SIGNAL_SEVERITY) | set(SIGNAL_LABELS)
+        text = self._read("skills/analyzing-chromium-uprevs/reference/signals.md")
+        documented = {t for t in re.findall(r"`([a-z][a-z0-9_]{4,})`", text)
+                      if "_" in t}
+
+        self.assertEqual(sorted(documented - real), [],
+                         "signals.md documents signals the tool never emits")
+        self.assertEqual(sorted(real - documented), [],
+                         "the tool emits signals signals.md does not explain")
+
+
+class TestFetchMarkers(unittest.TestCase):
+    """A cached outcome has to remember which outcome it was.
+
+    A target genuinely absent from an older milestone is cached so it is not
+    refetched every run. When that cache only recorded "done", a run in which
+    every target 404s -- a mistyped tag, or a proxy that answers 404 instead of
+    blocking -- failed loudly the first time and then, on the identical second
+    invocation, read as a fully cached tree. The snapshot written from it held
+    zero facts, and diffed against a real one the entire feature surface
+    appeared to vanish. Nothing in the output said so.
+    """
+
+    def setUp(self):
+        import tempfile
+        from chromedrift.acquire import GitilesSource
+        from chromedrift.targets import get_targets
+
+        class AllMissing(GitilesSource):
+            def fetch_file(self, path):
+                return None
+
+            def fetch_archive(self, directory):
+                return None
+
+        self.root = tempfile.mkdtemp()
+        self.targets = get_targets("minimal")
+        self.source = AllMissing("refs/tags/999.0.0.0", self.root)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _missing(self, stats):
+        return [p for p, v in stats.items() if v == "missing"]
+
+    def test_a_missing_target_stays_missing_on_the_next_run(self):
+        tree = os.path.join(self.root, "tree")
+        first = self.source.materialize(self.targets, tree)
+        second = self.source.materialize(self.targets, tree)
+        self.assertEqual(len(self._missing(first)), len(self.targets))
+        self.assertEqual(len(self._missing(second)), len(self.targets),
+                         "a re-run reported the failed fetches as cached")
+
+    def test_the_absence_is_still_cached_not_refetched(self):
+        tree = os.path.join(self.root, "tree")
+        self.source.materialize(self.targets, tree)
+        calls = []
+        self.source.fetch_file = lambda path: calls.append(path)
+        self.source.materialize(self.targets, tree)
+        self.assertEqual(calls, [], "cached absences were refetched")
+
+
+class TestPartitionPlumbing(unittest.TestCase):
+    """Every command that accepts --partition has to act on it.
+
+    Three of them accepted the flag and dropped it: `provenance` (the command
+    the fork comparison actually runs), `profile`, and `catalog` -- which then
+    reported coverage against the full target list while describing a run that
+    only fetched one partition.
+    """
+
+    def _parse(self, argv):
+        from chromedrift.cli import build_parser
+        return build_parser().parse_args(argv)
+
+    def test_every_command_taking_the_flag_forwards_it(self):
+        import inspect
+        from chromedrift import cli
+
+        for name in ("cmd_snapshot", "cmd_diff", "cmd_run", "cmd_profile",
+                     "cmd_provenance"):
+            src = inspect.getsource(getattr(cli, name))
+            self.assertIn("build_snapshot", src, name)
+            self.assertEqual(
+                src.count("build_snapshot("), src.count("partitions=args.partitions"),
+                f"{name} builds a snapshot without forwarding --partition")
+
+    def test_catalog_measures_the_partition_it_was_given(self):
+        from chromedrift import catalog
+        paths = ["chrome/browser/resources/settings/route.ts",
+                 "components/download/public/common/download_features.cc",
+                 "media/base/media_switches.cc"]
+        full = catalog.analyze(paths, ref="151.0.0.0")
+        scoped = catalog.analyze(paths, ref="151.0.0.0", partitions=["downloads"])
+        self.assertEqual(scoped.partitions, ["downloads"])
+        self.assertLess(len(scoped.target_paths), len(full.target_paths))
+        # media/ is outside the downloads partition, so a partitioned run must
+        # not claim to have covered it.
+        covered = {c.path for c in scoped.covered()}
+        self.assertNotIn("media/base/media_switches.cc", covered)
+        self.assertIn("media/base/media_switches.cc",
+                      {c.path for c in full.covered()})
+
+    def test_the_summary_admits_it_is_partial(self):
+        from chromedrift import catalog
+        report = catalog.analyze(["media/base/media_switches.cc"],
+                                 ref="151.0.0.0", partitions=["downloads"])
+        text = "\n".join(catalog.summarize(report))
+        self.assertIn("downloads", text)
+        self.assertIn("covers less by design", text)
 
 
 class TestCatalog(unittest.TestCase):

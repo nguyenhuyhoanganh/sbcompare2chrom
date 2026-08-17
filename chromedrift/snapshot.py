@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional
+from typing import Optional, Sequence
 
 from .acquire import (
     AcquireError,
@@ -80,7 +80,15 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
     missing = [p for p, v in fetch_stats.items() if v == "missing"]
     if len(missing) == len(targets):
         raise AcquireError(
-            f"every target missing for {resolved} -- is the ref valid?")
+            f"every target missing for {resolved} -- is the ref valid? "
+            f"(a proxy that answers 404 looks identical to a bad tag here)")
+    if missing:
+        # Not fatal: a target may genuinely not exist yet in an older
+        # milestone. Silent, though, it is the difference between "this
+        # feature was added" and "we never fetched the file declaring it".
+        log(f"  ! {len(missing)} of {len(targets)} targets missing at "
+            f"{resolved}: {', '.join(missing[:3])}"
+            + (" ..." if len(missing) > 3 else ""))
 
     # Scope extraction to what this target set declared, not to whatever the
     # shared per-ref tree cache happens to hold from an earlier run.

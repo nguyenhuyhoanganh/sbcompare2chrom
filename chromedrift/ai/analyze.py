@@ -16,17 +16,17 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from ..model import BUCKET_ORDER, Finding
+from ..model import BUCKET_ORDER, MODE_UPREV, Finding
 from ..sbprofile import Area, TouchSet
 from .budget import Budget, estimate_tokens, group_by, pack
 from .client import LLMClient, LLMError, parse_json_response
 from .prompts import (
-    SYSTEM_MAP,
     SYSTEM_REDUCE,
     build_map_prompt,
     build_reduce_prompt,
     render_finding,
     render_milestone_brief,
+    system_for,
 )
 
 VALID_VERDICTS = {"breaks_us", "behaviour_change", "adopt", "no_impact", "unknown"}
@@ -53,6 +53,7 @@ def _areas_for(findings: Sequence[Finding], touch: TouchSet) -> List[Area]:
 def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
             from_ref: str, to_ref: str, top: int = 150,
             milestone_brief: Optional[Sequence[dict]] = None,
+            mode: str = MODE_UPREV,
             log=print) -> Tuple[List[Finding], Dict[str, object]]:
     """Attach AI assessments in place and return (analyzed, summary)."""
     selected = select_for_analysis(findings, top=top)
@@ -60,6 +61,7 @@ def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
         log("  nothing selected for AI analysis")
         return [], {}
 
+    system_map = system_for(mode)
     budget = Budget(
         context_window=client.config.context_window,
         max_output_tokens=client.config.max_output_tokens,
@@ -68,7 +70,7 @@ def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
     # The shared milestone brief is repeated in every request, so it is fixed
     # overhead rather than packable content.
     brief_cost = estimate_tokens(render_milestone_brief(milestone_brief or []))
-    overhead = estimate_tokens(SYSTEM_MAP) + 800 + brief_cost
+    overhead = estimate_tokens(system_map) + 800 + brief_cost
     per_request = budget.input_budget(fixed_overhead=overhead)
     if milestone_brief:
         log(f"  shared context: {len(milestone_brief)} chromestatus entries "
@@ -115,11 +117,11 @@ def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
     for i, batch in enumerate(batches, 1):
         prompt = build_map_prompt(batch, touch, from_ref, to_ref,
                                   _areas_for(batch, touch),
-                                  milestone_brief=milestone_brief)
+                                  milestone_brief=milestone_brief, mode=mode)
         log(f"    batch {i}/{len(batches)}: {len(batch)} records, "
             f"~{estimate_tokens(prompt)} tokens")
         try:
-            raw = client.complete(SYSTEM_MAP, prompt)
+            raw = client.complete(system_map, prompt)
         except LLMError as exc:
             failures.append(f"batch {i}: {exc}")
             log(f"    ! batch {i} failed: {exc}")
@@ -158,7 +160,7 @@ def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
     log(f"  assessed {coverage} selected findings")
 
     summary = _reduce(all_assessments, selected, touch, client, from_ref, to_ref,
-                      log=log)
+                      mode=mode, log=log)
     summary["coverage"] = coverage
     summary["batches"] = len(batches)
     if failures:
@@ -171,7 +173,7 @@ def analyze(findings: Sequence[Finding], touch: TouchSet, client: LLMClient,
 
 def _reduce(assessments: List[dict], findings: Sequence[Finding],
             touch: TouchSet, client: LLMClient, from_ref: str, to_ref: str,
-            log=print) -> Dict[str, object]:
+            mode: str = MODE_UPREV, log=print) -> Dict[str, object]:
     if not assessments:
         return {}
     bucket_counts: Dict[str, int] = {}
@@ -179,7 +181,7 @@ def _reduce(assessments: List[dict], findings: Sequence[Finding],
         bucket_counts[finding.bucket] = bucket_counts.get(finding.bucket, 0) + 1
 
     prompt = build_reduce_prompt(assessments, findings, touch, from_ref, to_ref,
-                                 bucket_counts)
+                                 bucket_counts, mode=mode)
     budget = Budget(context_window=client.config.context_window,
                     max_output_tokens=client.config.max_output_tokens,
                     reserve_tokens=client.config.reserve_tokens)
@@ -190,7 +192,7 @@ def _reduce(assessments: List[dict], findings: Sequence[Finding],
         keep = int(len(assessments) * limit / max(1, estimate_tokens(prompt)))
         log(f"  reduce prompt over budget; summarizing top {keep} assessments")
         prompt = build_reduce_prompt(assessments[:keep], findings, touch,
-                                     from_ref, to_ref, bucket_counts)
+                                     from_ref, to_ref, bucket_counts, mode=mode)
 
     try:
         raw = client.complete(SYSTEM_REDUCE, prompt)

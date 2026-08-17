@@ -221,16 +221,21 @@ class GitilesSource(Source):
         stats: Dict[str, str] = {}
         for target in targets:
             dest = os.path.join(root, target.path.replace("/", os.sep))
-            marker = os.path.join(root, ".chromedrift", _target_marker(target) + ".ok")
+            marker = os.path.join(root, ".chromedrift",
+                                  _target_marker(target) + ".state")
             if os.path.exists(marker) and not self.refresh:
-                stats[target.path] = "cached"
+                # A cached absence stays an absence, so callers counting
+                # missing targets get the same answer on every run.
+                stats[target.path] = ("missing"
+                                      if _read_marker(marker) == MARKER_MISSING
+                                      else "cached")
                 continue
             os.makedirs(os.path.dirname(marker), exist_ok=True)
             if target.kind == "file":
                 data = self.fetch_file(target.path)
                 if data is None:
                     stats[target.path] = "missing"
-                    _touch(marker)
+                    _write_marker(marker, MARKER_MISSING)
                     continue
                 os.makedirs(os.path.dirname(dest) or root, exist_ok=True)
                 with open(dest, "wb") as fh:
@@ -240,11 +245,11 @@ class GitilesSource(Source):
                 blob = self.fetch_archive(target.path)
                 if blob is None:
                     stats[target.path] = "missing"
-                    _touch(marker)
+                    _write_marker(marker, MARKER_MISSING)
                     continue
                 n = _extract_tar_gz(blob, dest, include=target.include)
                 stats[target.path] = f"tree {n} files, {len(blob)}B"
-            _touch(marker)
+            _write_marker(marker, MARKER_OK)
             self.log(f"    {target.path}: {stats[target.path]}")
         return stats
 
@@ -305,10 +310,33 @@ class FetchTarget:
 # ---------------------------------------------------------------------------
 
 
-def _touch(path: str) -> None:
+MARKER_OK = "ok"
+MARKER_MISSING = "missing"
+
+
+def _write_marker(path: str, status: str = MARKER_OK) -> None:
+    """Record *what* the cached outcome was, not merely that there was one.
+
+    A target legitimately absent from an older milestone should not be refetched
+    every run, so a 404 is cached like any other outcome. But a marker that only
+    says "done" loses the difference between "fetched" and "not there", and that
+    difference is the only thing standing between a bad ref and a plausible
+    report: with a marker that says "ok", a run where *every* target 404s fails
+    loudly the first time and then, on the identical second invocation, reads as
+    a fully cached tree and writes a snapshot containing zero facts. Diffed
+    against a real one, that is the whole feature surface appearing to vanish.
+    """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write("ok\n")
+        fh.write(status + "\n")
+
+
+def _read_marker(path: str) -> str:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().strip() or MARKER_OK
+    except OSError:
+        return MARKER_OK
 
 
 def _safe_name(path: str) -> str:

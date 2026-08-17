@@ -111,10 +111,11 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
 In `content_features.cc` alone, 14 of 187 features have platform-divergent
 defaults.
 
-**Check:** always pass `--platform` and read `platform_state[<platform>]`,
-never `default_state`. A value of `conditional` means the guard depends on a
-non-platform build flag the tool cannot decide — report it as undetermined
-rather than guessing.
+**Check:** read `platform_state.windows`, never `default_state`. The platform is
+fixed to Windows and is not selectable — reading the wrong one does not blur the
+answer, it inverts it, so there is no option to get wrong. A value of
+`conditional` means the guard depends on a non-platform build flag the tool
+cannot decide — report it as undetermined rather than guessing.
 
 ## 6. Declarative files declare more than ships
 

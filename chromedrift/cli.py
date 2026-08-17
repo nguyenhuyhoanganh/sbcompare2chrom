@@ -90,7 +90,8 @@ def cmd_profile(args: argparse.Namespace) -> int:
     snapshots = []
     if args.ref:
         snapshots.append(build_snapshot(args.ref, args.cache, args.target_set,
-                                        platform=PLATFORM, log=_log))
+                                        platform=PLATFORM,
+                                        partitions=args.partitions, log=_log))
     touch = load_profile(args.profile, snapshots=snapshots, log=_log)
     print(f"profile: {touch.name} (platform {touch.platform})")
     print(f"  areas:            {len(touch.areas)}")
@@ -141,7 +142,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         touch = TouchSet(name="downstream (no profile)", platform=platform)
         _log("  no --profile given: scoring on intrinsic severity only")
 
-    findings = score_all(changes, touch)
+    findings = score_all(changes, touch, mode=args.mode)
     # Group related findings before anything reads them. One upstream change
     # arrives as fragments across several surfaces; ungrouped they contradict
     # each other.
@@ -179,7 +180,7 @@ def cmd_run(args: argparse.Namespace) -> int:
              f"window={config.context_window}")
         _, ai_summary = analyze(findings, touch, client, old.ref, new.ref,
                                 top=args.top, milestone_brief=milestone_brief,
-                                log=_log)
+                                mode=args.mode, log=_log)
     else:
         _log("[6/6] AI analysis skipped")
 
@@ -338,7 +339,8 @@ def cmd_catalog(args: argparse.Namespace) -> int:
     _log(f"cataloguing {args.ref}")
     paths = catalog.list_tree(args.ref, workdir=args.keep_clone, log=_log)
     report = catalog.analyze(paths, ref=args.ref, target_set=args.target_set,
-                             include_irrelevant=args.all_platforms)
+                             include_irrelevant=args.all_platforms,
+                             partitions=args.partitions)
     print()
     for line in catalog.summarize(report):
         print(line)
@@ -368,14 +370,16 @@ def cmd_provenance(args: argparse.Namespace) -> int:
     _log(f"fork snapshot: {args.fork}")
     fork = build_snapshot(args.fork, args.cache, args.target_set,
                           platform=PLATFORM, local_src=args.fork_src,
-                          refresh=args.refresh, log=_log)
+                          refresh=args.refresh, partitions=args.partitions,
+                          log=_log)
 
     upstream = []
     for ref in args.upstream:
         _log(f"upstream snapshot: {ref}")
         upstream.append(build_snapshot(ref, args.cache, args.target_set,
                                        platform=PLATFORM,
-                                       refresh=args.refresh, log=_log))
+                                       refresh=args.refresh,
+                                       partitions=args.partitions, log=_log))
 
     report = provenance.analyze(upstream=upstream, fork=fork,
                                 base_ref=args.base)
