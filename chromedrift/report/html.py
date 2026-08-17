@@ -184,7 +184,7 @@ def _trim(value, limit: int = 90) -> str:
     return text if len(text) <= limit else text[:limit] + "…"
 
 
-def render(report: Report, platform: str = "android") -> str:
+def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
     counts = report.bucket_counts()
     meta = report.meta or {}

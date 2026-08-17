@@ -8,7 +8,7 @@
 // with your real fork's inventory before trusting the output.
 {
   name: "Samsung Internet",
-  platform: "android",          // whose default states matter
+  platform: "windows",          // fixed: this tool targets Windows only
   chromium_base: "139.0.7258.155",
 
   // ---------------------------------------------------------------------

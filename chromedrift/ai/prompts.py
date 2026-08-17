@@ -28,7 +28,7 @@ from ..sbprofile import Area, TouchSet
 
 SYSTEM_MAP = """\
 You are a browser platform engineer doing Chromium uprev impact analysis for a \
-downstream vendor browser (a Chromium fork shipped on Android).
+downstream vendor browser (a Chromium fork shipped on Windows).
 
 You are given change records already extracted and scored from two Chromium \
 versions. For each record decide what it means FOR THIS BROWSER and what the \
@@ -41,8 +41,8 @@ feature's name.
 what evidence would settle it. This is expected and useful; guessing is not.
 - "we_reference" evidence means the vendor's own source or patches touch this \
 symbol or file. That is the strongest signal that action is required.
-- Prefer concrete actions ("re-test PiP on Android 14", "rebase patch in \
-render_widget_host_view_android.cc") over generic advice ("monitor this").
+- Prefer concrete actions ("re-test PiP on Windows 14", "rebase patch in \
+render_widget_host_view_windows.cc") over generic advice ("monitor this").
 - Be brief. One or two sentences per field.
 
 Return ONLY a JSON object, no prose around it:
@@ -90,7 +90,7 @@ def _fmt_state(attrs: Optional[dict], platform: str) -> str:
     return str(attrs.get("default_state") or attrs.get("status") or "-")
 
 
-def render_finding(finding: Finding, platform: str = "android") -> str:
+def render_finding(finding: Finding, platform: str = "windows") -> str:
     """One compact, evidence-dense record.  Roughly 120-250 tokens."""
     change = finding.change
     lines = [f"### {change.uid}"]

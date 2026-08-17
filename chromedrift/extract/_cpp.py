@@ -16,9 +16,9 @@ feature states in preprocessor conditionals:
     #endif
     );
 
-For a browser that ships on Android only, reading that as "enabled" is not a
-rounding error -- it inverts the conclusion.  `resolve_platform_state` walks
-the conditional chain and answers per platform.
+Reading the global value instead of the Windows branch is not a rounding
+error -- it inverts the conclusion.  `resolve_platform_state` walks the
+conditional chain and answers for the desktop platform this product ships.
 """
 
 from __future__ import annotations
@@ -26,17 +26,27 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional, Tuple
 
-# Platform BUILDFLAGs that matter when deciding "does this apply to us".
-PLATFORM_FLAGS = {
-    "android": {"IS_ANDROID", "IS_ANDROID_DESKTOP"},
-    "windows": {"IS_WIN"},
-    "mac": {"IS_MAC", "IS_APPLE"},
-    "linux": {"IS_LINUX"},
-    "chromeos": {"IS_CHROMEOS", "IS_CHROMEOS_ASH", "IS_CHROMEOS_LACROS"},
-    "ios": {"IS_IOS", "IS_APPLE"},
+# This tool targets one product: a Chromium-based desktop browser on Windows.
+# The platform is fixed rather than configurable, because getting it wrong does
+# not degrade the answer, it inverts it: AudioServiceOutOfProcess reads
+# "enabled" globally and resolves differently per platform, and 14 of 187
+# features in a single file diverge that way. A setting nobody checks is a way
+# to be silently wrong, so there is no setting.
+PLATFORM = "windows"
+
+PLATFORM_FLAGS = {PLATFORM: {"IS_WIN"}}
+
+# Every other platform's macros still have to be recognised, so a guard naming
+# one of them evaluates to False for us instead of "undecidable".
+OTHER_PLATFORM_MACROS = {
+    "IS_ANDROID", "IS_ANDROID_DESKTOP",
+    "IS_MAC", "IS_APPLE",
+    "IS_LINUX",
+    "IS_CHROMEOS", "IS_CHROMEOS_ASH", "IS_CHROMEOS_LACROS",
+    "IS_IOS", "IS_FUCHSIA",
 }
 
-ALL_PLATFORM_MACROS = set().union(*PLATFORM_FLAGS.values())
+ALL_PLATFORM_MACROS = set().union(*PLATFORM_FLAGS.values()) | OTHER_PLATFORM_MACROS
 
 
 def mask_comments(text: str) -> str:
@@ -288,8 +298,8 @@ class _CondEval:
         return None  # non-platform buildflag: undecidable here
 
 
-def eval_condition(expr: str, platform: str) -> Optional[bool]:
-    """Evaluate a preprocessor condition for one platform. None = unknown."""
+def eval_condition(expr: str, platform: str = PLATFORM) -> Optional[bool]:
+    """Evaluate a preprocessor condition for Windows. None = unknown."""
     return _CondEval(_tokenize(expr), platform).parse_or()
 
 

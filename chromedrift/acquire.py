@@ -89,7 +89,7 @@ _MILESTONE_RE = re.compile(r"^\d{2,3}$")
 _FULL_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+\.\d+$")
 
 
-def resolve_ref(ref: str, platform: str = "Android", timeout: int = 60) -> Tuple[str, Optional[int]]:
+def resolve_ref(ref: str, platform: str = "Windows", timeout: int = 60) -> Tuple[str, Optional[int]]:
     """Turn a user-supplied ref into a concrete git ref plus milestone.
 
     Accepts a bare milestone ("143"), a full version ("143.0.7499.40"), or any
@@ -119,7 +119,7 @@ def _milestone_from_ref(ref: str) -> Optional[int]:
 
 def _latest_stable_version(milestone: int, platform: str, timeout: int) -> Optional[str]:
     """Highest stable release for a milestone, via chromiumdash."""
-    for plat in (platform, "Android", "Windows"):
+    for plat in (platform, "Windows"):
         url = (f"{CHROMIUMDASH}/fetch_releases?channel=Stable"
                f"&platform={urllib.parse.quote(plat)}&milestone={milestone}&num=25")
         try:

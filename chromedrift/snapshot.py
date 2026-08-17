@@ -26,9 +26,18 @@ from .model import SCHEMA_VERSION, Snapshot, read_json, write_json
 from .targets import get_targets
 
 
-def snapshot_path(cache_dir: str, ref: str, target_set: str) -> str:
+def snapshot_path(cache_dir: str, ref: str, target_set: str,
+                  partitions: Optional[Sequence[str]] = None) -> str:
+    """Cache path.  The partition belongs in the key.
+
+    A partitioned snapshot covers a fraction of the surface. Keying only on
+    the target-set name would let one be reused as if it were the full run --
+    the same mistake that once made a "minimal" snapshot silently hold the
+    full fact set, and later made a widened filter change nothing.
+    """
     safe = ref.replace("/", "_").replace(":", "_")
-    return os.path.join(cache_dir, "snapshots", f"{safe}.{target_set}.json")
+    part = ("." + "+".join(sorted(partitions))) if partitions else ""
+    return os.path.join(cache_dir, "snapshots", f"{safe}.{target_set}{part}.json")
 
 
 def tree_path(cache_dir: str, ref: str) -> str:
@@ -37,11 +46,12 @@ def tree_path(cache_dir: str, ref: str) -> str:
 
 
 def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
-                   platform: str = "Android", local_src: Optional[str] = None,
-                   refresh: bool = False, log=print) -> Snapshot:
+                   platform: str = "Windows", local_src: Optional[str] = None,
+                   refresh: bool = False, partitions: Optional[Sequence[str]] = None,
+                   log=print) -> Snapshot:
     """Resolve a ref, materialize its target files, and extract facts."""
     resolved, milestone = resolve_ref(ref, platform=platform)
-    out_path = snapshot_path(cache_dir, resolved, target_set)
+    out_path = snapshot_path(cache_dir, resolved, target_set, partitions)
 
     if os.path.exists(out_path) and not refresh:
         cached = read_json(out_path)
@@ -51,7 +61,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         log(f"  snapshot cache stale (schema {cached.get('schema')} != "
             f"{SCHEMA_VERSION}), rebuilding")
 
-    targets = get_targets(target_set)
+    targets = get_targets(target_set, partitions)
     root = tree_path(cache_dir, resolved)
     os.makedirs(root, exist_ok=True)
 
@@ -87,6 +97,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         facts=facts,
         meta={
             "target_set": target_set,
+            "partitions": sorted(partitions) if partitions else [],
             "platform": platform,
             "fetch_seconds": round(fetched, 1),
             "fetch_stats": fetch_stats,

@@ -8,10 +8,10 @@ The whole point of this stage is to answer "what actually changed" rather than
    its declaration syntax; comparing a ``declared_form`` attribute would emit
    thousands of modifications that mean nothing to anyone.
 
-2. **Platform-aware verdicts.**  A default flip is scored on the platform the
-   downstream browser actually ships.  ``AudioServiceOutOfProcess`` reads as
-   "enabled" globally and "disabled" on Android; for a mobile browser only the
-   second reading is true.
+2. **Platform-aware verdicts.**  A default flip is scored for Windows, the
+   one platform this desktop product ships.  Chromium wraps many defaults in
+   ``#if BUILDFLAG(IS_WIN)`` chains, so the global value and the shipped value
+   routinely disagree; reading the wrong one inverts the conclusion.
 
 Rename detection runs as a post-pass for switches and prefs, whose identity is
 the string value itself: a renamed pref would otherwise appear as an unrelated
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from .extract._cpp import PLATFORM
 from .extract.blink_runtime import status_rank
 from .model import (
     ADDED,
@@ -54,7 +55,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions"),
     KIND_FEATURE_PARAM: ("default", "type", "feature"),
     KIND_BLINK_RUNTIME: (
-        "status", "platform_status", "android_status", "base_feature",
+        "status", "platform_status", "windows_status", "base_feature",
         "base_feature_status", "origin_trial_feature_name", "depends_on",
         "implied_by", "public", "copied_from_base_feature_if",
     ),
@@ -120,8 +121,8 @@ BASE_SEVERITY: Dict[Tuple[str, str], int] = {
 # Signals are the human-readable "why this matters" labels, with a severity
 # floor.  A change keeps the highest floor among its signals.
 SIGNAL_SEVERITY: Dict[str, int] = {
-    "android_enabled_by_default": 75,
-    "android_disabled_by_default": 60,
+    "enabled_by_default": 75,
+    "disabled_by_default": 60,
     "default_flip_on": 60,
     "default_flip_off": 50,
     "feature_deleted": 65,
@@ -195,8 +196,8 @@ FORK_LABELS: Dict[str, str] = {
 
 
 SIGNAL_LABELS: Dict[str, str] = {
-    "android_enabled_by_default": "Now ON by default on Android",
-    "android_disabled_by_default": "Now OFF by default on Android",
+    "enabled_by_default": "Now ON by default on Windows",
+    "disabled_by_default": "Now OFF by default on Windows",
     "default_flip_on": "Default flipped on",
     "default_flip_off": "Default flipped off",
     "feature_deleted": "Feature flag deleted upstream",
@@ -255,21 +256,21 @@ def _meaningful(fact: Fact) -> dict:
     return {k: fact.attrs[k] for k in keys if k in fact.attrs}
 
 
-def _android_state(fact: Fact) -> str:
+def _our_state(fact: Fact) -> str:
     ps = fact.attrs.get("platform_state") or {}
-    if isinstance(ps, dict) and ps.get("android"):
-        return ps["android"]
+    if isinstance(ps, dict) and ps.get(PLATFORM):
+        return ps[PLATFORM]
     return fact.attrs.get("default_state", "")
 
 
-def _android_status(fact: Fact) -> str:
+def _our_status(fact: Fact) -> str:
     ps = fact.attrs.get("platform_status") or {}
-    if isinstance(ps, dict) and ps.get("android"):
-        return ps["android"]
-    return fact.attrs.get("android_status", "")
+    if isinstance(ps, dict) and ps.get(PLATFORM):
+        return ps[PLATFORM]
+    return fact.attrs.get("windows_status", "")
 
 
-def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
+def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
                    target_milestone: Optional[int] = None,
                    mode: str = MODE_UPREV) -> List[Change]:
     """Produce the semantic change list between two snapshots.
@@ -279,8 +280,10 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = "android",
     side collected reads as an addition.  Failing loudly beats emitting a
     report whose numbers look reasonable and are not.
     """
-    old_set = (old.meta or {}).get("target_set")
-    new_set = (new.meta or {}).get("target_set")
+    old_set = ((old.meta or {}).get("target_set"),
+               tuple((old.meta or {}).get("partitions") or ()))
+    new_set = ((new.meta or {}).get("target_set"),
+               tuple((new.meta or {}).get("partitions") or ()))
     if old_set != new_set:
         raise ValueError(
             f"cannot diff snapshots built from different target sets "
@@ -451,7 +454,7 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
 
 def _base_feature_signals(change: Change, old_fact: Optional[Fact],
                           new_fact: Optional[Fact],
-                          platform: str = "android") -> List[str]:
+                          platform: str = PLATFORM) -> List[str]:
     signals: List[str] = []
     if change.change_type == REMOVED:
         # A disappearing base::Feature is usually cleanup, not a lost feature --
@@ -467,7 +470,7 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
         # unconditional. What breaks is a *downstream override* -- and the build,
         # if our source still names the symbol -- so both stay breaking signals
         # and the impact stage promotes them only when there is local evidence.
-        prior = _android_state(old_fact) if old_fact else ""
+        prior = _our_state(old_fact) if old_fact else ""
         if old_fact is not None:
             states = old_fact.attrs.get("platform_state") or {}
             if isinstance(states, dict) and states.get(platform):
@@ -478,19 +481,19 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
             return ["flag_retired_off"]
         return ["feature_deleted"]
     if change.change_type == ADDED and new_fact is not None:
-        if _android_state(new_fact) == "enabled":
+        if _our_state(new_fact) == "enabled":
             signals.append("new_feature_on_by_default")
         return signals
     if old_fact is None or new_fact is None:
         return signals
 
-    old_android = _android_state(old_fact)
-    new_android = _android_state(new_fact)
-    if old_android != new_android:
-        if new_android == "enabled":
-            signals.append("android_enabled_by_default")
-        elif new_android == "disabled":
-            signals.append("android_disabled_by_default")
+    old_state = _our_state(old_fact)
+    new_state = _our_state(new_fact)
+    if old_state != new_state:
+        if new_state == "enabled":
+            signals.append("enabled_by_default")
+        elif new_state == "disabled":
+            signals.append("disabled_by_default")
 
     old_default = old_fact.attrs.get("default_state")
     new_default = new_fact.attrs.get("default_state")
@@ -552,12 +555,12 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
         # gone: the behaviour is now permanent and unconditional, which only
         # matters downstream if this browser was overriding the flag.  Real
         # API removals are detected from the IDL diff instead.
-        old_status = _android_status(old_fact) if old_fact else ""
+        old_status = _our_status(old_fact) if old_fact else ""
         if old_status == "stable":
             return ["killswitch_retired"]
         return ["experimental_dropped"]
     if change.change_type == ADDED and new_fact is not None:
-        if _android_status(new_fact) == "stable":
+        if _our_status(new_fact) == "stable":
             signals.append("web_api_shipped")
         else:
             signals.append("web_api_added")
@@ -565,11 +568,11 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
     if old_fact is None or new_fact is None:
         return signals
 
-    old_rank = status_rank(_android_status(old_fact))
-    new_rank = status_rank(_android_status(new_fact))
-    if new_rank > old_rank and _android_status(new_fact) == "stable":
+    old_rank = status_rank(_our_status(old_fact))
+    new_rank = status_rank(_our_status(new_fact))
+    if new_rank > old_rank and _our_status(new_fact) == "stable":
         signals.append("web_api_shipped")
-    elif new_rank < old_rank and _android_status(old_fact) == "stable":
+    elif new_rank < old_rank and _our_status(old_fact) == "stable":
         signals.append("web_api_unshipped")
 
     if "origin_trial_feature_name" in change.deltas:

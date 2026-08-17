@@ -79,12 +79,15 @@ class TestCppLexing(unittest.TestCase):
         self.assertEqual(parts, ['a', 'F(b, c)', 'base::FeatureParam<int, long>', '"x,y"'])
 
     def test_eval_condition_three_valued(self):
-        self.assertIs(eval_condition("BUILDFLAG(IS_ANDROID)", "android"), True)
-        self.assertIs(eval_condition("BUILDFLAG(IS_ANDROID)", "windows"), False)
-        self.assertIs(eval_condition("!BUILDFLAG(IS_ANDROID)", "windows"), True)
-        self.assertIs(eval_condition("BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)", "mac"), True)
-        # A non-platform buildflag cannot be decided here.
-        self.assertIsNone(eval_condition("BUILDFLAG(ENABLE_PLUGINS)", "android"))
+        """True / False / None, evaluated for the one platform we ship."""
+        self.assertIs(eval_condition("BUILDFLAG(IS_WIN)"), True)
+        self.assertIs(eval_condition("!BUILDFLAG(IS_WIN)"), False)
+        # Another platform's flag is decidably false for us, not unknown.
+        self.assertIs(eval_condition("BUILDFLAG(IS_ANDROID)"), False)
+        self.assertIs(eval_condition("BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)"), True)
+        self.assertIs(eval_condition("BUILDFLAG(IS_MAC) && BUILDFLAG(IS_WIN)"), False)
+        # A non-platform buildflag cannot be decided here; None, never a guess.
+        self.assertIsNone(eval_condition("BUILDFLAG(ENABLE_PLUGINS)"))
 
     def test_resolve_platform_state_picks_branch(self):
         block = """
@@ -95,8 +98,7 @@ class TestCppLexing(unittest.TestCase):
 #endif
 """
         states = resolve_platform_state(block, base_features.STATE_RE)
-        self.assertEqual(states["windows"], "FEATURE_ENABLED_BY_DEFAULT")
-        self.assertEqual(states["android"], "FEATURE_DISABLED_BY_DEFAULT")
+        self.assertEqual(states, {"windows": "FEATURE_ENABLED_BY_DEFAULT"})
 
 
 class TestBaseFeatures(unittest.TestCase):
@@ -156,8 +158,9 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
 );
 '''
         fact = self._one(src)
-        self.assertEqual(fact.attrs["platform_state"]["android"], "disabled")
-        self.assertEqual(fact.attrs["platform_state"]["windows"], "enabled")
+        # Reading the global value would say "enabled"; the Windows branch is
+        # what ships, and here the two happen to agree.
+        self.assertEqual(fact.attrs["platform_state"], {"windows": "enabled"})
 
     def test_filename_convention_is_a_convention_not_a_rule(self):
         """Features are declared outside *_features.cc too.
@@ -208,8 +211,8 @@ class TestBlinkRuntime(unittest.TestCase):
 {
   data: [
     { name: "SimpleStable", status: "stable" },
-    { name: "PerPlatform", status: {"Android": "stable", "Win": "experimental"} },
-    { name: "AndroidOnly", status: {"Android": "stable"} },
+    { name: "PerPlatform", status: {"Win": "stable", "Mac": "experimental"} },
+    { name: "MacOnly", status: {"Mac": "stable"} },
     { name: "NoStatus" },
   ],
 }
@@ -220,21 +223,19 @@ class TestBlinkRuntime(unittest.TestCase):
             self.SRC, "runtime_enabled_features.json5")}
 
     def test_simple_status_applies_everywhere(self):
-        self.assertEqual(self.facts["SimpleStable"].attrs["android_status"], "stable")
+        self.assertEqual(self.facts["SimpleStable"].attrs["windows_status"], "stable")
 
     def test_per_platform_status(self):
         attrs = self.facts["PerPlatform"].attrs
-        self.assertEqual(attrs["platform_status"]["android"], "stable")
-        self.assertEqual(attrs["platform_status"]["windows"], "experimental")
+        self.assertEqual(attrs["platform_status"]["windows"], "stable")
 
     def test_missing_default_means_not_enabled(self):
         """Omitting "default" means unlisted platforms are OFF.
 
-        Easy to get backwards, and getting it backwards would report a
-        feature as shipping everywhere when it ships on one platform.
+        Easy to get backwards, and getting it backwards would report a feature
+        as shipping for us when it ships somewhere else entirely.
         """
-        attrs = self.facts["AndroidOnly"].attrs
-        self.assertEqual(attrs["platform_status"]["android"], "stable")
+        attrs = self.facts["MacOnly"].attrs
         self.assertEqual(attrs["platform_status"]["windows"], "")
 
     def test_status_ranking(self):

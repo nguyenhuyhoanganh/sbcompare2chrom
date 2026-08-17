@@ -43,7 +43,10 @@ from typing import Any, Dict, Iterable, List, Optional
 #   8: the filename filter widened past the *_features.cc convention and now
 #      excludes test files. Version 7 read 1 of 24 declarations in
 #      chrome/browser/ui/webui and counted test-only features elsewhere.
-SCHEMA_VERSION = 8
+#   9: the product is a Windows desktop browser, so platform is fixed rather
+#      than selectable. platform_state/platform_status now carry only
+#      "windows", and blink facts renamed android_status -> windows_status.
+SCHEMA_VERSION = 9
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

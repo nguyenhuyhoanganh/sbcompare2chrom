@@ -114,7 +114,7 @@ def _evidence(finding: Finding) -> str:
     return "; ".join(bits) or "—"
 
 
-def render(report: Report, platform: str = "android",
+def render(report: Report, platform: str = "windows",
            detail_limit: int = 40) -> str:
     out: List[str] = []
     counts = report.bucket_counts()

@@ -10,7 +10,7 @@ Sizes below are measured against M143 tarballs.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional, Sequence
 
 from .acquire import FetchTarget
 
@@ -158,8 +158,96 @@ TARGET_SETS = {
     "minimal": minimal_targets,
 }
 
+# ---------------------------------------------------------------------------
+# Partitions: bound what gets fetched and scanned, when you only care about one
+# part of the product.
+#
+# These are filters over the target list above, not a second list to maintain,
+# so a target added there flows into whichever partitions its path matches.
+#
+# The trade is real and one-directional: partitioning is faster and *less
+# complete*. Chromium is not organized by product feature, so a change that
+# affects downloads can live in content/, in a Mojo interface, or in a flag
+# file that matches no partition at all. Measured on the area routing, product
+# scoping alone left 81% of findings unassigned, including the most severe.
+#
+# Right for iterating on one surface. Wrong for a release-gate run, which
+# should always use the full set.
+# ---------------------------------------------------------------------------
 
-def get_targets(name: str) -> List[FetchTarget]:
+# Cheap and relevant to everything, so every partition keeps them.
+PARTITION_CORE = (
+    "chrome/common/pref_names.h",
+    "chrome/browser/flag-metadata.json",
+    "content/public/common/content_switches.cc",
+)
+
+PARTITIONS = {
+    "settings": (
+        "chrome/browser/resources/settings",
+        "chrome/browser/ui/webui",
+        "chrome/common/chrome_features.cc",
+        "chrome/common/chrome_features.h",
+    ),
+    "downloads": (
+        "chrome/browser/resources/downloads",
+        "components/download/",
+    ),
+    "bookmarks": (
+        "chrome/browser/resources/bookmarks",
+        "components/bookmarks/",
+    ),
+    "history": (
+        "chrome/browser/resources/history",
+        "components/history/",
+    ),
+    "extensions": (
+        "chrome/browser/resources/extensions",
+        "extensions/",
+    ),
+    "passwords": (
+        "chrome/browser/resources/password_manager",
+        "components/password_manager/",
+    ),
+    "printing": (
+        "chrome/browser/resources/print_preview",
+        "printing/",
+    ),
+    "newtab": (
+        "chrome/browser/resources/new_tab_page",
+    ),
+    # Not a product surface, but the one that carries the severe findings:
+    # Mojo and Web IDL belong to no feature and are easy to forget.
+    "webplatform": (
+        "third_party/blink/",
+    ),
+    "network": (
+        "net/base/",
+        "services/network/",
+    ),
+    "media": (
+        "media/base/",
+    ),
+}
+
+
+def get_targets(name: str,
+                partitions: Optional[Sequence[str]] = None) -> List[FetchTarget]:
     if name not in TARGET_SETS:
         raise KeyError(f"unknown target set {name!r}; have {sorted(TARGET_SETS)}")
-    return TARGET_SETS[name]()
+    targets = TARGET_SETS[name]()
+    if not partitions:
+        return targets
+
+    unknown = [p for p in partitions if p not in PARTITIONS]
+    if unknown:
+        raise KeyError(f"unknown partition(s) {unknown}; have {sorted(PARTITIONS)}")
+
+    prefixes = tuple(PARTITION_CORE)
+    for partition in partitions:
+        prefixes += PARTITIONS[partition]
+    return [t for t in targets if t.path.startswith(prefixes)]
+
+
+def partition_names() -> List[str]:
+    return sorted(PARTITIONS)

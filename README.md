@@ -6,7 +6,7 @@ Công cụ so sánh hai phiên bản Chromium và trả lời câu hỏi: **đ�
 
 ## Phần 1. Dự án này giải quyết vấn đề gì
 
-Samsung Browser (chạy trên Windows) được xây trên nền Chromium. Cứ vài phiên bản, đội lại nâng nền lên một mốc mới — ví dụ đang ở M148, sắp nâng lên M151.
+Samsung Browser — **trình duyệt desktop trên Windows** — được xây trên nền Chromium. Cứ vài phiên bản, đội lại nâng nền lên một mốc mới — ví dụ đang ở M148, sắp nâng lên M151.
 
 Mỗi lần nâng như vậy, có ba câu hỏi phải trả lời:
 
@@ -135,7 +135,7 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **109 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **115 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -304,7 +304,56 @@ Cách gộp batch cũng có một bài học: ban đầu tôi nhóm theo vùng c
 
 ---
 
-## Phần 5. Sáu lệnh và mỗi lệnh làm gì
+## Phần 5. Chỉ Windows, và cách giới hạn phạm vi quét
+
+### Nền tảng là cố định, không phải tuỳ chọn
+
+Sản phẩm là trình duyệt desktop trên Windows, nên công cụ **không có tuỳ chọn `--platform`**. Đây là chủ ý, không phải thiếu sót.
+
+Lý do: đọc sai nền tảng không làm kết quả kém đi một chút — nó **đảo ngược kết luận**. Chromium bọc rất nhiều mặc định trong `#if BUILDFLAG(IS_WIN)`, nên giá trị toàn cục và giá trị thực tế ship thường xuyên trái nhau. Một tuỳ chọn mà không ai kiểm là một cách để sai trong im lặng — nên bỏ hẳn tuỳ chọn.
+
+Mọi dấu vết Android đã gỡ khỏi mã nguồn: nhãn `android_enabled_by_default` thành `enabled_by_default`, thuộc tính `android_status` thành `windows_status`, `platform_state` chỉ còn khoá `windows`. Macro của các nền tảng khác vẫn được nhận diện — nhưng để đánh giá thành **sai**, không phải "không xác định":
+
+```python
+eval_condition("BUILDFLAG(IS_WIN)")       # True
+eval_condition("BUILDFLAG(IS_ANDROID)")   # False  — chắc chắn không phải ta
+eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None — không đoán
+```
+
+### Phân vùng: giới hạn phần phải tải và quét
+
+Khi chỉ quan tâm một mảng, `--partition` giới hạn cả việc tải lẫn việc đọc:
+
+```bash
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition downloads
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition settings --partition bookmarks
+```
+
+Đo thật M148 → M151, cache lạnh:
+
+| | thời gian | cache | facts | thay đổi |
+|---|---:|---:|---:|---:|
+| toàn bộ | ~120 giây | 126 MB | 24.646 | 2.784 |
+| `--partition settings` | **24 giây** | 37 MB | 4.467 | 1.344 |
+| `--partition downloads` | **17 giây** | 2,6 MB | 2.692 | 938 |
+
+Vùng có sẵn: `settings, downloads, bookmarks, history, extensions, passwords, printing, newtab, webplatform, network, media`.
+
+Phân vùng là **bộ lọc trên danh sách target**, không phải danh sách thứ hai phải bảo trì — thêm một target mới thì nó tự chảy vào đúng vùng khớp đường dẫn.
+
+### Đánh đổi phải nói rõ
+
+Phân vùng **nhanh hơn và kém đầy đủ hơn**, một chiều. Chromium không tổ chức code theo tính năng sản phẩm: một thay đổi ảnh hưởng Downloads có thể nằm ở `content/`, ở một Mojo interface, hoặc ở một file cờ không khớp vùng nào.
+
+Đúng khi đang lặp trên một mảng. **Sai khi chạy làm cổng chặn trước khi release** — lúc đó phải chạy toàn bộ.
+
+Vài mục luôn được giữ trong mọi phân vùng vì rẻ và liên quan tới tất cả: `pref_names.h`, `flag-metadata.json`, `content_switches.cc`.
+
+Và khoá cache **có chứa tên phân vùng** — nếu không, một snapshot phân vùng sẽ bị tái dùng như thể là bản đầy đủ. Đúng lớp lỗi đã xảy ra hai lần trước đó.
+
+---
+
+## Phần 6. Sáu lệnh và mỗi lệnh làm gì
 
 ```bash
 python3 -m chromedrift check      # kiểm tra máy có chạy được không
@@ -361,7 +410,7 @@ Lưu ý dòng `must fix: 0`: nó có nghĩa là **chưa cung cấp bằng chứn
 
 ---
 
-## Phần 6. Chia việc theo vùng — và cái bẫy thứ hai
+## Phần 7. Chia việc theo vùng — và cái bẫy thứ hai
 
 Khi mở rộng ra nhiều mảng (Download, Bookmark, History, Add-ons, Settings…), câu hỏi tự nhiên là: *"làm sao giới hạn để AI khỏi phải xử lý quá nhiều?"*
 
@@ -477,7 +526,7 @@ Xem được luôn bằng `--area _unassigned`. Con số này cũng là **thư�
 
 ---
 
-## Phần 7. Gom mảnh vụn thành một câu chuyện
+## Phần 8. Gom mảnh vụn thành một câu chuyện
 
 Một thay đổi của Chromium không bao giờ đến gọn một chỗ. Nó vỡ thành nhiều mảnh rải trên mọi bề mặt mà công cụ đọc.
 
@@ -522,7 +571,7 @@ Trên lần chạy thật M148 → M151: **25 cụm**, lớn nhất 7 mảnh. B�
 
 ---
 
-## Phần 8. Target set đã đủ chưa — bằng chứng, không phải khẳng định
+## Phần 9. Target set đã đủ chưa — bằng chứng, không phải khẳng định
 
 Câu hỏi đúng nhất có thể hỏi về công cụ này. Tôi đã đo hai lần và **cả hai lần đều phát hiện thiếu nghiêm trọng**.
 
@@ -655,7 +704,7 @@ Rồi đối chiếu với `chromedrift/targets.py`. Thiếu thì thêm một d�
 
 ---
 
-## Phần 9. Cái chưa có — và cái cố ý không làm
+## Phần 10. Cái chưa có — và cái cố ý không làm
 
 Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch. Hai loại khác nhau: *chưa làm* (có thể làm, chỉ là chưa) và *cố ý không làm* (đánh đổi có chủ ý).
 
@@ -760,7 +809,7 @@ Khoảng **một phần ba điều khiển** có điều kiện hiển thị mà
 
 ---
 
-## Phần 10. Skill cho agent
+## Phần 11. Skill cho agent
 
 Thư mục `skills/analyzing-chromium-uprevs/` là gói kiến thức để đưa lên agent nội bộ, viết theo chuẩn Agent Skills chính thức:
 
@@ -777,13 +826,13 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 
 ---
 
-## Phần 11. Kiểm thử
+## Phần 12. Kiểm thử
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-**109 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**115 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -807,7 +856,7 @@ Nói cách khác: **0 sai lệch thật**, và ở mục duy nhất khác nhau t
 
 ---
 
-## Phần 12. Cấu trúc mã nguồn
+## Phần 13. Cấu trúc mã nguồn
 
 ```
 chromedrift/
@@ -831,7 +880,7 @@ Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và 
 
 ---
 
-## Phần 13. Đọc thêm
+## Phần 14. Đọc thêm
 
 - **[HANDOFF.md](HANDOFF.md)** — danh sách việc cần chạy tại công ty, trên máy có source SB và mạng nội bộ. Có checkbox theo dõi tiến độ, lệnh copy-paste, và mẫu báo cáo lại. Đây là những việc không làm được từ bên ngoài.
 - **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.

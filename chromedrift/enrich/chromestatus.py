@@ -110,8 +110,8 @@ def _compact(feature: dict) -> dict:
     browsers = feature.get("browsers") or {}
     if isinstance(browsers, dict):
         chrome = browsers.get("chrome") or {}
-        if chrome.get("desktop") or chrome.get("android"):
-            out["shipped_milestone"] = chrome.get("android") or chrome.get("desktop")
+        if chrome.get("desktop") or chrome.get("windows"):
+            out["shipped_milestone"] = chrome.get("windows") or chrome.get("desktop")
         for other in ("ff", "safari"):
             view = (browsers.get(other) or {}).get("view") or {}
             if view.get("text"):

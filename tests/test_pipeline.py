@@ -25,20 +25,20 @@ def feature(name, state, var=None, form="macro2", path="content/features.cc"):
         attrs={
             "var": var or ("k" + name),
             "default_state": state,
-            "platform_state": {"android": state, "windows": state},
+            "platform_state": {"windows": state},
             "declared_form": form,
         },
     )
 
 
-def blink(name, android_status):
+def blink(name, windows_status):
     return Fact(
         kind="blink_runtime_feature", key=name, name=name,
         path="runtime_enabled_features.json5",
         attrs={
-            "status": android_status,
-            "android_status": android_status,
-            "platform_status": {"android": android_status, "windows": android_status},
+            "status": windows_status,
+            "windows_status": windows_status,
+            "platform_status": {"windows": windows_status},
         },
     )
 
@@ -65,22 +65,27 @@ class TestDiffSemantics(unittest.TestCase):
         self.assertIn("declaration_moved", changes[0].signals)
         self.assertLess(changes[0].severity, 45)
 
-    def test_android_default_flip_is_high_severity(self):
+    def test_default_flip_is_high_severity(self):
         old = snap("139.0.0.0", [feature("Foo", "disabled")])
         new = snap("143.0.0.0", [feature("Foo", "enabled")])
         change = diff_snapshots(old, new)[0]
-        self.assertIn("android_enabled_by_default", change.signals)
+        self.assertIn("enabled_by_default", change.signals)
         self.assertGreaterEqual(change.severity, 70)
 
-    def test_platform_divergent_flip_scored_on_our_platform(self):
-        """Enabled on desktop, still off on Android, is not a flip for us."""
+    def test_flip_elsewhere_is_not_a_flip_for_us(self):
+        """The global default moved; the Windows branch did not.
+
+        Chromium wraps defaults in #if BUILDFLAG chains, so the global value
+        and the shipped value routinely disagree. Only the shipped one is our
+        change.
+        """
         old_fact = feature("Foo", "disabled")
         new_fact = feature("Foo", "disabled")
-        new_fact.attrs["default_state"] = "enabled"
-        new_fact.attrs["platform_state"] = {"android": "disabled", "windows": "enabled"}
+        new_fact.attrs["default_state"] = "enabled"      # global moved
+        new_fact.attrs["platform_state"] = {"windows": "disabled"}   # ours did not
         change = diff_snapshots(snap("139.0.0.0", [old_fact]),
                                 snap("143.0.0.0", [new_fact]))[0]
-        self.assertNotIn("android_enabled_by_default", change.signals)
+        self.assertNotIn("enabled_by_default", change.signals)
         self.assertIn("default_flip_on", change.signals)
 
     def test_retired_killswitch_is_not_an_api_removal(self):
@@ -234,13 +239,16 @@ class TestImpactScoring(unittest.TestCase):
         self.assertEqual(finding.bucket, "review")
 
     def test_not_compiled_on_our_platform_is_scored_down(self):
-        fact = feature("Foo", "enabled")
-        fact.attrs["platform_state"] = {"android": "not_compiled", "windows": "enabled"}
-        change = diff_snapshots(snap("139.0.0.0", [feature("Foo", "disabled")]),
-                                snap("143.0.0.0", [fact]))[0]
-        plain = score_change(change, TouchSet(platform="windows")).score
-        ours = score_change(change, TouchSet(platform="android")).score
-        self.assertLess(ours, plain)
+        """A feature that never builds for us is not our problem."""
+        builds = feature("Foo", "enabled")
+        never = feature("Bar", "enabled")
+        never.attrs["platform_state"] = {"windows": "not_compiled"}
+        old = snap("139.0.0.0", [feature("Foo", "disabled"),
+                                 feature("Bar", "disabled")])
+        new = snap("143.0.0.0", [builds, never])
+        scored = {c.key: score_change(c, TouchSet(platform="windows")).score
+                  for c in diff_snapshots(old, new, platform="windows")}
+        self.assertLess(scored["Bar"], scored["Foo"])
 
     def test_area_weight_and_reasons_are_explicit(self):
         touch = TouchSet(symbols={"kFoo"},
@@ -465,6 +473,67 @@ class TestProvenance(unittest.TestCase):
              ("148.0.0.0", [feature("Foo", "enabled")])])
         self.assertEqual(report.verdicts[0].state, IN_SYNC)
         self.assertEqual(report.debt(), [])
+
+
+class TestPartitions(unittest.TestCase):
+    """Bounding the scan is a speed/completeness trade, and must be explicit.
+
+    Measured M148 -> M151: the full run is about 120s and 126 MB; --partition
+    downloads is 17s and 2.6 MB. The saving is real and so is the loss.
+    """
+
+    def test_partition_narrows_the_fetch_list(self):
+        from chromedrift.targets import get_targets
+
+        full = get_targets("default")
+        part = get_targets("default", ["downloads"])
+        self.assertLess(len(part), len(full))
+        self.assertTrue(any("resources/downloads" in t.path for t in part))
+        self.assertFalse(any("resources/bookmarks" in t.path for t in part))
+
+    def test_core_targets_survive_every_partition(self):
+        """Prefs and flag metadata are cheap and relevant to everything."""
+        from chromedrift.targets import get_targets
+
+        for name in ("downloads", "settings", "history"):
+            paths = {t.path for t in get_targets("default", [name])}
+            self.assertIn("chrome/common/pref_names.h", paths, name)
+            self.assertIn("chrome/browser/flag-metadata.json", paths, name)
+
+    def test_partitions_combine(self):
+        from chromedrift.targets import get_targets
+
+        both = {t.path for t in get_targets("default", ["downloads", "bookmarks"])}
+        self.assertTrue(any("resources/downloads" in p for p in both))
+        self.assertTrue(any("resources/bookmarks" in p for p in both))
+
+    def test_unknown_partition_is_rejected(self):
+        from chromedrift.targets import get_targets
+
+        with self.assertRaises(KeyError):
+            get_targets("default", ["not-a-partition"])
+
+    def test_partition_is_part_of_the_cache_key(self):
+        """Otherwise a partial snapshot gets reused as if it were a full one.
+
+        This exact class of bug has bitten twice: a "minimal" snapshot holding
+        the full fact set, and a widened filter that changed nothing.
+        """
+        from chromedrift.snapshot import snapshot_path
+
+        full = snapshot_path("/c", "refs/tags/151.0.0.0", "default")
+        part = snapshot_path("/c", "refs/tags/151.0.0.0", "default", ["downloads"])
+        self.assertNotEqual(full, part)
+        self.assertIn("downloads", part)
+
+    def test_diff_refuses_to_compare_across_partitions(self):
+        """One side missing whole categories reads as mass addition."""
+        old = snap("148.0.0.0", [feature("Foo", "enabled")])
+        new = snap("151.0.0.0", [feature("Foo", "disabled")])
+        old.meta = {"target_set": "default", "partitions": []}
+        new.meta = {"target_set": "default", "partitions": ["downloads"]}
+        with self.assertRaises(ValueError):
+            diff_snapshots(old, new)
 
 
 class TestCatalog(unittest.TestCase):
@@ -801,11 +870,11 @@ class TestWindowsConsoleEncoding(unittest.TestCase):
         change = Change(change_type="modified", kind="base_feature",
                         key="Foo", name="Foo",
                         deltas={"default_state": ["disabled", "enabled"]},
-                        signals=["android_enabled_by_default"], severity=75)
+                        signals=["enabled_by_default"], severity=75)
         report = Report(from_ref="139.0.0.0", to_ref="143.0.0.0",
                         findings=[Finding(change=change, score=75,
                                           bucket="review")],
-                        meta={"platform": "android"})
+                        meta={"platform": "windows"})
 
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         with tempfile.TemporaryDirectory() as tmp:

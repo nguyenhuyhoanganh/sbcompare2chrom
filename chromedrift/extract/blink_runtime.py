@@ -5,7 +5,7 @@ machine-readable "what web APIs are on, and where" manifest.  Each entry
 carries a status of ``stable`` / ``experimental`` / ``test``, either globally
 or per platform:
 
-    { name: "ExampleFeature", status: {"Android": "stable", "Win": "experimental"} }
+    { name: "ExampleFeature", status: {"Win": "stable", "Mac": "experimental"} }
 
 An ``experimental -> stable`` transition is a web API becoming visible to real
 users.  For a downstream browser that is simultaneously a compatibility signal
@@ -25,14 +25,9 @@ from ..model import KIND_BLINK_RUNTIME, Fact
 FILENAME = "runtime_enabled_features.json5"
 
 # json5 status keys -> our normalized platform names.
-_PLATFORM_KEYS = {
-    "Android": "android",
-    "Win": "windows",
-    "Mac": "mac",
-    "Linux": "linux",
-    "ChromeOS": "chromeos",
-    "iOS": "ios",
-}
+# Only the platform we ship is tracked; the rest exist in the json5 but say
+# nothing about this product.
+_PLATFORM_KEYS = {"Win": "windows"}
 
 STATUS_ORDER = {"": 0, "test": 1, "experimental": 2, "stable": 3}
 
@@ -89,7 +84,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         attrs: Dict[str, Any] = {
             "status": status if isinstance(status, str) else "per-platform",
             "platform_status": per_platform,
-            "android_status": per_platform.get("android", ""),
+            "windows_status": per_platform.get("windows", ""),
         }
         # Carry through the fields that describe how the flag is wired up:
         # these are what break downstream overrides when they change.

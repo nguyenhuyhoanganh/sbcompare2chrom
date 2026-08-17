@@ -100,7 +100,7 @@ class Area:
 @dataclass
 class TouchSet:
     name: str = "downstream"
-    platform: str = "android"
+    platform: str = "windows"
     modified_paths: Set[str] = field(default_factory=set)
     modified_prefixes: Set[str] = field(default_factory=set)
     symbols: Set[str] = field(default_factory=set)
@@ -181,7 +181,7 @@ def load_profile(path: str, snapshots: Optional[Sequence[Snapshot]] = None,
 
     touch = TouchSet(
         name=profile.get("name", "downstream"),
-        platform=(profile.get("platform") or "android").lower(),
+        platform=(profile.get("platform") or "windows").lower(),
         ignore_paths=list(profile.get("ignore_paths", [])),
     )
 

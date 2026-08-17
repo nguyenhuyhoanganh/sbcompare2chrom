@@ -19,6 +19,7 @@ from typing import List, Optional
 from . import __version__
 from . import jsonc
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
+from .extract._cpp import PLATFORM
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
 from . import catalog, cluster, coverage, provenance
@@ -30,6 +31,7 @@ from .report import html as html_report
 from .report import markdown as md_report
 from .sbprofile import TouchSet, load_profile
 from .snapshot import build_snapshot
+from .targets import partition_names
 
 DEFAULT_CACHE = os.environ.get("CHROMEDRIFT_CACHE", ".chromedrift-cache")
 
@@ -50,8 +52,9 @@ def _now() -> str:
 def cmd_snapshot(args: argparse.Namespace) -> int:
     _log(f"snapshot {args.ref}")
     snap = build_snapshot(args.ref, args.cache, args.target_set,
-                          platform=args.platform, local_src=args.local_src,
-                          refresh=args.refresh, log=_log)
+                          platform=PLATFORM, local_src=args.local_src,
+                          refresh=args.refresh,
+                          partitions=args.partitions, log=_log)
     print(f"{snap.ref}  milestone={snap.milestone}  facts={len(snap.facts)}")
     for kind, count in snap.counts().items():
         print(f"  {kind:24s} {count}")
@@ -62,12 +65,14 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 def cmd_diff(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=args.local_src,
-                         refresh=args.refresh, log=_log)
+                         platform=PLATFORM, local_src=args.local_src,
+                         refresh=args.refresh,
+                         partitions=args.partitions, log=_log)
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=args.local_src,
-                         refresh=args.refresh, log=_log)
-    changes = diff_snapshots(old, new, platform=args.platform.lower(),
+                         platform=PLATFORM, local_src=args.local_src,
+                         refresh=args.refresh,
+                         partitions=args.partitions, log=_log)
+    changes = diff_snapshots(old, new, platform=PLATFORM,
                              target_milestone=new.milestone, mode=args.mode)
     print(f"{len(changes)} semantic changes  {old.ref} -> {new.ref} "
           f"[{args.mode}]")
@@ -85,7 +90,7 @@ def cmd_profile(args: argparse.Namespace) -> int:
     snapshots = []
     if args.ref:
         snapshots.append(build_snapshot(args.ref, args.cache, args.target_set,
-                                        platform=args.platform, log=_log))
+                                        platform=PLATFORM, log=_log))
     touch = load_profile(args.profile, snapshots=snapshots, log=_log)
     print(f"profile: {touch.name} (platform {touch.platform})")
     print(f"  areas:            {len(touch.areas)}")
@@ -112,15 +117,17 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     _log(f"[1/6] snapshot {args.from_ref}")
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=from_src,
-                         refresh=args.refresh, log=_log)
+                         platform=PLATFORM, local_src=from_src,
+                         refresh=args.refresh,
+                         partitions=args.partitions, log=_log)
     _log(f"[2/6] snapshot {args.to_ref}")
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
-                         platform=args.platform, local_src=to_src,
-                         refresh=args.refresh, log=_log)
+                         platform=PLATFORM, local_src=to_src,
+                         refresh=args.refresh,
+                         partitions=args.partitions, log=_log)
 
     _log("[3/6] diff")
-    platform = args.platform.lower()
+    platform = PLATFORM
     changes = diff_snapshots(old, new, platform=platform,
                              target_milestone=new.milestone, mode=args.mode)
     _log(f"  {len(changes)} semantic changes ({args.mode} mode)")
@@ -360,14 +367,14 @@ def cmd_provenance(args: argparse.Namespace) -> int:
     """
     _log(f"fork snapshot: {args.fork}")
     fork = build_snapshot(args.fork, args.cache, args.target_set,
-                          platform=args.platform, local_src=args.fork_src,
+                          platform=PLATFORM, local_src=args.fork_src,
                           refresh=args.refresh, log=_log)
 
     upstream = []
     for ref in args.upstream:
         _log(f"upstream snapshot: {ref}")
         upstream.append(build_snapshot(ref, args.cache, args.target_set,
-                                       platform=args.platform,
+                                       platform=PLATFORM,
                                        refresh=args.refresh, log=_log))
 
     report = provenance.analyze(upstream=upstream, fork=fork,
@@ -424,7 +431,7 @@ def _log_coverage(coverage: dict) -> None:
 
 def cmd_report(args: argparse.Namespace) -> int:
     report = Report.from_dict(read_json(args.report))
-    platform = report.meta.get("platform", "android")
+    platform = report.meta.get("platform", PLATFORM)
 
     if args.list_areas:
         coverage = (report.summary or {}).get("coverage") or {}
@@ -505,8 +512,6 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--target-set", default="default",
                         choices=("default", "minimal"),
                         help="which Chromium files to pull")
-    common.add_argument("--platform", default="Android",
-                        help="platform whose defaults matter (default: Android)")
     common.add_argument("--local-src", default=None,
                         help="use an existing checkout instead of gitiles "
                              "(applies to both sides)")
@@ -516,6 +521,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="checkout for the TO side only, e.g. a vendor fork")
     common.add_argument("--refresh", action="store_true",
                         help="ignore caches and refetch")
+    common.add_argument("--partition", action="append", dest="partitions",
+                        metavar="NAME",
+                        help="limit what is fetched and scanned to one part of "
+                             "the product (repeatable). Faster and LESS "
+                             "complete: a change affecting downloads can live "
+                             "in content/ or in a Mojo interface and match no "
+                             "partition. Use the full set for a release gate. "
+                             f"Available: {', '.join(partition_names())}")
     common.add_argument("--mode", default=MODE_UPREV, choices=MODES,
                         help="uprev: upstream over time (default). "
                              "fork: upstream vs a vendor fork at the same "

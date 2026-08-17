@@ -45,7 +45,7 @@ TEST_PATH_RE = re.compile(
     r"(unittest|browsertest|_test\.|/test/|/tests/|/testing/|test_util)")
 
 # Trees a desktop product never compiles.
-IRRELEVANT_RE = re.compile(r"^(ash|chromeos|ios|fuchsia|android_webview)/")
+IRRELEVANT_RE = re.compile(r"^(ash|chromeos|ios|fuchsia|android|android_webview)/")
 
 
 @dataclass
