@@ -467,6 +467,72 @@ class TestProvenance(unittest.TestCase):
         self.assertEqual(report.debt(), [])
 
 
+class TestCatalog(unittest.TestCase):
+    """Turn "is the target set enough?" from a guess into a number.
+
+    Curation failed twice by inspection. A blobless clone lists every path in
+    Chromium in seconds, so coverage becomes measurable and the gap is named
+    rather than suspected.
+    """
+
+    PATHS = [
+        "content/public/common/content_features.cc",       # covered by a tree target
+        "chrome/common/chrome_features.cc",                # covered by a file target
+        "cc/base/features.cc",                             # not covered
+        "components/sync/base/features.cc",                # covered
+        "base/task/task_features.cc",                      # not covered
+        "content/browser/x_unittest.cc",                   # a test, ignore
+        "components/y/features_browsertest.cc",            # a test, ignore
+        "ash/constants/ash_features.cc",                   # platform we do not ship
+        "chrome/browser/browser.cc",                       # not a feature file
+        "third_party/blink/renderer/core/dom/element.idl",  # not a .cc
+    ]
+
+    def _report(self, **kw):
+        from chromedrift.catalog import analyze
+        return analyze(self.PATHS, ref="151.0.0.0", **kw)
+
+    def test_only_plausible_feature_files_are_candidates(self):
+        paths = {c.path for c in self._report().candidates}
+        self.assertIn("cc/base/features.cc", paths)
+        self.assertNotIn("chrome/browser/browser.cc", paths)
+        self.assertNotIn("third_party/blink/renderer/core/dom/element.idl", paths)
+
+    def test_tests_are_excluded(self):
+        paths = {c.path for c in self._report().candidates}
+        self.assertNotIn("content/browser/x_unittest.cc", paths)
+        self.assertNotIn("components/y/features_browsertest.cc", paths)
+
+    def test_platforms_we_do_not_ship_are_excluded_by_default(self):
+        self.assertNotIn("ash/constants/ash_features.cc",
+                         {c.path for c in self._report().candidates})
+        self.assertIn("ash/constants/ash_features.cc",
+                      {c.path for c in
+                       self._report(include_irrelevant=True).candidates})
+
+    def test_coverage_distinguishes_fetched_from_unfetched(self):
+        report = self._report()
+        covered = {c.path for c in report.covered()}
+        missing = {c.path for c in report.missing()}
+        # A tree target covers everything beneath it.
+        self.assertIn("content/public/common/content_features.cc", covered)
+        # An exact file target covers just that file.
+        self.assertIn("chrome/common/chrome_features.cc", covered)
+        self.assertIn("cc/base/features.cc", missing)
+        self.assertIn("base/task/task_features.cc", missing)
+
+    def test_coverage_is_reported_as_a_number(self):
+        report = self._report()
+        self.assertEqual(len(report.candidates),
+                         len(report.covered()) + len(report.missing()))
+        self.assertTrue(0 <= report.coverage_pct() <= 100)
+
+    def test_missing_is_grouped_so_the_gap_is_actionable(self):
+        by_area = self._report().missing_by_area()
+        self.assertIn("cc", by_area)
+        self.assertIn("base", by_area)
+
+
 class TestVendorShadowing(unittest.TestCase):
     """A fork shadows upstream with a build flag instead of editing it.
 

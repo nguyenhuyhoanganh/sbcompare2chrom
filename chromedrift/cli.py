@@ -21,7 +21,7 @@ from . import jsonc
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
-from . import cluster, coverage, provenance
+from . import catalog, cluster, coverage, provenance
 from .diff import MODE_FORK, MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
@@ -321,6 +321,35 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_catalog(args: argparse.Namespace) -> int:
+    """Measure what the target set misses, instead of guessing.
+
+    Curation has no endpoint: you add files, discover more are missing, and
+    add again. A blobless clone lists every path in Chromium in seconds, so
+    the question becomes a number with the missing files named.
+    """
+    _log(f"cataloguing {args.ref}")
+    paths = catalog.list_tree(args.ref, workdir=args.keep_clone, log=_log)
+    report = catalog.analyze(paths, ref=args.ref, target_set=args.target_set,
+                             include_irrelevant=args.all_platforms)
+    print()
+    for line in catalog.summarize(report):
+        print(line)
+
+    missing = report.missing()
+    if missing:
+        print(f"\nNot fetched ({min(len(missing), args.limit)} of {len(missing)}):")
+        for entry in missing[: args.limit]:
+            print(f"  {entry.path}")
+        print("\nAdd the ones that matter to WEBUI_SURFACES or the target list "
+              "in chromedrift/targets.py.")
+
+    if args.out:
+        write_json(args.out, report.to_dict())
+        print(f"\nwritten: {args.out}")
+    return 0
+
+
 def cmd_provenance(args: argparse.Namespace) -> int:
     """Separate deliberate divergence from merge debt.
 
@@ -537,6 +566,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--profile", help="also validate a downstream profile")
     p.add_argument("--llm", help="also validate (and ping) an LLM config")
     p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("catalog", parents=[common],
+                       help="measure what the target set is missing")
+    p.add_argument("ref", help="Chromium ref, e.g. 151.0.7922.138")
+    p.add_argument("--limit", type=int, default=40,
+                   help="how many missing paths to print (default: 40)")
+    p.add_argument("--all-platforms", action="store_true",
+                   help="include ash/, chromeos/, ios/ and other trees a "
+                        "desktop product never compiles")
+    p.add_argument("--keep-clone",
+                   help="reuse or keep the blobless clone in this directory")
+    p.add_argument("--out", help="write the report JSON here")
+    p.set_defaults(func=cmd_catalog)
 
     p = sub.add_parser("provenance", parents=[common],
                        help="separate deliberate divergence from merge debt")

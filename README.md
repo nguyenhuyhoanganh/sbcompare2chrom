@@ -135,7 +135,7 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **103 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **109 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -600,7 +600,43 @@ Kết quả: `chrome/browser/ui/webui` từ **23 sót → 1 sót**, và 14 mục
 
 Mở rộng bộ lọc *đọc* là miễn phí, vì danh sách *tải* trong `targets.py` mới là thứ giới hạn cái gì có trên đĩa.
 
-### Cách tự kiểm khoảng trống
+### Đo khoảng trống thay vì đoán — lệnh `catalog`
+
+Hai lần trên đều là **đoán rồi phát hiện sai**: thêm file, phát hiện thiếu nữa, thêm tiếp. Cách đó không có điểm dừng — không có lúc nào nói được "danh sách đã đủ".
+
+Chỗ tôi sai là kết luận "Gitiles không cho duyệt đệ quy rẻ" rồi dừng lại. **Clone không tải nội dung file** (blobless clone) lấy được toàn bộ cấu trúc cây:
+
+```bash
+git clone --filter=blob:none --no-checkout --depth 1 --branch <tag> \
+  https://chromium.googlesource.com/chromium/src.git
+```
+
+Đo thật ở M151: **4,8 giây, 18 MB, 498.082 file**. Từ đó liệt kê được *mọi* file có thể khai báo feature, và đối chiếu với target set.
+
+```bash
+python3 -m chromedrift catalog 151.0.7922.138
+```
+
+Kết quả thật, chạy trong **5,1 giây**:
+
+```
+498.082  file trong Chromium
+    437  file có thể khai báo feature (theo tên, đã loại test và platform không ship)
+     36  target set đang phủ   (8%)
+    401  CHƯA phủ
+
+thiếu nhiều nhất, theo thư mục gốc:
+   components  193      chrome  81      ui  17
+   services     16      third_party 15  content 13
+```
+
+**8% số file** nghe rất tệ, nhưng số file không phải số feature — những file đang phủ là các file lớn nhất. Lấy mẫu 45 file chưa phủ và đếm thật: trung bình 10 feature/file, ước tính **~4.000 feature chưa theo dõi**. Loại đi `chrome_feature_list.cc` (276 feature, chỉ Android, không liên quan sản phẩm Windows) thì còn khoảng **1.600**.
+
+Tức là: đang bắt 2.062, **bỏ sót cỡ ngang ngửa**. Phủ khoảng **một nửa**.
+
+Đây không phải tin vui, nhưng nó là **con số**, không phải cảm giác. Và `catalog` nêu đích danh 401 file để bổ sung theo thứ tự ưu tiên, thay vì chờ lần sau lại phát hiện thiếu.
+
+### Kiểm một file cụ thể
 
 Danh sách file là **được chọn thủ công, không phải vét cạn**. Kiểm bằng cách lấy một file feature bất kỳ nghi là thiếu rồi đếm:
 
@@ -747,7 +783,7 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 python3 -m unittest discover -s tests
 ```
 
-**103 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**109 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
