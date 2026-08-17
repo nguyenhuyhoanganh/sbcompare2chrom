@@ -85,9 +85,49 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 
 Đây là phần quan trọng nhất. Không có ba thông tin này thì không chạy được trên SB.
 
+### 1.0 Quét dấu vết của Samsung trong cây nguồn — **làm việc này trước**
+
+- [ ] Đã chạy
+
+```bash
+python3 -m chromedrift discover --fork-src /đường/dẫn/sbrowser/src \
+  --scan-content --out out/discover.json
+```
+
+Một lệnh này thay cho việc nhớ đường dẫn. SB đặt code của mình **bên trong cây
+Chromium**, nên "file nào là của mình" không suy ra được từ cấu trúc Chromium.
+Lệnh quét cả checkout và tìm ba loại dấu vết:
+
+| Dấu vết | Ví dụ |
+|---|---|
+| Thư mục của vendor, ở bất kỳ độ sâu nào | `chrome/browser/resources/samsung/`, `ui/samsung/views/` |
+| **Hậu tố `-si` trên biến thể của component upstream** | `.../settings/privacy_page/privacy_page-si.html` |
+| Macro build bọc code trong file upstream | `#if defined(SBROWSER_CUSTOM_DOWNLOADS)` |
+
+Hậu tố `-si` là loại quan trọng nhất và cũng khó thấy nhất: nó nằm **trong** thư
+mục của Chromium và giữ nguyên tên component của Chromium, nên không tiền tố
+đường dẫn nào chạm tới, cũng không có tiền tố ký hiệu nào của vendor.
+
+**Kỳ vọng — ba khối output:**
+
+1. Thống kê: bao nhiêu file là của Samsung, theo từng loại dấu vết
+2. **FIXABLE** — thư mục của Samsung mà danh sách target **chưa bao giờ tải**.
+   Đây là những bề mặt đang **vắng mặt hoàn toàn** khỏi mọi phép so, và không
+   có gì khác báo điều đó. Mỗi dòng ở đây là một dòng cần thêm vào `targets.py`.
+3. **OUT OF MODEL** — file của Samsung mà **không extractor nào đọc dù có tải**
+   (native C++ UI, chuỗi `.grd`, file build). Thêm target **không giải quyết
+   được gì**; những thứ này phải nêu ở mục giới hạn của báo cáo.
+
+Cuối cùng lệnh in sẵn khối `vendor_markers` để dán vào hồ sơ.
+
+**Báo lại**: cả ba khối, đầy đủ, kèm file `out/discover.json`.
+
 ### 1.1 Tên macro Samsung dùng để bọc code
 
 - [ ] Đã lấy
+
+Việc 1.0 với `--scan-content` đã cho danh sách này rồi. Nếu muốn đối chiếu độc
+lập:
 
 ```bash
 cd /đường/dẫn/sbrowser/src
@@ -161,6 +201,8 @@ Sửa ba chỗ trong file đó:
 
   vendor_markers: {
     macros: [ /* điền từ việc 1.1 */ ],
+    path_markers: ["samsung/", "sbrowser/"],
+    filename_markers: ["-si"],
   },
 
   patch_dirs: [],                          // xoá dòng trỏ tới demo-patches

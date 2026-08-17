@@ -66,6 +66,12 @@ class VendorMarkers:
     macros: List[str] = field(default_factory=list)          # SBROWSER, SAMSUNG
     symbol_prefixes: List[str] = field(default_factory=list)  # kSbrowser
     path_markers: List[str] = field(default_factory=list)     # sbrowser/
+    # A vendor variant of an upstream file lives *inside* the upstream
+    # directory and keeps Chromium's own component name, with a suffix:
+    #     .../settings/privacy_page/privacy_page-si.html
+    # No path prefix reaches it and it carries no vendor symbol prefix, so
+    # without this it is indistinguishable from Chromium's own file.
+    filename_markers: List[str] = field(default_factory=list)  # -si
 
     @classmethod
     def from_profile(cls, profile: dict) -> "VendorMarkers":
@@ -74,10 +80,12 @@ class VendorMarkers:
             macros=[m.upper() for m in raw.get("macros", [])],
             symbol_prefixes=list(raw.get("symbol_prefixes", [])),
             path_markers=[p.lower() for p in raw.get("path_markers", [])],
+            filename_markers=[m.lower() for m in raw.get("filename_markers", [])],
         )
 
     def configured(self) -> bool:
-        return bool(self.macros or self.symbol_prefixes or self.path_markers)
+        return bool(self.macros or self.symbol_prefixes or self.path_markers
+                    or self.filename_markers)
 
     def guard_is_ours(self, condition: str) -> bool:
         upper = condition.upper()
@@ -90,7 +98,18 @@ class VendorMarkers:
 
     def path_is_ours(self, path: str) -> bool:
         low = (path or "").lower()
-        return any(m in low for m in self.path_markers)
+        if any(m in low for m in self.path_markers):
+            return True
+        return self.filename_is_ours(low)
+
+    def filename_is_ours(self, path: str) -> bool:
+        """A vendor variant of an upstream file, marked by its name alone."""
+        if not self.filename_markers:
+            return False
+        stem = (path or "").lower().rsplit("/", 1)[-1]
+        for _ in range(2):          # foo-si.html.ts -> foo-si.html -> foo-si
+            stem = stem.rsplit(".", 1)[0] if "." in stem else stem
+        return any(stem.endswith(m) for m in self.filename_markers)
 
 
 @dataclass

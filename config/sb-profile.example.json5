@@ -75,9 +75,28 @@
     macros: ["SBROWSER", "SAMSUNG", "S_TERRACE"],
     // Prefixes on our own feature and variable names.
     symbol_prefixes: ["kSbrowser", "kSamsung"],
-    // Directories that are ours outright.
+    // Directories that are ours outright, at any depth. This fork places its
+    // own code inside Chromium's tree, so these appear as subfolders:
+    //     chrome/browser/resources/samsung/
+    //     chrome/browser/resources/settings/samsung/
+    //     ui/samsung/views/
     path_markers: ["sbrowser/", "samsung/"],
+
+    // Filename suffix marking OUR variant of an upstream component. This one
+    // is the reason the field exists: the file sits inside an upstream
+    // directory and keeps Chromium's own component name --
+    //     chrome/browser/resources/settings/privacy_page/privacy_page-si.html
+    // -- so no path prefix reaches it and it carries no vendor symbol prefix.
+    // Without this it is indistinguishable from Chromium's own file.
+    filename_markers: ["-si"],
   },
+
+  // Do not fill the three lists above from memory. Run:
+  //     python3 -m chromedrift discover --fork-src /path/to/sbrowser/src
+  // It walks the checkout, reports every file that looks vendor-owned, prints
+  // a ready-to-paste block, and -- more importantly -- names the vendor
+  // directories the target list never fetches, which are absent from every
+  // comparison with nothing else saying so.
 
   // ---------------------------------------------------------------------
   // Owned areas.  These do three jobs at once: they boost the impact score,

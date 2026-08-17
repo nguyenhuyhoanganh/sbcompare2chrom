@@ -22,7 +22,7 @@ from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .extract._cpp import PLATFORM
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
-from . import catalog, cluster, coverage, provenance
+from . import catalog, cluster, coverage, discover, provenance
 from .diff import MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
@@ -374,6 +374,64 @@ def cmd_catalog(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_discover(args: argparse.Namespace) -> int:
+    """Find the vendor's own files without being told where they are.
+
+    A fork of this shape puts its files inside Chromium's directories, so the
+    list of "ours" is not derivable from Chromium's layout -- and after enough
+    years nobody has it written down. Both `vendor_markers` and the target list
+    were being filled in from memory, and a forgotten path removes a whole
+    surface from every comparison without saying so.
+    """
+    report = discover.scan(args.fork_src, dir_tokens=args.token or
+                           discover.DEFAULT_DIR_TOKENS,
+                           file_suffixes=args.suffix or
+                           discover.DEFAULT_FILE_SUFFIXES,
+                           scan_content=args.scan_content, log=_log)
+    print()
+    for line in discover.summarize(report):
+        print(line)
+
+    fetchable, unreadable = discover.uncovered_dirs(report, args.target_set)
+    if fetchable:
+        total = sum(n for _, n in fetchable)
+        print()
+        print(f"FIXABLE — {total} vendor files an extractor would read, in "
+              f"{len(fetchable)} directories the target list never fetches.")
+        print("They are absent from every comparison and nothing else says so. "
+              "Add the ones that matter to chromedrift/targets.py:")
+        for directory, n in fetchable[: args.limit]:
+            print(f"  {n:5d}  {directory}/")
+        if len(fetchable) > args.limit:
+            print(f"  ... and {len(fetchable) - args.limit} more directories")
+    else:
+        print()
+        print("Every vendor file an extractor could read is already in the "
+              "target set.")
+
+    if unreadable:
+        total = sum(n for _, n in unreadable)
+        print()
+        print(f"OUT OF MODEL — {total} vendor files in {len(unreadable)} "
+              f"directories that no extractor reads whatever we fetch.")
+        print("Native C++ UI, .grd strings, build files. Adding a target changes "
+              "nothing; state these in the report's limits instead.")
+        for directory, n in unreadable[: args.limit]:
+            print(f"  {n:5d}  {directory}/")
+        if len(unreadable) > args.limit:
+            print(f"  ... and {len(unreadable) - args.limit} more directories")
+
+    print()
+    print("Paste into the profile (verify by hand -- these are observations, "
+          "not proof of ownership):")
+    print(discover.suggest_profile(report))
+
+    if args.out:
+        write_json(args.out, report.to_dict())
+        print(f"\nwritten: {args.out}")
+    return 0
+
+
 def cmd_provenance(args: argparse.Namespace) -> int:
     """Separate deliberate divergence from merge debt.
 
@@ -618,6 +676,24 @@ def build_parser() -> argparse.ArgumentParser:
                    help="reuse or keep the blobless clone in this directory")
     p.add_argument("--out", help="write the report JSON here")
     p.set_defaults(func=cmd_catalog)
+
+    p = sub.add_parser("discover", parents=[common],
+                       help="find the vendor's own files in a fork checkout")
+    p.add_argument("--fork-src", required=True,
+                   help="path to the fork checkout (read from disk, no network)")
+    p.add_argument("--token", action="append",
+                   help="directory name marking vendor code (repeatable; "
+                        f"default: {', '.join(discover.DEFAULT_DIR_TOKENS)})")
+    p.add_argument("--suffix", action="append",
+                   help="filename suffix marking a vendor variant of an "
+                        f"upstream file (default: {', '.join(discover.DEFAULT_FILE_SUFFIXES)})")
+    p.add_argument("--scan-content", action="store_true",
+                   help="also read sources for #if defined(SBROWSER_*) guards "
+                        "(minutes, not seconds)")
+    p.add_argument("--limit", type=int, default=30,
+                   help="how many uncovered directories to print (default: 30)")
+    p.add_argument("--out", help="write the full report JSON here")
+    p.set_defaults(func=cmd_discover)
 
     p = sub.add_parser("provenance", parents=[common],
                        help="separate deliberate divergence from merge debt")

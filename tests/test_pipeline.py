@@ -827,6 +827,119 @@ class TestPartitionPlumbing(unittest.TestCase):
         self.assertIn("covers less by design", text)
 
 
+class TestVendorDiscovery(unittest.TestCase):
+    """Find the vendor's files without being told where they are.
+
+    This fork is taken from Chromium whole, then its own files are placed
+    *inside* Chromium's directories: a `samsung/` subfolder here, a `-si`
+    suffix on a variant of an upstream component there. So "which files are
+    ours" cannot be read off Chromium's layout, and after enough years nobody
+    has the list. Both `vendor_markers` and the target list were being filled
+    in from memory, and a forgotten path removes a whole surface from every
+    comparison silently.
+    """
+
+    LAYOUT = (
+        # upstream
+        "chrome/browser/resources/settings/privacy_page/privacy_page.html",
+        "chrome/browser/resources/settings/route.ts",
+        # vendor variants of upstream components, inside upstream directories
+        "chrome/browser/resources/settings/privacy_page/privacy_page-si.html",
+        "chrome/browser/resources/downloads/item-si.html.ts",
+        # vendor subfolder inside a tracked surface
+        "chrome/browser/resources/settings/samsung/secret_mode.html",
+        # vendor subfolder beside the surfaces, outside every target
+        "chrome/browser/resources/samsung/quick_menu.html",
+        # native UI: vendor-owned, but no extractor reads it
+        "ui/samsung/views/sbrowser_toolbar.cc",
+    )
+
+    def setUp(self):
+        import tempfile
+        self.root = tempfile.mkdtemp()
+        for rel in self.LAYOUT:
+            path = os.path.join(self.root, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("// x\n")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _scan(self, **kw):
+        from chromedrift import discover
+        return discover.scan(self.root, log=lambda m: None, **kw)
+
+    def test_upstream_files_are_not_claimed(self):
+        found = {h.path for h in self._scan().hits}
+        self.assertNotIn("chrome/browser/resources/settings/route.ts", found)
+        self.assertNotIn(
+            "chrome/browser/resources/settings/privacy_page/privacy_page.html", found)
+
+    def test_the_si_suffix_is_found_inside_an_upstream_directory(self):
+        """No path prefix reaches it and it has no vendor symbol prefix."""
+        from chromedrift.discover import BY_NAME
+        hits = {h.path: h for h in self._scan().hits}
+        for rel in ("chrome/browser/resources/settings/privacy_page/privacy_page-si.html",
+                    "chrome/browser/resources/downloads/item-si.html.ts"):
+            self.assertIn(rel, hits, rel)
+            self.assertEqual(hits[rel].rule, BY_NAME)
+
+    def test_a_double_extension_still_matches(self):
+        """item-si.html.ts must strip both extensions before testing the stem."""
+        report = self._scan()
+        self.assertIn("-si", report.suffixes_seen())
+        self.assertEqual(report.suffixes_seen()["-si"], 2)
+
+    def test_samsung_folders_are_found_at_any_depth(self):
+        from chromedrift.discover import BY_DIR
+        hits = {h.path: h for h in self._scan().hits}
+        for rel in ("chrome/browser/resources/settings/samsung/secret_mode.html",
+                    "chrome/browser/resources/samsung/quick_menu.html",
+                    "ui/samsung/views/sbrowser_toolbar.cc"):
+            self.assertIn(rel, hits, rel)
+            self.assertEqual(hits[rel].rule, BY_DIR)
+
+    def test_uncovered_splits_what_can_be_fixed_from_what_cannot(self):
+        """A worklist mixing the two is mostly unactionable."""
+        from chromedrift.discover import uncovered_dirs
+        fetchable, unreadable = uncovered_dirs(self._scan())
+        self.assertIn("chrome/browser/resources/samsung",
+                      [d for d, _ in fetchable])
+        # Native C++ UI is vendor-owned and no extractor reads it; calling that
+        # "missing" implies a fix that does not exist.
+        self.assertIn("ui/samsung/views", [d for d, _ in unreadable])
+
+    def test_macro_scanning_catches_the_common_shape(self):
+        """SBROWSER_CUSTOM_DOWNLOADS, not only S_SBROWSER_X."""
+        path = os.path.join(self.root, "chrome/browser/download/download_prefs.cc")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("#if defined(SBROWSER_CUSTOM_DOWNLOADS)\n// ours\n#endif\n")
+        report = self._scan(scan_content=True)
+        self.assertIn("SBROWSER_CUSTOM_DOWNLOADS", report.macros)
+
+    def test_the_suggested_profile_reflects_the_tree(self):
+        from chromedrift.discover import suggest_profile
+        text = suggest_profile(self._scan())
+        self.assertIn('"samsung/"', text)
+        self.assertIn('"-si"', text)
+
+    def test_markers_recognise_a_si_file_as_ours(self):
+        """The marker vocabulary had no way to express this before."""
+        from chromedrift.coverage import VendorMarkers
+        markers = VendorMarkers.from_profile(
+            {"vendor_markers": {"path_markers": ["samsung/"],
+                                "filename_markers": ["-si"]}})
+        self.assertTrue(markers.path_is_ours(
+            "chrome/browser/resources/settings/privacy_page-si.html"))
+        self.assertTrue(markers.path_is_ours(
+            "chrome/browser/resources/settings/item-si.html.ts"))
+        self.assertFalse(markers.path_is_ours(
+            "chrome/browser/resources/settings/privacy_page.html"))
+
+
 class TestReferenceClosure(unittest.TestCase):
     """"Is this enough?" is only answerable after extraction.
 
