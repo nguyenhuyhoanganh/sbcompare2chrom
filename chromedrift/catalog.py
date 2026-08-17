@@ -197,3 +197,91 @@ def summarize(report: CatalogReport, limit: int = 30) -> List[str]:
         for area, n in list(by_area.items())[:limit]:
             lines.append(f"  {area:28s} {n}")
     return lines
+
+
+# ---------------------------------------------------------------------------
+# Reference closure: the only honest form of "did we get everything"
+#
+# File-level coverage answers "did we fetch the files someone listed". It cannot
+# answer "did we fetch the files this surface actually depends on", because that
+# depends on what the surface references, which is only knowable after
+# extraction.
+#
+# The declarative layer is a graph with links the data itself declares:
+#
+#     webui_route --guards--> webui_gate --features--> base_feature
+#     webui_control --pref--> pref
+#     blink_runtime --base_feature--> base_feature
+#     feature_param --feature--> base_feature
+#
+# So completeness becomes checkable rather than hoped for: walk every declared
+# edge and report the ones whose target is not in the snapshot. An empty list is
+# a proof that the extracted surface is self-contained. A non-empty one names
+# the exact declarations to add, instead of leaving "is this enough?" as a
+# feeling.
+# ---------------------------------------------------------------------------
+
+_DANGLING_LABEL = {
+    "gate": "page guard with no handler declaring it",
+    "feature": "flag referenced by a gate but declared nowhere we fetched",
+    "pref": "preference bound by a control but declared nowhere we fetched",
+    "blink_feature": "Blink flag naming a base::Feature we did not fetch",
+    "param_owner": "feature parameter whose owning feature we did not fetch",
+}
+
+
+def _bare(name: str) -> str:
+    return name[1:] if len(name) > 1 and name[0] == "k" and name[1].isupper() else name
+
+
+def unresolved_references(snapshot) -> Dict[str, List[str]]:
+    """Declared links whose target is absent from this snapshot."""
+    by_kind: Dict[str, Set[str]] = {}
+    for fact in snapshot.facts:
+        by_kind.setdefault(fact.kind, set()).add(fact.key)
+
+    gates = by_kind.get("webui_gate", set())
+    features = by_kind.get("base_feature", set())
+    prefs = by_kind.get("pref", set())
+    out: Dict[str, Set[str]] = {k: set() for k in _DANGLING_LABEL}
+
+    for fact in snapshot.facts:
+        a = fact.attrs
+        if fact.kind == "webui_route":
+            for guard in a.get("guards") or []:
+                if guard not in gates:
+                    out["gate"].add(guard)
+        elif fact.kind == "webui_gate":
+            for var in a.get("features") or []:
+                if _bare(var) not in features:
+                    out["feature"].add(_bare(var))
+        elif fact.kind == "webui_control":
+            pref = a.get("pref") or ""
+            if pref and pref not in prefs:
+                out["pref"].add(pref)
+        elif fact.kind == "blink_runtime_feature":
+            declared = a.get("base_feature")
+            if isinstance(declared, str) and declared and declared != "none":
+                if _bare(declared) not in features:
+                    out["blink_feature"].add(_bare(declared))
+        elif fact.kind == "feature_param":
+            owner = a.get("feature") or ""
+            if owner and owner not in features:
+                out["param_owner"].add(owner)
+
+    return {k: sorted(v) for k, v in out.items() if v}
+
+
+def summarize_closure(dangling: Dict[str, List[str]], limit: int = 8) -> List[str]:
+    if not dangling:
+        return ["reference closure: complete — every declared link resolves "
+                "inside this snapshot"]
+    total = sum(len(v) for v in dangling.values())
+    lines = [f"reference closure: {total} unresolved reference(s)"]
+    for kind, names in sorted(dangling.items(), key=lambda kv: -len(kv[1])):
+        lines.append(f"  {len(names):4d}  {_DANGLING_LABEL[kind]}")
+        for name in names[:limit]:
+            lines.append(f"          {name}")
+        if len(names) > limit:
+            lines.append(f"          ... and {len(names) - limit} more")
+    return lines

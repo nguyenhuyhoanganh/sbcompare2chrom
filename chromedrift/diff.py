@@ -285,9 +285,11 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
     report whose numbers look reasonable and are not.
     """
     old_set = ((old.meta or {}).get("target_set"),
-               tuple((old.meta or {}).get("partitions") or ()))
+               tuple((old.meta or {}).get("partitions") or ()),
+               bool((old.meta or {}).get("complete")))
     new_set = ((new.meta or {}).get("target_set"),
-               tuple((new.meta or {}).get("partitions") or ()))
+               tuple((new.meta or {}).get("partitions") or ()),
+               bool((new.meta or {}).get("complete")))
     if old_set != new_set:
         raise ValueError(
             f"cannot diff snapshots built from different target sets "

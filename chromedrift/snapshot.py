@@ -27,7 +27,8 @@ from .targets import get_targets
 
 
 def snapshot_path(cache_dir: str, ref: str, target_set: str,
-                  partitions: Optional[Sequence[str]] = None) -> str:
+                  partitions: Optional[Sequence[str]] = None,
+                  complete: bool = False) -> str:
     """Cache path.  The partition belongs in the key.
 
     A partitioned snapshot covers a fraction of the surface. Keying only on
@@ -37,6 +38,9 @@ def snapshot_path(cache_dir: str, ref: str, target_set: str,
     """
     safe = ref.replace("/", "_").replace(":", "_")
     part = ("." + "+".join(sorted(partitions))) if partitions else ""
+    # A complete partition covers strictly more than a filtered one of the same
+    # name, so it cannot share a key with it.
+    part += ".complete" if complete else ""
     return os.path.join(cache_dir, "snapshots", f"{safe}.{target_set}{part}.json")
 
 
@@ -48,10 +52,11 @@ def tree_path(cache_dir: str, ref: str) -> str:
 def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
                    platform: str = "Windows", local_src: Optional[str] = None,
                    refresh: bool = False, partitions: Optional[Sequence[str]] = None,
-                   log=print) -> Snapshot:
+                   complete: bool = False, log=print) -> Snapshot:
     """Resolve a ref, materialize its target files, and extract facts."""
     resolved, milestone = resolve_ref(ref, platform=platform)
-    out_path = snapshot_path(cache_dir, resolved, target_set, partitions)
+    out_path = snapshot_path(cache_dir, resolved, target_set, partitions,
+                             complete)
 
     if os.path.exists(out_path) and not refresh:
         cached = read_json(out_path)
@@ -61,7 +66,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         log(f"  snapshot cache stale (schema {cached.get('schema')} != "
             f"{SCHEMA_VERSION}), rebuilding")
 
-    targets = get_targets(target_set, partitions)
+    targets = get_targets(target_set, partitions, complete)
     root = tree_path(cache_dir, resolved)
     os.makedirs(root, exist_ok=True)
 
@@ -106,6 +111,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         meta={
             "target_set": target_set,
             "partitions": sorted(partitions) if partitions else [],
+            "complete": complete,
             "platform": platform,
             "fetch_seconds": round(fetched, 1),
             "fetch_stats": fetch_stats,

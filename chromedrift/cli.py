@@ -54,7 +54,8 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     snap = build_snapshot(args.ref, args.cache, args.target_set,
                           platform=PLATFORM, local_src=args.local_src,
                           refresh=args.refresh,
-                          partitions=args.partitions, log=_log)
+                          partitions=args.partitions,
+                          complete=args.complete, log=_log)
     print(f"{snap.ref}  milestone={snap.milestone}  facts={len(snap.facts)}")
     for kind, count in snap.counts().items():
         print(f"  {kind:24s} {count}")
@@ -67,11 +68,13 @@ def cmd_diff(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=args.local_src,
                          refresh=args.refresh,
-                         partitions=args.partitions, log=_log)
+                         partitions=args.partitions,
+                          complete=args.complete, log=_log)
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=args.local_src,
                          refresh=args.refresh,
-                         partitions=args.partitions, log=_log)
+                         partitions=args.partitions,
+                          complete=args.complete, log=_log)
     changes = diff_snapshots(old, new, platform=PLATFORM,
                              target_milestone=new.milestone, mode=args.mode)
     print(f"{len(changes)} semantic changes  {old.ref} -> {new.ref} "
@@ -91,7 +94,8 @@ def cmd_profile(args: argparse.Namespace) -> int:
     if args.ref:
         snapshots.append(build_snapshot(args.ref, args.cache, args.target_set,
                                         platform=PLATFORM,
-                                        partitions=args.partitions, log=_log))
+                                        partitions=args.partitions,
+                          complete=args.complete, log=_log))
     touch = load_profile(args.profile, snapshots=snapshots, log=_log)
     print(f"profile: {touch.name} (platform {touch.platform})")
     print(f"  areas:            {len(touch.areas)}")
@@ -120,12 +124,20 @@ def cmd_run(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=from_src,
                          refresh=args.refresh,
-                         partitions=args.partitions, log=_log)
+                         partitions=args.partitions,
+                          complete=args.complete, log=_log)
     _log(f"[2/6] snapshot {args.to_ref}")
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=to_src,
                          refresh=args.refresh,
-                         partitions=args.partitions, log=_log)
+                         partitions=args.partitions,
+                          complete=args.complete, log=_log)
+
+    # Completeness is only checkable after extraction: whether the surface is
+    # self-contained depends on what it references, not on what was fetched.
+    dangling = catalog.unresolved_references(new)
+    for line in catalog.summarize_closure(dangling):
+        _log("  " + line)
 
     _log("[3/6] diff")
     platform = PLATFORM
@@ -202,6 +214,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             "facts_from": len(old.facts),
             "facts_to": len(new.facts),
             "profile": touch.provenance,
+            "partitions": sorted(args.partitions) if args.partitions else [],
+            "complete": args.complete,
+            "unresolved_references": dangling,
             "tool_version": __version__,
         },
     )
@@ -379,7 +394,8 @@ def cmd_provenance(args: argparse.Namespace) -> int:
         upstream.append(build_snapshot(ref, args.cache, args.target_set,
                                        platform=PLATFORM,
                                        refresh=args.refresh,
-                                       partitions=args.partitions, log=_log))
+                                       partitions=args.partitions,
+                          complete=args.complete, log=_log))
 
     report = provenance.analyze(upstream=upstream, fork=fork,
                                 base_ref=args.base)
@@ -533,6 +549,12 @@ def build_parser() -> argparse.ArgumentParser:
                              "in content/ or in a Mojo interface and match no "
                              "partition. Use the full set for a release gate. "
                              f"Available: {', '.join(partition_names())}")
+    common.add_argument("--complete", action="store_true",
+                        help="with --partition: fetch the partition's whole "
+                             "directory roots instead of a curated file list, "
+                             "so coverage inside those roots is complete by "
+                             "construction. Costs a few MB more; refused for "
+                             "partitions whose roots are whole subsystems")
     common.add_argument("--mode", default=MODE_UPREV, choices=MODES,
                         help="uprev: upstream over time (default). "
                              "fork: upstream vs a vendor fork at the same "

@@ -826,6 +826,125 @@ class TestPartitionPlumbing(unittest.TestCase):
         self.assertIn("covers less by design", text)
 
 
+class TestReferenceClosure(unittest.TestCase):
+    """"Is this enough?" is only answerable after extraction.
+
+    File coverage says whether we fetched the files someone listed. It cannot
+    say whether we fetched the files this surface depends on, because that
+    depends on what the surface references. Walking the links the data itself
+    declares turns the question into a list.
+    """
+
+    def _snap(self, facts):
+        return Snapshot(ref="151.0.0.0", facts=facts)
+
+    def test_a_self_contained_surface_reports_complete(self):
+        from chromedrift.catalog import summarize_closure, unresolved_references
+        snap_ = self._snap([
+            Fact("webui_route", "settings/PRIVACY", "PRIVACY", "route.ts",
+                 attrs={"guards": ["enablePrivacyGuide"]}),
+            Fact("webui_gate", "enablePrivacyGuide", "enablePrivacyGuide", "h.cc",
+                 attrs={"features": ["kPrivacyGuide"]}),
+            feature("PrivacyGuide", "enabled"),
+        ])
+        self.assertEqual(unresolved_references(snap_), {})
+        self.assertIn("complete", summarize_closure({})[0])
+
+    def test_a_flag_declared_outside_the_partition_is_named(self):
+        from chromedrift.catalog import unresolved_references
+        snap_ = self._snap([
+            Fact("webui_gate", "enableThing", "enableThing", "h.cc",
+                 attrs={"features": ["kThingDeclaredInContent"]}),
+        ])
+        self.assertEqual(unresolved_references(snap_),
+                         {"feature": ["ThingDeclaredInContent"]})
+
+    def test_a_pref_bound_but_never_declared_is_named(self):
+        from chromedrift.catalog import unresolved_references
+        snap_ = self._snap([
+            Fact("webui_control", "settings/x/pref:download.prompt", "pref:download.prompt",
+                 "x.html", attrs={"pref": "download.prompt"}),
+        ])
+        self.assertEqual(unresolved_references(snap_), {"pref": ["download.prompt"]})
+
+    def test_the_summary_names_what_to_add(self):
+        from chromedrift.catalog import summarize_closure, unresolved_references
+        snap_ = self._snap([
+            Fact("webui_gate", "g", "g", "h.cc", attrs={"features": ["kMissing"]}),
+        ])
+        text = "\n".join(summarize_closure(unresolved_references(snap_)))
+        self.assertIn("1 unresolved", text)
+        self.assertIn("Missing", text)
+
+
+class TestCompletePartitions(unittest.TestCase):
+    """Filtering a curated list inherits the curation gap.
+
+    `--partition downloads` was only ever as complete as the hand-written list
+    happened to be, and measured at M151 it was missing bookmark and history
+    pref files and a downloads Mojo interface. `--complete` derives the targets
+    from directory roots instead, so what is covered stops depending on what
+    anyone remembered.
+    """
+
+    def test_complete_pulls_roots_not_a_curated_subset(self):
+        from chromedrift.targets import get_targets
+        filtered = get_targets("default", ["downloads"])
+        complete = get_targets("default", ["downloads"], complete=True)
+        self.assertTrue(any(t.kind == "tree" and t.path == "components/download"
+                            for t in complete),
+                        "complete should pull the whole components/download root")
+        self.assertFalse(any(t.kind == "tree" and t.path == "components/download"
+                             for t in filtered))
+
+    def test_complete_covers_what_the_curated_list_missed(self):
+        """Measured gaps at M151, now inside the roots by construction."""
+        from chromedrift.targets import get_targets
+        targets = get_targets("default", ["bookmarks", "history"], complete=True)
+        prefixes = [t.path.rstrip("/") + "/" for t in targets if t.kind == "tree"]
+        for missed in ("components/bookmarks/common/bookmark_pref_names.h",
+                       "components/history/core/common/pref_names.h"):
+            self.assertTrue(any(missed.startswith(p) for p in prefixes), missed)
+
+    def test_suffixes_cover_every_extractor(self):
+        """A file an extractor can read but a complete fetch skips is a hole."""
+        from chromedrift.targets import COMPLETE_SUFFIXES
+        for sample in ("download_features.cc", "chrome_features.h",
+                       "media_switches.cc", "pref_names.h", "foo.mojom",
+                       "bar.idl", "page.html", "item.html.ts", "route.ts",
+                       "runtime_enabled_features.json5"):
+            self.assertTrue(any(sample.endswith(s) for s in COMPLETE_SUFFIXES),
+                            f"{sample} is readable but would not be fetched")
+
+    def test_an_unaffordable_root_is_refused_not_faked(self):
+        from chromedrift.targets import get_targets
+        with self.assertRaises(ValueError) as caught:
+            get_targets("default", ["webplatform"], complete=True)
+        self.assertIn("webplatform", str(caught.exception))
+
+    def test_complete_needs_a_partition(self):
+        from chromedrift.targets import get_targets
+        with self.assertRaises(ValueError):
+            get_targets("default", None, complete=True)
+
+    def test_complete_is_part_of_the_cache_key(self):
+        from chromedrift.snapshot import snapshot_path
+        a = snapshot_path("/c", "refs/tags/151", "default", ["settings"])
+        b = snapshot_path("/c", "refs/tags/151", "default", ["settings"], True)
+        self.assertNotEqual(a, b)
+
+    def test_diff_refuses_to_mix_complete_with_filtered(self):
+        from chromedrift.diff import diff_snapshots
+        old = Snapshot(ref="a", facts=[],
+                       meta={"target_set": "default", "partitions": ["settings"],
+                             "complete": True})
+        new = Snapshot(ref="b", facts=[],
+                       meta={"target_set": "default", "partitions": ["settings"],
+                             "complete": False})
+        with self.assertRaises(ValueError):
+            diff_snapshots(old, new)
+
+
 class TestCatalog(unittest.TestCase):
     """Turn "is the target set enough?" from a guess into a number.
 

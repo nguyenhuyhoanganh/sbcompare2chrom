@@ -231,22 +231,115 @@ PARTITIONS = {
 }
 
 
-def get_targets(name: str,
-                partitions: Optional[Sequence[str]] = None) -> List[FetchTarget]:
+# ---------------------------------------------------------------------------
+# Complete partitions: 100% of a bounded surface, by construction
+#
+# Filtering the curated list inherits the curation gap, so `--partition
+# downloads` is only ever as complete as the hand-written list happens to be.
+# Measured at M151, that leaves real holes in small partitions: bookmarks was
+# missing `bookmark_pref_names.h`, history both of its pref files, downloads a
+# Mojo interface.
+#
+# `--complete` inverts the derivation. Instead of filtering files someone chose,
+# it pulls whole directory roots and lets the extractors decide what to read, so
+# every declaration inside the roots is covered whether or not anyone thought of
+# it. Coverage is then a property of the roots, which are reviewable, rather
+# than of a list, which drifts.
+#
+# This is affordable only because the roots are small. Measured tarball sizes at
+# M151: components/bookmarks 0.2 MB, components/download 0.4 MB,
+# components/history 0.5 MB, net/base 0.7 MB, extensions/ 3.8 MB,
+# chrome/browser/ui/webui 3.4 MB. Gitiles serves a whole directory or nothing,
+# so a root like third_party/blink/ would be hundreds of megabytes -- which is
+# why `webplatform` is not closable and says so instead of pretending.
+# ---------------------------------------------------------------------------
+
+# Every filename any extractor can read, as basename suffixes. Kept in one place
+# because "what the tool can read" and "what a complete fetch must include" are
+# the same question, and answering it twice is how they drift apart.
+COMPLETE_SUFFIXES = (
+    # base_features.FILE_HINTS
+    "features.cc", "features.h", "switches.cc", "switches.h",
+    "fieldtrial.cc", "field_trial.cc", "flags.cc", "feature_list.cc",
+    "util.cc", "handler.cc", "manager.cc",
+    # constants.py
+    "pref_names.cc", "pref_names.h",
+    # web_idl / mojom
+    ".idl", ".mojom",
+    # webui_controls / webui_routes
+    ".html", ".html.ts", "route.ts", "routes.ts",
+    # blink_runtime / flags_metadata
+    ".json5", "flag-metadata.json",
+)
+
+# WebUI gates are the exception: `webui_gates.applies_to` claims every .cc under
+# chrome/browser/ui/webui/, not a naming convention, so closing that root needs
+# the suffix rather than the convention.
+_GATE_ROOT = "chrome/browser/ui/webui"
+
+# Partitions whose roots are small enough to fetch whole. The rest keep their
+# curated targets; `--complete` on them is refused rather than silently ignored.
+CLOSABLE = {
+    "settings", "downloads", "bookmarks", "history", "extensions",
+    "passwords", "printing", "newtab", "network", "media",
+}
+
+
+def _is_file(path: str) -> bool:
+    """A path naming a file, not a directory, judged by its extension."""
+    return "." in path.rsplit("/", 1)[-1]
+
+
+def complete_targets(partitions: Sequence[str]) -> List[FetchTarget]:
+    """Every readable file under the partitions' roots, plus the core files."""
+    targets = [FetchTarget(p, "file", note="partition core")
+               for p in PARTITION_CORE]
+    seen = set(PARTITION_CORE)
+    for partition in partitions:
+        for root in PARTITIONS[partition]:
+            root = root.rstrip("/")
+            if root in seen:
+                continue
+            seen.add(root)
+            if _is_file(root):
+                targets.append(FetchTarget(root, "file", note=partition))
+                continue
+            include = COMPLETE_SUFFIXES
+            if root == _GATE_ROOT or root.startswith(_GATE_ROOT + "/"):
+                include = COMPLETE_SUFFIXES + (".cc",)
+            targets.append(FetchTarget(root, "tree", include,
+                                       note=f"{partition}: complete"))
+    return targets
+
+
+def get_targets(name: str, partitions: Optional[Sequence[str]] = None,
+                complete: bool = False) -> List[FetchTarget]:
     if name not in TARGET_SETS:
         raise KeyError(f"unknown target set {name!r}; have {sorted(TARGET_SETS)}")
-    targets = TARGET_SETS[name]()
     if not partitions:
-        return targets
+        if complete:
+            raise ValueError("--complete needs at least one --partition; "
+                             "there is no affordable closure over all of Chromium")
+        return TARGET_SETS[name]()
 
     unknown = [p for p in partitions if p not in PARTITIONS]
     if unknown:
         raise KeyError(f"unknown partition(s) {unknown}; have {sorted(PARTITIONS)}")
 
+    if complete:
+        not_closable = sorted(set(partitions) - CLOSABLE)
+        if not_closable:
+            raise ValueError(
+                f"partition(s) {not_closable} cannot be fetched completely: "
+                f"their roots are whole Chromium subsystems and Gitiles serves a "
+                f"directory or nothing. Run them without --complete, or narrow "
+                f"the roots in targets.py. Closable: {sorted(CLOSABLE)}")
+        return complete_targets(partitions)
+
     prefixes = tuple(PARTITION_CORE)
     for partition in partitions:
         prefixes += PARTITIONS[partition]
-    return [t for t in targets if t.path.startswith(prefixes)]
+    return [t for t in TARGET_SETS[name]() if t.path.startswith(prefixes)]
 
 
 def partition_names() -> List[str]:
