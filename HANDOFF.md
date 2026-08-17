@@ -157,7 +157,7 @@ Sửa ba chỗ trong file đó:
 ```json5
 {
   name: "Samsung Browser",
-  platform: "windows",                    // ← đổi từ android
+  platform: "windows",                    // giá trị khác sẽ bị từ chối khi nạp
 
   vendor_markers: {
     macros: [ /* điền từ việc 1.1 */ ],
@@ -227,10 +227,19 @@ python3 -m chromedrift provenance sb-main-dev \
 Ví dụ: `provenance sb-main-dev 120.0.x 131.0.x 139.0.x 148.0.7778.217 ...`
 
 **Kỳ vọng**: hai bảng
-1. `in_sync / stale / diverged / missing_new / missing_old / vendor_only`
-2. `untouched / shadowed / ...` kèm **danh sách flag Samsung cover bao nhiêu mục**
+
+1. Xuất xứ: `in_sync / stale / diverged / missing_new / missing_old / vendor_only`
+2. Che phủ: `untouched / shadowed / modified / absent / vendor_only / orphaned`
+   kèm **danh sách flag Samsung cover bao nhiêu mục**
 
 **Đây là câu trả lời cho "đã nợ những gì"** — `stale` nêu đích danh phiên bản còn khớp.
+
+Hai trạng thái cần đọc kỹ vì chúng dễ bị lẫn với nhau:
+
+- `vendor_only` — chỉ ta có, **và** có dấu hiệu là của ta (macro `SBROWSER*`, tiền tố ký hiệu, hoặc đường dẫn của ta). Đây là quyết định.
+- `orphaned` — chỉ ta có, nhưng **không có dấu hiệu nào** nói là của ta. Thường là upstream đã xoá và bản merge của ta giữ lại. Đây là nợ, không phải quyết định.
+
+Trước đây cả hai đều bị gộp chung thành `vendor_only`, nên nợ bị xếp nhầm vào mục quyết định.
 
 **Báo lại**: cả hai bảng, đầy đủ.
 

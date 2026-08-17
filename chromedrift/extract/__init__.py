@@ -38,8 +38,8 @@ REGISTRY: List[Extractor] = [
     ("webui_gates", webui_gates.applies_to, webui_gates.extract),
 ]
 
-# Directories that only add noise: generated output, tests and platform trees a
-# mobile browser never compiles.
+# Directories that only add noise: generated output, tests, and platform trees
+# a Windows desktop browser never compiles.
 SKIP_DIR_PARTS = (
     "/testing/", "/test/", "/tests/", "/out/", "/.git/", "/__pycache__/",
     "/chromeos/", "/ash/", "/ios/", "/fuchsia/",

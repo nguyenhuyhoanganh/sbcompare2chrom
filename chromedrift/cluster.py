@@ -25,7 +25,7 @@ is exact rather than a guess.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Sequence
 
 from .model import (
     KIND_BASE_FEATURE,
@@ -96,10 +96,8 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     wrapping it in a cluster adds noise rather than removing it.
     """
     union = _Union()
-    by_kind_key: Dict[tuple, Finding] = {}
     for f in findings:
         union.add(f.uid)
-        by_kind_key[(f.change.kind, f.change.key)] = f
 
     # Gates are keyed by the loadTimeData key, which is what a route names.
     gates = {f.change.key: f for f in findings

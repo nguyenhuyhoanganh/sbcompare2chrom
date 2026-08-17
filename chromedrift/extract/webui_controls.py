@@ -90,6 +90,12 @@ def template_body(text: str, rel_path: str) -> str:
     For Lit, take everything from the first ``html\\``` to the last backtick;
     the surrounding TypeScript declares no controls, and interpolated
     expressions inside are left in place for the attribute parser to skip.
+
+    The leading TypeScript is blanked rather than cut, so offsets into the
+    result still map onto the original file and reported line numbers point at
+    the real line. Slicing it away made every Lit control's line number an
+    offset into the template instead -- silently, since nothing checks a line
+    number until someone opens the file and finds the wrong thing there.
     """
     if not rel_path.endswith(".html.ts"):
         return text
@@ -97,7 +103,9 @@ def template_body(text: str, rel_path: str) -> str:
     if not m:
         return ""
     end = text.rfind("`")
-    return text[m.end():end] if end > m.end() else text[m.end():]
+    end = end if end > m.end() else len(text)
+    head = "".join(c if c == "\n" else " " for c in text[:m.end()])
+    return head + text[m.end():end]
 
 
 def surface_of(rel_path: str) -> str:

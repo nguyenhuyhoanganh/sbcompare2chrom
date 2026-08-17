@@ -4,23 +4,23 @@ Where settings live, how to compare them, and how large a "feature" should be.
 
 ## Contents
 
-- Platform split
+- Where settings live
 - Desktop sources and the three-hop chain
-- Android sources
 - Feature granularity
 - Grouping rule
 - Current tool coverage
 
-## Platform split
+## Where settings live
 
-Desktop and Android settings share no code. Pick one and stay in it.
+On desktop, settings are a web page: `chrome://settings` is TypeScript and HTML
+templates under `chrome/browser/resources/settings/`, served by C++ handlers in
+`chrome/browser/ui/webui/settings/`.
 
-| Platform | Settings are | Location |
-|---|---|---|
-| Windows / Mac / Linux | A WebUI page (`chrome://settings`) | `chrome/browser/resources/settings/` |
-| Android | Declarative preference XML | `chrome/android/java/res/xml/` plus component directories |
-
-For a Windows product, ignore the Android tree entirely.
+Chromium's mobile builds implement settings a completely different way — as
+declarative preference XML with Java visibility logic — and share no code with
+this. That tree is irrelevant to a Windows product, is excluded from the target
+set, and should not appear in a report. If a finding points into it, the
+finding is wrong.
 
 ## Desktop sources and the three-hop chain
 
@@ -48,28 +48,6 @@ replaces the UI while keeping the underlying prefs.
 
 The control type is written in the element name, which is what makes
 "a dropdown became a toggle" mechanically detectable.
-
-## Android sources
-
-Roughly 43 preference XML files: 18 in `chrome/android/java/res/xml/` and the
-rest across `components/browser_ui/site_settings/`, `chrome/browser/safety_hub/`,
-`chrome/browser/privacy_sandbox/`, `chrome/browser/autofill/`,
-`chrome/browser/download/`.
-
-Visibility is decided in the matching `*Settings.java` via `ChromeFeatureList`
-checks, for example:
-
-```java
-if (ChromeFeatureList.sAndroidAppearanceSettings.isEnabled()) {
-    removePreferenceIfPresent(PREF_TOOLBAR_SHORTCUT);
-    removePreferenceIfPresent(PREF_UI_THEME);
-}
-```
-
-Android UI flags are declared in
-`chrome/browser/flags/android/chrome_feature_list.cc` (268 at M148, 276 at
-M151). That file is **not** in the tool's default target set; add it only if
-working on an Android product.
 
 ## Feature granularity
 

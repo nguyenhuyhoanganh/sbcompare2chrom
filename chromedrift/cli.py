@@ -23,7 +23,7 @@ from .extract._cpp import PLATFORM
 from .ai.analyze import analyze
 from .ai.client import LLMClient, LLMConfig
 from . import catalog, cluster, coverage, provenance
-from .diff import MODE_FORK, MODE_UPREV, MODES, diff_snapshots, summarize
+from .diff import MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
 from .impact import score_all, summarize_findings
 from .model import Report, read_json, write_json

@@ -109,7 +109,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     facts: List[Fact] = []
 
     facts.extend(_extract_base_feature_macro(masked, rel_path, spans))
-    facts.extend(_extract_legacy_feature(masked, rel_path))
+    facts.extend(_extract_legacy_feature(masked, rel_path, spans))
     facts.extend(_extract_feature_params(masked, rel_path))
     return facts
 
@@ -159,7 +159,16 @@ def _extract_base_feature_macro(masked: str, rel_path: str,
     return facts
 
 
-def _extract_legacy_feature(masked: str, rel_path: str) -> List[Fact]:
+def _extract_legacy_feature(masked: str, rel_path: str, spans=()) -> List[Fact]:
+    """The pre-macro declaration form, which must produce the same shape.
+
+    Every attribute the diff compares has to be present in both forms or the
+    comparison invents a change. Omitting ``conditions`` here meant a feature
+    written the old way on one side and the macro way on the other reported as
+    modified with `conditions: None -> [...]` even when the guard, the state and
+    the name were identical. Rare across two Chromium releases; not rare at all
+    against a vendor fork, where old declaration styles survive for years.
+    """
     facts: List[Fact] = []
     for m in _LEGACY_FEATURE_RE.finditer(masked):
         var = m.group(1)
@@ -186,6 +195,7 @@ def _extract_legacy_feature(masked: str, rel_path: str) -> List[Fact]:
                 "default_state": _normalize_state(inner),
                 "platform_state": _platform_states(inner),
                 "declared_form": "legacy",
+                "conditions": enclosing_conditions(list(spans), m.start()),
             },
         ))
     return facts

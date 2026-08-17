@@ -680,6 +680,50 @@ class TestDocumentedInterface(unittest.TestCase):
                          "the tool emits signals signals.md does not explain")
 
 
+class TestProfilePlatform(unittest.TestCase):
+    """A field that can only be right one way must not fail quietly.
+
+    The CLI dropped --platform because reading the wrong platform inverts
+    conclusions. The profile kept a `platform` field and trusted it, so a
+    profile left saying "android" -- which the shipped example did -- turned off
+    the not-compiled penalty completely: platform_state holds only "windows", so
+    looking up "android" finds nothing and scores nothing down. Nothing in the
+    output mentioned it.
+    """
+
+    def _profile(self, body):
+        import tempfile
+        fd, path = tempfile.mkstemp(suffix=".json5")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        self.addCleanup(os.remove, path)
+        return path
+
+    def test_a_stale_platform_is_refused_not_believed(self):
+        from chromedrift.sbprofile import load_profile
+        path = self._profile('{ name: "SB", platform: "android" }')
+        with self.assertRaises(ValueError) as caught:
+            load_profile(path, log=lambda m: None)
+        self.assertIn("android", str(caught.exception))
+        self.assertIn("windows", str(caught.exception))
+
+    def test_windows_and_an_absent_field_both_work(self):
+        from chromedrift.sbprofile import load_profile
+        for body in ('{ name: "SB", platform: "windows" }',
+                     '{ name: "SB", platform: "Windows" }',
+                     '{ name: "SB" }'):
+            touch = load_profile(self._profile(body), log=lambda m: None)
+            self.assertEqual(touch.platform, "windows")
+
+    def test_the_penalty_it_protects_still_applies(self):
+        from chromedrift.model import Change
+        change = Change(change_type="modified", kind="base_feature",
+                        key="Foo", name="Foo",
+                        after={"platform_state": {"windows": "not_compiled"}})
+        finding = score_change(change, TouchSet(name="SB", platform="windows"))
+        self.assertTrue(any("not compiled" in r for r in finding.reasons))
+
+
 class TestFetchMarkers(unittest.TestCase):
     """A cached outcome has to remember which outcome it was.
 
@@ -892,15 +936,80 @@ class TestVendorShadowing(unittest.TestCase):
         self.assertEqual(report.verdicts[0].state, UNTOUCHED)
 
     def test_platform_guard_is_not_a_vendor_guard(self):
-        """#if BUILDFLAG(IS_WIN) is upstream's own, not ours."""
+        """#if BUILDFLAG(IS_WIN) is upstream's own, not ours.
+
+        Both sides carry it, because that is what "upstream's own guard" means:
+        it arrived with the merge. Nothing about it says we shadowed anything.
+        """
         from chromedrift.coverage import UNTOUCHED, analyze
+
+        guarded = lambda: self._fact("Foo", "enabled", ["BUILDFLAG(IS_WIN)"])
+        report = analyze(fork=snap("sb", [guarded()]),
+                         upstream=snap("148.0.0.0", [guarded()]),
+                         markers=self.MARKERS)
+        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
+
+    def test_a_guard_only_we_have_is_a_change_even_if_it_is_not_ours(self):
+        """A non-vendor guard we added still changes what compiles.
+
+        Not SHADOWED -- no vendor marker names it -- but not untouched either.
+        Comparing only `default_state` called this identical to upstream, which
+        is the same blind spot in miniature: the value matches and the
+        condition deciding whether the value is used does not.
+        """
+        from chromedrift.coverage import MODIFIED, SHADOWED, analyze
 
         report = analyze(
             fork=snap("sb", [self._fact("Foo", "enabled",
                                         ["BUILDFLAG(IS_WIN)"])]),
             upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
             markers=self.MARKERS)
-        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
+        self.assertNotEqual(report.verdicts[0].state, SHADOWED)
+        self.assertEqual(report.verdicts[0].state, MODIFIED)
+
+    def test_a_windows_branch_override_is_not_untouched(self):
+        """The case the shadow analysis exists for.
+
+        Upstream ships enabled everywhere; we ship disabled on Windows only.
+        `default_state` is "enabled" on both sides, so comparing that alone
+        reported our override as an untouched upstream declaration.
+        """
+        from chromedrift.coverage import MODIFIED, analyze
+
+        theirs = Fact(kind="base_feature", key="Foo", name="Foo",
+                      path="content/features.cc",
+                      attrs={"var": "kFoo", "default_state": "enabled",
+                             "platform_state": {"windows": "enabled"},
+                             "conditions": []})
+        ours = Fact(kind="base_feature", key="Foo", name="Foo",
+                    path="content/features.cc",
+                    attrs={"var": "kFoo", "default_state": "enabled",
+                           "platform_state": {"windows": "disabled"},
+                           "conditions": []})
+        report = analyze(fork=snap("sb", [ours]),
+                         upstream=snap("148.0.0.0", [theirs]),
+                         markers=self.MARKERS)
+        self.assertEqual(report.verdicts[0].state, MODIFIED)
+
+    def test_ours_only_is_split_by_whether_anything_says_it_is_ours(self):
+        """Two opposite situations wore the same label.
+
+        A declaration only we have, carrying a vendor marker, is ours. One with
+        no marker at all is usually the reverse: upstream deleted it and our
+        merge kept it alive. Both were reported as "vendor_only", so the debt
+        was filed under decisions.
+        """
+        from chromedrift.coverage import ORPHANED, VENDOR_ONLY, analyze
+
+        mine = self._fact("SbrowserThing", "enabled",
+                          ["defined(SBROWSER_CUSTOM)"])
+        leftover = self._fact("LongDeadUpstreamFlag", "enabled")
+        report = analyze(fork=snap("sb", [mine, leftover]),
+                         upstream=snap("148.0.0.0", []),
+                         markers=self.MARKERS)
+        states = {v.key: v.state for v in report.verdicts}
+        self.assertEqual(states["SbrowserThing"], VENDOR_ONLY)
+        self.assertEqual(states["LongDeadUpstreamFlag"], ORPHANED)
 
     def test_guards_used_reports_what_each_flag_covers(self):
         from chromedrift.coverage import analyze

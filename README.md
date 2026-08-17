@@ -210,9 +210,17 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
 );
 ```
 
-Đọc thô ra "đang bật". Nhưng trên Android thực tế là "đang tắt". Chỉ trong một file, **14/187 tính năng có mặc định khác nhau theo nền tảng**.
+Cách đọc thô — lấy giá trị đầu tiên gặp được — trả về "đang bật". Ở ví dụ này tình cờ đúng, vì `IS_WIN` nằm ngay nhánh đầu. Nguy hiểm nằm ở trường hợp ngược lại, khi Windows rơi vào nhánh `#else`. Chỉ trong một file, **14/187 tính năng có mặc định khác nhau theo nền tảng**.
 
-Với một sản phẩm chỉ chạy trên Windows, đọc nhầm chỗ này không phải sai số nhỏ — nó **đảo ngược kết luận**. Nên `_cpp.py` có một bộ đánh giá điều kiện ba trạng thái: đúng / sai / **không xác định được**. Cái thứ ba quan trọng: khi điều kiện phụ thuộc vào thứ không phải nền tảng, công cụ trả lời "không xác định" thay vì đoán bừa.
+Đây là kết quả thật của `_cpp.py` trên ba dạng guard:
+
+| Guard bọc quanh khai báo | Đọc thô | Giá trị thực trên Windows |
+|---|---|---|
+| `IS_WIN \|\| IS_MAC \|\| IS_LINUX` | `enabled` | `enabled` ✔ trùng nhau |
+| `IS_ANDROID` … `#else` | `enabled` | **`disabled`** ← đọc thô cho kết luận ngược |
+| `ENABLE_PLUGINS` … `#else` | `enabled` | `conditional` ← không đoán |
+
+Dòng thứ hai là lý do công cụ tồn tại: đọc nhầm không phải sai số nhỏ mà **đảo ngược kết luận**. Dòng thứ ba cũng quan trọng không kém — khi điều kiện phụ thuộc vào một buildflag không phải nền tảng, bộ đánh giá ba trạng thái (đúng / sai / **không xác định**) trả lời "không xác định" thay vì đoán bừa.
 
 ### Nhóm 3 — So sánh và chấm điểm (`diff.py`, `sbprofile.py`, `impact.py`)
 
@@ -280,6 +288,17 @@ Kết quả chia bốn nhóm:
 - **FYI** — ghi nhận cho đủ.
 
 Chỉ **bằng chứng cấp tên ký hiệu** mới đẩy được lên Must fix. Bằng chứng cấp đường dẫn thì quá thô: `content_features.cc` khai báo gần 200 tính năng, nên biết bạn vá *file* đó gần như không nói lên điều gì.
+
+**Ở chế độ `--mode fork` bốn nhóm này mang nghĩa khác**, vì phép so cũng khác: không phải Chromium theo thời gian, mà upstream đối chiếu bản fork của ta ở cùng milestone. "Removed" nghĩa là *ta* đã bỏ, "added" nghĩa là *ta* đang mang thêm.
+
+| Nhóm | Ở `uprev` | Ở `fork` |
+|---|---|---|
+| Must fix | Ta tham chiếu tới nó và nó đã đổi | Khác biệt ta phụ thuộc — lần rebase sau sẽ âm thầm xoá nó |
+| Needs review | Ta động tới vùng đó, hoặc đủ nghiêm trọng | Khác biệt chưa rõ ai chịu trách nhiệm: giữ của ta, hay lấy của upstream |
+| New opportunity | Năng lực mới | **Không dùng** — trong phép so fork không có gì là "cơ hội" |
+| FYI | Ghi nhận cho đủ | Như trên |
+
+Điều này không chỉ là chữ nghĩa. Trước đây mọi thứ do Samsung tự thêm đều rơi vào "New opportunity — năng lực mới có thể lấy về", tức là báo cáo nói với đội SB rằng tuỳ biến của chính họ là thứ đáng cân nhắc áp dụng. Model cũng nhận system prompt mô tả "hai phiên bản Chromium", nên đọc mọi thứ SB xoá thành upstream dọn dẹp. Giờ chế độ đi xuyên suốt tới tận tiêu đề báo cáo và prompt.
 
 ### Nhóm 4 — Ngữ cảnh và báo cáo (`enrich/`, `ai/`, `report/`)
 

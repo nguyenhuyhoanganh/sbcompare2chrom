@@ -28,10 +28,10 @@ Marker names cannot be guessed, so the profile declares them.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List
 
+from .diff import meaningful_attrs
 from .model import Fact, Snapshot
 
 # Classification of one upstream fact against the fork.
@@ -39,16 +39,19 @@ UNTOUCHED = "untouched"      # present, unguarded, same value
 SHADOWED = "shadowed"        # a vendor build flag chooses an alternative
 MODIFIED = "modified"        # present and unguarded, but the value differs
 ABSENT = "absent"            # upstream has it, the fork does not
-VENDOR_ONLY = "vendor_only"  # only the fork has it
+VENDOR_ONLY = "vendor_only"  # only the fork has it, and it looks like ours
+ORPHANED = "orphaned"        # only the fork has it, and nothing says it is ours
 
-STATES = (UNTOUCHED, SHADOWED, MODIFIED, ABSENT, VENDOR_ONLY)
+STATES = (UNTOUCHED, SHADOWED, MODIFIED, ABSENT, VENDOR_ONLY, ORPHANED)
 
 STATE_LABELS = {
     UNTOUCHED: "Untouched — upstream's declaration, no vendor guard",
     SHADOWED: "Shadowed — a vendor build flag selects our version instead",
     MODIFIED: "Modified — no guard, but the value differs from upstream",
     ABSENT: "Absent — upstream has it, we do not",
-    VENDOR_ONLY: "Ours only — no upstream equivalent",
+    VENDOR_ONLY: "Ours only — vendor naming or guard confirms we wrote it",
+    ORPHANED: "Orphaned — we have it, upstream does not, and nothing marks it "
+              "as ours: most likely upstream deleted it and our merge kept it",
 }
 
 
@@ -159,16 +162,23 @@ def analyze(fork: Snapshot, upstream: Snapshot,
         theirs = up_index.get(uid)
 
         if theirs is None:
-            # Only ours. Vendor naming or a vendor path confirms it is
-            # deliberate rather than a stale upstream leftover.
+            # Only ours -- but for two very different reasons. A vendor guard,
+            # a vendor symbol prefix or a vendor path says we wrote it. Nothing
+            # at all saying so usually means the opposite: upstream deleted the
+            # declaration and our merge kept the old one alive. That is debt,
+            # not a decision, and collapsing both into "ours only" hides it.
             if guards or markers.symbol_is_ours(ours) or markers.path_is_ours(ours.path):
                 state = VENDOR_ONLY
             else:
-                state = VENDOR_ONLY
+                state = ORPHANED
         elif guards:
             # The value may match upstream exactly and still not be what runs.
             state = SHADOWED
-        elif ours.attrs.get("default_state") != theirs.attrs.get("default_state"):
+        elif meaningful_attrs(ours) != meaningful_attrs(theirs):
+            # Compare everything the diff would compare, not just the global
+            # default. A fork that overrides only the `#if BUILDFLAG(IS_WIN)`
+            # branch leaves default_state identical -- and that is precisely
+            # the override this tool exists to find.
             state = MODIFIED
         else:
             state = UNTOUCHED

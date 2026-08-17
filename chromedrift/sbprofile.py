@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from . import jsonc
+from .extract._cpp import PLATFORM
 from .model import Change, Snapshot
 
 # Source extensions worth scanning in a vendor tree.
@@ -179,9 +180,26 @@ def load_profile(path: str, snapshots: Optional[Sequence[Snapshot]] = None,
     profile = jsonc.load(path)
     base_dir = os.path.dirname(os.path.abspath(path))
 
+    # The tool dropped its --platform option because reading the wrong platform
+    # inverts conclusions rather than blurring them. The profile kept a
+    # `platform` field, and it was trusted without checking -- so a profile left
+    # saying "android" (which the shipped example said until recently) silently
+    # disabled the not-compiled penalty entirely: platform_state carries only
+    # "windows", so looking up "android" finds nothing and scores nothing down.
+    # A field that can only be right one way should not be a field you can get
+    # wrong quietly.
+    declared = (profile.get("platform") or PLATFORM).lower()
+    if declared != PLATFORM:
+        raise ValueError(
+            f"profile {os.path.basename(path)} declares platform "
+            f"{declared!r}, but this tool only analyses {PLATFORM!r} "
+            f"(a Chromium-based desktop browser on Windows). Set "
+            f'platform: "{PLATFORM}" or remove the field.'
+        )
+
     touch = TouchSet(
         name=profile.get("name", "downstream"),
-        platform=(profile.get("platform") or "windows").lower(),
+        platform=PLATFORM,
         ignore_paths=list(profile.get("ignore_paths", [])),
     )
 

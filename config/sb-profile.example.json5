@@ -7,8 +7,11 @@
 // Everything below is illustrative.  Replace the paths, symbols and areas
 // with your real fork's inventory before trusting the output.
 {
-  name: "Samsung Internet",
-  platform: "windows",          // fixed: this tool targets Windows only
+  name: "Samsung Browser",
+  // Fixed: this tool analyses a Chromium-based desktop browser on
+  // Windows and nothing else. Any other value is refused at load time
+  // rather than quietly disabling the not-compiled scoring.
+  platform: "windows",
   chromium_base: "139.0.7258.155",
 
   // ---------------------------------------------------------------------

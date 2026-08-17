@@ -200,8 +200,8 @@ Quét mã của bạn tìm tham chiếu tới tên feature/switch/pref của Chr
 ```json5
 {
   modified_paths: [
-    "content/browser/renderer_host/render_widget_host_view_android.cc",
-    "media/base/android/",          // dấu / cuối = khớp theo tiền tố
+    "content/browser/renderer_host/render_widget_host_view_aura.cc",
+    "media/base/win/",              // dấu / cuối = khớp theo tiền tố
   ],
   symbols: ["BackForwardCache", "kBackForwardCache"],
 }
@@ -228,7 +228,7 @@ python3 -m chromedrift profile config/sb-profile.json5 --ref 143.0.7499.194
 ```
 
 ```
-profile: Samsung Internet (platform android)
+profile: Samsung Browser (platform windows)
   areas:            7
   patched files:    3
   symbols:          11
@@ -293,7 +293,7 @@ Mọi điểm số đều có lý do đọc được, và bạn nên cãi lại 
 base severity 75 (modified base_feature)
   | +12 we patch 1 of the declaring file(s): content/public/common/content_features.cc
   | +30 our source references ServiceWorkerAutoPreload, kServiceWorkerAutoPreload
-  | +16 owned area 'Browser UI & Android integration' (weight 80)
+  | +16 owned area 'Video & media playback' (weight 80)
 ```
 
 Muốn chỉnh mức độ ưu tiên thì sửa `weight` trong `areas`, hoặc sửa bảng `BASE_SEVERITY` / `SIGNAL_SEVERITY` trong `chromedrift/diff.py`. Cả hai đều là dữ liệu thuần, không phải logic.

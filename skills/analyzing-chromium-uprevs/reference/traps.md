@@ -35,14 +35,21 @@ the symbol, and both silently kill any override the fork applied.
 
 **Symptom:** an entry vanishes from a file.
 
-**Reality:** it usually reappears elsewhere. M148 → M151 Android "lost"
-`ui_theme` and `toolbar_shortcut` from the main settings screen; both had moved
-into the Appearance screen, gated by `kAndroidAppearanceSettings`, which was
-already ENABLED at M148.
+**Reality:** it usually reappears elsewhere, often behind a different flag.
+M148 → M151 "lost" the route `SITE_SETTINGS_LOCAL_NETWORK_ACCESS`. It had not
+been lost: Chromium was mid-migration and declared both versions of the page at
+M148, each behind its own guard, then deleted the old one once the new guard
+had shipped. Because `kLocalNetworkAccessChecksSplitPermissions` was already
+enabled by default at M148, users were seeing the *new* page one milestone
+before the old route disappeared from the file.
 
-**Check:** search the whole tree for the key before reporting a removal. If it
-exists elsewhere, this is a move, and the user-visible change happened whenever
-the controlling flag flipped — usually earlier than either version compared.
+**Check:** search the whole tree for the key before reporting a removal, and
+read the `guards` attribute on both sides. If it exists elsewhere, this is a
+move, and the user-visible change happened whenever the controlling flag
+flipped — usually earlier than either version compared. The tool groups these
+fragments for you: that migration arrives as seven separate findings across
+routes, gates, controls and flags, and the report's "Related changes, grouped"
+section reassembles them.
 
 ## 3. Macro migration invents thousands of changes
 

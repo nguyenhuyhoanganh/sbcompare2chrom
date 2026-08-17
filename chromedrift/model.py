@@ -46,7 +46,11 @@ from typing import Any, Dict, Iterable, List, Optional
 #   9: the product is a Windows desktop browser, so platform is fixed rather
 #      than selectable. platform_state/platform_status now carry only
 #      "windows", and blink facts renamed android_status -> windows_status.
-SCHEMA_VERSION = 9
+#  10: the legacy `const base::Feature kFoo{...}` form records "conditions"
+#      like the macro form does. Version 9 omitted it there, so a feature
+#      written the old way on one side of a comparison and the new way on the
+#      other reported as modified when nothing had changed.
+SCHEMA_VERSION = 10
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

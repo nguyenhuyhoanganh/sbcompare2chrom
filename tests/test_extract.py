@@ -140,6 +140,45 @@ BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
         self.assertEqual(fact.key, "kFoo")
         self.assertEqual(fact.attrs["var"], "kFoo")
 
+    def test_every_declaration_form_produces_the_same_attributes(self):
+        """A missing attribute is indistinguishable from a changed one.
+
+        `_meaningful` only compares keys that are present, so a form that omits
+        one reports a phantom modification against a form that has it. That is
+        what SCHEMA 4 was bumped for; the legacy form kept the bug three
+        versions longer because nothing compared the shapes.
+        """
+        guard = "#if BUILDFLAG(IS_WIN)\n%s\n#endif\n"
+        forms = {
+            "macro2": guard % "BASE_FEATURE(kFoo, base::FEATURE_ENABLED_BY_DEFAULT);",
+            "macro3": guard % ('BASE_FEATURE(kFoo, "Foo", '
+                               "base::FEATURE_ENABLED_BY_DEFAULT);"),
+            "legacy": guard % ('const base::Feature kFoo{"Foo", '
+                               "base::FEATURE_ENABLED_BY_DEFAULT};"),
+        }
+        shapes = {}
+        for label, source in forms.items():
+            facts = base_features.extract(source, "content/features.cc")
+            self.assertEqual(len(facts), 1, label)
+            shapes[label] = set(facts[0].attrs)
+        self.assertEqual(shapes["legacy"], shapes["macro2"])
+        self.assertEqual(shapes["macro3"], shapes["macro2"])
+
+    def test_the_same_feature_written_two_ways_is_not_a_change(self):
+        from chromedrift.diff import diff_snapshots
+        from chromedrift.model import Snapshot
+
+        guard = "#if BUILDFLAG(IS_WIN)\n%s\n#endif\n"
+        old = base_features.extract(
+            guard % ('const base::Feature kFoo{"Foo", '
+                     "base::FEATURE_ENABLED_BY_DEFAULT};"), "content/features.cc")
+        new = base_features.extract(
+            guard % "BASE_FEATURE(kFoo, base::FEATURE_ENABLED_BY_DEFAULT);",
+            "content/features.cc")
+        changes = diff_snapshots(Snapshot(ref="a", facts=old),
+                                 Snapshot(ref="b", facts=new))
+        self.assertEqual(changes, [])
+
     def test_legacy_brace_form(self):
         fact = self._one(
             'const base::Feature kOld{"OldFeature", '
@@ -398,6 +437,28 @@ class TestWebUiControls(unittest.TestCase):
         # Plain TypeScript is behaviour, not a template.
         self.assertFalse(web_ui.applies_to(
             "chrome/browser/resources/downloads/item.ts"))
+
+    def test_lit_line_numbers_point_at_the_real_file(self):
+        """A line number nobody checks is a line number that quietly drifts.
+
+        Slicing the TypeScript preamble off before scanning made every Lit
+        control's line an offset into the template, so `path:line` in a report
+        pointed at the wrong place in the file.
+        """
+        source = (
+            "import {html} from 'lit';\n"          # 1
+            "\n"                                    # 2
+            "export function getHtml(this: X) {\n"  # 3
+            "  return html`\n"                      # 4
+            "    <cr-toggle id=\"first\"></cr-toggle>\n"   # 5
+            "    <cr-button id=\"second\"></cr-button>\n"  # 6
+            "  `;\n"
+            "}\n"
+        )
+        facts = web_ui.extract(
+            source, "chrome/browser/resources/downloads/item.html.ts")
+        lines = {f.attrs["element_id"]: f.line for f in facts}
+        self.assertEqual(lines, {"first": 5, "second": 6})
 
     def test_page_name_strips_both_extensions(self):
         self.assertEqual(

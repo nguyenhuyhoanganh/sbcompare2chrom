@@ -27,15 +27,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from .diff import MEANINGFUL_ATTRS
+from .diff import meaningful_attrs
 from .model import Fact, Snapshot
 
 # Classification of one fact in the fork, relative to the upstream series.
 IN_SYNC = "in_sync"            # matches the version we claim to be based on
 STALE = "stale"                # matches an OLDER upstream version -- merge debt
 DIVERGED = "diverged"          # matches no upstream version -- our decision
-MISSING_NEW = "missing_new"    # upstream added it after our base; we never took it
-MISSING_OLD = "missing_old"    # upstream had it all along; we removed it
+# The base has it and we do not. Which of the two this is depends on when
+# upstream introduced it, and the series is what tells them apart:
+MISSING_NEW = "missing_new"    # arrived during the series; a merge never took it
+MISSING_OLD = "missing_old"    # present since the oldest version; we dropped it
 VENDOR_ONLY = "vendor_only"    # only we have it
 
 STATES = (IN_SYNC, STALE, DIVERGED, MISSING_NEW, MISSING_OLD, VENDOR_ONLY)
@@ -48,21 +50,15 @@ STATE_LABELS = {
     IN_SYNC: "In sync with the base version",
     STALE: "Stale — our value matches an older Chromium; a merge missed this",
     DIVERGED: "Diverged — matches no upstream version; someone changed it",
-    MISSING_NEW: "Never taken — upstream added this after our base",
+    MISSING_NEW: "Never taken — upstream added this during the version range "
+                 "we merged through, and no merge picked it up",
     MISSING_OLD: "Removed — upstream has always had it; we dropped it",
     VENDOR_ONLY: "Ours only — no upstream equivalent",
 }
 
 
-def _meaningful(fact: Fact) -> dict:
-    keys = MEANINGFUL_ATTRS.get(fact.kind)
-    if keys is None:
-        return dict(fact.attrs)
-    return {k: fact.attrs[k] for k in keys if k in fact.attrs}
-
-
 def _same(a: Fact, b: Fact) -> bool:
-    return _meaningful(a) == _meaningful(b)
+    return meaningful_attrs(a) == meaningful_attrs(b)
 
 
 @dataclass
@@ -168,10 +164,11 @@ def analyze(fork: Snapshot, upstream: Sequence[Snapshot],
             first_seen=first_seen, base_has=theirs is not None,
         ))
 
-    # Facts upstream has and we do not. Whether that is debt or a decision
-    # depends on when upstream introduced it: something added after our base
-    # was never ours to lose, while something present since the oldest version
-    # in the series is something we removed.
+    # Facts the base has and we do not. Whether that is debt or a decision
+    # depends on when upstream introduced it: something that appeared partway
+    # through the series is something a merge should have brought along and did
+    # not, while something present since the oldest version in the series is
+    # something we once had and removed.
     oldest_ref, oldest_index = indexes[0]
     for uid, theirs in base_index.items():
         if uid in fork_index:
@@ -183,7 +180,7 @@ def analyze(fork: Snapshot, upstream: Sequence[Snapshot],
             first_seen=oldest_ref if in_oldest else "",
             base_has=True,
             detail=("present since " + oldest_ref) if in_oldest
-            else "introduced after our merge base",
+            else f"introduced after {oldest_ref} and present in {base.ref}",
         ))
 
     report.verdicts.sort(key=lambda v: (STATES.index(v.state), v.kind, v.key))

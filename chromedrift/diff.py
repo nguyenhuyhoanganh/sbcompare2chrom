@@ -242,11 +242,22 @@ SIGNAL_LABELS.update(FORK_LABELS)
 # ---------------------------------------------------------------------------
 
 
-def _meaningful(fact: Fact) -> dict:
+def meaningful_attrs(fact: Fact) -> dict:
+    """The attributes of a fact that a comparison treats as carrying meaning.
+
+    Public because three modules have to answer "is our version the same as
+    theirs", and each answering it with its own definition of "same" is how one
+    of them ends up quietly weaker than the others -- which is exactly what
+    happened to the shadow analysis, comparing only ``default_state`` and so
+    reading a Windows-branch override as untouched.
+    """
     keys = MEANINGFUL_ATTRS.get(fact.kind)
     if keys is None:
         return dict(fact.attrs)
     return {k: fact.attrs[k] for k in keys if k in fact.attrs}
+
+
+_meaningful = meaningful_attrs
 
 
 def _our_state(fact: Fact) -> str:

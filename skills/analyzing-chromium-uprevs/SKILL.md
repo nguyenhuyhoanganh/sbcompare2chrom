@@ -151,10 +151,10 @@ platform-divergent defaults; declarative files that declare more than ships.
 
 ## Scoping to settings
 
-Settings live in different places per platform and share no code. Desktop is a
-WebUI page; Android is preference XML. Sources, the three-hop chain from a
-settings page to its flag, and how to size a "feature" (control / page /
-capability): **see [reference/settings-surface.md](reference/settings-surface.md)**.
+Desktop settings are a WebUI page built from TypeScript and HTML templates.
+Sources, the three-hop chain from a settings page to the flag behind it, and how
+to size a "feature" (control / page / capability):
+**see [reference/settings-surface.md](reference/settings-surface.md)**.
 
 ## What the tool cannot see
 
