@@ -12,7 +12,7 @@ it was handled. Expect them; check for them before reporting any removal.
 - 5. Platform-divergent defaults
 - 6. Declarative files declare more than ships
 - 7. Bare milestone numbers drift
-- 8. Mixed target sets produce plausible nonsense
+- 8. Mixed target sets and partitions produce plausible nonsense
 
 ## 1. Retired flag read as removed feature
 
@@ -160,7 +160,7 @@ file alone. Follow the guard to its flag.
 **Check:** pin full versions for anything recorded in a ticket. Bare milestones
 are for exploration only.
 
-## 8. Mixed target sets produce plausible nonsense
+## 8. Mixed target sets and partitions produce plausible nonsense
 
 **Symptom:** a run reports thousands of additions that look real.
 
@@ -173,3 +173,9 @@ roughly 20,000 phantom additions with no error and no warning.
 refuses to diff snapshots built from different ones. If you see
 `cannot diff snapshots built from different target sets`, rerun with a
 consistent `--target-set` or add `--refresh`.
+
+The same trap applies to `--partition`, which is part of the snapshot cache key
+for exactly this reason: a partitioned snapshot covers a fraction of the surface
+and must never be reused as if it were a full run. A partitioned run is a
+smaller question, not a cheaper answer to the same one — never use one as a
+release gate, and say in the report which partitions were scanned.

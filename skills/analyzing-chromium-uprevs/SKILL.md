@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-uprevs
-description: Analyzes what changed between two Chromium versions for a downstream browser fork - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - and separates real behaviour changes from upstream cleanup. Produces a triaged report of what the fork must fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+description: Compares Chromium versions for a downstream browser fork - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from upstream cleanup, and also compares the fork itself against the upstream release it was merged from to find carried divergence and merge debt. Produces a triaged report of what the fork must fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked how a fork such as Samsung Browser differs from the Chromium it is based on, when asked which upstream features the fork never took or silently lost across merges, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
 # Analyzing Chromium uprevs
@@ -47,12 +47,17 @@ Copy this checklist and track progress:
 
 ### Step 1: Confirm inputs
 
-Ask for anything missing. Never guess the platform.
+Ask for anything missing.
 
-- **Platform**: the one the product ships (`Windows` for Samsung Browser on
-  Windows). Chromium wraps defaults in `#if BUILDFLAG(IS_WIN)`; a feature can
-  read enabled globally and be disabled on your platform. Wrong platform
-  inverts conclusions.
+- **Which comparison.** Two Chromium versions (an uprev), or upstream against
+  the fork (divergence)? They use the same engine and opposite vocabularies —
+  see *Comparing the fork* below. Ask if it is not stated; the answer changes
+  what every "removed" in the output means.
+- **Platform** is fixed to Windows and is not a question. There is no
+  `--platform` flag: Chromium wraps defaults in `#if BUILDFLAG(IS_WIN)`, so
+  reading the wrong platform inverts conclusions rather than blurring them, and
+  an option nobody checks is a way to be silently wrong. Read
+  `platform_state.windows`, never `default_state`.
 - **Exact versions**, never bare milestone numbers. `151` resolves to whatever
   is newest stable today and drifts between runs. Real example:
   `ServiceWorkerAutoPreload` is ENABLED in 143.0.7499.40 and DISABLED in
@@ -80,7 +85,21 @@ self-contained), `report.json` (scripting).
 
 Options: `--no-ai` skip the model stage, `--no-enrich` skip network lookups,
 `--top N` bound findings sent to the model, `--target-set minimal` fast smoke
-run.
+run, `--mode fork` compare against a fork instead of across time.
+
+`--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
+`extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
+`media`) limits what is fetched and scanned. Measured: full run ~120 s and
+24,646 facts, `--partition settings` 24 s and 4,467. **Faster and less
+complete, one-directionally** — Chromium is not organized by product, so a
+change affecting downloads can live in `content/` or in a Mojo interface and
+match no partition. Right while iterating on one surface, wrong as a release
+gate.
+
+Other commands: `chromedrift report <report.json> --area <id>` re-renders one
+team's slice without re-running anything; `chromedrift catalog <ref>` measures
+what the target set is *missing* rather than guessing; `chromedrift provenance`
+is described below.
 
 ### Step 3: Triage
 
@@ -109,6 +128,10 @@ Stop at the first question that settles it.
    configs, launch scripts and test automation, which the tool cannot see.
 5. Otherwise it is upstream churn. Record, do not escalate.
 
+In `--mode fork` this procedure does not apply: there is no "before and after",
+only "ours and theirs". Use the fork procedure in
+**[reference/fork-comparison.md](reference/fork-comparison.md)** instead.
+
 Signal meanings: **see [reference/signals.md](reference/signals.md)**.
 
 ### Step 5: Report
@@ -122,7 +145,11 @@ Structure, in this order:
 5. **New capability** — what we could adopt; product input, not a blocker
 6. **Limits** — what was not examined
 
-Always state the exact versions and platform compared.
+In `--mode fork` replace 5 with **Divergence to carry** — what a rebase would
+silently undo — and say which findings are debt rather than decisions.
+
+Always state the exact versions compared, and which partitions were scanned if
+the run was partitioned.
 
 Every finding needs three parts: **what moved**, **whether users see a
 difference**, **what we must do**. The middle part decides priority and a raw
@@ -149,6 +176,39 @@ Summary: retired flags read as removed features; declarations that moved read
 as deleted; a macro migration that renamed features nobody edited;
 platform-divergent defaults; declarative files that declare more than ships.
 
+## Comparing the fork against upstream
+
+A different question from an uprev, and the more common one for a long-lived
+fork: not "what did Chromium change" but "what is different about us, and did
+anyone decide that".
+
+```bash
+# What differs, right now, at the same milestone
+python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
+  --to-src /path/to/sbrowser/src --profile config/sb-profile.json5
+
+# Decision or debt? Compare against the series we merged through
+python3 -m chromedrift provenance sb-main-dev 131.0.x 139.0.x 148.0.7778.217 \
+  --fork-src /path/to/sbrowser/src --profile config/sb-profile.json5
+```
+
+Direction is fixed as **upstream → fork**, so "removed" means *we* removed it
+and "added" means *we* carry it. Nothing is an opportunity.
+
+Two results a two-way diff cannot produce on its own:
+
+- **Decision vs debt.** If our value matches an *older* Chromium exactly, nobody
+  decided anything — we are stale, and the report names the milestone we are
+  stuck on. Matching no upstream version means someone wrote it.
+- **Shadowing.** A fork of this shape does not overwrite Chromium; it keeps its
+  code beside upstream's behind `#if defined(SBROWSER_*)`. Both ship, so
+  comparing values finds nothing: upstream's branch really is untouched, and the
+  branch that runs is ours. Needs `vendor_markers` in the profile — without them
+  the analysis is skipped rather than guessed.
+
+Procedure, states and how to read both tables:
+**see [reference/fork-comparison.md](reference/fork-comparison.md)**.
+
 ## Scoping to settings
 
 Desktop settings are a WebUI page built from TypeScript and HTML templates.
@@ -163,15 +223,37 @@ State these limits in every report. A clean report does not imply a clean uprev.
 - **Implementation-only changes.** The tool reads declarations (macros, IDL,
   mojom, string constants, JSON/JSON5 manifests). Behaviour changed entirely
   inside a function body is invisible.
-- **WebUI surfaces beyond the eight tracked.** Page routes, controls and
-  visibility gates are read for settings, history, downloads, bookmarks,
-  extensions, password_manager, new_tab_page and print_preview. Chromium has
-  roughly 130 such surfaces; the rest are unread until added to `targets.py`.
+- **Roughly 40% of feature flags.** This is the largest limit and it is
+  measured, not estimated by feel. At M151 the tool captures 2,062
+  `base::Feature` declarations. Sampling the files it does not fetch puts about
+  **1,200 more** in files whose names follow the convention, plus about **130**
+  in files that follow no convention at all — so coverage of the flag surface is
+  near **60%**, and `must fix: 0` never means "nothing changed".
+  Run `chromedrift catalog <ref>` for the current number and the missing paths
+  by name; closing a gap is one line in `targets.py`.
+
+  Per source type, measured at M151:
+
+  | Source | Covered | In tree |
+  |---|---:|---:|
+  | Blink runtime features | 1 file | 1 file (complete) |
+  | Web IDL | 2,167 | 2,575 (84%) |
+  | Mojo interfaces | 490 | 1,588 (**30%**) |
+  | `pref_names` files | 3 | 164 (**1%**) |
+  | WebUI surfaces | 8 | 132 (**6%**) |
+
+  Mojo and prefs are the ones to state explicitly in a report: Mojo carries the
+  highest-severity findings, and prefs outside `chrome/common/pref_names.h`
+  — every `components/*/pref_names.h` — are simply not read.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
-  is not.
-- **Fork divergence.** The tool compares upstream to upstream. `--profile` is
-  evidence *matching*, not a diff of the fork against Chromium.
+  is not, and neither is `page_visibility.ts`.
+- **Why a fork diverged.** `--mode fork` and `provenance` report *that* our
+  declaration differs from upstream's and how far back the match goes. Neither
+  can say whether someone chose it. A commit message, a bug id or an owner
+  settles that, and none of them are in the data.
+- **Implementation behind a vendor guard.** Shadow analysis finds *which*
+  declarations a `SBROWSER_*` flag covers, not what our branch does differently.
 - **Anything outside the repository**: server-side Finch configs, launch
   scripts, test automation, store metadata.
 - **Rendered UI.** No screenshots, no layout, no visual regressions.

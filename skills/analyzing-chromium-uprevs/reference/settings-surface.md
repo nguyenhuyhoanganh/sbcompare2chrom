@@ -29,7 +29,7 @@ finding is wrong.
 | `chrome/browser/resources/settings/route.ts` | The page inventory plus the `loadTimeData` guard around each route. Measured: 104 routes at M148, 108 at M151 |
 | `chrome/browser/resources/settings/<page>/` templates | Each control, its type (`settings-toggle-button`, `settings-dropdown-menu`, `cr-radio-group`), and its `pref="{{prefs.x.y}}"` binding |
 | `chrome/browser/ui/webui/settings/settings_ui.cc` | Maps each `loadTimeData` key to the `base::Feature` behind it |
-| `chrome/browser/resources/settings/page_visibility.ts` | Per-page visibility keys (24 at both M148 and M151) |
+| `chrome/browser/resources/settings/page_visibility.ts` | Per-page visibility keys (24 at both M148 and M151). **Not fetched by the tool** — read it by hand when a page's presence is the question |
 | `chrome/common/pref_names.h` | Backing prefs. Already covered by the tool: 786 keys at M148, 684 at M151 |
 
 The chain is:
@@ -89,6 +89,7 @@ data declares (a route names its guard, a guard names its features) rather than
 name similarity. The Local Network Access migration collapses 7 fragments
 across 4 surfaces into a single row.
 
-Chromium has roughly 130 WebUI surfaces; adding another is one line in
-`targets.py`. Only the declarative parts are read — the route table and the
-HTML templates, not the TypeScript behaviour.
+Measured at M151, `chrome/browser/resources/` holds **132** surfaces, so the
+eight tracked are **6%** of them; adding another is one line in `targets.py`.
+Only the declarative parts are read — the route table and the HTML templates,
+not `page_visibility.ts` and not the TypeScript behaviour.
