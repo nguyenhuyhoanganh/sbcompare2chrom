@@ -2,6 +2,17 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
+### Tài liệu
+
+| File | Trả lời câu hỏi |
+|---|---|
+| **README.md** (file này) | Dự án có gì, từng nhóm code làm gì, chạy thế nào |
+| **[PIPELINE.md](PIPELINE.md)** | Luồng so sánh hai bản Chromium từ đầu đến cuối, bám theo một thay đổi có thật — và **vì sao cách này hoạt động** |
+| **[COVERAGE.md](COVERAGE.md)** | "Tính năng" gồm những gì, và công cụ phủ được bao nhiêu phần trăm (đo thật, không ước lượng) |
+| **[SETUP.md](SETUP.md)** | Cài đặt trên máy mới, xử lý sự cố |
+| **[HANDOFF.md](HANDOFF.md)** | Việc chỉ làm được tại công ty, dạng checklist theo dõi tiến độ |
+| **[skills/analyzing-chromium-uprevs/](skills/analyzing-chromium-uprevs/)** | Quy trình dạng skill cho agent, kèm bẫy đã gặp và bảng tra signal |
+
 ---
 
 ## Phần 1. Dự án này giải quyết vấn đề gì

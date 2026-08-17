@@ -630,6 +630,7 @@ class TestDocumentedInterface(unittest.TestCase):
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DOCS = ("README.md", "SETUP.md", "HANDOFF.md",
+            "PIPELINE.md", "COVERAGE.md",
             "skills/analyzing-chromium-uprevs/SKILL.md",
             "skills/analyzing-chromium-uprevs/reference/signals.md",
             "skills/analyzing-chromium-uprevs/reference/traps.md",
