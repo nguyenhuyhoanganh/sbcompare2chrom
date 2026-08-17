@@ -17,6 +17,7 @@ reads from disk instead and the rest of the pipeline is unchanged.
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 import os
@@ -220,7 +221,7 @@ class GitilesSource(Source):
         stats: Dict[str, str] = {}
         for target in targets:
             dest = os.path.join(root, target.path.replace("/", os.sep))
-            marker = os.path.join(root, ".chromedrift", _safe_name(target.path) + ".ok")
+            marker = os.path.join(root, ".chromedrift", _target_marker(target) + ".ok")
             if os.path.exists(marker) and not self.refresh:
                 stats[target.path] = "cached"
                 continue
@@ -312,6 +313,22 @@ def _touch(path: str) -> None:
 
 def _safe_name(path: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", path)
+
+
+def _target_marker(target: "FetchTarget") -> str:
+    """Cache marker that changes when the target's filter changes.
+
+    A tree fetched with one suffix filter is not the same artifact as the same
+    tree fetched with a wider one.  Keying the marker on the path alone meant
+    that widening a filter -- adding Lit's ``.html.ts`` to the WebUI templates,
+    say -- silently reused the older, narrower fetch: the snapshot rebuilt, the
+    fact count did not move, and nothing reported a problem.
+    """
+    name = _safe_name(target.path)
+    if target.include:
+        digest = hashlib.sha1("|".join(sorted(target.include)).encode()).hexdigest()[:8]
+        return f"{name}.{digest}"
+    return name
 
 
 def _match_include(name: str, include: Optional[Tuple[str, ...]]) -> bool:

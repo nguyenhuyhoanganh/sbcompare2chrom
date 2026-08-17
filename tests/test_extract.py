@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift import jsonc
 from chromedrift.extract import base_features, blink_runtime, constants, mojom, web_idl
+from chromedrift.extract import webui_controls as web_ui
 from chromedrift.extract._cpp import (
     balanced_args,
     eval_condition,
@@ -293,6 +294,87 @@ interface WidgetHost {
                              "SetCursor(Cursor cursor, bool force)"), "a.mojom")
         sig = {f.key: f for f in changed}["blink.mojom.WidgetHost.SetCursor"]
         self.assertEqual(sig.attrs["signature"], "SetCursor(Cursor cursor, bool force)")
+
+
+class TestWebUiControls(unittest.TestCase):
+    """Chromium ships two template dialects; reading one leaves gaps.
+
+    Measured at M151: settings is still 243 Polymer .html to 6 Lit .html.ts,
+    but extensions is 2 to 33 and print_preview 2 to 32. Reading only .html
+    left 23% of templates unread and nearly all of the surfaces a browser team
+    cares about -- extensions, history, bookmarks, downloads.
+    """
+
+    POLYMER = '''
+    <settings-section page-title="$i18n{downloadsPageTitle}">
+      <settings-toggle-button
+          pref="{{prefs.download.prompt_for_download}}"
+          label="$i18n{promptForDownload}">
+      </settings-toggle-button>
+      <controlled-button id="changeDownloadsPath"
+          pref="[[prefs.download.default_directory]]">
+      </controlled-button>
+    </settings-section>
+    '''
+
+    LIT = '''
+    import {html} from '//resources/lit/v3_0/lit.rollup.js';
+    export function getHtml(this: DownloadsItemElement) {
+      return html`<!--_html_template_start_-->
+    <cr-toggle id="deepScan" ?checked="${this.isChecked_}"
+        @change="${this.onToggle_}"></cr-toggle>
+    <settings-toggle-button .pref="${this.prefs.download.bubble_enabled}"
+        label="$i18n{showBubble}"></settings-toggle-button>
+    `;
+    }
+    '''
+
+    def _by_control(self, text, path):
+        return {f.attrs["control"]: f for f in web_ui.extract(text, path)}
+
+    def test_polymer_template(self):
+        facts = self._by_control(
+            self.POLYMER, "chrome/browser/resources/settings/downloads_page/x.html")
+        self.assertEqual(facts["settings-toggle-button"].attrs["pref"],
+                         "download.prompt_for_download")
+        self.assertEqual(facts["controlled-button"].attrs["pref"],
+                         "download.default_directory")
+
+    def test_lit_template_is_read_at_all(self):
+        facts = self._by_control(
+            self.LIT, "chrome/browser/resources/downloads/item.html.ts")
+        self.assertIn("cr-toggle", facts)
+        self.assertIn("settings-toggle-button", facts)
+
+    def test_lit_pref_binding(self):
+        """Lit writes .pref="${this.prefs.x}" where Polymer writes {{prefs.x}}."""
+        facts = self._by_control(
+            self.LIT, "chrome/browser/resources/downloads/item.html.ts")
+        self.assertEqual(facts["settings-toggle-button"].attrs["pref"],
+                         "download.bubble_enabled")
+
+    def test_lit_sigil_attributes_are_read(self):
+        """?bool, .property and @event names must survive the sigil."""
+        facts = self._by_control(
+            self.LIT, "chrome/browser/resources/downloads/item.html.ts")
+        self.assertEqual(facts["cr-toggle"].attrs["element_id"], "deepScan")
+
+    def test_both_dialects_are_claimed(self):
+        self.assertTrue(web_ui.applies_to(
+            "chrome/browser/resources/settings/a/b.html"))
+        self.assertTrue(web_ui.applies_to(
+            "chrome/browser/resources/downloads/item.html.ts"))
+        # Plain TypeScript is behaviour, not a template.
+        self.assertFalse(web_ui.applies_to(
+            "chrome/browser/resources/downloads/item.ts"))
+
+    def test_page_name_strips_both_extensions(self):
+        self.assertEqual(
+            web_ui.page_of("chrome/browser/resources/downloads/item.html.ts"),
+            "item")
+        self.assertEqual(
+            web_ui.surface_of("chrome/browser/resources/downloads/item.html.ts"),
+            "downloads")
 
 
 class TestConstants(unittest.TestCase):

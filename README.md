@@ -135,7 +135,7 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **76 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **100 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -348,8 +348,8 @@ Chạy M148 → M151 cho Windows:
 
 ```
 1 phút 36 giây
-23.519 facts trích được
-2.500 thay đổi có ý nghĩa, gom thành 25 cụm
+24.638 facts trích được
+2.783 thay đổi có ý nghĩa
 
 must fix:        0     (vì chưa cấu hình hồ sơ downstream thật)
 needs review:  365
@@ -522,7 +522,85 @@ Trên lần chạy thật M148 → M151: **25 cụm**, lớn nhất 7 mảnh. B�
 
 ---
 
-## Phần 8. Cái chưa có — và cái cố ý không làm
+## Phần 8. Target set đã đủ chưa — bằng chứng, không phải khẳng định
+
+Câu hỏi đúng nhất có thể hỏi về công cụ này. Tôi đã đo hai lần và **cả hai lần đều phát hiện thiếu nghiêm trọng**.
+
+### Lần 1 — thiếu 45% feature flag
+
+Danh sách file ban đầu tôi chọn theo *tầng* mà trình duyệt nhúng (`content/`, `net/`, `media/`, `blink/`), và **quên mất tầng của chính trình duyệt**. Đo tại M151 những file khai báo `base::Feature` **không** nằm trong danh sách:
+
+```
+247  chrome/common/chrome_features.cc          ← file feature cấp Chrome quan trọng nhất
+126  content/common/features.cc
+101  components/omnibox/common/omnibox_features.cc
+ 57  extensions/common/extension_features.cc
+ 47  components/sync/base/features.cc
+ 41  components/segmentation_platform/public/features.cc
+ 28  components/optimization_guide/...
+ ... và các file nhỏ hơn
+────
+964  base::Feature không được theo dõi
+```
+
+So với 1.190 đang có thì **thiếu khoảng 45%**. Một khoảng trống cỡ đó **không hiện ra như một khoảng trống trong báo cáo — nó hiện ra như một bản nâng cấp yên ả.**
+
+Sau khi bổ sung 13 file: **base_feature 1.190 → 2.054**, tổng thay đổi 2.504 → 2.783.
+
+### Lần 2 — thiếu 23% template, và gần hết ở đúng bề mặt cần
+
+Chromium đang chuyển WebUI từ Polymer (`.html`) sang Lit (`.html.ts`), và **chuyển không đều**. Đo tại M151:
+
+| bề mặt | `.html` | `.html.ts` (Lit) |
+|---|---:|---:|
+| settings | 243 | 6 |
+| password_manager | 47 | 0 |
+| new_tab_page | 32 | 7 |
+| **extensions** | 2 | **33** |
+| **print_preview** | 2 | **32** |
+| **history** | 2 | **12** |
+| **bookmarks** | 2 | **8** |
+| **downloads** | 2 | **4** |
+
+Nhìn riêng settings thì chỉ sót 2% — nên nếu chỉ kiểm settings sẽ kết luận "ổn". Nhìn cả 8 bề mặt thì sót **23%**, và **bốn bề mặt quan trọng nhất — extensions, history, bookmarks, downloads — gần như sót hoàn toàn**.
+
+Lit đặt template trong một chuỗi TypeScript, ràng buộc khác hẳn:
+
+```ts
+export function getHtml(this: DownloadsItemElement) {
+  return html`
+    <cr-toggle id="deepScan" ?checked="${this.isChecked_}" @change="${this.onToggle_}">
+    <settings-toggle-button .pref="${this.prefs.download.bubble_enabled}">
+  `;
+}
+```
+
+So với Polymer: `?attr=` thay cho attribute boolean, `.prop=` thay cho property, `@event=` cho sự kiện, và `${this.prefs.x}` thay cho `{{prefs.x}}`. Bộ đọc giờ hiểu cả hai. Kết quả: **webui_control 633 → 761**, trong đó **128 điều khiển đến từ file Lit** mà trước đây không thấy gì.
+
+### Một lỗi cache lộ ra khi sửa
+
+Thêm `.html.ts` vào bộ lọc xong chạy lại thì **số fact không nhúc nhích**. Nguyên nhân: marker cache của cây chỉ khoá theo đường dẫn, không tính bộ lọc — nên nó tưởng đã tải rồi và bỏ qua. Snapshot dựng lại, con số không đổi, **không có gì báo lỗi**. Nay marker gồm cả hash của bộ lọc.
+
+### Cách tự kiểm khoảng trống
+
+Danh sách file là **được chọn thủ công, không phải vét cạn**. Kiểm bằng cách lấy một file feature bất kỳ nghi là thiếu rồi đếm:
+
+```bash
+python3 - <<'EOF'
+import urllib.request, base64, re
+p = 'chrome/common/chrome_features.cc'      # đổi đường dẫn cần kiểm
+u = f'https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/{p}?format=TEXT'
+r = urllib.request.Request(u, headers={'User-Agent':'check'})
+s = base64.b64decode(urllib.request.urlopen(r).read()).decode('utf8','replace')
+print(p, len(re.findall(r'\bBASE_FEATURE\s*\(', s)), 'features')
+EOF
+```
+
+Rồi đối chiếu với `chromedrift/targets.py`. Thiếu thì thêm một dòng.
+
+---
+
+## Phần 9. Cái chưa có — và cái cố ý không làm
 
 Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch. Hai loại khác nhau: *chưa làm* (có thể làm, chỉ là chưa) và *cố ý không làm* (đánh đổi có chủ ý).
 
@@ -627,7 +705,7 @@ Khoảng **một phần ba điều khiển** có điều kiện hiển thị mà
 
 ---
 
-## Phần 9. Skill cho agent
+## Phần 10. Skill cho agent
 
 Thư mục `skills/analyzing-chromium-uprevs/` là gói kiến thức để đưa lên agent nội bộ, viết theo chuẩn Agent Skills chính thức:
 
@@ -644,13 +722,13 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 
 ---
 
-## Phần 10. Kiểm thử
+## Phần 11. Kiểm thử
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-**76 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**100 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -674,7 +752,7 @@ Nói cách khác: **0 sai lệch thật**, và ở mục duy nhất khác nhau t
 
 ---
 
-## Phần 11. Cấu trúc mã nguồn
+## Phần 12. Cấu trúc mã nguồn
 
 ```
 chromedrift/
@@ -698,7 +776,7 @@ Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và 
 
 ---
 
-## Phần 12. Đọc thêm
+## Phần 13. Đọc thêm
 
 - **[HANDOFF.md](HANDOFF.md)** — danh sách việc cần chạy tại công ty, trên máy có source SB và mạng nội bộ. Có checkbox theo dõi tiến độ, lệnh copy-paste, và mẫu báo cáo lại. Đây là những việc không làm được từ bên ngoài.
 - **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.

@@ -22,7 +22,7 @@ _MOJOM = (".mojom",)
 # Only the declarative parts of a WebUI surface: the templates that declare
 # controls, and the route table that declares pages.  The rest of the
 # TypeScript is behaviour, which this tool does not read.
-_WEBUI_TEMPLATES = (".html", "route.ts", "routes.ts")
+_WEBUI_TEMPLATES = (".html", ".html.ts", "route.ts", "routes.ts")
 
 # chrome:// surfaces worth tracking.  There are ~130 under
 # chrome/browser/resources/; these are the user-facing ones a downstream
@@ -72,6 +72,30 @@ def default_targets() -> List[FetchTarget]:
         FetchTarget("components/safe_browsing/core/common/features.cc", "file"),
         FetchTarget("components/permissions/features.cc", "file"),
         FetchTarget("components/download/public/common/download_features.cc", "file"),
+
+        # The list above started from the layers a browser embeds and missed
+        # the browser's own.  Measured at M151, these files declare 964 more
+        # base::Feature than the set above -- about 45% of the total, with
+        # chrome_features.cc alone holding 247.  A gap that size does not
+        # look like a gap in a report: it looks like a quiet uprev.
+        FetchTarget("chrome/common/chrome_features.cc", "file",
+                    note="Chrome-level features (247 at M151)"),
+        FetchTarget("chrome/common/chrome_features.h", "file"),
+        FetchTarget("content/common/features.cc", "file",
+                    note="content internals (126)"),
+        FetchTarget("components/omnibox/common/omnibox_features.cc", "file",
+                    note="omnibox (101)"),
+        FetchTarget("extensions/common/extension_features.cc", "file",
+                    note="extensions (57)"),
+        FetchTarget("components/sync/base/features.cc", "file", note="sync (47)"),
+        FetchTarget("components/segmentation_platform/public/features.cc", "file"),
+        FetchTarget("components/optimization_guide/core/"
+                    "optimization_guide_features.cc", "file"),
+        FetchTarget("components/search_engines/search_engines_switches.cc", "file"),
+        FetchTarget("components/history/core/browser/features.cc", "file"),
+        FetchTarget("components/bookmarks/common/bookmark_features.cc", "file"),
+        FetchTarget("printing/printing_features.cc", "file"),
+        FetchTarget("ui/views/views_features.cc", "file"),
 
         # -- Blink runtime features: the web-platform API surface, with an
         #    explicit stable/experimental/test status per platform.  This is

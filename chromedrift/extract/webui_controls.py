@@ -53,16 +53,51 @@ CONTROL_TAGS = (
 _TAG_RE = re.compile(
     r"<(" + "|".join(re.escape(t) for t in CONTROL_TAGS) + r")(?=[\s/>])([^>]*)>",
     re.S)
-_ATTR_RE = re.compile(r"([\w-]+)\s*=\s*\"([^\"]*)\"")
-# pref="{{prefs.a.b}}" or pref="[[prefs.a.b]]"
-_PREF_RE = re.compile(r"[\{\[]{2}\s*(?:prefs\.)?([\w.]+?)(?:\.value)?\s*[\}\]]{2}")
+# Attribute names carry a Lit sigil: ?bool, .property, @event, or none.
+_ATTR_RE = re.compile(r"[?.@]?([\w-]+)\s*=\s*\"([^\"]*)\"")
+# Polymer  pref="{{prefs.a.b}}"  or  pref="[[prefs.a.b]]"
+# Lit      .pref="${this.prefs.a.b}"
+_PREF_RE = re.compile(
+    r"[\{\[]{2}\s*(?:prefs\.)?([\w.]+?)(?:\.value)?\s*[\}\]]{2}"
+    r"|\$\{\s*(?:this\.)?(?:prefs\.)?([\w.]+?)(?:\.value)?\s*\}")
 _I18N_RE = re.compile(r"\$i18n(?:Polymer|Raw)?\{(\w+)\}")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 _IF_RE = re.compile(r"<if\s+expr=\"([^\"]*)\"\s*>|</if>")
 
+# Lit keeps the template inside a tagged literal in TypeScript:
+#     export function getHtml(this: DownloadsItemElement) {
+#       return html`<div id="date">...</div>`;
+#     }
+_LIT_START_RE = re.compile(r"\bhtml`")
+
 
 def applies_to(path: str) -> bool:
-    return path.startswith(RESOURCES_DIR) and path.endswith(".html")
+    """Both template dialects.
+
+    Chromium is migrating WebUI from Polymer (.html) to Lit (.html.ts), and
+    the migration is far from uniform: measured at M151, settings is still
+    243 .html to 6 Lit, while extensions is 2 to 33 and print_preview 2 to 32.
+    Reading only .html leaves 23% of templates unread overall and nearly all
+    of extensions, print_preview, history, bookmarks and downloads.
+    """
+    return path.startswith(RESOURCES_DIR) and (
+        path.endswith(".html") or path.endswith(".html.ts"))
+
+
+def template_body(text: str, rel_path: str) -> str:
+    """The markup, whichever dialect wraps it.
+
+    For Lit, take everything from the first ``html\\``` to the last backtick;
+    the surrounding TypeScript declares no controls, and interpolated
+    expressions inside are left in place for the attribute parser to skip.
+    """
+    if not rel_path.endswith(".html.ts"):
+        return text
+    m = _LIT_START_RE.search(text)
+    if not m:
+        return ""
+    end = text.rfind("`")
+    return text[m.end():end] if end > m.end() else text[m.end():]
 
 
 def surface_of(rel_path: str) -> str:
@@ -78,7 +113,11 @@ def page_of(rel_path: str) -> str:
     parts = rest.split("/")
     if len(parts) >= 3:
         return parts[1]
-    return os.path.splitext(parts[-1])[0]
+    name = parts[-1]
+    for suffix in (".html.ts", ".html"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return os.path.splitext(name)[0]
 
 
 def _mask_html_comments(text: str) -> str:
@@ -100,7 +139,7 @@ def _condition_spans(text: str) -> List[tuple]:
 
 
 def extract(text: str, rel_path: str) -> List[Fact]:
-    masked = _mask_html_comments(text)
+    masked = _mask_html_comments(template_body(text, rel_path))
     surface = surface_of(rel_path)
     page = page_of(rel_path)
     spans = _condition_spans(masked)
@@ -114,7 +153,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         pref = ""
         pref_match = _PREF_RE.search(attrs.get("pref", ""))
         if pref_match:
-            pref = pref_match.group(1)
+            pref = pref_match.group(1) or pref_match.group(2) or ""
 
         label = ""
         for key in ("label", "page-title", "sub-label", "aria-label"):

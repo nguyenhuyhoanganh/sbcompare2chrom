@@ -31,7 +31,16 @@ from typing import Any, Dict, Iterable, List, Optional
 #   4: base_feature facts record the preprocessor guards enclosing them.
 #      Snapshots without that attribute compare as different from ones with
 #      it, which made an identical tree look 1,369 facts diverged.
-SCHEMA_VERSION = 4
+#   5: WebUI templates include the Lit dialect (.html.ts). Version 4 read only
+#      Polymer .html, leaving 23% of templates unread -- and nearly all of
+#      extensions, print_preview, history, bookmarks and downloads.
+#   6: the tree cache marker now includes the target's suffix filter. Version 5
+#      snapshots were rebuilt over trees fetched under the old, narrower
+#      filter, so they claim to cover Lit templates and do not.
+#   7: the target set gained 13 feature files it had been missing, including
+#      chrome_features.cc. Version 6 snapshots cover about 45% fewer
+#      base::Feature declarations than they appear to.
+SCHEMA_VERSION = 7
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
