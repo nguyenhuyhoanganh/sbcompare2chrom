@@ -159,6 +159,36 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
         self.assertEqual(fact.attrs["platform_state"]["android"], "disabled")
         self.assertEqual(fact.attrs["platform_state"]["windows"], "enabled")
 
+    def test_filename_convention_is_a_convention_not_a_rule(self):
+        """Features are declared outside *_features.cc too.
+
+        Measured at M151: the convention catches 201 of 201 declarations in
+        content/public/common but only 1 of 24 in chrome/browser/ui/webui,
+        where the rest sit in _fieldtrial.cc, _util.cc and _handler.cc.
+        """
+        for path in ("content/public/common/content_features.cc",
+                     "components/x/composebox_fieldtrial.cc",
+                     "chrome/browser/ui/webui/whats_new_util.cc",
+                     "chrome/browser/x/on_device_ai_settings_handler.cc"):
+            self.assertTrue(base_features.applies_to(path), path)
+
+    def test_test_only_features_are_excluded(self):
+        """A feature declared in a browsertest ships to nobody.
+
+        Widening the filter pulled these in: 13 of the 23 declarations the old
+        filter had missed were test-only, and counting them as product surface
+        would be noise.
+        """
+        for path in ("chrome/browser/ui/webui/whats_new_fetcher_browsertest.cc",
+                     "chrome/browser/x/whats_new_registrar_unittest.cc",
+                     "components/y/features_test.cc",
+                     "components/y/feature_test_util.cc"):
+            self.assertFalse(base_features.applies_to(path), path)
+
+    def test_unrelated_source_is_still_ignored(self):
+        self.assertFalse(base_features.applies_to("chrome/browser/browser.cc"))
+        self.assertFalse(base_features.applies_to("content/renderer/render_view.cc"))
+
     def test_feature_params(self):
         src = '''
 BASE_FEATURE(kSpare, base::FEATURE_DISABLED_BY_DEFAULT);

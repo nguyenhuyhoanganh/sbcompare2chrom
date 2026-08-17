@@ -40,7 +40,10 @@ from typing import Any, Dict, Iterable, List, Optional
 #   7: the target set gained 13 feature files it had been missing, including
 #      chrome_features.cc. Version 6 snapshots cover about 45% fewer
 #      base::Feature declarations than they appear to.
-SCHEMA_VERSION = 7
+#   8: the filename filter widened past the *_features.cc convention and now
+#      excludes test files. Version 7 read 1 of 24 declarations in
+#      chrome/browser/ui/webui and counted test-only features elsewhere.
+SCHEMA_VERSION = 8
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

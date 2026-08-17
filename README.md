@@ -135,7 +135,7 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **100 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **103 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -348,8 +348,8 @@ Chạy M148 → M151 cho Windows:
 
 ```
 1 phút 36 giây
-24.638 facts trích được
-2.783 thay đổi có ý nghĩa
+24.646 facts trích được
+2.787 thay đổi có ý nghĩa
 
 must fix:        0     (vì chưa cấu hình hồ sơ downstream thật)
 needs review:  365
@@ -581,6 +581,25 @@ So với Polymer: `?attr=` thay cho attribute boolean, `.prop=` thay cho propert
 
 Thêm `.html.ts` vào bộ lọc xong chạy lại thì **số fact không nhúc nhích**. Nguyên nhân: marker cache của cây chỉ khoá theo đường dẫn, không tính bộ lọc — nên nó tưởng đã tải rồi và bỏ qua. Snapshot dựng lại, con số không đổi, **không có gì báo lỗi**. Nay marker gồm cả hash của bộ lọc.
 
+### Lấy hết `*_features.cc` là đủ chưa? — Không
+
+Quy ước đặt tên của Chromium mạnh nhưng **không phải luật**. Đo trên hai thư mục mà công cụ tải toàn bộ `.cc`:
+
+| thư mục | tổng `BASE_FEATURE` | quy ước tên bắt được |
+|---|---:|---:|
+| `content/public/common` | 201 | **201** — trọn vẹn |
+| `chrome/browser/ui/webui` | 24 | **1** |
+
+Ở thư mục thứ hai, phần còn lại nằm trong `composebox_fieldtrial.cc`, `whats_new_util.cc`, `on_device_ai_settings_handler.cc` — những tên không theo quy ước.
+
+Nhưng nhìn kỹ 23 mục sót thì **13 nằm trong file test** (`_browsertest.cc`, `_unittest.cc`). Feature khai trong file test chỉ để chạy test, **không ship cho ai**, nên đếm vào là nhiễu.
+
+Tức là bộ lọc vừa **quá hẹp** (sót file lạ tên) vừa **thiếu chặn** (đếm cả test). Đã sửa cả hai: mở rộng sang `_fieldtrial.cc`, `_util.cc`, `_handler.cc`, `_manager.cc`, `_flags.cc`, đồng thời loại mọi file test theo tên.
+
+Kết quả: `chrome/browser/ui/webui` từ **23 sót → 1 sót**, và 14 mục được loại đúng vì là test. Tổng `base_feature` chỉ tăng nhẹ 2.054 → 2.062, tức **nới lỏng không sinh nhiễu** — số tăng ít vì phần lớn nằm trong thư mục chưa tải, không phải vì bộ lọc chặn.
+
+Mở rộng bộ lọc *đọc* là miễn phí, vì danh sách *tải* trong `targets.py` mới là thứ giới hạn cái gì có trên đĩa.
+
 ### Cách tự kiểm khoảng trống
 
 Danh sách file là **được chọn thủ công, không phải vét cạn**. Kiểm bằng cách lấy một file feature bất kỳ nghi là thiếu rồi đếm:
@@ -728,7 +747,7 @@ Phần giá trị nhất của skill không phải hướng dẫn chạy lệnh,
 python3 -m unittest discover -s tests
 ```
 
-**100 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
+**103 bài kiểm thử, chạy trong khoảng 60 mili giây, không cần mạng.** Đã chạy trên macOS (Python 3.14), Ubuntu 24.04 (3.12) và Debian (3.9) — kết quả trùng khớp từng con số.
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 

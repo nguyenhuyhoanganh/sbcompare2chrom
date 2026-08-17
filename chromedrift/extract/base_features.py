@@ -36,10 +36,26 @@ from ._cpp import (
     split_top_level,
 )
 
-# Files that declare features.  Chromium is consistent about naming.
+# Chromium's naming convention is strong but not a rule.  Measured at M151:
+# in content/public/common the convention catches 201 of 201 declarations, but
+# in chrome/browser/ui/webui it catches 1 of 24 -- the rest live in
+# `_fieldtrial.cc`, `_util.cc` and `_handler.cc`.
+#
+# Widening the filter is free for correctness because the *download* list in
+# targets.py already bounds what is on disk; this only decides what to read
+# from it.
 FILE_HINTS = ("_features.cc", "_features.h", "features.cc", "features.h",
               "_switches.cc", "_switches.h", "media_switches.cc",
-              "media_switches.h", "gpu_finch_features.cc")
+              "media_switches.h", "gpu_finch_features.cc",
+              "_fieldtrial.cc", "_field_trial.cc", "_flags.cc",
+              "_feature_list.cc", "_util.cc", "_handler.cc", "_manager.cc")
+
+# ...but widening pulls in test-only features, which are noise: a feature
+# declared inside a browsertest exists to drive that test and ships to nobody.
+# Of the 23 declarations the old filter missed in chrome/browser/ui/webui, 13
+# were in test files.
+TEST_FILE_HINTS = ("_unittest.", "_browsertest.", "_test.", "_testing.",
+                   "test_util.", "_test_util.", "_test_helper.")
 
 STATE_RE = re.compile(r"FEATURE_(ENABLED|DISABLED)_BY_DEFAULT")
 
@@ -55,7 +71,11 @@ _STATE_MAP = {"ENABLED": "enabled", "DISABLED": "disabled"}
 
 def applies_to(path: str) -> bool:
     base = os.path.basename(path)
-    return base.endswith((".cc", ".h")) and any(h in base for h in FILE_HINTS)
+    if not base.endswith((".cc", ".h")):
+        return False
+    if any(h in base for h in TEST_FILE_HINTS):
+        return False
+    return any(h in base for h in FILE_HINTS)
 
 
 def feature_name_from_var(var: str) -> str:
