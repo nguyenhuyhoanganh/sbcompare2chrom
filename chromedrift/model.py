@@ -50,7 +50,11 @@ from typing import Any, Dict, Iterable, List, Optional
 #      like the macro form does. Version 9 omitted it there, so a feature
 #      written the old way on one side of a comparison and the new way on the
 #      other reported as modified when nothing had changed.
-SCHEMA_VERSION = 10
+#  11: a WebUI control's identity is qualified by its element id when it has
+#      one. The preference alone is not unique -- a radio group and its buttons
+#      share it -- so 142 of 881 controls at M148 were being dropped as
+#      duplicates, and which survived depended on directory walk order.
+SCHEMA_VERSION = 11
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

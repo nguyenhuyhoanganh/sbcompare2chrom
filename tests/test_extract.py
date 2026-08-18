@@ -438,6 +438,38 @@ class TestWebUiControls(unittest.TestCase):
         self.assertFalse(web_ui.applies_to(
             "chrome/browser/resources/downloads/item.ts"))
 
+    def test_a_pref_bound_twice_yields_two_controls(self):
+        """The preference alone is not a unique identity.
+
+        A radio group and each of its buttons bind the same pref, and Chromium
+        binds one pref from two pages in the same directory. Keyed on the pref
+        alone, 142 of 881 controls at M148 were dropped as duplicates, and
+        which one survived depended on directory walk order -- so a control
+        type change could be reported that never happened.
+        """
+        source = """
+          <settings-radio-group id="shortcutGroup"
+              pref="{{prefs.omnibox.keyword_space_triggering_enabled}}">
+            <controlled-radio-button id="spaceOption"
+                pref="{{prefs.omnibox.keyword_space_triggering_enabled}}">
+            </controlled-radio-button>
+          </settings-radio-group>
+        """
+        facts = web_ui.extract(
+            source, "chrome/browser/resources/settings/search_page/page.html")
+        self.assertEqual(len(facts), 2)
+        self.assertEqual(len({f.key for f in facts}), 2,
+                         "both controls must survive dedupe")
+        self.assertEqual({f.attrs["control"] for f in facts},
+                         {"settings-radio-group", "controlled-radio-button"})
+
+    def test_a_control_without_an_id_still_keys_on_its_pref(self):
+        """Qualifying by id must not change identity where there is no id."""
+        facts = web_ui.extract(
+            '<settings-toggle-button pref="{{prefs.a.b}}">',
+            "chrome/browser/resources/settings/x/page.html")
+        self.assertEqual(facts[0].key, "settings/x/pref:a.b")
+
     def test_lit_line_numbers_point_at_the_real_file(self):
         """A line number nobody checks is a line number that quietly drifts.
 

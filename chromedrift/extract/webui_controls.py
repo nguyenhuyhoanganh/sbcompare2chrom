@@ -172,7 +172,19 @@ def extract(text: str, rel_path: str) -> List[Fact]:
 
         # Identity, most stable first: the pref it drives, then its id, then
         # its label. Position is the last resort and the least stable.
-        if pref:
+        #
+        # The pref alone is not unique. A radio group and each of its buttons
+        # bind the same pref, and Chromium routinely binds one pref from two
+        # pages in the same directory. Measured at M148 across all eight
+        # surfaces: 92 keys collided, swallowing 142 of 881 controls (16%), and
+        # 15 of those collisions held more than one control *type* -- so which
+        # one survived depended on filesystem walk order, and a control type
+        # change could be reported that never happened. Qualifying by element
+        # id resolves 61 of the 92 at a measured cost of 3 phantom add/remove
+        # pairs in 481 controls (0.6%), because ids barely churn.
+        if pref and attrs.get("id"):
+            ident = f"pref:{pref}#{attrs['id']}"
+        elif pref:
             ident = f"pref:{pref}"
         elif attrs.get("id"):
             ident = f"id:{attrs['id']}"
