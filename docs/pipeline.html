@@ -1,0 +1,1012 @@
+<title>Dây chuyền Chromedrift</title>
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Bảng màu: đá phiến · xanh mòng két · đất nung · đồng thau
+   Xám lệch xanh, không phải xám trung tính mặc định.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --ground:#EDF0EF;
+  --panel:#F7F9F8;
+  --panel-2:#E3E9E7;
+  --ink:#101819;
+  --ink-soft:#3A4A48;
+  --muted:#6B7A78;
+  --line:#CBD5D2;
+  --flow:#0E7C7B;
+  --flow-soft:#D6E8E7;
+  --on-flow:#FFFFFF;
+  --clay:#B44A32;
+  --clay-soft:#F5DDD7;
+  --brass:#8A6A34;
+  --brass-soft:#EFE4CE;
+  --shadow:0 1px 2px rgba(16,24,25,.06),0 8px 24px -12px rgba(16,24,25,.18);
+  --r:14px;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1416;
+    --panel:#161D1F;
+    --panel-2:#1E2729;
+    --ink:#E7EDEC;
+    --ink-soft:#B9C6C4;
+    --muted:#879997;
+    --line:#2C3739;
+    --flow:#4CB3B0;
+    --flow-soft:#12302F;
+    --on-flow:#08201F;
+    --clay:#E28067;
+    --clay-soft:#3A1F18;
+    --brass:#CBA96A;
+    --brass-soft:#332917;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1416;
+  --panel:#161D1F;
+  --panel-2:#1E2729;
+  --ink:#E7EDEC;
+  --ink-soft:#B9C6C4;
+  --muted:#879997;
+  --line:#2C3739;
+  --flow:#4CB3B0;
+  --flow-soft:#12302F;
+  --on-flow:#08201F;
+  --clay:#E28067;
+  --clay-soft:#3A1F18;
+  --brass:#CBA96A;
+  --brass-soft:#332917;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--sans);font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 96px}
+h1,h2,h3{text-wrap:balance;margin:0}
+code,.mono{font-family:var(--mono)}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ── Hero ─────────────────────────────────────────────────── */
+.hero{padding:72px 0 40px;display:grid;gap:22px}
+.eyebrow{
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--flow);
+}
+h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;font-weight:680}
+.lede{font-size:clamp(1.02rem,2vw,1.18rem);color:var(--ink-soft);max-width:62ch}
+.lede b{color:var(--ink);font-weight:620}
+
+/* ── Băng chuyền: ví dụ thật chạy qua 7 trạm ──────────────── */
+.belt{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:20px;margin-top:8px;overflow-x:auto;
+}
+.belt-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:16px}
+.belt-head .t{font-weight:640;font-size:.95rem}
+.belt-head .s{color:var(--muted);font-size:.82rem}
+.belt-track{position:relative;min-width:660px;height:112px}
+.belt-line{
+  position:absolute;left:6%;right:6%;top:34px;height:3px;background:var(--line);border-radius:2px;
+}
+.belt-fill{
+  position:absolute;left:6%;top:34px;height:3px;width:0;background:var(--flow);
+  border-radius:2px;transition:width .9s cubic-bezier(.4,0,.2,1);
+}
+.stop{position:absolute;top:0;transform:translateX(-50%);text-align:center;width:96px}
+.stop .dot{
+  width:15px;height:15px;border-radius:50%;background:var(--ground);
+  border:3px solid var(--line);margin:28px auto 0;transition:border-color .3s,background .3s;
+}
+.stop.on .dot{border-color:var(--flow);background:var(--flow)}
+.stop .lbl{
+  margin-top:8px;font-size:.7rem;color:var(--muted);line-height:1.25;
+  font-family:var(--mono);letter-spacing:.02em;
+}
+.stop.on .lbl{color:var(--ink)}
+.token{
+  position:absolute;top:8px;left:0;transform:translateX(-50%);
+  background:var(--flow);color:var(--on-flow);font-family:var(--mono);font-size:.68rem;
+  padding:3px 9px;border-radius:99px;white-space:nowrap;
+  transition:left .9s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow);
+}
+.belt-say{
+  margin-top:14px;font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);
+  background:var(--panel-2);border-radius:10px;padding:11px 13px;min-height:42px;
+}
+.belt-btn{
+  margin-top:14px;font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;
+  background:var(--flow);color:var(--on-flow);border:0;border-radius:9px;padding:9px 18px;
+}
+.belt-btn:hover{filter:brightness(1.08)}
+.belt-btn:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+
+/* ── Vai trò từng nguồn ───────────────────────────────────── */
+.why{display:grid;gap:12px}
+.src{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 18px;box-shadow:var(--shadow);display:grid;gap:10px;
+}
+.src-h{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline}
+.src-h .nm{font-family:var(--mono);font-size:.86rem;font-weight:650;color:var(--ink)}
+.src-h .rl{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  padding:2px 8px;border-radius:99px;font-weight:650;
+}
+.rl-switch{background:var(--flow-soft);color:var(--flow)}
+.rl-contract{background:var(--clay-soft);color:var(--clay)}
+.rl-ui{background:var(--brass-soft);color:var(--brass)}
+.qa{display:grid;gap:7px;font-size:.87rem}
+.qa div{display:grid;grid-template-columns:96px 1fr;gap:11px;align-items:start}
+.qa dt,.qa .k{
+  font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--muted);padding-top:3px;
+}
+.qa .v{color:var(--ink-soft)}
+.qa .v b{color:var(--ink)}
+@media (max-width:560px){.qa div{grid-template-columns:1fr;gap:2px}}
+
+/* ── Trạm ─────────────────────────────────────────────────── */
+.station{
+  display:grid;grid-template-columns:64px 1fr;gap:20px;
+  padding:44px 0;border-top:1px solid var(--line);
+}
+.station:first-of-type{border-top:0}
+.rail{display:flex;flex-direction:column;align-items:center;gap:10px}
+.num{
+  width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+  background:var(--flow-soft);color:var(--flow);font-family:var(--mono);
+  font-size:1rem;font-weight:700;border:1px solid var(--line);
+}
+.rail .thread{flex:1;width:2px;background:var(--line);border-radius:2px;min-height:20px}
+.body h2{font-size:1.45rem;letter-spacing:-.015em;font-weight:660;margin-bottom:6px}
+.body>p{color:var(--ink-soft);max-width:64ch;margin:0 0 16px}
+.file{
+  font-family:var(--mono);font-size:.74rem;color:var(--muted);
+  display:inline-block;margin-bottom:12px;
+}
+
+/* ── Khối phụ ─────────────────────────────────────────────── */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px;box-shadow:var(--shadow);
+}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:14px}
+pre{
+  margin:0;background:var(--panel-2);border-radius:10px;padding:13px 15px;
+  overflow-x:auto;font-family:var(--mono);font-size:.78rem;line-height:1.6;color:var(--ink-soft);
+}
+pre b{color:var(--ink);font-weight:600}
+pre .c{color:var(--muted)}
+pre .g{color:var(--flow)}
+pre .r{color:var(--clay)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:.83rem;min-width:440px}
+th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+th{
+  font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);font-weight:600;background:var(--panel-2);
+}
+tbody tr:last-child td{border-bottom:0}
+td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.note{
+  border-left:3px solid var(--brass);background:var(--brass-soft);
+  border-radius:0 10px 10px 0;padding:12px 15px;font-size:.87rem;color:var(--ink-soft);
+}
+.note b{color:var(--ink)}
+.warnbox{
+  border-left:3px solid var(--clay);background:var(--clay-soft);
+  border-radius:0 10px 10px 0;padding:12px 15px;font-size:.87rem;color:var(--ink-soft);
+}
+.warnbox b{color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  font-family:var(--mono);font-size:.7rem;padding:4px 10px;border-radius:99px;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-soft);
+}
+.chip.hot{background:var(--clay-soft);border-color:var(--clay);color:var(--clay)}
+.chip.ok{background:var(--flow-soft);border-color:var(--flow);color:var(--flow)}
+h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
+.stack{display:grid;gap:14px}
+
+/* ── Tương tác 1: bộ đánh giá ba trạng thái ───────────────── */
+.evalgrid{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.guards{display:flex;flex-wrap:wrap;gap:7px}
+.guard{
+  font-family:var(--mono);font-size:.74rem;padding:7px 12px;border-radius:9px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-soft);
+  transition:background .15s,border-color .15s,color .15s;
+}
+.guard:hover{border-color:var(--flow)}
+.guard[aria-pressed="true"]{background:var(--flow);border-color:var(--flow);color:var(--on-flow)}
+.guard:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.verdict{
+  font-family:var(--mono);font-weight:700;font-size:1.5rem;padding:14px 20px;
+  border-radius:12px;min-width:150px;text-align:center;transition:background .2s,color .2s;
+}
+.v-true{background:var(--flow-soft);color:var(--flow)}
+.v-false{background:var(--clay-soft);color:var(--clay)}
+.v-unknown{background:var(--brass-soft);color:var(--brass)}
+.evalsay{margin-top:12px;font-size:.86rem;color:var(--ink-soft);min-height:44px}
+
+/* ── Tương tác 2: máy chấm điểm ───────────────────────────── */
+.scorebox{display:grid;grid-template-columns:1fr 168px;gap:18px;align-items:start}
+.toggles{display:grid;gap:9px}
+.tg{
+  display:flex;gap:11px;align-items:flex-start;padding:11px 13px;border-radius:10px;
+  background:var(--panel-2);border:1px solid var(--line);cursor:pointer;
+  transition:border-color .15s;
+}
+.tg:hover{border-color:var(--flow)}
+.tg input{margin:3px 0 0;accent-color:var(--flow);width:16px;height:16px;flex:none}
+.tg .d{font-size:.85rem;line-height:1.45}
+.tg .d b{font-family:var(--mono);font-size:.78rem}
+.tg .d span{color:var(--muted);display:block;font-size:.79rem}
+.dial{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:12px;
+  padding:16px;text-align:center;position:sticky;top:16px;
+}
+.dial .v{
+  font-family:var(--mono);font-size:2.9rem;font-weight:700;line-height:1;
+  font-variant-numeric:tabular-nums;transition:color .25s;
+}
+.dial .cap{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:6px}
+.bucket{
+  margin-top:13px;font-size:.8rem;font-weight:650;padding:7px 10px;border-radius:8px;
+  transition:background .25s,color .25s;
+}
+.b-fyi{background:var(--panel);color:var(--muted)}
+.b-review{background:var(--brass-soft);color:var(--brass)}
+.b-must{background:var(--clay-soft);color:var(--clay)}
+.reasons{margin-top:13px;display:grid;gap:5px;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
+.reasons div{background:var(--panel-2);border-radius:7px;padding:6px 10px}
+
+/* ── Bảng chứng ───────────────────────────────────────────── */
+.proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
+.pcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
+.pcard .big{font-family:var(--mono);font-size:1.8rem;font-weight:700;color:var(--flow);font-variant-numeric:tabular-nums}
+.pcard .lbl{font-size:.78rem;color:var(--muted);margin-top:4px}
+
+footer{
+  margin-top:56px;padding-top:22px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:.82rem;display:grid;gap:6px;
+}
+
+/* ── Xuất hiện khi cuộn tới ───────────────────────────────── */
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none}
+  .belt-fill,.token{transition:none}
+}
+@media (max-width:640px){
+  .station{grid-template-columns:1fr;gap:12px}
+  .rail{flex-direction:row;align-items:center}
+  .rail .thread{display:none}
+  .scorebox{grid-template-columns:1fr}
+  .dial{position:static}
+  .evalgrid{grid-template-columns:1fr}
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">chromedrift · dây chuyền so sánh</div>
+  <h1>Từ hai con số phiên bản<br>đến một danh sách việc phải làm</h1>
+  <p class="lede">
+    So hai bản Chromium bằng <b>diff văn bản</b> là hàng triệu dòng. Công cụ này
+    không đọc văn bản — nó đọc <b>khai báo</b>: cờ tính năng, manifest, IDL, mojom,
+    bảng route. Rồi hỏi một câu mà cái diff không trả lời được:
+    <b>cái này có ảnh hưởng đến chúng ta không?</b>
+  </p>
+
+  <div class="belt">
+    <div class="belt-head">
+      <span class="t">Bám theo một thay đổi có thật</span>
+      <span class="s mono">GlicActorUiMagicCursor · M148 → M151</span>
+    </div>
+    <div class="belt-track" id="track">
+      <div class="belt-line"></div>
+      <div class="belt-fill" id="fill"></div>
+      <div class="token mono" id="token">nguồn thô</div>
+    </div>
+    <div class="belt-say mono" id="say">Bấm nút để chạy dây chuyền.</div>
+    <button class="belt-btn" id="run">Chạy dây chuyền</button>
+  </div>
+</header>
+
+<!-- ── 1 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">1</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Chốt phiên bản</h2>
+    <div class="file">acquire.resolve_ref()</div>
+    <p>Ba dạng đầu vào, ba đường xử lý khác nhau.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Anh gõ</th><th>Cơ chế</th><th>Ra</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">151.0.7922.138</td><td>khớp regex bốn số → dùng thẳng</td><td class="mono">refs/tags/151.0.7922.138</td></tr>
+          <tr><td class="mono">151</td><td>hỏi chromiumdash bản stable mới nhất</td><td class="mono">…trôi theo ngày chạy</td></tr>
+          <tr><td class="mono">main/dev</td><td>không khớp gì → chuyển nguyên</td><td class="mono">main/dev</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warnbox" style="margin-top:14px">
+      <b>Đừng gõ số milestone trần.</b> <code>151</code> giải ra bản stable
+      <em>tại thời điểm chạy</em>. Ví dụ thật: <code>ServiceWorkerAutoPreload</code>
+      <b>BẬT</b> ở <code>143.0.7499.40</code> nhưng <b>TẮT</b> ở <code>143.0.7499.194</code>
+      — cùng milestone, khác bản vá, vì bị revert. Hai lần chạy cách nhau vài tuần
+      cho hai kết luận khác nhau, và cả hai đều đúng.
+    </div>
+  </div>
+</section>
+
+<!-- ── 2 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">2</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Lấy về vài nghìn file, không phải cả Chromium</h2>
+    <div class="file">targets.py · acquire.GitilesSource</div>
+    <p>
+      <code>gclient sync</code> là ~100 GB và vài giờ mỗi phiên bản. Ta chỉ cần
+      file <b>khai báo</b>, nên kéo thẳng tarball theo thư mục từ Gitiles và đổ ra đĩa
+      thành một bản checkout rất từng phần.
+    </p>
+    <div class="grid2">
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">Lấy những gì</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Nhóm</th><th>Ví dụ</th></tr></thead>
+            <tbody>
+              <tr><td>File cờ</td><td class="mono">chrome_features.cc <span style="color:var(--muted)">(247 cờ)</span></td></tr>
+              <tr><td>Manifest</td><td class="mono">runtime_enabled_features.json5</td></tr>
+              <tr><td>API web</td><td class="mono">blink/renderer/**/*.idl</td></tr>
+              <tr><td>ABI tiến trình</td><td class="mono">blink/public/mojom/*.mojom</td></tr>
+              <tr><td>Giao diện</td><td class="mono">resources/settings/**.html</td></tr>
+              <tr><td>Cầu nối cờ↔UI</td><td class="mono">ui/webui/**/*.cc</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">Chi phí đo thật</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Phạm vi</th><th class="n">Giây</th><th class="n">Fact</th></tr></thead>
+            <tbody>
+              <tr><td>Toàn bộ</td><td class="n">120</td><td class="n">24.646</td></tr>
+              <tr><td class="mono">--partition settings</td><td class="n">24</td><td class="n">4.467</td></tr>
+              <tr><td class="mono">--partition downloads</td><td class="n">17</td><td class="n">2.692</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" style="margin-top:13px">
+          <b>Marker cache ghi <em>kết quả gì</em></b>, không chỉ “đã xong”. File 404 vẫn
+          được cache — nhưng nếu marker chỉ ghi “xong”, một lần chạy mà <em>mọi</em>
+          target đều 404 sẽ báo lỗi lần đầu, rồi <b>lần chạy thứ hai y hệt lại thành công</b>
+          và ghi ra snapshot 0 fact.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 2b ────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">2b</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Mỗi thứ lấy về đóng vai trò gì trong Chromium</h2>
+    <p>
+      Không phải lấy bừa file có vẻ quan trọng. Chín nguồn này có một điểm chung:
+      chúng là <b>nơi Chromium tự mô tả mình bằng thứ máy đọc được</b> — hoặc là đầu vào
+      của bộ sinh mã, hoặc là khai báo theo quy ước chặt. Đó chính là lý do đọc được
+      chúng mà không cần compiler.
+    </p>
+
+    <div class="why">
+
+      <div class="src">
+        <div class="src-h"><span class="nm">BASE_FEATURE(...)</span><span class="rl rl-switch">công tắc</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Hệ thống cờ tính năng lúc chạy của Chromium. <b>Gần như mọi thay đổi hành vi đáng kể đều nằm sau một cái</b>. Đây cũng là thứ Finch — hệ thí nghiệm phía server — dùng để bật/tắt theo từng nhóm người dùng.</span></div>
+        </div>
+        <pre>BASE_FEATURE(kBackForwardCache, base::<span class="g">FEATURE_ENABLED_BY_DEFAULT</span>);</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Mặc định lật từ <code>DISABLED</code> sang <code>ENABLED</code> là Chromium nói <b>“cái này vừa ship”</b>. Một bit đó dự báo gần hết thay đổi hành vi mà fork thừa hưởng — và nó <b>không có trong release note</b>.</span></div>
+          <div><span class="k">Thiếu thì</span><span class="v">Không biết tính năng nào vừa bật cho người dùng của mình.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">BASE_FEATURE_PARAM(...)</span><span class="rl rl-switch">núm vặn</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Tham số gắn vào một cờ: ngưỡng, thời gian chờ, tỉ lệ. <b>Cái núm bên cạnh cái công tắc.</b></span></div>
+        </div>
+        <pre>BASE_FEATURE_PARAM(base::TimeDelta, kDuplicateNavThreshold,
+                   <b>&amp;kIgnoreDuplicateNavs</b>, "duplicate_nav_threshold",
+                   base::Milliseconds(<span class="g">2000</span>));</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Hành vi đổi được <b>mà không cờ nào lật</b> — chỉ cần đổi con số. 2000ms thành 500ms là thay đổi thật, cờ vẫn nguyên trạng thái.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">runtime_enabled_features.json5</span><span class="rl rl-switch">công tắc web</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Manifest của Blink cho <b>toàn bộ bề mặt API web</b>. Mỗi mục có trạng thái <code>stable</code> / <code>experimental</code> / <code>test</code>, khai báo được theo từng nền tảng.</span></div>
+        </div>
+        <pre>{ name: "FileSystemAccessAPIExperimental",
+  status: <span class="g">"experimental"</span> }</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Đây là thứ gần nhất với một bản “khai báo máy đọc được” của web platform. <code>experimental → stable</code> nghĩa là <b>API bắt đầu hiện ra với người dùng thật</b>, và website sẽ bắt đầu dùng nó.</span></div>
+          <div><span class="k">Đặc biệt</span><span class="v">Đây là nguồn duy nhất công cụ phủ <b>100%</b> — vì cả bề mặt nằm trong đúng một file.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">flag-metadata.json</span><span class="rl rl-switch">lịch hẹn</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Siêu dữ liệu của từng mục <code>chrome://flags</code>, kèm <b>milestone mà cờ đó sẽ bị xoá</b>.</span></div>
+          <div><span class="k">Vì sao lấy</span><span class="v"><b>Nguồn duy nhất trong cây nói về TƯƠNG LAI.</b> Nó biến một lớp “gãy bất ngờ” thành việc lên kế hoạch được: “12 cờ ta đang phụ thuộc sẽ biến mất ở M151” là ticket lập hôm nay, không phải build hỏng phát hiện kỳ sau.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">pref_names.h</span><span class="rl rl-contract">hợp đồng</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Hằng chuỗi cho khoá preference. Mỗi khoá là <b>đường dẫn thật trong file <code>Preferences</code> (JSON) nằm trong hồ sơ người dùng</b>, đồng thời là thứ chính sách doanh nghiệp và giao diện Settings ghi vào.</span></div>
+        </div>
+        <pre>inline constexpr char <b>kHomePage</b>[] = <span class="g">"homepage"</span>;
+<span class="c">// biến C++ bền  ·  CHUỖI mới là danh tính</span></pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Đổi tên khoá = <b>orphan dữ liệu đã lưu của mọi người dùng hiện có</b>. Code vẫn biên dịch, test vẫn xanh, và cài đặt <b>âm thầm reset ngoài thực địa</b>.</span></div>
+          <div><span class="k">Mẹo</span><span class="v">Vì danh tính là <em>chuỗi</em> còn biến C++ thì bền, công cụ ghép removal với addition theo tên biến để phát hiện đổi tên.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">*_switches.cc</span><span class="rl rl-contract">hợp đồng</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Cờ dòng lệnh. Hợp đồng với <b>script khởi chạy, automation, harness QA, cấu hình thiết bị</b>.</span></div>
+          <div><span class="k">Vì sao lấy</span><span class="v">Đổi tên switch thì script vẫn chạy, <b>không báo lỗi</b>, chỉ là cờ không còn tác dụng. Những thứ này nằm ngoài repo nên không compiler nào kiểm được.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">*.idl (Web IDL)</span><span class="rl rl-contract">ABI với website</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Định nghĩa interface của <b>mọi API web lộ ra cho JavaScript</b>. Blink <b>sinh binding từ chính file này</b> — nên nó không mô tả API, <b>nó LÀ API</b>.</span></div>
+        </div>
+        <pre>[ SecureContext, Exposed=Window ]
+interface <b>BatteryManager</b> : EventTarget {
+  [Measure] readonly attribute boolean <span class="g">charging</span>;
+  [Measure] readonly attribute double  <span class="g">level</span>;
+};</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Member bị xoá = <b>website đang chạy sẽ vỡ</b>. Đây cũng là nguồn ĐÚNG để phát hiện “API bị gỡ” — chứ không phải cờ Blink biến mất, vì cờ biến mất hầu như luôn là dọn dẹp sau khi đã ship.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">*.mojom</span><span class="rl rl-contract">ABI giữa tiến trình</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v">Định nghĩa interface Mojo — <b>ABI giữa các tiến trình của Chromium</b> (browser ↔ renderer ↔ GPU ↔ network). Binding cũng được sinh từ file này. Chính comment trong nguồn nói rõ vai trò:</span></div>
+        </div>
+        <pre><span class="c">// Implemented in Browser, this interface defines frame-specific</span>
+<span class="c">// methods that will be invoked from the render process.</span>
+interface <b>LocalFrameHost</b> {
+  EnterFullscreen(...) =&gt; (bool granted);
+};</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Đổi signature <b>gãy lúc CHẠY, không gãy lúc BUILD</b> — vì hai đầu nằm ở hai tiến trình, mỗi bên biên dịch binding của mình. Không test web nào bắt được. Đây là lý do <code>ipc_signature_change</code> có mức nghiêm trọng <b>cao nhất hệ thống (80)</b>.</span></div>
+        </div>
+      </div>
+
+      <div class="src">
+        <div class="src-h"><span class="nm">route.ts + template + handler .cc</span><span class="rl rl-ui">giao diện</span></div>
+        <div class="qa">
+          <div><span class="k">Là gì</span><span class="v"><code>chrome://settings</code> là <b>một trang web</b>. Ba file, ba vai trò: <code>route.ts</code> là <b>mục lục trang kèm cờ gác</b>; template khai báo từng control; handler <code>.cc</code> là <b>cầu nối</b> đổ giá trị cờ C++ sang boolean mà JS nhìn thấy.</span></div>
+        </div>
+        <pre><span class="c">// handler: cờ C++  →  boolean cho JS</span>
+html_source-&gt;AddBoolean(<span class="g">"axTreeFixingEnabled"</span>,
+    base::FeatureList::IsEnabled(features::<b>kAXTreeFixing</b>));
+
+<span class="c">// template: LOẠI control nằm ngay trong TÊN THẺ</span>
+&lt;<b>settings-toggle-button</b> pref="{{prefs.<span class="g">browser.show_home_button</span>}}"&gt;</pre>
+        <div class="qa">
+          <div><span class="k">Vì sao lấy</span><span class="v">Loại control nằm trong tên thẻ, nên <b>“dropdown thành toggle” phát hiện được bằng máy</b>. Còn <code>pref=</code> là <b>liên kết khai báo mạnh nhất giữa giao diện và lõi trình duyệt</b> — nó sống sót ngay cả khi fork thay toàn bộ UI, vì pref phía dưới vẫn thế.</span></div>
+          <div><span class="k">Bắt buộc</span><span class="v">Phải đi <b>đủ ba chặng</b>. Bảng route khai báo cả những trang mà một cờ đang giấu đi — dừng ở chặng đầu là kết luận sai.</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="note" style="margin-top:16px">
+      <b>Vì sao đúng chín chỗ này chứ không phải chỗ khác?</b> Vì đây là những điểm
+      Chromium <em>buộc phải</em> tự mô tả cho máy đọc: IDL và mojom là đầu vào của bộ
+      sinh mã, json5 là manifest, macro cờ và hằng chuỗi theo quy ước chặt nhiều năm.
+      Đọc được chúng mà không cần compiler, không cần checkout đầy đủ.
+      Ngược lại, <b>logic bên trong thân hàm không tự mô tả gì cả</b> — nên nó nằm ngoài
+      mô hình này, và đó là giới hạn phải nói ra chứ không giấu.
+    </div>
+  </div>
+</section>
+
+<!-- ── 3 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">3</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Đọc file thành “fact”</h2>
+    <div class="file">extract/ · 9 extractor, mỗi cái là hai hàm thuần</div>
+    <p>
+      Không có compiler, không có <code>compile_commands.json</code>, chỉ có một phần cây
+      nguồn. Nhưng khai báo ta cần đều là macro viết theo house style ổn định nhiều năm,
+      nên <b>lex cẩn thận thắng parse thật</b>. Cái bắt buộc phải đúng là <b>ngữ cảnh</b>.
+    </p>
+
+    <div class="card">
+      <h3 class="sub" style="margin-top:0">Vì sao ngữ cảnh quyết định tất cả</h3>
+      <pre><span class="c">// mặc định bị bọc trong điều kiện tiền xử lý</span>
+BASE_FEATURE(kAudioServiceOutOfProcess,
+<b>#if BUILDFLAG(IS_WIN)</b> || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+             base::<span class="g">FEATURE_ENABLED_BY_DEFAULT</span>
+<b>#else</b>
+             base::<span class="r">FEATURE_DISABLED_BY_DEFAULT</span>
+<b>#endif</b>
+);</pre>
+      <p style="margin:13px 0 0;font-size:.88rem">
+        Đọc thô lấy giá trị đầu tiên. Ở đây tình cờ đúng. Đảo lại — Windows nằm ở nhánh
+        <code>#else</code> — thì đọc thô cho <b>kết luận ngược</b>. Chỉ trong một file,
+        <b>14/187 cờ</b> có mặc định khác nhau theo nền tảng.
+      </p>
+    </div>
+
+    <h3 class="sub">Thử bộ đánh giá ba trạng thái</h3>
+    <div class="card">
+      <div class="evalgrid">
+        <div>
+          <div class="guards" id="guards">
+            <button class="guard" data-k="IS_WIN" aria-pressed="true">BUILDFLAG(IS_WIN)</button>
+            <button class="guard" data-k="IS_ANDROID" aria-pressed="false">BUILDFLAG(IS_ANDROID)</button>
+            <button class="guard" data-k="IS_MAC" aria-pressed="false">BUILDFLAG(IS_MAC)</button>
+            <button class="guard" data-k="ENABLE_PLUGINS" aria-pressed="false">BUILDFLAG(ENABLE_PLUGINS)</button>
+          </div>
+          <div style="margin-top:11px" class="chips">
+            <button class="guard" data-op="or" aria-pressed="true">nối bằng ||</button>
+            <button class="guard" data-op="and" aria-pressed="false">nối bằng &amp;&amp;</button>
+          </div>
+          <div class="evalsay" id="evalsay"></div>
+        </div>
+        <div class="verdict v-true" id="verdict">True</div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:13px">
+      <b>Trạng thái thứ ba mới là điểm mấu chốt.</b> Cờ nền tảng khác → <code>False</code>
+      chắc chắn. Nhưng buildflag <em>không phải</em> nền tảng (như <code>ENABLE_PLUGINS</code>)
+      → <code>None</code>, và <code>None</code> lan truyền qua <code>&amp;&amp;</code>.
+      Công cụ trả lời <b>“không xác định”</b> thay vì đoán.
+    </div>
+
+    <h3 class="sub">Khoá phải bền qua thay đổi cú pháp</h3>
+    <div class="card">
+      <pre><span class="c">// M139 — ba tham số</span>
+BASE_FEATURE(kBackForwardCache, <span class="g">"BackForwardCache"</span>, ENABLED);
+<span class="c">// M143 — hai tham số, tên tự suy từ biến</span>
+BASE_FEATURE(kBackForwardCache, ENABLED);</pre>
+      <p style="margin:13px 0 0;font-size:.88rem">
+        Trong <code>content_features.cc</code>, M139 có <b>170/170</b> khai báo dạng cũ,
+        M143 có <b>12/187</b>. Parser khoá theo văn bản nguồn sẽ báo <b>cả file bị viết lại</b>.
+        Chuẩn hoá <code>kFoo → "Foo"</code> rồi thì delta thật là
+        <b>152 giữ nguyên, 18 bỏ, 35 thêm</b>.
+      </p>
+    </div>
+
+    <h3 class="sub">13 loại fact được trích ra</h3>
+    <div class="chips">
+      <span class="chip ok">base_feature · 2.062</span>
+      <span class="chip">feature_param · 862</span>
+      <span class="chip ok">blink_runtime · 1.212</span>
+      <span class="chip">flag_entry · 1.753</span>
+      <span class="chip hot">pref · 683</span>
+      <span class="chip hot">switch · 288</span>
+      <span class="chip hot">mojo_method · 1.362</span>
+      <span class="chip">mojo_interface · 338</span>
+      <span class="chip">idl_member · 11.941</span>
+      <span class="chip">idl_interface · 2.608</span>
+      <span class="chip ok">webui_route · 108</span>
+      <span class="chip ok">webui_control · 761</span>
+      <span class="chip ok">webui_gate · 668</span>
+    </div>
+    <p style="font-size:.83rem;color:var(--muted);margin-top:10px">
+      Số đo tại M151. <span style="color:var(--flow)">Xanh</span> = công tắc hành vi ·
+      <span style="color:var(--clay)">Đỏ</span> = hợp đồng với bên ngoài, đổi là gãy im lặng.
+    </p>
+  </div>
+</section>
+
+<!-- ── 4 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">4</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>So sánh — hai quy tắc làm gần hết việc</h2>
+    <div class="file">diff.py</div>
+
+    <h3 class="sub" style="margin-top:0">Quy tắc 1 — chỉ so thuộc tính có nghĩa</h3>
+    <p>
+      Mỗi loại fact có một danh sách thuộc tính mà thay đổi của chúng <em>có ý nghĩa</em>.
+      Với cờ tính năng: <code>default_state</code>, <code>platform_state</code>,
+      <code>conditions</code>. Thuộc tính <code>declared_form</code> <b>không</b> nằm trong đó —
+      nếu có, đợt đổi macro sẽ sinh hàng nghìn “thay đổi” chẳng nói lên gì.
+    </p>
+    <div class="card">
+      <pre>attrs thô khác nhau : <span class="r">True</span>   <span class="c">(macro2 vs macro3)</span>
+meaningful khác nhau: <span class="g">False</span>
+số change           : <span class="g">0</span>   <span class="c">← đúng như thực tế</span></pre>
+    </div>
+
+    <h3 class="sub">Quy tắc 2 — vòng đời ba giai đoạn</h3>
+    <p>
+      Chromium cho mọi tính năng đi qua ba giai đoạn, <b>cách nhau nhiều milestone</b>.
+      Nên diff giữa hai phiên bản chủ yếu thấy A và C.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Giai đoạn</th><th>Trong code</th><th>Người dùng thấy</th></tr></thead>
+        <tbody>
+          <tr><td><b>A</b></td><td>Code mới về, cờ mặc định TẮT</td><td style="color:var(--muted)">không gì</td></tr>
+          <tr><td><b>B</b></td><td>Cờ lật thành BẬT</td><td style="color:var(--flow);font-weight:640">chính là thay đổi</td></tr>
+          <tr><td><b>C</b></td><td>Xoá nhánh cũ và xoá cờ</td><td style="color:var(--muted)">không gì</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:14px">
+      Vì thế khi một cờ <b>biến mất</b>, công cụ đọc <b>trạng thái nó giữ ngay trước khi bị xoá</b>.
+      Đo thật M148→M151 trên Windows: <b>90 cờ bị xoá, chia đúng 45/45</b> giữa “đã ship rồi mới
+      rút cờ” và “chưa từng ship”. Gán cả 90 là “mất tính năng” thì <b>một nửa danh sách là báo động giả</b>.
+      Với Blink còn rõ hơn: 202 runtime feature biến mất, <b>170 cái đang <code>stable</code></b>.
+    </div>
+
+    <h3 class="sub">Lỗi im lặng đắt nhất: đổi tên</h3>
+    <div class="card">
+      <pre><span class="c">// M139</span>
+BASE_FEATURE(kFedCmIdPRegistration, <span class="r">"FedCmIdPregistration"</span>, …);  <span class="c">// r thường</span>
+<span class="c">// M143 — macro tự suy tên từ biến</span>
+BASE_FEATURE(kFedCmIdPRegistration, …);
+<span class="c">// chuỗi giờ là</span> <span class="g">"FedCmIdPRegistration"</span>  <span class="c">// R HOA</span></pre>
+      <p style="margin:13px 0 0;font-size:.88rem">
+        <b>Không ai sửa tên</b> — đợt đổi macro đã đổi nó. Mọi field trial phía server và
+        <code>--enable-features</code> gõ theo cách cũ từ đó <b>im lặng không có tác dụng</b>.
+        Không compiler nào cảnh báo. Công cụ ghép removal với addition <b>dùng chung tên biến C++</b>
+        để phát hiện.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── 5 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">5</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Chấm điểm — “có đổi” so với “có ảnh hưởng tới <em>ta</em>”</h2>
+    <div class="file">sbprofile.py · impact.py</div>
+    <p>
+      Bước trước trả lời “cái này thường quan trọng cỡ nào”. Bước này trả lời câu đội ngũ
+      thật sự hỏi. Bằng chứng lấy từ patch, <code>git diff</code>, hoặc <b>quét mã nguồn fork</b> —
+      và chiều quét bị đảo ngược có chủ ý: lấy <em>từ vựng Chromium</em> đi tìm trong cây nhỏ
+      của fork, thay vì grep cây khổng lồ.
+    </p>
+
+    <div class="card">
+      <div class="scorebox">
+        <div class="toggles" id="toggles">
+          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 ta có vá file khai báo nó">
+            <span class="d"><b>Ta có vá file khai báo</b>
+            <span>Bằng chứng yếu — <code>content_features.cc</code> khai báo gần 200 cờ</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 mã nguồn của ta nhắc kServiceWorkerAutoPreload">
+            <span class="d"><b>Mã nguồn ta nhắc đúng định danh</b>
+            <span>Bằng chứng mạnh — chỉ cái này mới đẩy được lên “Must fix”</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 thuộc vùng sở hữu 'Network' (trọng số 75)">
+            <span class="d"><b>Thuộc vùng ta sở hữu</b>
+            <span>Trọng số vùng × 0,20</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 không biên dịch trên Windows">
+            <span class="d"><b>Không biên dịch trên Windows</b>
+            <span><code>platform_state.windows = not_compiled</code></span></span></label>
+        </div>
+        <div class="dial">
+          <div class="v" id="scoreval">75</div>
+          <div class="cap">điểm</div>
+          <div class="bucket b-review" id="bucketlbl">Needs review</div>
+        </div>
+      </div>
+      <div class="reasons" id="reasons"></div>
+    </div>
+
+    <div class="note" style="margin-top:14px">
+      <b>Bằng chứng cấp ký hiệu (+30) nặng hơn cấp đường dẫn (+12) là có chủ ý.</b>
+      Vá một file khai báo 200 cờ gần như không nói gì. Nhắc đúng tên cờ thì nói rất nhiều.
+      Mọi điều chỉnh đều <b>ghi lại lý do đọc được</b> — bảng xếp hạng không cãi lại được
+      là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai.
+    </div>
+  </div>
+</section>
+
+<!-- ── 6 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">6</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Gom mảnh rời thành một câu chuyện</h2>
+    <div class="file">cluster.py · union-find trên cạnh dữ liệu tự khai</div>
+    <p>
+      Một thay đổi upstream đi vào báo cáo dưới dạng nhiều mảnh trên nhiều bề mặt.
+      Đợt di trú Local Network Access sinh ra <b>7 finding riêng</b> — đọc rời thì chúng
+      <b>mâu thuẫn nhau</b>: dòng này bảo mất một trang, dòng kia bảo có thêm trang.
+    </p>
+    <div class="card">
+      <pre>webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS        <span class="r">bị xoá</span>
+webui_route    SITE_SETTINGS_LOCAL_NETWORK               <span class="g">đổi cờ gác</span>
+webui_gate     enableLocalNetworkAccessSplitPermissions  <span class="r">bị xoá</span>
+webui_gate     enableLocalNetworkAccessSetting           đổi biểu thức
+webui_control  label:siteSettingsLocalNetworkAccess      <span class="r">bị xoá</span>
+base_feature   LocalNetworkAccessChecksSplitPermissions  rút cờ
+blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
+      <p style="margin:13px 0 0;font-size:.88rem">
+        Gom cụm đi theo <b>liên kết mà dữ liệu tự khai báo</b> — route gọi tên guard của nó,
+        guard gọi tên feature — chứ <b>không</b> theo độ giống tên. Nên cụm là <b>chính xác</b>,
+        không phải phỏng đoán. Đọc thành một cụm, 7 mảnh nói một điều đơn giản: trang chuyển
+        sang split permissions, <b>người dùng đã thấy từ M148</b>, việc phải làm duy nhất là
+        cập nhật một tham chiếu route đã cũ.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ── 7 ─────────────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">7</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Báo cáo</h2>
+    <div class="file">report/markdown.py · report/html.py</div>
+    <div class="grid2">
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">Ba dạng ra</h3>
+        <p style="font-size:.87rem;margin:0">
+          <code>report.md</code> — dán thẳng vào ticket.<br>
+          <code>report.html</code> — lọc và sắp xếp được, <b>tự chứa hoàn toàn</b>,
+          mở được trong mạng cách ly.<br>
+          <code>report.json</code> — cho script và so sánh giữa các kỳ.
+        </p>
+      </div>
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">Lọc theo đội, không mất gì</h3>
+        <p style="font-size:.87rem;margin:0">
+          Lọc xảy ra <b>lúc render, không bao giờ trước khi phân tích</b>. JSON luôn giữ mọi
+          finding, nên cắt lát theo đội không tốn gì và <b>không giấu được gì</b>.
+        </p>
+      </div>
+    </div>
+    <div class="warnbox" style="margin-top:14px">
+      Báo cáo luôn in <b>số finding không thuộc vùng nào</b>. Đó không phải chú thích bên lề:
+      đo trên M148→M151, tập không-vùng chứa <b>281 mục điểm ≥ 60</b>, gồm <b>cả mười mục
+      nghiêm trọng nhất</b> — vốn là thay đổi signature Mojo không thuộc sản phẩm nào.
+    </div>
+  </div>
+</section>
+
+<!-- ── Bằng chứng ────────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num" style="background:var(--brass-soft);color:var(--brass)">✓</div></div>
+  <div class="body">
+    <h2>Đã kiểm chứng, không phải tự tin suông</h2>
+    <p>
+      Recall đo trên <b>Settings M143 → M148</b>, đối chiếu với chuẩn dựng bằng regex thô
+      trên mã nguồn — <b>hoàn toàn không đi qua extractor của công cụ</b>.
+    </p>
+    <div class="proof">
+      <div class="pcard"><div class="big">10/10</div><div class="lbl">trang (route)<br>7 thêm · 3 bỏ</div></div>
+      <div class="pcard"><div class="big">48/48</div><div class="lbl">cổng cờ (gate)<br>34 thêm · 14 bỏ</div></div>
+      <div class="pcard"><div class="big">40/40</div><div class="lbl">control có pref<br>19 thêm · 21 bỏ</div></div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      <b>Hai con số đã dịch chuyển trong lúc đo, theo hai hướng ngược nhau.</b>
+      Chuẩn của tôi báo sót 3 gate — cả ba là <em>chuẩn sai</em>: regex một dòng không thấy
+      lời gọi xuống dòng, thứ mà bộ đếm ngoặc của công cụ xử lý đúng.
+      Nhưng chuẩn cũng tìm ra <em>một lỗi thật</em>: khoá control dùng pref, mà pref
+      <b>không duy nhất</b> — 142/881 control bị gộp mất, và cái nào sống sót phụ thuộc
+      <b>thứ tự duyệt thư mục</b>. Đã sửa bằng cách thêm element id vào khoá.
+    </div>
+    <h3 class="sub">Giới hạn, nói thẳng</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Không đọc</th><th>Hệ quả</th></tr></thead>
+        <tbody>
+          <tr><td>Thân hàm C++</td><td>Logic đổi bên trong một hàm → vô hình</td></tr>
+          <tr><td>Logic TypeScript</td><td>Chỉ đọc template khai báo, không đọc hành vi trang</td></tr>
+          <tr><td>Chuỗi <code>.grd</code></td><td><b>Đổi nhãn một setting là thay đổi người dùng thấy — không phát hiện được</b></td></tr>
+          <tr><td>CSS, bố cục, icon</td><td>Không ảnh chụp, không hồi quy thị giác</td></tr>
+          <tr><td>Đồ thị GN</td><td>Khai báo có trong cây ≠ được biên dịch vào binary</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:.88rem;margin-top:14px">
+      Độ phủ cờ tính năng toàn cây khoảng <b>60%</b>; Mojo <b>30%</b>; <code>pref_names</code>
+      <b>1%</b>. Nên <code>must fix: 0</code> <b>không bao giờ</b> nghĩa là “uprev sạch” —
+      nó nghĩa là “không thấy gì trong phần đã quét”.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div>Mọi con số trong trang này đo trên Chromium thật (M139 · M143 · M148 · M151), dựng lại được bằng <code>chromedrift catalog</code> và <code>chromedrift run</code>.</div>
+  <div>Đọc tiếp: <code>PIPELINE.md</code> (luồng chi tiết) · <code>COVERAGE.md</code> (“tính năng” gồm gì, phủ bao nhiêu)</div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ── Xuất hiện khi cuộn tới ─────────────────────────────── */
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, {threshold:.12, rootMargin:"0px 0px -40px 0px"});
+  document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+
+  /* ── Băng chuyền: ví dụ thật đi qua 7 trạm ──────────────── */
+  var STOPS = [
+    {lbl:"nguồn thô",  tok:"chrome_features.cc",
+     say:"Tải về 92.615 byte từ Gitiles — chỉ file khai báo, không phải cả Chromium."},
+    {lbl:"chốt ver",   tok:"refs/tags/151.0.7922.138",
+     say:"Phiên bản đầy đủ được ghim. Gõ '151' sẽ trôi theo ngày chạy."},
+    {lbl:"lấy target", tok:"tarball → đĩa",
+     say:"Đổ ra thành một bản checkout rất từng phần, cùng cấu trúc thư mục như src/."},
+    {lbl:"trích fact", tok:"base_feature: GlicActorUiMagicCursor",
+     say:"platform_state = {windows: 'enabled'} · conditions = [] · var = kGlicActorUiMagicCursor"},
+    {lbl:"so sánh",    tok:"disabled → enabled",
+     say:"deltas: default_state ['disabled','enabled'] · signals: enabled_by_default, default_flip_on"},
+    {lbl:"chấm điểm",  tok:"severity 75",
+     say:"Sàn cao nhất trong các signal. Chưa có bằng chứng hạ nguồn nên dừng ở 75."},
+    {lbl:"gom cụm",    tok:"đứng riêng",
+     say:"Không có cạnh dữ liệu nào nối tới finding khác — nên nó là câu chuyện của chính nó."},
+    {lbl:"báo cáo",    tok:"Needs review",
+     say:"Vào nhóm 'Needs review': đủ nghiêm trọng để cần người xác nhận, chưa có bằng chứng để thành 'Must fix'."}
+  ];
+  var track=document.getElementById("track"), fill=document.getElementById("fill"),
+      token=document.getElementById("token"), say=document.getElementById("say"),
+      run=document.getElementById("run");
+
+  STOPS.forEach(function(s,i){
+    var pct = 6 + (i/(STOPS.length-1))*88;
+    var d=document.createElement("div");
+    d.className="stop"; d.style.left=pct+"%";
+    d.innerHTML='<div class="dot"></div><div class="lbl">'+s.lbl+'</div>';
+    track.appendChild(d);
+  });
+  var stops = track.querySelectorAll(".stop");
+
+  function goTo(i){
+    var pct=6+(i/(STOPS.length-1))*88;
+    fill.style.width=(pct-6)+"%";
+    token.style.left=pct+"%";
+    token.textContent=STOPS[i].tok;
+    say.textContent=STOPS[i].say;
+    stops.forEach(function(s,j){ s.classList.toggle("on", j<=i); });
+  }
+  var idx=0, timer=null;
+  goTo(0);
+  run.addEventListener("click", function(){
+    clearInterval(timer); idx=0; goTo(0);
+    if(reduce){ goTo(STOPS.length-1); return; }
+    timer=setInterval(function(){
+      idx++;
+      if(idx>=STOPS.length){ clearInterval(timer); return; }
+      goTo(idx);
+    }, 1150);
+  });
+
+  /* ── Tương tác 1: bộ đánh giá điều kiện ba trạng thái ───── */
+  /* True / False / None đúng như eval_condition() trong _cpp.py */
+  var VAL = { IS_WIN:true, IS_ANDROID:false, IS_MAC:false, ENABLE_PLUGINS:null };
+  var WHY = {
+    IS_WIN:"cờ nền tảng ta ship → True",
+    IS_ANDROID:"nền tảng khác → False chắc chắn, không phải 'không biết'",
+    IS_MAC:"nền tảng khác → False",
+    ENABLE_PLUGINS:"buildflag KHÔNG phải nền tảng → None, công cụ không đoán"
+  };
+  var op="or";
+  var guards=document.getElementById("guards"),
+      verdict=document.getElementById("verdict"),
+      evalsay=document.getElementById("evalsay");
+
+  function picked(){
+    return Array.prototype.filter.call(guards.querySelectorAll(".guard"), function(b){
+      return b.getAttribute("aria-pressed")==="true";
+    }).map(function(b){ return b.dataset.k; });
+  }
+  function combine(vals){
+    if(!vals.length) return null;
+    if(op==="or"){
+      if(vals.some(function(v){return v===true;})) return true;
+      if(vals.every(function(v){return v===false;})) return false;
+      return null;
+    }
+    if(vals.some(function(v){return v===false;})) return false;
+    if(vals.every(function(v){return v===true;})) return true;
+    return null;
+  }
+  function renderEval(){
+    var ks=picked(), vals=ks.map(function(k){ return VAL[k]; });
+    var r=combine(vals);
+    verdict.textContent = r===true?"True":r===false?"False":"None";
+    verdict.className = "verdict " + (r===true?"v-true":r===false?"v-false":"v-unknown");
+    if(!ks.length){ evalsay.textContent="Chọn ít nhất một guard."; return; }
+    var parts=ks.map(function(k){ return k+" → "+(VAL[k]===null?"None":VAL[k]); });
+    var tail = r===null
+      ? " — None lan truyền, nên trả lời “không xác định” thay vì đoán."
+      : (r===true ? " — khai báo này áp dụng cho bản Windows ta ship."
+                  : " — khai báo này không áp dụng cho ta.");
+    evalsay.textContent = parts.join("  ·  ") + tail + "  " + (WHY[ks[ks.length-1]]||"");
+  }
+  guards.addEventListener("click", function(e){
+    var b=e.target.closest(".guard"); if(!b) return;
+    b.setAttribute("aria-pressed", b.getAttribute("aria-pressed")==="true"?"false":"true");
+    renderEval();
+  });
+  document.querySelectorAll("[data-op]").forEach(function(b){
+    b.addEventListener("click", function(){
+      op=b.dataset.op;
+      document.querySelectorAll("[data-op]").forEach(function(o){
+        o.setAttribute("aria-pressed", String(o===b));
+      });
+      renderEval();
+    });
+  });
+  renderEval();
+
+  /* ── Tương tác 2: máy chấm điểm ─────────────────────────── */
+  /* Số liệu đúng như impact.py: nền 75, +12 path, +30 symbol, +15 area, −45 not_compiled */
+  var BASE=75;
+  var toggles=document.getElementById("toggles"),
+      scoreval=document.getElementById("scoreval"),
+      bucketlbl=document.getElementById("bucketlbl"),
+      reasons=document.getElementById("reasons");
+
+  function renderScore(){
+    var score=BASE, hasSym=false, hasPath=false, why=["nền 75 (modified base_feature)"];
+    toggles.querySelectorAll("input").forEach(function(i){
+      if(i.checked){
+        score += parseInt(i.dataset.add,10);
+        why.push(i.dataset.why);
+        if(i.dataset.sym) hasSym=true;
+        if(i.dataset.add==="12") hasPath=true;
+      }
+    });
+    score=Math.max(0,Math.min(100,score));
+    scoreval.textContent=score;
+
+    /* Đúng thứ tự nhánh của _bucket() trong impact.py. enabled_by_default
+       KHÔNG nằm trong BREAKING_SIGNALS, nên chỉ còn ngưỡng điểm quyết định. */
+    var b,cls;
+    if(hasSym && score>=60){ b="Must fix"; cls="b-must"; }
+    else if((hasSym||hasPath) && score>=35){ b="Needs review"; cls="b-review"; }
+    else if(score>=65){ b="Needs review"; cls="b-review"; }
+    else { b="FYI"; cls="b-fyi"; }
+    bucketlbl.textContent=b;
+    bucketlbl.className="bucket "+cls;
+    scoreval.style.color = cls==="b-must"?"var(--clay)":cls==="b-review"?"var(--brass)":"var(--muted)";
+    reasons.innerHTML = why.map(function(w){ return "<div>"+w+"</div>"; }).join("");
+  }
+  toggles.addEventListener("change", renderScore);
+  renderScore();
+})();
+</script>
