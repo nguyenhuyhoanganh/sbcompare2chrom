@@ -6,7 +6,6 @@
 <meta name="color-scheme" content="light dark">
 <title>Dây chuyền Chromedrift</title>
 <style>
-/* reset tối thiểu — bản artifact được nền tảng cấp sẵn, bản local thì không */
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0}
 img,svg{max-width:100%}
@@ -140,6 +139,86 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
 .belt-btn:hover{filter:brightness(1.08)}
 .belt-btn:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 
+
+
+/* ── So sánh hai bên ──────────────────────────────────────── */
+.scen{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.scen button{
+  font:inherit;font-size:.79rem;padding:7px 13px;border-radius:9px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-soft);
+}
+.scen button:hover{border-color:var(--flow)}
+.scen button[aria-pressed="true"]{background:var(--flow);border-color:var(--flow);color:var(--on-flow);font-weight:600}
+.scen button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.vs{display:grid;grid-template-columns:1fr 44px 1fr;gap:0;align-items:stretch}
+.side{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.side h4{
+  margin:0;padding:8px 13px;font-family:var(--mono);font-size:.72rem;font-weight:650;
+  letter-spacing:.05em;background:var(--panel);border-bottom:1px solid var(--line);color:var(--muted);
+}
+.attr{
+  display:grid;grid-template-columns:1fr auto;gap:9px;padding:8px 13px;
+  border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.74rem;align-items:baseline;
+}
+.attr:last-child{border-bottom:0}
+.attr .k{color:var(--muted)}
+.attr .v{text-align:right;color:var(--ink);font-weight:600}
+.attr.skip{opacity:.38}
+.attr.skip .v{font-weight:400}
+.attr.diff{background:var(--clay-soft)}
+.attr.diff .v{color:var(--clay)}
+.attr.same .v{color:var(--flow)}
+.vs-mid{display:grid;place-items:center;color:var(--muted);font-family:var(--mono);font-size:.72rem}
+.vs-gone{
+  display:grid;place-items:center;background:var(--panel-2);border:1px dashed var(--line);
+  border-radius:11px;color:var(--muted);font-family:var(--mono);font-size:.78rem;padding:22px;
+}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:11px;font-size:.76rem;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.outcome{
+  margin-top:14px;background:var(--panel-2);border-radius:11px;padding:13px 15px;
+  display:grid;gap:9px;
+}
+.outcome .row{display:grid;grid-template-columns:104px 1fr;gap:11px;align-items:baseline}
+.outcome .lab{
+  font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+}
+.sig{
+  display:inline-block;font-family:var(--mono);font-size:.72rem;padding:3px 9px;
+  border-radius:99px;background:var(--clay-soft);color:var(--clay);margin:0 5px 4px 0;font-weight:600;
+}
+.sev{font-family:var(--mono);font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums}
+.mean{font-size:.86rem;color:var(--ink-soft)}
+@media (max-width:640px){
+  .vs{grid-template-columns:1fr;gap:9px}
+  .vs-mid{padding:2px 0}
+}
+
+/* ── Thang điểm ───────────────────────────────────────────── */
+.scale{margin-top:15px}
+.scale-bar{
+  position:relative;height:34px;border-radius:9px;overflow:hidden;
+  background:linear-gradient(90deg,
+    var(--panel-2) 0%, var(--panel-2) 35%,
+    var(--brass-soft) 35%, var(--brass-soft) 60%,
+    var(--clay-soft) 60%, var(--clay-soft) 100%);
+  border:1px solid var(--line);
+}
+.scale-mark{
+  position:absolute;top:0;bottom:0;width:2px;background:var(--line);
+}
+.scale-pin{
+  position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink);border-radius:2px;
+  transition:left .3s cubic-bezier(.4,0,.2,1);
+}
+.scale-lbls{display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.mathrow{
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;
+  font-family:var(--mono);font-size:.82rem;
+}
+.mathrow span{padding:4px 9px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line)}
+.mathrow .op{background:none;border:0;color:var(--muted);padding:0 1px}
+.mathrow .tot{background:var(--flow-soft);border-color:var(--flow);color:var(--flow);font-weight:700}
 
 /* ── Vai trò từng nguồn ───────────────────────────────────── */
 .why{display:grid;gap:12px}
@@ -654,17 +733,47 @@ BASE_FEATURE(kBackForwardCache, ENABLED);</pre>
     <h2>So sánh — hai quy tắc làm gần hết việc</h2>
     <div class="file">diff.py</div>
 
-    <h3 class="sub" style="margin-top:0">Quy tắc 1 — chỉ so thuộc tính có nghĩa</h3>
+    <h3 class="sub" style="margin-top:0">Đặt hai bản cạnh nhau và xem cái gì được so</h3>
     <p>
-      Mỗi loại fact có một danh sách thuộc tính mà thay đổi của chúng <em>có ý nghĩa</em>.
-      Với cờ tính năng: <code>default_state</code>, <code>platform_state</code>,
-      <code>conditions</code>. Thuộc tính <code>declared_form</code> <b>không</b> nằm trong đó —
-      nếu có, đợt đổi macro sẽ sinh hàng nghìn “thay đổi” chẳng nói lên gì.
+      Cùng một cờ <code>Foo</code> ở hai phiên bản. Công cụ <b>không</b> so cả khối —
+      nó chỉ so những thuộc tính đã khai là <em>có nghĩa</em>, và bỏ qua phần còn lại.
+      Đổi kịch bản để xem kết quả thay đổi ra sao.
     </p>
+
     <div class="card">
-      <pre>attrs thô khác nhau : <span class="r">True</span>   <span class="c">(macro2 vs macro3)</span>
-meaningful khác nhau: <span class="g">False</span>
-số change           : <span class="g">0</span>   <span class="c">← đúng như thực tế</span></pre>
+      <div class="scen" id="scen">
+        <button data-s="0" aria-pressed="true">Lật mặc định</button>
+        <button data-s="1" aria-pressed="false">Chỉ đổi cú pháp</button>
+        <button data-s="2" aria-pressed="false">Xoá cờ sau khi ship</button>
+        <button data-s="3" aria-pressed="false">Xoá cờ, chưa từng ship</button>
+        <button data-s="4" aria-pressed="false">Cờ mới, bật sẵn</button>
+      </div>
+
+      <div class="vs">
+        <div id="sideA"></div>
+        <div class="vs-mid">vs</div>
+        <div id="sideB"></div>
+      </div>
+
+      <div class="legend">
+        <span><i style="background:var(--clay)"></i>khác nhau → thành change</span>
+        <span><i style="background:var(--flow)"></i>giống nhau</span>
+        <span><i style="background:var(--line)"></i>bị bỏ qua, không so</span>
+      </div>
+
+      <div class="outcome">
+        <div class="row"><span class="lab">Kết luận</span><span class="mean" id="oType"></span></div>
+        <div class="row"><span class="lab">Signal</span><span id="oSig"></span></div>
+        <div class="row"><span class="lab">Nghiêm trọng</span><span><span class="sev" id="oSev"></span></span></div>
+        <div class="row"><span class="lab">Nghĩa là</span><span class="mean" id="oWhy"></span></div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:14px">
+      <b>Bấm “Chỉ đổi cú pháp” là thấy ngay điểm mấu chốt.</b> Hai bản khác nhau về
+      <code>declared_form</code> — nhưng thuộc tính đó <b>không nằm trong danh sách so</b>,
+      nên kết quả là <b>0 change</b>. Nếu nó được so, đợt đổi macro M139→M143 sẽ sinh
+      <b>hàng nghìn “thay đổi”</b> mà không cái nào có nghĩa.
     </div>
 
     <h3 class="sub">Quy tắc 2 — vòng đời ba giai đoạn</h3>
@@ -741,7 +850,46 @@ BASE_FEATURE(kFedCmIdPRegistration, …);
           <div class="bucket b-review" id="bucketlbl">Needs review</div>
         </div>
       </div>
+      <div class="mathrow" id="mathrow"></div>
+
+      <div class="scale">
+        <div class="scale-bar">
+          <div class="scale-mark" style="left:35%"></div>
+          <div class="scale-mark" style="left:60%"></div>
+          <div class="scale-mark" style="left:65%"></div>
+          <div class="scale-pin" id="pin" style="left:75%"></div>
+        </div>
+        <div class="scale-lbls">
+          <span>0</span><span>35</span><span>60 · 65</span><span>100</span>
+        </div>
+      </div>
+
       <div class="reasons" id="reasons"></div>
+    </div>
+
+    <h3 class="sub">Con số 75 ở đâu ra?</h3>
+    <p>
+      Không phải gõ tay. Mỗi <b>signal</b> có một <b>sàn</b> nghiêm trọng, và điểm nền là
+      sàn cao nhất trong các signal mà thay đổi đó nhận được. Kịch bản ở trên nhận hai
+      signal, nên lấy 75.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Signal</th><th class="n">Sàn</th><th>Vì sao mức đó</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">enabled_by_default</td><td class="n">75</td><td>Người dùng <b>của ta</b> thấy khác — cao nhất nhóm cờ</td></tr>
+          <tr><td class="mono">default_flip_on</td><td class="n">60</td><td>Mặc định <em>toàn cục</em> lật; chưa chắc áp cho Windows</td></tr>
+          <tr><td class="mono">feature_deleted</td><td class="n">65</td><td>Xoá mà <b>không đọc được</b> trạng thái trước đó — phải tra tay</td></tr>
+          <tr><td class="mono">flag_retired_on</td><td class="n">35</td><td>Đã ship rồi mới rút cờ — hành vi không đổi ở lần uprev này</td></tr>
+          <tr><td class="mono">flag_retired_off</td><td class="n">30</td><td>Chưa từng ship, xoá luôn</td></tr>
+          <tr><td class="mono">ipc_signature_change</td><td class="n">80</td><td><b>Cao nhất hệ thống</b> — gãy lúc chạy, qua ranh giới tiến trình</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:13px">
+      Chú ý <code>enabled_by_default</code> (75) so với <code>default_flip_on</code> (60).
+      Cái đầu nói <b>người dùng của ta nhận gì</b>; cái sau nói <b>Chromium viết gì</b>.
+      Chúng thường xuyên khác nhau — và chỉ cái đầu mới đáng gọi là thay đổi hành vi.
     </div>
 
     <div class="note" style="margin-top:14px">
@@ -928,6 +1076,70 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
     }, 1150);
   });
 
+
+  /* ── So sánh hai bên: 5 kịch bản, số liệu chạy thật từ diff.py ── */
+  var COMPARED = ["default_state","platform_state","conditions"];
+  function F(state, form){
+    return {default_state:state, platform_state:"{windows: '"+state+"'}",
+            conditions:"[]", var:"kFoo", declared_form:form||"macro2"};
+  }
+  var SCEN = [
+    {a:F("disabled"), b:F("enabled"),
+     type:"modified", sig:["enabled_by_default","default_flip_on"], sev:75,
+     why:"Mặc định trên Windows lật từ TẮT sang BẬT. Đây là thay đổi hành vi thật — người dùng của ta sẽ thấy khác."},
+    {a:F("enabled","macro3"), b:F("enabled","macro2"),
+     type:"KHÔNG có change nào", sig:[], sev:0,
+     why:"Chỉ khác cú pháp khai báo. declared_form không nằm trong danh sách so, nên đúng như thực tế: không có gì thay đổi."},
+    {a:F("enabled"), b:null,
+     type:"removed", sig:["flag_retired_on"], sev:35,
+     why:"Cờ biến mất, nhưng trạng thái ngay trước khi xoá là BẬT — tức đã ship rồi mới rút cờ. Hành vi giờ là vĩnh viễn, KHÔNG tắt được nữa."},
+    {a:F("disabled"), b:null,
+     type:"removed", sig:["flag_retired_off"], sev:30,
+     why:"Cờ biến mất khi đang TẮT — chưa từng ship, code bị xoá luôn. Không bật lại được nữa."},
+    {a:null, b:F("enabled"),
+     type:"added", sig:["new_feature_on_by_default"], sev:55,
+     why:"Cờ mới xuất hiện và đã BẬT sẵn. Năng lực mới, không phải rủi ro vỡ."}
+  ];
+  var sideA=document.getElementById("sideA"), sideB=document.getElementById("sideB"),
+      oType=document.getElementById("oType"), oSig=document.getElementById("oSig"),
+      oSev=document.getElementById("oSev"), oWhy=document.getElementById("oWhy");
+
+  function renderSide(el, fact, other, label){
+    if(!fact){
+      el.innerHTML='<div class="vs-gone">không tồn tại<br>ở bản này</div>';
+      return;
+    }
+    var rows = Object.keys(fact).map(function(k){
+      var compared = COMPARED.indexOf(k) !== -1;
+      var cls = !compared ? "skip"
+              : (!other ? "" : (other[k]===fact[k] ? "same" : "diff"));
+      return '<div class="attr '+cls+'"><span class="k">'+k+'</span>'+
+             '<span class="v">'+fact[k]+'</span></div>';
+    }).join("");
+    el.innerHTML='<div class="side"><h4>'+label+'</h4>'+rows+'</div>';
+  }
+  function renderScen(i){
+    var s=SCEN[i];
+    renderSide(sideA, s.a, s.b, "M148  ·  bản cũ");
+    renderSide(sideB, s.b, s.a, "M151  ·  bản mới");
+    oType.textContent=s.type;
+    oSig.innerHTML = s.sig.length
+      ? s.sig.map(function(x){return '<span class="sig">'+x+'</span>';}).join("")
+      : '<span style="color:var(--muted);font-size:.85rem">— không có —</span>';
+    oSev.textContent=s.sev||"—";
+    oSev.style.color = s.sev>=60?"var(--clay)":s.sev>=35?"var(--brass)":"var(--muted)";
+    oWhy.textContent=s.why;
+  }
+  var scen=document.getElementById("scen");
+  scen.addEventListener("click", function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    scen.querySelectorAll("button").forEach(function(x){
+      x.setAttribute("aria-pressed", String(x===b));
+    });
+    renderScen(+b.dataset.s);
+  });
+  renderScen(0);
+
   /* ── Tương tác 1: bộ đánh giá điều kiện ba trạng thái ───── */
   /* True / False / None đúng như eval_condition() trong _cpp.py */
   var VAL = { IS_WIN:true, IS_ANDROID:false, IS_MAC:false, ENABLE_PLUGINS:null };
@@ -993,7 +1205,9 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
   var toggles=document.getElementById("toggles"),
       scoreval=document.getElementById("scoreval"),
       bucketlbl=document.getElementById("bucketlbl"),
-      reasons=document.getElementById("reasons");
+      reasons=document.getElementById("reasons"),
+      mathrow=document.getElementById("mathrow"),
+      pin=document.getElementById("pin");
 
   function renderScore(){
     var score=BASE, hasSym=false, hasPath=false, why=["nền 75 (modified base_feature)"];
@@ -1019,6 +1233,21 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
     bucketlbl.className="bucket "+cls;
     scoreval.style.color = cls==="b-must"?"var(--clay)":cls==="b-review"?"var(--brass)":"var(--muted)";
     reasons.innerHTML = why.map(function(w){ return "<div>"+w+"</div>"; }).join("");
+
+    /* phép tính hiện rõ, không bắt người đọc tự cộng trong đầu */
+    var parts=['<span>nền 75</span>'];
+    toggles.querySelectorAll("input").forEach(function(i){
+      if(i.checked){
+        var n=parseInt(i.dataset.add,10);
+        parts.push('<span class="op">'+(n<0?"−":"+")+'</span><span>'+Math.abs(n)+'</span>');
+      }
+    });
+    var raw=BASE; toggles.querySelectorAll("input").forEach(function(i){
+      if(i.checked) raw+=parseInt(i.dataset.add,10); });
+    parts.push('<span class="op">=</span><span class="tot">'+score+'</span>');
+    if(raw!==score) parts.push('<span class="op">(kẹp về '+(raw>100?"100":"0")+')</span>');
+    mathrow.innerHTML=parts.join("");
+    pin.style.left=score+"%";
   }
   toggles.addEventListener("change", renderScore);
   renderScore();
