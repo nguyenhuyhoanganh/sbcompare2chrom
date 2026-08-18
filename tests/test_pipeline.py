@@ -876,6 +876,20 @@ class TestHtmlReportScales(unittest.TestCase):
     def test_the_page_offers_paging_at_all(self):
         self.assertIn('id="more"', self._report_html(300))
 
+    def test_the_table_does_not_re_measure_itself_on_every_insert(self):
+        """Layout, not JavaScript, is what made expanding a row lag.
+
+        With the default auto layout, column widths depend on cell content, so
+        inserting one expanded row makes the browser re-measure every cell in
+        the table before it can paint. A fast machine hides this; a work laptop
+        showed it as "not responding". Fixed layout needs explicit widths, so
+        the colgroup has to be there too.
+        """
+        text = self._report_html(300)
+        self.assertIn("table-layout:fixed", text.replace(" ", ""))
+        self.assertIn("<colgroup>", text)
+        self.assertNotIn("border-collapse:collapse", text.replace(" ", ""))
+
     def test_behaviour_under_load(self):
         """Runs the report's own script against a fake DOM."""
         import json
@@ -897,9 +911,13 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr[:400])
         out = json.loads(result.stdout)
 
-        # 1. Only a page of rows reaches the DOM, not all 3,000.
-        self.assertEqual(out["initialRows"], 200)
-        self.assertEqual(out["rowsAfterShowMore"], 400)
+        # 1. Only a page of rows reaches the DOM, not all 3,000. Asserted as a
+        #    property rather than a constant, so tuning the page size for a
+        #    slower machine does not need a test edit -- but removing paging
+        #    still fails.
+        self.assertLess(out["initialRows"], out["total"])
+        self.assertLessEqual(out["initialRows"], 250)
+        self.assertEqual(out["rowsAfterShowMore"], out["initialRows"] * 2)
 
         # 2. Detail markup -- half the old payload -- is built on expand only.
         self.assertEqual(out["detailsBuiltUpfront"], 0)
@@ -917,7 +935,7 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertEqual(out["paintsAfterDebounce"], 1,
                          "the debounced tail should repaint exactly once")
         self.assertIn("of 1111", out["afterDebounce"])
-        self.assertEqual(out["rowsAfterFilter"], 200)
+        self.assertEqual(out["rowsAfterFilter"], out["initialRows"])
 
 
 class TestVendorDiscovery(unittest.TestCase):

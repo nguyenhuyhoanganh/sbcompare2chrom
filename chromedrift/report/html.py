@@ -45,13 +45,24 @@ input[type=search],select{background:var(--card);color:var(--fg);border:1px soli
 border-radius:6px;padding:7px 10px;font:inherit;font-size:.88rem}
 input[type=search]{flex:1;min-width:200px}
 .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
-table{border-collapse:collapse;width:100%;font-size:.88rem;min-width:860px}
-th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+/* table-layout:fixed is the single biggest lever here. With the default auto
+   layout, column widths depend on cell content, so inserting one expanded row
+   makes the browser re-measure every cell in the table before it can paint.
+   Fixed layout takes the widths from the colgroup and never looks at content,
+   so expanding a row costs the row instead of the table. border-collapse also
+   moves off `collapse`, whose border resolution is measurably slower. */
+table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;
+font-size:.88rem;min-width:860px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);
+vertical-align:top;overflow-wrap:anywhere}
 th{font-weight:600;color:var(--muted);font-size:.78rem;text-transform:uppercase;
 letter-spacing:.04em;cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;
 background:var(--card)}
 tbody tr:last-child td{border-bottom:none}
 tbody tr.det td{background:color-mix(in srgb,var(--card) 92%,var(--fg));font-size:.85rem}
+/* Rows outside the viewport skip layout entirely; the intrinsic size keeps the
+   scrollbar honest so skipping does not make the page jump. */
+tbody tr{content-visibility:auto;contain-intrinsic-size:auto 38px}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}
 .score{font-variant-numeric:tabular-nums;font-weight:600}
 .pill{display:inline-block;padding:1px 7px;border-radius:99px;font-size:.74rem;
@@ -82,7 +93,11 @@ const DATA=window.__FINDINGS__||[];
    stored once each instead of once per finding: 188 KB on a 3,120-row report. */
 const KINDS=window.__KINDS__||{},BUCKETS=window.__BUCKETS__||{};
 const kindLabel=f=>KINDS[f.kind]||f.kind, bucketLabel=f=>BUCKETS[f.bucket]||f.bucket;
-const PAGE=200;
+/* Sized for the weakest machine that has to open this, not the fastest.
+   A work laptop rendering 200 rows of a collapsed-border auto-layout table was
+   the original "not responding"; 100 with fixed layout is comfortable, and the
+   search box is the real navigation tool anyway. */
+const PAGE=100;
 const q=document.getElementById('q'),fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fa=document.getElementById('fa'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
@@ -302,6 +317,8 @@ platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table>
+<colgroup><col style="width:64px"><col style="width:116px"><col style="width:30%">
+<col style="width:170px"><col><col style="width:112px"></colgroup>
 <thead><tr>
 <th data-k="score">Score</th><th data-k="bucket">Bucket</th>
 <th data-k="name">Change</th><th data-k="kind">Surface</th>
