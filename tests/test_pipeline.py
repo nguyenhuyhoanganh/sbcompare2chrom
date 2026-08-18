@@ -827,6 +827,99 @@ class TestPartitionPlumbing(unittest.TestCase):
         self.assertIn("covers less by design", text)
 
 
+class TestHtmlReportScales(unittest.TestCase):
+    """A full uprev is thousands of findings, and the obvious rendering froze
+    the tab.
+
+    Measured on a real 3,120-finding report, the first version rebuilt 1.79 MB
+    of HTML and 6,240 <tr> nodes on **every keystroke** -- 48% of that string
+    being detail markup for rows that were hidden -- then re-attached 3,120
+    click listeners. Typing one word ran the whole pipeline seven times.
+
+    The four properties below are what make it usable. Each is checked by
+    running the page's own script against a fake document, because "how much
+    DOM does it build per keystroke" is a runtime property that no amount of
+    inspecting the generated HTML text can see.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _report_html(self, n=3000):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+        findings = [
+            Finding(change=Change(change_type="modified", kind="base_feature",
+                                  key=f"Feature{i}", name=f"Feature{i}",
+                                  signals=["flag_retired_on"],
+                                  paths=[f"content/f{i}.cc"]),
+                    score=100 - i % 100, bucket="fyi",
+                    reasons=["base severity 75"])
+            for i in range(n)]
+        return html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings))
+
+    def test_every_finding_is_still_embedded(self):
+        """Paging must not become a way to lose data.
+
+        Filtering and paging are presentation. The payload stays complete, so a
+        reader can always search the whole set and the JSON never disagrees
+        with the page.
+        """
+        import json
+        import re
+        text = self._report_html(300)
+        payload = re.search(r"window\.__FINDINGS__=(\[.*?\]);\n", text, re.S)
+        self.assertIsNotNone(payload, "findings payload not found in the page")
+        rows = json.loads(payload.group(1))
+        self.assertEqual(len(rows), 300)
+
+    def test_the_page_offers_paging_at_all(self):
+        self.assertIn('id="more"', self._report_html(300))
+
+    def test_behaviour_under_load(self):
+        """Runs the report's own script against a fake DOM."""
+        import json
+        import shutil
+        import subprocess
+        import tempfile
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not installed; structural checks still ran")
+        harness = os.path.join(self.ROOT, "tests", "js", "report_dom.js")
+        with tempfile.NamedTemporaryFile("w", suffix=".html", delete=False,
+                                         encoding="utf-8") as fh:
+            fh.write(self._report_html())
+            path = fh.name
+        self.addCleanup(os.remove, path)
+        result = subprocess.run([node, harness, path], capture_output=True,
+                                text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr[:400])
+        out = json.loads(result.stdout)
+
+        # 1. Only a page of rows reaches the DOM, not all 3,000.
+        self.assertEqual(out["initialRows"], 200)
+        self.assertEqual(out["rowsAfterShowMore"], 400)
+
+        # 2. Detail markup -- half the old payload -- is built on expand only.
+        self.assertEqual(out["detailsBuiltUpfront"], 0)
+        self.assertEqual(out["detailsAfterClick"], 1)
+        self.assertTrue(out["detailHasEvidence"],
+                        "lazy details must still carry the evidence")
+        self.assertTrue(out["detailRemovedOnSecondClick"])
+
+        # 3. Typing does no work until the user pauses. Counting repaints is
+        #    the measure that bites: the row count after filtering is a full
+        #    page either way, so it cannot tell a debounced input from one
+        #    that rebuilds the table on every character.
+        self.assertEqual(out["paintsWhileTyping"], 0,
+                         "search input repaints while typing; it is not debounced")
+        self.assertEqual(out["paintsAfterDebounce"], 1,
+                         "the debounced tail should repaint exactly once")
+        self.assertIn("of 1111", out["afterDebounce"])
+        self.assertEqual(out["rowsAfterFilter"], 200)
+
+
 class TestVendorDiscovery(unittest.TestCase):
     """Find the vendor's files without being told where they are.
 
