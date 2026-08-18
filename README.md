@@ -9,6 +9,7 @@ Công cụ so sánh hai phiên bản Chromium và trả lời câu hỏi: **đ�
 | **README.md** (file này) | Dự án có gì, từng nhóm code làm gì, chạy thế nào |
 | **[PIPELINE.md](PIPELINE.md)** | Luồng so sánh hai bản Chromium từ đầu đến cuối, bám theo một thay đổi có thật — và **vì sao cách này hoạt động** |
 | **[COVERAGE.md](COVERAGE.md)** | "Tính năng" gồm những gì, và công cụ phủ được bao nhiêu phần trăm (đo thật, không ước lượng) |
+| **[docs/pipeline-diagram.png](docs/pipeline-diagram.png)** | Sơ đồ bảy bước gói trong **một tấm ảnh** — dán thẳng vào Confluence. Nguồn là `pipeline-diagram.html`, dựng lại bằng `docs/render-diagram.sh` |
 | **[docs/pipeline.html](docs/pipeline.html)** | Sơ đồ luồng có tương tác — mỗi nguồn lấy về đóng vai trò gì, so sánh và chấm điểm ra sao. Mở thẳng bằng trình duyệt, **không cần mạng, không cần server** |
 | **[SETUP.md](SETUP.md)** | Cài đặt trên máy mới, xử lý sự cố |
 | **[HANDOFF.md](HANDOFF.md)** | Việc chỉ làm được tại công ty, dạng checklist theo dõi tiến độ |

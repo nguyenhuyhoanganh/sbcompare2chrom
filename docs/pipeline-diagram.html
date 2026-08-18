@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ground:#EDF0EF; --panel:#FFFFFF; --panel-2:#E3E9E7;
+  --ink:#101819; --ink-soft:#3A4A48; --muted:#6B7A78; --line:#CBD5D2;
+  --flow:#0E7C7B; --flow-soft:#D6E8E7;
+  --clay:#B44A32; --clay-soft:#F7E2DC;
+  --brass:#8A6A34; --brass-soft:#F1E7D3;
+  --mono:"SF Mono",Menlo,Consolas,monospace;
+}
+body{
+  width:1680px;background:var(--ground);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);
+  padding:36px 40px 34px;
+}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:30px;margin-bottom:26px}
+h1{font-size:31px;letter-spacing:-.5px;line-height:1.15;font-weight:700}
+h1 .q{color:var(--flow)}
+.sub{font-size:14.5px;color:var(--ink-soft);margin-top:7px;max-width:760px;line-height:1.5}
+.badge{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--flow);background:var(--flow-soft);padding:6px 13px;border-radius:99px;
+  border:1px solid var(--flow);white-space:nowrap;
+}
+
+/* ── hàng bước ─────────────────────────────────────────── */
+.row{display:flex;align-items:stretch;gap:0;margin-bottom:14px}
+.step{
+  flex:1;background:var(--panel);border:1px solid var(--line);border-radius:13px;
+  padding:15px 16px 14px;display:flex;flex-direction:column;gap:9px;min-width:0;
+  box-shadow:0 1px 2px rgba(16,24,25,.05);
+}
+.arrow{
+  width:30px;flex:none;display:grid;place-items:center;color:var(--line);
+  font-size:22px;font-weight:700;
+}
+/* nối vòng dòng: bước 4 xuống bước 5 */
+.wrap-cue{
+  display:flex;align-items:center;justify-content:flex-end;gap:9px;
+  margin:-4px 2px 8px 0;font-size:12px;color:var(--muted);
+}
+.wrap-cue .ln{flex:1;height:1px;background:var(--line)}
+.wrap-cue b{color:var(--flow);font-family:var(--mono);font-size:11.5px}
+.st-h{display:flex;align-items:center;gap:9px}
+.st-n{
+  width:26px;height:26px;flex:none;border-radius:8px;background:var(--flow);color:#fff;
+  font-family:var(--mono);font-size:13px;font-weight:700;display:grid;place-items:center;
+}
+.st-t{font-size:15px;font-weight:660;line-height:1.2}
+.st-f{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:-4px}
+ul{list-style:none;display:grid;gap:5px}
+li{font-size:12.3px;line-height:1.42;color:var(--ink-soft);padding-left:11px;position:relative}
+li::before{content:"";position:absolute;left:0;top:7px;width:4px;height:4px;border-radius:50%;background:var(--flow)}
+li b{color:var(--ink);font-weight:640}
+.out{
+  margin-top:auto;font-family:var(--mono);font-size:10.5px;background:var(--panel-2);
+  border-radius:7px;padding:7px 9px;color:var(--ink-soft);line-height:1.4;
+}
+.out span{color:var(--flow);font-weight:700}
+.warn{border-left:3px solid var(--clay);background:var(--clay-soft);color:var(--clay)}
+.warn span{color:var(--clay)}
+
+/* ── băng dưới ─────────────────────────────────────────── */
+.bands{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;margin-top:16px}
+.band{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px 17px}
+.band.acc{border-color:var(--flow);background:var(--flow-soft)}
+.band.lim{border-color:var(--brass);background:var(--brass-soft)}
+.b-t{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;
+}
+.band.acc .b-t{color:var(--flow)} .band.lim .b-t{color:var(--brass)}
+.nums{display:flex;gap:22px}
+.num-v{font-family:var(--mono);font-size:23px;font-weight:700;color:var(--flow);line-height:1}
+.num-l{font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.3}
+.kv{display:grid;gap:6px;font-size:12.3px;color:var(--ink-soft)}
+.kv div{display:flex;justify-content:space-between;gap:12px}
+.kv b{font-family:var(--mono);color:var(--ink);font-weight:640}
+.lim-l{font-size:12.3px;color:var(--ink-soft);line-height:1.5}
+.lim-l b{color:var(--ink)}
+.foot{
+  margin-top:15px;display:flex;justify-content:space-between;gap:20px;
+  font-size:11px;color:var(--muted);font-family:var(--mono);
+}
+</style></head><body>
+
+<div class="head">
+  <div>
+    <h1>Kiểm tính năng khác nhau giữa hai bản Chromium <span class="q">— bảy bước</span></h1>
+    <div class="sub">
+      Không so văn bản mã nguồn (hàng triệu dòng), mà so <b>khai báo</b> — nơi Chromium
+      tự mô tả mình bằng thứ máy đọc được. Rồi trả lời câu mà diff không trả lời được:
+      <b>cái này có ảnh hưởng đến chúng ta không?</b>
+    </div>
+  </div>
+  <div class="badge">chromedrift</div>
+</div>
+
+<!-- hàng 1 -->
+<div class="row">
+  <div class="step">
+    <div class="st-h"><div class="st-n">1</div><div><div class="st-t">Chốt phiên bản</div></div></div>
+    <div class="st-f">acquire.resolve_ref()</div>
+    <ul>
+      <li>Nhận số đầy đủ, số milestone, hoặc git ref</li>
+      <li>Số milestone trần → <b>trôi theo ngày chạy</b></li>
+    </ul>
+    <div class="out warn">Luôn ghim bản đầy đủ<br><span>refs/tags/151.0.7922.138</span></div>
+  </div>
+  <div class="arrow">→</div>
+
+  <div class="step">
+    <div class="st-h"><div class="st-n">2</div><div><div class="st-t">Lấy nguồn khai báo</div></div></div>
+    <div class="st-f">targets.py · Gitiles tarball</div>
+    <ul>
+      <li>Không checkout (~100 GB), chỉ kéo <b>~30 MB/bản</b></li>
+      <li>9 nguồn: cờ · manifest · IDL · mojom · pref · switch · route · template · handler</li>
+    </ul>
+    <div class="out">Bản checkout rất từng phần<br><span>~120 s</span> toàn bộ · <span>24 s</span> riêng settings</div>
+  </div>
+  <div class="arrow">→</div>
+
+  <div class="step">
+    <div class="st-h"><div class="st-n">3</div><div><div class="st-t">Trích thành fact</div></div></div>
+    <div class="st-f">extract/ · 9 extractor</div>
+    <ul>
+      <li>Lex, không parse — không cần compiler</li>
+      <li>Giải điều kiện <code>#if</code> <b>ba trạng thái</b>: đúng / sai / không xác định</li>
+      <li>Khoá theo <b>ngữ nghĩa</b> nên bền qua đổi cú pháp macro</li>
+    </ul>
+    <div class="out">13 loại fact · <span>24.646</span> fact ở M151</div>
+  </div>
+  <div class="arrow">→</div>
+
+  <div class="step">
+    <div class="st-h"><div class="st-n">4</div><div><div class="st-t">So sánh ngữ nghĩa</div></div></div>
+    <div class="st-f">diff.py</div>
+    <ul>
+      <li>Chỉ so thuộc tính <b>có nghĩa</b>; đổi cú pháp thuần → <b>0 change</b></li>
+      <li>Cờ biến mất: đọc trạng thái <b>ngay trước khi xoá</b></li>
+      <li>Ghép đổi tên theo biến C++ (lỗi im lặng)</li>
+    </ul>
+    <div class="out">Change + signal + mức nghiêm trọng<br><span>enabled_by_default</span> → 75</div>
+  </div>
+</div>
+
+<div class="wrap-cue"><div class="ln"></div><span>tiếp tục</span><b>4 → 5</b><span style="font-size:17px;color:var(--flow)">↓</span></div>
+
+<!-- hàng 2 -->
+<div class="row">
+  <div class="step">
+    <div class="st-h"><div class="st-n">5</div><div><div class="st-t">Chấm điểm theo bằng chứng của ta</div></div></div>
+    <div class="st-f">sbprofile.py · impact.py</div>
+    <ul>
+      <li>Lấy <b>từ vựng Chromium</b> quét cây fork <b>một lượt</b>, thay vì grep cây khổng lồ</li>
+      <li>Vá file <b>+12</b> · nhắc đúng định danh <b>+30</b> · vùng sở hữu <b>+w×0,2</b> · không compile <b>−45</b></li>
+      <li>Mọi điều chỉnh <b>ghi lý do đọc được</b> để cãi lại được</li>
+    </ul>
+    <div class="out">4 nhóm: Must fix · Needs review · Opportunity · FYI<br>
+      ngưỡng <span>35</span> / <span>60</span> / <span>65</span></div>
+  </div>
+  <div class="arrow">→</div>
+
+  <div class="step">
+    <div class="st-h"><div class="st-n">6</div><div><div class="st-t">Gom mảnh rời thành một câu chuyện</div></div></div>
+    <div class="st-f">cluster.py · union-find</div>
+    <ul>
+      <li>Một thay đổi upstream rơi thành nhiều mảnh trên nhiều bề mặt</li>
+      <li>Đi theo <b>liên kết dữ liệu tự khai</b> (route→guard→feature), <b>không</b> theo tên giống nhau</li>
+    </ul>
+    <div class="out">Local Network Access: <span>7 mảnh → 1</span> dòng<br>
+      đọc rời thì 7 dòng mâu thuẫn nhau</div>
+  </div>
+  <div class="arrow">→</div>
+
+  <div class="step">
+    <div class="st-h"><div class="st-n">7</div><div><div class="st-t">Báo cáo</div></div></div>
+    <div class="st-f">report/markdown.py · html.py</div>
+    <ul>
+      <li><b>md</b> dán vào ticket · <b>html</b> lọc được, tự chứa · <b>json</b> cho script</li>
+      <li>Lọc theo đội xảy ra <b>lúc render</b> — JSON luôn giữ đủ, không giấu được gì</li>
+      <li>Luôn in số finding <b>không thuộc vùng nào</b></li>
+    </ul>
+    <div class="out">Mở offline, không cần server<br>
+      <span>281</span> mục điểm ≥60 từng nằm ngoài mọi vùng</div>
+  </div>
+</div>
+
+<!-- băng dưới -->
+<div class="bands">
+  <div class="band acc">
+    <div class="b-t">Đã kiểm chứng — Settings M143 → M148</div>
+    <div class="nums">
+      <div><div class="num-v">10/10</div><div class="num-l">trang<br>7 thêm · 3 bỏ</div></div>
+      <div><div class="num-v">48/48</div><div class="num-l">cổng cờ<br>34 thêm · 14 bỏ</div></div>
+      <div><div class="num-v">40/40</div><div class="num-l">control có pref<br>19 thêm · 21 bỏ</div></div>
+    </div>
+    <div class="lim-l" style="margin-top:11px;font-size:11.5px">
+      Đối chiếu với chuẩn dựng bằng regex thô trên mã nguồn — <b>không đi qua extractor của công cụ</b>.
+    </div>
+  </div>
+
+  <div class="band">
+    <div class="b-t">Độ phủ đo được tại M151</div>
+    <div class="kv">
+      <div><span>Blink runtime features</span><b>100%</b></div>
+      <div><span>Web IDL</span><b>84%</b></div>
+      <div><span>Cờ tính năng toàn cây</span><b>~60%</b></div>
+      <div><span>Mojo (mang finding nặng nhất)</span><b>30%</b></div>
+      <div><span>pref_names</span><b>1%</b></div>
+      <div><span>Bề mặt WebUI</span><b>8 / 132</b></div>
+    </div>
+  </div>
+
+  <div class="band lim">
+    <div class="b-t">Không đọc được — phải nêu trong mọi báo cáo</div>
+    <div class="lim-l">
+      Logic trong <b>thân hàm C++</b> · hành vi <b>TypeScript</b> của trang ·
+      chuỗi <b>.grd</b> (đổi nhãn một setting <b>là</b> thay đổi người dùng thấy) ·
+      CSS và bố cục · đồ thị GN (khai báo có ≠ được biên dịch).
+      <br><br>
+      Nên <b>must fix: 0</b> không bao giờ nghĩa là “uprev sạch”, mà là
+      “không thấy gì trong phần đã quét”.
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+  <span>Mọi con số đo trên Chromium thật · M139 · M143 · M148 · M151</span>
+  <span>chromedrift · docs/pipeline.html có bản tương tác đầy đủ</span>
+</div>
+
+</body></html>
