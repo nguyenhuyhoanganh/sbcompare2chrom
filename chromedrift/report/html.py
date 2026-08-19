@@ -32,8 +32,6 @@ font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;}
 h1{font-size:1.55rem;margin:0 0 4px;letter-spacing:-.01em}
 h2{font-size:1.1rem;margin:36px 0 12px;letter-spacing:-.01em}
 .sub{color:var(--muted);font-size:.9rem;margin-bottom:24px}
-.headline{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);
-border-radius:6px;padding:14px 16px;margin:0 0 24px;font-size:1.02rem}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
 .card .n{font-size:1.8rem;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -114,7 +112,7 @@ function match(f,t){
   if(!t)return true;
   if(f._hay===undefined)
     f._hay=(f.name+' '+f.kind+' '+(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
-      +' '+(f.verdict||'')+' '+(f.rationale||'')).toLowerCase();
+      +' '+(f.we_ref||[]).join(' ')+' '+(f.chromestatus||'')).toLowerCase();
   return f._hay.indexOf(t)!==-1;
 }
 /* Built only when a row is actually expanded. This was half the payload. */
@@ -126,9 +124,6 @@ function details(f){
   if(f.we_ref&&f.we_ref.length)L.push('<li><b>We reference:</b> <code>'+esc(f.we_ref.join(', '))+'</code></li>');
   (f.deltas||[]).forEach(d=>L.push('<li><b>'+esc(d[0])+':</b> <code>'+esc(d[1])+'</code> \\u2192 <code>'+esc(d[2])+'</code></li>'));
   if(f.chromestatus)L.push('<li><b>Chromestatus:</b> '+esc(f.chromestatus)+'</li>');
-  if(f.rationale)L.push('<li><b>AI:</b> '+esc(f.rationale)+'</li>');
-  if(f.action)L.push('<li><b>Action:</b> '+esc(f.action)+'</li>');
-  if(f.test_hint)L.push('<li><b>Test:</b> '+esc(f.test_hint)+'</li>');
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
   return '<ul class="tight">'+L.join('')+'</ul>';
 }
@@ -138,7 +133,7 @@ function rowHtml(f,i){
     '<td><code>'+esc(f.name)+'</code></td>'+
     '<td class="muted">'+esc(kindLabel(f))+'</td>'+
     '<td>'+esc(f.moved||'')+'</td>'+
-    '<td>'+esc(f.verdict||'\\u2014')+'</td></tr>';
+    '<td>'+esc((f.we_ref||f.we_patch||[]).join(', '))+'</td></tr>';
 }
 function paint(){
   const slice=view.slice(0,shown);
@@ -217,7 +212,6 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             else:
                 deltas.append([key, _trim(delta[0]), _trim(delta[1])])
         status = (finding.enrichment or {}).get("chromestatus") or {}
-        ai = finding.ai or {}
         row = {
             "id": finding.uid,
             "name": md_report.display_name(change),
@@ -233,18 +227,14 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "deltas": deltas[:6],
             "reasons": finding.reasons,
             "chromestatus": status.get("summary", ""),
-            "verdict": ai.get("verdict", ""),
-            "rationale": ai.get("rationale", ""),
-            "action": ai.get("action", ""),
-            "test_hint": ai.get("test_hint", ""),
         }
         row["moved"] = _moved(row)
         # Drop empty values. Every consumer in the page already guards for a
-        # missing key (`f.signals||[]`, `f.verdict||'—'`), and on a run without
-        # AI or a profile these are empty on every single row: measured at
-        # 3,120 findings, chromestatus/verdict/rationale/action/test_hint were
-        # empty 3,120 times each. Carrying them costs a fifth of the payload to
-        # say nothing.
+        # missing key (`f.signals||[]`, `f.we_ref||[]`), and on a run without a
+        # profile or without enrichment these are empty on every single row:
+        # measured at 3,120 findings, chromestatus/we_patch/we_ref were empty
+        # 3,120 times each. Carrying them costs a fifth of the payload to say
+        # nothing.
         rows.append({k: v for k, v in row.items() if v not in ("", [], {}, None)})
     return rows
 
@@ -259,7 +249,6 @@ def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
     counts = report.bucket_counts()
     meta = report.meta or {}
-    ai_summary = (report.summary or {}).get("ai") or {}
 
     kinds = sorted({r["kind"] for r in rows})
     areas = sorted({a for r in rows for a in r.get("areas", [])})
@@ -277,19 +266,11 @@ def render(report: Report, platform: str = "windows") -> str:
     subtitle = md_report.MODE_SUBTITLES.get(mode)
     if subtitle:
         notes.append(html.escape(subtitle.replace("**", "").replace("*", "")))
-    status_note = md_report.ai_status_note(report.summary or {})
-    if status_note:
-        # Markdown emphasis is meaningless here; keep the words, drop the marks.
-        notes.append(html.escape(status_note.replace("**", "").replace("`", "")))
     profile = meta.get("profile") or {}
     if profile and not profile.get("paths_total") and not profile.get("symbols_total"):
         notes.append("No downstream evidence was supplied, so nothing can land in "
                      "<b>Must fix</b>. Point the profile at your patch directory or fork.")
     notes_html = "".join(f'<div class="note">{n}</div>' for n in notes)
-
-    headline = ""
-    if ai_summary.get("headline"):
-        headline = f'<div class="headline">{html.escape(ai_summary["headline"])}</div>'
 
     option = lambda v, label="": f'<option value="{html.escape(v)}">{html.escape(label or v)}</option>'
 
@@ -301,12 +282,11 @@ def render(report: Report, platform: str = "windows") -> str:
 <code>{html.escape(report.to_ref)}</code> ·
 {html.escape(str(meta.get('product','downstream browser')))} ·
 platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}</div>
-{headline}
 {notes_html}
 <div class="cards">{cards}</div>
 <h2>Findings</h2>
 <div class="controls">
-<input type="search" id="q" placeholder="Search name, signal, path, rationale…">
+<input type="search" id="q" placeholder="Search name, signal, path, symbol…">
 <select id="fb"><option value="">All buckets</option>
 {''.join(option(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER)}</select>
 <select id="fk"><option value="">All surfaces</option>
@@ -317,16 +297,16 @@ platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table>
-<colgroup><col style="width:64px"><col style="width:116px"><col style="width:30%">
-<col style="width:170px"><col><col style="width:112px"></colgroup>
+<colgroup><col style="width:64px"><col style="width:116px"><col style="width:28%">
+<col style="width:170px"><col><col style="width:20%"></colgroup>
 <thead><tr>
 <th data-k="score">Score</th><th data-k="bucket">Bucket</th>
 <th data-k="name">Change</th><th data-k="kind">Surface</th>
-<th data-k="moved">What moved</th><th data-k="verdict">Verdict</th>
+<th data-k="moved">What moved</th><th data-k="we_ref">We reference</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
 <button id="more" hidden></button>
 <p class="muted" style="margin-top:10px;font-size:.85rem">Click a row for evidence
-and score reasoning. Rows render in pages of 200 &mdash; the JSON below holds every
+and score reasoning. Rows render in pages of 100 &mdash; the JSON below holds every
 finding regardless of what is on screen.</p>
 </div>
 <script>window.__FINDINGS__={json.dumps(rows, ensure_ascii=False)};

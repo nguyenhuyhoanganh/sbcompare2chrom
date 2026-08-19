@@ -195,7 +195,7 @@ là bằng chứng bề mặt tự đóng kín. Danh sách không rỗng là wor
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --partition settings --complete --no-ai --no-enrich
+  --partition settings --complete --no-enrich
 ```
 
 Tìm được **1.565 khác biệt**:

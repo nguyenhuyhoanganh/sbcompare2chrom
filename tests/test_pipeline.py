@@ -1,4 +1,4 @@
-"""Diff, impact, budgeting and AI-plumbing tests.
+"""Diff, impact and reporting tests.
 
 These cover the judgement calls -- what counts as a change, what counts as
 evidence, what gets escalated -- because those are the parts that decide
@@ -11,8 +11,6 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from chromedrift.ai.budget import Budget, estimate_tokens, pack
-from chromedrift.ai.client import parse_json_response
 from chromedrift.diff import diff_snapshots
 from chromedrift.impact import score_all, score_change
 from chromedrift.model import Fact, Snapshot
@@ -446,22 +444,6 @@ class TestForkModeSurvivesTheDiff(unittest.TestCase):
         # ...and an uprev report is still an uprev report.
         uprev = Report(from_ref="148.0.0.0", to_ref="151.0.0.0", findings=[])
         self.assertIn("uprev impact", md_report.render(uprev).lower())
-
-    def test_model_is_told_the_direction(self):
-        from chromedrift.ai.prompts import SYSTEM_MAP, build_map_prompt, system_for
-        from chromedrift.model import MODE_FORK, MODE_UPREV
-
-        self.assertIs(system_for(MODE_UPREV), SYSTEM_MAP)
-        fork_system = system_for(MODE_FORK)
-        self.assertIsNot(fork_system, SYSTEM_MAP)
-        self.assertIn("WE removed", fork_system)
-
-        touch = TouchSet(name="SB", platform="windows")
-        findings = self._fork_findings([], [feature("SbrowserSauce", "enabled")])
-        prompt = build_map_prompt(findings, touch, "148.0.0.0", "sb-main-dev",
-                                  mode=MODE_FORK)
-        self.assertIn("FORK COMPARISON", prompt)
-        self.assertNotIn("UPREV:", prompt)
 
 
 class TestProvenance(unittest.TestCase):
@@ -1526,32 +1508,6 @@ class TestPatchEvidence(unittest.TestCase):
         self.assertNotIn("content/features.cc", symbols)
 
 
-class TestBudget(unittest.TestCase):
-    def test_input_budget_reserves_output_space(self):
-        budget = Budget(context_window=200_000, max_output_tokens=8_000,
-                        reserve_tokens=4_000)
-        available = budget.input_budget()
-        self.assertLess(available, 200_000 - 8_000 - 4_000)
-        self.assertGreater(available, 150_000)
-
-    def test_pack_respects_the_budget(self):
-        items = ["x" * 350 for _ in range(10)]     # ~100 tokens each
-        batches = pack(items, lambda s: s, budget_tokens=250)
-        self.assertGreater(len(batches), 1)
-        for batch in batches:
-            self.assertLessEqual(len(batch), 3)
-
-    def test_oversized_item_is_isolated_not_dropped(self):
-        items = ["small", "y" * 100_000, "small"]
-        batches = pack(items, lambda s: s, budget_tokens=100)
-        flattened = [i for b in batches for i in b]
-        self.assertEqual(len(flattened), 3)
-
-    def test_estimate_is_monotonic(self):
-        self.assertGreater(estimate_tokens("a" * 1000), estimate_tokens("a" * 100))
-        self.assertEqual(estimate_tokens(""), 0)
-
-
 class TestWindowsConsoleEncoding(unittest.TestCase):
     """Reports must survive a non-UTF-8 stdout.
 
@@ -1591,26 +1547,97 @@ class TestWindowsConsoleEncoding(unittest.TestCase):
         self.assertIn("→", result.stdout.decode("utf-8", "replace"))
 
 
-class TestResponseParsing(unittest.TestCase):
-    def test_plain_json(self):
-        self.assertEqual(parse_json_response('{"a": 1}'), {"a": 1})
+class TestNoVerdictStage(unittest.TestCase):
+    """The tool stops at evidence, and nothing may quietly re-add a verdict.
 
-    def test_fenced_json(self):
-        self.assertEqual(
-            parse_json_response('```json\n{"a": 1}\n```'), {"a": 1})
+    A verdict column that a failed stage leaves empty reads exactly like a
+    clean result -- which is why the AI stage needed an unmissable warning line
+    of its own. Removing the stage removes that whole failure mode, but only if
+    nothing leaks back: a stray `ai` key in the JSON is the shape a consumer
+    would start depending on again.
+    """
 
-    def test_json_wrapped_in_prose(self):
-        parsed = parse_json_response(
-            'Sure! Here is the analysis:\n{"assessments": []}\nHope that helps.')
-        self.assertEqual(parsed, {"assessments": []})
+    def _report(self, **summary):
+        from chromedrift.model import Change, Finding, Report
+        change = Change(change_type="modified", kind="base_feature",
+                        key="Foo", name="Foo",
+                        deltas={"default_state": ["disabled", "enabled"]},
+                        signals=["enabled_by_default"], severity=75)
+        return Report(from_ref="148.0.0.0", to_ref="151.0.0.0",
+                      findings=[Finding(change=change, score=75,
+                                        bucket="review",
+                                        reasons=["base severity 75"])],
+                      summary=summary)
 
-    def test_bare_array_is_wrapped(self):
-        self.assertEqual(parse_json_response('[{"id": "x"}]'),
-                         {"assessments": [{"id": "x"}]})
+    def test_the_serialized_finding_has_no_verdict_field(self):
+        payload = self._report().to_dict()
+        self.assertNotIn("ai", payload["summary"])
+        self.assertNotIn("ai", payload["findings"][0])
 
-    def test_unparseable_returns_none(self):
-        self.assertIsNone(parse_json_response("no json at all"))
-        self.assertIsNone(parse_json_response(""))
+    def test_a_legacy_report_with_a_verdict_still_loads(self):
+        """Reports written before the stage was removed must not crash."""
+        from chromedrift.model import Report
+
+        payload = self._report().to_dict()
+        payload["summary"]["ai"] = {"headline": "old"}
+        payload["findings"][0]["ai"] = {"verdict": "breaks_us"}
+        loaded = Report.from_dict(payload)
+        self.assertEqual(len(loaded.findings), 1)
+        self.assertFalse(hasattr(loaded.findings[0], "ai"))
+
+    def test_neither_renderer_offers_a_verdict_column(self):
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+
+        report = self._report()
+        md = md_report.render(report)
+        html = html_report.render(report)
+        self.assertNotIn("Verdict", md)
+        self.assertNotIn("| Verdict", md)
+        self.assertNotIn(">Verdict<", html)
+        # The evidence a reader needs to reach their own conclusion stays.
+        self.assertIn("Score reasoning", md)
+
+    def test_the_html_table_columns_still_line_up(self):
+        """Dropping a column silently breaks the empty and detail rows.
+
+        Their colspan is written out separately from the colgroup, so the two
+        disagree without any error -- the table just renders wrong.
+        """
+        import re
+
+        from chromedrift.report import html as html_report
+
+        text = html_report.render(self._report())
+        head = text[text.index("<colgroup>"):text.index("</colgroup>")]
+        cols = len(re.findall(r"<col[ />]", head))
+        ths = len(re.findall(r"<th ", text[text.index("<thead>"):text.index("</thead>")]))
+        spans = {int(n) for n in re.findall(r'colspan="(\d+)"', text)}
+        self.assertEqual(cols, ths)
+        self.assertEqual(spans, {ths})
+
+    def test_the_milestone_brief_reaches_the_report(self):
+        """Chromestatus context used to exist only inside the model prompt.
+
+        With the prompt gone it has to land in the report, or the one source
+        that says what upstream *meant* to ship is fetched and thrown away.
+        """
+        from chromedrift.report import markdown as md_report
+
+        report = self._report(milestone_brief=[
+            {"milestone": 149, "name": "CSS anchor positioning",
+             "summary": "Positions an element relative to another."},
+        ])
+        text = md_report.render(report)
+        self.assertIn("CSS anchor positioning", text)
+        self.assertIn("Positions an element relative to another.", text)
+        # And it must be labelled as background, not as a per-finding claim.
+        self.assertIn("not* matched to the findings", text)
+
+    def test_a_report_without_a_brief_renders_no_empty_section(self):
+        from chromedrift.report import markdown as md_report
+        self.assertNotIn("What Chromium says shipped",
+                         md_report.render(self._report()))
 
 
 if __name__ == "__main__":

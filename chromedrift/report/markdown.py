@@ -1,8 +1,12 @@
 """Markdown report: the artifact a team pastes into a ticket or a wiki.
 
-Ordered by what a reader needs first -- the verdict, then the work, then the
-evidence.  Every finding shows the reasons behind its score, because a triage
-list that cannot be argued with is a triage list that gets ignored.
+Ordered by what a reader needs first -- the triage counts, then the work, then
+the evidence.  Every finding shows the reasons behind its score, because a
+triage list that cannot be argued with is a triage list that gets ignored.
+
+Nothing here states a verdict.  The report carries evidence and a rank; the
+judgement is made by whoever reads it, which is why the score reasoning and the
+declaring paths are always present rather than summarized away.
 """
 
 from __future__ import annotations
@@ -22,14 +26,6 @@ from ..model import (
     Finding,
     Report,
 )
-
-VERDICT_LABELS = {
-    "breaks_us": "BREAKS US",
-    "behaviour_change": "behaviour change",
-    "adopt": "adopt",
-    "no_impact": "no impact",
-    "unknown": "unknown",
-}
 
 # The same table means two different things depending on which comparison ran,
 # and the wording is what tells a reader which one they are holding. Titling a
@@ -84,37 +80,6 @@ def display_name(change) -> str:
     return change.key if change.kind in _QUALIFIED_KINDS else change.name
 
 
-def ai_status_note(summary: dict) -> str:
-    """A one-line, unmissable statement of whether the AI stage ran.
-
-    A failed analysis renders as empty verdict columns, which reads exactly
-    like a clean result. Silence here would be the most misleading thing the
-    report could do, so the failure is stated before any findings.
-    """
-    ai = (summary or {}).get("ai") or {}
-    if not ai:
-        return ""
-    llm = ai.get("llm") or {}
-    failures = ai.get("failures") or []
-    coverage = ai.get("coverage", "")
-    assessed = 0
-    if isinstance(coverage, str) and "/" in coverage:
-        assessed = int(coverage.split("/")[0] or 0)
-
-    if failures and assessed == 0:
-        return (f"**The AI stage did not run.** {len(failures)} request(s) failed "
-                f"against provider `{llm.get('provider')}` "
-                f"(`{llm.get('model')}`): {failures[0]}. Every verdict below is "
-                f"empty for that reason, not because nothing needs attention.")
-    if failures:
-        return (f"**Partial AI coverage: {coverage}.** {len(failures)} request(s) "
-                f"failed: {failures[0]}")
-    if llm.get("provider") == "echo":
-        return ("**Provider was the offline `echo` stub, so no model was "
-                "consulted.** AI verdicts below are placeholders.")
-    return ""
-
-
 def _cell(value: object, limit: int = 60) -> str:
     """Table cells must stay readable.
 
@@ -160,7 +125,6 @@ def render(report: Report, platform: str = "windows",
     out: List[str] = []
     counts = report.bucket_counts()
     summary = report.summary or {}
-    ai_summary = summary.get("ai") or {}
 
     mode = mode_of(report)
     out.append(f"# {MODE_TITLES[mode]}: {report.from_ref} → {report.to_ref}")
@@ -173,16 +137,6 @@ def render(report: Report, platform: str = "windows",
     out.append("")
     if MODE_SUBTITLES.get(mode):
         out.append(MODE_SUBTITLES[mode])
-        out.append("")
-
-    # -- verdict --------------------------------------------------------
-    if ai_summary.get("headline"):
-        out.append(f"> **{ai_summary['headline']}**")
-        out.append("")
-
-    status_note = ai_status_note(summary)
-    if status_note:
-        out.append(f"> {status_note}")
         out.append("")
 
     out.append("## Triage")
@@ -208,33 +162,7 @@ def render(report: Report, platform: str = "windows",
 
     out.append(_render_clusters(summary))
     out.append(_render_coverage(summary))
-
-    # -- AI brief -------------------------------------------------------
-    # Only when there is something to say. An empty "Assessment" heading reads
-    # as a failed analysis rather than a skipped one.
-    has_brief = any(ai_summary.get(k) for k in
-                    ("headline", "themes", "must_do", "watch", "questions"))
-    if has_brief:
-        out.append("## Assessment")
-        out.append("")
-        if ai_summary.get("provider_note"):
-            out.append(f"_{ai_summary['provider_note']}_")
-            out.append("")
-        for theme in ai_summary.get("themes") or []:
-            if not isinstance(theme, dict):
-                continue
-            out.append(f"**{theme.get('title', 'Theme')}** — {theme.get('detail', '')}")
-            out.append("")
-        for label, key in (("Must do", "must_do"), ("Watch in QA", "watch"),
-                           ("Open questions", "questions")):
-            items = ai_summary.get(key) or []
-            if not items:
-                continue
-            out.append(f"### {label}")
-            out.append("")
-            for item in items:
-                out.append(f"- {item}")
-            out.append("")
+    out.append(_render_milestone_brief(summary))
 
     # -- buckets --------------------------------------------------------
     for bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW, BUCKET_OPPORTUNITY):
@@ -243,19 +171,17 @@ def render(report: Report, platform: str = "windows",
             continue
         out.append(f"## {BUCKET_LABELS[bucket]} ({len(findings)})")
         out.append("")
-        out.append("| Score | Change | Surface | What moved | Our evidence | Verdict |")
-        out.append("|---:|---|---|---|---|---|")
+        out.append("| Score | Change | Surface | What moved | Our evidence |")
+        out.append("|---:|---|---|---|---|")
         for finding in findings[:detail_limit]:
-            verdict = VERDICT_LABELS.get(
-                (finding.ai or {}).get("verdict", ""), "—")
             out.append(
                 f"| {finding.score} | `{_esc(display_name(finding.change))}` "
                 f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
                 f"| {_esc(_state_arrow(finding, platform))} "
-                f"| {_esc(_evidence(finding))} | {verdict} |"
+                f"| {_esc(_evidence(finding))} |"
             )
         if len(findings) > detail_limit:
-            out.append(f"| … | _{len(findings) - detail_limit} more_ | | | | |")
+            out.append(f"| … | _{len(findings) - detail_limit} more_ | | | |")
         out.append("")
 
         if bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW):
@@ -336,6 +262,46 @@ def _render_coverage(summary: dict) -> str:
     return "\n".join(out)
 
 
+def _render_milestone_brief(summary: dict, limit: int = 200) -> str:
+    """What Chromium says it shipped in this window.
+
+    This used to exist only as context inside the model prompt. With the
+    judging stage gone, the report *is* what a reader reasons over, so the
+    grounding has to live here instead -- otherwise the one source that says
+    what upstream intended is fetched, paid for, and thrown away.
+
+    Folded into a `<details>` block because it is background, not findings: a
+    reader scanning for work should step over it, and a reader trying to
+    explain a change should find it without another network call.
+    """
+    entries = (summary or {}).get("milestone_brief") or []
+    if not entries:
+        return ""
+    out = ["## What Chromium says shipped in this window", "",
+           f"<details><summary>{len(entries)} features from chromestatus</summary>",
+           ""]
+    for entry in entries[:limit]:
+        head = f"- **M{entry.get('milestone', '?')}** {entry.get('name', '')}"
+        if entry.get("shipping"):
+            head += f" _({entry['shipping']})_"
+        out.append(head)
+        if entry.get("summary"):
+            out.append(f"  - {entry['summary']}")
+        if entry.get("spec"):
+            out.append(f"  - Spec: {entry['spec']}")
+    if len(entries) > limit:
+        out.append(f"- … and {len(entries) - limit} more (full list in report.json)")
+    out.append("")
+    out.append("</details>")
+    out.append("")
+    out.append("These are Chromium's own words about the window being adopted. "
+               "They are *not* matched to the findings above — the names are "
+               "prose and ours are identifiers — so read them as background, "
+               "not as a second opinion on any single row.")
+    out.append("")
+    return "\n".join(out)
+
+
 def _render_details(findings: Sequence[Finding], platform: str) -> str:
     out: List[str] = ["<details><summary>Details and reasoning</summary>", ""]
     for finding in findings:
@@ -370,16 +336,6 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
             out.append(f"- Chromestatus: {status['summary']}")
         if status.get("spec"):
             out.append(f"- Spec: {status['spec']}")
-        ai = finding.ai or {}
-        if ai:
-            out.append(f"- **AI verdict**: {VERDICT_LABELS.get(ai.get('verdict',''), '?')}"
-                       f" (effort {ai.get('effort','?')}, risk {ai.get('risk','?')})")
-            if ai.get("rationale"):
-                out.append(f"  - {ai['rationale']}")
-            if ai.get("action"):
-                out.append(f"  - Action: {ai['action']}")
-            if ai.get("test_hint"):
-                out.append(f"  - Test: {ai['test_hint']}")
         out.append(f"- Score reasoning: {'; '.join(finding.reasons)}")
         out.append("")
     out.append("</details>")
@@ -407,16 +363,11 @@ def _render_provenance(report: Report) -> str:
                 "in *Must fix*. Point the profile at your patch directory or fork "
                 "to get real impact scoring."
             )
-    ai = summary.get("ai") or {}
-    llm = ai.get("llm") or {}
-    if llm:
-        lines.append(
-            f"- AI: provider `{llm.get('provider')}`, model `{llm.get('model')}`, "
-            f"{llm.get('requests', 0)} request(s), {llm.get('cache_hits', 0)} cached, "
-            f"coverage {ai.get('coverage', 'n/a')}."
-        )
-        for failure in ai.get("failures") or []:
-            lines.append(f"  - **failed**: {failure}")
+    lines.append(
+        "- No verdict is computed here. Every row above is extracted evidence "
+        "and a deterministic rank; deciding what it means for the product is "
+        "the reader's job."
+    )
     by_kind = (summary.get("changes") or {}).get("by_kind") or {}
     if by_kind:
         lines.append("- Changes by surface:")

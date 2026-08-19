@@ -25,12 +25,12 @@ Toàn bộ luồng là một đường thẳng gồm các phép biến đổi d�
 Snapshot(ref)            ->  [Fact]      extract/
 (Snapshot, Snapshot)     ->  [Change]    diff.py
 ([Change], TouchSet)     ->  [Finding]   impact.py
-[Finding]                ->  [Finding+]  cluster.py, enrich/, ai/
+[Finding]                ->  [Finding+]  cluster.py, enrich/
 [Finding]                ->  báo cáo     report/
 ```
 
 Mỗi chặng đọc và ghi JSON, nên chạy lại được từng chặng riêng. Điều đó không phải
-để cho đẹp: chặng đắt (mạng) và chặng phải chỉnh đi chỉnh lại (chấm điểm, prompt,
+để cho đẹp: chặng đắt (mạng) và chặng phải chỉnh đi chỉnh lại (chấm điểm,
 báo cáo) có chi phí khác hẳn nhau.
 
 ---
@@ -496,7 +496,7 @@ nên dừng ở `score 75, bucket review`. Nếu hồ sơ thật của SB có nh
 
 Mọi điều chỉnh điểm đều **ghi lại lý do đọc được**. Một bảng xếp hạng không cãi
 lại được là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai — và ở đây điểm số còn
-quyết định AI tiêu ngân sách ngữ cảnh vào đâu, nên điểm không giải thích được sẽ
+quyết định người đọc tiêu công sức vào đâu, nên điểm không giải thích được sẽ
 lan thành khuyến nghị không giải thích được.
 
 ---
@@ -563,74 +563,40 @@ Extractor nói **cái gì** đổi; chromestatus.com nói **tại sao**, bằng 
 người viết: tóm tắt, link spec, milestone ship.
 
 Ghép từng mục thì tỉ lệ trúng rất thấp (~2%) vì tên bên đó là văn xuôi còn tên
-trong mã là định danh. Nên thay vì cố ghép, công cụ đưa **cả danh sách "Chromium
-đã ship gì trong khoảng này" làm ngữ cảnh dùng chung** cho mọi request — khoảng
-100 mục, ~8k token, không đáng kể trong cửa sổ 200k, và bỏ hẳn được phép ghép
-mong manh.
+trong mã là định danh. Nên thay vì cố ghép, công cụ ghi **cả danh sách "Chromium
+đã ship gì trong khoảng này"** vào báo cáo như phần nền — khoảng 100 mục, ~8k
+token, và bỏ hẳn được phép ghép mong manh.
+
+Danh sách này từng chỉ tồn tại bên trong prompt gửi cho model. Khi chặng phán xét
+bị bỏ đi, nó phải chuyển vào báo cáo: đó là nguồn duy nhất nói *upstream định ship
+cái gì*, và tải về rồi vứt đi thì mất trắng. Nó nằm trong `report.json` dưới
+`summary.milestone_brief`, và trong `report.md` dưới một khối `<details>` — có
+nhãn rõ là **nền**, không phải là ý kiến thứ hai về bất kỳ dòng nào.
 
 ---
 
-## Bước 8. AI phán xét, không phát hiện
+## Bước 8. Dừng ở đây — công cụ không phán xét
 
-**Code:** `ai/budget.py`, `ai/prompts.py`, `ai/analyze.py`
+Luồng kết thúc ở bằng chứng và thứ hạng. Không có chặng nào kết luận "cái này có
+nghĩa gì với sản phẩm của chúng ta".
 
-Hai nguyên tắc chi phối thiết kế.
+Đó là chủ ý, không phải thiếu sót. Phần ấy cần suy xét, và nó thuộc về người đọc
+báo cáo — hoặc về một agent chạy skill
+[`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md), vốn là
+nơi chứa quy trình phân loại, các bẫy đã biết, và giới hạn phải nêu trong mọi báo
+cáo.
 
-**Model phán xét, không khám phá.** Mọi bản ghi đưa sang đã được chuẩn hoá, chấm
-điểm và gắn bằng chứng bởi các chặng tất định. Việc của model là phần thật sự cần
-suy xét — *cái này có nghĩa gì với sản phẩm của chúng ta, ai phải làm gì* — chứ
-không phải tính lại một cái diff mà nó không nhìn thấy.
+Hệ quả với thiết kế của các bước trước: **báo cáo chính là đầu vào**, nên nó phải
+trích dẫn được. Đó là lý do mỗi finding luôn mang theo lý do chấm điểm, đường dẫn
+khai báo, và bằng chứng phía fork — chứ không phải một con số đã tóm tắt mất dấu
+vết. Toàn bộ 1.226 finding không-FYI của M148 → M151 gói lại ≈ 105k token, vừa
+một lượt đọc.
 
-**Phải làm việc bịa đặt trở nên kém hấp dẫn.** Tên feature của Chromium gợi ý đủ
-mạnh để một model sẵn sàng kể `PwaNavigationCapturing` làm gì chỉ từ cái tên. Nên
-bản ghi mang theo bằng chứng thật, hướng dẫn bắt buộc trích dẫn bằng chứng đó, và
-`unknown` là một verdict **hạng nhất**. Một câu trả lời sai đầy tự tin tốn của
-người review nhiều thời gian hơn là không trả lời.
-
-### Cơ chế đóng gói
-
-`estimate_tokens` mặc định là `len(text) / 3.5` — cố ý ước lượng dư, vì đoán
-thừa tốn thêm một request còn đoán thiếu thì bị cắt cụt. Nếu máy có `tiktoken`
-thì tự động dùng bộ đếm chính xác.
-
-```
-estimate_tokens('hello world') = 4
-20 bản ghi ~117 token/cái, ngân sách 500 -> 5 batch, kích thước [4, 4, 4, 4, 4]
-```
-
-`pack()` **không bao giờ cắt đôi một bản ghi**; một bản ghi to hơn cả ngân sách
-thì được để riêng một batch chứ không bị bỏ.
-
-Ngân sách tính từ cấu hình model, **hệ số an toàn nhân vào cửa sổ trước**, rồi
-mới trừ:
-
-```python
-usable    = context_window × 0,90
-available = usable − max_output_tokens − reserve_tokens − overhead
-return max(1_000, available)          # sàn, để không bao giờ ra ngân sách âm
-```
-
-Với cấu hình mặc định (cửa sổ 200k, output 8k, reserve 4k):
-`200.000 × 0,90 = 180.000`, trừ `8.000 + 4.000` → **168.000 token** cho nội dung.
-
-Trình tự thực tế: gom theo **vùng sở hữu** để mỗi batch đọc như một tiểu hệ thống,
-rồi **trộn cả nhóm lại** khi còn vừa. Gom mà không trộn là cái bẫy: với cửa sổ
-200k, mỗi nhóm chỉ vài nghìn token, nên một-request-một-nhóm tốn 5 request để gửi
-4k token.
-
-Đo thật trên M148 → M151: toàn bộ 1.226 finding không-FYI ≈ 105k token, **vừa
-một request**. Vì thế mặc định `--top` là **0 = không giới hạn**; bản trước cắt
-còn 150 mục, tức vứt 93% phân tích để tiết kiệm một chi phí **không tồn tại**.
-
-Phản hồi được cache trên đĩa theo `sha256(provider, model, temperature, system,
-user)`, nên chỉnh template rồi chạy lại **không tốn gì** cho những batch không đổi.
-
-### Khi AI hỏng
-
-Một phân tích thất bại hiển thị thành các ô verdict trống — **trông y hệt một kết
-quả sạch**. Nên `ai_status_note()` in một dòng không thể bỏ qua ngay đầu báo cáo,
-trước mọi finding. Cũng in khi provider là `echo` (chế độ offline không gọi model),
-để một lần chạy thử không bị nhầm là đã phân tích thật.
+Một hệ quả nữa: **không có chặng nào hỏng trong im lặng**. Bản trước có cột
+verdict do model điền; khi request lỗi thì cột ấy rỗng, và một phân tích không
+chạy trông y hệt một kết quả sạch — phải có một dòng cảnh báo riêng ở đầu báo cáo
+mới phân biệt được. Giờ mọi thứ trong báo cáo đều là thứ đã trích ra được từ mã
+nguồn, nên không còn khoảng trống nào để hiểu nhầm.
 
 ---
 
@@ -645,7 +611,7 @@ Ba dạng ra:
   nguyên ngoài, nên mở được trong mạng cách ly và gửi kèm mail được
 - `report.json` — cho script và so sánh giữa các kỳ
 
-Thứ tự trình bày theo thứ tự người đọc cần: verdict → việc phải làm → bằng chứng.
+Thứ tự trình bày theo thứ tự người đọc cần: phân loại → việc phải làm → bằng chứng.
 Mỗi finding hiện **lý do chấm điểm** để người đọc cãi lại được.
 
 Lọc theo vùng xảy ra **lúc render, không bao giờ trước khi phân tích**: JSON luôn
@@ -701,7 +667,7 @@ danh sách không thứ tự ưu tiên thì không ai đọc.
 | `--partition downloads` | 17 s | 2,6 MB | 2.692 |
 
 Cache ấm thì mọi chặng sau snapshot chạy trong vài giây — đó là điều khiến việc
-chỉnh chấm điểm và prompt trở nên khả thi.
+chỉnh chấm điểm và cách trình bày trở nên khả thi.
 
 ---
 

@@ -5,8 +5,11 @@ The pipeline is a straight line of pure data transforms:
     Snapshot(ref)  ->  [Fact]         extract/*
     (Snapshot, Snapshot) -> [Change]  diff.py
     ([Change], TouchSet) -> [Finding] impact.py
-    [Finding] -> [Finding+ai]         ai/analyze.py
+    [Finding] -> [Finding+context]    cluster.py, enrich/*
     [Finding] -> report               report/*
+
+It ends at the report on purpose.  Deciding what a change means for the
+product is judgement, and it is left to whoever reads the report.
 
 Every stage reads and writes JSON, so any stage can be run, cached, inspected
 and re-run on its own.  That matters here because acquiring a snapshot costs
@@ -54,7 +57,12 @@ from typing import Any, Dict, Iterable, List, Optional
 #      one. The preference alone is not unique -- a radio group and its buttons
 #      share it -- so 142 of 881 controls at M148 were being dropped as
 #      duplicates, and which survived depended on directory walk order.
-SCHEMA_VERSION = 11
+#  12: findings no longer carry an `ai` verdict. The tool stops at the evidence
+#      and the ranking; judging what a change means is the reader's job, and
+#      the reader is a human or an agent running the
+#      `analyzing-chromium-uprevs` skill. A version 11 report may hold `ai`
+#      blocks, which nothing here reads any more.
+SCHEMA_VERSION = 12
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -312,7 +320,6 @@ class Finding:
     score: int = 0
     bucket: str = BUCKET_FYI
     enrichment: Dict[str, Any] = field(default_factory=dict)
-    ai: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def uid(self) -> str:
@@ -328,7 +335,6 @@ class Finding:
             "score": self.score,
             "bucket": self.bucket,
             "enrichment": self.enrichment,
-            "ai": self.ai,
         }
 
     @classmethod
@@ -342,7 +348,6 @@ class Finding:
             score=d.get("score", 0),
             bucket=d.get("bucket", BUCKET_FYI),
             enrichment=d.get("enrichment", {}) or {},
-            ai=d.get("ai", {}) or {},
         )
 
 

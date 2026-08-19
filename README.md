@@ -10,7 +10,7 @@ Công cụ so sánh hai phiên bản Chromium và trả lời câu hỏi: **đ�
 | **[PIPELINE.md](PIPELINE.md)** | Luồng so sánh hai bản Chromium từ đầu đến cuối, bám theo một thay đổi có thật — và **vì sao cách này hoạt động** |
 | **[COVERAGE.md](COVERAGE.md)** | "Tính năng" gồm những gì, và công cụ phủ được bao nhiêu phần trăm (đo thật, không ước lượng) |
 | **[docs/pipeline-diagram.png](docs/pipeline-diagram.png)** | Sơ đồ bảy bước gói trong **một tấm ảnh** — dán thẳng vào Confluence. Nguồn là `pipeline-diagram.html`, dựng lại bằng `docs/render-diagram.sh` |
-| **[docs/pipeline.html](docs/pipeline.html)** | Sơ đồ luồng có tương tác — mỗi nguồn lấy về đóng vai trò gì, so sánh và chấm điểm ra sao. Mở thẳng bằng trình duyệt, **không cần mạng, không cần server** |
+| **[docs/pipeline.html](docs/pipeline.html)** | Tài liệu quy trình đầy đủ: định nghĩa thuật ngữ, vai trò của chín nguồn dữ liệu, cách so sánh từng loại tệp, cách chấm điểm, và giới hạn. Có ba phần tương tác. Mở thẳng bằng trình duyệt, **không cần mạng, không cần server** |
 | **[SETUP.md](SETUP.md)** | Cài đặt trên máy mới, xử lý sự cố |
 | **[HANDOFF.md](HANDOFF.md)** | Việc chỉ làm được tại công ty, dạng checklist theo dõi tiến độ |
 | **[skills/analyzing-chromium-uprevs/](skills/analyzing-chromium-uprevs/)** | Quy trình dạng skill cho agent, kèm bẫy đã gặp và bảng tra signal |
@@ -69,11 +69,13 @@ Chỉ riêng trong một file, M139 có **170/170** khai báo kiểu cũ, M143 c
 
 `chromedrift` chuẩn hoá `kBackForwardCache` thành `"BackForwardCache"` trước khi so. Kết quả thật: **152 giữ nguyên, 18 bị bỏ, 35 thêm mới**. Đó mới là con số đọc được.
 
-### Ý tưởng 3 — AI đứng cuối, không đứng đầu
+### Ý tưởng 3 — dừng ở bằng chứng, không tự phán xét
 
-Các bước tất định (trích xuất, chuẩn hoá, so sánh, chấm điểm) làm phần nặng và lọc từ vài nghìn thay đổi xuống còn vài chục mục đáng chú ý. Model AI chỉ nhận danh sách đã lọc và xếp hạng đó.
+Các bước tất định (trích xuất, chuẩn hoá, so sánh, chấm điểm) làm phần nặng và lọc từ vài nghìn thay đổi xuống còn vài chục mục đáng chú ý — **và dừng ở đó**.
 
-Nhờ vậy, với cửa sổ ngữ cảnh 200k, **toàn bộ 2.226 thay đổi chỉ tốn ~189k token = 2 request** — thay vì hàng trăm request nếu đưa mã nguồn thô vào. Chi tiết ở [Phần 6](#phần-6-chia-việc-theo-vùng--và-cái-bẫy-thứ-hai).
+Công cụ không kết luận "cái này có nghĩa gì với sản phẩm". Đó là phần cần suy xét, và nó thuộc về người đọc báo cáo — hoặc về một agent chạy skill [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md). Việc của `chromedrift` là làm cho đầu vào ấy **đầy đủ, có xếp hạng, và trích dẫn được**.
+
+Nhờ vậy toàn bộ 2.226 thay đổi của một kỳ uprev nén còn ~189k token — vừa một cửa sổ ngữ cảnh, thay vì hàng trăm request nếu đưa mã nguồn thô vào.
 
 ---
 
@@ -146,9 +148,9 @@ Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất h
 
 ## Phần 4. Dự án gồm những gì
 
-Toàn bộ là **Python thuần, 6.965 dòng, 31 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
+Toàn bộ là **Python thuần, 7.760 dòng, 32 file**, không dùng thư viện ngoài nào. Không cần `pip install`, không cần môi trường ảo, không cần quyền quản trị. Lý do: môi trường triển khai thường là mạng nội bộ công ty, nơi thêm một package là cả một quy trình phê duyệt.
 
-Cộng thêm **1.541 dòng tài liệu** và **115 bài kiểm thử** chạy offline.
+Cộng thêm **1.541 dòng tài liệu** và **152 bài kiểm thử** chạy offline.
 
 Dự án chia làm bốn nhóm:
 
@@ -291,7 +293,7 @@ base severity 75 (modified base_feature)
   | +16 owned area 'Browser UI' (weight 80)
 ```
 
-Lý do phải ghi lại: một bảng xếp hạng không ai cãi lại được là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai. Ở đây điểm số còn quyết định AI tiêu ngân sách ngữ cảnh vào đâu, nên điểm không giải thích được sẽ lan thành khuyến nghị không giải thích được.
+Lý do phải ghi lại: một bảng xếp hạng không ai cãi lại được là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai. Điểm số còn quyết định thứ tự người đọc — hoặc agent — bỏ công vào đâu, nên điểm không giải thích được sẽ lan thành kết luận không giải thích được.
 
 Kết quả chia bốn nhóm:
 
@@ -311,22 +313,11 @@ Chỉ **bằng chứng cấp tên ký hiệu** mới đẩy được lên Must f
 | New opportunity | Năng lực mới | **Không dùng** — trong phép so fork không có gì là "cơ hội" |
 | FYI | Ghi nhận cho đủ | Như trên |
 
-Điều này không chỉ là chữ nghĩa. Trước đây mọi thứ do Samsung tự thêm đều rơi vào "New opportunity — năng lực mới có thể lấy về", tức là báo cáo nói với đội SB rằng tuỳ biến của chính họ là thứ đáng cân nhắc áp dụng. Model cũng nhận system prompt mô tả "hai phiên bản Chromium", nên đọc mọi thứ SB xoá thành upstream dọn dẹp. Giờ chế độ đi xuyên suốt tới tận tiêu đề báo cáo và prompt.
+Điều này không chỉ là chữ nghĩa. Trước đây mọi thứ do Samsung tự thêm đều rơi vào "New opportunity — năng lực mới có thể lấy về", tức là báo cáo nói với đội SB rằng tuỳ biến của chính họ là thứ đáng cân nhắc áp dụng. Giờ chế độ đi xuyên suốt tới tận tiêu đề báo cáo, để người đọc luôn biết mình đang cầm phép so nào.
 
-### Nhóm 4 — Ngữ cảnh và báo cáo (`enrich/`, `ai/`, `report/`)
+### Nhóm 4 — Ngữ cảnh và báo cáo (`enrich/`, `report/`)
 
-`enrich/chromestatus.py` lấy mô tả tính năng do người viết từ chromestatus.com. Ghép từng mục thì tỉ lệ trúng rất thấp (~2%) vì tên bên đó là văn xuôi còn tên trong mã là định danh. Nên thay vì cố ghép, công cụ đưa **cả danh sách "Chromium đã ship gì trong khoảng này" làm ngữ cảnh dùng chung** cho mọi request — khoảng 100 mục, tốn ~8k token, không đáng kể trong cửa sổ 200k, và bỏ hẳn được phép ghép mong manh.
-
-`ai/` gồm bốn phần:
-
-- `client.py` — nói chuyện HTTP thuần với endpoint nội bộ. Ba chế độ: `openai` (mọi endpoint tương thích: vLLM, TGI, Ollama, gateway nội bộ), `anthropic`, và `echo` — chế độ **không chạm mạng**, trả kết quả giả định để phát triển và demo offline. Báo cáo ghi rõ khi chế độ giả được dùng, để một lần chạy thử không bị nhầm là đã phân tích thật.
-- `budget.py` — tính ngân sách token và đóng gói các bản ghi vào từng request.
-- `prompts.py` — dựng câu lệnh cho model.
-- `analyze.py` — chia việc thành các batch rồi tổng hợp.
-
-Về `prompts.py` có một chủ ý đáng nói: prompt được thiết kế để **làm cho việc bịa đặt trở nên kém hấp dẫn**. Tên tính năng Chromium gợi hình đủ để model tự tin kể `PwaNavigationCapturing` làm gì chỉ từ cái tên. Nên mỗi bản ghi mang theo bằng chứng thật (trạng thái mặc định, chữ ký, tóm tắt chromestatus), hướng dẫn buộc trích dẫn bằng chứng đó, và **`unknown` là một câu trả lời hợp lệ hạng nhất**. Ở đây một câu trả lời sai đầy tự tin tốn của người review nhiều thời gian hơn là không trả lời.
-
-Cách gộp batch cũng có một bài học: ban đầu tôi nhóm theo vùng chức năng để mỗi request là một chủ đề mạch lạc — nhưng quên gộp các nhóm nhỏ lại. Kết quả là 20 mục tốn 5 request, mỗi request 1.400 token trong khi ngân sách là 167.000. Sau khi sửa, **150 mục gói trong 1 request**.
+`enrich/chromestatus.py` lấy mô tả tính năng do người viết từ chromestatus.com. Ghép từng mục thì tỉ lệ trúng rất thấp (~2%) vì tên bên đó là văn xuôi còn tên trong mã là định danh. Nên thay vì cố ghép, công cụ ghi **cả danh sách "Chromium đã ship gì trong khoảng này"** vào báo cáo như phần nền — khoảng 100 mục, ~8k token, và bỏ hẳn được phép ghép mong manh. Đó là nguồn duy nhất nói *upstream định ship cái gì*, nên nó phải nằm trong báo cáo chứ không bị vứt đi sau khi tải về.
 
 `report/` sinh ba dạng đầu ra:
 
@@ -385,15 +376,18 @@ Và khoá cache **có chứa tên phân vùng** — nếu không, một snapshot
 
 ---
 
-## Phần 6. Sáu lệnh và mỗi lệnh làm gì
+## Phần 6. Chín lệnh và mỗi lệnh làm gì
 
 ```bash
 python3 -m chromedrift check      # kiểm tra máy có chạy được không
 python3 -m chromedrift snapshot   # trích bề mặt tính năng của MỘT phiên bản
 python3 -m chromedrift diff       # so ngữ nghĩa giữa HAI phiên bản
 python3 -m chromedrift profile    # xem hồ sơ downstream giải ra cái gì
-python3 -m chromedrift run        # chạy toàn bộ: snapshot → diff → chấm điểm → AI → báo cáo
+python3 -m chromedrift run        # chạy toàn bộ: snapshot → diff → chấm điểm → báo cáo
 python3 -m chromedrift report     # dựng lại báo cáo, lọc được theo vùng
+python3 -m chromedrift catalog    # đo target set đang thiếu file nào
+python3 -m chromedrift discover   # tìm file của vendor trong cây fork
+python3 -m chromedrift provenance # tách quyết định cố ý khỏi nợ merge
 ```
 
 Riêng `report` có hai tuỳ chọn đáng nhớ, giải thích kỹ ở Phần 6:
@@ -403,16 +397,15 @@ python3 -m chromedrift report out/report.json --list-areas       # có những v
 python3 -m chromedrift report out/report.json --area downloads   # cắt lát cho 1 đội
 ```
 
-Tách thành sáu lệnh không phải để trang trí. Bước đắt (tải về) và bước bạn chỉnh đi chỉnh lại (chấm điểm, prompt, báo cáo) có chi phí hoàn toàn khác nhau. Chạy lại được nửa rẻ trên cache ấm là khác biệt giữa một công cụ người ta tinh chỉnh và một công cụ người ta chạy đúng một lần.
+Tách thành từng lệnh không phải để trang trí. Bước đắt (tải về) và bước bạn chỉnh đi chỉnh lại (chấm điểm, báo cáo) có chi phí hoàn toàn khác nhau. Chạy lại được nửa rẻ trên cache ấm là khác biệt giữa một công cụ người ta tinh chỉnh và một công cụ người ta chạy đúng một lần.
 
-`check` đáng nói riêng: nó kiểm mọi thứ thường hỏng trên máy mới **một lượt**, thay vì để bạn phát hiện từng cái sau hai phút chạy — phiên bản Python, quyền ghi thư mục cache, ba host mạng, biến proxy, hồ sơ có đọc được không, và **gọi thử một request thật** tới endpoint AI.
+`check` đáng nói riêng: nó kiểm mọi thứ thường hỏng trên máy mới **một lượt**, thay vì để bạn phát hiện từng cái sau hai phút chạy — phiên bản Python, quyền ghi thư mục cache, ba host mạng, biến proxy, và hồ sơ có đọc được không.
 
 ### Chạy đầy đủ
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --profile config/sb-profile.json5 \
-  --llm config/llm.json5 \
   --out out/M148_to_M151
 ```
 
@@ -441,19 +434,19 @@ Lưu ý dòng `must fix: 0`: nó có nghĩa là **chưa cung cấp bằng chứn
 
 ## Phần 7. Chia việc theo vùng — và cái bẫy thứ hai
 
-Khi mở rộng ra nhiều mảng (Download, Bookmark, History, Add-ons, Settings…), câu hỏi tự nhiên là: *"làm sao giới hạn để AI khỏi phải xử lý quá nhiều?"*
+Khi mở rộng ra nhiều mảng (Download, Bookmark, History, Add-ons, Settings…), câu hỏi tự nhiên là: *"làm sao giới hạn lại để khỏi phải xử lý quá nhiều?"*
 
 Tôi đã đo trước khi làm, và **giả định đó sai**.
 
-### AI không phải nút thắt
+### Kích thước không phải nút thắt
 
 ```
-Gửi TOÀN BỘ 2.226 findings   ≈ 189.000 token
-Cửa sổ ngữ cảnh              = 200.000 token
-=> chỉ cần 2 request
+TOÀN BỘ 2.226 findings   ≈ 189.000 token
+Cửa sổ ngữ cảnh điển hình = 200.000 token
+=> cả kỳ uprev vừa một lượt đọc
 ```
 
-Trước đó công cụ mặc định cắt còn 150 mục (26k token) — tức chỉ dùng **14%** khả năng. Cắt bớt để "tiết kiệm AI" là giải quyết một vấn đề không tồn tại. Mặc định đó đã bỏ.
+Từng có mặc định cắt còn 150 mục (26k token) — tức dùng **14%** khả năng. Cắt bớt để "tiết kiệm" là giải quyết một vấn đề không tồn tại, và mặc định đó đã bỏ.
 
 Nút thắt thật là **thời gian đọc của con người**. 2.226 dòng thì không ai đọc hết.
 
@@ -477,9 +470,9 @@ Lọc theo vùng sản phẩm sẽ vứt sạch phần đầu danh sách.
 | | Lọc đầu vào (sai) | Lọc đầu ra (đã làm) |
 |---|---|---|
 | Phân tích | chỉ vùng đã chọn | **luôn phân tích hết** |
-| Chi phí | tiết kiệm không đáng kể | 2 request |
+| Chi phí | tiết kiệm không đáng kể | một lần chạy |
 | Rủi ro | mất 281 mục điểm cao | không mất gì |
-| Đổi vùng | phải chạy lại toàn bộ | dựng lại tức thì, không gọi AI |
+| Đổi vùng | phải chạy lại toàn bộ | dựng lại tức thì, không quét lại |
 
 ```bash
 # Phân tích một lần — report.json luôn chứa TẤT CẢ
@@ -489,7 +482,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 # Xem có những vùng nào
 python3 -m chromedrift report out/report.json --list-areas
 
-# Cắt lát cho từng đội — không chạy lại, không gọi AI lần nữa
+# Cắt lát cho từng đội — không chạy lại, không quét lại
 python3 -m chromedrift report out/report.json --area downloads --out downloads
 python3 -m chromedrift report out/report.json --area ipc       --out ipc
 ```
@@ -889,20 +882,23 @@ Nói cách khác: **0 sai lệch thật**, và ở mục duy nhất khác nhau t
 
 ```
 chromedrift/
-  acquire.py      364 dòng   tải nguồn qua Gitiles hoặc từ checkout local
-  targets.py      109        khai báo tải file nào, kèm lý do
-  snapshot.py     104        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/        1.822      9 bộ đọc + tiện ích quét C++
-  diff.py         556        so sánh ngữ nghĩa, 35 nhãn, nhận diện đổi tên
-  cluster.py      196        gom mảnh vụn thành một câu chuyện
-  sbprofile.py    455        tập chạm của fork + định nghĩa vùng (5 cách khớp)
-  impact.py       235        chấm điểm, phân loại, và báo cáo độ phủ vùng
-  model.py        396        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
+  acquire.py      409 dòng   tải nguồn qua Gitiles hoặc từ checkout local
+  targets.py      346        khai báo tải file nào, kèm lý do; phân vùng
+  snapshot.py     129        gộp tải + trích xuất thành một ảnh chụp có cache
+  extract/        1.920      9 bộ đọc + tiện ích quét C++
+  diff.py         669        so sánh ngữ nghĩa, 35 nhãn, nhận diện đổi tên
+  cluster.py      208        gom mảnh vụn thành một câu chuyện
+  sbprofile.py    473        tập chạm của fork + định nghĩa vùng (5 cách khớp)
+  impact.py       255        chấm điểm, phân loại, và báo cáo độ phủ vùng
+  catalog.py      287        đo target set thiếu gì; kiểm bao đóng tham chiếu
+  discover.py     298        tìm file của vendor trong cây fork
+  provenance.py   207        tách quyết định cố ý khỏi nợ merge
+  coverage.py     235        tìm chỗ fork che upstream bằng cờ build
+  model.py        458        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
-  ai/             845        ngân sách ngữ cảnh, client, prompt, map-reduce
-  report/         616        markdown + bảng điều khiển HTML tự chứa
+  report/         697        markdown + bảng điều khiển HTML tự chứa
   enrich/         175        ngữ cảnh từ chromestatus
-  cli.py          512        6 lệnh dòng lệnh
+  cli.py          728        9 lệnh dòng lệnh
 ```
 
 Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và chạy lại độc lập được.
@@ -912,5 +908,5 @@ Mỗi tầng đọc và ghi JSON, nên tầng nào cũng chạy, kiểm tra và 
 ## Phần 14. Đọc thêm
 
 - **[HANDOFF.md](HANDOFF.md)** — danh sách việc cần chạy tại công ty, trên máy có source SB và mạng nội bộ. Có checkbox theo dõi tiến độ, lệnh copy-paste, và mẫu báo cáo lại. Đây là những việc không làm được từ bên ngoài.
-- **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, cấu hình AI nội bộ, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.
+- **[SETUP.md](SETUP.md)** — hướng dẫn A–Z cài đặt trên máy mới: yêu cầu, cấu hình hồ sơ theo bốn cách, proxy, mạng cách ly, và bảng xử lý sự cố lấy từ lỗi thật.
 - **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — gói kiến thức cho agent.

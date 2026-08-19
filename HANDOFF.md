@@ -37,7 +37,7 @@ Có **hai phép so** khác nhau, đừng nhầm:
 ### Chưa từng chạy thật — đây là lý do có file này
 
 - [ ] **Chưa từng chạy trên source SB**
-- [ ] **Chưa từng gọi model AI thật** (mới chỉ chạy stub `echo`)
+- [ ] **Chưa từng đưa báo cáo thật cho agent đọc qua skill**
 - [ ] **`must_fix` luôn bằng 0** vì chưa có hồ sơ SB thật
 - [ ] Trọng số chấm điểm là tôi tự đặt, chưa ai xác nhận
 
@@ -72,7 +72,7 @@ python3 -m chromedrift check
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --no-ai --no-enrich --out out/smoke
+  --no-enrich --out out/smoke
 ```
 
 **Kỳ vọng**: khoảng 90 giây, ~2.500 semantic changes, sinh 3 file trong `out/smoke/`.
@@ -247,7 +247,7 @@ python3 -m chromedrift snapshot sb-main-dev \
 python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
   --to-src /đường/dẫn/sbrowser/src \
   --profile config/sb-profile.json5 \
-  --no-ai --out out/sb-vs-m148
+  --out out/sb-vs-m148
 ```
 
 **Kỳ vọng**: có `fork_dropped`, `fork_added`, **`fork_default_override`** trong danh sách nhãn.
@@ -320,48 +320,38 @@ python3 -m chromedrift report out/sb-vs-m148/report.json --area _unassigned --ou
 
 ---
 
-## GIAI ĐOẠN 4 — Chạy AI thật (CHƯA TỪNG CHẠY)
+## GIAI ĐOẠN 4 — Kiểm chứng báo cáo như đầu vào cho agent (CHƯA TỪNG LÀM)
 
-Đây là phần **chưa được kiểm chứng lần nào**. Tôi không biết prompt có cho ra kết quả dùng được không.
+Công cụ **không tự phán xét**. Nó dừng ở bằng chứng và thứ hạng; phần diễn giải
+nằm trong skill `skills/analyzing-chromium-uprevs/`, do agent đọc.
 
-### 4.1 Cấu hình endpoint
+Nghĩa là câu hỏi chất lượng đã đổi. Không còn là "prompt có cho ra kết quả dùng
+được không", mà là: **báo cáo có đủ để một người đọc chưa biết gì đi tới kết luận
+đúng không.** Chưa ai kiểm việc này trên dữ liệu SB thật.
 
-- [ ] Đã cấu hình
+### 4.1 Đưa báo cáo cho agent
 
-```bash
-cp config/llm.example.json5 config/llm.json5
-```
+- [ ] Đã làm
 
-Sửa `base_url`, `model`, `context_window` cho khớp endpoint nội bộ. **Không ghi key vào file**:
+Mở một phiên agent có nạp skill, đưa `out/sb-fork/report.md` (hoặc `report.json`
+nếu agent đọc được JSON), rồi yêu cầu đúng những gì skill mô tả ở Bước 5: viết
+báo cáo theo 6 mục, có nêu giới hạn.
 
-```bash
-export CHROMEDRIFT_LLM_KEY="..."
-python3 -m chromedrift check --llm config/llm.json5
-```
+**Kỳ vọng**: agent phân loại được từng finding theo thủ tục 5 câu hỏi mà **không
+cần hỏi lại thông tin đã có sẵn trong báo cáo**.
 
-**Kỳ vọng**: `[OK] live completion`.
+### 4.2 Báo lại — quan trọng nhất trong cả file này
 
-### 4.2 Chạy thật
+- [ ] Đã báo lại
 
-- [ ] Chạy được
+1. **Agent phải hỏi thêm những gì?** Mỗi câu hỏi là một chỗ báo cáo còn thiếu dữ
+   liệu, và đó là danh sách việc cần sửa trong `report/markdown.py`.
+2. **Dán 5 kết luận đầu tiên nguyên văn.**
+3. **Đánh giá thật: dùng được, chung chung, hay bịa?** Nếu bịa, nó bịa từ đâu —
+   từ tên feature (thì báo cáo thiếu bằng chứng ở dòng đó), hay từ khoảng trống
+   trong skill (thì sửa `SKILL.md`).
 
-```bash
-python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
-  --to-src /đường/dẫn/sbrowser/src \
-  --profile config/sb-profile.json5 --llm config/llm.json5 \
-  --out out/sb-ai
-```
-
-**Kỳ vọng**: dòng `analyzing N findings in 1-3 request(s)`, và báo cáo có mục "Assessment" với nội dung thật.
-
-**Nếu báo cáo ghi "The AI stage did not run"** → đọc lỗi ở dòng đó, thường là `base_url` sai hoặc thiếu key.
-
-**Báo lại — quan trọng nhất trong cả file này**:
-1. Số request và số token
-2. **Dán 5 verdict đầu tiên nguyên văn**
-3. **Đánh giá thật: nội dung đó có dùng được không, hay là nói chung chung / bịa?**
-
-Nếu bịa hoặc vô dụng thì tôi sửa prompt trong `chromedrift/ai/prompts.py`. Không có phản hồi này thì tôi không có cơ sở nào để nói tầng AI tốt hay không.
+Không có phản hồi này thì tôi không có cơ sở nào để nói báo cáo đủ hay chưa.
 
 ---
 
@@ -409,8 +399,8 @@ GIAI ĐOẠN 3
   3.3 unassigned   : N mục, M mục điểm >= 60
 
 GIAI ĐOẠN 4
-  4.2 AI           : N request, T token
-                     5 verdict đầu = <dán nguyên văn>
+  4.2 agent đọc    : agent phải hỏi thêm = <liệt kê>
+                     5 kết luận đầu = <dán nguyên văn>
                      ĐÁNH GIÁ: <dùng được / chung chung / bịa>
 
 VỠ Ở ĐÂU: <mô tả + thông báo lỗi nguyên văn>
@@ -424,4 +414,4 @@ VỠ Ở ĐÂU: <mô tả + thông báo lỗi nguyên văn>
 - `SETUP.md` — cài đặt A–Z, proxy, mạng cách ly, xử lý sự cố
 - `skills/analyzing-chromium-uprevs/` — gói kiến thức cho agent, gồm 8 cái bẫy đã kiểm chứng
 
-**Ưu tiên nếu không đủ thời gian**: việc **1.1** (tên macro) và **4.2** (chạy AI thật). Hai cái đó chặn nhiều thứ nhất và tôi hoàn toàn không đoán được.
+**Ưu tiên nếu không đủ thời gian**: việc **1.1** (tên macro) và **4.2** (agent đọc báo cáo thật). Hai cái đó chặn nhiều thứ nhất và tôi hoàn toàn không đoán được.

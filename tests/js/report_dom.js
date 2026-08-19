@@ -49,8 +49,8 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => ({
   bucket: i < 40 ? 'must_fix' : 'fyi', bucket_label: 'FYI', score: 100 - (i % 100),
   signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'], we_patch: [],
   we_ref: [], areas: [], deltas: [['default_state', 'disabled', 'enabled']],
-  reasons: ['base severity 75'], moved: 'disabled -> enabled', verdict: '',
-  rationale: 'x'.repeat(300), action: '', test_hint: '',
+  reasons: ['base severity 75'], moved: 'disabled -> enabled',
+  chromestatus: 'x'.repeat(300),
 })) };
 
 let pending = null;

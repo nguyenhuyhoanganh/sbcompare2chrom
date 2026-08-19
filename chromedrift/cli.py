@@ -1,10 +1,16 @@
 """Command-line interface.
 
 Each pipeline stage is also its own subcommand.  That is not decoration: the
-expensive stage (snapshots) and the stage you iterate on (scoring, prompts,
-reports) have completely different cost profiles, and being able to re-run the
-cheap half against a warm cache is the difference between a tool people tune
-and a tool people run once.
+expensive stage (snapshots) and the stage you iterate on (scoring, reports)
+have completely different cost profiles, and being able to re-run the cheap
+half against a warm cache is the difference between a tool people tune and a
+tool people run once.
+
+The pipeline stops at the report.  Judging what a change means for the product
+is deliberately not done here: the report is the input to a reader -- a human,
+or an agent running the `analyzing-chromium-uprevs` skill -- and this tool's
+job is to make that input complete, ranked and citable rather than to reach a
+verdict of its own.
 """
 
 from __future__ import annotations
@@ -20,8 +26,6 @@ from . import __version__
 from . import jsonc
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .extract._cpp import PLATFORM
-from .ai.analyze import analyze
-from .ai.client import LLMClient, LLMConfig
 from . import catalog, cluster, coverage, discover, provenance
 from .diff import MODE_UPREV, MODES, diff_snapshots, summarize
 from .enrich import chromestatus
@@ -120,13 +124,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     from_src = args.from_src or args.local_src
     to_src = args.to_src or args.local_src
 
-    _log(f"[1/6] snapshot {args.from_ref}")
+    _log(f"[1/5] snapshot {args.from_ref}")
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=from_src,
                          refresh=args.refresh,
                          partitions=args.partitions,
                           complete=args.complete, log=_log)
-    _log(f"[2/6] snapshot {args.to_ref}")
+    _log(f"[2/5] snapshot {args.to_ref}")
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=to_src,
                          refresh=args.refresh,
@@ -139,13 +143,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     for line in catalog.summarize_closure(dangling):
         _log("  " + line)
 
-    _log("[3/6] diff")
+    _log("[3/5] diff")
     platform = PLATFORM
     changes = diff_snapshots(old, new, platform=platform,
                              target_milestone=new.milestone, mode=args.mode)
     _log(f"  {len(changes)} semantic changes ({args.mode} mode)")
 
-    _log("[4/6] downstream profile")
+    _log("[4/5] downstream profile")
     if args.profile:
         # Both snapshots: a symbol that exists only in the old one is a
         # dependency upstream just deleted, which is the highest-value finding.
@@ -168,33 +172,23 @@ def cmd_run(args: argparse.Namespace) -> int:
     _log(f"  {finding_summary['with_evidence']} findings intersect our fork")
     _log_coverage(finding_summary.get("coverage") or {})
 
-    milestone_brief = None
+    milestone_brief: List[dict] = []
     if not args.no_enrich:
-        _log("[5/6] chromestatus enrichment")
+        _log("[5/5] chromestatus enrichment")
         milestones = _milestone_span(old.milestone, new.milestone)
-        top = [f for f in findings if f.bucket != "fyi"][: args.top or 200]
-        chromestatus.enrich(top, milestones, args.cache, refresh=args.refresh,
+        chromestatus.enrich([f for f in findings if f.bucket != "fyi"],
+                            milestones, args.cache, refresh=args.refresh,
                             log=_log)
         # Per-finding matching is weak by nature (prose names vs identifiers),
-        # so the shipped-feature list is also carried as shared model context.
+        # so the shipped-feature list is carried whole as well. It is the one
+        # piece of context that says what Chromium *meant* to ship in this
+        # window, and the reader of the report -- human or agent -- needs it
+        # for exactly the reason a matcher cannot supply it.
         milestone_brief = chromestatus.milestone_brief(
             milestones, args.cache, refresh=args.refresh, log=_log)
         _log(f"  milestone brief: {len(milestone_brief)} shipped features")
     else:
-        _log("[5/6] enrichment skipped")
-
-    ai_summary = {}
-    if not args.no_ai:
-        _log("[6/6] AI analysis")
-        config = LLMConfig.load(args.llm)
-        client = LLMClient(config, cache_dir=args.cache, log=_log)
-        _log(f"  provider={config.provider} model={config.model} "
-             f"window={config.context_window}")
-        _, ai_summary = analyze(findings, touch, client, old.ref, new.ref,
-                                top=args.top, milestone_brief=milestone_brief,
-                                mode=args.mode, log=_log)
-    else:
-        _log("[6/6] AI analysis skipped")
+        _log("[5/5] enrichment skipped")
 
     report = Report(
         from_ref=old.ref,
@@ -203,7 +197,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         summary={
             "changes": {"total": len(changes), "by_kind": summarize(changes)},
             **finding_summary,
-            "ai": ai_summary,
+            "milestone_brief": milestone_brief,
         },
         meta={
             "product": touch.name,
@@ -247,9 +241,8 @@ def cmd_check(args: argparse.Namespace) -> int:
 
     Every check here corresponds to a failure seen in practice: a Python too
     old for the syntax, a proxy that blocks one host but not another, a cache
-    directory on a read-only mount, a profile with a typo, an LLM base_url
-    whose hostname does not resolve.  Reporting them together beats
-    discovering them one at a time two minutes into a run.
+    directory on a read-only mount, a profile with a typo.  Reporting them
+    together beats discovering them one at a time two minutes into a run.
     """
     import json as _json
     import urllib.request
@@ -316,28 +309,6 @@ def cmd_check(args: argparse.Namespace) -> int:
                       "can reach 'Must fix'")
         except Exception as exc:
             report(f"{args.profile} parses", False, str(exc))
-
-    if args.llm:
-        print("llm endpoint")
-        try:
-            config = LLMConfig.load(args.llm)
-            report(f"{args.llm} parses", True,
-                   f"provider={config.provider} model={config.model} "
-                   f"window={config.context_window}")
-            if config.provider == "echo":
-                print("        note: echo is the offline stub; no model is called")
-            elif not config.resolved_key():
-                print(f"        warning: {config.api_key_env} is not set in the "
-                      f"environment")
-            if config.provider != "echo" and config.base_url:
-                client = LLMClient(config, log=_log)
-                try:
-                    client.complete("Reply with exactly: ok", "ping")
-                    report("live completion", True)
-                except Exception as exc:
-                    report("live completion", False, str(exc)[:200])
-        except Exception as exc:
-            report(f"{args.llm} parses", False, str(exc))
 
     print()
     print("ready" if ok else "not ready — see FAIL lines above")
@@ -644,15 +615,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
     p.add_argument("--profile", help="downstream profile json5")
-    p.add_argument("--llm", help="LLM config json5")
     p.add_argument("--out", default="out", help="output directory (default: out)")
-    # Default 0 = no cap. Measured on M148 -> M151: the full non-FYI set is
-    # 1,226 findings, about 105k tokens, which fits one 200k-window request.
-    # An arbitrary cap was discarding 93% of the analysis to save a cost that
-    # does not exist; bound it only for very wide uprevs or small windows.
-    p.add_argument("--top", type=int, default=0,
-                   help="cap findings sent to the model (default: 0 = no cap)")
-    p.add_argument("--no-ai", action="store_true", help="skip the AI stage")
     p.add_argument("--no-enrich", action="store_true",
                    help="skip chromestatus enrichment")
     p.set_defaults(func=cmd_run)
@@ -661,7 +624,6 @@ def build_parser() -> argparse.ArgumentParser:
                        help="verify this machine can run the pipeline")
     p.add_argument("--cache", default=DEFAULT_CACHE)
     p.add_argument("--profile", help="also validate a downstream profile")
-    p.add_argument("--llm", help="also validate (and ping) an LLM config")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("catalog", parents=[common],

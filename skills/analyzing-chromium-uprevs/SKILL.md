@@ -73,7 +73,6 @@ python3 -m chromedrift check          # verify machine, network, configs
 
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --profile config/sb-profile.json5 \
-  --llm config/llm.json5 \
   --out out/M148_to_M151
 ```
 
@@ -83,8 +82,13 @@ declaration files per version). Cold run about two minutes; cached runs seconds.
 Outputs: `report.md` (paste into a ticket), `report.html` (filterable, fully
 self-contained), `report.json` (scripting).
 
-Options: `--no-ai` skip the model stage, `--no-enrich` skip network lookups,
-`--top N` bound findings sent to the model, `--target-set minimal` fast smoke
+**The tool does not judge.** It stops at extracted evidence and a deterministic
+rank; deciding what a change means for the product is your job, and this skill
+is the procedure for it. Nothing in the report is a verdict, so there is no
+verdict column to mistake for a clean result — but equally, an empty **Must
+fix** means "no evidence was supplied", never "nothing to do".
+
+Options: `--no-enrich` skip network lookups, `--target-set minimal` fast smoke
 run, `--mode fork` compare against a fork instead of across time.
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
@@ -163,9 +167,16 @@ the flag. No behavioural change for us. Action: update any reference to
 `kLocalNetworkAccessChecksSplitPermissions` or the `/localNetworkAccess`
 route."*
 
-If the AI stage failed or ran with the offline `echo` stub, the report says so
-at the top. **Never present empty verdict columns as a clean result** — an
-unrun analysis looks exactly like a passing one.
+The report carries evidence, not conclusions. Every finding shows its score
+reasoning, its declaring paths and whether the fork references it, precisely so
+a conclusion can be argued with — cite those fields rather than restating the
+score.
+
+`report.json` also carries `summary.milestone_brief`: Chromium's own account of
+what shipped across the milestones being adopted, from chromestatus. Use it to
+explain *why* something changed. It is **not** matched to the findings — the
+names are prose and the findings are identifiers — so never pair a brief entry
+with a finding unless the evidence in the finding itself supports it.
 
 ## Known traps
 
