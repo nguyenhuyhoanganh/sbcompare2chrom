@@ -143,6 +143,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     for line in catalog.summarize_closure(dangling):
         _log("  " + line)
 
+    # Each side must have read only what its own target set asked for. Checked
+    # on every run because the failure it catches is invisible in the output: a
+    # stale tree cache leaves extra files on one side, and they surface as a
+    # mass deletion on the other, at the highest severity the tool assigns.
+    out_of_scope = {}
+    for snap in (old, new):
+        bad = catalog.scope_violations(snap)
+        if bad:
+            out_of_scope[snap.ref] = bad
+        for line in catalog.summarize_violations(snap, bad):
+            _log("  " + line)
+
     _log("[3/5] diff")
     platform = PLATFORM
     changes = diff_snapshots(old, new, platform=platform,
@@ -211,6 +223,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "partitions": sorted(args.partitions) if args.partitions else [],
             "complete": args.complete,
             "unresolved_references": dangling,
+            "out_of_scope_files": out_of_scope,
             "tool_version": __version__,
         },
     )

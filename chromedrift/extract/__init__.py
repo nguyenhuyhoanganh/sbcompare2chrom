@@ -52,25 +52,53 @@ def _skip(rel_path: str) -> bool:
 
 
 def _in_scope(rel_path: str, allow_paths: Optional[Set[str]],
-              allow_prefixes: Optional[Set[str]]) -> bool:
-    """True when this file belongs to the declared target set."""
+              allow_prefixes) -> bool:
+    """True when this file belongs to the declared target set.
+
+    A tree target carries a suffix filter as well as a path, and the scope has
+    to honour both.  Matching on the path alone lets a file the target never
+    asked for be extracted anyway, purely because an earlier run left it in the
+    shared per-ref tree cache -- and the two sides of a comparison rarely have
+    the same leftovers, so the difference reads as a mass deletion.
+
+    Measured on M148 -> M151: the ``chrome/browser/ui/webui`` target asks for
+    ``.cc`` only, but a previous ``--partition settings --complete`` run had
+    left 103 ``.mojom`` files under that prefix in the M148 tree and none in
+    the M151 one.  Prefix-only scoping read all 103, producing **803 phantom
+    "Mojo method removed" findings** -- the highest-severity signal the tool
+    has, at the top of the report, describing nothing.
+    """
     if allow_paths is None and allow_prefixes is None:
         return True  # unscoped: caller wants everything present
     if allow_paths and rel_path in allow_paths:
         return True
-    if allow_prefixes and any(rel_path.startswith(p) for p in allow_prefixes):
-        return True
+    for prefix, include in _as_pairs(allow_prefixes):
+        if not rel_path.startswith(prefix):
+            continue
+        if not include or rel_path.endswith(tuple(include)):
+            return True
     return False
+
+
+def _as_pairs(allow_prefixes):
+    """Accept either ``{prefix: include}`` or a bare set of prefixes."""
+    if not allow_prefixes:
+        return ()
+    if isinstance(allow_prefixes, dict):
+        return tuple(allow_prefixes.items())
+    return tuple((p, None) for p in allow_prefixes)
 
 
 def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
                 allow_paths: Optional[Set[str]] = None,
-                allow_prefixes: Optional[Set[str]] = None
+                allow_prefixes=None
                 ) -> Tuple[List[Fact], Dict[str, int]]:
     """Walk a materialized partial checkout and run every matching extractor.
 
     ``allow_paths`` / ``allow_prefixes`` scope extraction to what the caller's
-    target set actually declared.  Without that scoping, extraction silently
+    target set actually declared.  ``allow_prefixes`` may be a bare set of path
+    prefixes, or a ``{prefix: suffix_filter}`` mapping -- the mapping form is
+    what keeps a tree target's filter in force, see ``_in_scope``.  Without that scoping, extraction silently
     takes its scope from whatever happens to be on disk -- and since the tree
     cache is shared per ref across target sets, running ``--target-set minimal``
     in a directory a previous ``default`` run had populated produced a

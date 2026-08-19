@@ -285,3 +285,84 @@ def summarize_closure(dangling: Dict[str, List[str]], limit: int = 8) -> List[st
         if len(names) > limit:
             lines.append(f"          ... and {len(names) - limit} more")
     return lines
+
+
+# ---------------------------------------------------------------------------
+# Scope violations: the check that would have caught the tree-filter leak
+#
+# The tree cache is shared per ref across target sets and partitions, so a wider
+# earlier run leaves files behind. If the reading side does not apply the same
+# filter the fetching side did, those leftovers are extracted -- and the two
+# refs almost never carry the same leftovers, so the difference surfaces as a
+# mass deletion of whatever the other side happens to lack.
+#
+# Measured: 103 stray .mojom files under chrome/browser/ui/webui in the M148
+# tree and none in the M151 tree produced 803 "Mojo method removed" findings at
+# severity 80 -- the highest the tool assigns, at the top of the report,
+# describing nothing that happened.
+#
+# Comparing the two sides for symmetry was the first thing tried, and it cannot
+# work: a file type legitimately vanishes when Chromium migrates one (the
+# desktop WebUI move from Polymer `.html` to Lit `.html.ts` empties a suffix
+# inside a root), and legitimately appears when a surface is new. Both look
+# exactly like a leak.
+#
+# Asking a single snapshot whether it read anything its own target set never
+# allowed has no such ambiguity. It needs no second snapshot, it names the
+# offending files, and it is exact rather than heuristic.
+# ---------------------------------------------------------------------------
+
+
+def declared_scope(snapshot) -> tuple:
+    """(exact files, {tree prefix: suffix filter}) this snapshot was allowed."""
+    meta = snapshot.meta or {}
+    targets = get_targets(meta.get("target_set", "default"),
+                          meta.get("partitions") or None,
+                          bool(meta.get("complete")))
+    return ({t.path for t in targets if t.kind == "file"},
+            {t.path.rstrip("/") + "/": t.include
+             for t in targets if t.kind == "tree"})
+
+
+def scope_violations(snapshot) -> List[str]:
+    """Files this snapshot drew facts from that its target set never allowed."""
+    try:
+        files, trees = declared_scope(snapshot)
+    except (KeyError, ValueError):
+        return []
+    bad: Set[str] = set()
+    for fact in snapshot.facts:
+        path = fact.path
+        if not path or path in files:
+            continue
+        for prefix, include in trees.items():
+            if path.startswith(prefix):
+                if include and not path.endswith(tuple(include)):
+                    bad.add(path)
+                break
+        else:
+            bad.add(path)
+    return sorted(bad)
+
+
+def summarize_violations(snapshot, violations: List[str],
+                         limit: int = 6) -> List[str]:
+    if not violations:
+        return ["scope: ok — every fact came from a file the target set asked for"]
+    by_suffix: Dict[str, int] = {}
+    for path in violations:
+        name = path.rsplit("/", 1)[-1]
+        suffix = "." + name.split(".", 1)[1] if "." in name else "(none)"
+        by_suffix[suffix] = by_suffix.get(suffix, 0) + 1
+    lines = [f"scope: {len(violations)} FILE(S) OUT OF SCOPE in {snapshot.ref} — "
+             f"facts were read from files this target set never asked for"]
+    for suffix, n in sorted(by_suffix.items(), key=lambda kv: -kv[1]):
+        lines.append(f"  {n:5d}  *{suffix}")
+    for path in violations[:limit]:
+        lines.append(f"          {path}")
+    if len(violations) > limit:
+        lines.append(f"          ... and {len(violations) - limit} more")
+    lines.append("      This is a stale tree cache, not a Chromium change. "
+                 "Re-run that side with --refresh; diffing it would report the "
+                 "extra files as a mass deletion on the other side.")
+    return lines

@@ -98,7 +98,11 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
     # Scope extraction to what this target set declared, not to whatever the
     # shared per-ref tree cache happens to hold from an earlier run.
     allow_paths = {t.path for t in targets if t.kind == "file"}
-    allow_prefixes = {t.path.rstrip("/") + "/" for t in targets if t.kind == "tree"}
+    # The suffix filter travels with the prefix. Without it, a file left in the
+    # shared per-ref tree cache by an earlier, wider run gets extracted even
+    # though this target set never asked for it.
+    allow_prefixes = {t.path.rstrip("/") + "/": t.include
+                      for t in targets if t.kind == "tree"}
 
     log(f"  extracting from {root} ...")
     facts, stats = run_on_tree(root, log=log, allow_paths=allow_paths,

@@ -1640,5 +1640,138 @@ class TestNoVerdictStage(unittest.TestCase):
                          md_report.render(self._report()))
 
 
+class TestTreeFilterIsPartOfScope(unittest.TestCase):
+    """A tree target's suffix filter has to survive into extraction.
+
+    The tree cache is shared per ref across target sets and partitions, so a
+    wider earlier run leaves files behind that a later, narrower run never
+    asked for. Scoping on the path prefix alone extracts them anyway -- and
+    since the two sides of a comparison rarely carry the same leftovers, the
+    difference reads as a mass deletion of whatever the other side lacks.
+
+    Measured: 103 stray .mojom files under chrome/browser/ui/webui in one
+    snapshot and none in the other produced 803 phantom "Mojo method removed"
+    findings, at the highest severity the tool assigns.
+    """
+
+    def _tree(self, tmp):
+        import os
+        webui = os.path.join(tmp, "chrome", "browser", "ui", "webui")
+        os.makedirs(webui)
+        with open(os.path.join(webui, "handler.cc"), "w") as fh:
+            fh.write('html_source->AddBoolean("someKey", '
+                     'base::FeatureList::IsEnabled(features::kThing));')
+        # The leftover a --complete run would have deposited here.
+        with open(os.path.join(webui, "leftover.mojom"), "w") as fh:
+            fh.write("module chrome.mojom;\ninterface Stray { DoThing(); };\n")
+        return webui
+
+    def test_a_leftover_file_outside_the_filter_is_not_extracted(self):
+        import tempfile
+        from chromedrift.extract import run_on_tree
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._tree(tmp)
+            facts, _ = run_on_tree(
+                tmp, allow_prefixes={"chrome/browser/ui/webui/": (".cc",)})
+            kinds = {f.kind for f in facts}
+            self.assertIn("webui_gate", kinds, "the .cc target must still be read")
+            self.assertNotIn("mojo_interface", kinds,
+                             "a .mojom left in the tree cache is not in scope")
+
+    def test_a_prefix_with_no_filter_still_takes_everything(self):
+        """The bare-set form keeps working, for callers that want the tree."""
+        import tempfile
+        from chromedrift.extract import run_on_tree
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._tree(tmp)
+            facts, _ = run_on_tree(tmp, allow_prefixes={"chrome/browser/ui/webui/"})
+            self.assertIn("mojo_interface", {f.kind for f in facts})
+
+    def test_the_snapshot_scope_carries_the_filter(self):
+        """snapshot.py must pass the filter through, not just the path."""
+        from chromedrift.targets import get_targets
+
+        prefixes = {t.path.rstrip("/") + "/": t.include
+                    for t in get_targets("default") if t.kind == "tree"}
+        self.assertEqual(prefixes.get("chrome/browser/ui/webui/"), (".cc",))
+
+
+class TestScopeViolations(unittest.TestCase):
+    """A snapshot must not hold facts from files its target set never asked for.
+
+    This is the check that would have caught the tree-filter leak. Comparing
+    the two sides for symmetry was tried first and cannot work: a file type
+    legitimately vanishes when Chromium migrates one (Polymer `.html` to Lit
+    `.html.ts`) and legitimately appears when a surface is new, and both look
+    exactly like a leak. Asking one snapshot whether it stayed inside its own
+    declared scope is exact instead of heuristic.
+    """
+
+    def _snap(self, paths):
+        from chromedrift.model import Fact, Snapshot
+        return Snapshot(
+            ref="test", meta={"target_set": "default", "partitions": [],
+                              "complete": False},
+            facts=[Fact(kind="x", key=p, name="x", path=p) for p in paths])
+
+    def test_a_file_outside_the_tree_filter_is_flagged(self):
+        from chromedrift.catalog import scope_violations
+
+        # The default target asks for chrome/browser/ui/webui as *.cc only.
+        snap = self._snap(["chrome/browser/ui/webui/downloads/downloads.cc",
+                           "chrome/browser/ui/webui/downloads/downloads.mojom"])
+        self.assertEqual(scope_violations(snap),
+                         ["chrome/browser/ui/webui/downloads/downloads.mojom"])
+
+    def test_a_file_under_no_target_at_all_is_flagged(self):
+        from chromedrift.catalog import scope_violations
+        snap = self._snap(["chrome/browser/ui/views/toolbar/toolbar_view.cc"])
+        self.assertEqual(len(scope_violations(snap)), 1)
+
+    def test_a_clean_snapshot_is_silent(self):
+        from chromedrift.catalog import scope_violations
+        snap = self._snap(["chrome/browser/ui/webui/downloads/downloads.cc",
+                           "chrome/common/pref_names.h",
+                           "third_party/blink/public/mojom/frame/frame.mojom"])
+        self.assertEqual(scope_violations(snap), [])
+
+    def test_a_polymer_to_lit_migration_is_not_a_violation(self):
+        """Both dialects are inside the WebUI filter, so neither is out of scope."""
+        from chromedrift.catalog import scope_violations
+        snap = self._snap(["chrome/browser/resources/history/app.html",
+                           "chrome/browser/resources/history/app.html.ts"])
+        self.assertEqual(scope_violations(snap), [])
+
+    def test_the_real_snapshots_in_the_cache_are_clean(self):
+        """Runs against whatever real snapshots this machine has built."""
+        import glob
+        import os
+
+        from chromedrift.catalog import scope_violations
+        from chromedrift.model import Snapshot, read_json
+
+        from chromedrift.model import SCHEMA_VERSION
+
+        found = sorted(glob.glob(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            ".chromedrift-cache", "snapshots", "*.json")))
+        checked = 0
+        for path in found:
+            raw = read_json(path)
+            # A snapshot written by another version of this code was scoped by
+            # that version's target set, so judging it against this one says
+            # nothing. The pipeline rebuilds those anyway.
+            if raw.get("schema") != SCHEMA_VERSION:
+                continue
+            checked += 1
+            snap = Snapshot.from_dict(raw)
+            self.assertEqual(scope_violations(snap), [],
+                             f"{os.path.basename(path)} read out-of-scope files")
+        if not checked:
+            self.skipTest("no current-schema snapshots on this machine")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

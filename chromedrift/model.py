@@ -62,7 +62,14 @@ from typing import Any, Dict, Iterable, List, Optional
 #      the reader is a human or an agent running the
 #      `analyzing-chromium-uprevs` skill. A version 11 report may hold `ai`
 #      blocks, which nothing here reads any more.
-SCHEMA_VERSION = 12
+#  13: extraction honours a tree target's suffix filter, not just its path
+#      prefix. Version 12 snapshots extracted whatever an earlier, wider run
+#      had left under the prefix in the shared tree cache: at M148 that was 103
+#      .mojom files under chrome/browser/ui/webui, which the "default" target
+#      asks for as .cc only. Diffed against a clean M151 it produced 803
+#      phantom "Mojo method removed" findings at severity 80 -- the tool's
+#      highest -- sitting at the top of the report.
+SCHEMA_VERSION = 13
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
