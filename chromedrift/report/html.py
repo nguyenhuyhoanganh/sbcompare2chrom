@@ -13,7 +13,7 @@ import json
 from typing import List
 
 from ..diff import SIGNAL_LABELS
-from ..model import BUCKET_LABELS, BUCKET_ORDER, KIND_LABELS, Report
+from ..model import BUCKET_LABELS, BUCKET_ORDER, KIND_GROUPS, KIND_LABELS, Report
 from . import markdown as md_report
 
 _CSS = """
@@ -274,6 +274,18 @@ def render(report: Report, platform: str = "windows") -> str:
 
     option = lambda v, label="": f'<option value="{html.escape(v)}">{html.escape(label or v)}</option>'
 
+    # Grouped, because a flat list of thirteen kinds reads as thirteen kinds of
+    # "feature" -- and two thirds of them are not features at all. The groups
+    # say which is which without needing a legend.
+    surface_options = ""
+    for group_name, group_kinds in KIND_GROUPS:
+        present = [k for k in group_kinds if k in kinds]
+        if not present:
+            continue
+        surface_options += f'<optgroup label="{html.escape(group_name)}">'
+        surface_options += "".join(option(k, KIND_LABELS.get(k, k)) for k in present)
+        surface_options += "</optgroup>"
+
     return f"""<title>{html.escape(md_report.MODE_TITLES[mode])}</title>
 <style>{_CSS}</style>
 <div class="wrap">
@@ -290,7 +302,7 @@ platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}
 <select id="fb"><option value="">All buckets</option>
 {''.join(option(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER)}</select>
 <select id="fk"><option value="">All surfaces</option>
-{''.join(option(k, KIND_LABELS.get(k,k)) for k in kinds)}</select>
+{surface_options}</select>
 <select id="fa"><option value="">All areas</option>
 {''.join(option(a) for a in areas)}
 {option("__none__", f"(no area) — {unassigned_count}") if unassigned_count else ""}</select>

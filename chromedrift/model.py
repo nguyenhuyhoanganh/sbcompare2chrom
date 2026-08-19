@@ -118,6 +118,39 @@ KIND_LABELS = {
     KIND_WEBUI_GATE: "WebUI visibility gate",
 }
 
+# The thirteen kinds are not thirteen kinds of "feature", and reading them as
+# though they were is the most common misreading of a report. They fall into
+# three groups that differ in what a change to them *means*:
+#
+#   switches   the only group where a change moves behaviour on its own
+#   contracts  a change breaks something outside the binary, silently -- stored
+#              user data, launch scripts, live websites, the other process
+#   surface    a change moves what the user sees, or moves a removal date
+#
+# Measured on a real M139 -> M143 report: 3,120 findings split 34% / 35% / 30%,
+# so two thirds of a report is *not* about features being turned on or off.
+# A flat kind list hides that, which is why the report groups its filter.
+KIND_GROUP_SWITCH = "Behaviour switches"
+KIND_GROUP_CONTRACT = "External contracts"
+KIND_GROUP_SURFACE = "UI and scheduling"
+
+KIND_GROUPS = (
+    (KIND_GROUP_SWITCH, (KIND_BASE_FEATURE, KIND_FEATURE_PARAM, KIND_BLINK_RUNTIME)),
+    (KIND_GROUP_CONTRACT, (KIND_PREF, KIND_SWITCH, KIND_IDL_INTERFACE,
+                           KIND_IDL_MEMBER, KIND_MOJO_INTERFACE, KIND_MOJO_METHOD)),
+    (KIND_GROUP_SURFACE, (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE,
+                          KIND_FLAG_ENTRY)),
+)
+
+
+def group_of(kind: str) -> str:
+    """Which of the three groups a fact kind belongs to."""
+    for name, kinds in KIND_GROUPS:
+        if kind in kinds:
+            return name
+    return ""
+
+
 ADDED = "added"
 REMOVED = "removed"
 MODIFIED = "modified"
