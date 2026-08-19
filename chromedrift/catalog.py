@@ -36,9 +36,12 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set
 from .acquire import GITILES_BASE
 from .targets import get_targets
 
-# Files whose name suggests they declare features, switches or field trials.
+# Files whose name suggests they declare features, switches or field trials --
+# or preference keys, which were added after the pref surface turned out to be
+# spread across 87 files while the target list read one of them.
 CANDIDATE_RE = re.compile(
-    r"(features|feature_list|switches|fieldtrial|field_trial|flags)\.(cc|h)$")
+    r"(features|feature_list|switches|fieldtrial|field_trial|flags"
+    r"|pref_names)\.(cc|h)$")
 
 # Test files declare features that drive tests and ship to nobody.
 TEST_PATH_RE = re.compile(
@@ -161,7 +164,9 @@ def analyze(paths: Sequence[str], ref: str, target_set: str = "default",
                            target_paths=sorted(prefixes))
 
     for path in paths:
-        if not path.endswith(".cc"):
+        # Pref keys are declared in headers as often as in .cc files, so the
+        # candidate set cannot be .cc-only any more.
+        if not path.endswith((".cc", ".h")):
             continue
         if not CANDIDATE_RE.search(path):
             continue

@@ -250,12 +250,21 @@ State these limits in every report. A clean report does not imply a clean uprev.
   | Blink runtime features | 1 file | 1 file (complete) |
   | Web IDL | 2,167 | 2,575 (84%) |
   | Mojo interfaces | 490 | 1,588 (**30%**) |
-  | `pref_names` files | 3 | 164 (**1%**) |
+  | `pref_names.h` keys | 1,571 | 1,571 non-ChromeOS (complete) |
   | WebUI surfaces | 8 | 132 (**6%**) |
 
-  Mojo and prefs are the ones to state explicitly in a report: Mojo carries the
-  highest-severity findings, and prefs outside `chrome/common/pref_names.h`
-  — every `components/*/pref_names.h` — are simply not read.
+  Mojo is the one to state explicitly in a report: it carries the
+  highest-severity findings and only `third_party/blink/public/mojom` is read.
+
+  The pref surface used to be the worst gap here and is now closed: all 87
+  files in the tree that declare keys are read, not just
+  `chrome/common/pref_names.h`. What remains deliberately unread is the
+  ChromeOS pref files, which is correct for a Windows product — but Chromium is
+  splitting `chrome/common/pref_names.h` apart, so ChromeOS keys leaving it
+  still surface as disappearances. Measured M148 → M151: of 141 keys that
+  vanished, 100 were found in ChromeOS pref files. That is what the
+  `pref_left_scan` signal is for; never report one as a deletion without
+  searching the tree for the key first.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
   is not, and neither is `page_visibility.ts`.

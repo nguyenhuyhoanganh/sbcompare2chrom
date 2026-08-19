@@ -69,7 +69,11 @@ from typing import Any, Dict, Iterable, List, Optional
 #      asks for as .cc only. Diffed against a clean M151 it produced 803
 #      phantom "Mojo method removed" findings at severity 80 -- the tool's
 #      highest -- sitting at the top of the report.
-SCHEMA_VERSION = 13
+#  14: the target set reads every pref file in the tree, not just
+#      chrome/common/pref_names.h. Version 13 snapshots hold 683 pref keys
+#      where 1,575 exist, so 892 keys were absent -- and because Chromium is
+#      actively splitting that file up, keys leaving it read as deletions.
+SCHEMA_VERSION = 14
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

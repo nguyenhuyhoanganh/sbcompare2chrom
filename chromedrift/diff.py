@@ -101,10 +101,10 @@ BASE_SEVERITY: Dict[Tuple[str, str], int] = {
     (KIND_BLINK_RUNTIME, REMOVED): 20,
     (KIND_BLINK_RUNTIME, ADDED): 25,
     (KIND_BLINK_RUNTIME, MODIFIED): 40,
-    (KIND_SWITCH, REMOVED): 50,
+    (KIND_SWITCH, REMOVED): 30,
     (KIND_SWITCH, ADDED): 10,
     (KIND_SWITCH, MODIFIED): 40,
-    (KIND_PREF, REMOVED): 55,
+    (KIND_PREF, REMOVED): 35,
     (KIND_PREF, ADDED): 10,
     (KIND_PREF, MODIFIED): 45,
     (KIND_FLAG_ENTRY, REMOVED): 30,
@@ -143,6 +143,20 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "ipc_removed": 75,
     "pref_renamed": 70,
     "switch_renamed": 60,
+    # A pref or switch that simply stops appearing is *not* evidence that
+    # Chromium deleted it. Measured at M151: 100 non-ChromeOS `pref_names`
+    # files exist and this tool reads one of them, so a key leaving
+    # chrome/common/pref_names.h is at least as likely to have moved into a
+    # file outside the scan. Chromium is actively splitting that file up --
+    # 4,322 lines at M143, 3,267 at M151 -- which turned 337 such moves into
+    # 337 "removed" findings at severity 55 across two uprevs.
+    #
+    # The honest severity is lower than a confirmed removal and higher than
+    # nothing, because the one case that would matter is real and invisible.
+    # A *rename*, by contrast, is confirmed evidence (the C++ variable pairs
+    # the two sides), so it keeps its high floor above.
+    "pref_left_scan": 35,
+    "switch_left_scan": 30,
     "feature_string_renamed": 75,
     "declaration_moved": 25,
     "ui_page_removed": 55,
@@ -210,6 +224,11 @@ SIGNAL_LABELS: Dict[str, str] = {
     "ipc_removed": "Mojo interface/method removed",
     "pref_renamed": "Preference key renamed (stored values orphaned)",
     "switch_renamed": "Command-line switch renamed",
+    "pref_left_scan": "Preference no longer in the file we read — it may have "
+                      "been deleted, orphaning stored values, or simply moved "
+                      "to one of the ~100 pref files outside the scan",
+    "switch_left_scan": "Command-line switch no longer in the files we read — "
+                        "deleted, or moved outside the scan",
     "feature_string_renamed": "Finch feature name renamed (field trials and "
                               "--enable-features stop matching)",
     "declaration_moved": "Declaration moved to another file",
@@ -445,6 +464,13 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
         elif ("expression" in change.deltas or "features" in change.deltas
               or "enabled_checks" in change.deltas):
             signals.append("ui_gate_changed")
+    elif kind in (KIND_PREF, KIND_SWITCH):
+        if change.change_type == REMOVED:
+            # Rename detection runs as a post-pass and replaces this change
+            # outright when it can pair the two sides by C++ variable, so
+            # anything still here is a disappearance we could not explain.
+            signals.append("pref_left_scan" if kind == KIND_PREF
+                           else "switch_left_scan")
     elif kind == KIND_FLAG_ENTRY:
         if change.change_type in (ADDED, MODIFIED) and new_fact is not None:
             expiry = new_fact.attrs.get("expiry_milestone")

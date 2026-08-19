@@ -118,7 +118,7 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 | Blink runtime features | 1 file | 1 file | **100%** |
 | Web IDL | 2.167 | 2.575 | 84% |
 | **Mojo (IPC)** | 490 | 1.588 | **30%** |
-| **`pref_names`** | 3 | 164 | **1%** |
+| `pref_names` | 87 file · 1.571 khoá | 87 file (bỏ ChromeOS/iOS) | **100%** |
 | **Bề mặt WebUI** | 8 | 132 | **6%** |
 
 **Hai dòng cần nêu rõ trong mọi báo cáo:**
@@ -126,10 +126,23 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 - **Mojo 30%** — đây là loại mang finding nghiêm trọng nhất hệ thống (severity
   80). Chỉ đọc `third_party/blink/public/mojom`; toàn bộ `services/`,
   `content/`, `chrome/` không đọc.
-- **`pref_names` 1%** — chỉ đọc `chrome/common/pref_names.h`. Mọi
-  `components/*/pref_names.h` (downloads, bookmarks, history, autofill) không
-  đọc. Mà đổi tên pref là lỗi im lặng điển hình: build qua, test xanh, cài đặt
-  người dùng âm thầm reset.
+- **`pref_names` — đã đóng.** Trước đây chỉ đọc `chrome/common/pref_names.h`,
+  tức 683 khoá trên 1.575 khoá có thật. Đo tại M151 bằng cách liệt kê mọi
+  `*pref_names.{h,cc}` trong cây rồi đọc từng file: 144 ứng viên, 87 file thực
+  sự khai khoá. Nay tải cả 87 (366 KB, khoảng 0,5% dung lượng một lần chạy) và
+  đọc được **1.571 khoá**.
+
+  Phần cố ý không đọc là các file pref của ChromeOS/ash — đúng, vì đây là sản
+  phẩm Windows. Nhưng chúng vẫn để lại dấu vết: Chromium đang tách
+  `chrome/common/pref_names.h` (4.322 dòng ở M143 → 3.267 ở M151), và khoá
+  ChromeOS rời khỏi đó sẽ hiện ra như "biến mất". Đo M148 → M151: 141 khoá biến
+  mất, **100 trong số đó (70%) tìm thấy trong file pref của ChromeOS**, phần
+  còn lại cũng hầu hết mang tên Android/ChromeOS.
+
+  Vì thế khoá pref biến mất mang signal `pref_left_scan` ở mức 35, với nhãn nói
+  rõ là *có thể bị xoá, cũng có thể chỉ chuyển chỗ* — chứ không khẳng định là
+  xoá. Đổi tên pref thì vẫn giữ mức 70, vì ghép được hai bên qua tên biến C++
+  nên đó là bằng chứng chắc chắn.
 
 `must fix: 0` **không bao giờ** nghĩa là "uprev sạch". Nó nghĩa là "không thấy
 gì trong phần đã quét".

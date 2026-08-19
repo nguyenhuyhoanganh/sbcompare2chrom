@@ -1773,5 +1773,51 @@ class TestScopeViolations(unittest.TestCase):
             self.skipTest("no current-schema snapshots on this machine")
 
 
+class TestPrefCoverage(unittest.TestCase):
+    """Pref keys are a contract with data already on the user's disk.
+
+    Reading one pref file out of 87 was not a smaller report, it was a class of
+    silent breakage the tool claimed to cover: a renamed key orphans every
+    existing profile's stored value while the code still builds and the tests
+    still pass. Chromium is actively splitting chrome/common/pref_names.h
+    apart, so the gap was widening on its own.
+    """
+
+    def test_the_target_set_reads_more_than_one_pref_file(self):
+        from chromedrift.targets import get_targets
+
+        pref_targets = [t for t in get_targets("default")
+                        if "pref_names" in t.path]
+        self.assertGreater(len(pref_targets), 50,
+                           "the pref surface is spread across ~87 files")
+        self.assertIn("chrome/common/pref_names.h",
+                      {t.path for t in pref_targets})
+
+    def test_the_extractor_claims_every_declared_pref_file(self):
+        """A target nothing reads is a wasted fetch, and a silent one."""
+        from chromedrift.extract import constants
+        from chromedrift.targets import get_targets
+
+        for target in get_targets("default"):
+            if "pref_names" in target.path:
+                self.assertTrue(constants.applies_to(target.path),
+                                f"{target.path} is fetched but never read")
+
+    def test_catalog_measures_the_pref_surface(self):
+        """The gap has to stay measurable, or it silently reopens."""
+        from chromedrift.catalog import analyze
+
+        paths = ["components/sync/base/pref_names.h",
+                 "chrome/common/pref_names.h",
+                 "components/omnibox/browser/omnibox_pref_names.h",
+                 "chrome/browser/ash/app_mode/pref_names.h"]  # platform we skip
+        report = analyze(paths, ref="test", target_set="default")
+        seen = {c.path for c in report.candidates}
+        self.assertIn("components/sync/base/pref_names.h", seen)
+        self.assertIn("chrome/common/pref_names.h", seen)
+        self.assertTrue(all(c.covered for c in report.candidates
+                            if c.path != "chrome/browser/ash/app_mode/pref_names.h"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

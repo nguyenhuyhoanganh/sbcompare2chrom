@@ -74,6 +74,24 @@ discover late, because nothing warns you.
 Always check these against things the tool cannot see: Finch configs, launch
 scripts, CI automation, QA harnesses.
 
+### Disappeared, cause unknown
+
+| Signal | Meaning |
+|---|---|
+| `pref_left_scan` | A preference key is no longer in the one `pref_names.h` file this tool reads. It was either deleted — orphaning every user's stored value — or moved into one of the ~100 other `pref_names.h` files outside the scan |
+| `switch_left_scan` | Same, for a command-line switch |
+
+**These two are deliberately uncertain, and the uncertainty is the finding.**
+Chromium is actively splitting `chrome/common/pref_names.h` apart: 4,322 lines
+at M143, 3,267 at M151. Measured across M143 → M148 → M151 that produced **337
+disappearances**, and the tool cannot tell a deletion from a move because it
+reads 1 of the ~100 non-ChromeOS `pref_names.h` files.
+
+Resolve one by searching the current Chromium tree for the key string. Found
+elsewhere means it moved and there is nothing to do; genuinely absent means
+stored user data is orphaned, which is a real and silent break. Do not report
+either outcome until you have looked.
+
 ## Structural
 
 | Signal | Meaning |
