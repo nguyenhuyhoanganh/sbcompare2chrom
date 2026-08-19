@@ -1819,5 +1819,77 @@ class TestPrefCoverage(unittest.TestCase):
                             if c.path != "chrome/browser/ash/app_mode/pref_names.h"))
 
 
+class TestIdentityMovesAreStillChanges(unittest.TestCase):
+    """When the part of a fact that moved *is* its identity, pairing recovers it.
+
+    Two cases found by auditing six real versions, both of which produced no
+    usable finding at all before:
+
+    A base::Feature is keyed on its feature string, so renaming the C++
+    identifier while holding the string emitted nothing -- yet downstream code
+    writes `features::kFoo`, never the string, so the rename breaks our build.
+    kDIPS -> kBtm is a real instance.
+
+    A WebUI control's identity contains the preference it writes, because the
+    preference alone is not unique. So a control that starts writing a
+    different preference changes identity with it, and arrived as an unrelated
+    removal plus addition -- 21 times across M130 -> M151.
+    """
+
+    def _feature(self, name, var):
+        from chromedrift.model import Fact
+        return Fact(kind="base_feature", key=name, name=name,
+                    path="content/features.cc",
+                    attrs={"var": var, "default_state": "enabled",
+                           "platform_state": {"windows": "enabled"}})
+
+    def _control(self, pref, element_id, control="settings-toggle-button"):
+        from chromedrift.model import Fact
+        key = f"settings/a11y_page/pref:{pref}#{element_id}"
+        return Fact(kind="webui_control", key=key, name=key,
+                    path="chrome/browser/resources/settings/a11y_page/p.html",
+                    attrs={"surface": "settings", "page": "a11y_page",
+                           "control": control, "pref": pref, "label": "",
+                           "element_id": element_id, "build_conditions": []})
+
+    def test_a_renamed_cpp_identifier_is_reported(self):
+        changes = diff_snapshots(snap("130.0.0.0", [self._feature("DIPS", "kDIPS")]),
+                                 snap("136.0.0.0", [self._feature("DIPS", "kBtm")]))
+        self.assertEqual(len(changes), 1)
+        self.assertIn("feature_symbol_renamed", changes[0].signals)
+        self.assertEqual(changes[0].deltas["var"], ["kDIPS", "kBtm"])
+
+    def test_a_repointed_control_becomes_one_finding(self):
+        changes = diff_snapshots(
+            snap("148.0.0.0", [self._control("a11y.old_key", "toggle")]),
+            snap("151.0.0.0", [self._control("a11y.new_key", "toggle")]))
+        self.assertEqual(len(changes), 1, [c.name for c in changes])
+        self.assertIn("ui_control_repointed", changes[0].signals)
+        self.assertEqual(changes[0].deltas["pref"], ["a11y.old_key", "a11y.new_key"])
+
+    def test_a_repoint_that_also_changes_the_control_type_says_both(self):
+        changes = diff_snapshots(
+            snap("148.0.0.0", [self._control("a11y.old", "t")]),
+            snap("151.0.0.0", [self._control("a11y.new", "t", "settings-dropdown-menu")]))
+        self.assertEqual(len(changes), 1)
+        self.assertIn("ui_control_repointed", changes[0].signals)
+        self.assertIn("ui_control_type_changed", changes[0].signals)
+
+    def test_two_controls_leaving_one_anchor_are_not_paired(self):
+        """Pairing is only safe when exactly one leaves and one arrives."""
+        changes = diff_snapshots(
+            snap("148.0.0.0", [self._control("a.one", "t"), self._control("a.two", "t")]),
+            snap("151.0.0.0", [self._control("a.three", "t")]))
+        self.assertEqual([c for c in changes if "ui_control_repointed" in c.signals], [])
+
+    def test_fork_mode_does_not_pair_either_of_them(self):
+        """Across a fork these are two decisions, not one move."""
+        from chromedrift.model import MODE_FORK
+        changes = diff_snapshots(
+            snap("148.0.0.0", [self._control("a11y.old", "t")]),
+            snap("sb-main-dev", [self._control("a11y.new", "t")]), mode=MODE_FORK)
+        self.assertEqual(len(changes), 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -118,7 +118,7 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 | Blink runtime features | 1 file | 1 file | **100%** |
 | Web IDL | 2.167 | 2.575 | 84% |
 | **Mojo (IPC)** | 490 | 1.588 | **30%** |
-| `pref_names` | 87 file · 1.571 khoá | 87 file (bỏ ChromeOS/iOS) | **100%** |
+| Khoá pref | 140 file · 2.035 khoá | 140 file (bỏ ChromeOS/iOS) | **100%** |
 | **Bề mặt WebUI** | 8 | 132 | **6%** |
 
 **Hai dòng cần nêu rõ trong mọi báo cáo:**
@@ -129,8 +129,16 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 - **`pref_names` — đã đóng.** Trước đây chỉ đọc `chrome/common/pref_names.h`,
   tức 683 khoá trên 1.575 khoá có thật. Đo tại M151 bằng cách liệt kê mọi
   `*pref_names.{h,cc}` trong cây rồi đọc từng file: 144 ứng viên, 87 file thực
-  sự khai khoá. Nay tải cả 87 (366 KB, khoảng 0,5% dung lượng một lần chạy) và
-  đọc được **1.571 khoá**.
+  sự khai khoá.
+
+  Đợt rà soát sau đó cho thấy Chromium dùng **hai** quy ước đặt tên chứ không
+  phải một: `*_prefs.{h,cc}` giữ thêm **469 khoá ở 54 file** — Memory Saver,
+  Safety Hub, signin, enterprise connectors — mà cả danh sách tải lẫn extractor
+  đều bỏ qua. Nay đọc cả hai quy ước: **140 file, 2.035 khoá** (822 KB).
+
+  Kết quả phụ đáng giá: **183 khoá "chuyển file"** giờ hiện đúng là chuyển chỗ
+  (`declaration_moved`) thay vì một cặp xoá + thêm không liên quan, vì cả file
+  nguồn lẫn file đích đều đọc được.
 
   Phần cố ý không đọc là các file pref của ChromeOS/ash — đúng, vì đây là sản
   phẩm Windows. Nhưng chúng vẫn để lại dấu vết: Chromium đang tách

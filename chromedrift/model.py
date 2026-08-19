@@ -73,7 +73,22 @@ from typing import Any, Dict, Iterable, List, Optional
 #      chrome/common/pref_names.h. Version 13 snapshots hold 683 pref keys
 #      where 1,575 exist, so 892 keys were absent -- and because Chromium is
 #      actively splitting that file up, keys leaving it read as deletions.
-SCHEMA_VERSION = 14
+#  15: four corrections found by auditing extraction and comparison against six
+#      real versions (M130 through M151):
+#        - a base::Feature's C++ identifier is compared. Version 14 keyed on
+#          the feature string only, so renaming the identifier while holding
+#          the string produced no change at all -- kDIPS -> kBtm among them,
+#          which breaks the build of anything writing features::kDIPS.
+#        - a WebUI control that starts writing a different preference is paired
+#          and reported. Version 14 emitted two unconnected rows, because the
+#          preference is part of the control's identity; 21 real repoints were
+#          split that way.
+#        - the `*_prefs.{h,cc}` naming convention is read as well as
+#          `*pref_names.{h,cc}`, adding 469 keys in 54 files.
+#        - a control's `pref` attribute requires the `prefs.` binding prefix,
+#          so an ordinary component property is no longer recorded as a
+#          preference key. 27 of 156 bindings at M151 were such properties.
+SCHEMA_VERSION = 15
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

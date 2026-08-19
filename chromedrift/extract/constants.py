@@ -26,7 +26,13 @@ _STRING_CONST_RE = re.compile(
 )
 
 _SWITCH_HINT = "_switches."
-_PREF_HINTS = ("pref_names.", "pref_names_", "_pref_names.")
+# Two naming conventions carry pref keys, not one. `*pref_names.{h,cc}` is the
+# older and larger set; `*_prefs.{h,cc}` is the newer one Chromium uses for
+# per-component keys. Measured at M151, the second convention holds 469 keys in
+# 54 files -- Memory Saver, Safety Hub, signin, enterprise connectors -- none of
+# which this extractor read while it knew only the first.
+_PREF_HINTS = ("pref_names.", "pref_names_", "_pref_names.",
+               "_prefs.", "prefs.")
 
 
 def applies_to(path: str) -> bool:

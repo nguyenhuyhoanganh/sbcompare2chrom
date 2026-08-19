@@ -55,15 +55,31 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # "conditions" matters because a vendor fork shadows upstream with a
     # build flag rather than editing it: the guard appearing or
     # disappearing is the change, while the value stays identical.
-    KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions"),
-    KIND_FEATURE_PARAM: ("default", "type", "feature"),
+    # "var" is the C++ identifier. Downstream code writes `features::kFoo`,
+    # never the feature string, so renaming the identifier while keeping the
+    # string breaks our build -- and the string is what this fact is keyed on,
+    # so without comparing "var" the change produces no finding at all.
+    # Measured M130 -> M151: 4 such renames, including kDIPS -> kBtm.
+    KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions", "var"),
+    KIND_FEATURE_PARAM: ("default", "type", "feature", "var"),
     KIND_BLINK_RUNTIME: (
         "status", "platform_status", "windows_status", "base_feature",
         "base_feature_status", "origin_trial_feature_name", "depends_on",
         "implied_by", "public", "copied_from_base_feature_if",
+        # Origin-trial and internals wiring. Measured M130 -> M151:
+        # origin_trial_allows_third_party moves 36 times, the other three once
+        # each. They decide who can turn a feature on from outside the binary,
+        # so a move is a change in reach, not bookkeeping.
+        "origin_trial_allows_third_party", "settable_from_internals",
+        "browser_process_read_access", "browser_process_read_write_access",
     ),
     KIND_IDL_INTERFACE: ("idl_kind", "inherits", "ext", "values"),
     KIND_IDL_MEMBER: ("signature", "member_type", "ext", "runtime_enabled"),
+    # Effectively empty, and deliberately. "module" is part of the key, so it
+    # can never differ; "methods" and "method_count" do change -- 107 times
+    # across M130 -> M151 -- but every one of those is already a mojo_method
+    # added or removed finding of its own. Comparing them here would report the
+    # same ABI change twice, once vaguely and once precisely.
     KIND_MOJO_INTERFACE: ("module",),
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
     KIND_SWITCH: ("var",),
@@ -158,6 +174,12 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "pref_left_scan": 35,
     "switch_left_scan": 30,
     "feature_string_renamed": 75,
+    # The mirror image of feature_string_renamed: there the string moved and the
+    # identifier held; here the identifier moved and the string held. That one
+    # fails silently in Finch configs, this one fails loudly at build time --
+    # but only after the merge, which is exactly what the tool exists to move
+    # earlier.
+    "feature_symbol_renamed": 60,
     "declaration_moved": 25,
     "ui_page_removed": 55,
     "ui_page_added": 40,
@@ -231,6 +253,8 @@ SIGNAL_LABELS: Dict[str, str] = {
                         "deleted, or moved outside the scan",
     "feature_string_renamed": "Finch feature name renamed (field trials and "
                               "--enable-features stop matching)",
+    "feature_symbol_renamed": "C++ identifier renamed (code writing "
+                              "features::kOldName no longer compiles)",
     "declaration_moved": "Declaration moved to another file",
     "ui_page_removed": "Settings/WebUI page removed",
     "ui_page_added": "New Settings/WebUI page",
@@ -351,6 +375,9 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         # one thing with another, which is not a rename and must not be
         # collapsed into one.
         changes = _detect_renames(changes)
+        # Same shape of problem as a rename, on a different identity: the part
+        # of a control's key that moved is the preference it writes.
+        changes = _detect_repointed_controls(changes)
     changes.sort(key=lambda c: (-c.severity, c.kind, c.key))
     return changes
 
@@ -450,6 +477,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     elif kind == KIND_FEATURE_PARAM:
         if "default" in change.deltas:
             signals.append("param_default_changed")
+        if "var" in change.deltas:
+            signals.append("feature_symbol_renamed")
     elif kind == KIND_WEBUI_ROUTE:
         signals += _webui_route_signals(change)
     elif kind == KIND_WEBUI_CONTROL:
@@ -526,6 +555,9 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
             signals.append("enabled_by_default")
         elif new_state == "disabled":
             signals.append("disabled_by_default")
+
+    if old_fact.attrs.get("var") != new_fact.attrs.get("var"):
+        signals.append("feature_symbol_renamed")
 
     old_default = old_fact.attrs.get("default_state")
     new_default = new_fact.attrs.get("default_state")
@@ -607,7 +639,8 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
     elif new_rank < old_rank and _our_status(old_fact) == "stable":
         signals.append("web_api_unshipped")
 
-    if "origin_trial_feature_name" in change.deltas:
+    if ("origin_trial_feature_name" in change.deltas
+            or "origin_trial_allows_third_party" in change.deltas):
         signals.append("origin_trial_change")
     return signals
 
@@ -622,6 +655,75 @@ RENAME_SIGNALS = {
     KIND_SWITCH: "switch_renamed",
     KIND_BASE_FEATURE: "feature_string_renamed",
 }
+
+
+def _detect_repointed_controls(changes: List[Change]) -> List[Change]:
+    """Pair a removed and an added control that are the same control.
+
+    A control's identity contains the preference it drives, because the
+    preference alone is not unique -- a radio group and each of its buttons
+    bind the same one. That is right for identity and wrong for this: when a
+    control starts writing a *different* preference, its identity changes with
+    it, so the change arrives as an unrelated removal plus addition and the
+    `ui_control_repointed` signal can never fire.
+
+    It is not a hypothetical gap. Measured M130 -> M151, 21 controls changed
+    the preference they write while keeping their page and element id, and
+    every one of them was reported as two unconnected rows.
+
+    The consequence is the same one a renamed preference has: the old key stops
+    being written, so a value the user already set is stranded, while the new
+    key starts from its default. Pairing on page plus element id -- the parts
+    of identity that did *not* move -- recovers it.
+    """
+    def anchor(attrs: Optional[dict]) -> Optional[tuple]:
+        a = attrs or {}
+        ident = a.get("element_id") or a.get("label")
+        if not ident:
+            return None
+        return (a.get("surface", ""), a.get("page", ""), ident)
+
+    by_anchor: Dict[tuple, Dict[str, List[Change]]] = {}
+    for change in changes:
+        if change.kind != KIND_WEBUI_CONTROL:
+            continue
+        if change.change_type not in (ADDED, REMOVED):
+            continue
+        key = anchor(change.after if change.change_type == ADDED else change.before)
+        if key:
+            by_anchor.setdefault(key, {}).setdefault(change.change_type, []).append(change)
+
+    merged: List[Change] = []
+    dropped = set()
+    for key, group in by_anchor.items():
+        added, removed = group.get(ADDED, []), group.get(REMOVED, [])
+        if len(added) != 1 or len(removed) != 1:
+            continue
+        a, r = added[0], removed[0]
+        before_pref = (r.before or {}).get("pref", "")
+        after_pref = (a.after or {}).get("pref", "")
+        if before_pref == after_pref:
+            continue  # moved for some other reason; not a repoint
+        deltas: Dict[str, List] = {"pref": [before_pref, after_pref]}
+        for attr in ("control", "label"):
+            old, new = (r.before or {}).get(attr), (a.after or {}).get(attr)
+            if old != new:
+                deltas[attr] = [old, new]
+        signals = ["ui_control_repointed"]
+        if "control" in deltas:
+            signals.append("ui_control_type_changed")
+        repoint = Change(
+            change_type=MODIFIED, kind=KIND_WEBUI_CONTROL, key=r.key,
+            name=f"{r.name} -> {a.name}",
+            before=r.before, after=a.after, deltas=deltas,
+            paths=sorted(set(r.paths) | set(a.paths)), signals=signals,
+        )
+        repoint.severity = max(SIGNAL_SEVERITY[x] for x in signals)
+        merged.append(repoint)
+        dropped.add(id(a))
+        dropped.add(id(r))
+
+    return [c for c in changes if id(c) not in dropped] + merged
 
 
 def _detect_renames(changes: List[Change]) -> List[Change]:

@@ -521,5 +521,86 @@ class TestConstants(unittest.TestCase):
         self.assertFalse(constants.applies_to("chrome/browser/foo.cc"))
 
 
+class TestPrefBindingForms(unittest.TestCase):
+    """A control's link to a preference is written three ways, one of them new.
+
+    Chromium began replacing `pref="{{prefs.a.b}}"` with `pref-key="a.b"`. At
+    M151 twenty controls had moved and 125 had not, so reading one spelling
+    makes a migrated control look like one that stopped writing a preference --
+    which is what the captions settings page produced: four controls reported
+    as repointed to nothing when the key had not changed at all.
+    """
+
+    PATH = "chrome/browser/resources/settings/a11y_page/captions_page.html"
+
+    def _prefs(self, markup):
+        from chromedrift.extract import webui_controls
+        return {f.attrs["element_id"]: f.attrs["pref"]
+                for f in webui_controls.extract(markup, self.PATH)}
+
+    def test_the_new_pref_key_attribute_is_read(self):
+        got = self._prefs('<settings-dropdown-menu id="a" '
+                          'pref-key="accessibility.captions.text_color">')
+        self.assertEqual(got["a"], "accessibility.captions.text_color")
+
+    def test_the_polymer_binding_still_works(self):
+        got = self._prefs('<settings-toggle-button id="b" '
+                          'pref="{{prefs.download.prompt_for_download}}">')
+        self.assertEqual(got["b"], "download.prompt_for_download")
+
+    def test_a_component_property_is_not_a_preference(self):
+        """`{{optedIn_}}` is a private JS member, not a pref key.
+
+        The `prefs.` prefix is what separates them. Without requiring it, 27 of
+        156 bindings at M151 recorded an ordinary property as a preference --
+        each one inventing a dangling reference and giving the control an
+        identity built on a JavaScript member.
+        """
+        got = self._prefs('<settings-toggle-button id="c" pref="{{optedIn_}}">'
+                          '<settings-toggle-button id="d" pref="[[fakePref_]]">')
+        self.assertEqual(got["c"], "")
+        self.assertEqual(got["d"], "")
+
+    def test_pref_key_wins_when_both_appear(self):
+        got = self._prefs('<settings-toggle-button id="e" pref-key="a.b" '
+                          'pref="{{prefs.c.d}}">')
+        self.assertEqual(got["e"], "a.b")
+
+
+class TestPrefFileConventions(unittest.TestCase):
+    """Chromium names pref-declaring files two ways, and both carry keys.
+
+    `*pref_names.{h,cc}` is the older, larger set. `*_prefs.{h,cc}` is what
+    per-component keys use now, and at M151 it held 469 keys across 54 files --
+    Memory Saver, Safety Hub, signin, enterprise connectors -- none of which
+    were read while the extractor knew only the first spelling.
+    """
+
+    def test_both_conventions_are_recognised(self):
+        from chromedrift.extract import constants
+        for name in ("chrome/common/pref_names.h",
+                     "components/bookmarks/common/bookmark_pref_names.h",
+                     "chrome/browser/ui/safety_hub/safety_hub_prefs.h",
+                     "components/performance_manager/public/user_tuning/prefs.h",
+                     "chrome/browser/prefs/browser_prefs.cc"):
+            self.assertTrue(constants.applies_to(name), name)
+
+    def test_unrelated_files_are_not_claimed(self):
+        from chromedrift.extract import constants
+        for name in ("chrome/browser/foo.cc", "components/x/prefs_unittest.cc",
+                     "chrome/browser/prefs_test.cc"):
+            self.assertFalse(constants.applies_to(name), name)
+
+    def test_a_real_declaration_is_extracted(self):
+        from chromedrift.extract import constants
+        facts = constants.extract(
+            'inline constexpr char kMemorySaverModeEnabled[] =\n'
+            '    "performance_tuning.high_efficiency_mode.enabled";',
+            "components/performance_manager/public/user_tuning/prefs.h")
+        self.assertEqual([f.key for f in facts],
+                         ["performance_tuning.high_efficiency_mode.enabled"])
+        self.assertEqual(facts[0].attrs["var"], "kMemorySaverModeEnabled")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

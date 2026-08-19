@@ -67,6 +67,7 @@ discover late, because nothing warns you.
 | Signal | Meaning |
 |---|---|
 | `feature_string_renamed` | The Finch feature name changed. Server-side field trials and `--enable-features` using the old spelling silently stop matching |
+| `feature_symbol_renamed` | The mirror image: the C++ identifier changed while the feature string held. Code writing `features::kOldName` stops compiling. Loud rather than silent, but only after the merge — which is the point of seeing it now |
 | `pref_renamed` | A preference key changed. Every existing user's stored value is orphaned and the setting quietly resets |
 | `switch_renamed` | Command-line switch renamed. Launch scripts and automation stop taking effect |
 | `origin_trial_change` | Origin trial wiring changed |

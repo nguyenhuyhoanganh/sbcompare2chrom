@@ -57,9 +57,16 @@ _TAG_RE = re.compile(
 _ATTR_RE = re.compile(r"[?.@]?([\w-]+)\s*=\s*\"([^\"]*)\"")
 # Polymer  pref="{{prefs.a.b}}"  or  pref="[[prefs.a.b]]"
 # Lit      .pref="${this.prefs.a.b}"
+#
+# The `prefs.` prefix is required, not optional. Without it the pattern also
+# matches a binding to an ordinary component property -- `${this.optedIn_}`,
+# `[[fakePref_]]` -- and records it as though it were a preference key. At M151
+# that was 27 of 156 bindings, none of which named a real pref, and each one
+# both invented a dangling reference and gave the control an identity built on
+# a private JavaScript member.
 _PREF_RE = re.compile(
-    r"[\{\[]{2}\s*(?:prefs\.)?([\w.]+?)(?:\.value)?\s*[\}\]]{2}"
-    r"|\$\{\s*(?:this\.)?(?:prefs\.)?([\w.]+?)(?:\.value)?\s*\}")
+    r"[\{\[]{2}\s*prefs\.([\w.]+?)(?:\.value)?\s*[\}\]]{2}"
+    r"|\$\{\s*(?:this\.)?prefs\.([\w.]+?)(?:\.value)?\s*\}")
 _I18N_RE = re.compile(r"\$i18n(?:Polymer|Raw)?\{(\w+)\}")
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
 _IF_RE = re.compile(r"<if\s+expr=\"([^\"]*)\"\s*>|</if>")
@@ -158,10 +165,18 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         tag, raw_attrs = m.group(1), m.group(2)
         attrs = dict(_ATTR_RE.findall(raw_attrs))
 
-        pref = ""
-        pref_match = _PREF_RE.search(attrs.get("pref", ""))
-        if pref_match:
-            pref = pref_match.group(1) or pref_match.group(2) or ""
+        # Two spellings, one link. Chromium began replacing the two-way
+        # binding `pref="{{prefs.a.b}}"` with a plain attribute
+        # `pref-key="a.b"`; at M151 twenty controls had moved and 125 had not.
+        # Reading only the binding form makes a migrated control look like one
+        # that stopped writing a preference at all -- the settings captions
+        # page produced exactly that, four controls reported as repointed to
+        # nothing when the key never changed.
+        pref = attrs.get("pref-key", "").strip()
+        if not pref:
+            pref_match = _PREF_RE.search(attrs.get("pref", ""))
+            if pref_match:
+                pref = pref_match.group(1) or pref_match.group(2) or ""
 
         label = ""
         for key in ("label", "page-title", "sub-label", "aria-label"):

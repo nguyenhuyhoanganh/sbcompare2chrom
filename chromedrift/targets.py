@@ -69,6 +69,13 @@ WEBUI_SURFACES = (
 #
 # Counts in the trailing comments are keys at M151. Regenerate the list with
 # `chromedrift catalog <ref>`, which measures this gap directly.
+#
+# Chromium uses *two* naming conventions for these files, and reading only the
+# first is how the count above still came up short. `*pref_names.{h,cc}` is the
+# older set; `*_prefs.{h,cc}` is what per-component keys use now. Measured at
+# M151 the second convention holds another 469 keys across 54 files -- Memory
+# Saver, Safety Hub, signin, enterprise connectors -- so the two lists below are
+# both needed and the extractor recognises both spellings.
 # ---------------------------------------------------------------------------
 
 PREF_FILES = (
@@ -160,6 +167,64 @@ PREF_FILES = (
     "services/preferences/public/cpp/tracked/pref_names.cc",                  # 3
 )
 
+# The `*_prefs.{h,cc}` convention: 469 more keys at M151, 456 KB.
+PREFS_FILES = (
+    "chrome/browser/accessibility/animation_policy_prefs.cc",                 # 3
+    "chrome/browser/actor/ui/actor_ui_state_manager_prefs.h",                 # 1
+    "chrome/browser/apps/intent_helper/intent_chip_display_prefs.cc",         # 1
+    "chrome/browser/browser_switcher/browser_switcher_prefs.cc",              # 18
+    "chrome/browser/content_settings/generated_cookie_prefs.cc",              # 2
+    "chrome/browser/enterprise/reporting/prefs.cc",                           # 3
+    "chrome/browser/enterprise/signin/enterprise_signin_prefs.h",             # 6
+    "chrome/browser/glic/suggestions/contextual_cueing_prefs.h",              # 1
+    "chrome/browser/indigo/indigo_prefs.h",                                   # 2
+    "chrome/browser/login_detection/login_detection_prefs.cc",                # 1
+    "chrome/browser/nearby_sharing/common/nearby_share_prefs.cc",             # 28
+    "chrome/browser/platform_experience/prefs.h",                             # 4
+    "chrome/browser/prefs/browser_prefs.cc",                                  # 155
+    "chrome/browser/push_notification/prefs/push_notification_prefs.cc",      # 2
+    "chrome/browser/tips/core/tips_prefs.cc",                                 # 9
+    "chrome/browser/ui/read_anything/read_anything_prefs.h",                  # 18
+    "chrome/browser/ui/safety_hub/safety_hub_prefs.h",                        # 21
+    "chrome/browser/ui/side_search/side_search_prefs.cc",                     # 1
+    "chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc",                    # 2
+    "chrome/browser/ui/webui/tab_search/tab_search_prefs.cc",                 # 2
+    "chrome/browser/ui/zoom/chrome_zoom_level_prefs.cc",                      # 2
+    "chrome/browser/webnn/webnn_prefs.h",                                     # 3
+    "chrome/updater/prefs.cc",                                                # 5
+    "components/contextual_tasks/public/prefs.cc",                            # 6
+    "components/domain_reliability/domain_reliability_prefs.cc",              # 1
+    "components/enterprise/browser/groups/groups_prefs.h",                    # 2
+    "components/enterprise/client_certificates/core/prefs.cc",                # 2
+    "components/enterprise/connectors/core/connectors_prefs.cc",              # 18
+    "components/enterprise/connectors/core/connectors_prefs.h",               # 8
+    "components/enterprise/data_controls/core/browser/prefs.h",               # 2
+    "components/enterprise/device_trust/prefs.cc",                            # 2
+    "components/enterprise/isolated_mode/prefs.cc",                           # 1
+    "components/enterprise/network_header_injection/core/network_header_injection_prefs.h",# 1
+    "components/guest_os/guest_os_prefs.cc",                                  # 5
+    "components/headless/policy/headless_mode_prefs.cc",                      # 1
+    "components/metrics/structured/structured_metrics_prefs.cc",              # 2
+    "components/multistep_filter/core/prefs/multistep_filter_retention_prefs.h",# 3
+    "components/omnibox/browser/omnibox_prefs.h",                             # 2
+    "components/optimization_guide/core/model_execution/model_execution_prefs.cc",# 12
+    "components/payments/core/payment_prefs.h",                               # 2
+    "components/performance_manager/public/user_tuning/prefs.h",              # 15
+    "components/proxy_config/proxy_prefs.cc",                                 # 5
+    "components/regional_capabilities/regional_capabilities_prefs.h",         # 2
+    "components/safe_browsing/content/common/file_type_policies_prefs.cc",    # 1
+    "components/signin/public/base/signin_prefs.cc",                          # 23
+    "components/skills/public/skills_prefs.cc",                               # 1
+    "components/sync/service/sync_prefs.cc",                                  # 4
+    "components/sync_sessions/session_sync_prefs.cc",                         # 1
+    "components/translate/core/browser/translate_prefs.h",                    # 8
+    "components/variations/service/google_groups_manager_prefs.h",            # 3
+    "components/wallet/core/common/wallet_prefs.h",                           # 1
+    "extensions/browser/blocklist_extension_prefs.cc",                        # 4
+    "extensions/browser/extension_prefs.cc",                                  # 40
+    "ui/accessibility/accessibility_prefs.cc",                                # 1
+)
+
 
 def default_targets() -> List[FetchTarget]:
     """The standard target set (~40 MB per version)."""
@@ -245,6 +310,7 @@ def default_targets() -> List[FetchTarget]:
         FetchTarget("chrome/common/pref_names.h", "file",
                     note="pref keys (683 at M151)"),
         *(FetchTarget(path, "file", note="pref keys") for path in PREF_FILES),
+        *(FetchTarget(path, "file", note="pref keys") for path in PREFS_FILES),
 
         # -- chrome://flags metadata: expiry milestones tell you which flags
         #    are scheduled for deletion, i.e. future forced work.
