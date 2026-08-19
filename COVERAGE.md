@@ -118,39 +118,55 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 | Blink runtime features | 1 file | 1 file | **100%** |
 | Web IDL | 2.167 | 2.575 | 84% |
 | **Mojo (IPC)** | 490 | 1.588 | **30%** |
-| Khoá pref | 140 file · 2.035 khoá | 140 file (bỏ ChromeOS/iOS) | **100%** |
+| Khoá pref | đo mỗi lần chạy | xem bên dưới | — |
 | **Bề mặt WebUI** | 8 | 132 | **6%** |
 
-**Hai dòng cần nêu rõ trong mọi báo cáo:**
+**Độ phủ không còn là con số viết trong tài liệu — nó được đo mỗi lần chạy.**
 
-- **Mojo 30%** — đây là loại mang finding nghiêm trọng nhất hệ thống (severity
-  80). Chỉ đọc `third_party/blink/public/mojom`; toàn bộ `services/`,
-  `content/`, `chrome/` không đọc.
-- **`pref_names` — đã đóng.** Trước đây chỉ đọc `chrome/common/pref_names.h`,
-  tức 683 khoá trên 1.575 khoá có thật. Đo tại M151 bằng cách liệt kê mọi
-  `*pref_names.{h,cc}` trong cây rồi đọc từng file: 144 ứng viên, 87 file thực
-  sự khai khoá.
+Danh sách file mục tiêu viết tay bị mục theo thời gian, và mục *trong im lặng*:
+file nào không ai liệt kê thì không ai nhận ra là thiếu. Đo bằng cách dựng
+danh sách đúng như nó sẽ là ở M130 rồi chạy trên M151, cách nhau 21 mốc:
 
-  Đợt rà soát sau đó cho thấy Chromium dùng **hai** quy ước đặt tên chứ không
-  phải một: `*_prefs.{h,cc}` giữ thêm **469 khoá ở 54 file** — Memory Saver,
-  Safety Hub, signin, enterprise connectors — mà cả danh sách tải lẫn extractor
-  đều bỏ qua. Nay đọc cả hai quy ước: **140 file, 2.035 khoá** (822 KB).
+| Loại | M130 | M151 | Mới sau M130 | Danh sách M130 bỏ sót |
+|---|---:|---:|---:|---:|
+| File pref | 293 | 346 | 96 | **27%** |
+| File feature/switch | 516 | 631 | 216 | **34%** |
 
-  Kết quả phụ đáng giá: **183 khoá "chuyển file"** giờ hiện đúng là chuyển chỗ
-  (`declaration_moved`) thay vì một cặp xoá + thêm không liên quan, vì cả file
-  nguồn lẫn file đích đều đọc được.
+Tức là hardcode mất khoảng một phần ba độ phủ sau hai năm. Dự án đã hai lần
+phản ứng bằng cách *thêm tên vào danh sách*, và việc đó chỉ đặt lại đồng hồ.
 
-  Phần cố ý không đọc là các file pref của ChromeOS/ash — đúng, vì đây là sản
-  phẩm Windows. Nhưng chúng vẫn để lại dấu vết: Chromium đang tách
-  `chrome/common/pref_names.h` (4.322 dòng ở M143 → 3.267 ở M151), và khoá
-  ChromeOS rời khỏi đó sẽ hiện ra như "biến mất". Đo M148 → M151: 141 khoá biến
-  mất, **100 trong số đó (70%) tìm thấy trong file pref của ChromeOS**, phần
-  còn lại cũng hầu hết mang tên Android/ChromeOS.
+Nên giờ mỗi lần chạy **hỏi chính cây nguồn của phiên bản đó**: Gitiles trả
+toàn bộ danh sách file dưới một thư mục trong một request
+(`?format=JSON&recursive=true`), 14 gốc tốn khoảng 24 MB và 21 giây, cache
+vĩnh viễn theo tag. Kết quả in ra ngay khi chạy và lưu trong `report.json`:
 
-  Vì thế khoá pref biến mất mang signal `pref_left_scan` ở mức 35, với nhãn nói
-  rõ là *có thể bị xoá, cũng có thể chỉ chuyển chỗ* — chứ không khẳng định là
-  xoá. Đổi tên pref thì vẫn giữ mức 70, vì ghép được hai bên qua tên biến C++
-  nên đó là bằng chứng chắc chắn.
+```
+coverage: reads 42 of 1010 files in this tree that could declare (4% of files)
+  largest gaps: chrome/browser/ (245 files), components/enterprise/ (50 files), …
+```
+
+**Hai con số, cả hai đều đúng.** 42 file đó là *4% số file* nhưng chứa
+**58% số khai báo** (2.062 trên 3.586 `base::Feature` ở M151), vì danh sách
+curate đã chọn đúng các file lớn. Phần trăm theo file là thứ đo được mà không
+cần tải; phần trăm theo khai báo chỉ biết sau khi đã tải.
+
+**Vì sao không tải hết.** Có thử. Gitiles giới hạn khoảng **một request mỗi
+giây cho mỗi client**, bất kể mở bao nhiêu luồng — đo ở 8 và 16 luồng thì nó
+không nhanh hơn mà bắt đầu từ chối. Kéo ~1.000 file lẻ tốn **17 phút mỗi phiên
+bản** và đập vào một dịch vụ dùng chung. Cùng nội dung đó về dưới dạng **11
+archive thư mục trong khoảng 3 phút**.
+
+Nên có `--target-set wide`: thêm archive nguyên gốc cho `components/`,
+`chrome/browser/`, `media/` và sáu gốc nữa, **lọc theo đuôi file ngay lúc giải
+nén**. Đo ở M151: tải về 315 MB nhưng chỉ giữ lại 1.085 file, nên cây trên đĩa
+vẫn là 42 MB. Chi phí là băng thông một lần, không phải dung lượng lâu dài.
+Kết quả: `base_feature` 2.062 → **3.836**, `switch` 288 → **954**.
+
+| Bộ target | Dung lượng/phiên bản | File phủ | Dùng khi |
+|---|---:|---:|---|
+| `minimal` | ~1 MB | 3 | kiểm khói |
+| `default` | ~40 MB | 4% (58% khai báo) | làm việc hằng ngày |
+| `wide` | tải ~315 MB, **đĩa ~42 MB** | **96%** | cổng chặn trước release |
 
 `must fix: 0` **không bao giờ** nghĩa là "uprev sạch". Nó nghĩa là "không thấy
 gì trong phần đã quét".

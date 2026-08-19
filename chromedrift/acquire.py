@@ -17,6 +17,7 @@ reads from disk instead and the rest of the pipeline is unchanged.
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import hashlib
 import io
 import json
@@ -38,6 +39,15 @@ CHROMIUMDASH = "https://chromiumdash.appspot.com"
 DEFAULT_TIMEOUT = 180
 DEFAULT_RETRIES = 4
 
+# Discovery turns a few dozen named files into around a thousand, and fetched
+# one at a time that is ten minutes of latency per version rather than two.
+# The work is entirely network-bound and each file is independent -- its own
+# request, its own output path, its own marker -- so a small pool collapses the
+# wall clock without changing a single outcome. Kept small deliberately:
+# Gitiles rate-limits, and the retry/backoff below is the thing that has to
+# absorb it.
+FETCH_WORKERS = 8
+
 
 class AcquireError(RuntimeError):
     pass
@@ -49,7 +59,7 @@ class AcquireError(RuntimeError):
 
 
 def _http_get(url: str, timeout: int = DEFAULT_TIMEOUT, retries: int = DEFAULT_RETRIES,
-              accept_404: bool = False) -> Optional[bytes]:
+              accept_404: bool = False, empty_ok: bool = False) -> Optional[bytes]:
     """GET with retry/backoff.
 
     Gitiles rate-limits and occasionally closes connections mid-body; bare
@@ -57,6 +67,14 @@ def _http_get(url: str, timeout: int = DEFAULT_TIMEOUT, retries: int = DEFAULT_R
     fetch therefore retries with backoff and validates that it got a body.
     Returns None for 404 when ``accept_404`` (a target simply may not exist in
     an older milestone -- that is data, not an error).
+
+    ``empty_ok`` exists because a truncated read and an empty file look the
+    same from here: both are HTTP 200 with no body. Chromium really does carry
+    empty sources -- ``components/variations/pref_names.cc`` is 0 bytes at M151,
+    with the declarations in the header beside it. A curated target list never
+    named one, so the ambiguity stayed hidden until targets were discovered
+    from the tree. Retrying first keeps the original protection: a truncation
+    is unlikely to repeat, an empty file always will.
     """
     last_err: Optional[Exception] = None
     for attempt in range(retries):
@@ -65,6 +83,8 @@ def _http_get(url: str, timeout: int = DEFAULT_TIMEOUT, retries: int = DEFAULT_R
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = resp.read()
             if not data:
+                if empty_ok and attempt >= 1:
+                    return b""  # empty on a retry too: the file itself is empty
                 raise AcquireError("empty response body")
             return data
         except urllib.error.HTTPError as exc:
@@ -167,6 +187,17 @@ class Source:
     def materialize(self, targets: Iterable["FetchTarget"], root: str) -> Dict[str, str]:
         raise NotImplementedError
 
+    def list_recursive(self, directory: str) -> List[str]:
+        """Every file path under ``directory``, relative to the repo root.
+
+        This is what lets a target say *which files it wants* rather than
+        naming them. A named list is only ever correct for the version it was
+        written against: measured over M130 -> M151, a list of pref files
+        curated at M130 misses 27% of the files that exist at M151, and a list
+        of feature files misses 34%. Discovery has no such decay.
+        """
+        raise NotImplementedError
+
 
 class GitilesSource(Source):
     def __init__(self, ref: str, cache_dir: str, base: str = GITILES_BASE,
@@ -186,9 +217,11 @@ class GitilesSource(Source):
 
     def fetch_file(self, path: str) -> Optional[bytes]:
         url = f"{self.base}/+/{self._quoted_ref()}/{path}?format=TEXT"
-        raw = _http_get(url, timeout=self.timeout, accept_404=True)
+        raw = _http_get(url, timeout=self.timeout, accept_404=True, empty_ok=True)
         if raw is None:
             return None
+        if raw == b"":
+            return b""  # the file exists and is empty; not the same as absent
         try:
             return base64.b64decode(raw)
         except Exception as exc:  # pragma: no cover - malformed server reply
@@ -198,6 +231,49 @@ class GitilesSource(Source):
         d = directory.strip("/")
         url = f"{self.base}/+archive/{self._quoted_ref()}/{d}.tar.gz"
         return _http_get(url, timeout=self.timeout, accept_404=True)
+
+    def list_recursive(self, directory: str) -> List[str]:
+        """Full recursive file listing for one directory, cached per ref.
+
+        Gitiles answers ``?format=JSON&recursive=true`` with every blob beneath
+        a path in one response: measured at M151, all of ``components/`` is
+        41,436 entries in 7.5 MB and 2.2 seconds. Twelve such roots cover every
+        directory this tool reads for 24 MB and about 21 seconds, once per ref
+        -- against the ~40 MB of source the same run already downloads.
+
+        A tag's tree never changes, so the listing is cached forever.
+        """
+        d = directory.strip("/")
+        cache = os.path.join(self.cache_dir, "listings",
+                             _safe_name(self.ref), _safe_name(d) + ".json")
+        if os.path.exists(cache) and not self.refresh:
+            try:
+                with open(cache, encoding="utf-8") as fh:
+                    return json.load(fh)
+            except (OSError, json.JSONDecodeError):
+                pass  # corrupt cache: refetch rather than fail
+
+        url = f"{self.base}/+/{self._quoted_ref()}/{d}?format=JSON&recursive=true"
+        raw = _http_get(url, timeout=self.timeout, accept_404=True)
+        if raw is None:
+            return []
+        text = raw.decode("utf-8", "replace")
+        if text.startswith(")]}"):
+            text = text.split("\n", 1)[1] if "\n" in text else "{}"
+        try:
+            entries = json.loads(text).get("entries", [])
+        except json.JSONDecodeError as exc:
+            raise AcquireError(f"bad listing for {d}: {exc}") from exc
+
+        paths = [f"{d}/{e['name']}" for e in entries
+                 if e.get("type") == "blob" and e.get("name")]
+        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        tmp = cache + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(paths, fh)
+        os.replace(tmp, cache)
+        self.log(f"    listed {d}: {len(paths)} files")
+        return paths
 
     def list_tree(self, directory: str) -> List[dict]:
         d = directory.strip("/")
@@ -216,41 +292,78 @@ class GitilesSource(Source):
 
     # -- public ---------------------------------------------------------
 
+    def _one(self, target: "FetchTarget", root: str) -> str:
+        """Fetch a single target. Returns the stats string for it."""
+        dest = os.path.join(root, target.path.replace("/", os.sep))
+        marker = os.path.join(root, ".chromedrift",
+                              _target_marker(target) + ".state")
+        if os.path.exists(marker) and not self.refresh:
+            # A cached absence stays an absence, so callers counting missing
+            # targets get the same answer on every run.
+            return ("missing" if _read_marker(marker) == MARKER_MISSING
+                    else "cached")
+        os.makedirs(os.path.dirname(marker), exist_ok=True)
+        if target.kind == "file":
+            data = self.fetch_file(target.path)
+            if data is None:
+                _write_marker(marker, MARKER_MISSING)
+                return "missing"
+            os.makedirs(os.path.dirname(dest) or root, exist_ok=True)
+            with open(dest, "wb") as fh:
+                fh.write(data)
+            outcome = f"file {len(data)}B"
+        else:
+            blob = self.fetch_archive(target.path)
+            if blob is None:
+                _write_marker(marker, MARKER_MISSING)
+                return "missing"
+            n = _extract_tar_gz(blob, dest, include=target.include)
+            outcome = f"tree {n} files, {len(blob)}B"
+        _write_marker(marker, MARKER_OK)
+        return outcome
+
     def materialize(self, targets: Iterable["FetchTarget"], root: str) -> Dict[str, str]:
         """Populate ``root`` so it looks like a (very partial) src/ checkout."""
+        targets = list(targets)
         stats: Dict[str, str] = {}
-        for target in targets:
-            dest = os.path.join(root, target.path.replace("/", os.sep))
-            marker = os.path.join(root, ".chromedrift",
-                                  _target_marker(target) + ".state")
-            if os.path.exists(marker) and not self.refresh:
-                # A cached absence stays an absence, so callers counting
-                # missing targets get the same answer on every run.
-                stats[target.path] = ("missing"
-                                      if _read_marker(marker) == MARKER_MISSING
-                                      else "cached")
-                continue
-            os.makedirs(os.path.dirname(marker), exist_ok=True)
-            if target.kind == "file":
-                data = self.fetch_file(target.path)
-                if data is None:
-                    stats[target.path] = "missing"
-                    _write_marker(marker, MARKER_MISSING)
-                    continue
-                os.makedirs(os.path.dirname(dest) or root, exist_ok=True)
-                with open(dest, "wb") as fh:
-                    fh.write(data)
-                stats[target.path] = f"file {len(data)}B"
-            else:
-                blob = self.fetch_archive(target.path)
-                if blob is None:
-                    stats[target.path] = "missing"
-                    _write_marker(marker, MARKER_MISSING)
-                    continue
-                n = _extract_tar_gz(blob, dest, include=target.include)
-                stats[target.path] = f"tree {n} files, {len(blob)}B"
-            _write_marker(marker, MARKER_OK)
+        errors: List[str] = []
+
+        # Trees are archives worth tens of megabytes and are handled one at a
+        # time; files are small and there are a thousand of them.
+        trees = [t for t in targets if t.kind != "file"]
+        files = [t for t in targets if t.kind == "file"]
+
+        for target in trees:
+            stats[target.path] = self._one(target, root)
             self.log(f"    {target.path}: {stats[target.path]}")
+
+        if files:
+            workers = min(FETCH_WORKERS, len(files))
+            done = 0
+            with concurrent.futures.ThreadPoolExecutor(workers) as pool:
+                futures = {pool.submit(self._one, t, root): t for t in files}
+                for future in concurrent.futures.as_completed(futures):
+                    target = futures[future]
+                    try:
+                        stats[target.path] = future.result()
+                    except AcquireError as exc:
+                        # One unreachable file must not lose the other 999, but
+                        # it must not pass for an absent one either: a silent
+                        # "missing" here is a whole file's declarations quietly
+                        # dropping out of the comparison.
+                        stats[target.path] = "error"
+                        errors.append(f"{target.path}: {exc}")
+                    done += 1
+                    if done % 200 == 0:
+                        self.log(f"    fetched {done}/{len(files)} files")
+            self.log(f"    fetched {len(files)} files "
+                     f"({sum(1 for v in stats.values() if v == 'cached')} cached)")
+
+        if errors:
+            raise AcquireError(
+                f"{len(errors)} file(s) failed to fetch and would be read as "
+                f"absent, which is indistinguishable from deleted: "
+                f"{errors[0]}" + (f" (+{len(errors) - 1} more)" if len(errors) > 1 else ""))
         return stats
 
 
@@ -263,6 +376,19 @@ class LocalSource(Source):
         self.log = log
         if not os.path.isdir(self.src_root):
             raise AcquireError(f"not a directory: {self.src_root}")
+
+    def list_recursive(self, directory: str) -> List[str]:
+        base = os.path.join(self.src_root, directory.replace("/", os.sep))
+        if not os.path.isdir(base):
+            return []
+        out: List[str] = []
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames
+                           if d not in (".git", "out", "__pycache__")]
+            for fn in filenames:
+                rel = os.path.relpath(os.path.join(dirpath, fn), self.src_root)
+                out.append(rel.replace(os.sep, "/"))
+        return out
 
     def materialize(self, targets: Iterable["FetchTarget"], root: str) -> Dict[str, str]:
         stats: Dict[str, str] = {}

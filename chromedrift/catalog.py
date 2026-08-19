@@ -324,7 +324,8 @@ def declared_scope(snapshot) -> tuple:
     targets = get_targets(meta.get("target_set", "default"),
                           meta.get("partitions") or None,
                           bool(meta.get("complete")))
-    return ({t.path for t in targets if t.kind == "file"},
+    files = {t.path for t in targets if t.kind == "file"}
+    return (files,
             {t.path.rstrip("/") + "/": t.include
              for t in targets if t.kind == "tree"})
 

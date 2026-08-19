@@ -48,7 +48,11 @@ FILE_HINTS = ("_features.cc", "_features.h", "features.cc", "features.h",
               "_switches.cc", "_switches.h", "media_switches.cc",
               "media_switches.h", "gpu_finch_features.cc",
               "_fieldtrial.cc", "_field_trial.cc", "_flags.cc",
-              "_feature_list.cc", "_util.cc", "_handler.cc", "_manager.cc")
+              # Every other pair here covers both halves; this one covered only
+              # the .cc, so a declaration in the header beside it was fetched
+              # and then not read -- the quietest way to lose one.
+              "_feature_list.cc", "_feature_list.h",
+              "_util.cc", "_handler.cc", "_manager.cc")
 
 # ...but widening pulls in test-only features, which are noise: a feature
 # declared inside a browsertest exists to drive that test and ships to nobody.

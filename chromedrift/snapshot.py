@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 from .acquire import (
     AcquireError,
@@ -23,7 +23,7 @@ from .acquire import (
 )
 from .extract import run_on_tree
 from .model import SCHEMA_VERSION, Snapshot, read_json, write_json
-from .targets import get_targets
+from .targets import coverage_against, discover_candidates, get_targets
 
 
 def snapshot_path(cache_dir: str, ref: str, target_set: str,
@@ -47,6 +47,14 @@ def snapshot_path(cache_dir: str, ref: str, target_set: str,
 def tree_path(cache_dir: str, ref: str) -> str:
     safe = ref.replace("/", "_").replace(":", "_")
     return os.path.join(cache_dir, "trees", safe)
+
+
+def _partition_prefixes(partitions: Sequence[str]) -> Tuple[str, ...]:
+    from .targets import PARTITIONS, PARTITION_CORE
+    out = tuple(PARTITION_CORE)
+    for name in partitions:
+        out += PARTITIONS[name]
+    return out
 
 
 def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
@@ -75,8 +83,35 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         log(f"  source: local checkout {local_src}")
         source = LocalSource(resolved, local_src, log=log)
     else:
-        log(f"  source: gitiles {resolved} ({len(targets)} targets)")
+        log(f"  source: gitiles {resolved}")
         source = GitilesSource(resolved, cache_dir, refresh=refresh, log=log)
+
+    # Ask this version's own tree what exists, and measure the target list
+    # against it. A named list decays -- built as it stood at M130 and run at
+    # M151 it misses 27% of the pref files and 34% of the feature files there --
+    # and the decay is silent, because a file nobody listed is a file nobody
+    # notices. Measuring costs one cached recursive listing per root; it does
+    # not change what is fetched, only whether the gap is visible.
+    coverage: dict = {}
+    if target_set != "minimal" and not partitions:
+        candidates = discover_candidates(source, log=log)
+        coverage = coverage_against(candidates, targets)
+        pct = coverage["read"] * 100 // max(1, coverage["candidates"])
+        log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "
+            f"files in this tree that could declare ({pct}% of files)")
+        if coverage["missed"]:
+            # File count is what can be measured without fetching, and it
+            # understates the position: the curated targets are the large
+            # files. Measured at M151, those 42 files hold 2,062 base::Feature
+            # declarations while all 1,010 hold 3,586 -- 4% of the files, 58%
+            # of the declarations. Both numbers are worth knowing and neither
+            # is the whole answer.
+            top = list(coverage["missed_by_directory"].items())[:3]
+            log("    largest gaps: "
+                + ", ".join(f"{d}/ ({n} files)" for d, n in top))
+            log("    `--target-set wide` reads these too: ~315 MB per version "
+                "against 40, and 96% of the files")
+    log(f"  {len(targets)} targets")
 
     started = time.time()
     fetch_stats = source.materialize(targets, root)
@@ -114,6 +149,11 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         facts=facts,
         meta={
             "target_set": target_set,
+            # What the tree holds versus what this run read. Recorded so the
+            # number travels with the snapshot instead of scrolling past.
+            "coverage": {k: v for k, v in coverage.items()
+                         if k != "missed_paths"},
+            "uncovered_files": coverage.get("missed_paths", [])[:400],
             "partitions": sorted(partitions) if partitions else [],
             "complete": complete,
             "platform": platform,

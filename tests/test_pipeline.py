@@ -1773,50 +1773,116 @@ class TestScopeViolations(unittest.TestCase):
             self.skipTest("no current-schema snapshots on this machine")
 
 
-class TestPrefCoverage(unittest.TestCase):
-    """Pref keys are a contract with data already on the user's disk.
+class TestDiscoveryMeasuresTheGap(unittest.TestCase):
+    """The target list is measured against the tree, every run.
 
-    Reading one pref file out of 87 was not a smaller report, it was a class of
-    silent breakage the tool claimed to cover: a renamed key orphans every
-    existing profile's stored value while the code still builds and the tests
-    still pass. Chromium is actively splitting chrome/common/pref_names.h
-    apart, so the gap was widening on its own.
+    A named list of files decays. Built as it stood at M130 and run against
+    M151, twenty-one milestones later, it misses 96 of the 346 pref files that
+    exist there (27%) and 216 of the 631 feature files (34%). The decay is
+    silent -- a file nobody listed is a file nobody notices -- and this project
+    has twice responded by adding names, which only resets the clock.
+
+    Fetching everything discovery finds is not the answer either: Gitiles
+    serves about one request per second per client whatever the concurrency, so
+    the ~1,000 matching files cost seventeen minutes per version. Discovery
+    therefore measures rather than fetches, and the number it produces is what
+    stops the gap from being invisible.
     """
 
-    def test_the_target_set_reads_more_than_one_pref_file(self):
-        from chromedrift.targets import get_targets
+    class _Tree:
+        def __init__(self, paths):
+            self.paths = paths
 
-        pref_targets = [t for t in get_targets("default")
-                        if "pref_names" in t.path]
-        self.assertGreater(len(pref_targets), 50,
-                           "the pref surface is spread across ~87 files")
-        self.assertIn("chrome/common/pref_names.h",
-                      {t.path for t in pref_targets})
+        def list_recursive(self, directory):
+            d = directory.rstrip("/") + "/"
+            return [p for p in self.paths if p.startswith(d)]
 
-    def test_the_extractor_claims_every_declared_pref_file(self):
-        """A target nothing reads is a wasted fetch, and a silent one."""
-        from chromedrift.extract import constants
-        from chromedrift.targets import get_targets
+    def _found(self, paths):
+        from chromedrift.targets import discover_candidates
+        return set(discover_candidates(self._Tree(paths)))
 
-        for target in get_targets("default"):
-            if "pref_names" in target.path:
-                self.assertTrue(constants.applies_to(target.path),
-                                f"{target.path} is fetched but never read")
+    def test_both_pref_naming_conventions_are_found(self):
+        got = self._found([
+            "chrome/common/pref_names.h",
+            "components/bookmarks/common/bookmark_pref_names.h",
+            "chrome/browser/ui/safety_hub/safety_hub_prefs.h",
+            "components/performance_manager/public/user_tuning/prefs.h",
+        ])
+        self.assertEqual(len(got), 4, got)
 
-    def test_catalog_measures_the_pref_surface(self):
-        """The gap has to stay measurable, or it silently reopens."""
-        from chromedrift.catalog import analyze
+    def test_feature_and_switch_files_are_found(self):
+        got = self._found([
+            "chrome/common/chrome_features.cc",
+            "components/omnibox/common/omnibox_features.cc",
+            "media/media_switches.cc",
+            "components/x/x_field_trial.cc",
+        ])
+        self.assertEqual(len(got), 4, got)
 
-        paths = ["components/sync/base/pref_names.h",
-                 "chrome/common/pref_names.h",
-                 "components/omnibox/browser/omnibox_pref_names.h",
-                 "chrome/browser/ash/app_mode/pref_names.h"]  # platform we skip
-        report = analyze(paths, ref="test", target_set="default")
-        seen = {c.path for c in report.candidates}
-        self.assertIn("components/sync/base/pref_names.h", seen)
-        self.assertIn("chrome/common/pref_names.h", seen)
-        self.assertTrue(all(c.covered for c in report.candidates
-                            if c.path != "chrome/browser/ash/app_mode/pref_names.h"))
+    def test_a_file_that_did_not_exist_before_is_still_found(self):
+        """The whole point: no list has to be edited when Chromium adds one."""
+        got = self._found(["chrome/browser/ai/features.cc",
+                           "chrome/browser/actor/ui/actor_ui_prefs.cc"])
+        self.assertEqual(len(got), 2, got)
+
+    def test_test_files_are_not_candidates(self):
+        got = self._found([
+            "components/x/x_features.cc",
+            "components/x/x_features_unittest.cc",
+            "components/x/x_prefs_browsertest.cc",
+            "components/x/test/x_features.cc",
+        ])
+        self.assertEqual(got, {"components/x/x_features.cc"})
+
+    def test_platforms_we_do_not_ship_are_not_candidates(self):
+        got = self._found([
+            "components/x/x_prefs.cc",
+            "chrome/browser/ash/app_mode/pref_names.cc",
+            "components/x/ios/x_prefs.cc",
+            "components/x/android/x_features.cc",
+        ])
+        self.assertEqual(got, {"components/x/x_prefs.cc"})
+
+    def test_unrelated_files_are_not_candidates(self):
+        got = self._found(["base/android/library_loader/library_prefetcher.cc",
+                           "components/x/pref_service.cc",
+                           "components/x/feature_engagement_tracker.cc"])
+        self.assertEqual(got, set())
+
+    def test_coverage_counts_what_a_target_set_reaches(self):
+        from chromedrift.acquire import FetchTarget
+        from chromedrift.targets import coverage_against
+
+        candidates = {"components/a/a_features.cc": "f",
+                      "components/b/b_features.cc": "f",
+                      "chrome/browser/c/c_prefs.h": "p"}
+        targets = [FetchTarget("components/a/a_features.cc", "file"),
+                   FetchTarget("chrome/browser/c", "tree", (".h",))]
+        cov = coverage_against(candidates, targets)
+        self.assertEqual(cov["candidates"], 3)
+        self.assertEqual(cov["read"], 2)
+        self.assertEqual(cov["missed_paths"], ["components/b/b_features.cc"])
+
+    def test_a_tree_filter_that_excludes_a_file_leaves_it_uncovered(self):
+        """Reaching a directory is not the same as reading the file in it."""
+        from chromedrift.acquire import FetchTarget
+        from chromedrift.targets import coverage_against
+
+        cov = coverage_against({"chrome/browser/x/x_prefs.h": "p"},
+                               [FetchTarget("chrome/browser", "tree", (".cc",))])
+        self.assertEqual(cov["missed"], 1)
+
+    def test_the_wide_target_set_closes_most_of_the_gap(self):
+        """`--target-set wide` exists to be the answer when the gap matters."""
+        from chromedrift.targets import coverage_against, get_targets
+
+        candidates = {"components/deep/nested/x_features.cc": "f",
+                      "chrome/browser/deep/y_prefs.h": "p",
+                      "media/z_switches.cc": "f"}
+        narrow = coverage_against(candidates, get_targets("default"))
+        wide = coverage_against(candidates, get_targets("wide"))
+        self.assertEqual(narrow["read"], 0)
+        self.assertEqual(wide["read"], 3)
 
 
 class TestIdentityMovesAreStillChanges(unittest.TestCase):
@@ -1889,6 +1955,53 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
             snap("148.0.0.0", [self._control("a11y.old", "t")]),
             snap("sb-main-dev", [self._control("a11y.new", "t")]), mode=MODE_FORK)
         self.assertEqual(len(changes), 2)
+
+
+class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
+    """Three target sets, and each has to say what it costs and what it reads.
+
+    Coverage is a property of a run, not of the tool, so nothing may hard-code
+    it as a constant. Measured at M151: `default` reads 42 of the 1,010 files
+    in the tree that could declare -- 4% of files, but 58% of declarations,
+    because the curated files are the large ones -- and `wide` reads 96% of the
+    files for about 315 MB per version against 40.
+    """
+
+    def test_every_named_set_resolves(self):
+        from chromedrift.targets import TARGET_SETS, get_targets
+        for name in TARGET_SETS:
+            self.assertTrue(get_targets(name), name)
+
+    def test_wide_is_a_superset_of_default(self):
+        """A release gate must never read *less* than a working run."""
+        from chromedrift.targets import get_targets
+        default = {(t.path, t.kind) for t in get_targets("default")}
+        wide = {(t.path, t.kind) for t in get_targets("wide")}
+        self.assertTrue(default <= wide, sorted(default - wide))
+
+    def test_wide_roots_keep_only_what_an_extractor_reads(self):
+        """The archives are large; the filter is what stops the tree being."""
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import get_targets
+
+        wide_only = [t for t in get_targets("wide")
+                     if t.kind == "tree" and t.path in
+                     {"components", "chrome/browser", "media", "net", "ui"}]
+        self.assertTrue(wide_only)
+        for target in wide_only:
+            self.assertTrue(target.include, f"{target.path} has no filter")
+            for suffix in target.include:
+                probe = f"{target.path}/sub/x_{suffix}" if not suffix.startswith(".") \
+                    else f"{target.path}/sub/x{suffix}"
+                self.assertTrue(any(applies(probe) for _, applies, _ in REGISTRY),
+                                f"{suffix} is fetched but no extractor reads it")
+
+    def test_the_cache_key_separates_the_sets(self):
+        """Otherwise a 40 MB snapshot gets reused as if it were the 315 MB one."""
+        from chromedrift.snapshot import snapshot_path
+        paths = {snapshot_path("c", "refs/tags/151.0.0.0", name)
+                 for name in ("default", "minimal", "wide")}
+        self.assertEqual(len(paths), 3)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,9 @@ Sizes below are measured against M143 tarballs.
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+import re
+
+from typing import Dict, List, Optional, Sequence
 
 from .acquire import FetchTarget
 
@@ -40,190 +42,146 @@ WEBUI_SURFACES = (
 
 
 # ---------------------------------------------------------------------------
-# Preference keys, the rest of them
+# Discovery rules: say what to look for, not where it was last time
 #
-# A pref key is a contract with data already on the user's disk: rename one and
-# every existing profile's stored value is orphaned, silently, while the code
-# still builds and the tests still pass. So the cost of not reading a pref file
-# is not a smaller report -- it is a class of silent breakage the tool claims
-# to cover and does not.
+# A named list of files is only ever correct for the version it was written
+# against. Measured by building the list as it would have stood at M130 and
+# running it against M151, twenty-one milestones later:
 #
-# For a long time the list below was a single entry, chrome/common/pref_names.h,
-# and that looked sufficient because it is by far the biggest one. It is not:
-# Chromium has been splitting it apart for years (4,322 lines at M143, 3,267 at
-# M151), and the keys leaving it land in per-component files.
+#     pref files       293 -> 346    96 new, 43 gone   27% of M151 missed
+#     feature files    516 -> 631   216 new, 101 gone  34% of M151 missed
 #
-# Measured at M151 by enumerating every `*pref_names.{h,cc}` in the tree and
-# reading each one:
+# Curation loses roughly a third of its coverage over two years, silently, and
+# the loss is invisible from inside a run: a file nobody listed is a file
+# nobody notices. This project has already been bitten by that twice, and the
+# fix both times was to add more names, which only resets the clock.
 #
-#     144 candidate files (excluding ChromeOS, iOS, WebView, Cast)
-#      87 of them actually declare keys
-#   1,575 keys in total
-#     683 of those in chrome/common/pref_names.h  -- what we used to read
-#     892 in the other 86 files                   -- what we used to miss
+# So the targets below declare a *rule* -- these roots, this filename shape --
+# and it is resolved against the actual tree of the version being read.
+# Gitiles answers a full recursive listing per root in one request
+# (`?format=JSON&recursive=true`), so all twelve roots cost about 24 MB and 21
+# seconds on a cold cache, against the ~40 MB of source the same run already
+# downloads. A tag's tree is immutable, so the listing is cached forever.
 #
-# The whole set is 366 KB, against roughly 40 MB already fetched per version,
-# so completeness here costs about half a percent. Before this, 337 of those
-# moves showed up across M143 -> M148 -> M151 as keys "disappearing", which is
-# what the pref_left_scan signal exists to describe honestly.
-#
-# Counts in the trailing comments are keys at M151. Regenerate the list with
-# `chromedrift catalog <ref>`, which measures this gap directly.
-#
-# Chromium uses *two* naming conventions for these files, and reading only the
-# first is how the count above still came up short. `*pref_names.{h,cc}` is the
-# older set; `*_prefs.{h,cc}` is what per-component keys use now. Measured at
-# M151 the second convention holds another 469 keys across 54 files -- Memory
-# Saver, Safety Hub, signin, enterprise connectors -- so the two lists below are
-# both needed and the extractor recognises both spellings.
+# The rules stay narrow on purpose. They are matched against filenames, which
+# is a convention rather than a guarantee, so `chromedrift catalog` still
+# exists to measure what the conventions themselves miss.
 # ---------------------------------------------------------------------------
 
-PREF_FILES = (
-    "chrome/browser/accessibility/tree_fixing/pref_names.h",                  # 1
-    "chrome/browser/desktop_to_mobile_promos/promos_pref_names.h",            # 23
-    "chrome/browser/finds/core/finds_pref_names.cc",                          # 5
-    "chrome/browser/first_party_sets/first_party_sets_pref_names.cc",         # 1
-    "chrome/browser/glic/glic_pref_names.h",                                  # 32
-    "chrome/browser/media/prefs/pref_names.cc",                               # 2
-    "chrome/browser/metrics/profile_pref_names.cc",                           # 5
-    "chrome/browser/new_tab_page/ntp_pref_names.h",                           # 17
-    "chrome/browser/pdf/pdf_pref_names.cc",                                   # 5
-    "chrome/browser/prefetch/pref_names.cc",                                  # 3
-    "chrome/browser/screen_ai/pref_names.cc",                                 # 1
-    "chrome/browser/signin/chrome_signin_pref_names.h",                       # 14
-    "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_pref_names.h",   # 6
-    "chrome/browser/ui/toolbar/toolbar_pref_names.h",                         # 5
-    "chrome/browser/webauthn/webauthn_pref_names.cc",                         # 7
-    "chrome/browser/win/installer_downloader/installer_downloader_pref_names.h",# 4
-    "components/account_manager_core/pref_names.cc",                          # 3
-    "components/blocked_content/pref_names.cc",                               # 1
-    "components/bookmarks/common/bookmark_pref_names.h",                      # 10
-    "components/browsing_data/core/pref_names.h",                             # 17
-    "components/certificate_transparency/pref_names.cc",                      # 2
-    "components/collaboration/public/pref_names.cc",                          # 1
-    "components/commerce/core/pref_names.h",                                  # 8
-    "components/component_updater/pref_names.cc",                             # 3
-    "components/content_settings/core/common/pref_names.h",                   # 109
-    "components/contextual_search/pref_names.h",                              # 2
-    "components/custom_handlers/pref_names.cc",                               # 5
-    "components/desktop_to_mobile_promos/pref_names.h",                       # 3
-    "components/device_signals/core/browser/pref_names.cc",                   # 3
-    "components/dom_distiller/core/pref_names.h",                             # 5
-    "components/drive/drive_pref_names.h",                                    # 11
-    "components/embedder_support/origin_trials/pref_names.cc",                # 3
-    "components/embedder_support/pref_names.h",                               # 1
-    "components/enterprise/browser/reporting/common_pref_names.cc",           # 18
-    "components/enterprise/content/pref_names.cc",                            # 4
-    "components/enterprise/idle/idle_pref_names.cc",                          # 6
-    "components/feature_engagement/public/pref_names.h",                      # 1
-    "components/feed/core/common/pref_names.cc",                              # 21
-    "components/feed/core/shared_prefs/pref_names.cc",                        # 3
-    "components/history/core/common/pref_names.cc",                           # 2
-    "components/language/core/browser/pref_names.h",                          # 8
-    "components/live_caption/pref_names.h",                                   # 14
-    "components/media_router/common/pref_names.cc",                           # 5
-    "components/metrics/dwa/dwa_pref_names.cc",                               # 3
-    "components/metrics/metrics_pref_names.h",                                # 48
-    "components/metrics/private_metrics/private_metrics_pref_names.h",        # 2
-    "components/network_time/network_time_pref_names.cc",                     # 2
-    "components/ntp_tiles/pref_names.h",                                      # 20
-    "components/omnibox/browser/omnibox_pref_names.h",                        # 29
-    "components/on_device_translation/public/pref_names.cc",                  # 3
-    "components/onc/onc_pref_names.cc",                                       # 2
-    "components/password_manager/core/common/password_manager_pref_names.h",  # 46
-    "components/permissions/pref_names.cc",                                   # 6
-    "components/policy/core/browser/url_list/url_list_policy_pref_names.h",   # 4
-    "components/policy/core/common/policy_pref_names.h",                      # 44
-    "components/proxy_config/proxy_config_pref_names.h",                      # 6
-    "components/quirks/pref_names.cc",                                        # 1
-    "components/reading_list/core/reading_list_pref_names.cc",                # 1
-    "components/safety_check/safety_check_pref_names.h",                      # 1
-    "components/saved_tab_groups/public/pref_names.h",                        # 17
-    "components/search_engines/search_engines_pref_names.h",                  # 17
-    "components/security_interstitials/core/pref_names.cc",                   # 2
-    "components/send_tab_to_self/pref_names.cc",                              # 2
-    "components/sharing_message/pref_names.h",                                # 4
-    "components/signin/public/base/signin_pref_names.cc",                     # 41
-    "components/site_engagement/core/pref_names.cc",                          # 1
-    "components/site_isolation/pref_names.cc",                                # 2
-    "components/spellcheck/browser/pref_names.h",                             # 7
-    "components/supervised_user/core/common/pref_names.h",                    # 24
-    "components/sync/base/pref_names.h",                                      # 40
-    "components/sync_preferences/cross_device_pref_tracker/prefs/cross_device_pref_names.h",# 8
-    "components/themes/pref_names.h",                                         # 1
-    "components/tracing/common/pref_names.cc",                                # 1
-    "components/translate/core/browser/translate_pref_names.h",               # 7
-    "components/ukm/ukm_pref_names.cc",                                       # 3
-    "components/unified_consent/pref_names.cc",                               # 2
-    "components/user_manager/user_manager_pref_names.h",                      # 18
-    "components/variations/pref_names.h",                                     # 28
-    "components/web_resource/web_resource_pref_names.cc",                     # 1
-    "components/webui/chrome_urls/pref_names.h",                              # 1
-    "components/webui/flags/flags_ui_pref_names.cc",                          # 2
-    "extensions/browser/api/audio/pref_names.cc",                             # 1
-    "extensions/browser/extension_pref_names.h",                              # 7
-    "extensions/browser/pref_names.h",                                        # 33
-    "net/nqe/pref_names.cc",                                                  # 1
-    "services/preferences/public/cpp/tracked/pref_names.cc",                  # 3
+# Roots that between them contain every declaration this tool reads. Listing a
+# root costs one request; listing all of Chromium would cost ~90 MB, which is
+# why this is a list rather than "/".
+DISCOVERY_ROOTS = (
+    "components", "chrome/browser", "chrome/common", "chrome/app",
+    "extensions", "services", "net", "ui", "media", "content",
+    "printing", "gpu", "third_party/blink/public", "third_party/blink/common",
 )
 
-# The `*_prefs.{h,cc}` convention: 469 more keys at M151, 456 KB.
-PREFS_FILES = (
-    "chrome/browser/accessibility/animation_policy_prefs.cc",                 # 3
-    "chrome/browser/actor/ui/actor_ui_state_manager_prefs.h",                 # 1
-    "chrome/browser/apps/intent_helper/intent_chip_display_prefs.cc",         # 1
-    "chrome/browser/browser_switcher/browser_switcher_prefs.cc",              # 18
-    "chrome/browser/content_settings/generated_cookie_prefs.cc",              # 2
-    "chrome/browser/enterprise/reporting/prefs.cc",                           # 3
-    "chrome/browser/enterprise/signin/enterprise_signin_prefs.h",             # 6
-    "chrome/browser/glic/suggestions/contextual_cueing_prefs.h",              # 1
-    "chrome/browser/indigo/indigo_prefs.h",                                   # 2
-    "chrome/browser/login_detection/login_detection_prefs.cc",                # 1
-    "chrome/browser/nearby_sharing/common/nearby_share_prefs.cc",             # 28
-    "chrome/browser/platform_experience/prefs.h",                             # 4
-    "chrome/browser/prefs/browser_prefs.cc",                                  # 155
-    "chrome/browser/push_notification/prefs/push_notification_prefs.cc",      # 2
-    "chrome/browser/tips/core/tips_prefs.cc",                                 # 9
-    "chrome/browser/ui/read_anything/read_anything_prefs.h",                  # 18
-    "chrome/browser/ui/safety_hub/safety_hub_prefs.h",                        # 21
-    "chrome/browser/ui/side_search/side_search_prefs.cc",                     # 1
-    "chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc",                    # 2
-    "chrome/browser/ui/webui/tab_search/tab_search_prefs.cc",                 # 2
-    "chrome/browser/ui/zoom/chrome_zoom_level_prefs.cc",                      # 2
-    "chrome/browser/webnn/webnn_prefs.h",                                     # 3
-    "chrome/updater/prefs.cc",                                                # 5
-    "components/contextual_tasks/public/prefs.cc",                            # 6
-    "components/domain_reliability/domain_reliability_prefs.cc",              # 1
-    "components/enterprise/browser/groups/groups_prefs.h",                    # 2
-    "components/enterprise/client_certificates/core/prefs.cc",                # 2
-    "components/enterprise/connectors/core/connectors_prefs.cc",              # 18
-    "components/enterprise/connectors/core/connectors_prefs.h",               # 8
-    "components/enterprise/data_controls/core/browser/prefs.h",               # 2
-    "components/enterprise/device_trust/prefs.cc",                            # 2
-    "components/enterprise/isolated_mode/prefs.cc",                           # 1
-    "components/enterprise/network_header_injection/core/network_header_injection_prefs.h",# 1
-    "components/guest_os/guest_os_prefs.cc",                                  # 5
-    "components/headless/policy/headless_mode_prefs.cc",                      # 1
-    "components/metrics/structured/structured_metrics_prefs.cc",              # 2
-    "components/multistep_filter/core/prefs/multistep_filter_retention_prefs.h",# 3
-    "components/omnibox/browser/omnibox_prefs.h",                             # 2
-    "components/optimization_guide/core/model_execution/model_execution_prefs.cc",# 12
-    "components/payments/core/payment_prefs.h",                               # 2
-    "components/performance_manager/public/user_tuning/prefs.h",              # 15
-    "components/proxy_config/proxy_prefs.cc",                                 # 5
-    "components/regional_capabilities/regional_capabilities_prefs.h",         # 2
-    "components/safe_browsing/content/common/file_type_policies_prefs.cc",    # 1
-    "components/signin/public/base/signin_prefs.cc",                          # 23
-    "components/skills/public/skills_prefs.cc",                               # 1
-    "components/sync/service/sync_prefs.cc",                                  # 4
-    "components/sync_sessions/session_sync_prefs.cc",                         # 1
-    "components/translate/core/browser/translate_prefs.h",                    # 8
-    "components/variations/service/google_groups_manager_prefs.h",            # 3
-    "components/wallet/core/common/wallet_prefs.h",                           # 1
-    "extensions/browser/blocklist_extension_prefs.cc",                        # 4
-    "extensions/browser/extension_prefs.cc",                                  # 40
-    "ui/accessibility/accessibility_prefs.cc",                                # 1
+# Test code declares features and prefs that drive the test and ship to nobody.
+_TEST_RE = re.compile(
+    r"(unittest|browsertest|_test\.|_test_|/test/|/tests/|/testing/|test_util|"
+    r"fuzzer|_mock\.|/mock/)")
+
+# Platforms this product does not build. Reading them is not merely wasted --
+# a ChromeOS-only declaration scores and sorts alongside real findings.
+_OTHER_PLATFORM_RE = re.compile(
+    r"^(ash|chromeos|ios|android_webview|fuchsia|chromecast)/"
+    r"|/(ash|chromeos|ios|android)/")
+
+# Preference keys. Chromium spells these two ways and both carry keys:
+# `*pref_names.{h,cc}` is the older, larger set, `*_prefs.{h,cc}` the newer
+# per-component one.
+_PREF_FILE_RE = re.compile(
+    r"(^|/)([a-z0-9_]*pref_names|[a-z0-9_]*_prefs|prefs)\.(h|cc)$")
+
+# Feature flags and command-line switches. The convention is strong but not a
+# rule, which is what `catalog` measures.
+_FEATURE_FILE_RE = re.compile(
+    r"(^|/)[a-z0-9_]*(features|switches|feature_list|field_trial|fieldtrial)"
+    r"\.(cc|h)$")
+
+
+class DiscoveryRule:
+    """Files to fetch, named by shape instead of by path."""
+
+    __slots__ = ("pattern", "roots", "note")
+
+    def __init__(self, pattern, roots=DISCOVERY_ROOTS, note=""):
+        self.pattern = pattern
+        self.roots = roots
+        self.note = note
+
+    def matches(self, path: str) -> bool:
+        if _TEST_RE.search(path) or _OTHER_PLATFORM_RE.search(path):
+            return False
+        return bool(self.pattern.search(path))
+
+
+DISCOVERY_RULES = (
+    DiscoveryRule(_PREF_FILE_RE, note="preference keys"),
+    DiscoveryRule(_FEATURE_FILE_RE, note="feature flags and switches"),
 )
+
+
+def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
+    """Every file in *this* version's tree that a rule says could declare.
+
+    Discovery answers "what exists", not "what to fetch". Those turned out to
+    be very different questions. Gitiles serves roughly one request per second
+    per client whatever the concurrency -- measured at 8 and 16 threads it does
+    not go faster, it starts refusing -- so pulling the ~1,000 files a rule
+    matches costs about seventeen minutes per version and hammers a shared
+    service to do it. The same content arrives as eleven directory archives in
+    about three minutes.
+
+    So fetching stays curated and cheap, and this exists to make the gap
+    between the two *impossible to miss*: the count lands in every run's log
+    and in the report, so a version that adds files moves a number a human
+    reads, instead of quietly widening a hole nobody is looking at.
+    """
+    listings: Dict[str, List[str]] = {}
+    for root in sorted({r for rule in DISCOVERY_RULES for r in rule.roots}):
+        listings[root] = source.list_recursive(root)
+
+    found: Dict[str, str] = {}
+    for rule in DISCOVERY_RULES:
+        hits = 0
+        for root in rule.roots:
+            for path in listings.get(root, ()):
+                if rule.matches(path):
+                    found.setdefault(path, rule.note)
+                    hits += 1
+        log(f"  {hits} file(s) in the tree could declare: {rule.note}")
+    return found
+
+
+def coverage_against(candidates: Dict[str, str],
+                     targets: Sequence[FetchTarget]) -> Dict[str, object]:
+    """How much of what exists this target set actually reads."""
+    files = {t.path for t in targets if t.kind == "file"}
+    trees = [(t.path.rstrip("/") + "/", t.include)
+             for t in targets if t.kind == "tree"]
+
+    def reached(path: str) -> bool:
+        if path in files:
+            return True
+        for prefix, include in trees:
+            if path.startswith(prefix):
+                return not include or path.endswith(tuple(include))
+        return False
+
+    missed = sorted(p for p in candidates if not reached(p))
+    by_dir: Dict[str, int] = {}
+    for path in missed:
+        top = "/".join(path.split("/")[:2])
+        by_dir[top] = by_dir.get(top, 0) + 1
+    return {
+        "candidates": len(candidates),
+        "read": len(candidates) - len(missed),
+        "missed": len(missed),
+        "missed_by_directory": dict(sorted(by_dir.items(), key=lambda kv: -kv[1])[:12]),
+        "missed_paths": missed,
+    }
 
 
 def default_targets() -> List[FetchTarget]:
@@ -307,10 +265,12 @@ def default_targets() -> List[FetchTarget]:
         # -- Command-line switches and preferences: what integration scripts,
         #    automation and settings UI depend on.
         FetchTarget("content/public/common/content_switches.cc", "file"),
+        # Discovery finds this too. It stays named because PARTITION_CORE
+        # promises it to every partition, and a partitioned run filters the
+        # static list -- so a core file that exists only as a discovery hit
+        # would silently drop out of `--partition downloads`.
         FetchTarget("chrome/common/pref_names.h", "file",
-                    note="pref keys (683 at M151)"),
-        *(FetchTarget(path, "file", note="pref keys") for path in PREF_FILES),
-        *(FetchTarget(path, "file", note="pref keys") for path in PREFS_FILES),
+                    note="pref keys; also core to every partition"),
 
         # -- chrome://flags metadata: expiry milestones tell you which flags
         #    are scheduled for deletion, i.e. future forced work.
@@ -340,12 +300,62 @@ def minimal_targets() -> List[FetchTarget]:
                     "runtime_enabled_features.json5", "file"),
         FetchTarget("content/public/common/content_features.cc", "file"),
         FetchTarget("content/public/common/content_switches.cc", "file"),
+        # Discovery finds this too. It stays named because PARTITION_CORE
+        # promises it to every partition, and a partitioned run filters the
+        # static list -- so a core file that exists only as a discovery hit
+        # would silently drop out of `--partition downloads`.
+        FetchTarget("chrome/common/pref_names.h", "file",
+                    note="pref keys; also core to every partition"),
+    ]
+
+
+# Whole-root archives for the directories the curated list can only sample.
+# Measured at M151: these three plus the roots already fetched raise declaration
+# coverage from 42 of 1,010 candidate files to 976 of them, for 315 MB and
+# eleven requests. Expensive enough to be a choice, cheap enough to be one.
+_WIDE_ROOTS = (
+    ("components", "every components/ declaration"),
+    ("chrome/browser", "every chrome/browser declaration"),
+    ("media", "every media/ declaration"),
+    ("extensions", "every extensions/ declaration"),
+    ("services", "every services/ declaration"),
+    ("net", "every net/ declaration"),
+    ("ui", "every ui/ declaration"),
+    ("gpu", "every gpu/ declaration"),
+    ("printing", "every printing/ declaration"),
+    ("chrome/common", "every chrome/common declaration"),
+)
+
+# What an extractor can read, as filename suffixes -- so a wide root downloads
+# a large archive but only keeps the declarations out of it.
+_WIDE_SUFFIXES = (
+    "features.cc", "features.h", "switches.cc", "switches.h",
+    "feature_list.cc", "feature_list.h", "field_trial.cc", "fieldtrial.cc",
+    "pref_names.cc", "pref_names.h", "prefs.cc", "prefs.h",
+)
+
+
+def wide_targets() -> List[FetchTarget]:
+    """The default set, plus whole roots for what it can only sample.
+
+    Slower and much larger to fetch -- about 315 MB per version against 40 --
+    but not to keep: the archives are filtered as they are unpacked, so the
+    tree on disk stays around 42 MB either way. The cost is bandwidth once per
+    version, not storage.
+
+    Measured at M151: coverage goes from 42 of 1,010 candidate files to 971,
+    and base::Feature declarations from 2,062 to 3,836.
+    """
+    return default_targets() + [
+        FetchTarget(root, "tree", _WIDE_SUFFIXES, note=note)
+        for root, note in _WIDE_ROOTS
     ]
 
 
 TARGET_SETS = {
     "default": default_targets,
     "minimal": minimal_targets,
+    "wide": wide_targets,
 }
 
 # ---------------------------------------------------------------------------

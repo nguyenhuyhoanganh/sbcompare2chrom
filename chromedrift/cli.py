@@ -572,8 +572,17 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--cache", default=DEFAULT_CACHE,
                         help=f"cache directory (default: {DEFAULT_CACHE})")
     common.add_argument("--target-set", default="default",
-                        choices=("default", "minimal"),
-                        help="which Chromium files to pull")
+                        choices=("default", "minimal", "wide"),
+                        help="which Chromium files to pull. default: curated, "
+                             "~40 MB per version, reads 4%% of the files in "
+                             "the tree that could declare but 58%% of the "
+                             "declarations, because the curated files are the "
+                             "large ones. wide: adds whole-root archives for "
+                             "components/, chrome/browser/, media/ and six "
+                             "others -- fetches 315 MB but keeps 42, and "
+                             "reads 96%% of the files, for a release gate. "
+                             "minimal: three files, for smoke "
+                             "tests. Every run prints the coverage it achieved")
     common.add_argument("--local-src", default=None,
                         help="use an existing checkout instead of gitiles "
                              "(applies to both sides)")

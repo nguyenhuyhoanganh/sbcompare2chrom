@@ -399,6 +399,14 @@ python3 -m chromedrift report out/report.json --area downloads   # cắt lát ch
 
 Tách thành từng lệnh không phải để trang trí. Bước đắt (tải về) và bước bạn chỉnh đi chỉnh lại (chấm điểm, báo cáo) có chi phí hoàn toàn khác nhau. Chạy lại được nửa rẻ trên cache ấm là khác biệt giữa một công cụ người ta tinh chỉnh và một công cụ người ta chạy đúng một lần.
 
+`--target-set` quyết định đọc bao nhiêu: `minimal` (~1 MB, kiểm khói),
+`default` (~40 MB, 4% số file nhưng 58% số khai báo — vì các file curate là
+những file lớn), `wide` (tải 315 MB nhưng chỉ giữ 42 MB trên đĩa, 96% số file và
+3.836 `base::Feature` thay vì 2.062 — dùng làm cổng chặn trước release). **Mỗi lần chạy đều in ra độ phủ nó đạt được**, đo bằng cách liệt kê
+chính cây nguồn của phiên bản đó chứ không giả định — vì một danh sách file
+viết tay dựng ở M130 đem chạy ở M151 sẽ bỏ sót 27% file pref và 34% file
+feature đang tồn tại ở đó.
+
 `check` đáng nói riêng: nó kiểm mọi thứ thường hỏng trên máy mới **một lượt**, thay vì để bạn phát hiện từng cái sau hai phút chạy — phiên bản Python, quyền ghi thư mục cache, ba host mạng, biến proxy, và hồ sơ có đọc được không.
 
 ### Chạy đầy đủ

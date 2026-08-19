@@ -88,7 +88,12 @@ from typing import Any, Dict, Iterable, List, Optional
 #        - a control's `pref` attribute requires the `prefs.` binding prefix,
 #          so an ordinary component property is no longer recorded as a
 #          preference key. 27 of 156 bindings at M151 were such properties.
-SCHEMA_VERSION = 15
+#  16: every snapshot records how much of its version's tree the target set
+#      actually read, measured against a recursive listing of that tree rather
+#      than assumed. Version 15 snapshots carry no such measurement, and the
+#      target set they were built from named files chosen at M151, which is a
+#      different scope from the one the same name resolves to now.
+SCHEMA_VERSION = 16
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

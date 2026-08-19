@@ -88,8 +88,28 @@ is the procedure for it. Nothing in the report is a verdict, so there is no
 verdict column to mistake for a clean result — but equally, an empty **Must
 fix** means "no evidence was supplied", never "nothing to do".
 
-Options: `--no-enrich` skip network lookups, `--target-set minimal` fast smoke
-run, `--mode fork` compare against a fork instead of across time.
+Options: `--no-enrich` skip network lookups, `--mode fork` compare against a
+fork instead of across time, and `--target-set` to choose how much is read:
+
+| | Per version | Files read | Use for |
+|---|---:|---:|---|
+| `minimal` | ~1 MB | 3 | smoke test |
+| `default` | ~40 MB | 4% of files, 58% of declarations | day to day |
+| `wide` | 315 MB fetched, 42 MB kept | 96% of files | release gate |
+
+**Every run prints the coverage it achieved**, measured against a listing of
+that version's own tree rather than assumed:
+
+```
+coverage: reads 42 of 1010 files in this tree that could declare (4% of files)
+  largest gaps: chrome/browser/ (245 files), components/enterprise/ (50 files)
+```
+
+Read that line before reading the findings. A hand-written list of target files
+decays — built as it stood at M130 and run at M151 it misses 27% of the pref
+files and 34% of the feature files that exist there — so the number is measured
+every time rather than written down once. It is also in `report.json` under
+`meta.coverage`, with the uncovered paths under `meta.uncovered_files`.
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
@@ -234,14 +254,17 @@ State these limits in every report. A clean report does not imply a clean uprev.
 - **Implementation-only changes.** The tool reads declarations (macros, IDL,
   mojom, string constants, JSON/JSON5 manifests). Behaviour changed entirely
   inside a function body is invisible.
-- **Roughly 40% of feature flags.** This is the largest limit and it is
-  measured, not estimated by feel. At M151 the tool captures 2,062
-  `base::Feature` declarations. Sampling the files it does not fetch puts about
-  **1,200 more** in files whose names follow the convention, plus about **130**
-  in files that follow no convention at all — so coverage of the flag surface is
-  near **60%**, and `must fix: 0` never means "nothing changed".
-  Run `chromedrift catalog <ref>` for the current number and the missing paths
-  by name; closing a gap is one line in `targets.py`.
+- **About 40% of feature flags, on the default target set.** Measured, not
+  estimated: at M151 the default set reads 42 of the 1,010 files in the tree
+  that could declare, and those hold 2,062 `base::Feature` declarations against
+  3,586 in all of them. The curated files are the large ones, which is why 4%
+  of the files is 58% of the declarations.
+
+  This is not a fixed number and must not be quoted as one. Every run prints
+  its own. `--target-set wide` reads 96% of the files and finds 3,836
+  `base::Feature` declarations instead of 2,062; it fetches 315 MB per version
+  but keeps 42 MB, because the archives are filtered as they are unpacked.
+  Whichever you ran, `must fix: 0` never means "nothing changed".
 
   Per source type, measured at M151:
 
