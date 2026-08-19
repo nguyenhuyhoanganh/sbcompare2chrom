@@ -83,7 +83,6 @@ body{
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px 96px}
 h1,h2,h3{text-wrap:balance;margin:0}
 code,.mono{font-family:var(--mono)}
-.tnum{font-variant-numeric:tabular-nums}
 
 /* ── Hero ─────────────────────────────────────────────────── */
 .hero{padding:72px 0 40px;display:grid;gap:22px}
@@ -306,27 +305,53 @@ td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .chip.hot{background:var(--clay-soft);border-color:var(--clay);color:var(--clay)}
 .chip.ok{background:var(--flow-soft);border-color:var(--flow);color:var(--flow)}
 h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
-.stack{display:grid;gap:14px}
 
-/* ── Tương tác 1: bộ đánh giá ba trạng thái ───────────────── */
-.evalgrid{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
-.guards{display:flex;flex-wrap:wrap;gap:7px}
-.guard{
-  font-family:var(--mono);font-size:.74rem;padding:7px 12px;border-radius:9px;cursor:pointer;
-  background:var(--panel-2);border:1px solid var(--line);color:var(--ink-soft);
-  transition:background .15s,border-color .15s,color .15s;
+/* ── Khối bấm để mở ───────────────────────────────────────── */
+.expand{
+  border:1px solid var(--line);border-radius:12px;background:var(--panel);
+  margin-top:13px;overflow:hidden;
 }
-.guard:hover{border-color:var(--flow)}
-.guard[aria-pressed="true"]{background:var(--flow);border-color:var(--flow);color:var(--on-flow)}
-.guard:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
-.verdict{
-  font-family:var(--mono);font-weight:700;font-size:1.5rem;padding:14px 20px;
-  border-radius:12px;min-width:150px;text-align:center;transition:background .2s,color .2s;
+.expand>summary{
+  cursor:pointer;padding:13px 16px;font-weight:620;font-size:.9rem;
+  list-style:none;display:flex;align-items:center;gap:10px;user-select:none;
 }
-.v-true{background:var(--flow-soft);color:var(--flow)}
-.v-false{background:var(--clay-soft);color:var(--clay)}
-.v-unknown{background:var(--brass-soft);color:var(--brass)}
-.evalsay{margin-top:12px;font-size:.86rem;color:var(--ink-soft);min-height:44px}
+.expand>summary::-webkit-details-marker{display:none}
+.expand>summary::before{
+  content:"+";font-family:var(--mono);font-size:.95rem;line-height:1;color:var(--flow);
+  width:20px;height:20px;display:grid;place-items:center;flex:none;
+  border:1px solid var(--flow);border-radius:6px;
+}
+.expand[open]>summary::before{content:"\2212"}
+.expand>summary:hover{background:var(--panel-2)}
+.expand>summary:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.expand-body{padding:4px 16px 18px;border-top:1px solid var(--line)}
+.gloss{display:grid;gap:20px;margin-top:15px}
+.gloss h4{
+  margin:0 0 7px;font-size:.93rem;font-weight:660;
+  display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;
+}
+.gloss h4 .tag{
+  font-family:var(--mono);font-size:.68rem;font-weight:500;padding:2px 7px;
+  border-radius:99px;background:var(--panel-2);color:var(--muted);
+}
+.gloss p{margin:0 0 8px;font-size:.87rem;color:var(--ink-soft);line-height:1.65}
+.gloss p:last-child{margin-bottom:0}
+.gloss p b{color:var(--ink)}
+.gloss pre{margin:9px 0}
+
+/* ── Chuỗi khái niệm ─────────────────────────────────────── */
+.chain{display:grid;gap:10px;margin:14px 0 4px}
+.chain .step{
+  display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:start;
+  background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 16px;
+}
+.chain .nm{font-weight:650;color:var(--ink);font-size:.92rem}
+.chain .nm span{
+  display:block;font-family:var(--mono);font-size:.71rem;color:var(--muted);
+  font-weight:400;margin-top:3px;letter-spacing:.02em;
+}
+.chain .tx{font-size:.88rem;color:var(--ink-soft);line-height:1.6}
+@media (max-width:640px){ .chain .step{grid-template-columns:1fr;gap:6px} }
 
 /* ── Tương tác 2: máy chấm điểm ───────────────────────────── */
 .scorebox{display:grid;grid-template-columns:1fr 168px;gap:18px;align-items:start}
@@ -384,94 +409,440 @@ footer{
   .rail .thread{display:none}
   .scorebox{grid-template-columns:1fr}
   .dial{position:static}
-  .evalgrid{grid-template-columns:1fr}
 }
 </style>
-
 <div class="wrap">
 
 <header class="hero">
-  <div class="eyebrow">chromedrift · dây chuyền so sánh</div>
-  <h1>Từ hai con số phiên bản<br>đến một danh sách việc phải làm</h1>
+  <div class="eyebrow">chromedrift · tài liệu quy trình</div>
+  <h1>So sánh hai phiên bản Chromium:<br>cái gì đã đổi, cái gì ảnh hưởng đến mình</h1>
   <p class="lede">
-    So hai bản Chromium bằng <b>diff văn bản</b> là hàng triệu dòng. Công cụ này
-    không đọc văn bản — nó đọc <b>khai báo</b>: cờ tính năng, manifest, IDL, mojom,
-    bảng route. Rồi hỏi một câu mà cái diff không trả lời được:
-    <b>cái này có ảnh hưởng đến chúng ta không?</b>
+    Mỗi lần <b>uprev</b> — đưa fork của mình lên nền Chromium mới hơn — đội ngũ đều cần
+    trả lời hai câu: <b>Chromium đã đổi những gì?</b> và <b>trong đó, cái nào chạm
+    tới sản phẩm của mình?</b>
+  </p>
+  <p class="lede">
+    Chạy <code>git diff</code> giữa hai phiên bản cho ra vài triệu dòng, gần như
+    toàn bộ không trả lời được câu nào trong hai câu đó. <b>chromedrift</b> đi đường
+    khác: nó không đọc mã nguồn, mà chỉ đọc <b>các file khai báo</b> — nơi Chromium
+    tự liệt kê ra mình có những gì, ở dạng máy đọc được — rồi đối chiếu danh sách
+    đó với những phần mà fork thực sự đụng tới.
+  </p>
+  <p class="lede">
+    Tài liệu này đi qua toàn bộ quy trình, từ hai số phiên bản đầu vào cho tới báo
+    cáo cuối cùng, và nói rõ ở phần cuối những gì công cụ <b>không</b> đọc được.
   </p>
 
   <div class="belt">
     <div class="belt-head">
-      <span class="t">Bám theo một thay đổi có thật</span>
+      <span class="t">Một thay đổi có thật, đi qua đủ chín bước</span>
       <span class="s mono">GlicActorUiMagicCursor · M148 → M151</span>
     </div>
     <div class="belt-track" id="track">
       <div class="belt-line"></div>
       <div class="belt-fill" id="fill"></div>
-      <div class="token mono" id="token">nguồn thô</div>
+      <div class="token mono" id="token">file nguồn</div>
     </div>
-    <div class="belt-say mono" id="say">Bấm nút để chạy dây chuyền.</div>
-    <button class="belt-btn" id="run">Chạy dây chuyền</button>
+    <div class="belt-say" id="say">Bấm “Chạy thử” để xem thay đổi này đi qua từng bước.</div>
+    <button class="belt-btn" id="run">Chạy thử</button>
   </div>
 </header>
 
-<!-- ── 1 ─────────────────────────────────────────────────── -->
+<!-- ── 1. Khái niệm ──────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">1</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Chốt phiên bản</h2>
-    <div class="file">acquire.resolve_ref()</div>
-    <p>Ba dạng đầu vào, ba đường xử lý khác nhau.</p>
+    <h2>Trước hết: “tính năng” là gì?</h2>
+    <div class="file">Phần này định nghĩa các từ được dùng lại ở tám bước sau</div>
+    <p>
+      Câu “tính năng X thay đổi” nghe thì rõ, nhưng trong Chromium nó mơ hồ, và
+      chính chỗ mơ hồ đó sinh ra phần lớn kết luận sai. Lấy một ví dụ có thật:
+      <b>tải file song song</b>.
+    </p>
+
+    <h3 class="sub">Một tính năng người dùng gọi tên được nằm rải ở nhiều chỗ</h3>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Anh gõ</th><th>Cơ chế</th><th>Ra</th></tr></thead>
+        <thead><tr><th>Nằm ở đâu trong Chromium</th><th>Là cái gì</th><th>Ví dụ</th></tr></thead>
         <tbody>
-          <tr><td class="mono">151.0.7922.138</td><td>khớp regex bốn số → dùng thẳng</td><td class="mono">refs/tags/151.0.7922.138</td></tr>
-          <tr><td class="mono">151</td><td>hỏi chromiumdash bản stable mới nhất</td><td class="mono">…trôi theo ngày chạy</td></tr>
-          <tr><td class="mono">main/dev</td><td>không khớp gì → chuyển nguyên</td><td class="mono">main/dev</td></tr>
+          <tr>
+            <td><b>Feature flag</b></td>
+            <td>Một flag bật/tắt trong mã C++, có tên và trạng thái mặc định</td>
+            <td class="mono">ParallelDownloading</td>
+          </tr>
+          <tr>
+            <td><b>Feature param</b></td>
+            <td>Các con số chỉnh kèm theo flag đó</td>
+            <td class="mono">min_slice_size, parallel_request_count</td>
+          </tr>
+          <tr>
+            <td><b>Pref</b></td>
+            <td>Nơi Chromium lưu cài đặt của người dùng. Mỗi pref là một khoá trong
+                file <code>Preferences</code> nằm trong profile</td>
+            <td class="mono">download.prompt_for_download</td>
+          </tr>
+          <tr>
+            <td><b>Control</b></td>
+            <td>Thành phần UI người dùng bấm được trên trang Settings: toggle,
+                dropdown, checkbox</td>
+            <td class="mono">settings-toggle-button</td>
+          </tr>
+          <tr>
+            <td><b>Mục chrome://flags</b></td>
+            <td>Chỗ người dùng tự bật thử, kèm phiên bản dự kiến bị gỡ</td>
+            <td class="mono">enable-parallel-downloading</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <details class="expand">
+      <summary>Năm mục trên là gì — bấm để xem giải nghĩa</summary>
+      <div class="expand-body">
+        <div class="gloss">
+
+          <div>
+            <h4>Feature flag <span class="tag">base_feature</span></h4>
+            <p>
+              Một hằng trong mã C++, gồm <b>một cái tên</b> và <b>một trạng thái mặc
+              định</b> bật hoặc tắt. Code chạy tới chỗ cần rẽ nhánh thì hỏi “flag này
+              đang bật không?” rồi đi theo nhánh tương ứng. Đây cũng là thứ Finch —
+              hệ thử nghiệm phía server của Chromium — dùng để bật tính năng cho một
+              phần trăm người dùng nhất định.
+            </p>
+            <p>Khai báo thật của <code>ParallelDownloading</code> ở M151:</p>
+            <pre><span class="c">// components/download/public/common/download_features.cc</span>
+BASE_FEATURE(kParallelDownloading,
+<b>#if BUILDFLAG(IS_ANDROID)</b>
+             base::<span class="g">FEATURE_ENABLED_BY_DEFAULT</span>
+<b>#else</b>
+             base::<span class="r">FEATURE_DISABLED_BY_DEFAULT</span>
+<b>#endif</b>
+);</pre>
+            <p>
+              Đọc lướt sẽ thấy <code>ENABLED</code> và tưởng tính năng đang bật. Thật
+              ra dòng đó là <b>nhánh dành cho Android</b>; trên Windows nó rơi vào
+              nhánh <code>#else</code>, tức là <b>tắt</b>. Đây đúng là loại nhầm lẫn
+              làm đảo ngược kết luận, và là lý do bước 5 phải đọc điều kiện build bao
+              quanh khai báo chứ không lấy giá trị đầu tiên gặp được.
+            </p>
+          </div>
+
+          <div>
+            <h4>Feature param <span class="tag">feature_param</span></h4>
+            <p>
+              Con số đi kèm <em>một</em> flag cụ thể. Flag quyết định <b>“có bật
+              không”</b>; param quyết định <b>“bật rồi thì chạy với thông số nào”</b>:
+              ngưỡng, thời gian chờ, tỉ lệ lấy mẫu, số lần thử lại.
+            </p>
+            <p>Một param công cụ đọc được ở M151:</p>
+            <pre>flag  <b>DownloadWarningSurvey</b>
+param <span class="g">ignore_delay_seconds</span> = 300</pre>
+            <p>
+              Đổi 300 thành 30 là <b>thay đổi hành vi thật</b> — nhưng flag vẫn nguyên
+              trạng thái, nên nếu chỉ theo dõi flag thì không thấy gì cả. Đó là lý do
+              param được tách thành một loại riêng.
+            </p>
+            <p>
+              <b>Một điểm thành thật về độ bao phủ.</b> Hai param ghi ở cột ví dụ phía
+              trên — <code>min_slice_size</code> và <code>parallel_request_count</code>
+              — là param của chính <code>ParallelDownloading</code>, nhưng chúng nằm
+              trong một file mà danh sách tải hiện <b>chưa với tới</b>, nên công cụ
+              không đọc được chúng. Đây đúng là loại lỗ hổng mà lệnh
+              <code>chromedrift catalog</code> sinh ra để đo, và là lý do phần cuối tài
+              liệu nói rõ độ bao phủ chứ không im lặng.
+            </p>
+          </div>
+
+          <div>
+            <h4>Pref <span class="tag">pref</span></h4>
+            <p>
+              Cài đặt của người dùng. Chromium <b>không</b> lưu chúng trong registry
+              hay database, mà trong <b>một file JSON tên <code>Preferences</code></b>
+              nằm trong thư mục profile. Với Chrome trên Windows, file đó ở
+              <code>…\User Data\Default\Preferences</code>.
+            </p>
+            <p>
+              <b>Dấu chấm trong tên pref chính là đường đi vào file JSON đó.</b>
+              <code>download.prompt_for_download</code> nghĩa là: vào object
+              <code>download</code>, lấy khoá <code>prompt_for_download</code>.
+            </p>
+            <pre><span class="c">// file Preferences trong profile của người dùng</span>
+{
+  "<b>download</b>": {
+    "<span class="g">prompt_for_download</span>": true,
+    "default_directory": "C:\\Users\\me\\Downloads"
+  }
+}</pre>
+            <p>Còn trong mã nguồn, khoá đó được khai báo thành một hằng:</p>
+            <pre><span class="c">// chrome/common/pref_names.h:416</span>
+inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.prompt_for_download"</span>;
+<span class="c">//         ^ biến C++, ổn định        ^ CHUỖI, mới là danh tính</span></pre>
+            <p>
+              Phân biệt hai thứ đó là quan trọng. Nếu Chromium <b>đổi chuỗi mà giữ
+              nguyên biến</b>: code vẫn build được (mọi nơi đều gọi qua biến), test vẫn
+              pass (test cũng dùng biến) — nhưng trên máy người dùng, Chromium đi tìm
+              khoá mới trong file <code>Preferences</code>, không thấy, và dùng giá trị
+              mặc định. <b>Cài đặt của toàn bộ người dùng hiện có lặng lẽ trở về mặc
+              định</b>, không một dòng lỗi nào.
+            </p>
+          </div>
+
+          <div>
+            <h4>Control <span class="tag">webui_control</span></h4>
+            <p>
+              Thành phần giao diện mà người dùng bấm được trên một trang
+              <code>chrome://</code>: toggle, dropdown, checkbox, nút bấm. Các trang này
+              là <b>trang web thật</b>, nên control được khai báo trong file HTML.
+            </p>
+            <p>Cái toggle “Hỏi nơi lưu mỗi file trước khi tải”, khai báo thật ở M151:</p>
+            <pre><span class="c">// chrome/browser/resources/settings/downloads_page/downloads_page.html:31</span>
+&lt;<b>settings-toggle-button</b>
+    pref="{{prefs.<span class="g">download.prompt_for_download</span>}}"
+    label="$i18n{promptForDownload}"&gt;</pre>
+            <p>
+              Hai chi tiết đáng chú ý. Thứ nhất, <b>loại control nằm ngay trong tên
+              thẻ</b> — nên chuyện một dropdown bị đổi thành toggle là phát hiện được
+              tự động, không cần nhìn ảnh chụp màn hình. Thứ hai, thuộc tính
+              <code>pref=</code> <b>nối thẳng control với pref bên dưới nó</b>; đây là
+              liên kết khai báo mạnh nhất giữa giao diện và lõi trình duyệt, và nó sống
+              sót ngay cả khi một fork thay toàn bộ giao diện, vì pref phía dưới không đổi.
+            </p>
+          </div>
+
+          <div>
+            <h4>Mục chrome://flags <span class="tag">flag_entry</span></h4>
+            <p>
+              <code>chrome://flags</code> là trang cho người dùng tự bật thử các tính
+              năng chưa phát hành. Mỗi mục trên trang đó có một bản ghi trong
+              <code>flag-metadata.json</code>, và bản ghi này chứa một thứ không nguồn
+              nào khác có: <b>phiên bản dự kiến gỡ bỏ flag</b>.
+            </p>
+            <pre><span class="c">// chrome/browser/flag-metadata.json</span>
+{ "name": "<b>enable-parallel-downloading</b>",
+  "owners": ["qinmin@chromium.org", "xingliu@chromium.org"],
+  "expiry_milestone": <span class="g">-1</span> }   <span class="c">// -1 = không có hạn gỡ</span></pre>
+            <p>
+              Đây là <b>nguồn duy nhất trong mã nguồn nói về tương lai</b> thay vì hiện
+              trạng. Nhờ nó, câu “mười hai flag chúng ta đang phụ thuộc sẽ bị gỡ ở M151”
+              trở thành việc lên kế hoạch được từ hôm nay, thay vì một lỗi build phát
+              hiện ở đợt uprev sau.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </details>
+
+    <div class="note" style="margin-top:13px">
+      Năm dòng trên là <b>năm khai báo riêng biệt, nằm ở năm file khác nhau</b>.
+      Không có file nào trong Chromium nói “tải file song song gồm năm thứ này”.
+      Công cụ đọc từng khai báo một; việc ghép chúng lại thành một tính năng mà
+      người dùng gọi tên được là <b>việc của người đọc báo cáo</b>, không phải của
+      công cụ.
+    </div>
+
+    <h3 class="sub">Bốn từ dùng xuyên suốt tài liệu</h3>
+    <p>
+      Bốn từ dưới đây là tên thật của bốn giai đoạn dữ liệu trong công cụ — bạn sẽ
+      gặp lại đúng các từ này trong <code>report.json</code>. Ví dụ đi kèm là thay
+      đổi thật đang chạy ở băng chuyền phía trên.
+    </p>
+    <div class="chain">
+      <div class="step">
+        <div class="nm">fact<span>một khai báo</span></div>
+        <div class="tx">
+          Một khai báo đã được đọc ra và chuẩn hoá thành dữ liệu. Ở M148, công cụ
+          đọc được: <em>tên</em> <code>GlicActorUiMagicCursor</code>, <em>trạng thái
+          trên Windows</em> là <b>tắt</b>. Ở M151 cũng khai báo đó, trạng thái là
+          <b>bật</b>. Một snapshot M151 cho ra khoảng <b>24.600 fact</b>.
+        </div>
+      </div>
+      <div class="step">
+        <div class="nm">change<span>khác biệt</span></div>
+        <div class="tx">
+          Đặt hai fact cùng tên ở hai phiên bản cạnh nhau và ghi lại chỗ khác nhau:
+          <em>trạng thái trên Windows: tắt → bật</em>. Mỗi loại fact có một danh sách
+          cố định những thuộc tính mà công cụ đem so — thuộc tính nào không nằm trong
+          danh sách đó thì có đổi cũng không tính.
+        </div>
+      </div>
+      <div class="step">
+        <div class="nm">signal<span>nghĩa là gì</span></div>
+        <div class="tx">
+          Nhãn giải thích khác biệt đó có nghĩa gì, kèm mức nghiêm trọng tối thiểu.
+          Ở đây: <em>“mặc định trên Windows chuyển sang bật”</em>, mức <b>75</b>.
+          Một change có thể mang nhiều signal; mức nghiêm trọng lấy theo signal cao nhất.
+        </div>
+      </div>
+      <div class="step">
+        <div class="nm">finding<span>có liên quan đến mình không</span></div>
+        <div class="tx">
+          Change cộng thêm câu trả lời cho câu hỏi <em>“mã nguồn fork của mình có
+          đụng tới cái này không?”</em>. Ở đây là <b>chưa thấy</b>, nên điểm dừng ở
+          75 và mục này rơi vào nhóm <b>Needs review</b>. Đây là thứ xuất hiện trong
+          báo cáo.
+        </div>
+      </div>
+    </div>
+
+    <h3 class="sub">Ba kiểu change, và cái bẫy khi đọc chúng</h3>
+    <p>
+      Công cụ chạy được ở hai chế độ. Chế độ <b>uprev</b> so hai phiên bản Chromium
+      theo thời gian. Chế độ <b>fork</b> so Chromium gốc với fork của mình tại
+      cùng một phiên bản. Cùng một kiểu change, <b>nghĩa ngược nhau</b> giữa hai chế độ.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Kiểu</th><th>Nghĩa đen</th>
+              <th>Chế độ uprev</th><th>Chế độ fork</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono"><b>added</b></td>
+            <td>Có ở bên phải, không có ở bên trái</td>
+            <td>Chromium vừa thêm. Là thứ mình có thể cân nhắc lấy về.</td>
+            <td>Fork của mình tự thêm. Là phần tuỳ biến của mình, <b>phải giữ qua mọi lần merge</b>, không phải thứ để cân nhắc lấy về.</td>
+          </tr>
+          <tr>
+            <td class="mono"><b>removed</b></td>
+            <td>Có ở bên trái, không có ở bên phải</td>
+            <td>Chromium vừa gỡ. Phần lớn là dọn dẹp sau khi tính năng đã ship.</td>
+            <td><b>Mình</b> đã xoá, không phải Chromium. Lần merge sau sẽ đưa nó về lại, trừ khi có patch giữ lại.</td>
+          </tr>
+          <tr>
+            <td class="mono"><b>modified</b></td>
+            <td>Cùng tên, khác giá trị</td>
+            <td>Chromium đổi giá trị. Nếu là trạng thái mặc định thì người dùng thấy khác.</td>
+            <td>Giá trị bên mình khác Chromium gốc. Câu hỏi là: cố ý sửa, hay merge sót?</td>
+          </tr>
         </tbody>
       </table>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      <b>Đừng gõ số milestone trần.</b> <code>151</code> giải ra bản stable
-      <em>tại thời điểm chạy</em>. Ví dụ thật: <code>ServiceWorkerAutoPreload</code>
-      <b>BẬT</b> ở <code>143.0.7499.40</code> nhưng <b>TẮT</b> ở <code>143.0.7499.194</code>
-      — cùng milestone, khác bản vá, vì bị revert. Hai lần chạy cách nhau vài tuần
-      cho hai kết luận khác nhau, và cả hai đều đúng.
+      Cột cuối không phải cách nói khác của cột kế bên. Ở chế độ fork, <code>removed</code>
+      nghĩa là <b>mình đã xoá</b>. Đọc theo nghĩa của chế độ uprev sẽ ra kết luận
+      ngược hẳn, nên báo cáo luôn ghi rõ chế độ ngay ở tiêu đề.
+    </div>
+
+    <h3 class="sub">Bốn nhóm trong báo cáo</h3>
+    <p>
+      Mỗi finding rơi vào một nhóm. Quyết định nhóm là <b>bằng chứng</b>, không phải
+      mức nghiêm trọng: một thay đổi rất nặng nhưng fork không hề đụng tới thì vẫn
+      không lên được nhóm cao nhất.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Nhóm</th><th>Vào nhóm khi</th><th>Đọc như thế nào</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="bucket b-must">Must fix</span></td>
+            <td>Mã nguồn fork có nhắc đúng tên, <b>và</b> change mang signal gây vỡ
+                hoặc đạt từ 60 điểm</td>
+            <td>Coi như có việc phải làm</td>
+          </tr>
+          <tr>
+            <td><span class="bucket b-review">Needs review</span></td>
+            <td>Có bằng chứng liên quan và đạt từ 35 điểm; hoặc không có bằng chứng
+                nhưng đạt từ 65 điểm</td>
+            <td>Cần một người xác nhận là có việc hay không</td>
+          </tr>
+          <tr>
+            <td><span class="bucket b-fyi" style="background:var(--flow-soft);color:var(--flow)">New opportunity</span></td>
+            <td>Năng lực mới, không mang signal gây vỡ</td>
+            <td>Đầu vào cho quyết định sản phẩm, không phải rủi ro</td>
+          </tr>
+          <tr>
+            <td><span class="bucket b-fyi">FYI</span></td>
+            <td>Phần còn lại</td>
+            <td>Ghi lại để tra khi cần</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:13px">
+      <code>must fix: 0</code> <b>không có nghĩa là uprev này an toàn.</b> Nếu hồ sơ
+      fork chưa khai bằng chứng nào thì không finding nào lên nổi nhóm này — báo cáo
+      ghi rõ tình trạng đó ngay ở đầu.
     </div>
   </div>
 </section>
 
-<!-- ── 2 ─────────────────────────────────────────────────── -->
+<!-- ── 2. Chốt phiên bản ─────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">2</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Lấy về vài nghìn file, không phải cả Chromium</h2>
-    <div class="file">targets.py · acquire.GitilesSource</div>
+    <h2>Chốt phiên bản</h2>
+    <div class="file">acquire.py · hàm resolve_ref</div>
     <p>
-      <code>gclient sync</code> là ~100 GB và vài giờ mỗi phiên bản. Ta chỉ cần
-      file <b>khai báo</b>, nên kéo thẳng tarball theo thư mục từ Gitiles và đổ ra đĩa
-      thành một bản checkout rất từng phần.
+      Công cụ nhận ba dạng đầu vào và xử lý mỗi dạng theo một cách khác nhau.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Đầu vào</th><th>Cách xử lý</th><th>Kết quả</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">151.0.7922.138</td>
+            <td>Số phiên bản đầy đủ, dùng trực tiếp</td>
+            <td class="mono">refs/tags/151.0.7922.138</td>
+          </tr>
+          <tr>
+            <td class="mono">151</td>
+            <td>Số mốc phiên bản rút gọn; công cụ hỏi dịch vụ chromiumdash để lấy
+                bản ổn định mới nhất của mốc đó</td>
+            <td class="mono">thay đổi theo ngày chạy</td>
+          </tr>
+          <tr>
+            <td class="mono">main/dev</td>
+            <td>Không khớp hai dạng trên, chuyển thẳng cho Git</td>
+            <td class="mono">main/dev</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warnbox" style="margin-top:14px">
+      <b>Nên dùng số phiên bản đầy đủ cho mọi báo cáo chính thức.</b>
+      Số mốc rút gọn được giải ra bản ổn định mới nhất <em>tại thời điểm chạy</em>,
+      nên hai lần chạy cách nhau vài tuần có thể cho hai kết luận khác nhau mà cả
+      hai đều đúng. Trường hợp đã gặp: flag <code>ServiceWorkerAutoPreload</code> ở
+      trạng thái <b>bật</b> trong bản <code>143.0.7499.40</code> nhưng <b>tắt</b>
+      trong bản <code>143.0.7499.194</code> — cùng một mốc phiên bản, khác bản patch,
+      vì thay đổi đã bị revert.
+    </div>
+  </div>
+</section>
+
+<!-- ── 3. Thu thập ───────────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">3</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Thu thập file khai báo</h2>
+    <div class="file">targets.py · acquire.py</div>
+    <p>
+      Đồng bộ một bản Chromium đầy đủ tốn khoảng 100 GB và vài giờ cho mỗi phiên bản.
+      Công cụ không cần toàn bộ mã nguồn mà chỉ cần các file khai báo, nên nó tải
+      từng thư mục dưới dạng file nén trực tiếp từ máy chủ Gitiles và giải nén ra
+      thành một cây thư mục y hệt Chromium nhưng chỉ có vài nghìn file.
     </p>
     <div class="grid2">
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Lấy những gì</h3>
+        <h3 class="sub" style="margin-top:0">Những gì được tải</h3>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Nhóm</th><th>Ví dụ</th></tr></thead>
+            <thead><tr><th>Nhóm</th><th>Ví dụ đường dẫn</th></tr></thead>
             <tbody>
-              <tr><td>File cờ</td><td class="mono">chrome_features.cc <span style="color:var(--muted)">(247 cờ)</span></td></tr>
-              <tr><td>Manifest</td><td class="mono">runtime_enabled_features.json5</td></tr>
-              <tr><td>API web</td><td class="mono">blink/renderer/**/*.idl</td></tr>
-              <tr><td>ABI tiến trình</td><td class="mono">blink/public/mojom/*.mojom</td></tr>
-              <tr><td>Giao diện</td><td class="mono">resources/settings/**.html</td></tr>
-              <tr><td>Cầu nối cờ↔UI</td><td class="mono">ui/webui/**/*.cc</td></tr>
+              <tr><td>Feature flag</td><td class="mono">chrome_features.cc</td></tr>
+              <tr><td>File liệt kê API web</td><td class="mono">runtime_enabled_features.json5</td></tr>
+              <tr><td>Định nghĩa API web</td><td class="mono">blink/renderer/**/*.idl</td></tr>
+              <tr><td>Mojo</td><td class="mono">blink/public/mojom/*.mojom</td></tr>
+              <tr><td>Giao diện Cài đặt</td><td class="mono">resources/settings/**.html</td></tr>
+              <tr><td>Cầu nối flag và giao diện</td><td class="mono">ui/webui/**/*.cc</td></tr>
             </tbody>
           </table>
         </div>
       </div>
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Chi phí đo thật</h3>
+        <h3 class="sub" style="margin-top:0">Chi phí đo được</h3>
         <div class="tablewrap">
           <table>
             <thead><tr><th>Phạm vi</th><th class="n">Giây</th><th class="n">Fact</th></tr></thead>
@@ -482,367 +853,503 @@ footer{
             </tbody>
           </table>
         </div>
-        <div class="note" style="margin-top:13px">
-          <b>Marker cache ghi <em>kết quả gì</em></b>, không chỉ “đã xong”. File 404 vẫn
-          được cache — nhưng nếu marker chỉ ghi “xong”, một lần chạy mà <em>mọi</em>
-          target đều 404 sẽ báo lỗi lần đầu, rồi <b>lần chạy thứ hai y hệt lại thành công</b>
-          và ghi ra snapshot 0 fact.
-        </div>
+        <p style="font-size:.84rem;color:var(--muted);margin:11px 0 0">
+          Khoảng 40 MB cho mỗi phiên bản. Lần chạy đầu mất hơn một phút; các lần
+          sau đọc từ cache nên gần như tức thì.
+        </p>
       </div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      <b>Cache ghi lại kết quả của mỗi lần tải, không chỉ ghi “đã xong”.</b>
+      Một file không có ở phiên bản cũ là chuyện bình thường, nên cache cũng ghi lại
+      cả trường hợp đó. Nhưng nó phải ghi rõ <b>“tải được”</b> hay <b>“không có
+      file”</b>, chứ không phải chỉ ghi “đã xong”. Vì nếu chỉ ghi “đã xong”: lần chạy
+      đầu mà mọi file đều tải hỏng sẽ báo lỗi, nhưng lần chạy thứ hai đọc lại cache
+      thấy “đã xong” hết, tưởng thành công, rồi ghi ra một snapshot không có gì
+      trong đó.
     </div>
   </div>
 </section>
 
-<!-- ── 2b ────────────────────────────────────────────────── -->
+<!-- ── 4. Chín nguồn ─────────────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">2b</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">4</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Mỗi thứ lấy về đóng vai trò gì trong Chromium</h2>
+    <h2>Chín nguồn dữ liệu</h2>
+    <div class="file">Mỗi nguồn trả lời một câu hỏi khác nhau về đợt uprev</div>
     <p>
-      Không phải lấy bừa file có vẻ quan trọng. Chín nguồn này có một điểm chung:
-      chúng là <b>nơi Chromium tự mô tả mình bằng thứ máy đọc được</b> — hoặc là đầu vào
-      của bộ sinh mã, hoặc là khai báo theo quy ước chặt. Đó chính là lý do đọc được
-      chúng mà không cần compiler.
+      Chín nguồn dưới đây được chọn theo đúng một tiêu chí: chúng là những chỗ
+      <b>Chromium bắt buộc phải tự khai mình có gì, ở dạng máy đọc được</b>. Một số
+      là đầu vào của code generator nên không thể sai; số còn lại viết theo quy ước
+      đã ổn định nhiều năm. Nhờ vậy công cụ đọc được chúng mà không cần compiler và
+      không cần checkout Chromium đầy đủ.
+    </p>
+    <p>
+      Mỗi nguồn được mô tả theo cùng bốn mục: <b>nội dung</b> của file, <b>vai trò</b>
+      của nó trong Chromium, <b>công cụ so sánh theo cái gì</b>, và <b>hậu quả nếu
+      bỏ sót</b> nguồn đó.
+    </p>
+
+    <h3 class="sub">Nhóm A — Flag điều khiển hành vi</h3>
+    <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
+      Ba nguồn quyết định người dùng thực sự nhận được gì. Thay đổi ở đây là thay
+      đổi hành vi, kể cả khi không có một dòng mã logic nào được sửa.
     </p>
 
     <div class="why">
 
       <div class="src">
-        <div class="src-h"><span class="nm">BASE_FEATURE(...)</span><span class="rl rl-switch">công tắc</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Hệ thống cờ tính năng lúc chạy của Chromium. <b>Gần như mọi thay đổi hành vi đáng kể đều nằm sau một cái</b>. Đây cũng là thứ Finch — hệ thí nghiệm phía server — dùng để bật/tắt theo từng nhóm người dùng.</span></div>
+        <div class="src-h">
+          <span class="nm">Khai báo flag trong file <code>.cc</code></span>
+          <span class="rl rl-switch">flag</span>
         </div>
-        <pre>BASE_FEATURE(kBackForwardCache, base::<span class="g">FEATURE_ENABLED_BY_DEFAULT</span>);</pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Mặc định lật từ <code>DISABLED</code> sang <code>ENABLED</code> là Chromium nói <b>“cái này vừa ship”</b>. Một bit đó dự báo gần hết thay đổi hành vi mà fork thừa hưởng — và nó <b>không có trong release note</b>.</span></div>
-          <div><span class="k">Thiếu thì</span><span class="v">Không biết tính năng nào vừa bật cho người dùng của mình.</span></div>
-        </div>
-      </div>
-
-      <div class="src">
-        <div class="src-h"><span class="nm">BASE_FEATURE_PARAM(...)</span><span class="rl rl-switch">núm vặn</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Tham số gắn vào một cờ: ngưỡng, thời gian chờ, tỉ lệ. <b>Cái núm bên cạnh cái công tắc.</b></span></div>
-        </div>
-        <pre>BASE_FEATURE_PARAM(base::TimeDelta, kDuplicateNavThreshold,
-                   <b>&amp;kIgnoreDuplicateNavs</b>, "duplicate_nav_threshold",
-                   base::Milliseconds(<span class="g">2000</span>));</pre>
-        <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Hành vi đổi được <b>mà không cờ nào lật</b> — chỉ cần đổi con số. 2000ms thành 500ms là thay đổi thật, cờ vẫn nguyên trạng thái.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Khai báo flag trong mã C++. Mỗi flag gồm một tên và một trạng thái mặc định: <b>bật</b> hoặc <b>tắt</b>.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Đây là hệ thống feature flag lúc chạy của Chromium. Hầu hết thay đổi hành vi đáng kể đều nằm sau một flag. Finch — hệ thống thử nghiệm phía server của Chromium — cũng bật/tắt theo từng nhóm người dùng thông qua chính các flag này.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo <b>tên flag đã chuẩn hoá</b>. Giá trị đem so là trạng thái mặc định áp dụng cho bản Windows, cùng với điều kiện build bao quanh khai báo.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Không biết tính năng nào vừa được bật cho người dùng của mình. Trạng thái mặc định chuyển từ tắt sang bật là cách Chromium thông báo một tính năng <b>đã phát hành</b>, và thông tin này <b>không xuất hiện trong ghi chú phát hành</b>.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">runtime_enabled_features.json5</span><span class="rl rl-switch">công tắc web</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Manifest của Blink cho <b>toàn bộ bề mặt API web</b>. Mỗi mục có trạng thái <code>stable</code> / <code>experimental</code> / <code>test</code>, khai báo được theo từng nền tảng.</span></div>
+        <div class="src-h">
+          <span class="nm">Tham số đi kèm flag</span>
+          <span class="rl rl-switch">flag</span>
         </div>
-        <pre>{ name: "FileSystemAccessAPIExperimental",
-  status: <span class="g">"experimental"</span> }</pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Đây là thứ gần nhất với một bản “khai báo máy đọc được” của web platform. <code>experimental → stable</code> nghĩa là <b>API bắt đầu hiện ra với người dùng thật</b>, và website sẽ bắt đầu dùng nó.</span></div>
-          <div><span class="k">Đặc biệt</span><span class="v">Đây là nguồn duy nhất công cụ phủ <b>100%</b> — vì cả bề mặt nằm trong đúng một file.</span></div>
-        </div>
-      </div>
-
-      <div class="src">
-        <div class="src-h"><span class="nm">flag-metadata.json</span><span class="rl rl-switch">lịch hẹn</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Siêu dữ liệu của từng mục <code>chrome://flags</code>, kèm <b>milestone mà cờ đó sẽ bị xoá</b>.</span></div>
-          <div><span class="k">Vì sao lấy</span><span class="v"><b>Nguồn duy nhất trong cây nói về TƯƠNG LAI.</b> Nó biến một lớp “gãy bất ngờ” thành việc lên kế hoạch được: “12 cờ ta đang phụ thuộc sẽ biến mất ở M151” là ticket lập hôm nay, không phải build hỏng phát hiện kỳ sau.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Tham số gắn với một flag cụ thể: ngưỡng, thời gian chờ, tỉ lệ lấy mẫu, số lần thử lại.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Cho phép điều chỉnh hành vi <b>mà không cần bật hoặc tắt flag</b>. Flag vẫn nguyên trạng thái, chỉ con số bên trong đổi.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo cặp <em>flag sở hữu</em> và <em>tên tham số</em>. Giá trị đem so là giá trị mặc định.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ qua một lớp thay đổi hành vi hoàn toàn không kèm thay đổi trạng thái flag. Hạ thời gian chờ từ 2.000 mili giây xuống 500 là thay đổi thật với người dùng, trong khi mọi flag vẫn nguyên trạng.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">pref_names.h</span><span class="rl rl-contract">hợp đồng</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Hằng chuỗi cho khoá preference. Mỗi khoá là <b>đường dẫn thật trong file <code>Preferences</code> (JSON) nằm trong hồ sơ người dùng</b>, đồng thời là thứ chính sách doanh nghiệp và giao diện Settings ghi vào.</span></div>
+        <div class="src-h">
+          <span class="nm">runtime_enabled_features.json5</span>
+          <span class="rl rl-switch">flag</span>
         </div>
-        <pre>inline constexpr char <b>kHomePage</b>[] = <span class="g">"homepage"</span>;
-<span class="c">// biến C++ bền  ·  CHUỖI mới là danh tính</span></pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Đổi tên khoá = <b>orphan dữ liệu đã lưu của mọi người dùng hiện có</b>. Code vẫn biên dịch, test vẫn xanh, và cài đặt <b>âm thầm reset ngoài thực địa</b>.</span></div>
-          <div><span class="k">Mẹo</span><span class="v">Vì danh tính là <em>chuỗi</em> còn biến C++ thì bền, công cụ ghép removal với addition theo tên biến để phát hiện đổi tên.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">File liệt kê toàn bộ tính năng nền web, mỗi mục kèm trạng thái phát hành: <code>stable</code>, <code>experimental</code> hoặc <code>test</code>, khai báo được riêng cho từng nền tảng.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Danh sách đầy đủ <b>mọi API web mà Chromium có</b>, ở dạng máy đọc được. Đây là nguồn duy nhất công cụ phủ trọn vẹn, vì toàn bộ danh sách nằm gọn trong một file.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo tên tính năng. Giá trị đem so là trạng thái phát hành trên Windows.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Không biết API nào bắt đầu hiển thị với người dùng thật. Chuyển từ <code>experimental</code> sang <code>stable</code> nghĩa là các website sẽ bắt đầu sử dụng API đó.</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <h3 class="sub" style="margin-top:26px">Nhóm B — Hợp đồng với bên ngoài</h3>
+    <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
+      Bốn nguồn mô tả những gì Chromium hứa với thế giới bên ngoài: website, script khởi
+      chạy, dữ liệu đã lưu, và các process khác. Đặc điểm chung của cả nhóm
+      là <b>vi phạm hợp đồng không gây lỗi build</b>.
+    </p>
+
+    <div class="why">
+
+      <div class="src">
+        <div class="src-h">
+          <span class="nm">pref_names.h — khai báo pref</span>
+          <span class="rl rl-contract">hợp đồng</span>
+        </div>
+        <div class="qa">
+          <div><span class="k">Nội dung</span><span class="v">Hằng chuỗi đặt tên cho từng pref người dùng.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Mỗi pref là một khoá thật trong file <code>Preferences</code> nằm trong profile của người dùng. Đây cũng là chỗ mà enterprise policy và trang Settings ghi vào.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Danh tính là <b>chuỗi khoá</b>, không phải tên biến. Tên biến C++ được dùng để ghép một mục bị gỡ với một mục được thêm, nhằm nhận ra trường hợp đổi tên.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ lọt một lớp hỏng không để lại dấu vết nào. Đổi tên một khoá làm toàn bộ giá trị đã lưu của người dùng hiện hữu <b>trở nên vô chủ</b>: code vẫn build được, test vẫn pass, và cài đặt của người dùng lặng lẽ trở về mặc định.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">*_switches.cc</span><span class="rl rl-contract">hợp đồng</span></div>
+        <div class="src-h">
+          <span class="nm">*_switches.cc — tham số dòng lệnh</span>
+          <span class="rl rl-contract">hợp đồng</span>
+        </div>
         <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Cờ dòng lệnh. Hợp đồng với <b>script khởi chạy, automation, harness QA, cấu hình thiết bị</b>.</span></div>
-          <div><span class="k">Vì sao lấy</span><span class="v">Đổi tên switch thì script vẫn chạy, <b>không báo lỗi</b>, chỉ là cờ không còn tác dụng. Những thứ này nằm ngoài repo nên không compiler nào kiểm được.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Hằng chuỗi đặt tên cho từng tham số dòng lệnh.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Hợp đồng với những thứ nằm <b>ngoài mã nguồn browser</b>: script khởi chạy, automation test, cấu hình thiết bị.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Danh tính là chuỗi tham số, kèm cơ chế nhận diện đổi tên giống như với pref.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Đổi tên một tham số không gây lỗi ở bất kỳ đâu. Script vẫn chạy bình thường, chỉ là tham số không còn tác dụng. <b>Không compiler nào bắt được</b>, vì bên sử dụng nằm ngoài kho mã.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">*.idl (Web IDL)</span><span class="rl rl-contract">ABI với website</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Định nghĩa interface của <b>mọi API web lộ ra cho JavaScript</b>. Blink <b>sinh binding từ chính file này</b> — nên nó không mô tả API, <b>nó LÀ API</b>.</span></div>
+        <div class="src-h">
+          <span class="nm">*.idl — định nghĩa API web</span>
+          <span class="rl rl-contract">hợp đồng với website</span>
         </div>
-        <pre>[ SecureContext, Exposed=Window ]
-interface <b>BatteryManager</b> : EventTarget {
-  [Measure] readonly attribute boolean <span class="g">charging</span>;
-  [Measure] readonly attribute double  <span class="g">level</span>;
-};</pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Member bị xoá = <b>website đang chạy sẽ vỡ</b>. Đây cũng là nguồn ĐÚNG để phát hiện “API bị gỡ” — chứ không phải cờ Blink biến mất, vì cờ biến mất hầu như luôn là dọn dẹp sau khi đã ship.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Định nghĩa của mọi API web mở ra cho JavaScript: tên interface, danh sách member, và signature của từng member.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Chromium <b>sinh binding thẳng từ chính các file này</b>. Chúng không mô tả API — chúng <b>chính là</b> API.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo <em>tên interface</em> cộng <em>tên member</em>. Giá trị đem so là signature đầy đủ và các extended attribute đi kèm.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Mất nguồn duy nhất xác định được việc <b>gỡ bỏ một API</b>. Một member biến mất nghĩa là website đang chạy sẽ vỡ. Lưu ý rằng flag Blink biến mất <em>không</em> phải signal của việc này — xem phần vòng đời ba giai đoạn ở bước 6.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">*.mojom</span><span class="rl rl-contract">ABI giữa tiến trình</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v">Định nghĩa interface Mojo — <b>ABI giữa các tiến trình của Chromium</b> (browser ↔ renderer ↔ GPU ↔ network). Binding cũng được sinh từ file này. Chính comment trong nguồn nói rõ vai trò:</span></div>
+        <div class="src-h">
+          <span class="nm">*.mojom — Mojo, cách các process gọi nhau</span>
+          <span class="rl rl-contract">hợp đồng nội bộ</span>
         </div>
-        <pre><span class="c">// Implemented in Browser, this interface defines frame-specific</span>
-<span class="c">// methods that will be invoked from the render process.</span>
-interface <b>LocalFrameHost</b> {
-  EnterFullscreen(...) =&gt; (bool granted);
-};</pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Đổi signature <b>gãy lúc CHẠY, không gãy lúc BUILD</b> — vì hai đầu nằm ở hai tiến trình, mỗi bên biên dịch binding của mình. Không test web nào bắt được. Đây là lý do <code>ipc_signature_change</code> có mức nghiêm trọng <b>cao nhất hệ thống (80)</b>.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Định nghĩa interface Mojo: tên method, danh sách tham số, giá trị trả về.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Mojo là cách các process của Chromium gọi lẫn nhau — browser, renderer, GPU, network. Binding ở cả hai đầu đều sinh ra từ chính các file này.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo tên đầy đủ của method. Giá trị đem so là <b>toàn bộ signature</b>, nên một tham số bị đổi kiểu hay đổi thứ tự đều bị bắt.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ lọt nhóm thay đổi nghiêm trọng nhất. Đổi signature của một Mojo method thì <b>vỡ lúc chạy chứ không lúc build</b>, vì hai đầu nằm ở hai process khác nhau và mỗi bên tự sinh binding của mình. Không test web nào bắt được.</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <h3 class="sub" style="margin-top:26px">Nhóm C — Giao diện và kế hoạch</h3>
+    <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
+      Hai nguồn còn lại mô tả những gì người dùng nhìn thấy, và những gì Chromium
+      dự định gỡ bỏ trong tương lai.
+    </p>
+
+    <div class="why">
+
+      <div class="src">
+        <div class="src-h">
+          <span class="nm">Ba file của một trang <code>chrome://</code></span>
+          <span class="rl rl-ui">giao diện</span>
+        </div>
+        <div class="qa">
+          <div><span class="k">Nội dung</span><span class="v">Các trang <code>chrome://settings</code>, <code>chrome://history</code>, <code>chrome://downloads</code> đều là trang web dựng theo cùng một khuôn mẫu gồm ba file: <b>route table</b> liệt kê các trang con kèm gate; <b>template</b> khai báo từng control; <b>handler C++</b> chuyển giá trị flag thành biến mà JavaScript đọc được.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Ba file tạo thành một chuỗi ba chặng: <b>route → gate → feature flag</b>. Đi đủ chuỗi này mới trả lời được câu “vì sao một trang biến mất”.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Với route: đường dẫn, route cha, và gate. Với control: <b>loại thẻ HTML</b> (nên chuyện một dropdown biến thành toggle là phát hiện được tự động), pref mà nó ghi vào, và nhãn hiển thị. Với handler: biểu thức flag quyết định giá trị.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Không phát hiện được thay đổi giao diện. <b>Phải đọc đủ cả ba file:</b> route table liệt kê cả những trang đang bị một flag ẩn đi, nên dừng lại ở file đầu tiên sẽ cho kết luận ngược với thực tế.</span></div>
         </div>
       </div>
 
       <div class="src">
-        <div class="src-h"><span class="nm">route.ts + template + handler .cc</span><span class="rl rl-ui">giao diện</span></div>
-        <div class="qa">
-          <div><span class="k">Là gì</span><span class="v"><code>chrome://settings</code> là <b>một trang web</b>. Ba file, ba vai trò: <code>route.ts</code> là <b>mục lục trang kèm cờ gác</b>; template khai báo từng control; handler <code>.cc</code> là <b>cầu nối</b> đổ giá trị cờ C++ sang boolean mà JS nhìn thấy.</span></div>
+        <div class="src-h">
+          <span class="nm">flag-metadata.json — lịch gỡ bỏ</span>
+          <span class="rl rl-ui">kế hoạch</span>
         </div>
-        <pre><span class="c">// handler: cờ C++  →  boolean cho JS</span>
-html_source-&gt;AddBoolean(<span class="g">"axTreeFixingEnabled"</span>,
-    base::FeatureList::IsEnabled(features::<b>kAXTreeFixing</b>));
-
-<span class="c">// template: LOẠI control nằm ngay trong TÊN THẺ</span>
-&lt;<b>settings-toggle-button</b> pref="{{prefs.<span class="g">browser.show_home_button</span>}}"&gt;</pre>
         <div class="qa">
-          <div><span class="k">Vì sao lấy</span><span class="v">Loại control nằm trong tên thẻ, nên <b>“dropdown thành toggle” phát hiện được bằng máy</b>. Còn <code>pref=</code> là <b>liên kết khai báo mạnh nhất giữa giao diện và lõi trình duyệt</b> — nó sống sót ngay cả khi fork thay toàn bộ UI, vì pref phía dưới vẫn thế.</span></div>
-          <div><span class="k">Bắt buộc</span><span class="v">Phải đi <b>đủ ba chặng</b>. Bảng route khai báo cả những trang mà một cờ đang giấu đi — dừng ở chặng đầu là kết luận sai.</span></div>
+          <div><span class="k">Nội dung</span><span class="v">Siêu dữ liệu của từng mục trong <code>chrome://flags</code>, trong đó có <b>mốc phiên bản dự kiến gỡ bỏ</b>.</span></div>
+          <div><span class="k">Vai trò</span><span class="v">Nguồn duy nhất trong mã nguồn nói về <b>tương lai</b> thay vì hiện trạng.</span></div>
+          <div><span class="k">So sánh theo</span><span class="v">Mốc phiên bản gỡ bỏ. Flag nào có lịch gỡ rơi vào đúng phiên bản đang lên, hoặc ngay sau đó, thì công cụ đánh dấu lại.</span></div>
+          <div><span class="k">Bỏ sót thì</span><span class="v">Mất khả năng lập kế hoạch. “Mười hai flag chúng ta đang phụ thuộc sẽ bị gỡ ở M151” là việc có thể lên kế hoạch từ hôm nay, thay vì một lỗi build phát hiện ở đợt uprev sau.</span></div>
         </div>
       </div>
 
     </div>
 
     <div class="note" style="margin-top:16px">
-      <b>Vì sao đúng chín chỗ này chứ không phải chỗ khác?</b> Vì đây là những điểm
-      Chromium <em>buộc phải</em> tự mô tả cho máy đọc: IDL và mojom là đầu vào của bộ
-      sinh mã, json5 là manifest, macro cờ và hằng chuỗi theo quy ước chặt nhiều năm.
-      Đọc được chúng mà không cần compiler, không cần checkout đầy đủ.
-      Ngược lại, <b>logic bên trong thân hàm không tự mô tả gì cả</b> — nên nó nằm ngoài
-      mô hình này, và đó là giới hạn phải nói ra chứ không giấu.
+      <b>Vì sao chỉ chín nguồn này.</b> Điểm chung của chúng là tính bắt buộc: định
+      nghĩa API và định nghĩa Mojo là đầu vào của code generator nên không thể lệch
+      với thực tế; file liệt kê tính năng nền web là file cấu hình; còn khai báo flag
+      và hằng chuỗi C++ thì tuân theo quy ước đã ổn định nhiều năm. Ngược lại, <b>logic bên trong thân hàm không tự
+      mô tả gì cả</b>, nên nó nằm ngoài phạm vi công cụ. Đây là giới hạn được nêu rõ
+      ở phần cuối tài liệu chứ không phải điều được che đi.
     </div>
   </div>
 </section>
 
-<!-- ── 3 ─────────────────────────────────────────────────── -->
+<!-- ── 5. Đọc thành fact ──────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">3</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">5</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Đọc file thành “fact”</h2>
-    <div class="file">extract/ · 9 extractor, mỗi cái là hai hàm thuần</div>
+    <h2>Đọc file thành fact</h2>
+    <div class="file">extract/ · chín bộ đọc, mỗi bộ đọc một loại file</div>
     <p>
-      Không có compiler, không có <code>compile_commands.json</code>, chỉ có một phần cây
-      nguồn. Nhưng khai báo ta cần đều là macro viết theo house style ổn định nhiều năm,
-      nên <b>lex cẩn thận thắng parse thật</b>. Cái bắt buộc phải đúng là <b>ngữ cảnh</b>.
+      Công cụ không có compiler, cũng không có checkout Chromium đầy đủ.
+      Nhưng các khai báo cần đọc đều tuân theo quy ước viết đã ổn định nhiều năm,
+      nên <b>quét theo mẫu</b> — nhận dạng chính các khuôn viết đó — cho kết quả đủ
+      chính xác mà không cần parse cú pháp đầy đủ. Chỗ bắt buộc phải làm đúng là <b>điều kiện bao quanh khai báo</b>.
     </p>
 
-    <div class="card">
-      <h3 class="sub" style="margin-top:0">Vì sao ngữ cảnh quyết định tất cả</h3>
-      <pre><span class="c">// mặc định bị bọc trong điều kiện tiền xử lý</span>
-BASE_FEATURE(kAudioServiceOutOfProcess,
-<b>#if BUILDFLAG(IS_WIN)</b> || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-             base::<span class="g">FEATURE_ENABLED_BY_DEFAULT</span>
-<b>#else</b>
-             base::<span class="r">FEATURE_DISABLED_BY_DEFAULT</span>
-<b>#endif</b>
-);</pre>
-      <p style="margin:13px 0 0;font-size:.88rem">
-        Đọc thô lấy giá trị đầu tiên. Ở đây tình cờ đúng. Đảo lại — Windows nằm ở nhánh
-        <code>#else</code> — thì đọc thô cho <b>kết luận ngược</b>. Chỉ trong một file,
-        <b>14/187 cờ</b> có mặc định khác nhau theo nền tảng.
-      </p>
+    <h3 class="sub">Mỗi loại file được so sánh như thế nào</h3>
+    <p>
+      So sánh gồm hai bước. Bước một, <b>ghép cặp</b>: tìm xem khai báo này ở phiên
+      bản cũ tương ứng với khai báo nào ở phiên bản mới — ghép theo cái gì thì gọi
+      là <b>danh tính</b>. Bước hai, <b>đối chiếu giá trị</b> của cặp vừa ghép được.
+      Chọn sai danh tính là lỗi tai hại nhất: ghép trượt thì mọi khai báo đều hiện
+      ra như vừa bị xoá xong thêm lại.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Loại file</th>
+            <th>Danh tính dùng để ghép cặp</th>
+            <th>Giá trị được đối chiếu</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Khai báo flag</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.cc, .h</span></td>
+            <td>Tên flag sau chuẩn hoá</td>
+            <td>Trạng thái mặc định trên Windows; điều kiện build bao quanh</td>
+          </tr>
+          <tr>
+            <td><b>Hằng chuỗi C++</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">pref_names, switches</span></td>
+            <td>Chính giá trị chuỗi</td>
+            <td>Tên biến C++ khai báo ra chuỗi đó</td>
+          </tr>
+          <tr>
+            <td><b>File liệt kê API web</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.json5</span></td>
+            <td>Tên tính năng</td>
+            <td>Trạng thái phát hành trên Windows; flag C++ liên kết; tên origin trial đi kèm</td>
+          </tr>
+          <tr>
+            <td><b>Định nghĩa API web</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.idl</span></td>
+            <td>Tên interface, cộng tên member</td>
+            <td>Signature đầy đủ; thuộc tính mở rộng; flag đi kèm</td>
+          </tr>
+          <tr>
+            <td><b>Mojo</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.mojom</span></td>
+            <td>Tên module, interface và method</td>
+            <td>Danh sách tham số và giá trị trả về, đã chuẩn hoá khoảng trắng</td>
+          </tr>
+          <tr>
+            <td><b>Mẫu giao diện</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.html, .html.ts</span></td>
+            <td>Trang, cộng pref, cộng id của phần tử</td>
+            <td>Loại thẻ HTML; pref; nhãn hiển thị; điều kiện dựng theo nền tảng</td>
+          </tr>
+          <tr>
+            <td><b>Route table</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">route.ts</span></td>
+            <td>Tên trang, cộng tên route</td>
+            <td>Đường dẫn; route cha; gate</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <h3 class="sub">Thử bộ đánh giá ba trạng thái</h3>
-    <div class="card">
-      <div class="evalgrid">
-        <div>
-          <div class="guards" id="guards">
-            <button class="guard" data-k="IS_WIN" aria-pressed="true">BUILDFLAG(IS_WIN)</button>
-            <button class="guard" data-k="IS_ANDROID" aria-pressed="false">BUILDFLAG(IS_ANDROID)</button>
-            <button class="guard" data-k="IS_MAC" aria-pressed="false">BUILDFLAG(IS_MAC)</button>
-            <button class="guard" data-k="ENABLE_PLUGINS" aria-pressed="false">BUILDFLAG(ENABLE_PLUGINS)</button>
-          </div>
-          <div style="margin-top:11px" class="chips">
-            <button class="guard" data-op="or" aria-pressed="true">nối bằng ||</button>
-            <button class="guard" data-op="and" aria-pressed="false">nối bằng &amp;&amp;</button>
-          </div>
-          <div class="evalsay" id="evalsay"></div>
-        </div>
-        <div class="verdict v-true" id="verdict">True</div>
-      </div>
+    <h3 class="sub">Danh tính phải bền qua thay đổi cú pháp</h3>
+    <p>
+      Giữa M139 và M143, Chromium sửa chính macro dùng để khai báo flag: tham số
+      chứa tên flag bị bỏ đi, và tên được suy ra từ tên biến. Không một flag nào đổi
+      tên, đổi trạng thái hay đổi hành vi — chỉ cách viết thay đổi.
+    </p>
+    <p>
+      Trong một file đo được, M139 có <b>170 trên 170</b> khai báo viết theo dạng cũ,
+      còn M143 chỉ còn <b>12 trên 187</b>. Một công cụ lấy danh tính từ văn bản mã
+      nguồn sẽ báo rằng toàn bộ file vừa bị viết lại. Sau khi chuẩn hoá tên biến
+      thành tên flag, khác biệt thật là <b>152 giữ nguyên, 18 gỡ bỏ, 35 thêm mới</b>.
+    </p>
+
+    <h3 class="sub">Điều kiện build quyết định giá trị nào được đọc</h3>
+    <p>
+      Một flag có thể mang nhiều trạng thái mặc định khác nhau trong cùng một khai báo,
+      chọn theo nền tảng được build: bật trên máy tính để bàn, tắt trên di động,
+      hoặc ngược lại. Lấy giá trị đầu tiên gặp được là cách làm sai, vì nếu nhánh
+      dành cho Windows không đứng đầu thì kết luận sẽ <b>ngược hoàn toàn</b> chứ
+      không chỉ kém chính xác. Trong một file đo được, <b>14 trên 187</b> flag có mặc
+      định khác nhau giữa các nền tảng.
+    </p>
+    <p>
+      Công cụ đọc điều kiện bao quanh khai báo và chọn nhánh áp dụng cho Windows.
+      Kết quả rơi vào một trong ba trạng thái:
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Điều kiện phụ thuộc vào</th><th>Kết quả</th><th>Công cụ ghi nhận</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Nền tảng chúng ta phát hành</td>
+            <td>Áp dụng</td>
+            <td>Giá trị trong nhánh đó</td>
+          </tr>
+          <tr>
+            <td>Một nền tảng khác</td>
+            <td>Không áp dụng</td>
+            <td>Bỏ qua nhánh đó, hoặc ghi <em>không được build</em> nếu khai báo chỉ tồn tại ở đó</td>
+          </tr>
+          <tr>
+            <td>Một build flag không liên quan đến nền tảng</td>
+            <td>Không xác định được</td>
+            <td><b>“Không xác định”</b> — công cụ không chọn nhánh nào</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <div class="note" style="margin-top:13px">
-      <b>Trạng thái thứ ba mới là điểm mấu chốt.</b> Cờ nền tảng khác → <code>False</code>
-      chắc chắn. Nhưng buildflag <em>không phải</em> nền tảng (như <code>ENABLE_PLUGINS</code>)
-      → <code>None</code>, và <code>None</code> lan truyền qua <code>&amp;&amp;</code>.
-      Công cụ trả lời <b>“không xác định”</b> thay vì đoán.
+      Trạng thái thứ ba là phần quan trọng nhất. Khi điều kiện phụ thuộc vào một
+      tham số bật hoặc tắt một thành phần tuỳ chọn, công cụ không có đủ dữ liệu để
+      quyết định. Nó ghi nhận <b>“không xác định”</b> thay vì chọn lấy một nhánh, vì
+      một giá trị sai trông giống hệt một giá trị đúng, còn “không xác định” thì
+      người đọc biết ngay là cần tra thêm.
     </div>
 
-    <h3 class="sub">Khoá phải bền qua thay đổi cú pháp</h3>
-    <div class="card">
-      <pre><span class="c">// M139 — ba tham số</span>
-BASE_FEATURE(kBackForwardCache, <span class="g">"BackForwardCache"</span>, ENABLED);
-<span class="c">// M143 — hai tham số, tên tự suy từ biến</span>
-BASE_FEATURE(kBackForwardCache, ENABLED);</pre>
-      <p style="margin:13px 0 0;font-size:.88rem">
-        Trong <code>content_features.cc</code>, M139 có <b>170/170</b> khai báo dạng cũ,
-        M143 có <b>12/187</b>. Parser khoá theo văn bản nguồn sẽ báo <b>cả file bị viết lại</b>.
-        Chuẩn hoá <code>kFoo → "Foo"</code> rồi thì delta thật là
-        <b>152 giữ nguyên, 18 bỏ, 35 thêm</b>.
-      </p>
-    </div>
-
-    <h3 class="sub">13 loại fact được trích ra</h3>
+    <h3 class="sub">Mười ba loại fact được trích ra</h3>
+    <p style="font-size:.88rem;color:var(--ink-soft);margin-bottom:12px">
+      Đây đúng là các tên bạn thấy ở trường <code>kind</code> trong <code>report.json</code>.
+    </p>
     <div class="chips">
-      <span class="chip ok">base_feature · 2.062</span>
-      <span class="chip">feature_param · 862</span>
-      <span class="chip ok">blink_runtime · 1.212</span>
-      <span class="chip">flag_entry · 1.753</span>
+      <span class="chip ok">feature flag · 2.062</span>
+      <span class="chip">feature param · 862</span>
+      <span class="chip ok">blink runtime · 1.212</span>
+      <span class="chip">chrome://flags · 1.753</span>
       <span class="chip hot">pref · 683</span>
       <span class="chip hot">switch · 288</span>
-      <span class="chip hot">mojo_method · 1.362</span>
-      <span class="chip">mojo_interface · 338</span>
-      <span class="chip">idl_member · 11.941</span>
-      <span class="chip">idl_interface · 2.608</span>
-      <span class="chip ok">webui_route · 108</span>
-      <span class="chip ok">webui_control · 761</span>
-      <span class="chip ok">webui_gate · 668</span>
+      <span class="chip hot">Mojo method · 1.362</span>
+      <span class="chip">Mojo interface · 338</span>
+      <span class="chip">IDL member · 11.941</span>
+      <span class="chip">IDL interface · 2.608</span>
+      <span class="chip ok">route · 108</span>
+      <span class="chip ok">control · 761</span>
+      <span class="chip ok">gate · 668</span>
     </div>
     <p style="font-size:.83rem;color:var(--muted);margin-top:10px">
-      Số đo tại M151. <span style="color:var(--flow)">Xanh</span> = công tắc hành vi ·
-      <span style="color:var(--clay)">Đỏ</span> = hợp đồng với bên ngoài, đổi là gãy im lặng.
+      Số liệu đo tại M151.
+      <span style="color:var(--flow)">Xanh</span> — flag điều khiển hành vi ·
+      <span style="color:var(--clay)">Đỏ</span> — hợp đồng với bên ngoài, thay đổi
+      gây hỏng không kèm thông báo lỗi.
     </p>
   </div>
 </section>
 
-<!-- ── 4 ─────────────────────────────────────────────────── -->
+<!-- ── 6. So sánh ────────────────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">4</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">6</div><div class="thread"></div></div>
   <div class="body">
-    <h2>So sánh — hai quy tắc làm gần hết việc</h2>
+    <h2>So sánh hai phiên bản</h2>
     <div class="file">diff.py</div>
-
-    <h3 class="sub" style="margin-top:0">Đặt hai bản cạnh nhau và xem cái gì được so</h3>
     <p>
-      Cùng một cờ <code>Foo</code> ở hai phiên bản. Công cụ <b>không</b> so cả khối —
-      nó chỉ so những thuộc tính đã khai là <em>có nghĩa</em>, và bỏ qua phần còn lại.
-      Đổi kịch bản để xem kết quả thay đổi ra sao.
+      Hai quy tắc dưới đây làm gần hết việc thu hẹp. Quy tắc thứ nhất vứt bỏ những
+      khác biệt không nói lên điều gì. Quy tắc thứ hai giải thích vì sao phần lớn
+      những thứ <em>trông như</em> mất tính năng lại không phải mất tính năng.
+    </p>
+
+    <h3 class="sub">Quy tắc 1 — chỉ so những thuộc tính thật sự nói lên điều gì</h3>
+    <p>
+      Mỗi loại fact có một danh sách cố định những thuộc tính mà công cụ đem so.
+      Thuộc tính ngoài danh sách đó thì đổi bao nhiêu cũng không tính là thay đổi. Bảng dưới đây đặt hai phiên bản
+      của cùng một flag cạnh nhau. Chọn từng tình huống để thấy thuộc tính nào được
+      đối chiếu và kết luận thay đổi theo.
     </p>
 
     <div class="card">
       <div class="scen" id="scen">
-        <button data-s="0" aria-pressed="true">Lật mặc định</button>
-        <button data-s="1" aria-pressed="false">Chỉ đổi cú pháp</button>
-        <button data-s="2" aria-pressed="false">Xoá cờ sau khi ship</button>
-        <button data-s="3" aria-pressed="false">Xoá cờ, chưa từng ship</button>
-        <button data-s="4" aria-pressed="false">Cờ mới, bật sẵn</button>
+        <button data-s="0" aria-pressed="true">Mặc định đổi trạng thái</button>
+        <button data-s="1" aria-pressed="false">Chỉ đổi cách viết</button>
+        <button data-s="2" aria-pressed="false">Gỡ flag sau khi đã phát hành</button>
+        <button data-s="3" aria-pressed="false">Gỡ flag chưa từng phát hành</button>
+        <button data-s="4" aria-pressed="false">Flag mới, bật sẵn</button>
       </div>
 
       <div class="vs">
         <div id="sideA"></div>
-        <div class="vs-mid">vs</div>
+        <div class="vs-mid">đối chiếu</div>
         <div id="sideB"></div>
       </div>
 
       <div class="legend">
-        <span><i style="background:var(--clay)"></i>khác nhau → thành change</span>
+        <span><i style="background:var(--clay)"></i>khác nhau, tính là thay đổi</span>
         <span><i style="background:var(--flow)"></i>giống nhau</span>
-        <span><i style="background:var(--line)"></i>bị bỏ qua, không so</span>
+        <span><i style="background:var(--line)"></i>không nằm trong danh sách đối chiếu</span>
       </div>
 
       <div class="outcome">
         <div class="row"><span class="lab">Kết luận</span><span class="mean" id="oType"></span></div>
-        <div class="row"><span class="lab">Signal</span><span id="oSig"></span></div>
-        <div class="row"><span class="lab">Nghiêm trọng</span><span><span class="sev" id="oSev"></span></span></div>
+        <div class="row"><span class="lab">Dấu hiệu</span><span id="oSig"></span></div>
+        <div class="row"><span class="lab">Mức nghiêm trọng</span><span><span class="sev" id="oSev"></span></span></div>
         <div class="row"><span class="lab">Nghĩa là</span><span class="mean" id="oWhy"></span></div>
       </div>
     </div>
 
     <div class="note" style="margin-top:14px">
-      <b>Bấm “Chỉ đổi cú pháp” là thấy ngay điểm mấu chốt.</b> Hai bản khác nhau về
-      <code>declared_form</code> — nhưng thuộc tính đó <b>không nằm trong danh sách so</b>,
-      nên kết quả là <b>0 change</b>. Nếu nó được so, đợt đổi macro M139→M143 sẽ sinh
-      <b>hàng nghìn “thay đổi”</b> mà không cái nào có nghĩa.
+      Bấm <b>“Chỉ đổi cách viết”</b> là thấy rõ nhất quy tắc này làm gì. Hai phiên
+      bản khác nhau ở thuộc tính ghi <em>dạng khai báo</em>, nhưng thuộc tính đó
+      không nằm trong danh sách đem so, nên kết luận là <b>không có thay đổi nào</b>
+      — đúng với thực tế. Nếu công cụ so cả thuộc tính đó, riêng đợt sửa macro giữa
+      M139 và M143 đã đẻ ra <b>hàng nghìn “thay đổi”</b> mà không cái nào đáng đọc.
     </div>
 
     <h3 class="sub">Quy tắc 2 — vòng đời ba giai đoạn</h3>
     <p>
-      Chromium cho mọi tính năng đi qua ba giai đoạn, <b>cách nhau nhiều milestone</b>.
-      Nên diff giữa hai phiên bản chủ yếu thấy A và C.
+      Chromium đưa mọi tính năng đi qua ba giai đoạn, thường <b>cách nhau nhiều mốc
+      phiên bản</b>. Hệ quả là một phép so sánh giữa hai phiên bản chủ yếu nhìn thấy
+      giai đoạn A và giai đoạn C, trong khi giai đoạn B mới là lúc người dùng thấy
+      khác biệt.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Giai đoạn</th><th>Trong code</th><th>Người dùng thấy</th></tr></thead>
+        <thead><tr><th>Giai đoạn</th><th>Diễn ra trong mã nguồn</th><th>Người dùng thấy</th></tr></thead>
         <tbody>
-          <tr><td><b>A</b></td><td>Code mới về, cờ mặc định TẮT</td><td style="color:var(--muted)">không gì</td></tr>
-          <tr><td><b>B</b></td><td>Cờ lật thành BẬT</td><td style="color:var(--flow);font-weight:640">chính là thay đổi</td></tr>
-          <tr><td><b>C</b></td><td>Xoá nhánh cũ và xoá cờ</td><td style="color:var(--muted)">không gì</td></tr>
+          <tr><td><b>A</b></td><td>Mã mới được thêm vào, flag mặc định tắt</td><td style="color:var(--muted)">không thấy gì</td></tr>
+          <tr><td><b>B</b></td><td>Flag chuyển sang bật</td><td style="color:var(--flow);font-weight:640">đây là thay đổi</td></tr>
+          <tr><td><b>C</b></td><td>Nhánh mã cũ và flag bị gỡ bỏ</td><td style="color:var(--muted)">không thấy gì</td></tr>
         </tbody>
       </table>
     </div>
-    <div class="note" style="margin-top:14px">
-      Vì thế khi một cờ <b>biến mất</b>, công cụ đọc <b>trạng thái nó giữ ngay trước khi bị xoá</b>.
-      Đo thật M148→M151 trên Windows: <b>90 cờ bị xoá, chia đúng 45/45</b> giữa “đã ship rồi mới
-      rút cờ” và “chưa từng ship”. Gán cả 90 là “mất tính năng” thì <b>một nửa danh sách là báo động giả</b>.
-      Với Blink còn rõ hơn: 202 runtime feature biến mất, <b>170 cái đang <code>stable</code></b>.
+    <p style="margin-top:14px">
+      Vì vậy khi một flag biến mất, công cụ đọc <b>trạng thái nó giữ ngay trước khi bị
+      gỡ</b>. Flag bị gỡ khi đang bật nghĩa là tính năng đã phát hành từ trước và nay
+      không thể tắt được nữa; flag bị gỡ khi đang tắt nghĩa là tính năng chưa từng phát
+      hành và mã đã bị xoá. Hai trường hợp này khác hẳn nhau, và cả hai đều <b>không</b> phải là mất tính năng.
+    </p>
+    <div class="warnbox" style="margin-top:14px">
+      Số liệu đo trên M148 → M151, nền tảng Windows: <b>90 flag bị gỡ, chia đúng 45 và 45</b>
+      giữa hai trường hợp trên. Gán cả 90 mục là “mất tính năng” thì một nửa danh sách
+      là báo động giả. Với tính năng nền web còn rõ hơn: <b>202 mục biến mất, trong đó
+      170 mục đang ở trạng thái <code>stable</code></b> — tức là dọn dẹp sau khi đã
+      ship, không phải gỡ API.
     </div>
 
-    <h3 class="sub">Lỗi im lặng đắt nhất: đổi tên</h3>
-    <div class="card">
-      <pre><span class="c">// M139</span>
-BASE_FEATURE(kFedCmIdPRegistration, <span class="r">"FedCmIdPregistration"</span>, …);  <span class="c">// r thường</span>
-<span class="c">// M143 — macro tự suy tên từ biến</span>
-BASE_FEATURE(kFedCmIdPRegistration, …);
-<span class="c">// chuỗi giờ là</span> <span class="g">"FedCmIdPRegistration"</span>  <span class="c">// R HOA</span></pre>
-      <p style="margin:13px 0 0;font-size:.88rem">
-        <b>Không ai sửa tên</b> — đợt đổi macro đã đổi nó. Mọi field trial phía server và
-        <code>--enable-features</code> gõ theo cách cũ từ đó <b>im lặng không có tác dụng</b>.
-        Không compiler nào cảnh báo. Công cụ ghép removal với addition <b>dùng chung tên biến C++</b>
-        để phát hiện.
-      </p>
-    </div>
+    <h3 class="sub">Trường hợp khó phát hiện nhất: đổi tên</h3>
+    <p>
+      Với pref, tham số dòng lệnh và tên flag, danh tính là <b>chuỗi ký tự</b>,
+      trong khi tên biến C++ thì ổn định. Một lần đổi tên vì vậy xuất hiện trong kết
+      quả dưới dạng <em>một mục bị gỡ</em> cộng <em>một mục được thêm</em>, hai mục
+      trông không liên quan gì đến nhau, và hậu quả thật nằm lấp giữa chúng.
+    </p>
+    <p>
+      Trường hợp đã gặp: đợt sửa macro giữa M139 và M143 làm tên một flag đổi từ
+      <code>FedCmIdPregistration</code> thành <code>FedCmIdPRegistration</code> — khác
+      nhau đúng một chữ hoa. Không ai sửa tên; chính việc đổi cách viết macro đã đổi
+      nó. Từ đó, mọi cấu hình thử nghiệm phía máy chủ và mọi tham số dòng lệnh viết
+      theo cách cũ <b>lặng lẽ mất tác dụng</b>, và không compiler nào cảnh báo.
+    </p>
+    <p>
+      Công cụ ghép một mục bị gỡ với một mục được thêm khi <b>chúng dùng chung tên
+      biến C++</b>, và báo cáo cặp đó như một lần đổi tên thay vì hai sự kiện rời rạc.
+    </p>
   </div>
 </section>
 
-<!-- ── 5 ─────────────────────────────────────────────────── -->
+<!-- ── 7. Chấm điểm ──────────────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">5</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">7</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Chấm điểm — “có đổi” so với “có ảnh hưởng tới <em>ta</em>”</h2>
+    <h2>Chấm điểm theo mức ảnh hưởng</h2>
     <div class="file">sbprofile.py · impact.py</div>
     <p>
-      Bước trước trả lời “cái này thường quan trọng cỡ nào”. Bước này trả lời câu đội ngũ
-      thật sự hỏi. Bằng chứng lấy từ patch, <code>git diff</code>, hoặc <b>quét mã nguồn fork</b> —
-      và chiều quét bị đảo ngược có chủ ý: lấy <em>từ vựng Chromium</em> đi tìm trong cây nhỏ
-      của fork, thay vì grep cây khổng lồ.
+      Bước trước trả lời câu hỏi “thay đổi này thường quan trọng đến đâu”. Bước này
+      trả lời câu hỏi đội ngũ thực sự cần: <b>nó có ảnh hưởng đến chúng ta không</b>.
+    </p>
+    <p>
+      Bằng chứng lấy từ ba nguồn: thư mục chứa các file patch của fork, kết quả
+      <code>git diff</code> so với Chromium gốc, hoặc một lượt quét mã nguồn fork.
+      Lượt quét đi theo chiều ngược với trực giác thông thường: thay vì tìm tên của
+      fork trong cây mã Chromium, công cụ lấy <b>danh sách định danh của Chromium</b>
+      rồi tìm chúng trong cây mã nhỏ hơn nhiều của fork. Cách này đổi một bài toán
+      nhiều lượt quét trên cây lớn thành một lượt quét trên cây nhỏ.
     </p>
 
+    <p style="margin-bottom:10px">
+      Bảng dưới đây tính điểm cho một thay đổi có điểm nền 75. Bật hoặc tắt từng loại
+      bằng chứng để xem điểm và nhóm thay đổi ra sao.
+    </p>
     <div class="card">
       <div class="scorebox">
         <div class="toggles" id="toggles">
-          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 ta có vá file khai báo nó">
-            <span class="d"><b>Ta có vá file khai báo</b>
-            <span>Bằng chứng yếu — <code>content_features.cc</code> khai báo gần 200 cờ</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 mã nguồn của ta nhắc kServiceWorkerAutoPreload">
-            <span class="d"><b>Mã nguồn ta nhắc đúng định danh</b>
-            <span>Bằng chứng mạnh — chỉ cái này mới đẩy được lên “Must fix”</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 thuộc vùng sở hữu 'Network' (trọng số 75)">
-            <span class="d"><b>Thuộc vùng ta sở hữu</b>
-            <span>Trọng số vùng × 0,20</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 không biên dịch trên Windows">
-            <span class="d"><b>Không biên dịch trên Windows</b>
-            <span><code>platform_state.windows = not_compiled</code></span></span></label>
+          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 fork có vá file chứa khai báo này">
+            <span class="d"><b>Có vá file chứa khai báo</b>
+            <span>Bằng chứng yếu: một file có thể chứa gần 200 khai báo khác nhau</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 mã nguồn fork nhắc đúng định danh">
+            <span class="d"><b>Mã nguồn nhắc đúng định danh</b>
+            <span>Bằng chứng mạnh: chỉ loại này mới đưa được lên nhóm Must fix</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 thuộc mảng đã khai người phụ trách (trọng số 75)">
+            <span class="d"><b>Thuộc mảng đã có người phụ trách</b>
+            <span>Cộng thêm bằng trọng số của mảng nhân 0,20</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 không được build trên Windows">
+            <span class="d"><b>Không được build trên Windows</b>
+            <span>Khai báo chỉ tồn tại cho nền tảng khác</span></span></label>
         </div>
         <div class="dial">
           <div class="v" id="scoreval">75</div>
@@ -867,148 +1374,187 @@ BASE_FEATURE(kFedCmIdPRegistration, …);
       <div class="reasons" id="reasons"></div>
     </div>
 
-    <h3 class="sub">Con số 75 ở đâu ra?</h3>
+    <h3 class="sub">Điểm nền lấy từ đâu</h3>
     <p>
-      Không phải gõ tay. Mỗi <b>signal</b> có một <b>sàn</b> nghiêm trọng, và điểm nền là
-      sàn cao nhất trong các signal mà thay đổi đó nhận được. Kịch bản ở trên nhận hai
-      signal, nên lấy 75.
+      Điểm nền không do người nhập tay. Mỗi <b>signal</b> có một mức nghiêm trọng
+      tối thiểu, và điểm nền của một thay đổi là mức cao nhất trong số các signal
+      nó nhận được.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Signal</th><th class="n">Sàn</th><th>Vì sao mức đó</th></tr></thead>
+        <thead><tr><th>Dấu hiệu</th><th class="n">Mức tối thiểu</th><th>Lý do đặt ở mức đó</th></tr></thead>
         <tbody>
-          <tr><td class="mono">enabled_by_default</td><td class="n">75</td><td>Người dùng <b>của ta</b> thấy khác — cao nhất nhóm cờ</td></tr>
-          <tr><td class="mono">default_flip_on</td><td class="n">60</td><td>Mặc định <em>toàn cục</em> lật; chưa chắc áp cho Windows</td></tr>
-          <tr><td class="mono">feature_deleted</td><td class="n">65</td><td>Xoá mà <b>không đọc được</b> trạng thái trước đó — phải tra tay</td></tr>
-          <tr><td class="mono">flag_retired_on</td><td class="n">35</td><td>Đã ship rồi mới rút cờ — hành vi không đổi ở lần uprev này</td></tr>
-          <tr><td class="mono">flag_retired_off</td><td class="n">30</td><td>Chưa từng ship, xoá luôn</td></tr>
-          <tr><td class="mono">ipc_signature_change</td><td class="n">80</td><td><b>Cao nhất hệ thống</b> — gãy lúc chạy, qua ranh giới tiến trình</td></tr>
+          <tr><td>Mặc định trên Windows chuyển sang bật</td><td class="n">75</td><td>Người dùng <b>của chúng ta</b> nhận được hành vi khác</td></tr>
+          <tr><td>Mặc định toàn cục chuyển sang bật</td><td class="n">60</td><td>Chưa chắc áp dụng cho Windows, cần kiểm tra thêm</td></tr>
+          <tr><td>Flag bị xoá, không đọc được trạng thái trước đó</td><td class="n">65</td><td>Không đủ dữ liệu để phân loại, phải tự tra</td></tr>
+          <tr><td>Flag bị gỡ sau khi đã ship</td><td class="n">35</td><td>Hành vi không đổi trong đợt uprev này</td></tr>
+          <tr><td>Flag bị gỡ khi chưa từng ship</td><td class="n">30</td><td>Mã đã bị xoá, không còn bật lại được</td></tr>
+          <tr><td>Signature của một Mojo method đổi</td><td class="n">80</td><td><b>Cao nhất hệ thống</b>: hỏng lúc chạy, vỡ ở ranh giới giữa hai process</td></tr>
         </tbody>
       </table>
     </div>
     <div class="note" style="margin-top:13px">
-      Chú ý <code>enabled_by_default</code> (75) so với <code>default_flip_on</code> (60).
-      Cái đầu nói <b>người dùng của ta nhận gì</b>; cái sau nói <b>Chromium viết gì</b>.
-      Chúng thường xuyên khác nhau — và chỉ cái đầu mới đáng gọi là thay đổi hành vi.
+      Chú ý khoảng cách giữa hai dòng đầu. Dòng thứ nhất nói <b>người dùng của chúng
+      ta nhận được gì</b>; dòng thứ hai nói <b>Chromium viết gì trong mã nguồn</b>.
+      Hai điều này thường xuyên không trùng nhau, và chỉ điều thứ nhất mới đáng gọi
+      là thay đổi hành vi.
     </div>
-
-    <div class="note" style="margin-top:14px">
-      <b>Bằng chứng cấp ký hiệu (+30) nặng hơn cấp đường dẫn (+12) là có chủ ý.</b>
-      Vá một file khai báo 200 cờ gần như không nói gì. Nhắc đúng tên cờ thì nói rất nhiều.
-      Mọi điều chỉnh đều <b>ghi lại lý do đọc được</b> — bảng xếp hạng không cãi lại được
-      là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai.
+    <div class="note" style="margin-top:12px">
+      Việc bằng chứng cấp định danh cộng nhiều điểm hơn bằng chứng cấp file là có
+      chủ ý. Vá một file chứa gần 200 khai báo gần như không nói lên điều gì về việc
+      chúng ta phụ thuộc vào khai báo nào trong đó; nhắc đúng tên một flag thì nói lên
+      rất nhiều. Mọi lần cộng trừ điểm đều <b>được ghi lại kèm lý do đọc được</b>,
+      vì một bảng xếp hạng không tranh luận được là bảng xếp hạng bị bỏ qua ngay lần
+      đầu nó sai.
     </div>
   </div>
 </section>
 
-<!-- ── 6 ─────────────────────────────────────────────────── -->
+<!-- ── 8. Gom nhóm ───────────────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">6</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">8</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Gom mảnh rời thành một câu chuyện</h2>
-    <div class="file">cluster.py · union-find trên cạnh dữ liệu tự khai</div>
+    <h2>Gom các mục rời rạc về đúng một thay đổi</h2>
+    <div class="file">cluster.py</div>
     <p>
-      Một thay đổi upstream đi vào báo cáo dưới dạng nhiều mảnh trên nhiều bề mặt.
-      Đợt di trú Local Network Access sinh ra <b>7 finding riêng</b> — đọc rời thì chúng
-      <b>mâu thuẫn nhau</b>: dòng này bảo mất một trang, dòng kia bảo có thêm trang.
+      Một thay đổi duy nhất ở Chromium thường để lại dấu vết trên nhiều nguồn khác
+      nhau, và do đó xuất hiện trong báo cáo dưới dạng nhiều mục rời rạc. Đọc riêng
+      từng mục, chúng <b>mâu thuẫn với nhau</b>: mục này nói một trang bị gỡ, mục kia
+      nói có thêm một trang.
     </p>
-    <div class="card">
-      <pre>webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS        <span class="r">bị xoá</span>
-webui_route    SITE_SETTINGS_LOCAL_NETWORK               <span class="g">đổi cờ gác</span>
-webui_gate     enableLocalNetworkAccessSplitPermissions  <span class="r">bị xoá</span>
-webui_gate     enableLocalNetworkAccessSetting           đổi biểu thức
-webui_control  label:siteSettingsLocalNetworkAccess      <span class="r">bị xoá</span>
-base_feature   LocalNetworkAccessChecksSplitPermissions  rút cờ
-blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
-      <p style="margin:13px 0 0;font-size:.88rem">
-        Gom cụm đi theo <b>liên kết mà dữ liệu tự khai báo</b> — route gọi tên guard của nó,
-        guard gọi tên feature — chứ <b>không</b> theo độ giống tên. Nên cụm là <b>chính xác</b>,
-        không phải phỏng đoán. Đọc thành một cụm, 7 mảnh nói một điều đơn giản: trang chuyển
-        sang split permissions, <b>người dùng đã thấy từ M148</b>, việc phải làm duy nhất là
-        cập nhật một tham chiếu route đã cũ.
-      </p>
+    <p>
+      Ví dụ có thật là đợt chuyển đổi cơ chế cấp quyền truy cập mạng nội bộ giữa
+      M148 và M151. Nó sinh ra <b>bảy finding</b> nằm trên năm loại fact:
+      hai route, hai gate, một control, một flag
+      tính năng và một tính năng nền web.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Loại fact</th><th>Tên</th><th>Ghi nhận</th></tr></thead>
+        <tbody>
+          <tr><td>Tuyến trang</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK_ACCESS</td><td style="color:var(--clay)">bị gỡ</td></tr>
+          <tr><td>Tuyến trang</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK</td><td style="color:var(--flow)">đổi gate</td></tr>
+          <tr><td>Điều kiện hiển thị</td><td class="mono">enableLocalNetworkAccessSplitPermissions</td><td style="color:var(--clay)">bị gỡ</td></tr>
+          <tr><td>Điều kiện hiển thị</td><td class="mono">enableLocalNetworkAccessSetting</td><td>đổi biểu thức</td></tr>
+          <tr><td>Thành phần điều khiển</td><td class="mono">siteSettingsLocalNetworkAccess</td><td style="color:var(--clay)">bị gỡ</td></tr>
+          <tr><td>Feature flag</td><td class="mono">LocalNetworkAccessChecksSplitPermissions</td><td>gỡ flag sau phát hành</td></tr>
+          <tr><td>Tính năng nền web</td><td class="mono">LocalNetworkAccessSplitPermissions</td><td>bị gỡ</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px">
+      Việc gom nhóm dựa trên <b>các liên kết mà chính dữ liệu đã khai báo</b>, không
+      dựa trên độ giống nhau của tên: một route gọi tên gate của nó,
+      một gate gọi tên flag mà nó đọc, một tính năng nền web khai rõ flag C++
+      tương ứng. Vì các liên kết này là fact chứ không phải phỏng đoán, nhóm được
+      tạo ra là <b>chính xác</b> chứ không phải gần đúng.
+    </p>
+    <div class="note" style="margin-top:13px">
+      Đọc thành một nhóm, bảy mục trên nói một điều duy nhất và đơn giản: trang cấp
+      quyền đã chuyển sang cơ chế tách quyền, <b>người dùng đã nhìn thấy thay đổi này
+      từ M148</b> vì flag tương ứng đã bật từ lúc đó, và việc duy nhất phải làm là cập
+      nhật một tham chiếu route đã cũ.
     </div>
   </div>
 </section>
 
-<!-- ── 7 ─────────────────────────────────────────────────── -->
+<!-- ── 9. Báo cáo ────────────────────────────────────────── -->
 <section class="station reveal">
-  <div class="rail"><div class="num">7</div><div class="thread"></div></div>
+  <div class="rail"><div class="num">9</div><div class="thread"></div></div>
   <div class="body">
     <h2>Báo cáo</h2>
     <div class="file">report/markdown.py · report/html.py</div>
+    <p>
+      Quy trình kết thúc ở báo cáo. Công cụ <b>không tự kết luận</b> một thay đổi có
+      ý nghĩa gì với sản phẩm: đó là phần cần phán đoán, và nó thuộc về người đọc. Vì
+      vậy mỗi finding luôn mang theo lý do chấm điểm, đường dẫn file khai báo
+      và bằng chứng phía fork — đủ để người đọc tự đi tới kết luận và tranh luận
+      lại nếu thấy sai.
+    </p>
     <div class="grid2">
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Ba dạng ra</h3>
+        <h3 class="sub" style="margin-top:0">Ba dạng kết quả</h3>
         <p style="font-size:.87rem;margin:0">
-          <code>report.md</code> — dán thẳng vào ticket.<br>
-          <code>report.html</code> — lọc và sắp xếp được, <b>tự chứa hoàn toàn</b>,
-          mở được trong mạng cách ly.<br>
-          <code>report.json</code> — cho script và so sánh giữa các kỳ.
+          <code>report.md</code> — dán thẳng vào ticket hoặc wiki.<br>
+          <code>report.html</code> — bảng lọc và sắp xếp được, <b>không tải tài nguyên
+          từ bên ngoài</b>, nên mở được trong mạng nội bộ tách biệt và gửi kèm email.<br>
+          <code>report.json</code> — dùng cho script và để so sánh giữa các đợt uprev.
         </p>
       </div>
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Lọc theo đội, không mất gì</h3>
+        <h3 class="sub" style="margin-top:0">Cắt theo đội mà không mất dữ liệu</h3>
         <p style="font-size:.87rem;margin:0">
-          Lọc xảy ra <b>lúc render, không bao giờ trước khi phân tích</b>. JSON luôn giữ mọi
-          finding, nên cắt lát theo đội không tốn gì và <b>không giấu được gì</b>.
+          Việc lọc diễn ra <b>lúc dựng báo cáo, không bao giờ trước khi phân tích</b>.
+          File JSON luôn giữ đủ mọi finding, nên cắt một lát cho từng đội không
+          tốn thêm chi phí và <b>không thể giấu mất mục nào</b>.
         </p>
       </div>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      Báo cáo luôn in <b>số finding không thuộc vùng nào</b>. Đó không phải chú thích bên lề:
-      đo trên M148→M151, tập không-vùng chứa <b>281 mục điểm ≥ 60</b>, gồm <b>cả mười mục
-      nghiêm trọng nhất</b> — vốn là thay đổi signature Mojo không thuộc sản phẩm nào.
+      Báo cáo luôn in <b>số finding không thuộc nhóm nào có người phụ trách</b>. Đây không phải chú
+      thích bên lề: đo trên M148 → M151, nhóm không ai phụ trách này chứa <b>281 mục đạt
+      từ 60 điểm</b>, trong đó có <b>cả mười mục nghiêm trọng nhất toàn báo cáo</b> —
+      đều là thay đổi signature Mojo, vốn không thuộc về tính năng sản phẩm nào. Nếu chỉ
+      gửi báo cáo theo từng đội, toàn bộ nhóm này sẽ không đến tay ai.
     </div>
   </div>
 </section>
 
-<!-- ── Bằng chứng ────────────────────────────────────────── -->
+<!-- ── Kiểm chứng ────────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num" style="background:var(--brass-soft);color:var(--brass)">✓</div></div>
   <div class="body">
-    <h2>Đã kiểm chứng, không phải tự tin suông</h2>
+    <h2>Kiểm chứng và giới hạn</h2>
     <p>
-      Recall đo trên <b>Settings M143 → M148</b>, đối chiếu với chuẩn dựng bằng regex thô
-      trên mã nguồn — <b>hoàn toàn không đi qua extractor của công cụ</b>.
+      Độ bao phủ được đo trên trang Settings giữa M143 và M148, đối chiếu với một
+      bộ chuẩn dựng riêng bằng cách grep mã nguồn bằng regex — <b>hoàn
+      toàn không đi qua bộ đọc của công cụ</b>, để hai bên không cùng sai theo một
+      cách giống nhau.
     </p>
     <div class="proof">
-      <div class="pcard"><div class="big">10/10</div><div class="lbl">trang (route)<br>7 thêm · 3 bỏ</div></div>
-      <div class="pcard"><div class="big">48/48</div><div class="lbl">cổng cờ (gate)<br>34 thêm · 14 bỏ</div></div>
-      <div class="pcard"><div class="big">40/40</div><div class="lbl">control có pref<br>19 thêm · 21 bỏ</div></div>
+      <div class="pcard"><div class="big">10/10</div><div class="lbl">route<br>7 thêm · 3 gỡ</div></div>
+      <div class="pcard"><div class="big">48/48</div><div class="lbl">gate<br>34 thêm · 14 gỡ</div></div>
+      <div class="pcard"><div class="big">40/40</div><div class="lbl">điều khiển có pref<br>19 thêm · 21 gỡ</div></div>
     </div>
     <div class="note" style="margin-top:14px">
-      <b>Hai con số đã dịch chuyển trong lúc đo, theo hai hướng ngược nhau.</b>
-      Chuẩn của tôi báo sót 3 gate — cả ba là <em>chuẩn sai</em>: regex một dòng không thấy
-      lời gọi xuống dòng, thứ mà bộ đếm ngoặc của công cụ xử lý đúng.
-      Nhưng chuẩn cũng tìm ra <em>một lỗi thật</em>: khoá control dùng pref, mà pref
-      <b>không duy nhất</b> — 142/881 control bị gộp mất, và cái nào sống sót phụ thuộc
-      <b>thứ tự duyệt thư mục</b>. Đã sửa bằng cách thêm element id vào khoá.
+      <b>Hai con số đã dịch chuyển trong quá trình đo, theo hai hướng ngược nhau.</b>
+      Chuẩn đối chiếu báo thiếu ba gate, và cả ba đều là <em>lỗi của
+      chuẩn</em>: regex đọc theo từng dòng nên không thấy lời gọi viết xuống nhiều dòng, thứ mà bộ đếm ngoặc của công cụ xử lý đúng. Nhưng chuẩn cũng
+      phát hiện <em>một lỗi thật của công cụ</em>: danh tính của control
+      lúc đó chỉ dựa trên pref, mà pref <b>không duy nhất</b> —
+      142 trên 881 thành phần bị gộp mất, và mục nào còn lại phụ thuộc vào thứ tự
+      duyệt thư mục. Lỗi đã được sửa bằng cách đưa thêm id của phần tử vào danh tính.
     </div>
-    <h3 class="sub">Giới hạn, nói thẳng</h3>
+
+    <h3 class="sub">Những gì công cụ không đọc</h3>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Không đọc</th><th>Hệ quả</th></tr></thead>
         <tbody>
-          <tr><td>Thân hàm C++</td><td>Logic đổi bên trong một hàm → vô hình</td></tr>
-          <tr><td>Logic TypeScript</td><td>Chỉ đọc template khai báo, không đọc hành vi trang</td></tr>
-          <tr><td>Chuỗi <code>.grd</code></td><td><b>Đổi nhãn một setting là thay đổi người dùng thấy — không phát hiện được</b></td></tr>
-          <tr><td>CSS, bố cục, icon</td><td>Không ảnh chụp, không hồi quy thị giác</td></tr>
-          <tr><td>Đồ thị GN</td><td>Khai báo có trong cây ≠ được biên dịch vào binary</td></tr>
+          <tr><td>Thân hàm C++</td><td>Logic thay đổi bên trong một hàm là vô hình với công cụ</td></tr>
+          <tr><td>Logic TypeScript của trang</td><td>Chỉ đọc phần khai báo trong template, không đọc hành vi trang</td></tr>
+          <tr><td>Chuỗi hiển thị trong file <code>.grd</code></td><td><b>Đổi nhãn một mục Cài đặt là thay đổi người dùng nhìn thấy, và công cụ không phát hiện được</b></td></tr>
+          <tr><td>CSS, bố cục, biểu tượng</td><td>Không chụp màn hình, không phát hiện lỗi hiển thị</td></tr>
+          <tr><td>Cấu hình build (GN)</td><td>Có khai báo trong cây mã không có nghĩa là nó được build vào binary thật</td></tr>
         </tbody>
       </table>
     </div>
-    <p style="font-size:.88rem;margin-top:14px">
-      Độ phủ cờ tính năng toàn cây khoảng <b>60%</b>; Mojo <b>30%</b>; <code>pref_names</code>
-      <b>1%</b>. Nên <code>must fix: 0</code> <b>không bao giờ</b> nghĩa là “uprev sạch” —
-      nó nghĩa là “không thấy gì trong phần đã quét”.
+    <p style="margin-top:14px">
+      Độ bao phủ trên toàn cây mã: khoảng <b>60%</b> với feature flag, <b>30%</b> với
+      Mojo, và <b>1%</b> với pref, do phần lớn pref nằm
+      trong các file mà danh sách tải hiện chưa với tới.
     </p>
+    <div class="warnbox" style="margin-top:14px">
+      Vì vậy <code>must fix: 0</code> <b>không bao giờ có nghĩa là “đợt uprev
+      không có rủi ro”.</b> Nó có nghĩa là “không phát hiện thấy gì trong phạm vi đã
+      quét”. Mọi báo cáo cần nêu lại giới hạn này.
+    </div>
   </div>
 </section>
 
 <footer>
-  <div>Mọi con số trong trang này đo trên Chromium thật (M139 · M143 · M148 · M151), dựng lại được bằng <code>chromedrift catalog</code> và <code>chromedrift run</code>.</div>
-  <div>Đọc tiếp: <code>PIPELINE.md</code> (luồng chi tiết) · <code>COVERAGE.md</code> (“tính năng” gồm gì, phủ bao nhiêu)</div>
+  <div>Mọi số liệu trong tài liệu này được đo trên mã nguồn Chromium thật (M139, M143, M148, M151) và dựng lại được bằng lệnh <code>chromedrift catalog</code> và <code>chromedrift run</code>.</div>
+  <div>Tài liệu liên quan: <code>PIPELINE.md</code> mô tả quy trình ở mức chi tiết hơn · <code>COVERAGE.md</code> trình bày cách đo độ bao phủ.</div>
 </footer>
 
 </div>
@@ -1018,30 +1564,30 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
   "use strict";
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* ── Xuất hiện khi cuộn tới ─────────────────────────────── */
+  /* ── Hiện dần khi cuộn tới ──────────────────────────────── */
   var io = new IntersectionObserver(function(es){
     es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
   }, {threshold:.12, rootMargin:"0px 0px -40px 0px"});
   document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
 
-  /* ── Băng chuyền: ví dụ thật đi qua 7 trạm ──────────────── */
+  /* ── Một thay đổi có thật đi qua chín bước ──────────────── */
   var STOPS = [
-    {lbl:"nguồn thô",  tok:"chrome_features.cc",
-     say:"Tải về 92.615 byte từ Gitiles — chỉ file khai báo, không phải cả Chromium."},
-    {lbl:"chốt ver",   tok:"refs/tags/151.0.7922.138",
-     say:"Phiên bản đầy đủ được ghim. Gõ '151' sẽ trôi theo ngày chạy."},
-    {lbl:"lấy target", tok:"tarball → đĩa",
-     say:"Đổ ra thành một bản checkout rất từng phần, cùng cấu trúc thư mục như src/."},
-    {lbl:"trích fact", tok:"base_feature: GlicActorUiMagicCursor",
-     say:"platform_state = {windows: 'enabled'} · conditions = [] · var = kGlicActorUiMagicCursor"},
-    {lbl:"so sánh",    tok:"disabled → enabled",
-     say:"deltas: default_state ['disabled','enabled'] · signals: enabled_by_default, default_flip_on"},
-    {lbl:"chấm điểm",  tok:"severity 75",
-     say:"Sàn cao nhất trong các signal. Chưa có bằng chứng hạ nguồn nên dừng ở 75."},
-    {lbl:"gom cụm",    tok:"đứng riêng",
-     say:"Không có cạnh dữ liệu nào nối tới finding khác — nên nó là câu chuyện của chính nó."},
-    {lbl:"báo cáo",    tok:"Needs review",
-     say:"Vào nhóm 'Needs review': đủ nghiêm trọng để cần người xác nhận, chưa có bằng chứng để thành 'Must fix'."}
+    {lbl:"File nguồn", tok:"chrome_features.cc",
+     say:"Tải về 92.615 byte từ Gitiles: chỉ file khai báo, không phải toàn bộ mã nguồn Chromium."},
+    {lbl:"Chốt phiên bản", tok:"refs/tags/151.0.7922.138",
+     say:"Số phiên bản đầy đủ được ghim lại. Nếu nhập số mốc rút gọn, kết quả sẽ thay đổi theo ngày chạy."},
+    {lbl:"Tải về", tok:"giải nén ra đĩa",
+     say:"Kết quả là một cây thư mục y hệt Chromium nhưng chỉ có vài nghìn file."},
+    {lbl:"Trích fact", tok:"feature flag: GlicActorUiMagicCursor",
+     say:"Trạng thái trên Windows: đang bật. Không có điều kiện build bao quanh. Tên biến trong mã nguồn: kGlicActorUiMagicCursor."},
+    {lbl:"So sánh", tok:"tắt → bật",
+     say:"Trạng thái mặc định chuyển từ tắt sang bật. Hai signal được gắn: mặc định trên Windows chuyển sang bật, và mặc định toàn cục chuyển sang bật."},
+    {lbl:"Chấm điểm", tok:"75 điểm",
+     say:"Lấy mức nghiêm trọng cao nhất trong hai signal. Chưa có bằng chứng nào cho thấy fork phụ thuộc vào flag này, nên điểm dừng ở 75."},
+    {lbl:"Gom nhóm", tok:"đứng riêng",
+     say:"Không có liên kết dữ liệu nào nối mục này với mục khác, nên nó đứng một mình."},
+    {lbl:"Báo cáo", tok:"Needs review",
+     say:"Đủ nghiêm trọng để cần một người xác nhận, nhưng chưa đủ bằng chứng để xếp vào nhóm Must fix."}
   ];
   var track=document.getElementById("track"), fill=document.getElementById("fill"),
       token=document.getElementById("token"), say=document.getElementById("say"),
@@ -1073,32 +1619,38 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
       idx++;
       if(idx>=STOPS.length){ clearInterval(timer); return; }
       goTo(idx);
-    }, 1150);
+    }, 1600);
   });
 
-
-  /* ── So sánh hai bên: 5 kịch bản, số liệu chạy thật từ diff.py ── */
-  var COMPARED = ["default_state","platform_state","conditions"];
+  /* ── Đối chiếu hai phiên bản: năm tình huống ─────────────
+     Danh sách thuộc tính được đối chiếu và kết quả của từng
+     tình huống lấy đúng theo diff.py.                       */
+  var COMPARED = ["trạng thái mặc định","trạng thái trên Windows","điều kiện build"];
   function F(state, form){
-    return {default_state:state, platform_state:"{windows: '"+state+"'}",
-            conditions:"[]", var:"kFoo", declared_form:form||"macro2"};
+    var o = {};
+    o["trạng thái mặc định"]     = state;
+    o["trạng thái trên Windows"] = state;
+    o["điều kiện build"]     = "không có";
+    o["tên biến"]                = "kFoo";
+    o["dạng khai báo"]           = form || "hai tham số";
+    return o;
   }
   var SCEN = [
-    {a:F("disabled"), b:F("enabled"),
-     type:"modified", sig:["enabled_by_default","default_flip_on"], sev:75,
-     why:"Mặc định trên Windows lật từ TẮT sang BẬT. Đây là thay đổi hành vi thật — người dùng của ta sẽ thấy khác."},
-    {a:F("enabled","macro3"), b:F("enabled","macro2"),
-     type:"KHÔNG có change nào", sig:[], sev:0,
-     why:"Chỉ khác cú pháp khai báo. declared_form không nằm trong danh sách so, nên đúng như thực tế: không có gì thay đổi."},
-    {a:F("enabled"), b:null,
-     type:"removed", sig:["flag_retired_on"], sev:35,
-     why:"Cờ biến mất, nhưng trạng thái ngay trước khi xoá là BẬT — tức đã ship rồi mới rút cờ. Hành vi giờ là vĩnh viễn, KHÔNG tắt được nữa."},
-    {a:F("disabled"), b:null,
-     type:"removed", sig:["flag_retired_off"], sev:30,
-     why:"Cờ biến mất khi đang TẮT — chưa từng ship, code bị xoá luôn. Không bật lại được nữa."},
-    {a:null, b:F("enabled"),
-     type:"added", sig:["new_feature_on_by_default"], sev:55,
-     why:"Cờ mới xuất hiện và đã BẬT sẵn. Năng lực mới, không phải rủi ro vỡ."}
+    {a:F("tắt"), b:F("bật"),
+     type:"Sửa đổi", sig:["mặc định trên Windows chuyển sang bật","mặc định toàn cục chuyển sang bật"], sev:75,
+     why:"Trạng thái mặc định trên Windows chuyển từ tắt sang bật. Đây là thay đổi hành vi thật: người dùng của chúng ta sẽ thấy khác trước."},
+    {a:F("bật","ba tham số"), b:F("bật","hai tham số"),
+     type:"Không có thay đổi nào", sig:[], sev:0,
+     why:"Hai phiên bản chỉ khác nhau ở cách viết khai báo. Thuộc tính đó không nằm trong danh sách đối chiếu, nên kết luận đúng với thực tế: không có gì thay đổi."},
+    {a:F("bật"), b:null,
+     type:"Gỡ bỏ", sig:["flag bị gỡ sau khi đã phát hành"], sev:35,
+     why:"Flag biến mất, nhưng trạng thái ngay trước khi bị gỡ là bật. Tính năng đã phát hành từ trước; nay hành vi trở thành cố định và không còn tắt được nữa."},
+    {a:F("tắt"), b:null,
+     type:"Gỡ bỏ", sig:["flag bị gỡ khi chưa từng phát hành"], sev:30,
+     why:"Flag biến mất khi đang tắt. Tính năng chưa từng phát hành và mã nguồn đã bị xoá, nên không còn bật lại được."},
+    {a:null, b:F("bật"),
+     type:"Thêm mới", sig:["tính năng mới, bật sẵn"], sev:55,
+     why:"Một flag mới xuất hiện và đã ở trạng thái bật. Đây là năng lực mới để cân nhắc, không phải rủi ro hỏng."}
   ];
   var sideA=document.getElementById("sideA"), sideB=document.getElementById("sideB"),
       oType=document.getElementById("oType"), oSig=document.getElementById("oSig"),
@@ -1106,7 +1658,7 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
 
   function renderSide(el, fact, other, label){
     if(!fact){
-      el.innerHTML='<div class="vs-gone">không tồn tại<br>ở bản này</div>';
+      el.innerHTML='<div class="vs-gone">không tồn tại<br>ở phiên bản này</div>';
       return;
     }
     var rows = Object.keys(fact).map(function(k){
@@ -1120,12 +1672,12 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
   }
   function renderScen(i){
     var s=SCEN[i];
-    renderSide(sideA, s.a, s.b, "M148  ·  bản cũ");
-    renderSide(sideB, s.b, s.a, "M151  ·  bản mới");
+    renderSide(sideA, s.a, s.b, "M148 · phiên bản cũ");
+    renderSide(sideB, s.b, s.a, "M151 · phiên bản mới");
     oType.textContent=s.type;
     oSig.innerHTML = s.sig.length
       ? s.sig.map(function(x){return '<span class="sig">'+x+'</span>';}).join("")
-      : '<span style="color:var(--muted);font-size:.85rem">— không có —</span>';
+      : '<span style="color:var(--muted);font-size:.85rem">không có signal nào</span>';
     oSev.textContent=s.sev||"—";
     oSev.style.color = s.sev>=60?"var(--clay)":s.sev>=35?"var(--brass)":"var(--muted)";
     oWhy.textContent=s.why;
@@ -1140,67 +1692,10 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
   });
   renderScen(0);
 
-  /* ── Tương tác 1: bộ đánh giá điều kiện ba trạng thái ───── */
-  /* True / False / None đúng như eval_condition() trong _cpp.py */
-  var VAL = { IS_WIN:true, IS_ANDROID:false, IS_MAC:false, ENABLE_PLUGINS:null };
-  var WHY = {
-    IS_WIN:"cờ nền tảng ta ship → True",
-    IS_ANDROID:"nền tảng khác → False chắc chắn, không phải 'không biết'",
-    IS_MAC:"nền tảng khác → False",
-    ENABLE_PLUGINS:"buildflag KHÔNG phải nền tảng → None, công cụ không đoán"
-  };
-  var op="or";
-  var guards=document.getElementById("guards"),
-      verdict=document.getElementById("verdict"),
-      evalsay=document.getElementById("evalsay");
-
-  function picked(){
-    return Array.prototype.filter.call(guards.querySelectorAll(".guard"), function(b){
-      return b.getAttribute("aria-pressed")==="true";
-    }).map(function(b){ return b.dataset.k; });
-  }
-  function combine(vals){
-    if(!vals.length) return null;
-    if(op==="or"){
-      if(vals.some(function(v){return v===true;})) return true;
-      if(vals.every(function(v){return v===false;})) return false;
-      return null;
-    }
-    if(vals.some(function(v){return v===false;})) return false;
-    if(vals.every(function(v){return v===true;})) return true;
-    return null;
-  }
-  function renderEval(){
-    var ks=picked(), vals=ks.map(function(k){ return VAL[k]; });
-    var r=combine(vals);
-    verdict.textContent = r===true?"True":r===false?"False":"None";
-    verdict.className = "verdict " + (r===true?"v-true":r===false?"v-false":"v-unknown");
-    if(!ks.length){ evalsay.textContent="Chọn ít nhất một guard."; return; }
-    var parts=ks.map(function(k){ return k+" → "+(VAL[k]===null?"None":VAL[k]); });
-    var tail = r===null
-      ? " — None lan truyền, nên trả lời “không xác định” thay vì đoán."
-      : (r===true ? " — khai báo này áp dụng cho bản Windows ta ship."
-                  : " — khai báo này không áp dụng cho ta.");
-    evalsay.textContent = parts.join("  ·  ") + tail + "  " + (WHY[ks[ks.length-1]]||"");
-  }
-  guards.addEventListener("click", function(e){
-    var b=e.target.closest(".guard"); if(!b) return;
-    b.setAttribute("aria-pressed", b.getAttribute("aria-pressed")==="true"?"false":"true");
-    renderEval();
-  });
-  document.querySelectorAll("[data-op]").forEach(function(b){
-    b.addEventListener("click", function(){
-      op=b.dataset.op;
-      document.querySelectorAll("[data-op]").forEach(function(o){
-        o.setAttribute("aria-pressed", String(o===b));
-      });
-      renderEval();
-    });
-  });
-  renderEval();
-
-  /* ── Tương tác 2: máy chấm điểm ─────────────────────────── */
-  /* Số liệu đúng như impact.py: nền 75, +12 path, +30 symbol, +15 area, −45 not_compiled */
+  /* ── Bảng tính điểm ảnh hưởng ────────────────────────────
+     Các mức cộng trừ lấy đúng theo impact.py: nền 75,
+     +12 bằng chứng cấp file, +30 cấp định danh, +15 vùng sở
+     hữu, −45 không được build trên nền tảng này.        */
   var BASE=75;
   var toggles=document.getElementById("toggles"),
       scoreval=document.getElementById("scoreval"),
@@ -1210,7 +1705,8 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
       pin=document.getElementById("pin");
 
   function renderScore(){
-    var score=BASE, hasSym=false, hasPath=false, why=["nền 75 (modified base_feature)"];
+    var score=BASE, hasSym=false, hasPath=false,
+        why=["điểm nền 75 (sửa đổi một feature flag)"];
     toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked){
         score += parseInt(i.dataset.add,10);
@@ -1222,8 +1718,7 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
     score=Math.max(0,Math.min(100,score));
     scoreval.textContent=score;
 
-    /* Đúng thứ tự nhánh của _bucket() trong impact.py. enabled_by_default
-       KHÔNG nằm trong BREAKING_SIGNALS, nên chỉ còn ngưỡng điểm quyết định. */
+    /* Thứ tự nhánh giống hệt hàm _bucket() trong impact.py. */
     var b,cls;
     if(hasSym && score>=60){ b="Must fix"; cls="b-must"; }
     else if((hasSym||hasPath) && score>=35){ b="Needs review"; cls="b-review"; }
@@ -1234,7 +1729,7 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
     scoreval.style.color = cls==="b-must"?"var(--clay)":cls==="b-review"?"var(--brass)":"var(--muted)";
     reasons.innerHTML = why.map(function(w){ return "<div>"+w+"</div>"; }).join("");
 
-    /* phép tính hiện rõ, không bắt người đọc tự cộng trong đầu */
+    /* Hiện rõ phép tính, để người đọc không phải tự cộng. */
     var parts=['<span>nền 75</span>'];
     toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked){
@@ -1245,7 +1740,7 @@ blink_runtime  LocalNetworkAccessSplitPermissions        bị bỏ</pre>
     var raw=BASE; toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked) raw+=parseInt(i.dataset.add,10); });
     parts.push('<span class="op">=</span><span class="tot">'+score+'</span>');
-    if(raw!==score) parts.push('<span class="op">(kẹp về '+(raw>100?"100":"0")+')</span>');
+    if(raw!==score) parts.push('<span class="op">(giới hạn lại về '+(raw>100?"100":"0")+')</span>');
     mathrow.innerHTML=parts.join("");
     pin.style.left=score+"%";
   }
