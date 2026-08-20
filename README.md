@@ -356,7 +356,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition settings --
 
 | | thời gian | cache | facts | thay đổi |
 |---|---:|---:|---:|---:|
-| toàn bộ | ~120 giây | 126 MB | 24.646 | 2.784 |
+| toàn bộ | ~120 giây | 126 MB | 24.677 | 2.784 |
 | `--partition settings` | **24 giây** | 37 MB | 4.467 | 1.344 |
 | `--partition downloads` | **17 giây** | 2,6 MB | 2.692 | 938 |
 
@@ -427,7 +427,7 @@ Chạy M148 → M151 cho Windows:
 
 ```
 1 phút 36 giây
-24.646 facts trích được
+24.677 facts trích được
 2.787 thay đổi có ý nghĩa
 
 must fix:        0     (vì chưa cấu hình hồ sơ downstream thật)

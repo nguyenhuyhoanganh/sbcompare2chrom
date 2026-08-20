@@ -113,8 +113,9 @@ every time rather than written down once. It is also in `report.json` under
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
-`media`) limits what is fetched and scanned. Measured: full run ~120 s and
-24,646 facts, `--partition settings` 24 s and 4,467. **Faster and less
+`media`) limits what is fetched and scanned. Measured at M151 on the default
+set: full run 24,677 facts, `--partition settings` 4,467. A partitioned run
+prints its own coverage line, scoped to the partition's roots. **Faster and less
 complete, one-directionally** — Chromium is not organized by product, so a
 change affecting downloads can live in `content/` or in a Mojo interface and
 match no partition. Right while iterating on one surface, wrong as a release
@@ -254,40 +255,51 @@ State these limits in every report. A clean report does not imply a clean uprev.
 - **Implementation-only changes.** The tool reads declarations (macros, IDL,
   mojom, string constants, JSON/JSON5 manifests). Behaviour changed entirely
   inside a function body is invisible.
-- **About 40% of feature flags, on the default target set.** Measured, not
-  estimated: at M151 the default set reads 42 of the 1,010 files in the tree
-  that could declare, and those hold 2,062 `base::Feature` declarations against
-  3,586 in all of them. The curated files are the large ones, which is why 4%
-  of the files is 58% of the declarations.
+- **Coverage depends on which target set was run, and every run prints its
+  own number.** Nothing here is a constant; quoting one as if it were is the
+  mistake this section exists to prevent. Measured at M151:
 
-  This is not a fixed number and must not be quoted as one. Every run prints
-  its own. `--target-set wide` reads 96% of the files and finds 3,836
-  `base::Feature` declarations instead of 2,062; it fetches 315 MB per version
-  but keeps 42 MB, because the archives are filtered as they are unpacked.
-  Whichever you ran, `must fix: 0` never means "nothing changed".
+  | | Files read | `base::Feature` | Prefs | Switches |
+  |---|---:|---:|---:|---:|
+  | `--target-set default` | 42 of 1,010 (4%) | 2,062 | 687 | 288 |
+  | `--target-set wide` | 971 of 1,010 (96%) | 3,836 | 2,221 | 954 |
 
-  Per source type, measured at M151:
+  The default set reads 4% of the files but a little over half the
+  declarations, because curation picked the large ones. `wide` fetches 315 MB
+  per version against 40 and keeps 42 MB either way, since the archives are
+  filtered as they unpack.
+
+  Read the coverage line the run printed, and state it in the report. On either
+  set, `must fix: 0` never means "nothing changed".
+
+  Per source type at M151, on the default set:
 
   | Source | Covered | In tree |
   |---|---:|---:|
   | Blink runtime features | 1 file | 1 file (complete) |
   | Web IDL | 2,167 | 2,575 (84%) |
   | Mojo interfaces | 490 | 1,588 (**30%**) |
-  | `pref_names.h` keys | 1,571 | 1,571 non-ChromeOS (complete) |
+  | Preference keys | 687 | ~2,200 (**31%**) |
   | WebUI surfaces | 8 | 132 (**6%**) |
 
   Mojo is the one to state explicitly in a report: it carries the
-  highest-severity findings and only `third_party/blink/public/mojom` is read.
+  highest-severity findings, `--target-set wide` does not improve it, and only
+  `third_party/blink/public/mojom` is read either way.
 
-  The pref surface used to be the worst gap here and is now closed: all 87
-  files in the tree that declare keys are read, not just
-  `chrome/common/pref_names.h`. What remains deliberately unread is the
-  ChromeOS pref files, which is correct for a Windows product — but Chromium is
-  splitting `chrome/common/pref_names.h` apart, so ChromeOS keys leaving it
-  still surface as disappearances. Measured M148 → M151: of 141 keys that
-  vanished, 100 were found in ChromeOS pref files. That is what the
-  `pref_left_scan` signal is for; never report one as a deletion without
-  searching the tree for the key first.
+  **Preference keys need care whichever set you ran.** Chromium is splitting
+  `chrome/common/pref_names.h` apart -- 4,322 lines at M143, 3,267 at M151 --
+  and the keys land in per-component files. On the default set only that one
+  file is read, so a key moving out of it looks identical to a key being
+  deleted. Even on `wide`, the ChromeOS pref files are deliberately skipped,
+  which is right for a Windows product but means ChromeOS keys leaving the
+  shared file still read as disappearances: measured M148 → M151, of 141 keys
+  that vanished, 100 were found in ChromeOS pref files.
+
+  That is what the `pref_left_scan` signal describes, and why it is scored 35
+  rather than as a confirmed removal. **Never report one as a deletion without
+  searching the current tree for the key string first** -- found elsewhere
+  means it moved and there is nothing to do; genuinely absent means every
+  existing user's stored value is orphaned.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
   is not, and neither is `page_visibility.ts`.

@@ -118,7 +118,7 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 | Blink runtime features | 1 file | 1 file | **100%** |
 | Web IDL | 2.167 | 2.575 | 84% |
 | **Mojo (IPC)** | 490 | 1.588 | **30%** |
-| Khoá pref | đo mỗi lần chạy | xem bên dưới | — |
+| Khoá pref | 687 (`default`) · 2.221 (`wide`) | ~2.200 ngoài ChromeOS | **31% / ~100%** |
 | **Bề mặt WebUI** | 8 | 132 | **6%** |
 
 **Độ phủ không còn là con số viết trong tài liệu — nó được đo mỗi lần chạy.**
@@ -146,7 +146,7 @@ coverage: reads 42 of 1010 files in this tree that could declare (4% of files)
 ```
 
 **Hai con số, cả hai đều đúng.** 42 file đó là *4% số file* nhưng chứa
-**58% số khai báo** (2.062 trên 3.586 `base::Feature` ở M151), vì danh sách
+**hơn nửa số khai báo** (2.062 trên 3.836 `base::Feature` ở M151), vì danh sách
 curate đã chọn đúng các file lớn. Phần trăm theo file là thứ đo được mà không
 cần tải; phần trăm theo khai báo chỉ biết sau khi đã tải.
 

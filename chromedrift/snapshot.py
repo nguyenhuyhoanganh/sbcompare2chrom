@@ -93,8 +93,17 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
     # notices. Measuring costs one cached recursive listing per root; it does
     # not change what is fetched, only whether the gap is visible.
     coverage: dict = {}
-    if target_set != "minimal" and not partitions:
+    if target_set != "minimal":
         candidates = discover_candidates(source, log=log)
+        if partitions:
+            # A partitioned run is the one most likely to miss something, so
+            # leaving it unmeasured would put the number where it is least
+            # needed. Scope the candidates to the same roots the partition
+            # fetches from, and the percentage describes that run rather than
+            # a full one it is not.
+            prefixes = _partition_prefixes(partitions)
+            candidates = {p: v for p, v in candidates.items()
+                          if p.startswith(prefixes)}
         coverage = coverage_against(candidates, targets)
         pct = coverage["read"] * 100 // max(1, coverage["candidates"])
         log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "

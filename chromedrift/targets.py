@@ -300,12 +300,6 @@ def minimal_targets() -> List[FetchTarget]:
                     "runtime_enabled_features.json5", "file"),
         FetchTarget("content/public/common/content_features.cc", "file"),
         FetchTarget("content/public/common/content_switches.cc", "file"),
-        # Discovery finds this too. It stays named because PARTITION_CORE
-        # promises it to every partition, and a partitioned run filters the
-        # static list -- so a core file that exists only as a discovery hit
-        # would silently drop out of `--partition downloads`.
-        FetchTarget("chrome/common/pref_names.h", "file",
-                    note="pref keys; also core to every partition"),
     ]
 
 

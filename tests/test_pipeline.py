@@ -2004,5 +2004,42 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         self.assertEqual(len(paths), 3)
 
 
+class TestMinimalStaysMinimal(unittest.TestCase):
+    """The smoke-test set has to stay a smoke test.
+
+    It exists so CI can prove the wiring works in about a megabyte. A file
+    added to it costs every smoke run, and the cost is invisible -- the set
+    still works, it is just no longer fast. One did creep in: an edit meant for
+    `default_targets` matched an identical line in `minimal_targets` too, and
+    the three-file set quietly started pulling 683 preference keys.
+    """
+
+    def test_minimal_is_three_declaration_files(self):
+        from chromedrift.targets import get_targets
+        targets = get_targets("minimal")
+        self.assertEqual(len(targets), 3, [t.path for t in targets])
+        self.assertTrue(all(t.kind == "file" for t in targets))
+
+    def test_minimal_is_a_subset_of_default(self):
+        from chromedrift.targets import get_targets
+        minimal = {t.path for t in get_targets("minimal")}
+        default = get_targets("default")
+        names = {t.path for t in default if t.kind == "file"}
+        trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
+        for path in minimal:
+            self.assertTrue(path in names or any(path.startswith(p) for p in trees),
+                            f"{path} is in minimal but not reachable from default")
+
+    def test_every_partition_core_file_is_reachable_from_default(self):
+        """PARTITION_CORE promises these to every partition."""
+        from chromedrift.targets import PARTITION_CORE, get_targets
+        default = get_targets("default")
+        names = {t.path for t in default if t.kind == "file"}
+        trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
+        for path in PARTITION_CORE:
+            self.assertTrue(path in names or any(path.startswith(p) for p in trees),
+                            f"{path} is promised to partitions but not fetched")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
