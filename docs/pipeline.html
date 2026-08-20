@@ -766,91 +766,65 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       ghi rõ tình trạng đó ngay ở đầu.
     </div>
 
-    <h3 class="sub">Một file, hai đội đọc</h3>
+    <h3 class="sub">Một bảng, và mỗi dòng tự nói được nó là cái gì</h3>
     <p>
-      Bốn nhóm trên xếp theo mức nghiêm trọng, và một bảng 2.792 dòng chỉ trả
-      lời được đúng câu đó. Nó không trả lời được <b>màn hình của tôi đổi
-      gì</b>, <b>cờ nào giờ bật trong build của mình</b>, hay <b>cái gì vỡ ra
-      ngoài binary</b>. Và không đội nào muốn cuộn qua phần của đội kia. Nên
-      <code>report.html</code> có menu ngang, mỗi mục là một <b>loại đối
-      tượng</b>, và chỉ mục đang chọn hiện trên màn hình:
+      Bốn nhóm trên xếp theo mức nghiêm trọng. <code>report.html</code> là
+      <b>một bảng duy nhất</b>, lọc và sắp xếp được. Đã thử hai bố cục khác
+      chồng lên nó và cả hai đều tệ hơn — ghi lại để không quay lại.
     </p>
-    <pre class="mono">Overview │ NATIVE  Feature flags 974 · Web APIs 482 · Process calls 112
-         │         Settings &amp; switches 170
-         │ WEBUI   chrome:// screens 271 · chrome://flags 783
-         │ All findings 2.792</pre>
-    <p>
-      Bên trong mỗi mục là một danh sách dọc bên trái, chia hai tầng: trước
-      hết theo <b>chiều</b> — mới / đổi / mất, câu hỏi mọi đội hỏi đầu tiên —
-      rồi theo <b>chuyện đã xảy ra</b>, là nhãn của signal. Mục
-      <code>chrome:// screens</code> chia theo <b>trang</b> thay vì theo chiều,
-      vì trang mới là đơn vị một đội UI sở hữu.
-    </p>
-    <pre class="mono">DIRECTION                            WHAT HAPPENED
-  ● New            531                 ● Now ON by default on Windows   77
-  ● Changed        170  ← cần review   ● Web API reached stable        129
-  ● Gone           273                 ● Shipped, then flag retired     80</pre>
-    <div class="note" style="margin-top:13px">
-      <b>Bản trước đặt tất cả trên một trang cuộn dài, gộp theo signal, và nó
-      hỏng.</b> Hai mươi mốt tiêu đề mà tên là các từ gần đồng nghĩa trong từ
-      vựng Chromium — <code>Default flipped on</code>, <code>Now ON by default
-      on Windows</code>, <code>New feature, on by default</code> là ba mục khác
-      nhau — xếp thành tám mươi thanh đóng, ba tầng, trước khi người đọc chạm
-      được vào một dòng đọc được. Câu signal là chú thích tốt cho <em>một</em>
-      dòng và là tiêu đề tồi cho <em>tám mươi</em> dòng. Giờ nó nằm ở cả hai
-      chỗ đúng: bên trái để chọn, bên phải trên từng dòng.
+    <div class="note">
+      <b>Gộp mọi finding theo signal, đặt trên một trang cuộn dài.</b> Thành hai
+      mươi mốt thanh đóng mà tên là các từ gần đồng nghĩa trong từ vựng
+      Chromium — <code>Default flipped on</code>, <code>Now ON by default on
+      Windows</code>, <code>New feature, on by default</code> là ba mục khác
+      nhau — tám mươi thanh, ba tầng, trước khi người đọc chạm được vào một
+      dòng đọc được.
+      <br><br>
+      <b>Đưa những mục đó vào menu chia theo đội.</b> Hết tường accordion,
+      nhưng mất đúng cái bảng làm tốt: không còn nhìn được toàn bộ cùng lúc,
+      không sắp xếp được, không tìm được.
     </div>
-
-    <h3 class="sub">Overview: công việc nằm ở đâu</h3>
     <p>
-      Tab đầu là một bảng duy nhất, tách theo đội, và mọi con số đều bấm được.
-      Ba cột chiều cộng lại đúng bằng <code>Total</code>, và
-      <code>Total</code> đúng bằng số dòng phía sau tab đó — có test giữ ba con
-      số ấy bằng nhau ở cả ba chỗ chúng được in ra.
+      Thứ thiếu chưa bao giờ là hình dạng. Nó là chuyện một dòng ghi
+      <code>id:cancelButton</code> rồi để người đọc tự đoán: trang nào, thêm
+      hay bớt, nút gì, có liên quan tới mình không. Nên bảng giữ nguyên hình
+      dạng, và mỗi dòng mang sẵn câu trả lời.
     </p>
+    <pre class="mono">~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
+   disabled → enabled
+                    Now ON by default on Windows │ content/public/common │ 100</pre>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Area</th><th>New</th><th>Changed</th><th>Gone</th><th>Total</th><th>Flagged</th></tr></thead>
+        <thead><tr><th>Cột</th><th>Trả lời</th></tr></thead>
         <tbody>
-          <tr><td>Feature flags</td><td>531</td><td>170</td><td>273</td><td>974</td><td>114</td></tr>
-          <tr><td>Web APIs</td><td>275</td><td>130</td><td>77</td><td>482</td><td>82</td></tr>
-          <tr><td>Process calls</td><td>53</td><td>48</td><td>11</td><td>112</td><td>51</td></tr>
-          <tr><td>Settings &amp; switches</td><td>28</td><td>2</td><td>140</td><td>170</td><td>2</td></tr>
-          <tr><td>chrome:// screens</td><td>168</td><td>43</td><td>60</td><td>271</td><td>1</td></tr>
-          <tr><td>chrome://flags</td><td>282</td><td>281</td><td>220</td><td>783</td><td>0</td></tr>
+          <tr><td>Score</td><td>Xếp hạng, giải thích được từng điểm</td></tr>
+          <tr><td>Bucket</td><td>Rơi vào nhóm triage nào</td></tr>
+          <tr><td>What</td><td>Chiều thay đổi (<code>+</code> mới,
+            <code>~</code> đổi, <code>−</code> mất) và vật đó <b>bằng lời</b>,
+            không phải định danh trần. Nhãn <code>OURS</code> khi dòng đó chạm
+            mã ta vá hoặc tham chiếu</td></tr>
+          <tr><td>What happened</td><td>Câu mô tả chuyện đã xảy ra</td></tr>
+          <tr><td>Where</td><td>Màn hình nó nằm trên, hoặc thư mục khai báo</td></tr>
+          <tr><td>Surface</td><td>Loại fact, kèm nhóm nghĩa của nó</td></tr>
         </tbody>
       </table>
     </div>
-    <p style="margin-top:12px">
-      <code>Flagged</code> là số dòng rơi vào <b>Must fix</b> hoặc <b>Needs
-      review</b>. Bốn ô triage ở trên bấm được: bấm là nhảy sang tab
-      <code>All findings</code> với bộ lọc đã đặt sẵn.
-    </p>
-
-    <h3 class="sub">Mỗi dòng nói nó là cái gì, không chỉ tên nó</h3>
-    <pre class="mono">~  process call  blink.mojom.AIManager.CreateWriter()  [Needs review]
-                                    Mojo method signature changed (ABI)   96
-+  visibility switch  cpuPerformanceEnabled (from kCpuPerformance)        39
-+  page  /ai/suggestions (shown when showAiPage, showAiSuggestionsControl) 54</pre>
-    <p>
-      Loại đối tượng in mờ ở đầu dòng, định danh in đậm, nhãn
-      <code>Needs review</code> / <code>ours</code> gắn ngay sau, câu "chuyện
-      gì đã xảy ra" ở bên phải, điểm ở cuối. Câu ấy là nhãn của signal
-      <b>đã ấn định mức nghiêm trọng</b> cho finding đó, không phải signal đầu
-      tiên trong danh sách: nếu lấy nhầm, một finding bị xếp dưới một câu và bị
-      chấm điểm theo một câu khác. Finding không mang signal nào lấy chiều và
-      loại làm câu mô tả (<code>New feature flag</code>), nên mỗi finding rơi
-      vào đúng một chuyện, không sót và không đếm hai lần.
+    <p style="margin-top:13px">
+      Câu ở cột <code>What happened</code> là nhãn của signal <b>đã ấn định mức
+      nghiêm trọng</b> cho finding đó, không phải signal đầu tiên trong danh
+      sách: nếu lấy nhầm, một dòng mang một câu và bị chấm điểm theo một câu
+      khác. Finding không mang signal nào lấy chiều và loại làm câu mô tả
+      (<code>New feature flag</code>), nên mọi dòng đều có một câu.
     </p>
 
     <h3 class="sub">Màn hình nào đổi gì</h3>
     <p>
       Người sở hữu một màn hình <code>chrome://</code> đến với câu hỏi khác —
-      <b>trang của tôi khác gì so với bản trước</b> — và một danh sách phẳng
-      toàn định danh không trả lời được. Dòng <code>id:cancelButton</code> không
-      nói trang nào, không nói thêm hay bớt, không nói đó là nút hay nút gạt;
-      còn cùng một <code>loadTimeData</code> key thì hiện một lần cho mỗi
-      handler đặt nó.
+      <b>trang của tôi khác gì so với bản trước</b> — và cột <code>Where</code>
+      trả lời đúng câu đó cho từng dòng: <code>settings › privacy_page</code>
+      cho một control, thư mục khai báo cho mọi thứ khác. Riêng
+      <code>report.md</code> còn có hẳn một mục gộp theo màn hình, vì bản
+      markdown đọc tuần tự chứ không lọc được.
     </p>
     <pre class="mono">settings › ai_page — 13 new · 1 changed · 5 gone
   + section    aiPageTitle
@@ -860,9 +834,10 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <p>
       Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng
       được hiển thị: control mang bề mặt, trang, file, tên thẻ và pref nó ghi;
-      route mang đường dẫn và điều kiện canh; gate mang handler đặt nó. Đây là
-      phần trình bày thuần — mọi dòng ở các mục trên đều có trong bảng chi tiết
-      bên dưới và trong <code>report.json</code>.
+      route mang đường dẫn và điều kiện canh; gate mang handler đặt nó. Cùng
+      một <code>loadTimeData</code> key xuất hiện một lần cho mỗi handler đặt
+      nó, nên không có cột này thì <code>webuiRefresh2026</code> hiện chín dòng
+      giống hệt nhau.
     </p>
   </div>
 </section>

@@ -645,93 +645,57 @@ fyi:         1229    ← ghi nhận cho đủ
 
 Mỗi finding trỏ tới **`đường-dẫn:dòng`** của cả hai phía, không chỉ tên file. `content_features.cc` khai gần hai trăm tính năng — đúng lý do mà bằng chứng cấp ký hiệu được xếp trên bằng chứng cấp đường dẫn khi chấm điểm.
 
-### `report.html` là một trang có menu, không phải một trang cuộn dài
+### Một bảng, và mỗi dòng phải tự nói được nó là cái gì
 
-Một file, hai đội đọc, và không đội nào muốn cuộn qua phần của đội kia. Nên báo cáo có menu ngang: mỗi mục là **một loại đối tượng**, và chỉ mục đang chọn hiện trên màn hình.
+`report.html` là **một bảng duy nhất**, lọc và sắp xếp được. Đã thử hai bố cục khác chồng lên nó và cả hai đều tệ hơn — ghi lại để không quay lại:
 
-```
-Overview │ NATIVE  Feature flags 974 · Web APIs 482 · Process calls 112 · Settings & switches 170
-         │ WEBUI   chrome:// screens 271 · chrome://flags 783
-         │ All findings 2.792
-```
+- **Gộp mọi finding theo signal, đặt trên một trang cuộn dài.** Thành hai mươi mốt thanh đóng mà tên là các từ gần đồng nghĩa trong từ vựng Chromium: `Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` là ba mục khác nhau. Tám mươi thanh, ba tầng, trước khi người đọc chạm được vào một dòng đọc được.
+- **Đưa những mục đó vào menu chia theo đội.** Hết tường accordion, nhưng mất đúng cái bảng làm tốt: không còn nhìn được toàn bộ cùng lúc, không sắp xếp được, không tìm được.
 
-Bên trong mỗi mục là một danh sách dọc bên trái, chia hai tầng:
+Thứ thiếu chưa bao giờ là hình dạng. Nó là chuyện một dòng ghi `id:cancelButton` rồi để người đọc tự đoán: trang nào, thêm hay bớt, nút gì, có liên quan tới mình không. Nên bảng giữ nguyên hình dạng, và mỗi dòng mang sẵn câu trả lời:
 
 ```
-DIRECTION                  ← câu hỏi mọi đội hỏi trước tiên
-  ● New            531
-  ● Changed        170     ← đây là đống cần review
-  ● Gone           273
-WHAT HAPPENED              ← nhãn signal, chi tiết hơn
-  ● Now ON by default on Windows      77
-  ● Web API reached stable           129
-  ● Shipped, then flag retired        80
-  …
+~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
+   disabled → enabled
+                    Now ON by default on Windows │ content/public/common │ 100
 ```
 
-`chrome:// screens` chia theo **trang** thay vì theo chiều, vì trang mới là đơn vị một đội UI sở hữu — chọn `settings › ai_page` là thấy đúng trang đó, tách sẵn thành NEW / CHANGED / GONE.
+Dấu ở đầu ô: `+` mới, `~` đổi, `−` mất. Nhãn `OURS` khi dòng đó chạm mã ta vá hoặc tham chiếu — trên một lần chạy thật là 53 trong 2.792 dòng, và 53 dòng đó là lý do báo cáo tồn tại.
 
-Bản trước đặt tất cả trên **một trang cuộn dài**, gộp theo signal. Nó hỏng vì hai lý do đáng ghi lại: hai mươi mốt tiêu đề mà tên là các từ gần đồng nghĩa trong từ vựng của Chromium (`Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` là ba mục khác nhau), và tám mươi thanh đóng xếp ba tầng trước khi người đọc chạm được vào một dòng đọc được. Câu signal là **chú thích tốt cho một dòng** và **tiêu đề tồi cho tám mươi dòng**; giờ nó nằm ở cả hai chỗ đúng: bên trái để chọn, và bên phải trên từng dòng.
+Câu "chuyện gì đã xảy ra" là **nhãn của signal đã ấn định mức nghiêm trọng** cho finding đó, không phải signal đầu tiên trong danh sách. Nếu lấy nhầm, một dòng sẽ mang một câu và bị chấm điểm theo một câu khác. Finding không mang signal nào — thứ vừa xuất hiện, chưa có mặc định nào dịch chuyển — lấy chiều và loại làm câu mô tả (`New feature flag`, `Removed chrome://flags entry`), nên mọi dòng đều có một câu.
 
-### Overview: công việc nằm ở đâu
+### Bốn ô triage bấm được
 
-Tab đầu là một bảng duy nhất, tách theo đội, và mọi con số đều bấm được:
-
-| Area | New | Changed | Gone | Total | Flagged |
-|---|---:|---:|---:|---:|---:|
-| **NATIVE** | | | | | |
-| Feature flags | 531 | 170 | 273 | 974 | 114 |
-| Web APIs | 275 | 130 | 77 | 482 | 82 |
-| Process calls | 53 | 48 | 11 | 112 | 51 |
-| Settings & switches | 28 | 2 | 140 | 170 | 2 |
-| **WEBUI** | | | | | |
-| chrome:// screens | 168 | 43 | 60 | 271 | 1 |
-| chrome://flags | 282 | 281 | 220 | 783 | 0 |
-
-`Flagged` là số dòng rơi vào **Must fix** hoặc **Needs review**. Ba cột chiều cộng lại đúng bằng `Total`, và `Total` đúng bằng số dòng phía sau tab đó — có test giữ cả ba con số bằng nhau ở cả ba chỗ chúng được in ra (menu, bảng này, và tab tương ứng).
-
-### Mỗi dòng nói nó là cái gì, không chỉ tên nó
-
-```
-~  process call  blink.mojom.AIManager.CreateWriter()  [Needs review]   Mojo method signature changed (ABI)   96
-+  visibility switch  cpuPerformanceEnabled (from kCpuPerformance)                                            39
-+  page  /ai/suggestions (shown when showAiPage, showAiSuggestionsControl)                                    54
-```
-
-Loại đối tượng in mờ ở đầu dòng, định danh in đậm, nhãn `Needs review` / `ours` gắn ngay sau, câu "chuyện gì đã xảy ra" ở bên phải, điểm ở cuối. Định danh trần không nói được gì — `id:cancelButton` không cho biết trang nào, thêm hay bớt, là nút hay nút gạt — nên nó không bao giờ đứng một mình.
-
-Câu mô tả cho mỗi chuyện vốn đã được viết sẵn: nó là **nhãn của signal đã ấn định mức nghiêm trọng** cho finding đó, không phải signal đầu tiên trong danh sách. Nếu lấy nhầm, một finding sẽ bị xếp dưới một câu và bị chấm điểm theo một câu khác. Finding không mang signal nào — thứ vừa xuất hiện, chưa có mặc định nào dịch chuyển — lấy chiều và loại làm câu mô tả (`New feature flag`, `Removed chrome://flags entry`). Nhờ vậy mỗi finding rơi vào đúng một chuyện, không sót và không đếm hai lần.
+Bốn ô ở đầu trang là bộ lọc: bấm vào là bảng bên dưới lọc đúng nhóm vừa bấm. Con số trên ô và số dòng bảng lọc ra luôn bằng nhau — có test giữ.
 
 ### Màn hình nào đổi gì
 
-Người sở hữu một màn hình đến với câu hỏi khác — *trang của tôi khác gì so với bản trước* — và một danh sách phẳng toàn định danh không trả lời được. Cùng một loadTimeData key còn xuất hiện một lần cho mỗi handler đặt nó, nên `webuiRefresh2026` hiện chín dòng giống hệt nhau.
+Cột **Where** trả lời câu "nó ở đâu" cho từng dòng: `settings › privacy_page` cho một control, thư mục khai báo cho mọi thứ khác. Riêng `report.md` còn có hẳn một mục gộp theo màn hình, vì bản markdown đọc tuần tự chứ không lọc được:
 
 ```
 settings › ai_page — 13 new · 1 changed · 5 gone
-  NEW — 13
-  + page             /ai/skills (shown when showAiPage, showSkillsSettingPage)
-  + visibility switch cpuPerformanceEnabled (from kCpuPerformance)
-  CHANGED — 1
-  ~ toggle — glicExperimentalTriggering (writes glic.experimental_triggering_enabled)
+  + section    aiPageTitle
+  + link row   skillsSettingLabel
+  ~ toggle — glicExperimentalTriggering  (writes glic.experimental_triggering_enabled)
+  − page /localNetworkAccess
 ```
 
-Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó.
+Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó. Cùng một loadTimeData key xuất hiện một lần cho mỗi handler đặt nó, nên nếu không có cột này thì `webuiRefresh2026` hiện chín dòng giống hệt nhau.
 
 ### Bảng cuối: định danh không phải mô tả
 
-Bảng "Every finding" có bảy cột, và bốn trong số đó trước đây chỉ đọc được khi bấm mở từng dòng hoặc không có ở đâu cả:
+Bảng có sáu cột, và ba trong số đó trước đây chỉ đọc được khi bấm mở từng dòng hoặc không có ở đâu cả:
 
 | Cột | Trả lời |
 |---|---|
 | Score | Xếp hạng, giải thích được từng điểm |
-| Change | `new` / `changed` / `gone` |
 | Bucket | Rơi vào nhóm triage nào |
-| What | Vật đó **bằng lời**, không phải định danh trần: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
-| What happened | Câu mô tả chuyện đã xảy ra, cùng câu dùng ở mục trên |
+| What | Chiều thay đổi (`+` / `~` / `−`) và vật đó **bằng lời**, không phải định danh trần: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
+| What happened | Câu mô tả chuyện đã xảy ra |
 | Where | Màn hình, hoặc thư mục khai báo |
 | Surface | Loại fact, kèm nhóm nghĩa của nó |
 
-Nhãn `ours` gắn ngay trong cột What cho những dòng chạm vào mã ta vá hoặc tham chiếu — trên một lần chạy thật đó là 53 trong 2.792 dòng, và 53 dòng đó là lý do báo cáo tồn tại. Bốn ô triage ở Overview bấm được: bấm là nhảy sang tab này với bộ lọc đã đặt sẵn đúng ô vừa bấm.
+Cột `Change` cũ đã bỏ: chiều thay đổi giờ là một dấu màu ở đầu ô What, vì `~` chiếm một ký tự còn cái pill chiếm 112px.
 
 ### Mọi điểm số đều giải thích được
 
@@ -788,9 +752,7 @@ Báo cáo nhóm bộ lọc theo *ý nghĩa của thay đổi*, không xếp mư�
 
 Trên một báo cáo M139 → M143 thật, 3.120 finding chia 34% / 35% / 30%. Tức là **hai phần ba báo cáo không phải chuyện tính năng được bật hay tắt** — đọc phẳng thành mười ba loại "tính năng" là cách hiểu sai phổ biến nhất.
 
-Ba nhóm này **không phải** menu của báo cáo — menu đặt tên theo *đối tượng* (`Feature flags`, `Web APIs`, `Process calls`, `Settings & switches`, `chrome:// screens`, `chrome://flags`) vì đó mới là chỗ người ta nghĩ tới khi đi tìm. Ba nhóm nghĩa nằm ở chỗ khác: dưới cột `Surface` của bảng cuối, và làm nhóm cho dropdown lọc. `report.md` thì vẫn xếp theo ba nhóm này, vì bản markdown đọc tuần tự chứ không bấm được.
-
-Hai cách chia này trả lời hai câu khác nhau và đều cần: nhóm nghĩa nói *một thay đổi ở đây có hậu quả gì*, menu nói *tôi vào đâu để tìm*. Có test giữ mỗi loại fact thuộc đúng một nhóm **và** đúng một mục menu — thiếu chỗ nào thì loại đó không ai tới được.
+Ba nhóm này hiện ở hai chỗ trong `report.html`: dòng phụ dưới cột `Surface` của mỗi dòng, và nhóm của dropdown `All surfaces`. `report.md` thì xếp hẳn các mục theo ba nhóm này, vì bản markdown đọc tuần tự chứ không lọc được. Có test giữ mỗi loại fact thuộc đúng một nhóm — sót một loại thì cột `Surface` của nó in ra rỗng.
 
 ### Ngữ cảnh từ chromestatus
 

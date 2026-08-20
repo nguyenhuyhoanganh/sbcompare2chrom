@@ -153,12 +153,15 @@ read a single identifier.
 
 `report.md` groups these under the three consequence groups -- behaviour
 switches, external contracts, UI and scheduling -- so the two thirds of a report
-that is *not* about features being turned on or off is visible as its own set.
-`report.html` is a menu instead, one entry per kind of object, each splitting
-into new / changed / gone and then into the same sentences; `chrome://` screens
-split by page, which is the axis that carries their meaning. If you are reading
-the HTML, the **Overview** tab is one table of where the work is, and every
-number on it opens the rows it counted.
+that is *not* about features being turned on or off is visible as its own set,
+and it carries a per-screen section for the `chrome://` surfaces.
+
+`report.html` is one sortable table instead, and carries the same sentence per
+row in its **What happened** column. Sort or filter on it to get the same
+grouping. Its **Where** column is the per-screen answer, one row at a time:
+`settings › privacy_page` for a control, the declaring directory for everything
+else. Rows tagged **ours** are the ones touching code the profile says we patch
+or reference.
 
 ### Step 4: Classify each finding
 
