@@ -139,11 +139,8 @@ tbody tr.row-t:hover td{background:color-mix(in srgb,var(--card) 88%,var(--accen
 border:1px solid currentColor;white-space:nowrap}
 .b-must_fix{color:var(--must)}.b-review{color:var(--review)}
 .b-opportunity{color:var(--opp)}.b-fyi{color:var(--fyi)}
-.chg{font-size:.73rem;padding:1px 8px;border-radius:99px;white-space:nowrap;
-font-weight:600}
-.c-added{background:color-mix(in srgb,var(--new) 15%,transparent);color:var(--new)}
-.c-removed{background:color-mix(in srgb,var(--gone) 15%,transparent);color:var(--gone)}
-.c-modified{background:color-mix(in srgb,var(--chg) 15%,transparent);color:var(--chg)}
+.mk{font-weight:700;padding-right:5px;font-variant-numeric:tabular-nums}
+.mk-added{color:var(--new)}.mk-removed{color:var(--gone)}.mk-modified{color:var(--chg)}
 .where{color:var(--muted);font-size:.83rem}
 .grp{font-size:.72rem;color:var(--faint);margin-top:2px}
 .moved{font-size:.78rem;color:var(--muted);margin-top:2px}
@@ -207,9 +204,11 @@ function details(f){
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
   return '<ul class="tight">'+L.join('')+'</ul>';
 }
-var CHG={added:'new',removed:'gone',modified:'changed'};
+var MARK={added:'+',removed:'\u2212',modified:'~'};
 function whatCell(f){
-  var out=f.what?esc(f.what):'<code>'+esc(f.name)+'</code>';
+  var c=f.change_type||'';
+  var out='<span class="mk mk-'+c+'" title="'+esc(c)+'">'+(MARK[c]||'?')+'</span>'+
+    (f.what?esc(f.what):'<code>'+esc(f.name)+'</code>');
   if(f.ours) out+=' <span class="ours">ours</span>';
   if(f.moved) out+='<div class="moved">'+esc(f.moved)+'</div>';
   return out;
@@ -220,9 +219,7 @@ function surfaceCell(f){
   return out;
 }
 function rowHtml(f,i){
-  const c=f.change_type||'';
   return '<tr class="row-t" data-i="'+i+'"><td class="score">'+f.score+'</td>'+
-    '<td><span class="chg c-'+c+'">'+esc(CHG[c]||c)+'</span></td>'+
     '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
@@ -234,7 +231,7 @@ function paint(){
   cnt.textContent=(view.length?('showing '+slice.length+' of '+view.length):'0')+
     ' \\u00b7 '+DATA.length+' total';
   if(!view.length){
-    tb.innerHTML='<tr><td colspan="7" class="empty">No findings match.</td></tr>';
+    tb.innerHTML='<tr><td colspan="6" class="empty">No findings match.</td></tr>';
     more.hidden=true;return;
   }
   tb.innerHTML=slice.map(rowHtml).join('');
@@ -267,7 +264,7 @@ tb.addEventListener('click',e=>{
   const f=view[+tr.dataset.i]; if(!f)return;
   const det=document.createElement('tr');
   det.className='det';
-  det.innerHTML='<td colspan="7">'+details(f)+'</td>';
+  det.innerHTML='<td colspan="6">'+details(f)+'</td>';
   tr.after(det);
 });
 more.addEventListener('click',()=>{shown+=PAGE;paint();});
@@ -483,7 +480,9 @@ def render(report: Report, platform: str = "windows") -> str:
 platform {html.escape(platform)} \u00b7
 target set {html.escape(str(meta.get('target_set', '?')))} \u00b7
 generated {html.escape(str(meta.get('generated', '')))}</div>
-<p class="lede">{lede}</p>
+<p class="lede">{lede} Each row opens with
+<b class="mk-added">+</b>&nbsp;new, <b class="mk-modified">~</b>&nbsp;changed or
+<b class="mk-removed">\u2212</b>&nbsp;gone.</p>
 </header>
 {notes_html}
 <div class="cards">{_triage_html(report, mode)}</div>
@@ -499,12 +498,11 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table class="find">
-<colgroup><col style="width:62px"><col style="width:88px"><col style="width:112px">
-<col style="width:27%"><col style="width:23%"><col style="width:15%">
+<colgroup><col style="width:62px"><col style="width:112px">
+<col style="width:31%"><col style="width:24%"><col style="width:16%">
 <col style="width:150px"></colgroup>
 <thead><tr>
-<th data-k="score">Score</th><th data-k="change_type">Change</th>
-<th data-k="bucket">Bucket</th>
+<th data-k="score">Score</th><th data-k="bucket">Bucket</th>
 <th data-k="name">What</th><th data-k="why">What happened</th>
 <th data-k="where">Where</th><th data-k="kind">Surface</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
