@@ -13,8 +13,10 @@ import json
 from typing import List
 
 from ..diff import SIGNAL_LABELS
-from ..model import BUCKET_LABELS, BUCKET_ORDER, KIND_GROUPS, KIND_LABELS, Report
+from ..model import (ADDED, BUCKET_LABELS, BUCKET_ORDER, KIND_GROUPS,
+                     KIND_LABELS, MODIFIED, REMOVED, Report)
 from . import markdown as md_report
+from . import surfaces
 
 _CSS = """
 :root{--bg:#fbfbfa;--fg:#1a1a19;--muted:#6b6b66;--line:#e3e2df;--card:#fff;
@@ -25,6 +27,26 @@ _CSS = """
 --must:#f08076;--review:#e0aa52;--opp:#7cc397;--fyi:#9a978f;--accent:#7aa8e8;}}
 :root[data-theme=dark]{--bg:#191918;--fg:#eceae5;--muted:#9a978f;--line:#302f2c;
 --card:#211f1e;--must:#f08076;--review:#e0aa52;--opp:#7cc397;--fyi:#9a978f;--accent:#7aa8e8;}
+.screens{margin:0 0 22px}
+.screens details{border:1px solid var(--line);border-radius:8px;background:var(--card);
+margin-bottom:8px}
+.screens summary{cursor:pointer;padding:10px 14px;font-weight:600;
+display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.screens summary::-webkit-details-marker{color:var(--muted)}
+.screens .tally{font-weight:400;font-size:.85rem;color:var(--muted)}
+.screens ul{list-style:none;margin:0;padding:0 14px 12px}
+.screens li{display:flex;gap:9px;align-items:baseline;padding:3px 0;
+border-top:1px solid var(--line);font-size:.9rem}
+.screens li:first-child{border-top:0}
+.screens .mk{flex:0 0 1.1em;text-align:center;font-weight:700;font-variant:none}
+.mk-added{color:var(--opp)}.mk-removed{color:var(--must)}.mk-modified{color:var(--review)}
+.screens .sc{margin-left:auto;color:var(--muted);font-size:.8rem;
+font-variant-numeric:tabular-nums}
+.chg{font-size:.74rem;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.c-added{background:color-mix(in srgb,var(--opp) 16%,transparent);color:var(--opp)}
+.c-removed{background:color-mix(in srgb,var(--must) 16%,transparent);color:var(--must)}
+.c-modified{background:color-mix(in srgb,var(--review) 16%,transparent);color:var(--review)}
+.where{color:var(--muted);font-size:.84rem}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;}
@@ -111,7 +133,8 @@ function match(f,t){
   }
   if(!t)return true;
   if(f._hay===undefined)
-    f._hay=(f.name+' '+f.kind+' '+(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
+    f._hay=(f.name+' '+f.kind+' '+(f.what||'')+' '+(f.where||'')+' '
+      +(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
       +' '+(f.we_ref||[]).join(' ')+' '+(f.chromestatus||'')).toLowerCase();
   return f._hay.indexOf(t)!==-1;
 }
@@ -127,10 +150,21 @@ function details(f){
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
   return '<ul class="tight">'+L.join('')+'</ul>';
 }
+var CHG={added:'new',removed:'gone',modified:'changed'};
+/* The "what" column reads as prose for a screen and as an identifier for
+   everything else, because for a control the identifier was the problem: a row
+   saying `id:cancelButton` names neither the page nor the direction. */
+function whatCell(f){
+  if(f.what) return esc(f.what);
+  return '<code>'+esc(f.name)+'</code>';
+}
 function rowHtml(f,i){
+  const c=f.change_type||'';
   return '<tr class="row" data-i="'+i+'"><td class="score">'+f.score+'</td>'+
+    '<td><span class="chg c-'+c+'">'+esc(CHG[c]||c)+'</span></td>'+
     '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
-    '<td><code>'+esc(f.name)+'</code></td>'+
+    '<td>'+whatCell(f)+'</td>'+
+    '<td class="where">'+esc(f.where||'')+'</td>'+
     '<td class="muted">'+esc(kindLabel(f))+'</td>'+
     '<td>'+esc(f.moved||'')+'</td>'+
     '<td>'+esc((f.we_ref||f.we_patch||[]).join(', '))+'</td></tr>';
@@ -140,7 +174,7 @@ function paint(){
   cnt.textContent=(view.length?('showing '+slice.length+' of '+view.length):'0')+
     ' \\u00b7 '+DATA.length+' total';
   if(!view.length){
-    tb.innerHTML='<tr><td colspan="6" class="empty">No findings match.</td></tr>';
+    tb.innerHTML='<tr><td colspan="8" class="empty">No findings match.</td></tr>';
     more.hidden=true;return;
   }
   tb.innerHTML=slice.map(rowHtml).join('');
@@ -173,7 +207,7 @@ tb.addEventListener('click',e=>{
   const f=view[+tr.dataset.i]; if(!f)return;
   const det=document.createElement('tr');
   det.className='det';
-  det.innerHTML='<td colspan="6">'+details(f)+'</td>';
+  det.innerHTML='<td colspan="8">'+details(f)+'</td>';
   tr.after(det);
 });
 more.addEventListener('click',()=>{shown+=PAGE;paint();});
@@ -193,6 +227,14 @@ def _moved(finding_dict: dict) -> str:
             continue
         return f"{old} → {new}"
     return finding_dict.get("change_type", "")
+
+
+def _where(change) -> str:
+    """The screen a change belongs to, or the directory that declares it."""
+    if change.kind in surfaces.WEBUI_KINDS:
+        return surfaces.screen_of(change) or ""
+    path = (change.paths or [""])[0]
+    return path.rsplit("/", 1)[0] if "/" in path else path
 
 
 def _to_rows(report: Report, platform: str) -> List[dict]:
@@ -220,6 +262,13 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "bucket": finding.bucket,
             "score": finding.score,
             "signals": [SIGNAL_LABELS.get(s, s) for s in change.signals],
+            # A row used to show an identifier and leave the reader to work out
+            # the rest. `where` is the screen or the declaring directory,
+            # `what` is the thing in words, and the change type was only
+            # reachable by opening the row.
+            "where": _where(change),
+            "what": surfaces.describe(change)
+            if change.kind in surfaces.WEBUI_KINDS else "",
             "paths": (change.locations or change.paths)[:3],
             "we_patch": finding.matched_paths[:5],
             "we_ref": finding.matched_symbols[:8],
@@ -243,6 +292,53 @@ def _trim(value, limit: int = 90) -> str:
     text = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) \
         else ("(absent)" if value is None else str(value))
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _screens_html(report: Report, limit: int = 40, per_screen: int = 25) -> str:
+    """"What changed on each screen", above the table rather than inside it.
+
+    The table answers "what has the highest severity"; this answers "what is
+    different about this page", which is the question anyone owning a surface
+    actually arrives with. Neither can be read off the other: the same
+    loadTimeData key is set by nine different handlers, and a flat list shows
+    it nine times with nothing to tell them apart.
+    """
+    screens = surfaces.build(report.findings)
+    if not screens:
+        return ""
+    totals = surfaces.summarize(screens)
+    head = (f"{totals['added']} new · {totals['changed']} changed · "
+            f"{totals['removed']} gone, across {totals['screens']} screens")
+
+    out = ['<h2>What changed on each screen</h2>',
+           f'<p class="muted" style="margin:-6px 0 12px;font-size:.88rem">'
+           f'{html.escape(head)}. Ordered by how much moved. Every row here is '
+           f'also in the table below.</p>',
+           '<div class="screens">']
+    for screen in screens[:limit]:
+        items = screen.sorted_items()
+        out.append("<details>")
+        out.append(f'<summary>{html.escape(screen.name)}'
+                   f'<span class="tally">{html.escape(screen.headline())}</span>'
+                   f'</summary><ul>')
+        for finding in items[:per_screen]:
+            kind = finding.change.change_type
+            out.append(
+                f'<li><span class="mk mk-{kind}">'
+                f'{html.escape(surfaces.MARK.get(kind, "?"))}</span>'
+                f'<span>{html.escape(surfaces.describe(finding.change))}</span>'
+                f'<span class="sc">{finding.score}</span></li>')
+        if len(items) > per_screen:
+            out.append(f'<li><span class="mk"></span><span class="muted">'
+                       f'… and {len(items) - per_screen} more on this screen'
+                       f'</span></li>')
+        out.append("</ul></details>")
+    if len(screens) > limit:
+        out.append(f'<p class="muted" style="font-size:.85rem">'
+                   f'… and {len(screens) - limit} more screens with fewer '
+                   f'changes. Filter the table by surface to see them.</p>')
+    out.append("</div>")
+    return "\n".join(out)
 
 
 def render(report: Report, platform: str = "windows") -> str:
@@ -296,7 +392,12 @@ def render(report: Report, platform: str = "windows") -> str:
 platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}</div>
 {notes_html}
 <div class="cards">{cards}</div>
-<h2>Findings</h2>
+{_screens_html(report)}
+<h2>Every finding</h2>
+<p class="muted" style="margin:-6px 0 12px;font-size:.88rem">The whole set,
+including the surfaces that are not screens &mdash; feature flags, preferences,
+Mojo, Web IDL. Sort by any column; click a row for evidence and score
+reasoning.</p>
 <div class="controls">
 <input type="search" id="q" placeholder="Search name, signal, path, symbol…">
 <select id="fb"><option value="">All buckets</option>
@@ -309,17 +410,19 @@ platform {html.escape(platform)} · {html.escape(str(meta.get('generated','')))}
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table>
-<colgroup><col style="width:64px"><col style="width:116px"><col style="width:28%">
-<col style="width:170px"><col><col style="width:20%"></colgroup>
+<colgroup><col style="width:60px"><col style="width:92px"><col style="width:108px">
+<col style="width:24%"><col style="width:17%"><col style="width:148px"><col>
+<col style="width:14%"></colgroup>
 <thead><tr>
-<th data-k="score">Score</th><th data-k="bucket">Bucket</th>
-<th data-k="name">Change</th><th data-k="kind">Surface</th>
+<th data-k="score">Score</th><th data-k="change_type">Change</th>
+<th data-k="bucket">Bucket</th>
+<th data-k="name">What</th><th data-k="where">Where</th>
+<th data-k="kind">Surface</th>
 <th data-k="moved">What moved</th><th data-k="we_ref">We reference</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
 <button id="more" hidden></button>
-<p class="muted" style="margin-top:10px;font-size:.85rem">Click a row for evidence
-and score reasoning. Rows render in pages of 100 &mdash; the JSON below holds every
-finding regardless of what is on screen.</p>
+<p class="muted" style="margin-top:10px;font-size:.85rem">Rows render in pages of
+100 &mdash; the JSON below holds every finding regardless of what is on screen.</p>
 </div>
 <script>window.__FINDINGS__={json.dumps(rows, ensure_ascii=False)};
 window.__KINDS__={json.dumps(KIND_LABELS, ensure_ascii=False)};

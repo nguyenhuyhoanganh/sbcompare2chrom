@@ -2998,6 +2998,128 @@ class TestEveryTreeWalkIsSorted(unittest.TestCase):
             "chrome/browser/samsung/toolbar.grd"))
 
 
+class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
+    """A row reading `id:cancelButton` answers none of the reader's questions.
+
+    It does not say which page the control is on, whether it arrived or
+    vanished, or what kind of control it is -- and the same loadTimeData key
+    appears once per handler that sets it, so `webuiRefresh2026` showed up nine
+    times with nothing to tell the nine apart. Every field needed to answer all
+    of that was already on the facts and was simply never rendered.
+    """
+
+    def _control(self, change_type="added", **attrs):
+        from chromedrift.model import Change
+        base = {"surface": "settings", "page": "privacy_page",
+                "control": "settings-toggle-button", "element_id": "httpsOnly",
+                "pref": "generated.https_first_mode_enabled", "label": ""}
+        base.update(attrs)
+        side = {"after": base} if change_type != "removed" else {"before": base}
+        return Change(change_type=change_type, kind="webui_control",
+                      key="settings/privacy_page/p/id:httpsOnly",
+                      name="id:httpsOnly", **side)
+
+    def test_a_control_names_its_screen(self):
+        from chromedrift.report import surfaces
+        self.assertEqual(surfaces.screen_of(self._control()),
+                         "settings › privacy_page")
+
+    def test_a_gate_is_placed_by_the_handler_that_sets_it(self):
+        """Otherwise every gate lands in one undifferentiated pile."""
+        from chromedrift.model import Change
+        from chromedrift.report import surfaces
+        for handler, screen in (("downloads_ui", "downloads"),
+                                ("new_tab_page_ui", "new_tab_page"),
+                                ("history_util", "history")):
+            change = Change(change_type="added", kind="webui_gate",
+                            key=f"{handler}/showThing", name="showThing",
+                            after={"handler": handler, "features": ["kThing"]})
+            self.assertEqual(surfaces.screen_of(change), screen)
+
+    def test_a_control_is_described_in_words(self):
+        from chromedrift.report import surfaces
+        self.assertEqual(
+            surfaces.describe(self._control()),
+            "toggle — httpsOnly (writes generated.https_first_mode_enabled)")
+
+    def test_a_retyped_control_shows_both_types(self):
+        from chromedrift.report import surfaces
+        change = self._control("modified", control="settings-toggle-button")
+        change.deltas = {"control": ["settings-dropdown-menu",
+                                     "settings-toggle-button"]}
+        self.assertIn("dropdown → toggle", surfaces.describe(change))
+
+    def test_a_route_says_what_shows_it(self):
+        from chromedrift.model import Change
+        from chromedrift.report import surfaces
+        change = Change(change_type="added", kind="webui_route",
+                        key="settings/AI", name="AI",
+                        after={"surface": "settings", "route": "/ai",
+                               "guards": ["showAiPage"]})
+        self.assertEqual(surfaces.describe(change),
+                         "page /ai (shown when showAiPage)")
+
+    def test_screens_group_and_count_by_direction(self):
+        from chromedrift.model import Finding
+        from chromedrift.report import surfaces
+        findings = [Finding(change=self._control("added"), score=30),
+                    Finding(change=self._control("removed"), score=20),
+                    Finding(change=self._control("modified"), score=40)]
+        screens = surfaces.build(findings)
+        self.assertEqual([s.name for s in screens], ["settings › privacy_page"])
+        self.assertEqual(screens[0].headline(), "1 new · 1 changed · 1 gone")
+        self.assertEqual(surfaces.summarize(screens),
+                         {"screens": 1, "added": 1, "changed": 1, "removed": 1})
+
+    def test_new_things_are_listed_first(self):
+        """"What is new here" is the question people arrive with."""
+        from chromedrift.model import Finding
+        from chromedrift.report import surfaces
+        findings = [Finding(change=self._control("removed"), score=90),
+                    Finding(change=self._control("added"), score=10)]
+        order = [f.change.change_type
+                 for f in surfaces.build(findings)[0].sorted_items()]
+        self.assertEqual(order, ["added", "removed"])
+
+    def test_nothing_but_screens_is_grouped(self):
+        from chromedrift.model import Change, Finding
+        from chromedrift.report import surfaces
+        flag = Change(change_type="added", kind="base_feature", key="F", name="F")
+        self.assertEqual(surfaces.build([Finding(change=flag)]), [])
+
+    def test_both_renderers_carry_the_section(self):
+        from chromedrift.model import Finding, Report
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=self._control(), score=30,
+                                          bucket="review")])
+        for text in (md_report.render(report), html_report.render(report)):
+            self.assertIn("What changed on each screen", text)
+            self.assertIn("settings › privacy_page", text)
+            self.assertIn("toggle", text)
+
+    def test_the_table_carries_the_direction_and_the_place(self):
+        """Both were reachable only by opening a row, or not at all."""
+        from chromedrift.model import Finding, Report
+        from chromedrift.report import html as html_report
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=self._control(), score=30,
+                                          bucket="review")])
+        row = html_report._to_rows(report, "windows")[0]
+        self.assertEqual(row["change_type"], "added")
+        self.assertEqual(row["where"], "settings › privacy_page")
+        self.assertIn("toggle", row["what"])
+
+    def test_a_report_with_no_screens_renders_no_empty_section(self):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import markdown as md_report
+        flag = Change(change_type="added", kind="base_feature", key="F", name="F")
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=flag, score=20, bucket="fyi")])
+        self.assertNotIn("What changed on each screen", md_report.render(report))
+
+
 class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
     """Nothing shown to a user may quote a coverage figure of its own.
 

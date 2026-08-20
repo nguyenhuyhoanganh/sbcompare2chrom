@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.204 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.563 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -645,6 +645,24 @@ fyi:         1229    ← ghi nhận cho đủ
 
 Mỗi finding trỏ tới **`đường-dẫn:dòng`** của cả hai phía, không chỉ tên file. `content_features.cc` khai gần hai trăm tính năng — đúng lý do mà bằng chứng cấp ký hiệu được xếp trên bằng chứng cấp đường dẫn khi chấm điểm.
 
+### Báo cáo mở đầu bằng "màn hình nào đổi gì"
+
+Bốn nhóm trên trả lời "cái gì nghiêm trọng nhất". Người sở hữu một màn hình lại đến với câu hỏi khác — *trang của tôi khác gì so với bản trước* — và một danh sách phẳng toàn định danh không trả lời được: `id:cancelButton` không nói trang nào, không nói thêm hay bớt, không nói đó là nút hay nút gạt. Cùng một loadTimeData key còn xuất hiện một lần cho mỗi handler đặt nó, nên `webuiRefresh2026` hiện chín dòng giống hệt nhau.
+
+Nên cả `report.md` lẫn `report.html` mở đầu bằng mục gộp theo từng màn hình, xếp theo mức độ xáo trộn:
+
+```
+settings › ai_page — 13 new · 1 changed · 5 gone
+  + section    aiPageTitle
+  + link row   skillsSettingLabel
+  ~ toggle — glicExperimentalTriggering  (writes glic.experimental_triggering_enabled)
+  − page /localNetworkAccess
+```
+
+Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó. Đây là phần trình bày thuần — không bịa fact nào, không bỏ fact nào, mọi dòng ở đây đều có trong bảng bên dưới và trong JSON.
+
+Bảng chi tiết cũng có cột **Change** (`new` / `changed` / `gone`) và cột **Where** (`settings › glic_page`); trước đây chiều thay đổi chỉ biết được khi bấm mở từng dòng.
+
 ### Mọi điểm số đều giải thích được
 
 ```
@@ -902,7 +920,7 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**262 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
+**273 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -953,7 +971,8 @@ chromedrift/
   coverage.py     249        tìm chỗ fork che upstream bằng cờ build
   model.py        614        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
-  report/         743        markdown + bảng điều khiển HTML tự chứa
+  report/       1.102        markdown + bảng điều khiển HTML tự chứa;
+                             gộp thay đổi theo từng màn hình chrome://
   enrich/         174        ngữ cảnh từ chromestatus
   cli.py          780        9 lệnh dòng lệnh
 ```

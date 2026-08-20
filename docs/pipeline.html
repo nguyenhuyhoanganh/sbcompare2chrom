@@ -765,6 +765,32 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       fork chưa khai bằng chứng nào thì không finding nào lên nổi nhóm này — báo cáo
       ghi rõ tình trạng đó ngay ở đầu.
     </div>
+
+    <h3 class="sub">Trước bốn nhóm: màn hình nào đổi gì</h3>
+    <p>
+      Bốn nhóm trên xếp theo mức nghiêm trọng. Người sở hữu một màn hình
+      <code>chrome://</code> lại đến với câu hỏi khác — <b>trang của tôi khác gì
+      so với bản trước</b> — và một danh sách phẳng toàn định danh không trả lời
+      được. Dòng <code>id:cancelButton</code> không nói trang nào, không nói
+      thêm hay bớt, không nói đó là nút hay nút gạt; còn cùng một
+      <code>loadTimeData</code> key thì hiện một lần cho mỗi handler đặt nó.
+    </p>
+    <p>
+      Nên cả hai bản báo cáo mở đầu bằng một mục gộp theo từng màn hình, xếp
+      theo mức độ xáo trộn:
+    </p>
+    <pre class="mono">settings › ai_page — 13 new · 1 changed · 5 gone
+  + section    aiPageTitle
+  + link row   skillsSettingLabel
+  ~ toggle — glicExperimentalTriggering  (writes glic.experimental_triggering_enabled)
+  − page /localNetworkAccess</pre>
+    <p>
+      Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng
+      được hiển thị: control mang bề mặt, trang, file, tên thẻ và pref nó ghi;
+      route mang đường dẫn và điều kiện canh; gate mang handler đặt nó. Đây là
+      phần trình bày thuần — mọi dòng ở đây đều có trong bảng chi tiết bên dưới
+      và trong <code>report.json</code>.
+    </p>
   </div>
 </section>
 

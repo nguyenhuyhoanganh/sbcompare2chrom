@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import List, Sequence
 
 from ..diff import SIGNAL_LABELS
+from . import surfaces
 from ..model import (
     BUCKET_LABELS,
     BUCKET_MUST_FIX,
@@ -160,6 +161,7 @@ def render(report: Report, platform: str = "windows",
                    f"{summary.get('with_evidence', 0)} intersect our fork.")
         out.append("")
 
+    out.append(_render_screens(report))
     out.append(_render_clusters(summary))
     out.append(_render_coverage(summary))
     out.append(_render_milestone_brief(summary))
@@ -191,6 +193,39 @@ def render(report: Report, platform: str = "windows",
     out.append("## How this was produced")
     out.append("")
     out.append(_render_provenance(report))
+    return "\n".join(out)
+
+
+def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> str:
+    """What changed on each `chrome://` screen.
+
+    The bucket tables answer "what is most severe". Whoever owns a surface
+    arrives with a different question -- what is different about my page -- and
+    a list of `id:cancelButton` rows cannot answer it: it names neither the
+    page, nor the direction, nor what the control is.
+    """
+    screens = surfaces.build(report.findings)
+    if not screens:
+        return ""
+    totals = surfaces.summarize(screens)
+    out = ["## What changed on each screen", "",
+           f"{totals['added']} new · {totals['changed']} changed · "
+           f"{totals['removed']} gone, across {totals['screens']} screens. "
+           f"Every row here is also in the tables below.", ""]
+    for screen in screens[:limit]:
+        out.append(f"**{_esc(screen.name)}** — {screen.headline()}")
+        out.append("")
+        for finding in screen.sorted_items()[:per_screen]:
+            mark = surfaces.MARK.get(finding.change.change_type, "?")
+            out.append(f"- `{mark}` {_esc(surfaces.describe(finding.change))}")
+        remaining = len(screen.items) - per_screen
+        if remaining > 0:
+            out.append(f"- … and {remaining} more on this screen")
+        out.append("")
+    if len(screens) > limit:
+        out.append(f"… and {len(screens) - limit} more screens with fewer "
+                   f"changes; `report.json` and `report.html` hold them all.")
+        out.append("")
     return "\n".join(out)
 
 
