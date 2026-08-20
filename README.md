@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.563 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (10.180 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -140,7 +140,7 @@ Kết quả trong `out/M148_to_M151/`:
 
 | File | Kích thước | Dùng khi nào |
 |---|---|---|
-| `report.md` | ~46 KB | Dán vào Jira, Confluence, MR |
+| `report.md` | ~66 KB | Dán vào Jira, Confluence, MR |
 | `report.html` | ~1,9 MB | Mở bằng browser, lọc và sắp xếp được, tự chứa hoàn toàn |
 | `report.json` | ~2,4 MB | Script, dashboard, so sánh giữa các kỳ |
 
@@ -645,11 +645,41 @@ fyi:         1229    ← ghi nhận cho đủ
 
 Mỗi finding trỏ tới **`đường-dẫn:dòng`** của cả hai phía, không chỉ tên file. `content_features.cc` khai gần hai trăm tính năng — đúng lý do mà bằng chứng cấp ký hiệu được xếp trên bằng chứng cấp đường dẫn khi chấm điểm.
 
-### Báo cáo mở đầu bằng "màn hình nào đổi gì"
+### Báo cáo xếp theo câu hỏi người đọc mang tới, không phải một bảng
 
-Bốn nhóm trên trả lời "cái gì nghiêm trọng nhất". Người sở hữu một màn hình lại đến với câu hỏi khác — *trang của tôi khác gì so với bản trước* — và một danh sách phẳng toàn định danh không trả lời được: `id:cancelButton` không nói trang nào, không nói thêm hay bớt, không nói đó là nút hay nút gạt. Cùng một loadTimeData key còn xuất hiện một lần cho mỗi handler đặt nó, nên `webuiRefresh2026` hiện chín dòng giống hệt nhau.
+Một bảng 2.792 dòng chỉ trả lời được đúng một câu: *cái gì điểm cao nhất*. Nó không trả lời được "màn hình của tôi đổi gì", "cờ nào giờ bật trong build của mình", hay "cái gì vỡ ra ngoài binary" — mà đó mới là những câu người ta mở báo cáo để tìm. Nên `report.html` chia thành các mục theo đúng thứ tự câu hỏi:
 
-Nên cả `report.md` lẫn `report.html` mở đầu bằng mục gộp theo từng màn hình, xếp theo mức độ xáo trộn:
+```
+Triage                     4 nhóm, mỗi nhóm kèm câu "phải làm gì với nó"
+What this uprev is made of 3 nhóm nghĩa, kèm tỉ lệ thêm / đổi / mất
+Behaviour switches         chuyện gì đã xảy ra   (974)
+External contracts         chuyện gì đã xảy ra   (764)
+UI and scheduling          màn hình nào đổi gì   (1.054)
+Every finding              toàn bộ, lọc và sắp xếp được
+```
+
+Ba mục giữa là ba nhóm nghĩa ở §8.7, mỗi nhóm trình bày theo trục mang nghĩa của chính nó: hai nhóm hướng mã nguồn xếp theo *chuyện đã xảy ra*, nhóm hướng người dùng xếp theo *màn hình*. Con số trên mỗi mục cộng lại đúng bằng tổng số finding, và mọi dòng trong các mục đều có trong bảng cuối và trong JSON — đây là phần trình bày thuần, không bịa fact nào, không bỏ fact nào.
+
+### "Chuyện gì đã xảy ra" — khoảng bốn mươi chuyện, không phải 2.792 dòng
+
+Câu mô tả cho mỗi chuyện vốn đã được viết sẵn: nó chính là nhãn của signal đã ấn định mức nghiêm trọng cho finding đó. Trước đây câu đó chỉ đọc được khi bấm mở từng dòng một trong bảng.
+
+```
+● 77   Now ON by default on Windows                                    77 changed
+       ~ feature flag PrefetchPrerenderIntegration — off → on for Windows   100
+       ~ feature flag CastStreamingWinHardwareH264 — off → on for Windows    93
+● 40   Mojo method signature changed (ABI)                             40 changed
+       ~ process call blink.mojom.PictureInPictureService.StartSession()     98
+● 139  Preference no longer in the file we read — it may have been deleted…  139 gone
+```
+
+Gộp theo signal đã ấn định severity, chứ không phải signal đầu tiên trong danh sách: nếu không, một finding sẽ bị xếp dưới một câu và bị chấm điểm theo một câu khác. Finding nào không mang signal nào — thứ chỉ vừa xuất hiện, chưa có mặc định nào dịch chuyển — lấy chiều và loại làm câu mô tả (`New feature flag`, `Removed chrome://flags entry`). Nhờ vậy mỗi finding rơi vào đúng một chuyện, không sót và không đếm hai lần; có test kiểm đúng điều đó.
+
+Thứ tự là lời khuyên đọc: nặng trước. Một chuyện mang severity 80 đứng trên một chuyện mang severity 25, dù chuyện sau có nhiều dòng hơn.
+
+### Màn hình nào đổi gì
+
+Người sở hữu một màn hình đến với câu hỏi khác — *trang của tôi khác gì so với bản trước* — và một danh sách phẳng toàn định danh không trả lời được: `id:cancelButton` không nói trang nào, không nói thêm hay bớt, không nói đó là nút hay nút gạt. Cùng một loadTimeData key còn xuất hiện một lần cho mỗi handler đặt nó, nên `webuiRefresh2026` hiện chín dòng giống hệt nhau.
 
 ```
 settings › ai_page — 13 new · 1 changed · 5 gone
@@ -659,9 +689,23 @@ settings › ai_page — 13 new · 1 changed · 5 gone
   − page /localNetworkAccess
 ```
 
-Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó. Đây là phần trình bày thuần — không bịa fact nào, không bỏ fact nào, mọi dòng ở đây đều có trong bảng bên dưới và trong JSON.
+Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó.
 
-Bảng chi tiết cũng có cột **Change** (`new` / `changed` / `gone`) và cột **Where** (`settings › glic_page`); trước đây chiều thay đổi chỉ biết được khi bấm mở từng dòng.
+### Bảng cuối: định danh không phải mô tả
+
+Bảng "Every finding" có bảy cột, và bốn trong số đó trước đây chỉ đọc được khi bấm mở từng dòng hoặc không có ở đâu cả:
+
+| Cột | Trả lời |
+|---|---|
+| Score | Xếp hạng, giải thích được từng điểm |
+| Change | `new` / `changed` / `gone` |
+| Bucket | Rơi vào nhóm triage nào |
+| What | Vật đó **bằng lời**, không phải định danh trần: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
+| What happened | Câu mô tả chuyện đã xảy ra, cùng câu dùng ở mục trên |
+| Where | Màn hình, hoặc thư mục khai báo |
+| Surface | Loại fact, kèm nhóm nghĩa của nó |
+
+Nhãn `ours` gắn ngay trong cột What cho những dòng chạm vào mã ta vá hoặc tham chiếu — trên một lần chạy thật đó là 53 trong 2.792 dòng, và 53 dòng đó là lý do báo cáo tồn tại. Mỗi con số ở các mục trên đều bấm được: bấm vào là bảng tự lọc đúng phần đó.
 
 ### Mọi điểm số đều giải thích được
 
@@ -692,7 +736,7 @@ python3 -m chromedrift report out/report.json --area downloads --out downloads
 python3 -m chromedrift report out/report.json --area ipc       --out ipc
 ```
 
-Kích thước không phải nút thắt: toàn bộ phần không-FYI của một kỳ uprev là khoảng 1 MB JSON, còn `report.md` chỉ 46 KB. Nút thắt là thời gian đọc của con người.
+Kích thước không phải nút thắt: toàn bộ phần không-FYI của một kỳ uprev là khoảng 1 MB JSON, còn `report.md` chỉ 66 KB. Nút thắt là thời gian đọc của con người.
 
 ### Phần thừa phải hiện ra
 
@@ -717,6 +761,8 @@ Báo cáo nhóm bộ lọc theo *ý nghĩa của thay đổi*, không xếp mư�
 | UI and scheduling | route/control/gate WebUI, `chrome://flags` | Đổi cái người dùng thấy, hoặc đổi ngày một cờ bị xoá |
 
 Trên một báo cáo M139 → M143 thật, 3.120 finding chia 34% / 35% / 30%. Tức là **hai phần ba báo cáo không phải chuyện tính năng được bật hay tắt** — đọc phẳng thành mười ba loại "tính năng" là cách hiểu sai phổ biến nhất.
+
+Ba nhóm này là ba mục của báo cáo, không chỉ là cách gom bộ lọc: mỗi mục in kèm câu "một thay đổi ở đây nghĩa là gì", tỉ lệ thêm / đổi / mất, và số finding của từng loại trong nhóm. Trước đây chỗ duy nhất nói ra chuyện này là nhãn `<optgroup>` bên trong một dropdown lọc.
 
 ### Ngữ cảnh từ chromestatus
 
@@ -961,7 +1007,7 @@ chromedrift/
   targets.py      611        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
   snapshot.py     186        gộp tải + trích xuất thành một ảnh chụp có cache
   extract/      2.306        9 bộ đọc + tiện ích quét C++
-  diff.py         913        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
+  diff.py         927        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
   cluster.py      214        gom mảnh vụn thành một câu chuyện
   sbprofile.py    474        tập chạm của fork + định nghĩa vùng
   impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
@@ -969,10 +1015,10 @@ chromedrift/
   discover.py     311        tìm file của vendor trong cây fork
   provenance.py   207        tách quyết định cố ý khỏi nợ merge
   coverage.py     249        tìm chỗ fork che upstream bằng cờ build
-  model.py        614        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
+  model.py        628        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
-  report/       1.102        markdown + bảng điều khiển HTML tự chứa;
-                             gộp thay đổi theo từng màn hình chrome://
+  report/       1.691        markdown + bảng điều khiển HTML tự chứa;
+                             gộp finding theo chuyện đã xảy ra và theo màn hình
   enrich/         174        ngữ cảnh từ chromestatus
   cli.py          780        9 lệnh dòng lệnh
 ```

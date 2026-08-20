@@ -1636,6 +1636,37 @@ class TestNoVerdictStage(unittest.TestCase):
         self.assertEqual(cols, ths)
         self.assertEqual(spans, {ths})
 
+    def test_the_page_fetches_nothing(self):
+        """The README promises it opens on an air-gapped machine.
+
+        Nothing enforced that. One `<link rel=stylesheet>` or one webfont
+        `url()` and the page still renders on the machine that built it, looks
+        broken on the one it was mailed to, and no test says a word. Data
+        legitimately contains URLs -- a feature parameter's default value is
+        sometimes a support link -- so the check is on what the *markup* points
+        at, not on whether the characters appear.
+        """
+        import re
+
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        change = Change(change_type="modified", kind="feature_param",
+                        key="helpUrl", name="helpUrl",
+                        after={"feature": "kGlic", "default": "https://x.test/a"})
+        change.deltas = {"default": ["https://x.test/a", "https://x.test/b"]}
+        text = html_report.render(
+            Report(from_ref="a", to_ref="b",
+                   findings=[Finding(change=change, score=40, bucket="fyi")]))
+        markup = text.split("window.__FINDINGS__")[0]
+        targets = re.findall(r'(?:src|href|action)\s*=\s*["\']([^"\']*)',
+                             markup)
+        self.assertTrue(all(t.startswith("#") for t in targets), targets)
+        self.assertNotIn("@import", markup)
+        self.assertNotIn("url(", markup)
+        # The URL in the data still reaches the reader, as text.
+        self.assertIn("x.test", text)
+
     def test_the_milestone_brief_reaches_the_report(self):
         """Chromestatus context used to exist only inside the model prompt.
 
@@ -3020,14 +3051,14 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
                       name="id:httpsOnly", **side)
 
     def test_a_control_names_its_screen(self):
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         self.assertEqual(surfaces.screen_of(self._control()),
                          "settings › privacy_page")
 
     def test_a_gate_is_placed_by_the_handler_that_sets_it(self):
         """Otherwise every gate lands in one undifferentiated pile."""
         from chromedrift.model import Change
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         for handler, screen in (("downloads_ui", "downloads"),
                                 ("new_tab_page_ui", "new_tab_page"),
                                 ("history_util", "history")):
@@ -3037,13 +3068,13 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
             self.assertEqual(surfaces.screen_of(change), screen)
 
     def test_a_control_is_described_in_words(self):
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         self.assertEqual(
             surfaces.describe(self._control()),
             "toggle — httpsOnly (writes generated.https_first_mode_enabled)")
 
     def test_a_retyped_control_shows_both_types(self):
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         change = self._control("modified", control="settings-toggle-button")
         change.deltas = {"control": ["settings-dropdown-menu",
                                      "settings-toggle-button"]}
@@ -3051,7 +3082,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
 
     def test_a_route_says_what_shows_it(self):
         from chromedrift.model import Change
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         change = Change(change_type="added", kind="webui_route",
                         key="settings/AI", name="AI",
                         after={"surface": "settings", "route": "/ai",
@@ -3061,7 +3092,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
 
     def test_screens_group_and_count_by_direction(self):
         from chromedrift.model import Finding
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         findings = [Finding(change=self._control("added"), score=30),
                     Finding(change=self._control("removed"), score=20),
                     Finding(change=self._control("modified"), score=40)]
@@ -3074,7 +3105,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
     def test_new_things_are_listed_first(self):
         """"What is new here" is the question people arrive with."""
         from chromedrift.model import Finding
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         findings = [Finding(change=self._control("removed"), score=90),
                     Finding(change=self._control("added"), score=10)]
         order = [f.change.change_type
@@ -3083,7 +3114,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
 
     def test_nothing_but_screens_is_grouped(self):
         from chromedrift.model import Change, Finding
-        from chromedrift.report import surfaces
+        from chromedrift.report import wording as surfaces
         flag = Change(change_type="added", kind="base_feature", key="F", name="F")
         self.assertEqual(surfaces.build([Finding(change=flag)]), [])
 
@@ -3118,6 +3149,233 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=flag, score=20, bucket="fyi")])
         self.assertNotIn("What changed on each screen", md_report.render(report))
+
+
+class TestTheReportSaysWhatHappened(unittest.TestCase):
+    """A list of 2,792 rows is not a list of 2,792 things that happened.
+
+    It is about forty, and the sentence for each was already written: the
+    signal labels say "Shipped, then flag retired -- behaviour is now permanent
+    and can no longer be turned off". Until this section existed that sentence
+    was reachable only by expanding one table row at a time, so the report could
+    say which row scored highest and never what the milestone did.
+    """
+
+    def _change(self, kind="base_feature", change_type="added", signals=(),
+                **kw):
+        from chromedrift.diff import _severity_for
+        from chromedrift.model import Change
+        change = Change(change_type=change_type, kind=kind,
+                        key=kw.pop("key", "K"), name=kw.pop("name", "K"), **kw)
+        change.signals = list(signals)
+        change.severity = _severity_for(change)
+        return change
+
+    def test_the_story_is_the_signal_that_set_the_severity(self):
+        """Otherwise a finding is filed under one sentence and ranked by another."""
+        from chromedrift.diff import SIGNAL_SEVERITY, leading_signal
+        from chromedrift.report import wording as surfaces
+
+        change = self._change(signals=["flag_expiring", "flag_retired_on",
+                                       "declaration_moved"])
+        top = leading_signal(change)
+        self.assertEqual(top, max(change.signals,
+                                  key=lambda s: SIGNAL_SEVERITY[s]))
+        self.assertEqual(surfaces.story_of(change)[0], top)
+        self.assertEqual(change.severity, SIGNAL_SEVERITY[top])
+
+    def test_the_pick_does_not_depend_on_signal_order(self):
+        from chromedrift.report import wording as surfaces
+        pair = ["flag_expiring", "flag_retired_on"]
+        first = surfaces.story_of(self._change(signals=pair))
+        second = surfaces.story_of(self._change(signals=list(reversed(pair))))
+        self.assertEqual(first, second)
+
+    def test_a_change_with_no_signal_still_has_a_headline(self):
+        """A third of a real report carries no signal -- things that only arrived."""
+        from chromedrift.model import ALL_KINDS
+        from chromedrift.report import wording as surfaces
+        for kind in ALL_KINDS:
+            for direction in ("added", "removed", "modified"):
+                key, headline = surfaces.story_of(
+                    self._change(kind=kind, change_type=direction))
+                self.assertTrue(key and headline, (kind, direction))
+                # A lowercase URL scheme must not be sentence-cased into
+                # `Chrome://flags entry`.
+                self.assertNotIn("Chrome://", headline)
+
+    def test_every_finding_lands_in_exactly_one_story(self):
+        """The section is a partition of the report, not a highlight reel."""
+        from chromedrift.model import ALL_KINDS, KIND_GROUPS, Finding
+        from chromedrift.report import wording as surfaces
+
+        findings = []
+        for i, kind in enumerate(ALL_KINDS):
+            for direction in ("added", "removed", "modified"):
+                findings.append(Finding(
+                    change=self._change(kind=kind, change_type=direction,
+                                        key=f"{kind}/{direction}/{i}",
+                                        signals=["declaration_moved"] if i % 3
+                                        else []),
+                    score=10 + i))
+        seen = []
+        for _, kinds in KIND_GROUPS:
+            for story in surfaces.build_stories(findings, kinds):
+                seen += [id(f) for f in story.items]
+        self.assertEqual(sorted(seen), sorted(id(f) for f in findings))
+        self.assertEqual(len(set(seen)), len(seen), "a finding was counted twice")
+
+    def test_every_kind_belongs_to_exactly_one_group(self):
+        """The group is printed on every row; a kind in none of them prints blank."""
+        from chromedrift.model import ALL_KINDS, KIND_GROUPS, group_of
+        grouped = [k for _, kinds in KIND_GROUPS for k in kinds]
+        self.assertEqual(sorted(grouped), sorted(ALL_KINDS))
+        self.assertEqual(len(set(grouped)), len(grouped))
+        self.assertTrue(all(group_of(k) for k in ALL_KINDS))
+
+    def test_the_heaviest_story_leads(self):
+        from chromedrift.model import Finding
+        from chromedrift.report import wording as surfaces
+        findings = [
+            Finding(change=self._change(key="a", signals=["flag_expiring"])),
+            Finding(change=self._change(key="b", signals=["enabled_by_default"])),
+            Finding(change=self._change(key="c", signals=["flag_expiring"])),
+        ]
+        titles = [s.title for s in
+                  surfaces.build_stories(findings, ("base_feature",))]
+        self.assertEqual(titles[0], "Now ON by default on Windows",
+                         "one severity-75 finding outranks two severity-45 ones")
+
+    def test_both_renderers_carry_the_section(self):
+        from chromedrift.model import Finding, Report
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+        report = Report(from_ref="a", to_ref="b", findings=[
+            Finding(change=self._change(signals=["enabled_by_default"]),
+                    score=75, bucket="review")])
+        for text in (md_report.render(report), html_report.render(report)):
+            self.assertIn("Now ON by default on Windows", text)
+            self.assertIn("Behaviour switches", text)
+            # The group name alone says nothing; the sentence beside it does.
+            self.assertIn("moves behaviour on its own", text)
+
+    def test_the_html_says_what_happened_on_every_row(self):
+        """The column is only useful if the lookup table holds every key."""
+        import json
+        import re
+
+        from chromedrift.model import Finding, Report
+        from chromedrift.report import html as html_report
+
+        report = Report(from_ref="a", to_ref="b", findings=[
+            Finding(change=self._change(key="a", signals=["enabled_by_default"]),
+                    score=75, bucket="review"),
+            Finding(change=self._change(key="b", kind="flag_entry",
+                                        change_type="removed"),
+                    score=30, bucket="fyi")])
+        text = html_report.render(report)
+        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
+                                    text, re.S).group(1))
+        # The map is the last assignment in its script block, so it ends at
+        # the tag rather than at a newline.
+        stories = json.loads(re.search(r"window\.__STORIES__=(\{.*?\});[\n<]",
+                                       text, re.S).group(1))
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertIn(row["why"], stories)
+            self.assertTrue(stories[row["why"]])
+
+    def test_every_printed_count_matches_the_rows_it_filters_to(self):
+        """Each count is a link that filters the table; the two must agree.
+
+        The summary sections and the table are built from the same findings by
+        different code, so a count that counted something slightly different --
+        changes rather than findings, or a kind list that drifted from the
+        group -- would send the reader to a table showing a different number
+        from the one they clicked.
+        """
+        import json
+        import re
+
+        from chromedrift.model import ALL_KINDS, BUCKET_ORDER, Finding, Report
+        from chromedrift.report import html as html_report
+
+        findings = []
+        for i, kind in enumerate(ALL_KINDS):
+            for j in range(i % 3 + 1):
+                findings.append(Finding(
+                    change=self._change(kind=kind, key=f"{kind}/{j}",
+                                        signals=["declaration_moved"]),
+                    score=20 + j, bucket=BUCKET_ORDER[i % len(BUCKET_ORDER)]))
+        text = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings))
+        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
+                                    text, re.S).group(1))
+
+        # Every chip and card: `data-set="fk:pref"` ... `<b>3</b>` or `<div
+        # class="n">3</div>`, depending on which one it is.
+        printed = re.findall(
+            r'data-set="(\w+):([\w_]+)"[^>]*>(.*?)</a>', text, re.S)
+        self.assertTrue(printed)
+        for which, value, body in printed:
+            count = int(re.search(r"([\d,]+)\s*</(?:b|div)>", body)
+                        .group(1).replace(",", ""))
+            field = {"fk": "kind", "fb": "bucket"}[which]
+            self.assertEqual(count, sum(1 for r in rows if r[field] == value),
+                             f"{which}:{value} sends the reader to a different "
+                             f"number from the one it prints")
+
+    def test_the_three_group_totals_agree_wherever_they_are_printed(self):
+        """The nav, the group card and the section heading print the same number.
+
+        They used to count it three times from three loops, which is how two of
+        them come to disagree after someone edits one.
+        """
+        import json
+        import re
+
+        from chromedrift.model import (ALL_KINDS, KIND_GROUPS, Finding, Report,
+                                       group_of)
+        from chromedrift.report import html as html_report
+
+        findings = [Finding(change=self._change(kind=kind, key=f"{kind}/{j}"),
+                            score=20, bucket="fyi")
+                    for i, kind in enumerate(ALL_KINDS)
+                    for j in range(i % 4 + 1)]
+        text = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings))
+        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
+                                    text, re.S).group(1))
+        total = 0
+        for group_name, _ in KIND_GROUPS:
+            expected = sum(1 for r in rows if group_of(r["kind"]) == group_name)
+            total += expected
+            printed = re.findall(
+                re.escape(group_name) + r"\s*<(?:b|span)[^>]*>([\d,]+)<", text)
+            self.assertEqual(len(printed), 3,
+                             f"{group_name}: the nav, the card and the section "
+                             f"heading each print it; found {printed}")
+            self.assertEqual({int(p.replace(",", "")) for p in printed},
+                             {expected}, group_name)
+            self.assertIn(f'id="g-{group_name.split()[0].lower()}"', text)
+        self.assertEqual(total, len(rows), "a kind belongs to no group")
+
+    def test_a_long_delta_does_not_take_over_the_table_cell(self):
+        """A Mojo signature runs past 400 characters."""
+        from chromedrift.model import Finding, Report
+        from chromedrift.report import html as html_report
+
+        change = self._change(kind="mojo_method", change_type="modified",
+                              signals=["ipc_signature_change"])
+        change.deltas = {"signature": ["uint32 a, " * 60, "uint32 b, " * 60]}
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=change, score=80,
+                                          bucket="review")])
+        row = html_report._to_rows(report, "windows")[0]
+        self.assertLessEqual(len(row.get("moved", "")), 80)
+        # The full value stays one click away.
+        self.assertTrue(row["deltas"])
+
 
 
 class TestNoCoverageNumberIsHardcoded(unittest.TestCase):

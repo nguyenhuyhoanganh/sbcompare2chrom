@@ -245,6 +245,20 @@ KIND_GROUPS = (
 )
 
 
+# What a change in each group *means*, in one sentence. Kept beside the groups
+# rather than in a renderer because both reports print it and a reader who only
+# sees the group name learns nothing from it.
+KIND_GROUP_MEANINGS = {
+    KIND_GROUP_SWITCH: "The only group where a change moves behaviour on its "
+                       "own. What our build does is different after this.",
+    KIND_GROUP_CONTRACT: "A change here breaks something outside the binary, "
+                         "and silently: data already on a user's disk, launch "
+                         "scripts, live websites, the other process.",
+    KIND_GROUP_SURFACE: "A change here moves what the user sees, or moves the "
+                        "date something is scheduled to be removed.",
+}
+
+
 def group_of(kind: str) -> str:
     """Which of the three groups a fact kind belongs to."""
     for name, kinds in KIND_GROUPS:

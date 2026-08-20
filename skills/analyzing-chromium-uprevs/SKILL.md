@@ -143,6 +143,18 @@ specific symbol.
 Bucket comes from *evidence*, not severity: Must fix requires that the profile
 shows the fork references the symbol.
 
+Before reading rows, read **What happened**. Both reports group every finding
+under the signal that set its severity, so a 2,792-row report is about forty
+things -- *Now ON by default on Windows* (77), *Mojo method signature changed
+(ABI)* (40), *Preference no longer in the file we read* (139). Each is a
+partition, not a highlight reel: every finding appears under exactly one, so the
+counts are the report. That tells you what the milestone did before you have
+read a single identifier, and it is grouped by the three consequence groups --
+behaviour switches, external contracts, UI and scheduling -- so the two thirds
+of a report that is *not* about features being turned on or off is visible as
+its own set. Findings on `chrome://` surfaces are grouped by screen instead,
+which is the axis that carries their meaning.
+
 ### Step 4: Classify each finding
 
 Stop at the first question that settles it.

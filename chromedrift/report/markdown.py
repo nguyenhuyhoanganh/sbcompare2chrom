@@ -14,13 +14,15 @@ from __future__ import annotations
 from typing import List, Sequence
 
 from ..diff import SIGNAL_LABELS
-from . import surfaces
+from . import wording as surfaces
 from ..model import (
     BUCKET_LABELS,
     BUCKET_MUST_FIX,
     BUCKET_OPPORTUNITY,
     BUCKET_ORDER,
     BUCKET_REVIEW,
+    KIND_GROUP_MEANINGS,
+    KIND_GROUPS,
     KIND_LABELS,
     MODE_FORK,
     MODE_UPREV,
@@ -45,7 +47,7 @@ MODE_SUBTITLES = {
                "something upstream does not.",
 }
 
-_BUCKET_MEANINGS = {
+BUCKET_MEANINGS = {
     MODE_UPREV: {
         BUCKET_MUST_FIX: "We touch this and it changed. Assume work is needed.",
         BUCKET_REVIEW: "Either we touch it, or it is severe enough to confirm.",
@@ -144,7 +146,7 @@ def render(report: Report, platform: str = "windows",
     out.append("")
     out.append("| Bucket | Count | Meaning |")
     out.append("|---|---:|---|")
-    meanings = _BUCKET_MEANINGS[mode]
+    meanings = BUCKET_MEANINGS[mode]
     for bucket in BUCKET_ORDER:
         # A bucket a mode never fills would only add a confusing empty row.
         if mode == MODE_FORK and bucket == BUCKET_OPPORTUNITY \
@@ -161,6 +163,7 @@ def render(report: Report, platform: str = "windows",
                    f"{summary.get('with_evidence', 0)} intersect our fork.")
         out.append("")
 
+    out.append(_render_stories(report))
     out.append(_render_screens(report))
     out.append(_render_clusters(summary))
     out.append(_render_coverage(summary))
@@ -173,11 +176,11 @@ def render(report: Report, platform: str = "windows",
             continue
         out.append(f"## {BUCKET_LABELS[bucket]} ({len(findings)})")
         out.append("")
-        out.append("| Score | Change | Surface | What moved | Our evidence |")
+        out.append("| Score | What changed | Surface | What moved | Our evidence |")
         out.append("|---:|---|---|---|---|")
         for finding in findings[:detail_limit]:
             out.append(
-                f"| {finding.score} | `{_esc(display_name(finding.change))}` "
+                f"| {finding.score} | {_esc(surfaces.describe(finding.change))} "
                 f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
                 f"| {_esc(_state_arrow(finding, platform))} "
                 f"| {_esc(_evidence(finding))} |"
@@ -194,6 +197,41 @@ def render(report: Report, platform: str = "windows",
     out.append("")
     out.append(_render_provenance(report))
     return "\n".join(out)
+
+
+def _render_stories(report: Report) -> str:
+    """What happened, in the diff engine's own sentences.
+
+    2,792 rows are not 2,792 things that happened; they are about forty, and
+    the sentence for each was already written -- it is the signal label that set
+    the finding's severity. Until this section existed it was reachable only by
+    expanding one row at a time, so the report could say what scored highest and
+    never what the milestone actually did.
+    """
+    out: List[str] = []
+    for group_name, group_kinds in KIND_GROUPS:
+        stories = surfaces.build_stories(report.findings, group_kinds)
+        if not stories:
+            continue
+        total = sum(len(s.items) for s in stories)
+        out += [f"### {group_name} — {total}", "",
+                KIND_GROUP_MEANINGS.get(group_name, ""), "",
+                "| Count | What happened | Direction | Top score |",
+                "|---:|---|---|---:|"]
+        # Every story, not the top few. There are about fifty in a full uprev
+        # and the tail is where the quiet ones live -- 181 flags that arrived
+        # with nothing else moving is a fact about the milestone, and cutting
+        # the table at fourteen rows hid 546 of these 974 findings.
+        for story in stories:
+            out.append(f"| {len(story.items)} | {_esc(story.title)} | "
+                       f"{story.headline()} | {story.top_score()} |")
+        out.append("")
+    if not out:
+        return ""
+    return "\n".join(["## What happened", "",
+                      "Every finding falls under exactly one of these. The "
+                      "sentence is the diff engine's, not a summary of it.",
+                      ""] + out)
 
 
 def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> str:

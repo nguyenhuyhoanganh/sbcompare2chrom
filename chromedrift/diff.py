@@ -475,8 +475,22 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
     return change
 
 
+def leading_signal(change: Change) -> str:
+    """The signal that set this change's severity floor, or "" if it has none.
+
+    The reports group findings by it and print its label as the headline, so it
+    has to be the same pick the severity used -- a report that files a row under
+    "Flag scheduled for removal" while its score came from "Shipped, then flag
+    retired" is describing a different change from the one it ranked. Ties break
+    on the name so the choice does not depend on signal order.
+    """
+    if not change.signals:
+        return ""
+    return max(change.signals, key=lambda s: (SIGNAL_SEVERITY.get(s, 0), s))
+
+
 def _severity_for(change: Change) -> int:
-    floor = max((SIGNAL_SEVERITY.get(s, 0) for s in change.signals), default=0)
+    floor = SIGNAL_SEVERITY.get(leading_signal(change), 0)
     # A declaration that only moved file did not change behaviour, so the
     # per-kind base severity would overstate it. The signal governs instead.
     if change.change_type == MODIFIED and set(change.deltas) == {"path"}:

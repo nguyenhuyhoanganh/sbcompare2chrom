@@ -766,18 +766,57 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       ghi rõ tình trạng đó ngay ở đầu.
     </div>
 
-    <h3 class="sub">Trước bốn nhóm: màn hình nào đổi gì</h3>
+    <h3 class="sub">Bốn nhóm trả lời một câu hỏi, người đọc mang tới bốn câu</h3>
     <p>
-      Bốn nhóm trên xếp theo mức nghiêm trọng. Người sở hữu một màn hình
-      <code>chrome://</code> lại đến với câu hỏi khác — <b>trang của tôi khác gì
-      so với bản trước</b> — và một danh sách phẳng toàn định danh không trả lời
-      được. Dòng <code>id:cancelButton</code> không nói trang nào, không nói
-      thêm hay bớt, không nói đó là nút hay nút gạt; còn cùng một
-      <code>loadTimeData</code> key thì hiện một lần cho mỗi handler đặt nó.
+      Bốn nhóm trên xếp theo mức nghiêm trọng, và một bảng 2.792 dòng chỉ trả
+      lời được đúng câu đó. Nó không trả lời được <b>màn hình của tôi đổi gì</b>,
+      <b>cờ nào giờ bật trong build của mình</b>, hay <b>cái gì vỡ ra ngoài
+      binary</b> — mà đó mới là những câu người ta mở báo cáo để tìm. Nên
+      <code>report.html</code> chia thành các mục theo đúng thứ tự câu hỏi:
     </p>
+    <pre class="mono">Triage                      4 nhóm, mỗi nhóm kèm câu "phải làm gì với nó"
+What this uprev is made of  3 nhóm nghĩa, kèm tỉ lệ thêm / đổi / mất
+Behaviour switches          chuyện gì đã xảy ra      974
+External contracts          chuyện gì đã xảy ra      764
+UI and scheduling           màn hình nào đổi gì    1.054
+Every finding               toàn bộ, lọc và sắp xếp được</pre>
     <p>
-      Nên cả hai bản báo cáo mở đầu bằng một mục gộp theo từng màn hình, xếp
-      theo mức độ xáo trộn:
+      Ba mục giữa là ba nhóm nghĩa ở phần trên, mỗi nhóm trình bày theo trục
+      mang nghĩa của chính nó: hai nhóm hướng mã nguồn xếp theo <b>chuyện đã
+      xảy ra</b>, nhóm hướng người dùng xếp theo <b>màn hình</b>. Cộng lại đúng
+      bằng tổng số finding.
+    </p>
+
+    <h3 class="sub">Khoảng bốn mươi chuyện, không phải 2.792 dòng</h3>
+    <p>
+      Câu mô tả cho mỗi chuyện vốn đã được viết sẵn: nó chính là nhãn của
+      signal đã ấn định mức nghiêm trọng cho finding đó. Trước đây câu đó chỉ
+      đọc được khi bấm mở từng dòng một trong bảng.
+    </p>
+    <pre class="mono">● 77   Now ON by default on Windows                                 77 changed
+       ~ feature flag PrefetchPrerenderIntegration — off → on for Windows  100
+       ~ feature flag CastStreamingWinHardwareH264 — off → on for Windows   93
+● 40   Mojo method signature changed (ABI)                           40 changed
+       ~ process call blink.mojom.PictureInPictureService.StartSession()    98</pre>
+    <p>
+      Gộp theo signal <b>đã ấn định severity</b>, không phải signal đầu tiên
+      trong danh sách: nếu không, một finding sẽ bị xếp dưới một câu và bị chấm
+      điểm theo một câu khác. Finding không mang signal nào — thứ vừa xuất hiện,
+      chưa có mặc định nào dịch chuyển — lấy chiều và loại làm câu mô tả
+      (<code>New feature flag</code>, <code>Removed chrome://flags entry</code>).
+      Nhờ vậy mỗi finding rơi vào đúng một chuyện, không sót và không đếm hai
+      lần. Thứ tự là lời khuyên đọc: nặng trước, kể cả khi chuyện nhẹ hơn có
+      nhiều dòng hơn.
+    </p>
+
+    <h3 class="sub">Màn hình nào đổi gì</h3>
+    <p>
+      Người sở hữu một màn hình <code>chrome://</code> đến với câu hỏi khác —
+      <b>trang của tôi khác gì so với bản trước</b> — và một danh sách phẳng
+      toàn định danh không trả lời được. Dòng <code>id:cancelButton</code> không
+      nói trang nào, không nói thêm hay bớt, không nói đó là nút hay nút gạt;
+      còn cùng một <code>loadTimeData</code> key thì hiện một lần cho mỗi
+      handler đặt nó.
     </p>
     <pre class="mono">settings › ai_page — 13 new · 1 changed · 5 gone
   + section    aiPageTitle
@@ -788,8 +827,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng
       được hiển thị: control mang bề mặt, trang, file, tên thẻ và pref nó ghi;
       route mang đường dẫn và điều kiện canh; gate mang handler đặt nó. Đây là
-      phần trình bày thuần — mọi dòng ở đây đều có trong bảng chi tiết bên dưới
-      và trong <code>report.json</code>.
+      phần trình bày thuần — mọi dòng ở các mục trên đều có trong bảng chi tiết
+      bên dưới và trong <code>report.json</code>.
     </p>
   </div>
 </section>
@@ -1505,8 +1544,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <h3 class="sub" style="margin-top:0">Ba dạng kết quả</h3>
         <p style="font-size:.87rem;margin:0">
           <code>report.md</code> — dán thẳng vào ticket hoặc wiki.<br>
-          <code>report.html</code> — bảng lọc và sắp xếp được, <b>không tải tài nguyên
-          từ bên ngoài</b>, nên mở được trong mạng nội bộ tách biệt và gửi kèm email.<br>
+          <code>report.html</code> — chia mục theo câu hỏi người đọc mang tới, bảng
+          cuối lọc và sắp xếp được, <b>không tải tài nguyên từ bên ngoài</b>, nên
+          mở được trong mạng nội bộ tách biệt và gửi kèm email.<br>
           <code>report.json</code> — dùng cho script và để so sánh giữa các đợt uprev.
         </p>
       </div>
