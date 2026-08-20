@@ -27,6 +27,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from . import jsonc
 from .extract._cpp import PLATFORM
+from .extract.base_features import feature_name_from_var
 from .model import Change, Snapshot
 
 # Source extensions worth scanning in a vendor tree.
@@ -90,7 +91,7 @@ class Area:
     def matches_flag(self, name: str) -> bool:
         if not self.flags:
             return False
-        bare = name[1:] if name[:1] == "k" and name[1:2].isupper() else name
+        bare = feature_name_from_var(name)
         return any(name.startswith(f) or bare.startswith(f.lstrip("k"))
                    for f in self.flags)
 

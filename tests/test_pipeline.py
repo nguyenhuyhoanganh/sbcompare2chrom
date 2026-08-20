@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift.diff import diff_snapshots
 from chromedrift.impact import score_all, score_change
-from chromedrift.model import Fact, Snapshot
+from chromedrift.model import Fact, Report, Snapshot
 from chromedrift.sbprofile import Area, TouchSet, _symbols_from_hunks
 
 
@@ -1113,15 +1113,35 @@ class TestCompletePartitions(unittest.TestCase):
                        "components/history/core/common/pref_names.h"):
             self.assertTrue(any(missed.startswith(p) for p in prefixes), missed)
 
-    def test_suffixes_cover_every_extractor(self):
-        """A file an extractor can read but a complete fetch skips is a hole."""
-        from chromedrift.targets import COMPLETE_SUFFIXES
-        for sample in ("download_features.cc", "chrome_features.h",
-                       "media_switches.cc", "pref_names.h", "foo.mojom",
-                       "bar.idl", "page.html", "item.html.ts", "route.ts",
-                       "runtime_enabled_features.json5"):
-            self.assertTrue(any(sample.endswith(s) for s in COMPLETE_SUFFIXES),
-                            f"{sample} is readable but would not be fetched")
+    def test_complete_filters_through_the_one_readable_list(self):
+        """`--complete` and `wide` ask the same question, so they share a list.
+
+        They did not. `--complete` carried its own copy, written earlier, that
+        had never learned the `*_prefs.{h,cc}` convention or the `.h` half of
+        four `.cc` hints -- so the flag whose entire promise is "100% of these
+        roots, by construction" was fetching less than the extractors read.
+        Measured at M151 across the tree: 86 files holding 747 keys.
+        """
+        from chromedrift.targets import READABLE_SUFFIXES, get_targets
+
+        wide = {t.include for t in get_targets("wide")
+                if t.kind == "tree" and t.include}
+        self.assertIn(READABLE_SUFFIXES, wide)
+        for target in get_targets("default", ["extensions"], complete=True):
+            if target.kind != "tree":
+                continue
+            missing = set(READABLE_SUFFIXES) - set(target.include or ())
+            self.assertFalse(missing, f"{target.path} filters out {missing}")
+
+    def test_complete_fetches_the_pref_files_the_extractor_reads(self):
+        """The concrete files the second list was dropping, at M151."""
+        from chromedrift.targets import get_targets, reaches, scope_of
+        files, trees = scope_of(get_targets("default", ["extensions"],
+                                            complete=True))
+        for path in ("extensions/browser/extension_prefs.h",
+                     "extensions/browser/extension_prefs.cc",
+                     "extensions/common/features/feature_flags.h"):
+            self.assertTrue(reaches(path, files, trees), path)
 
     def test_an_unaffordable_root_is_refused_not_faked(self):
         from chromedrift.targets import get_targets
@@ -1989,7 +2009,7 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         has to be a path that could really occur.
         """
         from chromedrift.extract import REGISTRY
-        from chromedrift.targets import _WIDE_SUFFIXES
+        from chromedrift.targets import READABLE_SUFFIXES
 
         probes = {
             ".json5": "third_party/blink/renderer/platform/"
@@ -2002,7 +2022,7 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
             ".mojom": "services/network/public/mojom/x.mojom",
             ".idl": "third_party/blink/renderer/modules/x.idl",
         }
-        for suffix in _WIDE_SUFFIXES:
+        for suffix in READABLE_SUFFIXES:
             probe = probes.get(suffix) or (
                 f"components/x/y{suffix}" if suffix.startswith(".")
                 else f"components/x/y_{suffix}")
@@ -2220,6 +2240,250 @@ class TestOneDefinitionOfWhatCouldDeclare(unittest.TestCase):
     def _catalog(self, paths, include_irrelevant=False):
         from chromedrift.catalog import analyze
         return analyze(paths, ref="151", include_irrelevant=include_irrelevant)
+
+
+class TestOneDefinitionOfWhatIsReadable(unittest.TestCase):
+    """Every convention an extractor reads has to be fetchable.
+
+    The existing pair of tests walks this the other way -- no suffix is fetched
+    that nothing reads -- and that direction is the cheap one, because its
+    failure is wasted bandwidth. This direction's failure is a declaration on
+    disk that nothing opens, which looks exactly like a declaration that does
+    not exist.
+
+    Derived from the extractors' own hint tuples rather than a list of sample
+    filenames, because a sample list is a third copy: the one it replaced had
+    ten entries and not one of them was a `*_prefs.h`, which is precisely the
+    convention that had gone missing.
+    """
+
+    def _probe_basenames(self):
+        """Real basenames carrying every convention an extractor claims."""
+        from chromedrift.extract import constants
+        from chromedrift.extract.base_features import FILE_HINTS
+
+        for hint in FILE_HINTS:
+            # A hint spelled with a leading underscore is deliberately narrower:
+            # `_util.cc` is a feature file, a bare `util.cc` is not.
+            if not hint.startswith("_"):
+                yield hint
+            yield "foo" + (hint if hint.startswith("_") else "_" + hint)
+        for hint in (constants._SWITCH_HINT,) + constants._PREF_HINTS:
+            stem = hint.strip("_.")
+            for ext in (".cc", ".h"):
+                yield stem + ext
+                yield "foo_" + stem + ext
+
+    def test_every_extractor_hint_is_fetched(self):
+        from chromedrift.targets import READABLE_SUFFIXES
+
+        for base in self._probe_basenames():
+            self.assertTrue(
+                any(base.endswith(s) for s in READABLE_SUFFIXES),
+                f"{base} is read by an extractor but no fetch filter keeps it")
+
+    def test_the_probes_are_really_read(self):
+        """Guards the test itself: a probe nothing reads proves nothing."""
+        from chromedrift.extract import REGISTRY
+
+        for base in self._probe_basenames():
+            path = "components/x/" + base
+            self.assertTrue(any(applies(path) for _, applies, _ in REGISTRY),
+                            f"probe {path} is not read by anything")
+
+
+class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
+    """`kFooBar` -> `FooBar` is applied at four stages and defined at one.
+
+    Extraction uses it to derive the key a base::Feature fact is stored under,
+    so the reference closure, the clustering and the area routing all have to
+    strip it exactly the same way to match those keys back. Four copies agreed
+    when this was written; the point is that nothing keeps them agreeing.
+    """
+
+    RULE = re.compile(r"\[1\]\.isupper\(\)|\[1:2\]\.isupper\(\)")
+
+    def test_only_base_features_defines_it(self):
+        import glob
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        offenders = []
+        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+                              recursive=True):
+            if os.path.basename(path) == "base_features.py":
+                continue
+            with open(path, encoding="utf-8") as fh:
+                if self.RULE.search(fh.read()):
+                    offenders.append(os.path.relpath(path, root))
+        self.assertEqual(offenders, [],
+                         "re-use extract.base_features.feature_name_from_var")
+
+    def test_every_consumer_agrees_with_it(self):
+        from chromedrift.catalog import _bare
+        from chromedrift.cluster import _flag_name
+        from chromedrift.extract.base_features import feature_name_from_var
+
+        for probe in ("kBackForwardCache", "kDIPS", "kilo", "k", "Feature", ""):
+            expected = feature_name_from_var(probe)
+            self.assertEqual(_bare(probe), expected, probe)
+            self.assertEqual(_flag_name(probe), expected, probe)
+
+
+class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
+    """Two different measurements may not share one name.
+
+    Tree coverage -- how much of the version's tree was read -- was printed to
+    stderr and stored on the snapshot, and then not carried into the report,
+    while README and SKILL.md both said the report held it. What the report did
+    hold under `coverage` was area routing, so following either document led to
+    the wrong object with nothing saying so.
+    """
+
+    def _report(self):
+        from chromedrift.impact import summarize_findings
+        summary = {"changes": {"total": 0, "by_kind": {}}}
+        summary.update(summarize_findings([]))
+        return Report(
+            from_ref="refs/tags/148", to_ref="refs/tags/151", findings=[],
+            summary=summary,
+            meta={"target_set": "default",
+                  "coverage": {"from": {"candidates": 986, "read": 43,
+                                        "missed_by_directory": {}},
+                               "to": {"candidates": 1039, "read": 42,
+                                      "missed_by_directory":
+                                          {"chrome/browser": 251}}},
+                  "uncovered_files": ["chrome/browser/x_prefs.h"]})
+
+    def test_area_coverage_has_its_own_name(self):
+        from chromedrift.impact import summarize_findings
+        summary = summarize_findings([])
+        self.assertIn("area_coverage", summary)
+        self.assertNotIn("coverage", summary)
+
+    def test_tree_coverage_survives_into_the_report_json(self):
+        blob = self._report().to_dict()
+        self.assertEqual(blob["meta"]["coverage"]["to"]["read"], 42)
+        self.assertEqual(blob["meta"]["uncovered_files"],
+                         ["chrome/browser/x_prefs.h"])
+
+    def test_the_rendered_report_states_it(self):
+        from chromedrift.report import markdown as md
+        text = md.render(self._report())
+        self.assertIn("read 42 of 1,039 files", text)
+        self.assertIn("`chrome/browser/` (251 files)", text)
+        self.assertIn("--target-set wide", text)
+
+    def test_a_wide_run_is_not_told_to_widen(self):
+        from chromedrift.report import markdown as md
+        report = self._report()
+        report.meta["target_set"] = "wide"
+        self.assertNotIn("--target-set wide", md.render(report))
+
+    def test_a_report_without_the_measurement_renders_no_empty_row(self):
+        from chromedrift.report import markdown as md
+        report = self._report()
+        report.meta["coverage"] = {}
+        self.assertNotIn("Coverage at", md.render(report))
+
+
+class TestTheDocumentedFiguresStillHold(unittest.TestCase):
+    """A measured number written into a document is a second derivation of it.
+
+    The code is already guarded -- no help text or log line may quote a coverage
+    figure of its own -- but the documents carry a table of them, and it goes
+    stale silently: the skill said 24,677 facts and 633 WebUI controls after
+    both had moved, and nothing said so.
+
+    README and SKILL.md state the same M151 table in two languages, so this
+    parses each and checks it against the snapshots on disk. Skips where those
+    do not exist, like the scope-violation check above: anyone who has run the
+    tool re-verifies the documents for free, and a bare checkout does not fail.
+    """
+
+    # Row label -> the fact kind it counts. Both documents, both languages.
+    ROWS = {
+        "`base::Feature`": "base_feature",
+        "Feature params": "feature_param",
+        "Tham s\u1ed1 feature": "feature_param",
+        "Preference keys": "pref",
+        "Pref": "pref",
+        "Command-line switches": "switch",
+        "Switch": "switch",
+        "Mojo interfaces": "mojo_interface",
+        "Mojo interface": "mojo_interface",
+        "Mojo methods": "mojo_method",
+        "Mojo method": "mojo_method",
+        "WebUI controls": "webui_control",
+        "\u0110i\u1ec1u khi\u1ec3n WebUI": "webui_control",
+        "Facts": None,                       # None = total fact count
+        "**T\u1ed5ng s\u1ed1 fact**": None,
+    }
+    DOCS = ("README.md", "skills/analyzing-chromium-uprevs/SKILL.md")
+    ROW_RE = re.compile(r"^\s*\|([^|]+)\|([^|]+)\|([^|]+)\|\s*$", re.MULTILINE)
+
+    def _root(self):
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _snapshots(self):
+        """M151 default and wide, unpartitioned, at the current schema."""
+        import glob
+
+        from chromedrift.model import SCHEMA_VERSION, read_json
+
+        out = {}
+        for path in glob.glob(os.path.join(self._root(), ".chromedrift-cache",
+                                           "snapshots", "*.json")):
+            blob = read_json(path)
+            meta = blob.get("meta") or {}
+            if (blob.get("schema") != SCHEMA_VERSION
+                    or meta.get("partitions") or meta.get("complete")
+                    or "151." not in blob.get("ref", "")):
+                continue
+            out[meta.get("target_set")] = blob
+        return out
+
+    @staticmethod
+    def _number(cell):
+        """`**2.062**` / `1,623` / `42 (4%)` -> int, or None if not a count."""
+        digits = re.match(r"^[*`\s]*([\d.,]+)", cell.strip())
+        if not digits:
+            return None
+        raw = digits.group(1).replace(".", "").replace(",", "")
+        return int(raw) if raw.isdigit() else None
+
+    def test_the_m151_table_matches_the_snapshots(self):
+        snaps = self._snapshots()
+        if "default" not in snaps or "wide" not in snaps:
+            self.skipTest("no current-schema M151 default+wide snapshots here")
+
+        def expected(target_set, kind):
+            blob = snaps[target_set]
+            if kind is None:
+                return len(blob.get("facts", []))
+            return (blob.get("counts") or {}).get(kind, 0)
+
+        checked = 0
+        for name in self.DOCS:
+            with open(os.path.join(self._root(), name), encoding="utf-8") as fh:
+                text = fh.read()
+            for label, default_cell, wide_cell in self.ROW_RE.findall(text):
+                label = label.strip()
+                if label not in self.ROWS:
+                    continue
+                kind = self.ROWS[label]
+                for target_set, cell in (("default", default_cell),
+                                         ("wide", wide_cell)):
+                    got = self._number(cell)
+                    if got is None:
+                        continue
+                    self.assertEqual(
+                        got, expected(target_set, kind),
+                        f"{name}: row {label!r}, column {target_set} says {got}; "
+                        f"the snapshot on disk says {expected(target_set, kind)}")
+                    checked += 1
+        self.assertGreaterEqual(checked, 24,
+                                "the tables moved; this test found almost "
+                                "nothing to check")
 
 
 class TestNoCoverageNumberIsHardcoded(unittest.TestCase):

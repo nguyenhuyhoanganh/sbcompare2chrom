@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (8.630 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (8.680 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -375,7 +375,7 @@ Một danh sách file viết tay chỉ đúng cho phiên bản nó được vi�
 
 Nên mỗi lần chạy, công cụ hỏi chính cây nguồn của phiên bản đó xem có những file nào, rồi đối chiếu target set với nó. Gitiles trả về danh sách đệ quy của một thư mục trong một request, nên mười bốn thư mục gốc tốn khoảng 24 MB và 21 giây, cache vĩnh viễn vì cây của một tag không bao giờ đổi.
 
-Kết quả in ra ở mỗi lần chạy và lưu trong snapshot lẫn báo cáo:
+Kết quả in ra ở mỗi lần chạy, lưu trong snapshot, và đi vào báo cáo — `report.json` ở `meta.coverage` (`{from, to}`, mỗi bên một số đo) cùng danh sách đường dẫn chưa đọc ở `meta.uncovered_files`, `report.md` ở mục cuối *How this was produced*:
 
 ```
 coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
@@ -408,7 +408,9 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 
 Tức là `default` đọc 4% số file nhưng hơn một nửa số khai báo `base::Feature`. Đó là một đánh đổi có chủ ý, không phải một khiếm khuyết — nhưng khi câu trả lời thực sự quan trọng thì chạy `wide`.
 
-`wide` đọc 100% theo nghĩa chặt: mọi file mà quy ước tên cho biết là có thể khai báo đều được tải về, **và** mọi file tải về đều có ít nhất một bộ đọc nhận. Có test giữ bất biến này, vì cả hai chiều đều đã từng lệch: có lúc phép đo không đếm `*flags.{cc,h}` dù bộ đọc vẫn đọc chúng, và có lúc bộ đọc bỏ qua `switches.cc` dạng trần dù phép đo vẫn đếm.
+`wide` đọc 100% theo nghĩa chặt: mọi file mà quy ước tên cho biết là có thể khai báo đều được tải về, **và** mọi file tải về đều có ít nhất một bộ đọc nhận. Có test giữ cả hai chiều, vì cả hai đều đã từng lệch: có lúc phép đo không đếm `*flags.{cc,h}` dù bộ đọc vẫn đọc chúng, có lúc bộ đọc bỏ qua `switches.cc` dạng trần dù phép đo vẫn đếm, và có lúc `--complete` lọc bằng một bản danh sách hậu tố riêng chưa biết quy ước `*_prefs.{h,cc}`.
+
+Danh sách hậu tố ấy giờ chỉ có một bản (`targets.READABLE_SUFFIXES`), dùng chung cho `wide` và `--complete`, vì cả hai hỏi cùng một câu: bộ đọc đọc được những dạng tên file nào.
 
 ### Phân vùng: giới hạn phần phải tải và quét
 
@@ -433,7 +435,7 @@ snapshot: 2692 facts
 
 **Đánh đổi phải nói rõ:** phân vùng nhanh hơn và kém đầy đủ hơn, một chiều. Chromium không tổ chức code theo tính năng sản phẩm — một thay đổi ảnh hưởng Downloads có thể nằm ở `content/`, ở một Mojo interface, hoặc ở một file cờ không khớp vùng nào. Đúng khi đang lặp trên một mảng; **sai khi chạy làm cổng chặn trước release**.
 
-Thêm `--complete` thì phân vùng tải trọn thư mục gốc thay vì lọc theo danh sách file, nên độ phủ bên trong các thư mục đó là trọn vẹn theo cấu trúc. Tuỳ chọn này bị từ chối với những phân vùng có thư mục gốc là cả một hệ thống con (`webplatform`), vì Gitiles trả về cả thư mục hoặc không gì cả.
+Thêm `--complete` thì phân vùng tải trọn thư mục gốc thay vì lọc theo danh sách file, nên độ phủ bên trong các thư mục đó là trọn vẹn theo cấu trúc. Đo tại M151: `--partition extensions --complete` đọc 19/19 file. Tuỳ chọn này bị từ chối với những phân vùng có thư mục gốc là cả một hệ thống con (`webplatform`), vì Gitiles trả về cả thư mục hoặc không gì cả.
 
 ### Đo bằng blobless clone — lệnh `catalog`
 
@@ -891,7 +893,7 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**218 bài kiểm thử, chạy trong ~0,4 giây, không cần mạng.**
+**229 bài kiểm thử, chạy trong ~0,5 giây, không cần mạng.**
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -902,6 +904,8 @@ Một số test không kiểm hành vi mà kiểm **tính nhất quán nội b�
 - Mọi chỗ hỏi "đường dẫn này có trong phạm vi không" phải cho cùng một câu trả lời.
 - Mọi chỗ hỏi "file này có thể khai báo gì không" phải cho cùng một câu trả lời.
 - Mọi quy ước tên mà phép đo độ phủ đếm thì phải có bộ đọc nhận, và ngược lại.
+- Mọi quy ước tên mà bộ đọc nhận thì phải nằm trong bộ lọc tải về — nếu không, file nằm trên đĩa mà không ai mở, nhìn y hệt như file không tồn tại.
+- Mỗi số đo phải có tên riêng: "độ phủ cây nguồn" và "độ phủ theo vùng" là hai thứ khác nhau.
 - Không lệnh nào được nhận một cờ rồi bỏ qua nó.
 - Không chuỗi hiển thị nào được ghi cứng một con số độ phủ — mỗi lần chạy tự đo và tự in.
 
@@ -923,22 +927,22 @@ Truy mục lệch thì hoá ra **công cụ đúng, phép đối chứng sai**: 
 ```
 chromedrift/
   acquire.py      535 dòng   tải nguồn qua Gitiles hoặc từ checkout local
-  targets.py      617        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
+  targets.py      611        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
   snapshot.py     186        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/      2.005        9 bộ đọc + tiện ích quét C++
+  extract/      2.013        9 bộ đọc + tiện ích quét C++
   diff.py         797        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
-  cluster.py      208        gom mảnh vụn thành một câu chuyện
-  sbprofile.py    473        tập chạm của fork + định nghĩa vùng
-  impact.py       254        chấm điểm, phân loại, báo cáo độ phủ vùng
-  catalog.py      360        đo target set thiếu gì; kiểm bao đóng tham chiếu
+  cluster.py      202        gom mảnh vụn thành một câu chuyện
+  sbprofile.py    474        tập chạm của fork + định nghĩa vùng
+  impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
+  catalog.py      357        đo target set thiếu gì; kiểm bao đóng tham chiếu
   discover.py     294        tìm file của vendor trong cây fork
   provenance.py   207        tách quyết định cố ý khỏi nợ merge
   coverage.py     235        tìm chỗ fork che upstream bằng cờ build
-  model.py        539        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
+  model.py        550        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
-  report/         709        markdown + bảng điều khiển HTML tự chứa
+  report/         740        markdown + bảng điều khiển HTML tự chứa
   enrich/         175        ngữ cảnh từ chromestatus
-  cli.py          770        9 lệnh dòng lệnh
+  cli.py          780        9 lệnh dòng lệnh
 ```
 
 Toàn bộ đường ống là một chuỗi thẳng các phép biến đổi dữ liệu thuần:

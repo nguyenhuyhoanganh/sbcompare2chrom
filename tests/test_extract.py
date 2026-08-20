@@ -678,9 +678,9 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
     def test_the_wide_filter_and_the_hints_agree(self):
         """Fetching a suffix nobody reads is waste; the reverse loses data."""
         from chromedrift.extract import REGISTRY
-        from chromedrift.targets import _WIDE_SUFFIXES
+        from chromedrift.targets import READABLE_SUFFIXES
 
-        for suffix in _WIDE_SUFFIXES:
+        for suffix in READABLE_SUFFIXES:
             if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
                 continue
             probe = f"components/x/y_{suffix}"
@@ -697,9 +697,9 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
         35 more -- inside a target set reporting full coverage.
         """
         from chromedrift.extract import REGISTRY
-        from chromedrift.targets import _WIDE_SUFFIXES
+        from chromedrift.targets import READABLE_SUFFIXES
 
-        for suffix in _WIDE_SUFFIXES:
+        for suffix in READABLE_SUFFIXES:
             if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
                 continue
             probe = f"components/x/{suffix}"

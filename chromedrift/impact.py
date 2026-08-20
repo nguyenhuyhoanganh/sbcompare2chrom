@@ -250,5 +250,9 @@ def summarize_findings(findings: List[Finding],
         "by_signal": dict(sorted(by_signal.items(), key=lambda kv: -kv[1])),
         "with_evidence": sum(
             1 for f in findings if f.matched_paths or f.matched_symbols),
-        "coverage": area_coverage(findings, touch),
+        # Named for what it measures. "coverage" alone meant this in the
+        # report's summary and meant tree coverage on the snapshot, so a reader
+        # -- or an agent -- looking up one found the other with nothing saying
+        # so.
+        "area_coverage": area_coverage(findings, touch),
     }

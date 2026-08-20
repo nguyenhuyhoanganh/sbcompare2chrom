@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
+from .extract.base_features import feature_name_from_var as _flag_name
 from .model import (
     KIND_BASE_FEATURE,
     KIND_BLINK_RUNTIME,
@@ -58,13 +59,6 @@ class _Union:
         ra, rb = self.find(a), self.find(b)
         if ra != rb:
             self.parent[rb] = ra
-
-
-def _flag_name(var_or_name: str) -> str:
-    """kLocalNetworkAccessChecks -> LocalNetworkAccessChecks"""
-    if len(var_or_name) > 1 and var_or_name[0] == "k" and var_or_name[1].isupper():
-        return var_or_name[1:]
-    return var_or_name
 
 
 def _attrs(finding: Finding) -> dict:

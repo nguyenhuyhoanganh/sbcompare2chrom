@@ -111,8 +111,8 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         if coverage["missed"]:
             # A file count understates what the curated set gets, because the
             # files someone chose are the big ones: measured at M151, the 42
-            # files `default` reads hold 2,062 of the 3,944 base::Feature
-            # declarations in all 1,008. Both numbers are worth knowing, and
+            # files `default` reads hold 2,062 of the 3,951 base::Feature
+            # declarations in all 1,039. Both numbers are worth knowing, and
             # neither is the whole answer, so the log gives the one that can
             # be measured without fetching and says what to run for the rest.
             top = list(coverage["missed_by_directory"].items())[:3]

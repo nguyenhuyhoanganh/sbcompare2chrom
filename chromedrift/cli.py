@@ -179,7 +179,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     finding_summary = summarize_findings(findings, touch)
     finding_summary["clusters"] = cluster.summarize(clusters)
     _log(f"  {finding_summary['with_evidence']} findings intersect our fork")
-    _log_coverage(finding_summary.get("coverage") or {})
+    _log_coverage(finding_summary.get("area_coverage") or {})
 
     milestone_brief: List[dict] = []
     if not args.no_enrich:
@@ -216,6 +216,16 @@ def cmd_run(args: argparse.Namespace) -> int:
             "mode": args.mode,
             "facts_from": len(old.facts),
             "facts_to": len(new.facts),
+            # How much of each version's tree the target set actually read,
+            # measured during extraction. It was printed to stderr and stored
+            # on the snapshots, and then not carried here -- so the one number
+            # saying how much of the answer is missing survived only in
+            # scrollback, while both documents claimed the report held it.
+            "coverage": {"from": (old.meta or {}).get("coverage") or {},
+                         "to": (new.meta or {}).get("coverage") or {}},
+            # The TO side's, because that is the tree being adopted. Capped at
+            # 400 paths by the snapshot that recorded them.
+            "uncovered_files": (new.meta or {}).get("uncovered_files") or [],
             "profile": touch.provenance,
             "partitions": sorted(args.partitions) if args.partitions else [],
             "complete": args.complete,
@@ -494,7 +504,7 @@ def cmd_report(args: argparse.Namespace) -> int:
     platform = report.meta.get("platform", PLATFORM)
 
     if args.list_areas:
-        coverage = (report.summary or {}).get("coverage") or {}
+        coverage = (report.summary or {}).get("area_coverage") or {}
         rows = coverage.get("areas") or {}
         print(f"{len(report.findings)} findings in {args.report}\n")
         for area_id, row in rows.items():

@@ -108,13 +108,20 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 Read that line before reading the findings. A hand-written list of target files
 decays — built as it stood at M130 and run at M151 it misses 27% of the pref
 files and 34% of the feature files that exist there — so the number is measured
-every time rather than written down once. It is also in `report.json` under
-`meta.coverage`, with the uncovered paths under `meta.uncovered_files`.
+every time rather than written down once.
+
+The same measurement is in `report.json` under `meta.coverage`, as
+`{from, to}` — one per side, each with `candidates`, `read`, `missed` and
+`missed_by_directory` — with up to 400 unread paths from the TO side under
+`meta.uncovered_files`. It is also the last block of `report.md`, under *How
+this was produced*. Do not read `summary.area_coverage` for this: that is where
+findings landed by area, a different measurement that happens to be about
+coverage of something else.
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
 `media`) limits what is fetched and scanned. Measured at M151 on the default
-set: full run 24,677 facts, `--partition settings` 4,467. A partitioned run
+set: full run 24,679 facts, `--partition settings` 4,500. A partitioned run
 prints its own coverage line, scoped to the partition's roots. **Faster and less
 complete, one-directionally** — Chromium is not organized by product, so a
 change affecting downloads can live in `content/` or in a Mojo interface and

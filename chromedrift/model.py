@@ -110,7 +110,18 @@ from typing import Any, Dict, Iterable, List, Optional
 #      learned the `*flags.{cc,h}` convention, which the extractors already
 #      read, so coverage now counts 31 files it used to leave out of its own
 #      denominator.
-SCHEMA_VERSION = 18
+#  19: one list of the filename shapes an extractor can read, and one name per
+#      distinct measurement.
+#        - `--complete` filtered its partition roots through a second copy of
+#          that list, which had never learned the `*_prefs.{h,cc}` convention
+#          or the `.h` half of four `.cc` hints. The flag whose whole promise is
+#          "100% of these roots, by construction" skipped 86 files holding 747
+#          keys at M151, so a version 18 `--complete` snapshot is missing them.
+#        - a report's `summary.coverage` was area routing while a snapshot's
+#          `meta.coverage` was tree coverage. It is now
+#          `summary.area_coverage`, and `meta.coverage` in a report means the
+#          same thing it means on a snapshot.
+SCHEMA_VERSION = 19
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

@@ -377,29 +377,38 @@ _WIDE_ROOTS = (
     ("third_party/blink/public", "every Blink public declaration"),
 )
 
-# Every filename shape an extractor can read, so a wide root downloads a large
-# archive and keeps the declarations out of it -- all of them, not a subset.
+# Every filename shape an extractor can read, as basename suffixes.
 #
-# Restricting this to feature and pref files was a gap hiding inside the answer
+# One tuple, because two fetch paths ask this same question -- a `wide` root and
+# a `--complete` partition both download a whole archive and keep only the
+# declarations out of it -- and answering it twice is how the two drift. They
+# did: this list learned the `*_prefs.{h,cc}` convention when the extractor did,
+# and the `--complete` copy did not, so the flag whose entire promise is "100%
+# of these roots, by construction" skipped 86 files holding 747 keys at M151.
+# The copy also carried `util.cc`, `handler.cc` and `manager.cc` in the bare
+# spelling, which no extractor matches, so it fetched files nothing would read.
+#
+# Restricting it to feature and pref files was a gap hiding inside the answer
 # to another one: the archives were already on disk, and the only reason 934 of
 # the tree's 1,424 .mojom files and 124 of its 132 WebUI surfaces stayed unread
-# was that their suffixes were missing from this tuple. Widening it costs no
-# bandwidth at all.
-_WIDE_SUFFIXES = (
-    # base::Feature, FeatureParam, command-line switches
+# was that their suffixes were missing here. Widening it costs no bandwidth at
+# all.
+READABLE_SUFFIXES = (
+    # base_features: base::Feature, FeatureParam, command-line switches.
+    # Bare and prefixed spellings both occur -- `switches.cc` as well as
+    # `content_switches.cc` -- and `endswith` covers both from one entry.
     "features.cc", "features.h", "switches.cc", "switches.h",
     "feature_list.cc", "feature_list.h",
     "field_trial.cc", "field_trial.h", "fieldtrial.cc", "fieldtrial.h",
     "flags.cc", "flags.h",
-    # preference keys, both naming conventions
-    "pref_names.cc", "pref_names.h", "prefs.cc", "prefs.h",
-    # the process boundary and the web platform surface
-    ".mojom", ".idl", ".json5",
-    # desktop WebUI: route tables, both template dialects, and the C++ handlers
-    # that bridge a loadTimeData key to a base::Feature
-    "route.ts", "routes.ts", ".html", ".html.ts",
     "_handler.cc", "_util.cc", "_manager.cc",
-    # chrome://flags expiry metadata
+    # constants: preference keys, both naming conventions
+    "pref_names.cc", "pref_names.h", "prefs.cc", "prefs.h",
+    # mojom / web_idl / blink_runtime: the process boundary and the web platform
+    ".mojom", ".idl", ".json5",
+    # webui_routes / webui_controls: route tables and both template dialects
+    "route.ts", "routes.ts", ".html", ".html.ts",
+    # flags_metadata: chrome://flags expiry milestones
     "flag-metadata.json",
 )
 
@@ -413,12 +422,12 @@ def wide_targets() -> List[FetchTarget]:
     cached forever afterwards.
 
     Measured at M151, against a recursive listing of that version's own tree:
-    the files read go from 42 of 1,008 to all 1,008, and base::Feature
-    declarations from 2,062 to 3,944. These are the numbers as of that
+    the files read go from 42 of 1,039 to all 1,039, and base::Feature
+    declarations from 2,062 to 3,951. These are the numbers as of that
     measurement -- every run prints its own, and that is the one to trust.
     """
     return default_targets() + [
-        FetchTarget(root, "tree", _WIDE_SUFFIXES, note=note)
+        FetchTarget(root, "tree", READABLE_SUFFIXES, note=note)
         for root, note in _WIDE_ROOTS
     ]
 
@@ -525,24 +534,9 @@ PARTITIONS = {
 # why `webplatform` is not closable and says so instead of pretending.
 # ---------------------------------------------------------------------------
 
-# Every filename any extractor can read, as basename suffixes. Kept in one place
-# because "what the tool can read" and "what a complete fetch must include" are
-# the same question, and answering it twice is how they drift apart.
-COMPLETE_SUFFIXES = (
-    # base_features.FILE_HINTS
-    "features.cc", "features.h", "switches.cc", "switches.h",
-    "fieldtrial.cc", "field_trial.cc", "flags.cc", "feature_list.cc",
-    "util.cc", "handler.cc", "manager.cc",
-    # constants.py
-    "pref_names.cc", "pref_names.h",
-    # web_idl / mojom
-    ".idl", ".mojom",
-    # webui_controls / webui_routes
-    ".html", ".html.ts", "route.ts", "routes.ts",
-    # blink_runtime / flags_metadata
-    ".json5", "flag-metadata.json",
-)
-
+# What a complete fetch must include is the same question as what the tool can
+# read, so it is answered once, by READABLE_SUFFIXES above.
+#
 # WebUI gates are the exception: `webui_gates.applies_to` claims every .cc under
 # chrome/browser/ui/webui/, not a naming convention, so closing that root needs
 # the suffix rather than the convention.
@@ -575,9 +569,9 @@ def complete_targets(partitions: Sequence[str]) -> List[FetchTarget]:
             if _is_file(root):
                 targets.append(FetchTarget(root, "file", note=partition))
                 continue
-            include = COMPLETE_SUFFIXES
+            include = READABLE_SUFFIXES
             if root == _GATE_ROOT or root.startswith(_GATE_ROOT + "/"):
-                include = COMPLETE_SUFFIXES + (".cc",)
+                include = READABLE_SUFFIXES + (".cc",)
             targets.append(FetchTarget(root, "tree", include,
                                        note=f"{partition}: complete"))
     return targets

@@ -88,7 +88,15 @@ def applies_to(path: str) -> bool:
 
 
 def feature_name_from_var(var: str) -> str:
-    """kBackForwardCache -> BackForwardCache (Chromium's own convention)."""
+    """kBackForwardCache -> BackForwardCache (Chromium's own convention).
+
+    The single definition, imported by every stage that has to get from a C++
+    identifier back to the feature string a fact is keyed on: the reference
+    closure in `catalog`, the clustering in `cluster`, and area routing in
+    `sbprofile`. It is applied here first, to derive the key from the
+    two-argument macro form, so a copy elsewhere that drifted would silently
+    stop matching the keys this produces.
+    """
     if len(var) > 1 and var[0] == "k" and var[1].isupper():
         return var[1:]
     return var

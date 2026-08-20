@@ -225,7 +225,7 @@ def _render_coverage(summary: dict) -> str:
     by area quietly drops whatever matched no area, and that leftover is where
     cross-cutting infrastructure changes live -- often the most severe ones.
     """
-    coverage = (summary or {}).get("coverage") or {}
+    coverage = (summary or {}).get("area_coverage") or {}
     areas = coverage.get("areas") or {}
     unassigned = coverage.get("unassigned") or {}
     if not areas and not unassigned.get("total"):
@@ -343,6 +343,36 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
     return "\n".join(out)
 
 
+def _tree_coverage_lines(report: Report) -> List[str]:
+    """How much of each version's tree the target set read.
+
+    This qualifies every count above it: a file the target set does not reach
+    cannot produce a finding, so a clean report over 4% of the tree and a clean
+    report over all of it are different claims. The number is measured against
+    a listing of that version's own tree on each run, never written down, and
+    it belongs beside the facts it bounds rather than only in the run's log.
+    """
+    coverage = (report.meta or {}).get("coverage") or {}
+    out: List[str] = []
+    for side, ref in (("from", report.from_ref), ("to", report.to_ref)):
+        row = coverage.get(side) or {}
+        candidates, read = row.get("candidates"), row.get("read")
+        if not candidates:
+            continue
+        pct = read * 100 // candidates
+        out.append(f"- Coverage at `{ref}`: read {read:,} of {candidates:,} "
+                   f"files in that tree that could declare ({pct}%).")
+        gaps = list((row.get("missed_by_directory") or {}).items())[:3]
+        if gaps:
+            out.append("  Largest gaps: "
+                       + ", ".join(f"`{d}/` ({n:,} files)" for d, n in gaps)
+                       + ".")
+    if out and (report.meta or {}).get("target_set") != "wide":
+        out.append("  Run `--target-set wide` to read every file an extractor "
+                   "understands.")
+    return out
+
+
 def _render_provenance(report: Report) -> str:
     meta = report.meta or {}
     summary = report.summary or {}
@@ -351,6 +381,7 @@ def _render_provenance(report: Report) -> str:
         f"`{report.to_ref}` (target set `{meta.get('target_set', '?')}`).",
         f"- Facts: {meta.get('facts_from', '?')} → {meta.get('facts_to', '?')}.",
     ]
+    lines += _tree_coverage_lines(report)
     profile = meta.get("profile") or {}
     if profile:
         lines.append(

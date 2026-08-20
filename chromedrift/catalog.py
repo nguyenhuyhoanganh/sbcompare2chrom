@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Set
 
 from .acquire import GITILES_BASE
+from .extract.base_features import feature_name_from_var as _bare
 from .targets import could_declare, get_targets
 
 
@@ -229,10 +230,6 @@ _DANGLING_LABEL = {
     "blink_feature": "Blink flag naming a base::Feature we did not fetch",
     "param_owner": "feature parameter whose owning feature we did not fetch",
 }
-
-
-def _bare(name: str) -> str:
-    return name[1:] if len(name) > 1 and name[0] == "k" and name[1].isupper() else name
 
 
 def unresolved_references(snapshot) -> Dict[str, List[str]]:
