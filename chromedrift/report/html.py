@@ -42,118 +42,171 @@ from . import markdown as md_report
 from . import wording as surfaces
 
 _CSS = """
+/* One accent, one radius scale, one shadow scale, one spacing rhythm. The
+   palette is neutral-warm rather than blue-grey so the four bucket colours --
+   which are the only saturated things on the page -- carry all of the meaning
+   and none of the decoration. */
 :root{
---bg:#fbfbfa;--fg:#1a1a19;--muted:#6b6b66;--faint:#8f8d87;
---line:#e6e4e0;--card:#fff;--sunk:#f4f3f0;
---must:#b4342a;--review:#a86a12;--opp:#2f6b45;--fyi:#6b6b66;--accent:#2b5fa8;
---new:#2f6b45;--chg:#a86a12;--gone:#b4342a;
---radius:10px;
---shadow:0 1px 2px rgba(20,18,14,.05),0 1px 8px rgba(20,18,14,.04);
+--bg:#faf9f7;--bg2:#f2f0ec;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
+--line:#e7e4de;--line2:#d9d5cd;--card:#fff;--sunk:#f5f3ef;
+--must:#c0392f;--review:#a06a10;--opp:#2c6b45;--fyi:#77746d;
+--accent:#2f5fa8;--accent-soft:#eaf0fb;
+--new:#2c6b45;--chg:#a06a10;--gone:#c0392f;
+--r1:9px;--r2:14px;
+--sh1:0 1px 2px rgba(24,20,12,.05);
+--sh2:0 1px 2px rgba(24,20,12,.04),0 4px 14px -4px rgba(24,20,12,.08);
+--sh3:0 2px 4px rgba(24,20,12,.05),0 12px 28px -10px rgba(24,20,12,.16);
 color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#191918;--fg:#eceae5;--muted:#9a978f;--faint:#807d76;
---line:#333230;--card:#211f1e;--sunk:#1e1c1b;
---must:#f08076;--review:#e0aa52;--opp:#7cc397;--fyi:#9a978f;--accent:#7aa8e8;
---new:#7cc397;--chg:#e0aa52;--gone:#f08076;
---shadow:0 1px 2px rgba(0,0,0,.3),0 1px 8px rgba(0,0,0,.2);
+--bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
+--must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--accent:#7fa9e8;--accent-soft:#1c2433;
+--new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
+--sh1:0 1px 2px rgba(0,0,0,.4);
+--sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
+--sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}}
 :root[data-theme=dark]{
---bg:#191918;--fg:#eceae5;--muted:#9a978f;--faint:#807d76;
---line:#333230;--card:#211f1e;--sunk:#1e1c1b;
---must:#f08076;--review:#e0aa52;--opp:#7cc397;--fyi:#9a978f;--accent:#7aa8e8;
---new:#7cc397;--chg:#e0aa52;--gone:#f08076;
---shadow:0 1px 2px rgba(0,0,0,.3),0 1px 8px rgba(0,0,0,.2);
+--bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
+--must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--accent:#7fa9e8;--accent-soft:#1c2433;
+--new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
+--sh1:0 1px 2px rgba(0,0,0,.4);
+--sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
+--sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}
 
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);
-font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
--webkit-font-smoothing:antialiased}
-.wrap{max-width:1300px;margin:0 auto;padding:0 20px 70px}
-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}
+font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",
+Roboto,"Helvetica Neue",Arial,sans-serif;
+font-feature-settings:"cv05","ss01";-webkit-font-smoothing:antialiased;
+text-rendering:optimizeLegibility}
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px 72px}
+code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+font-size:.87em;font-variant-ligatures:none}
 .muted{color:var(--muted)}
-.tablewrap{scrollbar-color:var(--line) transparent}
-[hidden]{display:none !important}
+.tablewrap{scrollbar-color:var(--line2) transparent}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
 /* -- masthead ------------------------------------------------------------ */
-.top{padding:24px 0 14px}
-.eyebrow{font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;
-color:var(--muted);font-weight:600}
-h1{font-size:1.4rem;margin:6px 0 5px;letter-spacing:-.015em;line-height:1.25}
-h1 .arrow{color:var(--muted);font-weight:400;padding:0 .2em}
-.sub{color:var(--muted);font-size:.85rem}
+.top{padding:38px 0 4px}
+.eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.71rem;
+letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;
+background:var(--accent)}
+h1{font-size:1.55rem;margin:11px 0 7px;letter-spacing:-.022em;line-height:1.22;
+font-weight:650}
+h1 code{font-size:.94em;letter-spacing:-.01em}
+h1 .arrow{color:var(--accent);font-weight:400;padding:0 .3em}
+.sub{color:var(--faint);font-size:.82rem;letter-spacing:.005em}
 
-/* -- lede --------------------------------------------------------------- */
-.lede{margin:12px 0 20px;font-size:.97rem;max-width:70ch}
+/* -- lede ---------------------------------------------------------------- */
+.lede{margin:20px 0 26px;font-size:.98rem;line-height:1.6;max-width:74ch;
+color:var(--muted)}
+.lede b{color:var(--fg);font-weight:600}
 
-/* -- triage -------------------------------------------------------------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-padding:14px 16px;box-shadow:var(--shadow);display:block;color:inherit;
-border-left:3px solid var(--line);text-align:left;font:inherit;cursor:pointer;
-width:100%}
-.card:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
-.card .n{font-size:1.85rem;font-weight:600;line-height:1.15;
+/* -- triage cards -------------------------------------------------------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));
+gap:14px}
+.card{position:relative;background:var(--card);border:1px solid var(--line);
+border-radius:var(--r2);padding:17px 18px 16px;box-shadow:var(--sh2);
+display:block;color:inherit;text-align:left;font:inherit;cursor:pointer;
+width:100%;overflow:hidden;
+transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
+background:var(--line2);opacity:.9}
+.card:hover{transform:translateY(-2px);box-shadow:var(--sh3);
+border-color:var(--line2)}
+.card:active{transform:translateY(0)}
+.card .n{font-size:2.05rem;font-weight:640;line-height:1.05;letter-spacing:-.03em;
 font-variant-numeric:tabular-nums}
-.card .l{font-size:.82rem;font-weight:600}
-.card .m{color:var(--muted);font-size:.79rem;margin-top:5px;line-height:1.45}
-.card.must{border-left-color:var(--must)}.card.must .n{color:var(--must)}
-.card.review{border-left-color:var(--review)}.card.review .n{color:var(--review)}
-.card.opportunity{border-left-color:var(--opp)}.card.opportunity .n{color:var(--opp)}
+.card .l{font-size:.8rem;font-weight:640;letter-spacing:.005em;margin-top:3px}
+.card .m{color:var(--muted);font-size:.785rem;margin-top:7px;line-height:1.5}
+.card.must::before{background:var(--must)}.card.must .n{color:var(--must)}
+.card.review::before{background:var(--review)}.card.review .n{color:var(--review)}
+.card.opportunity::before{background:var(--opp)}.card.opportunity .n{color:var(--opp)}
 .card.fyi .n{color:var(--fyi)}
 
-/* -- table --------------------------------------------------------------- */
-.controls{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 12px;align-items:center}
+/* -- filter row ---------------------------------------------------------- */
+.controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;
+align-items:center}
 input[type=search],select{background:var(--card);color:var(--fg);
-border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:inherit;
-font-size:.87rem}
-input[type=search]{flex:1;min-width:210px}
+border:1px solid var(--line);border-radius:var(--r1);padding:9px 12px;
+font:inherit;font-size:.87rem;box-shadow:var(--sh1);
+transition:border-color .14s ease,box-shadow .14s ease}
+input[type=search]{flex:1;min-width:230px}
+input[type=search]::placeholder{color:var(--faint)}
+input[type=search]:hover,select:hover{border-color:var(--line2)}
+input[type=search]:focus,select:focus{outline:none;border-color:var(--accent);
+box-shadow:0 0 0 3px var(--accent-soft)}
+select{cursor:pointer}
+#cnt{margin-left:auto;font-size:.82rem;color:var(--faint);
+font-variant-numeric:tabular-nums}
+
+/* -- table --------------------------------------------------------------- */
 /* Its own scroll box, so the column headers stay put: a sticky <th> sticks to
    the nearest scrollport, and the wrapper is already one because overflow-x
    makes overflow-y a scroll container too. */
-.tablewrap{overflow:auto;max-height:min(72vh,800px);border:1px solid var(--line);
-border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow)}
+.tablewrap{overflow:auto;max-height:min(74vh,860px);border:1px solid var(--line);
+border-radius:var(--r2);background:var(--card);box-shadow:var(--sh2)}
 /* table-layout:fixed is the single biggest lever here. With the default auto
    layout, column widths depend on cell content, so inserting one expanded row
    makes the browser re-measure every cell before it can paint. Fixed layout
    takes the widths from the colgroup and never looks at content. */
 table.find{border-collapse:separate;border-spacing:0;table-layout:fixed;
-width:100%;font-size:.87rem;min-width:940px}
-table.find th,table.find td{text-align:left;padding:9px 12px;
+width:100%;font-size:.875rem;min-width:900px}
+table.find th,table.find td{text-align:left;padding:11px 14px;
 border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
-table.find th{font-weight:600;color:var(--muted);font-size:.75rem;
-text-transform:uppercase;letter-spacing:.05em;cursor:pointer;user-select:none;
-white-space:nowrap;position:sticky;top:0;z-index:1;background:var(--card);
+table.find th{font-weight:600;color:var(--muted);font-size:.7rem;
+text-transform:uppercase;letter-spacing:.075em;cursor:pointer;user-select:none;
+white-space:nowrap;position:sticky;top:0;z-index:1;
+background:var(--card);padding-top:13px;padding-bottom:11px;
 box-shadow:inset 0 -1px 0 var(--line)}
 table.find th:hover{color:var(--fg)}
 table.find tbody tr:last-child td{border-bottom:none}
-tbody tr.det td{background:var(--sunk);font-size:.85rem}
 /* Rows outside the viewport skip layout entirely; the intrinsic size keeps the
    scrollbar honest so skipping does not make the page jump. */
-table.find tbody tr{content-visibility:auto;contain-intrinsic-size:auto 40px}
+table.find tbody tr{content-visibility:auto;contain-intrinsic-size:auto 46px}
 tbody tr.row-t{cursor:pointer}
-tbody tr.row-t:hover td{background:color-mix(in srgb,var(--card) 88%,var(--accent))}
-.score{font-variant-numeric:tabular-nums;font-weight:600}
-.pill{display:inline-block;padding:1px 7px;border-radius:99px;font-size:.73rem;
-border:1px solid currentColor;white-space:nowrap}
+tbody tr.row-t:hover td{background:var(--sunk)}
+tbody tr.det td{background:var(--sunk);font-size:.85rem;
+box-shadow:inset 2px 0 0 var(--accent)}
+
+.score{font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.015em;
+font-size:.95rem;color:var(--muted)}
+.s-hi{color:var(--must)}.s-mid{color:var(--review)}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.71rem;
+font-weight:600;letter-spacing:.01em;white-space:nowrap;
+background:color-mix(in srgb,currentColor 13%,transparent)}
 .b-must_fix{color:var(--must)}.b-review{color:var(--review)}
 .b-opportunity{color:var(--opp)}.b-fyi{color:var(--fyi)}
-.mk{font-weight:700;padding-right:5px;font-variant-numeric:tabular-nums}
+
+.mk{font-weight:700;padding-right:6px;font-variant-numeric:tabular-nums}
 .mk-added{color:var(--new)}.mk-removed{color:var(--gone)}.mk-modified{color:var(--chg)}
-.where{color:var(--muted);font-size:.83rem}
-.grp{font-size:.72rem;color:var(--faint);margin-top:2px}
-.moved{font-size:.78rem;color:var(--muted);margin-top:2px}
-.ours{font-size:.68rem;border:1px solid var(--accent);color:var(--accent);
-border-radius:99px;padding:0 6px;white-space:nowrap;vertical-align:1px}
-ul.tight{margin:6px 0;padding-left:18px}
-.note{background:var(--card);border:1px solid var(--line);border-radius:8px;
-border-left:3px solid var(--review);padding:10px 14px;margin:0 0 14px;
-font-size:.87rem;color:var(--muted)}
-#more{margin-top:12px;width:100%;padding:10px;background:var(--card);
-color:var(--fg);border:1px solid var(--line);border-radius:8px;font:inherit;
-font-size:.87rem;cursor:pointer}
-#more:hover{background:color-mix(in srgb,var(--card) 88%,var(--accent))}
+.where{color:var(--muted);font-size:.815rem;line-height:1.45}
+.grp{font-size:.715rem;color:var(--faint);margin-top:3px}
+.moved{font-size:.775rem;color:var(--faint);margin-top:4px;line-height:1.45}
+.ours{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
+text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+border-radius:999px;padding:1px 7px;white-space:nowrap;vertical-align:1px}
+ul.tight{margin:7px 0;padding-left:19px;line-height:1.7}
+.empty{padding:44px;text-align:center;color:var(--faint)}
+.note{background:var(--card);border:1px solid var(--line);border-radius:var(--r1);
+border-left:3px solid var(--review);padding:12px 15px;margin:0 0 16px;
+font-size:.87rem;color:var(--muted);box-shadow:var(--sh1)}
+#more{margin-top:14px;width:100%;padding:12px;background:var(--card);
+color:var(--muted);border:1px solid var(--line);border-radius:var(--r1);
+font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;box-shadow:var(--sh1);
+transition:border-color .14s ease,color .14s ease,background .14s ease}
+#more:hover{border-color:var(--accent);color:var(--accent);background:var(--sunk)}
+.more-note{color:var(--faint);font-size:.81rem;margin:14px 0 0;line-height:1.6;
+max-width:78ch}
 """
 
 _JS = """
@@ -219,7 +272,8 @@ function surfaceCell(f){
   return out;
 }
 function rowHtml(f,i){
-  return '<tr class="row-t" data-i="'+i+'"><td class="score">'+f.score+'</td>'+
+  var sb=f.score>=70?' s-hi':(f.score>=45?' s-mid':'');
+  return '<tr class="row-t" data-i="'+i+'"><td class="score'+sb+'">'+f.score+'</td>'+
     '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
