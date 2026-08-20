@@ -42,148 +42,120 @@ from . import markdown as md_report
 from . import wording as surfaces
 
 _CSS = """
-/* Glass, in the Apple sense: translucent surfaces that blur and lift whatever
-   is behind them, with a specular hairline along the top edge and a soft
-   shadow beneath. Two things make it work rather than look like grey boxes.
-   First, there has to be something behind: the page ground is a very low
-   saturation mesh of radial gradients, fixed, so every panel has colour to
-   refract. Second, the blur belongs on small surfaces. The one place content
-   actually scrolls behind glass is the sticky table header, which is a thin
-   strip; the table's own wrapper is the scroll container, so its backdrop is
-   the static page and costs nothing per frame. */
+/* One accent, one radius scale, one shadow scale, one spacing rhythm. The
+   palette is neutral-warm rather than blue-grey so the four bucket colours --
+   which are the only saturated things on the page -- carry all of the meaning
+   and none of the decoration. */
 :root{
---bg:#f7f6f3;--fg:#16150f;--muted:#666359;--faint:#95928a;
---line:rgba(30,26,16,.10);--line2:rgba(30,26,16,.18);
---glass:rgba(255,255,255,.62);--glass2:rgba(255,255,255,.78);
---spec:rgba(255,255,255,.85);--sunk:rgba(30,26,16,.045);
---must:#bd3327;--review:#96650c;--opp:#256341;--fyi:#75726a;
---accent:#2b5cb0;--accent-soft:rgba(43,92,176,.13);
---new:#256341;--chg:#96650c;--gone:#bd3327;
---r1:12px;--r2:20px;
+--bg:#faf9f7;--bg2:#f2f0ec;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
+--line:#e7e4de;--line2:#d9d5cd;--card:#fff;--sunk:#f5f3ef;
+--must:#c0392f;--review:#a06a10;--opp:#2c6b45;--fyi:#77746d;
+--accent:#2f5fa8;--accent-soft:#eaf0fb;
+--new:#2c6b45;--chg:#a06a10;--gone:#c0392f;
+--r1:9px;--r2:14px;
 --sh1:0 1px 2px rgba(24,20,12,.05);
---sh2:0 1px 1px rgba(24,20,12,.04),0 8px 24px -10px rgba(24,20,12,.18);
---sh3:0 2px 4px rgba(24,20,12,.06),0 18px 40px -14px rgba(24,20,12,.28);
---mesh1:rgba(120,160,255,.20);--mesh2:rgba(255,170,120,.18);
---mesh3:rgba(110,215,165,.16);
+--sh2:0 1px 2px rgba(24,20,12,.04),0 4px 14px -4px rgba(24,20,12,.08);
+--sh3:0 2px 4px rgba(24,20,12,.05),0 12px 28px -10px rgba(24,20,12,.16);
 color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#0f0f0e;--fg:#f0eee9;--muted:#a3a099;--faint:#77746d;
---line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.18);
---glass:rgba(38,37,35,.58);--glass2:rgba(44,43,40,.76);
---spec:rgba(255,255,255,.14);--sunk:rgba(255,255,255,.05);
---must:#f2887c;--review:#e5b45f;--opp:#84cca0;--fyi:#a3a099;
---accent:#82abe8;--accent-soft:rgba(130,171,232,.16);
---new:#84cca0;--chg:#e5b45f;--gone:#f2887c;
---sh1:0 1px 2px rgba(0,0,0,.5);
---sh2:0 1px 1px rgba(0,0,0,.4),0 8px 24px -10px rgba(0,0,0,.7);
---sh3:0 2px 4px rgba(0,0,0,.5),0 18px 40px -14px rgba(0,0,0,.8);
---mesh1:rgba(70,110,220,.24);--mesh2:rgba(200,110,60,.18);
---mesh3:rgba(40,150,110,.18);
+--bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
+--must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--accent:#7fa9e8;--accent-soft:#1c2433;
+--new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
+--sh1:0 1px 2px rgba(0,0,0,.4);
+--sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
+--sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}}
 :root[data-theme=dark]{
---bg:#0f0f0e;--fg:#f0eee9;--muted:#a3a099;--faint:#77746d;
---line:rgba(255,255,255,.10);--line2:rgba(255,255,255,.18);
---glass:rgba(38,37,35,.58);--glass2:rgba(44,43,40,.76);
---spec:rgba(255,255,255,.14);--sunk:rgba(255,255,255,.05);
---must:#f2887c;--review:#e5b45f;--opp:#84cca0;--fyi:#a3a099;
---accent:#82abe8;--accent-soft:rgba(130,171,232,.16);
---new:#84cca0;--chg:#e5b45f;--gone:#f2887c;
---sh1:0 1px 2px rgba(0,0,0,.5);
---sh2:0 1px 1px rgba(0,0,0,.4),0 8px 24px -10px rgba(0,0,0,.7);
---sh3:0 2px 4px rgba(0,0,0,.5),0 18px 40px -14px rgba(0,0,0,.8);
---mesh1:rgba(70,110,220,.24);--mesh2:rgba(200,110,60,.18);
---mesh3:rgba(40,150,110,.18);
+--bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
+--must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--accent:#7fa9e8;--accent-soft:#1c2433;
+--new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
+--sh1:0 1px 2px rgba(0,0,0,.4);
+--sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
+--sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}
 
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;color:var(--fg);min-height:100vh;
-background-color:var(--bg);
-background-image:
-radial-gradient(58rem 34rem at 8% -12%,var(--mesh1) 0%,transparent 62%),
-radial-gradient(52rem 30rem at 96% 2%,var(--mesh2) 0%,transparent 58%),
-radial-gradient(60rem 42rem at 52% 108%,var(--mesh3) 0%,transparent 60%);
-background-attachment:fixed;background-repeat:no-repeat;
-font:15px/1.55 ui-sans-serif,-apple-system,"SF Pro Text","Segoe UI Variable Text",
-"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
--webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{margin:0;background:var(--bg);color:var(--fg);
+font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI Variable Text","Segoe UI",
+Roboto,"Helvetica Neue",Arial,sans-serif;
+font-feature-settings:"cv05","ss01";-webkit-font-smoothing:antialiased;
+text-rendering:optimizeLegibility}
 .wrap{max-width:1320px;margin:0 auto;padding:0 24px 72px}
 code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 font-size:.87em;font-variant-ligatures:none}
 .muted{color:var(--muted)}
 .tablewrap{scrollbar-color:var(--line2) transparent}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-
-/* Every pane of glass is the same recipe, so they read as one material. */
-.card,.tablewrap,input[type=search],select,#more,.note{
-background:var(--glass);
--webkit-backdrop-filter:blur(26px) saturate(180%);
-backdrop-filter:blur(26px) saturate(180%);
-border:1px solid var(--line);
-box-shadow:var(--sh2),inset 0 1px 0 0 var(--spec)}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-.card,.tablewrap,input[type=search],select,#more,.note{background:var(--glass2)}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
 /* -- masthead ------------------------------------------------------------ */
-.top{padding:40px 0 4px}
+.top{padding:38px 0 4px}
 .eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:.71rem;
 letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .eyebrow::before{content:"";width:6px;height:6px;border-radius:50%;
-background:var(--accent);box-shadow:0 0 12px 1px var(--accent)}
-h1{font-size:1.55rem;margin:11px 0 7px;letter-spacing:-.024em;line-height:1.22;
+background:var(--accent)}
+h1{font-size:1.55rem;margin:11px 0 7px;letter-spacing:-.022em;line-height:1.22;
 font-weight:650}
 h1 code{font-size:.94em;letter-spacing:-.01em}
 h1 .arrow{color:var(--accent);font-weight:400;padding:0 .3em}
-.sub{color:var(--faint);font-size:.82rem}
+.sub{color:var(--faint);font-size:.82rem;letter-spacing:.005em}
 
 /* -- lede ---------------------------------------------------------------- */
-.lede{margin:20px 0 28px;font-size:.98rem;line-height:1.6;max-width:74ch;
+.lede{margin:20px 0 26px;font-size:.98rem;line-height:1.6;max-width:74ch;
 color:var(--muted)}
 .lede b{color:var(--fg);font-weight:600}
 
 /* -- triage cards -------------------------------------------------------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));
 gap:14px}
-.card{border-radius:var(--r2);padding:18px 19px 17px;display:block;color:inherit;
-text-align:left;font:inherit;cursor:pointer;width:100%;
-transition:transform .18s cubic-bezier(.2,.7,.3,1),box-shadow .18s ease,
-border-color .18s ease}
-.card:hover{transform:translateY(-3px);
-box-shadow:var(--sh3),inset 0 1px 0 0 var(--spec);border-color:var(--line2)}
-.card:active{transform:translateY(-1px)}
+/* The bucket colour is a wash from the top edge and a dot beside the label,
+   not a bar across the top: a 3px bar inside a 14px radius gets eaten by the
+   corner at both ends and reads as a mistake. */
+.card{background:var(--card);border:1px solid var(--line);
+border-radius:var(--r2);padding:17px 18px 16px;box-shadow:var(--sh2);
+display:block;color:inherit;text-align:left;font:inherit;cursor:pointer;
+width:100%;
+transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.card:hover{transform:translateY(-2px);box-shadow:var(--sh3);
+border-color:var(--line2)}
+.card:active{transform:translateY(0)}
 .card .n{font-size:2.05rem;font-weight:640;line-height:1.05;letter-spacing:-.03em;
 font-variant-numeric:tabular-nums}
-.card .l{font-size:.8rem;font-weight:640;margin-top:4px;
+.card .l{font-size:.8rem;font-weight:640;letter-spacing:.005em;margin-top:4px;
 display:flex;align-items:center;gap:7px}
 .card .l::before{content:"";flex:0 0 7px;height:7px;border-radius:50%;
-background:var(--faint)}
+background:var(--line2)}
 .card .m{color:var(--muted);font-size:.785rem;margin-top:8px;line-height:1.5}
-/* The bucket colour glows through the glass from the top edge rather than
-   sitting on it: a bar inside a 20px radius is eaten by the corner. */
-.card.must{background-image:linear-gradient(180deg,
-color-mix(in srgb,var(--must) 16%,transparent),transparent 62%)}
-.card.review{background-image:linear-gradient(180deg,
-color-mix(in srgb,var(--review) 16%,transparent),transparent 62%)}
-.card.opportunity{background-image:linear-gradient(180deg,
-color-mix(in srgb,var(--opp) 16%,transparent),transparent 62%)}
+.card.must{background:linear-gradient(180deg,
+color-mix(in srgb,var(--must) 8%,var(--card)),var(--card) 58%)}
+.card.review{background:linear-gradient(180deg,
+color-mix(in srgb,var(--review) 8%,var(--card)),var(--card) 58%)}
+.card.opportunity{background:linear-gradient(180deg,
+color-mix(in srgb,var(--opp) 8%,var(--card)),var(--card) 58%)}
 .card.must .n{color:var(--must)}.card.must .l::before{background:var(--must)}
 .card.review .n{color:var(--review)}.card.review .l::before{background:var(--review)}
 .card.opportunity .n{color:var(--opp)}
 .card.opportunity .l::before{background:var(--opp)}
-.card.fyi .n{color:var(--fyi)}
+.card.fyi .n{color:var(--fyi)}.card.fyi .l::before{background:var(--fyi)}
 
 /* -- filter row ---------------------------------------------------------- */
-.controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;align-items:center}
-input[type=search],select{color:var(--fg);border-radius:999px;padding:10px 16px;
-font:inherit;font-size:.87rem;
-transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+.controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;
+align-items:center}
+input[type=search],select{background:var(--card);color:var(--fg);
+border:1px solid var(--line);border-radius:var(--r1);padding:9px 12px;
+font:inherit;font-size:.87rem;box-shadow:var(--sh1);
+transition:border-color .14s ease,box-shadow .14s ease}
 input[type=search]{flex:1;min-width:230px}
 input[type=search]::placeholder{color:var(--faint)}
 input[type=search]:hover,select:hover{border-color:var(--line2)}
 input[type=search]:focus,select:focus{outline:none;border-color:var(--accent);
-box-shadow:var(--sh2),inset 0 1px 0 0 var(--spec),0 0 0 4px var(--accent-soft)}
-select{cursor:pointer;padding-right:12px}
+box-shadow:0 0 0 3px var(--accent-soft)}
+select{cursor:pointer}
 #cnt{margin-left:auto;font-size:.82rem;color:var(--faint);
 font-variant-numeric:tabular-nums}
 
@@ -191,7 +163,8 @@ font-variant-numeric:tabular-nums}
 /* Its own scroll box, so the column headers stay put: a sticky <th> sticks to
    the nearest scrollport, and the wrapper is already one because overflow-x
    makes overflow-y a scroll container too. */
-.tablewrap{overflow:auto;max-height:min(74vh,860px);border-radius:var(--r2)}
+.tablewrap{overflow:auto;max-height:min(74vh,860px);border:1px solid var(--line);
+border-radius:var(--r2);background:var(--card);box-shadow:var(--sh2)}
 /* table-layout:fixed is the single biggest lever here. With the default auto
    layout, column widths depend on cell content, so inserting one expanded row
    makes the browser re-measure every cell before it can paint. Fixed layout
@@ -200,14 +173,11 @@ table.find{border-collapse:separate;border-spacing:0;table-layout:fixed;
 width:100%;font-size:.875rem;min-width:900px}
 table.find th,table.find td{text-align:left;padding:11px 14px;
 border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
-/* The one strip with content genuinely moving behind it. */
 table.find th{font-weight:600;color:var(--muted);font-size:.7rem;
 text-transform:uppercase;letter-spacing:.075em;cursor:pointer;user-select:none;
 white-space:nowrap;position:sticky;top:0;z-index:1;
-background:var(--glass2);
--webkit-backdrop-filter:blur(20px) saturate(180%);
-backdrop-filter:blur(20px) saturate(180%);
-padding-top:14px;padding-bottom:12px;box-shadow:inset 0 -1px 0 var(--line)}
+background:var(--card);padding-top:13px;padding-bottom:11px;
+box-shadow:inset 0 -1px 0 var(--line)}
 table.find th:hover{color:var(--fg)}
 table.find tbody tr:last-child td{border-bottom:none}
 /* Rows outside the viewport skip layout entirely; the intrinsic size keeps the
@@ -216,16 +186,15 @@ table.find tbody tr{content-visibility:auto;contain-intrinsic-size:auto 46px}
 tbody tr.row-t{cursor:pointer}
 tbody tr.row-t:hover td{background:var(--sunk)}
 tbody tr.det td{background:var(--sunk);font-size:.85rem;
-box-shadow:inset 3px 0 0 var(--accent)}
+box-shadow:inset 2px 0 0 var(--accent)}
 
 .score{font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.015em;
 font-size:.95rem;color:var(--muted)}
 .s-hi{color:var(--must)}.s-mid{color:var(--review)}
 
-.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.71rem;
-font-weight:600;white-space:nowrap;
-background:color-mix(in srgb,currentColor 15%,transparent);
-box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 22%,transparent)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.71rem;
+font-weight:600;letter-spacing:.01em;white-space:nowrap;
+background:color-mix(in srgb,currentColor 13%,transparent)}
 .b-must_fix{color:var(--must)}.b-review{color:var(--review)}
 .b-opportunity{color:var(--opp)}.b-fyi{color:var(--fyi)}
 
@@ -236,16 +205,17 @@ box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 22%,transparent)}
 .moved{font-size:.775rem;color:var(--faint);margin-top:4px;line-height:1.45}
 .ours{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
 text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
-box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent);
-border-radius:999px;padding:1px 8px;white-space:nowrap;vertical-align:1px}
+border-radius:999px;padding:1px 7px;white-space:nowrap;vertical-align:1px}
 ul.tight{margin:7px 0;padding-left:19px;line-height:1.7}
 .empty{padding:44px;text-align:center;color:var(--faint)}
-.note{border-radius:var(--r1);border-left:3px solid var(--review);
-padding:12px 15px;margin:0 0 16px;font-size:.87rem;color:var(--muted)}
-#more{margin-top:14px;width:100%;padding:13px;color:var(--muted);
-border-radius:999px;font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;
-transition:border-color .16s ease,color .16s ease,transform .16s ease}
-#more:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+.note{background:var(--card);border:1px solid var(--line);border-radius:var(--r1);
+border-left:3px solid var(--review);padding:12px 15px;margin:0 0 16px;
+font-size:.87rem;color:var(--muted);box-shadow:var(--sh1)}
+#more{margin-top:14px;width:100%;padding:12px;background:var(--card);
+color:var(--muted);border:1px solid var(--line);border-radius:var(--r1);
+font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;box-shadow:var(--sh1);
+transition:border-color .14s ease,color .14s ease,background .14s ease}
+#more:hover{border-color:var(--accent);color:var(--accent);background:var(--sunk)}
 .more-note{color:var(--faint);font-size:.81rem;margin:14px 0 0;line-height:1.6;
 max-width:78ch}
 """
