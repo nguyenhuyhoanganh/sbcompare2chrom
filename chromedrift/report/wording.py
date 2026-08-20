@@ -61,37 +61,6 @@ from ..model import (
 
 WEBUI_KINDS = (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE)
 
-# The report's navigation, one entry per thing a reader already recognises.
-#
-# This is a different question from KIND_GROUPS and both are needed. The groups
-# say what a change *means* (behaviour / contract / surface) and label rows;
-# this says where a reader goes to look, and "External contracts" is not a
-# place anyone thinks to look. Six destinations, named after the object rather
-# than the consequence, and every kind lands in exactly one of them.
-TABS = (
-    ("flags", "Feature flags",
-     "Switches that decide what our build actually does.",
-     (KIND_BASE_FEATURE, KIND_FEATURE_PARAM, KIND_BLINK_RUNTIME)),
-    ("webapi", "Web APIs",
-     "The surface live websites call. Removing one breaks pages we do not own.",
-     (KIND_IDL_INTERFACE, KIND_IDL_MEMBER)),
-    ("mojo", "Process calls",
-     "Calls between the browser and renderer processes. A changed signature "
-     "breaks at run time, not at build time.",
-     (KIND_MOJO_INTERFACE, KIND_MOJO_METHOD)),
-    ("prefs", "Settings & switches",
-     "Preference keys and command-line switches: the contract with data "
-     "already on a user's disk and with scripts that launch the browser.",
-     (KIND_PREF, KIND_SWITCH)),
-    ("screens", "chrome:// screens",
-     "What is different on each settings page, split by the page it is on.",
-     WEBUI_KINDS),
-    ("chromeflags", "chrome://flags",
-     "Entries on the flags page, and the milestone each is scheduled for "
-     "removal in.",
-     (KIND_FLAG_ENTRY,)),
-)
-
 # A tag name is the control's type -- that is what makes "a dropdown became a
 # toggle" mechanically visible -- but `settings-dropdown-menu` is jargon in a
 # summary meant to be skimmed.
@@ -396,30 +365,6 @@ class Block:
         return sorted(self.items,
                       key=lambda f: (order.get(f.change.change_type, 3),
                                      -f.score, f.change.key))
-
-
-def split_detail(change) -> Tuple[str, str]:
-    """`describe()`, split into the kind word and everything after it.
-
-    A list of five hundred rows each opening with "feature flag" is five
-    hundred copies of a word the heading above already said -- but dropping it
-    is worse, because a tab holding three kinds then cannot say which of them a
-    row is. Splitting lets the renderer keep the word and set it quietly.
-
-    The word is removed by matching the one `describe` put there, so the two
-    cannot drift; a description that does not start with its kind word (a
-    control reads "toggle — httpsOnly") comes back whole, with no prefix.
-    """
-    text = describe(change)
-    word = KIND_WORDS.get(change.kind, "")
-    if word and text.startswith(word + " "):
-        return word, text[len(word) + 1:]
-    return "", text
-
-
-def detail(change) -> str:
-    """`describe()` minus the kind word a heading already carries."""
-    return split_detail(change)[1]
 
 
 class Screen(Block):

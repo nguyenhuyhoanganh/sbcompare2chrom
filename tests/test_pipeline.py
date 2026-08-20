@@ -3163,11 +3163,11 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
                                           bucket="review")])
         md = md_report.render(report)
         self.assertIn("What changed on each screen", md)
-        html_text = html_report.render(report)
-        # In the page it is a tab of its own, because a page is the unit a UI
-        # team owns and they should not have to scroll past Mojo to reach it.
-        self.assertIn('data-pane="screens"', html_text)
-        for text in (md, html_text):
+        # The page answers the same question per row, in the Where column: a
+        # control that names no page is the row nobody can act on.
+        row = html_report._to_rows(report, "windows")[0]
+        self.assertEqual(row["where"], "settings › privacy_page")
+        for text in (md, html_report.render(report)):
             self.assertIn("settings › privacy_page", text)
             self.assertIn("toggle", text)
 
@@ -3301,9 +3301,9 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         # The markdown groups by consequence and says what the group means.
         self.assertIn("Behaviour switches", md)
         self.assertIn("moves behaviour on its own", md)
-        # The page reaches the same sentence through its own menu.
-        self.assertIn('data-pane="flags"', html_text)
-        self.assertIn("Feature flags", html_text)
+        # The page carries it per row, in the What happened column.
+        self.assertIn("What happened", html_text)
+        self.assertIn("enabled_by_default", html_text)
 
     def test_the_html_says_what_happened_on_every_row(self):
         """The column is only useful if the lookup table holds every key."""
@@ -3366,103 +3366,6 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
                              sum(1 for r in rows if r[field] == value),
                              f"{which}:{value} sends the reader to a different "
                              f"number from the one it prints")
-
-    def test_every_kind_belongs_to_exactly_one_tab(self):
-        """The menu is the only navigation, so a kind outside it is unreachable."""
-        from chromedrift.model import ALL_KINDS
-        from chromedrift.report.wording import TABS
-        in_tabs = [k for _, _, _, kinds in TABS for k in kinds]
-        self.assertEqual(sorted(in_tabs), sorted(ALL_KINDS))
-        self.assertEqual(len(set(in_tabs)), len(in_tabs))
-
-    def test_every_tab_total_agrees_with_the_rows_behind_it(self):
-        """The menu count, the overview row and the pane are one number.
-
-        They come from one pass over the findings for exactly this reason: an
-        earlier version counted the same thing in three loops, and two of them
-        would have drifted the first time somebody edited one.
-        """
-        import json
-        import re
-
-        from chromedrift.model import ALL_KINDS, Finding, Report
-        from chromedrift.report import html as html_report
-        from chromedrift.report.wording import TABS
-
-        findings = [Finding(change=self._change(kind=kind, key=f"{kind}/{j}",
-                                                change_type=direction),
-                            score=20, bucket="fyi")
-                    for i, kind in enumerate(ALL_KINDS)
-                    for j, direction in enumerate(("added", "removed",
-                                                   "modified")[: i % 3 + 1])]
-        text = html_report.render(Report(from_ref="a", to_ref="b",
-                                         findings=findings))
-        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
-                                    text, re.S).group(1))
-
-        menu = dict((t, int(n.replace(",", ""))) for t, n in re.findall(
-            r'<button data-tab="(\w+)">[^<]*<b>([\d,]+)</b>', text))
-        # Overview row: New / Changed / Gone / Total / Flagged.
-        table = dict((t, [int(x.replace(",", "")) for x in cells])
-                     for t, cells in
-                     ((m.group(1), re.findall(r">([\d,]+)</td>", m.group(2)))
-                      for m in re.finditer(
-                          r'class="go" data-tab="(\w+)".*?</button></td>'
-                          r'((?:<td[^>]*>[\d,]+</td>){5})', text, re.S)))
-
-        seen = 0
-        for tab, _title, _meaning, kinds in TABS:
-            expected = [r for r in rows if r["kind"] in kinds]
-            if not expected:
-                self.assertNotIn(tab, menu)
-                continue
-            seen += len(expected)
-            self.assertEqual(menu.get(tab), len(expected), tab)
-            new, changed, gone, total, _flagged = table[tab]
-            self.assertEqual(total, len(expected), tab)
-            self.assertEqual(new + changed + gone, total,
-                             f"{tab}: the three directions must partition it")
-            for count, direction in ((new, "added"), (changed, "modified"),
-                                     (gone, "removed")):
-                self.assertEqual(
-                    count,
-                    sum(1 for r in expected if r["change_type"] == direction),
-                    f"{tab}/{direction}")
-            self.assertIn(f'data-pane="{tab}"', text)
-        self.assertEqual(seen, len(rows), "a finding reached no tab")
-
-    def test_splitting_the_kind_word_off_a_row_loses_nothing(self):
-        """The word is set quietly, not dropped.
-
-        Dropping it would leave a tab holding three kinds unable to say which
-        of them a row is -- `MediaStreamTrackProcessorStats` and
-        `PrefetchRequestStatusListenerAsync` are a web API flag and a feature
-        flag and read identically without it.
-        """
-        from chromedrift.model import ALL_KINDS
-        from chromedrift.report import wording as surfaces
-        for kind in ALL_KINDS:
-            change = self._change(kind=kind, key=f"{kind}/x", name="Thing")
-            word, rest = surfaces.split_detail(change)
-            whole = f"{word} {rest}" if word else rest
-            self.assertEqual(whole, surfaces.describe(change), kind)
-            self.assertEqual(rest, surfaces.detail(change), kind)
-            self.assertTrue(rest, kind)
-
-    def test_a_truncated_pane_says_so_and_says_where_the_rest_is(self):
-        """A list that silently stops is a list claiming to be complete."""
-        from chromedrift.model import Finding
-        from chromedrift.report import html as html_report
-
-        findings = [Finding(change=self._change(key=f"f{i}"), score=i)
-                    for i in range(5)]
-        text = html_report._rows_block(findings, "Head", limit=2)
-        self.assertIn("… and 3 more", text)
-        self.assertIn("All findings", text)
-        # The count in the heading is the real one, not the rendered one.
-        self.assertIn("<span>5</span>", text)
-        # And a list that fits says nothing extra.
-        self.assertNotIn("more", html_report._rows_block(findings, "Head"))
 
     def test_a_long_delta_does_not_take_over_the_table_cell(self):
         """A Mojo signature runs past 400 characters."""

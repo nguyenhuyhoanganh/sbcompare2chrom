@@ -141,7 +141,7 @@ Kết quả trong `out/M148_to_M151/`:
 | File | Kích thước | Dùng khi nào |
 |---|---|---|
 | `report.md` | ~66 KB | Dán vào Jira, Confluence, MR |
-| `report.html` | ~3,0 MB | Mở bằng browser: menu theo đội, lọc và sắp xếp được, tự chứa hoàn toàn |
+| `report.html` | ~1,7 MB | Mở bằng browser, lọc và sắp xếp được, tự chứa hoàn toàn |
 | `report.json` | ~2,4 MB | Script, dashboard, so sánh giữa các kỳ |
 
 `report.html` không tải tài nguyên ngoài nào, nên mở được trong mạng cách ly và gửi kèm mail được.
