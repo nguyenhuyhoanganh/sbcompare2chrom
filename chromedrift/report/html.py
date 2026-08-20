@@ -104,7 +104,7 @@ font-variant-numeric:tabular-nums}
 .card.fyi .n{color:var(--fyi)}
 
 /* -- table --------------------------------------------------------------- */
-.controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;align-items:center}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 12px;align-items:center}
 input[type=search],select{background:var(--card);color:var(--fg);
 border:1px solid var(--line);border-radius:7px;padding:7px 10px;font:inherit;
 font-size:.87rem}
