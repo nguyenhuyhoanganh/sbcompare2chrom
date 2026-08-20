@@ -113,24 +113,35 @@ color:var(--muted)}
 /* -- triage cards -------------------------------------------------------- */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));
 gap:14px}
-.card{position:relative;background:var(--card);border:1px solid var(--line);
+/* The bucket colour is a wash from the top edge and a dot beside the label,
+   not a bar across the top: a 3px bar inside a 14px radius gets eaten by the
+   corner at both ends and reads as a mistake. */
+.card{background:var(--card);border:1px solid var(--line);
 border-radius:var(--r2);padding:17px 18px 16px;box-shadow:var(--sh2);
 display:block;color:inherit;text-align:left;font:inherit;cursor:pointer;
-width:100%;overflow:hidden;
+width:100%;
 transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
-.card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;
-background:var(--line2);opacity:.9}
 .card:hover{transform:translateY(-2px);box-shadow:var(--sh3);
 border-color:var(--line2)}
 .card:active{transform:translateY(0)}
 .card .n{font-size:2.05rem;font-weight:640;line-height:1.05;letter-spacing:-.03em;
 font-variant-numeric:tabular-nums}
-.card .l{font-size:.8rem;font-weight:640;letter-spacing:.005em;margin-top:3px}
-.card .m{color:var(--muted);font-size:.785rem;margin-top:7px;line-height:1.5}
-.card.must::before{background:var(--must)}.card.must .n{color:var(--must)}
-.card.review::before{background:var(--review)}.card.review .n{color:var(--review)}
-.card.opportunity::before{background:var(--opp)}.card.opportunity .n{color:var(--opp)}
-.card.fyi .n{color:var(--fyi)}
+.card .l{font-size:.8rem;font-weight:640;letter-spacing:.005em;margin-top:4px;
+display:flex;align-items:center;gap:7px}
+.card .l::before{content:"";flex:0 0 7px;height:7px;border-radius:50%;
+background:var(--line2)}
+.card .m{color:var(--muted);font-size:.785rem;margin-top:8px;line-height:1.5}
+.card.must{background:linear-gradient(180deg,
+color-mix(in srgb,var(--must) 8%,var(--card)),var(--card) 58%)}
+.card.review{background:linear-gradient(180deg,
+color-mix(in srgb,var(--review) 8%,var(--card)),var(--card) 58%)}
+.card.opportunity{background:linear-gradient(180deg,
+color-mix(in srgb,var(--opp) 8%,var(--card)),var(--card) 58%)}
+.card.must .n{color:var(--must)}.card.must .l::before{background:var(--must)}
+.card.review .n{color:var(--review)}.card.review .l::before{background:var(--review)}
+.card.opportunity .n{color:var(--opp)}
+.card.opportunity .l::before{background:var(--opp)}
+.card.fyi .n{color:var(--fyi)}.card.fyi .l::before{background:var(--fyi)}
 
 /* -- filter row ---------------------------------------------------------- */
 .controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;
