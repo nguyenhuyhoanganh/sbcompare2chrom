@@ -464,11 +464,16 @@ class TestWebUiControls(unittest.TestCase):
                          {"settings-radio-group", "controlled-radio-button"})
 
     def test_a_control_without_an_id_still_keys_on_its_pref(self):
-        """Qualifying by id must not change identity where there is no id."""
+        """Qualifying by id must not change identity where there is no id.
+
+        The declaring file is in the key as well as the directory, because two
+        dialogs in one folder bind the same thing -- so the tail is
+        `<surface>/<directory>/<file>/<ident>`.
+        """
         facts = web_ui.extract(
             '<settings-toggle-button pref="{{prefs.a.b}}">',
             "chrome/browser/resources/settings/x/page.html")
-        self.assertEqual(facts[0].key, "settings/x/pref:a.b")
+        self.assertEqual(facts[0].key, "settings/x/page/pref:a.b")
 
     def test_lit_line_numbers_point_at_the_real_file(self):
         """A line number nobody checks is a line number that quietly drifts.

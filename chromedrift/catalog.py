@@ -238,7 +238,12 @@ def unresolved_references(snapshot) -> Dict[str, List[str]]:
     for fact in snapshot.facts:
         by_kind.setdefault(fact.kind, set()).add(fact.key)
 
-    gates = by_kind.get("webui_gate", set())
+    # A route names the bare loadTimeData key; a gate's own key is qualified
+    # by the handler that sets it, so the closure resolves against the bare
+    # one. Reading the qualified key here would report every guard in the tree
+    # as unresolved.
+    gates = {(f.attrs.get("data_key") or f.name)
+             for f in snapshot.facts if f.kind == "webui_gate"}
     features = by_kind.get("base_feature", set())
     prefs = by_kind.get("pref", set())
     out: Dict[str, Set[str]] = {k: set() for k in _DANGLING_LABEL}

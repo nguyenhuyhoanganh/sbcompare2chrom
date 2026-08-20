@@ -82,7 +82,7 @@ controls and visibility gates.
 The same three extractors read every `chrome://` surface, not only settings.
 Eight are tracked by default — settings, history, downloads, bookmarks,
 extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
-per version. Measured at M151: 108 routes, 788 controls, 668 gates.
+per version. Measured at M151: 108 routes, 884 controls, 764 gates.
 
 Related fragments are grouped into one story by `cluster.py`, using links the
 data declares (a route names its guard, a guard names its features) rather than

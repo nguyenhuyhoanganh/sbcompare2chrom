@@ -82,8 +82,12 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # same ABI change twice, once vaguely and once precisely.
     KIND_MOJO_INTERFACE: ("module",),
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
-    KIND_SWITCH: ("var",),
-    KIND_PREF: ("var",),
+    # "platform_state" is the guard resolved for Windows, not the guard text:
+    # a key entering or leaving our binary is the change, while upstream
+    # tidying `!IS_ANDROID` off one is not. The raw `conditions` stay on the
+    # fact, unread here, because the fork shadow analysis needs the text.
+    KIND_SWITCH: ("var", "platform_state"),
+    KIND_PREF: ("var", "platform_state"),
     KIND_FLAG_ENTRY: ("expiry_milestone",),
     KIND_WEBUI_ROUTE: ("route", "parent", "guards"),
     KIND_WEBUI_CONTROL: ("control", "pref", "label", "build_conditions"),
@@ -180,6 +184,12 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     # but only after the merge, which is exactly what the tool exists to move
     # earlier.
     "feature_symbol_renamed": 60,
+    # The same pair, one level down, for the two kinds whose identity is also a
+    # string. A renamed pref *key* orphans stored user data (70); a renamed C++
+    # constant for that key does not touch the data at all, it breaks our build
+    # after the merge -- the same fifteen-point gap the base::Feature pair uses.
+    "pref_symbol_renamed": 55,
+    "switch_symbol_renamed": 45,
     "declaration_moved": 25,
     "ui_page_removed": 55,
     "ui_page_added": 40,
@@ -194,7 +204,23 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "ui_gate_added": 25,
     "param_default_changed": 40,
     "flag_expiring": 45,
+    # Below the kind's own base severity of 15, so labelling these changes no
+    # ranking. They are the largest single group in a report -- 281 at
+    # M148 -> M151, 300 on an earlier one -- and they are a scheduling change
+    # on a settings page, not a feature change. The point is only that a row
+    # the tool chose to emit should say what moved.
+    "flag_expiry_moved": 10,
     "origin_trial_change": 35,
+    # These attributes were compared and then never explained. A row with a
+    # severity and an empty reason column is worse than no row: the reader has
+    # to open the source to find out what moved. Measured M148 -> M151, 99
+    # modified changes arrived that way.
+    "web_api_exposure_changed": 45,
+    "web_api_shape_changed": 45,
+    "web_api_status_moved": 25,
+    "runtime_flag_rewired": 30,
+    "build_gate_changed": 35,
+    "ui_control_relabelled": 20,
 }
 
 # MODE_UPREV / MODE_FORK / MODES are defined in model.py and re-exported here,
@@ -255,6 +281,12 @@ SIGNAL_LABELS: Dict[str, str] = {
                               "--enable-features stop matching)",
     "feature_symbol_renamed": "C++ identifier renamed (code writing "
                               "features::kOldName no longer compiles)",
+    "pref_symbol_renamed": "Preference key kept, its C++ constant renamed "
+                           "(code writing prefs::kOldName no longer compiles; "
+                           "stored values are safe)",
+    "switch_symbol_renamed": "Switch kept, its C++ constant renamed (code "
+                             "writing switches::kOldName no longer compiles; "
+                             "launch scripts are safe)",
     "declaration_moved": "Declaration moved to another file",
     "ui_page_removed": "Settings/WebUI page removed",
     "ui_page_added": "New Settings/WebUI page",
@@ -272,7 +304,21 @@ SIGNAL_LABELS: Dict[str, str] = {
     "ui_gate_added": "New visibility condition",
     "param_default_changed": "Feature parameter default changed",
     "flag_expiring": "Flag scheduled for removal",
+    "flag_expiry_moved": "Removal date moved further out — scheduling only, "
+                         "no behaviour change",
     "origin_trial_change": "Origin trial wiring changed",
+    "web_api_exposure_changed": "Web API exposure changed — an extended "
+                                "attribute or the runtime flag gating it "
+                                "moved, so who can reach it changed",
+    "web_api_shape_changed": "Web API shape changed — an interface's "
+                             "inheritance or an enum's member list moved",
+    "web_api_status_moved": "Blink flag moved between test and experimental — "
+                            "not yet stable, so users see nothing",
+    "runtime_flag_rewired": "Blink flag rewired — the base::Feature behind it, "
+                            "what it depends on, or its visibility changed",
+    "build_gate_changed": "Build condition changed — this declaration may no "
+                          "longer be in the binary we ship",
+    "ui_control_relabelled": "Control's label changed",
 }
 
 # Fork-mode entries live in their own dicts above so the two vocabularies stay
@@ -465,8 +511,18 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             signals.append("web_api_removed")
         elif change.change_type == ADDED:
             signals.append("web_api_added")
-        elif "signature" in change.deltas or "idl_kind" in change.deltas:
-            signals.append("web_api_signature_change")
+        else:
+            if "signature" in change.deltas or "idl_kind" in change.deltas:
+                signals.append("web_api_signature_change")
+            # `inherits` moves the prototype chain, `values` adds or drops an
+            # enum member -- both change what a site can write, and both were
+            # compared without ever producing a row anyone could read.
+            if "inherits" in change.deltas or "values" in change.deltas:
+                signals.append("web_api_shape_changed")
+            # Extended attributes and [RuntimeEnabled=] decide which contexts
+            # the member exists in and which flag turns it on.
+            if "ext" in change.deltas or "runtime_enabled" in change.deltas:
+                signals.append("web_api_exposure_changed")
     elif kind in (KIND_MOJO_METHOD, KIND_MOJO_INTERFACE):
         if change.change_type == REMOVED:
             signals.append("ipc_removed")
@@ -500,12 +556,29 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             # anything still here is a disappearance we could not explain.
             signals.append("pref_left_scan" if kind == KIND_PREF
                            else "switch_left_scan")
+        elif "platform_state" in change.deltas:
+            # The `#if` chain around the declaration moved it into or out of a
+            # Windows build. Only the resolved verdict is compared, so upstream
+            # tidying a guard that never excluded us is not a row.
+            signals.append("build_gate_changed")
+        elif "var" in change.deltas:
+            # The mirror of pref_renamed: there the string moved and the
+            # identifier held, here the identifier moved and the string held.
+            # `var` has been compared since the identifier audit, but only
+            # base::Feature ever got a label out of it, so these arrived with a
+            # severity and a blank reason. Two real ones at M148 -> M151:
+            # kPreinstalledApps -> kPreinstalledExtensions on `default_apps`.
+            signals.append("pref_symbol_renamed" if kind == KIND_PREF
+                           else "switch_symbol_renamed")
     elif kind == KIND_FLAG_ENTRY:
         if change.change_type in (ADDED, MODIFIED) and new_fact is not None:
             expiry = new_fact.attrs.get("expiry_milestone")
             if (isinstance(expiry, int) and target_milestone
                     and 0 < expiry <= target_milestone + 2):
                 signals.append("flag_expiring")
+        if change.change_type == MODIFIED and "expiry_milestone" in change.deltas \
+                and "flag_expiring" not in signals:
+            signals.append("flag_expiry_moved")
 
     if "path" in change.deltas:
         signals.append("declaration_moved")
@@ -604,6 +677,12 @@ def _webui_control_signals(change: Change) -> List[str]:
         # The control still exists but now writes somewhere else: the old
         # preference is orphaned and the new one starts from its default.
         signals.append("ui_control_repointed")
+    if "build_conditions" in change.deltas:
+        # The GRIT `<if expr>` around it moved, which decides whether the
+        # control is in this platform's binary at all.
+        signals.append("build_gate_changed")
+    if "label" in change.deltas:
+        signals.append("ui_control_relabelled")
     return signals
 
 
@@ -638,10 +717,23 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
         signals.append("web_api_shipped")
     elif new_rank < old_rank and _our_status(old_fact) == "stable":
         signals.append("web_api_unshipped")
+    elif old_rank != new_rank:
+        # A move that neither reaches nor leaves stable: test -> experimental,
+        # or a flag appearing with no status at all. Users see nothing either
+        # way, which is why it scores low -- but it was compared and produced
+        # no row, so the reader could not tell that from an unexplained one.
+        signals.append("web_api_status_moved")
 
     if ("origin_trial_feature_name" in change.deltas
             or "origin_trial_allows_third_party" in change.deltas):
         signals.append("origin_trial_change")
+    # What turns this flag on from inside the binary, and what it drags with
+    # it. `base_feature` going to "none" means the C++ feature that used to
+    # control it is gone.
+    if any(a in change.deltas for a in ("base_feature", "base_feature_status",
+                                        "depends_on", "implied_by", "public",
+                                        "copied_from_base_feature_if")):
+        signals.append("runtime_flag_rewired")
     return signals
 
 

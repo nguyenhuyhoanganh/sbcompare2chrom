@@ -33,7 +33,7 @@ import re
 from typing import Dict, List
 
 from ..model import KIND_WEBUI_CONTROL, Fact
-from ._cpp import line_of
+from ._cpp import PLATFORM, grit_platform_state, line_of
 
 RESOURCES_DIR = "chrome/browser/resources/"
 
@@ -135,6 +135,15 @@ def page_of(rel_path: str) -> str:
     return os.path.splitext(name)[0]
 
 
+def _stem_of(rel_path: str) -> str:
+    """downloads_page.html and downloads_page.html.ts are both downloads_page."""
+    name = rel_path.rsplit("/", 1)[-1]
+    for suffix in (".html.ts", ".html"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name.rsplit(".", 1)[0]
+
+
 def _mask_html_comments(text: str) -> str:
     return _HTML_COMMENT_RE.sub(lambda m: " " * len(m.group(0)), text)
 
@@ -162,6 +171,9 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     facts: List[Fact] = []
     seen: Dict[str, int] = {}
     for m in _TAG_RE.finditer(masked):
+        conditions = [expr for start, end, expr in spans
+                      if start <= m.start() < end]
+        state = grit_platform_state(conditions)
         tag, raw_attrs = m.group(1), m.group(2)
         attrs = dict(_ATTR_RE.findall(raw_attrs))
 
@@ -210,21 +222,34 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             seen[tag] = n + 1
             ident = f"{tag}#{n}"
 
+        # ...and by the declaring file as well as the directory. `page` is the
+        # directory, so two dialogs in one folder collided:
+        # `settings/autofill_page/id:nicknameInput` is declared by both
+        # credit_card_edit_dialog and iban_edit_dialog. 98 of 1,256 keys at
+        # M151 collided that way, swallowing 198 controls. The file stem drops
+        # both extensions, so a Polymer `.html` becoming a Lit `.html.ts` is
+        # the same page and does not churn.
         facts.append(Fact(
             kind=KIND_WEBUI_CONTROL,
-            key=f"{surface}/{page}/{ident}",
+            key=f"{surface}/{page}/{_stem_of(rel_path)}/{ident}",
             name=ident,
             path=rel_path,
             line=line_of(masked, m.start()),
             attrs={
                 "surface": surface,
                 "page": page,
+                "file": _stem_of(rel_path),
                 "control": tag,          # the "dropdown became a toggle" signal
                 "pref": pref,
                 "label": label,
                 "element_id": attrs.get("id", ""),
-                "build_conditions": [expr for start, end, expr in spans
-                                     if start <= m.start() < end],
+                "build_conditions": conditions,
+                # Resolved for the platform we ship, so a control GRIT excludes
+                # from a Windows build can be scored down like a C++
+                # declaration behind `#if BUILDFLAG(IS_CHROMEOS)` already was.
+                # At M151, 14 of 1,256 controls are in that position.
+                **({"platform_state": {PLATFORM: state}}
+                   if state and state != "compiled" else {}),
             },
         ))
     return facts

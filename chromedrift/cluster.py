@@ -83,6 +83,14 @@ def _norm(text: str) -> str:
     return "".join(ch for ch in (text or "").lower() if ch.isalnum())
 
 
+def _data_key(finding: Finding) -> str:
+    """The bare loadTimeData key a gate sets, whatever its own key is."""
+    for attrs in _both_attrs(finding):
+        if attrs.get("data_key"):
+            return str(attrs["data_key"])
+    return finding.change.name or finding.change.key.rsplit("/", 1)[-1]
+
+
 def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     """Return cluster_id -> findings, for clusters of two or more.
 
@@ -93,9 +101,14 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     for f in findings:
         union.add(f.uid)
 
-    # Gates are keyed by the loadTimeData key, which is what a route names.
-    gates = {f.change.key: f for f in findings
-             if f.change.kind == KIND_WEBUI_GATE}
+    # A gate's own key is qualified by its handler, because two handlers set
+    # the same loadTimeData key to different things. A route names only the
+    # bare key, so the join is on that -- and it is one-to-many, since the
+    # route does not say which handler serves it.
+    gates: Dict[str, List[Finding]] = {}
+    for f in findings:
+        if f.change.kind == KIND_WEBUI_GATE:
+            gates.setdefault(_data_key(f), []).append(f)
     # base::Feature findings are keyed by the feature string.
     features = {f.change.key: f for f in findings
                 if f.change.kind == KIND_BASE_FEATURE}
@@ -114,8 +127,7 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
             # route -> its loadTimeData guard, on both sides of the change
             for attrs in _both_attrs(f):
                 for guard in attrs.get("guards") or []:
-                    gate = gates.get(guard)
-                    if gate is not None:
+                    for gate in gates.get(guard, ()):
                         union.union(f.uid, gate.uid)
 
         elif kind == KIND_WEBUI_GATE:

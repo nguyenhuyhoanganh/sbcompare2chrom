@@ -2418,8 +2418,17 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
         "Facts": None,                       # None = total fact count
         "**T\u1ed5ng s\u1ed1 fact**": None,
     }
-    DOCS = ("README.md", "skills/analyzing-chromium-uprevs/SKILL.md")
+    DOCS = ("README.md", "skills/analyzing-chromium-uprevs/SKILL.md",
+            "docs/pipeline.html")
     ROW_RE = re.compile(r"^\s*\|([^|]+)\|([^|]+)\|([^|]+)\|\s*$", re.MULTILINE)
+    # The interactive page states the same counts as chips rather than table
+    # rows, and it went stale in exactly the same way.
+    CHIP_RE = re.compile(r'<span class="chip[^"]*">([^<·]+)·\s*([\d.,]+)</span>')
+    CHIPS = {"base::Feature": "base_feature", "pref": "pref", "switch": "switch",
+             "Mojo method": "mojo_method", "Mojo interface": "mojo_interface",
+             "IDL member": "idl_member", "IDL interface": "idl_interface",
+             "route": "webui_route", "control": "webui_control",
+             "gate": "webui_gate"}
 
     def _root(self):
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -2466,6 +2475,16 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
         for name in self.DOCS:
             with open(os.path.join(self._root(), name), encoding="utf-8") as fh:
                 text = fh.read()
+            for label, value in self.CHIP_RE.findall(text):
+                kind = self.CHIPS.get(label.strip())
+                got = self._number(value)
+                if kind is None or got is None:
+                    continue
+                self.assertEqual(
+                    got, expected("default", kind),
+                    f"{name}: chip {label.strip()!r} says {got}; the default "
+                    f"snapshot says {expected('default', kind)}")
+                checked += 1
             for label, default_cell, wide_cell in self.ROW_RE.findall(text):
                 label = label.strip()
                 if label not in self.ROWS:
@@ -2484,6 +2503,280 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
         self.assertGreaterEqual(checked, 24,
                                 "the tables moved; this test found almost "
                                 "nothing to check")
+
+
+class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
+    """The same tree must give the same facts on every machine.
+
+    `os.walk` sorted filenames and not directories, and when two files declare
+    the same fact the order decided which one survived -- 228 colliding uids in
+    the M151 tree, 68 of them disagreeing on an attribute the diff compares.
+    Filesystem order differs between machines and between the two trees of one
+    comparison, so diffing the M151 tree against itself under two walk orders
+    produced 68 changes describing nothing, the largest a
+    `web_api_signature_change` at severity 50.
+
+    That also made the documented promise false: a released tag's snapshot is
+    supposed to be shareable between jobs and teams because its content never
+    changes.
+    """
+
+    SOURCE = 'inline constexpr char kOne[] = "shared";\n'
+    OTHER = 'inline constexpr char kTwo[] = "shared";\n'
+
+    def _tree(self, tmp):
+        # Two directories declaring the same key with different C++ constants,
+        # which is the real shape: `switch:disabled` has three of them.
+        for name, text in (("zebra", self.SOURCE), ("alpha", self.OTHER)):
+            path = os.path.join(tmp, "components", name)
+            os.makedirs(path, exist_ok=True)
+            with open(os.path.join(path, "pref_names.cc"), "w",
+                      encoding="utf-8") as fh:
+                fh.write(text)
+
+    def _facts(self, tmp, shuffle_seed=None):
+        import random
+
+        from chromedrift.extract import run_on_tree
+        import chromedrift.extract as ex
+
+        real = os.walk
+        if shuffle_seed is not None:
+            random.seed(shuffle_seed)
+
+            def walk(top, *a, **k):
+                for dp, dn, fn in real(top, *a, **k):
+                    random.shuffle(dn)
+                    yield dp, dn, fn
+            ex.os.walk = walk
+        try:
+            facts, _ = run_on_tree(tmp)
+        finally:
+            ex.os.walk = real
+        return [(f.uid, f.path, tuple(sorted(f.attrs.items()))) for f in facts]
+
+    def test_every_walk_order_gives_the_same_facts(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._tree(tmp)
+            baseline = self._facts(tmp)
+            for seed in range(6):
+                self.assertEqual(self._facts(tmp, seed), baseline,
+                                 f"walk order {seed} changed the fact set")
+
+    def test_the_surviving_copy_is_chosen_by_path_not_arrival(self):
+        from chromedrift.model import Fact, dedupe_facts
+
+        low = Fact("pref", "shared", "shared", path="components/alpha/p.cc")
+        high = Fact("pref", "shared", "shared", path="components/zebra/p.cc")
+        for order in ((low, high), (high, low)):
+            kept = dedupe_facts(order)
+            self.assertEqual([f.path for f in kept], ["components/alpha/p.cc"])
+
+    def test_an_earlier_line_in_one_file_wins(self):
+        from chromedrift.model import Fact, dedupe_facts
+
+        first = Fact("switch", "s", "s", path="a.cc", line=10)
+        second = Fact("switch", "s", "s", path="a.cc", line=90)
+        self.assertEqual(dedupe_facts([second, first])[0].line, 10)
+
+
+class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
+    """A guard decides whether a declaration is in the binary we ship.
+
+    Only `base::Feature` recorded one, so the fork shadow analysis could see
+    11% of the surface and none of the preference keys -- the thing the README
+    calls the most expensive to get wrong. Resolving the guard for Windows also
+    gives the scoring stage something to act on: 115 keys at M151 are not in a
+    Windows build at all, and nothing had marked them.
+    """
+
+    def _pref(self, source):
+        from chromedrift.extract import constants
+        return {f.key: f.attrs for f in constants.extract(source, "components/x/pref_names.cc")}
+
+    def test_a_headers_include_guard_is_not_a_build_guard(self):
+        from chromedrift.extract import constants
+        source = ('#ifndef COMPONENTS_X_PREF_NAMES_H_\n'
+                  '#define COMPONENTS_X_PREF_NAMES_H_\n'
+                  'inline constexpr char kA[] = "a.b";\n'
+                  '#endif\n')
+        attrs = {f.key: f.attrs for f in
+                 constants.extract(source, "components/x/pref_names.h")}
+        self.assertNotIn("conditions", attrs["a.b"])
+        self.assertNotIn("platform_state", attrs["a.b"])
+
+    def test_a_platform_guard_is_recorded_and_resolved(self):
+        attrs = self._pref('#if BUILDFLAG(IS_CHROMEOS)\n'
+                           'inline constexpr char kA[] = "a.b";\n#endif\n')
+        self.assertEqual(attrs["a.b"]["conditions"], ["BUILDFLAG(IS_CHROMEOS)"])
+        self.assertEqual(attrs["a.b"]["platform_state"], {"windows": "not_compiled"})
+
+    def test_a_guard_that_keeps_us_records_no_state(self):
+        """Unguarded and "guarded but still ours" must compare as the same."""
+        attrs = self._pref('#if !BUILDFLAG(IS_ANDROID)\n'
+                           'inline constexpr char kA[] = "a.b";\n#endif\n')
+        self.assertNotIn("platform_state", attrs["a.b"])
+
+    def test_a_non_platform_buildflag_is_not_guessed(self):
+        attrs = self._pref('#if BUILDFLAG(ENABLE_PLUGINS)\n'
+                           'inline constexpr char kA[] = "a.b";\n#endif\n')
+        self.assertEqual(attrs["a.b"]["platform_state"], {"windows": "conditional"})
+
+    def test_an_elif_branch_carries_the_branches_above_it(self):
+        from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
+        source = ('#if defined(SBROWSER_X)\nA\n'
+                  '#elif BUILDFLAG(IS_WIN)\nB\n#else\nC\n#endif\n')
+        spans = conditional_spans(source)
+        self.assertEqual(enclosing_conditions(spans, source.index("\nB") + 1),
+                         ["!(defined(SBROWSER_X))", "BUILDFLAG(IS_WIN)"])
+        self.assertEqual(enclosing_conditions(spans, source.index("\nC") + 1),
+                         ["!(defined(SBROWSER_X))", "!(BUILDFLAG(IS_WIN))"])
+
+    def test_a_plain_else_is_unchanged(self):
+        from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
+        source = "#if BUILDFLAG(IS_WIN)\nA\n#else\nB\n#endif\n"
+        self.assertEqual(
+            enclosing_conditions(conditional_spans(source), source.index("\nB") + 1),
+            ["!(BUILDFLAG(IS_WIN))"])
+
+    def test_a_grit_condition_is_read_by_the_same_evaluator(self):
+        from chromedrift.extract._cpp import eval_grit_condition
+        self.assertIs(eval_grit_condition("not is_win"), False)
+        self.assertIs(eval_grit_condition("is_win or is_macosx"), True)
+        self.assertIs(eval_grit_condition("is_macosx or is_linux"), False)
+        self.assertIsNone(eval_grit_condition("_google_chrome"))
+
+    def test_a_control_grit_excludes_is_scored_down(self):
+        from chromedrift.impact import NOT_COMPILED_PENALTY, score_change
+        from chromedrift.model import Change
+        change = Change(change_type="modified", kind="webui_control",
+                        key="k", name="k",
+                        after={"platform_state": {"windows": "not_compiled"}})
+        finding = score_change(change, TouchSet())
+        self.assertTrue(any(str(NOT_COMPILED_PENALTY) in r
+                            for r in finding.reasons), finding.reasons)
+
+
+class TestShadowAnalysisSeesEveryGuard(unittest.TestCase):
+    """A vendor guard is a vendor guard in either dialect.
+
+    `_vendor_guards` read `conditions` only, which `base_features` alone
+    recorded. The `-si` filename marker in the shipped profile points at a
+    settings template, whose guard is a GRIT `<if expr>` under
+    `build_conditions` -- so the one example the documentation gives was the
+    one shape the analysis could not see.
+    """
+
+    def _markers(self):
+        from chromedrift.coverage import VendorMarkers
+        return VendorMarkers.from_profile(
+            {"vendor_markers": {"macros": ["SBROWSER"]}})
+
+    def _guards(self, attrs):
+        from chromedrift.coverage import _vendor_guards
+        from chromedrift.model import Fact
+        return _vendor_guards(Fact("pref", "k", "k", attrs=attrs), self._markers())
+
+    def test_a_cpp_guard_is_found(self):
+        self.assertEqual(self._guards({"conditions": ["defined(SBROWSER_A)"]}),
+                         ["defined(SBROWSER_A)"])
+
+    def test_a_grit_guard_is_found(self):
+        self.assertEqual(self._guards({"build_conditions": ["sbrowser_custom"]}),
+                         ["sbrowser_custom"])
+
+    def test_an_upstream_platform_guard_is_not_ours(self):
+        self.assertEqual(self._guards({"conditions": ["BUILDFLAG(IS_WIN)"],
+                                       "build_conditions": ["is_win"]}), [])
+
+    def test_a_guarded_pref_reads_as_shadowed(self):
+        from chromedrift.coverage import SHADOWED, analyze
+        from chromedrift.model import Fact, Snapshot
+        upstream = Snapshot(ref="up", facts=[Fact("pref", "a.b", "a.b",
+                                                  attrs={"var": "kA"})])
+        fork = Snapshot(ref="fork", facts=[
+            Fact("pref", "a.b", "a.b",
+                 attrs={"var": "kA", "conditions": ["defined(SBROWSER_A)"]})])
+        report = analyze(fork=fork, upstream=upstream, markers=self._markers())
+        self.assertEqual([v.state for v in report.verdicts], [SHADOWED])
+
+
+class TestEveryComparedAttributeIsExplained(unittest.TestCase):
+    """A row with a severity and a blank reason column is unreadable.
+
+    An attribute in `MEANINGFUL_ATTRS` is there because someone decided a
+    change to it carries downstream meaning. If it then moves and the report
+    says nothing about what moved, the reader has to open the source. Measured
+    M148 -> M151, 380 of 709 modified changes arrived that way, including a
+    preference whose C++ constant had been renamed.
+    """
+
+    def _change(self, kind, attr, before, after):
+        from chromedrift.diff import _make_change
+        from chromedrift.model import Fact
+        old = Fact(kind, "k", "k", path="components/x/y.cc", attrs={attr: before})
+        new = Fact(kind, "k", "k", path="components/x/y.cc", attrs={attr: after})
+        return _make_change("modified", old, new, "windows", 151,
+                            {attr: [before, after]})
+
+    CASES = [
+        ("pref", "var", "kOld", "kNew", "pref_symbol_renamed"),
+        ("switch", "var", "kOld", "kNew", "switch_symbol_renamed"),
+        ("pref", "platform_state", None, {"windows": "not_compiled"},
+         "build_gate_changed"),
+        ("idl_member", "ext", {"A": True}, {}, "web_api_exposure_changed"),
+        ("idl_member", "runtime_enabled", "A", "B", "web_api_exposure_changed"),
+        ("idl_interface", "values", ["a"], ["a", "b"], "web_api_shape_changed"),
+        ("idl_interface", "inherits", "", "Base", "web_api_shape_changed"),
+        ("webui_control", "build_conditions", ["is_win"], ["not is_win"],
+         "build_gate_changed"),
+        ("webui_control", "label", "a", "b", "ui_control_relabelled"),
+        ("flag_entry", "expiry_milestone", 150, 160, "flag_expiry_moved"),
+    ]
+
+    def test_each_attribute_produces_its_signal(self):
+        for kind, attr, before, after, expected in self.CASES:
+            change = self._change(kind, attr, before, after)
+            self.assertIn(expected, change.signals, f"{kind}.{attr}")
+
+    def test_a_blink_flag_losing_its_feature_says_so(self):
+        from chromedrift.diff import _make_change
+        from chromedrift.model import Fact
+        old = Fact("blink_runtime_feature", "F", "F", attrs={"base_feature": "F"})
+        new = Fact("blink_runtime_feature", "F", "F", attrs={"base_feature": "none"})
+        change = _make_change("modified", old, new, "windows", 151,
+                              {"base_feature": ["F", "none"]})
+        self.assertIn("runtime_flag_rewired", change.signals)
+
+    def test_labelling_the_expiry_moves_changed_no_ranking(self):
+        """281 of them at M148 -> M151; the floor stays under the base."""
+        from chromedrift.diff import BASE_SEVERITY, SIGNAL_SEVERITY
+        self.assertLess(SIGNAL_SEVERITY["flag_expiry_moved"],
+                        BASE_SEVERITY[("flag_entry", "modified")])
+
+    def test_no_modified_change_in_the_real_range_is_unexplained(self):
+        import glob
+
+        from chromedrift.diff import diff_snapshots
+        from chromedrift.model import SCHEMA_VERSION, Snapshot, read_json
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        snaps = {}
+        for path in glob.glob(os.path.join(root, ".chromedrift-cache",
+                                           "snapshots", "*.default.json")):
+            blob = read_json(path)
+            if blob.get("schema") == SCHEMA_VERSION:
+                snaps[blob["ref"]] = Snapshot.from_dict(blob)
+        if len(snaps) < 2:
+            self.skipTest("needs two current-schema default snapshots")
+        old, new = [snaps[r] for r in sorted(snaps)[:2]]
+        mute = [c for c in diff_snapshots(old, new)
+                if c.change_type == "modified" and not c.signals]
+        self.assertEqual(
+            [(c.kind, sorted(c.deltas)) for c in mute], [],
+            "these attributes are compared and then never explained")
 
 
 class TestNoCoverageNumberIsHardcoded(unittest.TestCase):

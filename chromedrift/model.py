@@ -121,7 +121,35 @@ from typing import Any, Dict, Iterable, List, Optional
 #          `meta.coverage` was tree coverage. It is now
 #          `summary.area_coverage`, and `meta.coverage` in a report means the
 #          same thing it means on a snapshot.
-SCHEMA_VERSION = 19
+#  20: extraction stopped depending on the order the filesystem hands back
+#      directories, and everything the comparison treats as meaningful now
+#      produces a label.
+#        - `os.walk` was sorted for files and not for directories, and when two
+#          files declare the same fact the order decided which survived. 228
+#          uids collide in the M151 tree and 68 disagree on a compared
+#          attribute, so a version 19 snapshot is one of several possible
+#          answers: walking the same tree twice in different orders and diffing
+#          the result against itself produced 68 changes, topped by a
+#          `web_api_signature_change` at severity 50. Dedupe now picks the
+#          lowest (path, line) instead of the first arrival.
+#        - preference and switch declarations record the `#if` chain around
+#          them, resolved for Windows. 115 keys at M151 are not in our binary
+#          at all, and nothing had marked them.
+#        - WebUI controls record their GRIT `<if expr>` resolved the same way.
+#        - a header's own include guard is no longer recorded as a build guard,
+#          and an `#elif` branch carries the negation of the branches above it.
+#        - a WebUI gate is identified by its handler as well as its
+#          loadTimeData key, and a WebUI control by its declaring file as well
+#          as its directory. Neither string was unique: at M151, 62 of 668 gate
+#          keys were set by more than one handler and 98 of 1,256 control keys
+#          declared in more than one file, so 318 declarations were dropped as
+#          duplicates and which survived depended on walk order. This is the
+#          same defect schema 11 fixed for a control's preference, one level
+#          out. Recovering them moves the M151 default set from 24,679 facts to
+#          24,871 and wide from 36,095 to 36,356.
+#        - nine new signals label attributes that were compared and never
+#          explained -- 380 of 709 modified changes at M148 -> M151.
+SCHEMA_VERSION = 20
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -536,15 +564,27 @@ def read_json(path: str) -> Any:
 
 
 def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
-    """Drop duplicate uids, keeping the first occurrence (stable ordering).
+    """Drop duplicate uids, keeping the declaration lowest in path order.
 
-    Chromium declares a handful of features in more than one place (e.g. a
-    feature listed both in a component's own ``*_features.cc`` and re-exported
-    from a public header).  Without this the diff sees phantom modifications
-    whose direction depends on filesystem walk order.
+    Chromium declares the same thing in more than one place far more often than
+    it looks: 228 uids in the M151 tree, and 68 of those disagree on an
+    attribute the diff compares. ``switch:disabled`` is declared by three
+    different C++ constants in three files, none of them the same switch.
+
+    Which copy survives therefore has to be decided by a rule, not by arrival.
+    It used to be "first seen", and first was whatever ``os.walk`` handed back
+    first -- filesystem order, which differs between machines and between the
+    two trees of a single comparison. Diffing the M151 tree against itself under
+    two walk orders produced 68 changes describing nothing, topped by a
+    ``web_api_signature_change`` at severity 50.
+
+    Lowest ``(path, line)`` is arbitrary in the same way "first" was, but it is
+    a property of the tree rather than of the machine reading it, so two runs
+    anywhere agree. The walk is sorted as well, so ordering never reaches here.
     """
-    seen: Dict[str, Fact] = {}
+    best: Dict[str, Fact] = {}
     for f in facts:
-        if f.uid not in seen:
-            seen[f.uid] = f
-    return sorted(seen.values(), key=lambda f: (f.kind, f.key))
+        current = best.get(f.uid)
+        if current is None or (f.path, f.line) < (current.path, current.line):
+            best[f.uid] = f
+    return sorted(best.values(), key=lambda f: (f.kind, f.key))

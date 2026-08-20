@@ -48,6 +48,12 @@ def applies_to(path: str) -> bool:
     return path.startswith(WEBUI_HANDLER_DIR) and path.endswith(".cc")
 
 
+def _handler_of(rel_path: str) -> str:
+    """downloads/downloads_ui.cc -> downloads_ui"""
+    name = rel_path.rsplit("/", 1)[-1]
+    return name[:-3] if name.endswith(".cc") else name
+
+
 def _features_in(expr: str) -> List[str]:
     """Every base::Feature named anywhere in the expression, in order."""
     seen: List[str] = []
@@ -81,13 +87,26 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         # A gate with no feature reference is a runtime/profile condition
         # (guest session, enterprise policy). Still worth recording -- it is
         # a visibility decision -- but it will not join to a flag.
+        # The loadTimeData key alone is not unique: 62 of 668 at M151 are set
+        # by more than one handler, 27 of them to different expressions --
+        # `undoDescription` by both bookmarks_ui.cc and downloads_ui.cc. Keyed
+        # on the string alone, one of each pair was dropped as a duplicate and
+        # which one depended on directory walk order, exactly the defect the
+        # WebUI *control* identity was qualified to fix two schema versions
+        # ago. Qualifying by handler recovers 96 declarations for 5 extra
+        # removals where a handler file was renamed.
+        #
+        # `data_key` keeps the bare string, because that is what a route names
+        # and what the reference closure resolves against.
         facts.append(Fact(
             kind=KIND_WEBUI_GATE,
-            key=key,
+            key=f"{_handler_of(rel_path)}/{key}",
             name=key,
             path=rel_path,
             line=line_of(masked, m.start()),
             attrs={
+                "data_key": key,
+                "handler": _handler_of(rel_path),
                 "value_type": m.group(1).lower(),
                 "expression": expr[:400],
                 "features": features,

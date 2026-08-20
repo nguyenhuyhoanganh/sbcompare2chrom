@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (8.680 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.045 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -290,6 +290,8 @@ Loại điều khiển nằm thẳng trong tên thẻ — `settings-toggle-butto
 
 Chromium đang chuyển WebUI từ Polymer (`.html`) sang Lit (`.html.ts`), và chuyển không đều: ở M151, settings còn 243 file Polymer và 6 file Lit, còn extensions thì 2 và 33, print_preview 2 và 32. Bộ đọc hiểu cả hai dialect.
 
+**Danh tính phải đủ để phân biệt.** Một loadTimeData key không phải là duy nhất: ở M151, 62 trong 668 key được đặt bởi nhiều hơn một handler — `undoDescription` do cả `bookmarks_ui.cc` lẫn `downloads_ui.cc` — và 27 trong số đó đặt giá trị khác nhau. Điều khiển cũng vậy: 98 trong 1.256 key trùng nhau giữa các file cùng thư mục, như `id:nicknameInput` có ở cả `credit_card_edit_dialog` lẫn `iban_edit_dialog`. Trùng key thì một bản bị bỏ, và bản nào sống sót lại tuỳ thứ tự duyệt thư mục. Nên gate mang thêm tên handler, control mang thêm tên file: lấy lại 318 khai báo từng bị vứt. Route vẫn nối tới gate bằng key trần, nên chuỗi ba chặng không đổi.
+
 ### Vì sao phải đọc điều kiện tiền xử lý
 
 Chromium hay viết mặc định của một tính năng khác nhau theo hệ điều hành:
@@ -326,6 +328,8 @@ eval_condition("BUILDFLAG(IS_ANDROID)")      # False  — chắc chắn không p
 eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — không đoán
 ```
 
+Điều kiện build được giải cho Windows ở mọi nơi nó xuất hiện, không chỉ trong macro khai báo feature: `#if` bọc quanh một hằng pref hay switch (115 khoá ở M151 không nằm trong bản build Windows), và `<if expr="...">` của GRIT bọc quanh một điều khiển WebUI (14 điều khiển). Cùng một bộ đánh giá ba trạng thái, hai cú pháp — `not is_win` và `!BUILDFLAG(IS_WIN)` hỏi cùng một câu.
+
 Cây mã của các nền tảng khác (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) bị bỏ qua, **trừ một ngoại lệ**: hằng chuỗi vẫn được đọc ở mọi nơi. Lý do là một khoá pref được định danh bằng chuỗi của nó, và Chromium đang tách nhỏ `chrome/common/pref_names.h`. Khi một khoá chuyển sang file ChromeOS mà ta không nhìn thấy đích đến, công cụ sẽ báo là bị xoá — mà pref bị xoá nghĩa là giá trị đã lưu của mọi người dùng thành mồ côi. Đo M148 → M151: trong 141 khoá biến mất, 100 khoá chỉ đơn giản là đã chuyển sang đó.
 
 ### So sánh theo ý nghĩa, không theo văn bản
@@ -348,6 +352,8 @@ Rồi nó gắn **nhãn ý nghĩa** cho từng thay đổi — đây là thứ b
 | `feature_string_renamed` | Không, nhưng… | Tên Finch đổi — cấu hình phía server ngừng khớp trong im lặng |
 | `feature_symbol_renamed` | Không, nhưng… | Định danh C++ đổi — build của ta vỡ sau khi merge |
 | `pref_renamed` | Không, nhưng… | Khoá thiết lập đổi — giá trị đã lưu của mọi người dùng thành mồ côi |
+
+Mọi thuộc tính được đem ra so đều sinh được một nhãn như vậy. Đó là quy tắc chứ không phải mong muốn: một thuộc tính nằm trong danh sách trắng vì ai đó đã quyết định nó có nghĩa, nên nếu nó đổi mà báo cáo không nói gì thì dòng ấy không đọc được. Đo M148 → M151, **380 trong 709 thay đổi loại "modified" từng đến theo cách đó**; giờ có test chặn.
 
 Bốn nhãn cuối là loại nguy hiểm nhất: **biên dịch sạch, test xanh, và hỏng ngoài thực địa** — hoặc vỡ build ngay sau khi merge, đúng lúc muộn nhất.
 
@@ -403,8 +409,8 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 | Switch | 288 | 1.111 |
 | Mojo interface | 338 | 1.455 |
 | Mojo method | 1.362 | 5.738 |
-| Điều khiển WebUI | 788 | 1.256 |
-| **Tổng số fact** | **24.679** | **36.095** |
+| Điều khiển WebUI | 884 | 1.421 |
+| **Tổng số fact** | **24.871** | **36.356** |
 
 Tức là `default` đọc 4% số file nhưng hơn một nửa số khai báo `base::Feature`. Đó là một đánh đổi có chủ ý, không phải một khiếm khuyết — nhưng khi câu trả lời thực sự quan trọng thì chạy `wide`.
 
@@ -893,7 +899,7 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**229 bài kiểm thử, chạy trong ~0,5 giây, không cần mạng.**
+**248 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -906,6 +912,9 @@ Một số test không kiểm hành vi mà kiểm **tính nhất quán nội b�
 - Mọi quy ước tên mà phép đo độ phủ đếm thì phải có bộ đọc nhận, và ngược lại.
 - Mọi quy ước tên mà bộ đọc nhận thì phải nằm trong bộ lọc tải về — nếu không, file nằm trên đĩa mà không ai mở, nhìn y hệt như file không tồn tại.
 - Mỗi số đo phải có tên riêng: "độ phủ cây nguồn" và "độ phủ theo vùng" là hai thứ khác nhau.
+- Cùng một cây nguồn phải cho cùng một tập fact, bất kể hệ thống tệp trả về thư mục theo thứ tự nào.
+- Mọi thuộc tính được đem ra so thì phải sinh được một nhãn giải thích; một dòng có điểm số mà cột "vì sao" trống thì không đọc được.
+- Mọi con số đo được mà tài liệu ghi ra phải khớp với snapshot trên đĩa.
 - Không lệnh nào được nhận một cờ rồi bỏ qua nó.
 - Không chuỗi hiển thị nào được ghi cứng một con số độ phủ — mỗi lần chạy tự đo và tự in.
 
@@ -929,16 +938,16 @@ chromedrift/
   acquire.py      535 dòng   tải nguồn qua Gitiles hoặc từ checkout local
   targets.py      611        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
   snapshot.py     186        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/      2.013        9 bộ đọc + tiện ích quét C++
-  diff.py         797        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
-  cluster.py      202        gom mảnh vụn thành một câu chuyện
+  extract/      2.215        9 bộ đọc + tiện ích quét C++
+  diff.py         889        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
+  cluster.py      214        gom mảnh vụn thành một câu chuyện
   sbprofile.py    474        tập chạm của fork + định nghĩa vùng
   impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
-  catalog.py      357        đo target set thiếu gì; kiểm bao đóng tham chiếu
+  catalog.py      362        đo target set thiếu gì; kiểm bao đóng tham chiếu
   discover.py     294        tìm file của vendor trong cây fork
   provenance.py   207        tách quyết định cố ý khỏi nợ merge
-  coverage.py     235        tìm chỗ fork che upstream bằng cờ build
-  model.py        550        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
+  coverage.py     249        tìm chỗ fork che upstream bằng cờ build
+  model.py        590        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
   report/         740        markdown + bảng điều khiển HTML tự chứa
   enrich/         175        ngữ cảnh từ chromestatus

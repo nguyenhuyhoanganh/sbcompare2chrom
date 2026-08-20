@@ -159,11 +159,25 @@ class CoverageReport:
         }
 
 
+# Where a build guard is recorded, per fact kind. C++ declarations carry
+# `conditions` from the `#if` chain around them; a WebUI control carries
+# `build_conditions` from the GRIT `<if expr>` around it. Both are the same
+# thing -- the flag that decides whether this declaration is the one that
+# ships -- and reading only the first meant the analysis could see 11% of the
+# surface and none of the settings templates, which is where a fork of this
+# shape puts its `-si` variants.
+GUARD_ATTRS = ("conditions", "build_conditions")
+
+
 def _vendor_guards(fact: Fact, markers: VendorMarkers) -> List[str]:
-    conditions = fact.attrs.get("conditions") or []
-    if not isinstance(conditions, list):
-        return []
-    return [c for c in conditions if markers.guard_is_ours(str(c))]
+    out: List[str] = []
+    for attr in GUARD_ATTRS:
+        conditions = fact.attrs.get(attr) or []
+        if not isinstance(conditions, list):
+            continue
+        out += [c for c in conditions
+                if markers.guard_is_ours(str(c)) and c not in out]
+    return out
 
 
 def analyze(fork: Snapshot, upstream: Snapshot,

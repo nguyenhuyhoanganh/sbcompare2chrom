@@ -70,6 +70,8 @@ discover late, because nothing warns you.
 | `feature_symbol_renamed` | The mirror image: the C++ identifier changed while the feature string held. Code writing `features::kOldName` stops compiling. Loud rather than silent, but only after the merge — which is the point of seeing it now |
 | `pref_renamed` | A preference key changed. Every existing user's stored value is orphaned and the setting quietly resets |
 | `switch_renamed` | Command-line switch renamed. Launch scripts and automation stop taking effect |
+| `pref_symbol_renamed` | The key held; its C++ constant was renamed. Stored values are safe, but code writing `prefs::kOldName` stops compiling after the merge |
+| `switch_symbol_renamed` | Same for a switch: launch scripts keep working, our build does not |
 | `origin_trial_change` | Origin trial wiring changed |
 
 Always check these against things the tool cannot see: Finch configs, launch
@@ -108,6 +110,20 @@ either outcome until you have looked.
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
 | `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |
+| `flag_expiry_moved` | The removal date moved further out. Scheduling on a settings page, not a feature change — the largest single group in most reports |
+| `build_gate_changed` | The `#if` or GRIT `<if>` around a declaration moved, so it may no longer be in the binary we ship |
+| `web_api_exposure_changed` | An IDL extended attribute or the `[RuntimeEnabled]` flag gating a member moved: who can reach the API changed |
+| `web_api_shape_changed` | An interface's inheritance or an enum's member list moved |
+| `web_api_status_moved` | A Blink flag moved between `test` and `experimental`. Never reached stable, so users see nothing |
+| `runtime_flag_rewired` | The `base::Feature` behind a Blink flag, what it depends on, or its visibility changed. `base_feature: none` means the C++ flag that controlled it is gone |
+| `ui_control_relabelled` | A control's label changed |
+
+Everything the comparison treats as meaningful produces one of these rows. That
+is a rule, not an aspiration: an attribute in `MEANINGFUL_ATTRS` was put there
+because someone decided it carries downstream meaning, so a change to it that
+arrives with a severity and a blank reason column is unreadable — the reader has
+to open the source to find out what moved. Measured M148 → M151, **380 of 709
+modified changes used to arrive that way**; a test now asserts none do.
 
 ## Fork-comparison signals (`--mode fork`)
 

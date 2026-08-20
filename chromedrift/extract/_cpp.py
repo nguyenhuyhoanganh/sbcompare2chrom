@@ -49,6 +49,80 @@ OTHER_PLATFORM_MACROS = {
 ALL_PLATFORM_MACROS = set().union(*PLATFORM_FLAGS.values()) | OTHER_PLATFORM_MACROS
 
 
+# GRIT, the resource pipeline behind every WebUI template, spells its build
+# conditions in Python rather than C++: `<if expr="not is_win">`. The operators
+# and platform names differ but the question is identical -- does this ship on
+# Windows -- so it is answered by the same three-valued evaluator rather than a
+# second one that could disagree with it.
+_GRIT_PLATFORM = {
+    "is_win": "IS_WIN", "is_macosx": "IS_MAC", "is_linux": "IS_LINUX",
+    "is_chromeos": "IS_CHROMEOS", "is_android": "IS_ANDROID", "is_ios": "IS_IOS",
+    # Windows is not POSIX, and nothing else in this table implies it.
+    "is_posix": "IS_LINUX",
+}
+_GRIT_WORD_RE = re.compile(r"\b(not|and|or|[A-Za-z_]\w*)\b")
+
+
+def eval_grit_condition(expr: str, platform: str = PLATFORM) -> Optional[bool]:
+    """Evaluate a GRIT `<if expr>` for our platform. None = undecidable.
+
+    Anything that is not a platform name -- `_google_chrome` and other branding
+    or build switches -- stays undecidable, exactly as a non-platform BUILDFLAG
+    does in C++. Guessing there would be the same mistake in a new place.
+    """
+    def rewrite(m: "re.Match") -> str:
+        word = m.group(1)
+        if word == "not":
+            return "!"
+        if word == "and":
+            return "&&"
+        if word == "or":
+            return "||"
+        if word in _GRIT_PLATFORM:
+            return f"BUILDFLAG({_GRIT_PLATFORM[word]})"
+        return word
+    return eval_condition(_GRIT_WORD_RE.sub(rewrite, expr), platform)
+
+
+def guard_platform_state(conditions: List[str], evaluate,
+                         platform: str = PLATFORM) -> Optional[str]:
+    """"not_compiled" / "compiled" / "conditional" for a set of guards.
+
+    One definition, two dialects: `#if BUILDFLAG(IS_CHROMEOS)` in C++ and
+    `<if expr="is_chromeos">` in a GRIT template ask the same question, and the
+    answer decides the same thing -- whether the declaration is in the binary we
+    ship. Guards are ANDed: any one of them false takes it out.
+    """
+    if not conditions:
+        return None
+    verdict: Optional[bool] = True
+    for expr in conditions:
+        value = evaluate(expr, platform)
+        if value is False:
+            return "not_compiled"
+        if value is None:
+            verdict = None
+    return "compiled" if verdict is True else "conditional"
+
+
+def cpp_platform_state(conditions: List[str],
+                       platform: str = PLATFORM) -> Optional[str]:
+    """Whether a C++ `#if` chain puts this declaration in our binary."""
+    return guard_platform_state(conditions, eval_condition, platform)
+
+
+def grit_platform_state(conditions: List[str],
+                        platform: str = PLATFORM) -> Optional[str]:
+    """"not_compiled" / "compiled" / "conditional" for a set of GRIT guards.
+
+    A control behind `<if expr="is_chromeos">` is not in our binary, so a change
+    to it is not a change to our product. Nothing scored those down before,
+    because the penalty reads `platform_state` and only C++ declarations
+    carried one.
+    """
+    return guard_platform_state(conditions, eval_grit_condition, platform)
+
+
 def mask_comments(text: str) -> str:
     """Blank out comments while preserving length, offsets and line numbers.
 
@@ -306,6 +380,32 @@ def eval_condition(expr: str, platform: str = PLATFORM) -> Optional[bool]:
 _MACRO_RE = re.compile(r"\b(?:BUILDFLAG|defined)\s*\(\s*(\w+)\s*\)|\b([A-Z][A-Z0-9_]{2,})\b")
 
 
+_IFNDEF_RE = re.compile(r"^\s*#\s*ifndef\s+(\w+)\s*$")
+_DEFINE_RE = re.compile(r"^\s*#\s*define\s+(\w+)\b")
+
+
+def _include_guard_lines(lines: List[str]) -> set:
+    """Line numbers of `#ifndef X` that open an include guard, not a condition.
+
+    The idiom is exact and unambiguous -- `#ifndef X` immediately followed by
+    `#define X` -- so recognising it needs no filename heuristic and no guess
+    about where the block ends.
+    """
+    out = set()
+    for i, line in enumerate(lines):
+        m = _IFNDEF_RE.match(line)
+        if not m:
+            continue
+        for follower in lines[i + 1:i + 4]:
+            if not follower.strip():
+                continue
+            d = _DEFINE_RE.match(follower)
+            if d and d.group(1) == m.group(1):
+                out.add(i)
+            break
+    return out
+
+
 def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
     """``(start, end, expression)`` for every ``#if`` block in a file.
 
@@ -314,33 +414,57 @@ def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
     offset", not "what conditions appear in this snippet".
     """
     spans: List[Tuple[int, int, str]] = []
-    stack: List[Tuple[int, str]] = []
+    # Per open level: [start offset, conditions holding in this branch,
+    #                  every branch expression seen at this level so far]
+    stack: List[list] = []
     offset = 0
-    for raw_line in text.splitlines(keepends=True):
+    lines = text.splitlines(keepends=True)
+    guard_lines = _include_guard_lines(lines)
+
+    def close(level: list, end: int) -> None:
+        start, holding, _ = level
+        for expr in holding:
+            spans.append((start, end, expr))
+
+    for number, raw_line in enumerate(lines):
         m = _DIRECTIVE_RE.match(raw_line)
         if m:
             directive, rest = m.group(1), m.group(2).strip()
             if directive in ("if", "ifdef", "ifndef"):
+                if number in guard_lines:
+                    # A header's own include guard wraps the entire file, so
+                    # every declaration in every header would carry it -- 2,019
+                    # of 3,568 preference and switch keys at M151, none of them
+                    # a build condition. It is structure, not a guard.
+                    stack.append([offset + len(raw_line), [], []])
+                    offset += len(raw_line)
+                    continue
                 expr = rest
                 if directive == "ifdef":
                     expr = f"defined({rest})"
                 elif directive == "ifndef":
                     expr = f"!defined({rest})"
-                stack.append((offset + len(raw_line), expr))
+                stack.append([offset + len(raw_line), [expr], [expr]])
             elif directive in ("elif", "else"):
                 if stack:
-                    start, expr = stack.pop()
-                    spans.append((start, offset, expr))
-                    new_expr = rest if directive == "elif" else f"!({expr})"
-                    stack.append((offset + len(raw_line), new_expr))
+                    close(stack[-1], offset)
+                    seen = stack[-1][2]
+                    # Reaching a later branch means every earlier one was
+                    # false, and those conditions are part of this branch's
+                    # guard. Dropping them lost the vendor macro in
+                    # `#if defined(SBROWSER_X) / #elif ...`, which is the one
+                    # shape the shadow analysis exists to find.
+                    holding = [f"!({e})" for e in seen]
+                    if directive == "elif":
+                        holding = holding + [rest]
+                        seen = seen + [rest]
+                    stack[-1] = [offset + len(raw_line), holding, seen]
             elif directive == "endif":
                 if stack:
-                    start, expr = stack.pop()
-                    spans.append((start, offset, expr))
+                    close(stack.pop(), offset)
         offset += len(raw_line)
     while stack:  # unterminated #if: treat as running to end of file
-        start, expr = stack.pop()
-        spans.append((start, len(text), expr))
+        close(stack.pop(), len(text))
     return spans
 
 

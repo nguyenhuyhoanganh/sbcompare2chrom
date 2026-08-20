@@ -130,8 +130,15 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
     errors = 0
 
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames
-                       if d not in (".git", "__pycache__", ".chromedrift")]
+        # Sorted, like the filenames below already were. os.walk hands back
+        # directories in filesystem order, which differs between machines and
+        # between the two trees of one comparison -- and when two files declare
+        # the same fact, the order decides which one is kept. Measured on the
+        # M151 tree: walking it twice in different orders and diffing the result
+        # against itself produced 68 changes out of nothing, the largest a
+        # `web_api_signature_change` at severity 50.
+        dirnames[:] = sorted(d for d in dirnames
+                             if d not in (".git", "__pycache__", ".chromedrift"))
         for filename in sorted(filenames):
             abs_path = os.path.join(dirpath, filename)
             rel_path = os.path.relpath(abs_path, root).replace(os.sep, "/")
