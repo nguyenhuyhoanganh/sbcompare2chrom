@@ -1166,6 +1166,30 @@ class TestCompletePartitions(unittest.TestCase):
             missing = set(READABLE_SUFFIXES) - set(target.include or ())
             self.assertFalse(missing, f"{target.path} filters out {missing}")
 
+    def test_the_gate_root_is_the_extractors_own(self):
+        """One directory, three places that used to spell it out.
+
+        `webui_gates.applies_to` claims every .cc under its handler directory --
+        a rule, not a naming convention -- so the fetch side has to name the
+        same directory in two places: the default set's tree target and the
+        `--complete` filter. All three were string literals. Chromium moves its
+        WebUI directories, and two of the three would have moved with it while
+        the third went quiet: the fetch would keep working and the extractor
+        would stop matching, or the reverse.
+        """
+        from chromedrift.extract.webui_gates import WEBUI_HANDLER_DIR, applies_to
+        from chromedrift.targets import GATE_ROOT, get_targets, reaches, scope_of
+
+        self.assertEqual(GATE_ROOT, WEBUI_HANDLER_DIR.rstrip("/"))
+        probe = WEBUI_HANDLER_DIR + "settings/settings_ui.cc"
+        self.assertTrue(applies_to(probe))
+        for args in (("default", None, False), ("wide", None, False),
+                     ("default", ["settings"], False),
+                     ("default", ["settings"], True)):
+            files, trees = scope_of(get_targets(*args))
+            self.assertTrue(reaches(probe, files, trees),
+                            f"{args} does not fetch what the gate extractor reads")
+
     def test_complete_fetches_the_pref_files_the_extractor_reads(self):
         """The concrete files the second list was dropping, at M151."""
         from chromedrift.targets import get_targets, reaches, scope_of

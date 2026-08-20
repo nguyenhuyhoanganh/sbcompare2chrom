@@ -15,6 +15,7 @@ import re
 from typing import Dict, List, Optional, Sequence
 
 from .acquire import FetchTarget
+from .extract.webui_gates import WEBUI_HANDLER_DIR
 
 # Suffix filters keep the extracted tree small: the blink core tarball is
 # ~15 MB compressed but we only care about .idl / .json5 / feature sources.
@@ -333,7 +334,7 @@ def default_targets() -> List[FetchTarget]:
         # -- The C++ side of those pages: where each loadTimeData key that
         #    guards a page gets its value, usually from a base::Feature.
         #    This is the middle hop between a page and the flag behind it.
-        FetchTarget("chrome/browser/ui/webui", "tree", (".cc",),
+        FetchTarget(GATE_ROOT, "tree", (".cc",),
                     note="WebUI handlers: loadTimeData -> feature"),
     ]
 
@@ -393,6 +394,14 @@ _WIDE_ROOTS = (
 # the tree's 1,424 .mojom files and 124 of its 132 WebUI surfaces stayed unread
 # was that their suffixes were missing here. Widening it costs no bandwidth at
 # all.
+# The one root whose rule is "every .cc" rather than a filename convention.
+# Taken from the extractor that makes that claim, because the same directory
+# was written out three times -- the extractor's rule, the default set's fetch
+# target, and the --complete filter -- with nothing binding them. Chromium
+# moves its WebUI directories; two of the three would move and the third would
+# go quiet.
+GATE_ROOT = WEBUI_HANDLER_DIR.rstrip("/")
+
 READABLE_SUFFIXES = (
     # base_features: base::Feature, FeatureParam, command-line switches.
     # Bare and prefixed spellings both occur -- `switches.cc` as well as
@@ -537,10 +546,10 @@ PARTITIONS = {
 # What a complete fetch must include is the same question as what the tool can
 # read, so it is answered once, by READABLE_SUFFIXES above.
 #
-# WebUI gates are the exception: `webui_gates.applies_to` claims every .cc under
-# chrome/browser/ui/webui/, not a naming convention, so closing that root needs
-# the suffix rather than the convention.
-_GATE_ROOT = "chrome/browser/ui/webui"
+# WebUI gates are the exception: `webui_gates.applies_to` claims every .cc
+# under its handler directory, not a naming convention, so closing that root
+# needs the suffix rather than the convention. The directory comes from the
+# extractor -- see GATE_ROOT beside READABLE_SUFFIXES.
 
 # Partitions whose roots are small enough to fetch whole. The rest keep their
 # curated targets; `--complete` on them is refused rather than silently ignored.
@@ -570,7 +579,7 @@ def complete_targets(partitions: Sequence[str]) -> List[FetchTarget]:
                 targets.append(FetchTarget(root, "file", note=partition))
                 continue
             include = READABLE_SUFFIXES
-            if root == _GATE_ROOT or root.startswith(_GATE_ROOT + "/"):
+            if root == GATE_ROOT or root.startswith(GATE_ROOT + "/"):
                 include = READABLE_SUFFIXES + (".cc",)
             targets.append(FetchTarget(root, "tree", include,
                                        note=f"{partition}: complete"))
