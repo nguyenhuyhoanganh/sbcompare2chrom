@@ -1,4 +1,4 @@
-SYNTHETIC DEMO DATA -- not a real Samsung Internet patch.
+SYNTHETIC DEMO DATA -- not a real vendor patch.
 
 Exists so `chromedrift run` produces a meaningful Must-fix bucket out of the
 box. It references Chromium symbols that genuinely changed between M139 and
@@ -15,10 +15,10 @@ index 1111111..2222222 100644
               "ServiceWorkerAutoPreload",
               base::FEATURE_DISABLED_BY_DEFAULT);
 
-+// SBROWSER: preload competes with our own prefetch scheduler on low-memory
++// ACME: preload competes with our own prefetch scheduler on low-memory
 +// devices. Keep it off until the scheduler is unified.
-+const base::FeatureParam<bool> kServiceWorkerAutoPreloadSbrowserOptOut{
-+    &kServiceWorkerAutoPreload, "sbrowser_opt_out", true};
++const base::FeatureParam<bool> kServiceWorkerAutoPreloadAcmeOptOut{
++    &kServiceWorkerAutoPreload, "acme_opt_out", true};
 +
  // Enables the browser to background-update service worker registrations.
  BASE_FEATURE(kServiceWorkerBackgroundUpdateForRegisteredStorageKey,

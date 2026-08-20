@@ -25,7 +25,7 @@ from .model import (
     Change,
     Finding,
 )
-from .sbprofile import TouchSet, change_tokens
+from .downstream import TouchSet, change_tokens
 
 # Signals that mean "someone has to do something", regardless of score, once
 # there is any downstream evidence attached.

@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (10.180 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là một trình duyệt nền Chromium bản desktop trên Windows. Toàn bộ là Python thuần (10.180 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -115,7 +115,7 @@ network
 ready
 ```
 
-Thoát code `0` là sẵn sàng, `1` là có dòng FAIL cần xử lý — dùng được trong CI làm bước tiền kiểm. Thêm `--profile config/sb-profile.json5` để kiểm luôn hồ sơ downstream.
+Thoát code `0` là sẵn sàng, `1` là có dòng FAIL cần xử lý — dùng được trong CI làm bước tiền kiểm. Thêm `--profile config/profile.json5` để kiểm luôn hồ sơ downstream.
 
 ### Chạy thử đường ống (~10 giây)
 
@@ -130,7 +130,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --profile config/sb-profile.json5 \
+  --profile config/profile.json5 \
   --out out/M148_to_M151
 ```
 
@@ -208,7 +208,7 @@ Nếu công tắc 'enableLocalNetworkAccessSplitPermissions' bật:
 
 **Kết luận thật:** trang không bị bỏ, nó được **thay** bằng bản tách quyền. Vì công tắc đã bật sẵn từ M148, người dùng M148 đã nhìn thấy bản mới rồi. Giữa hai mốc, trải nghiệm không đổi; M151 chỉ dọn code.
 
-Việc cần làm khi nâng lên M151 không phải "khôi phục tính năng bị mất", mà chỉ là: nếu code Samsung có chỗ nào trỏ tới `/localNetworkAccess` cũ thì sửa thành `/localNetwork`. Một việc nhỏ, hoàn toàn khác với cái mà diff thô làm bạn tưởng.
+Việc cần làm khi nâng lên M151 không phải "khôi phục tính năng bị mất", mà chỉ là: nếu code của fork có chỗ nào trỏ tới `/localNetworkAccess` cũ thì sửa thành `/localNetwork`. Một việc nhỏ, hoàn toàn khác với cái mà diff thô làm bạn tưởng.
 
 ### Quy mô
 
@@ -484,7 +484,7 @@ Mỗi lệnh chỉ nhận những tuỳ chọn nó thật sự dùng. `catalog` 
 
 ### Ba lệnh dành cho fork
 
-`discover` đi bộ qua một checkout fork và tìm file của vendor bằng tên: thư mục mang tên vendor (`samsung/`, `sbrowser/`) và hậu tố tên file đánh dấu biến thể của một file upstream (`privacy_page-si.html`). Cái thứ hai quan trọng hơn vẻ ngoài của nó, vì nó nằm *bên trong* thư mục của Chromium nên không tiền tố đường dẫn nào tìm ra.
+`discover` đi bộ qua một checkout fork và tìm file của vendor bằng tên: thư mục mang tên vendor (`acme/`) và hậu tố tên file đánh dấu biến thể của một file upstream (`privacy_page-acme.html`). Không có giá trị mặc định nào: công cụ không mang sẵn từ vựng của vendor nào, nên phải truyền `--token` và/hoặc `--suffix` — đoán bừa thì không lỗi, chỉ bịa ra kết quả. Cái thứ hai quan trọng hơn vẻ ngoài của nó, vì nó nằm *bên trong* thư mục của Chromium nên không tiền tố đường dẫn nào tìm ra.
 
 Kết quả chia làm hai, và tách hai loại này ra là điểm mấu chốt:
 
@@ -494,7 +494,7 @@ Kết quả chia làm hai, và tách hai loại này ra là điểm mấu chốt
 `coverage.py` trả lời một câu hỏi khác mà một fork dạng merge luôn gặp. Fork loại này không ghi đè code Chromium — nó merge nguyên bản mới vào, giữ bản của mình bên cạnh, và chọn giữa hai bằng cờ build:
 
 ```cpp
-#if defined(SBROWSER_CUSTOM_DOWNLOADS)
+#if defined(ACME_CUSTOM_DOWNLOADS)
   ... bản của vendor, đây mới là bản chạy thật ...
 #else
   ... bản của Chromium, nguyên vẹn từ lần merge ...
@@ -512,7 +512,7 @@ Tên cờ không đoán được, nên hồ sơ phải khai — xem `vendor_mark
 Đây là việc duy nhất bắt buộc phải làm nghiêm túc. Chất lượng cột **Must fix** tỉ lệ thuận trực tiếp với file này. Không có nó, công cụ chỉ biết "Chromium đổi gì", không biết "đổi đó có đụng tới ta không".
 
 ```bash
-cp config/sb-profile.example.json5 config/sb-profile.json5
+cp config/profile.example.json5 config/profile.json5
 ```
 
 ### Bốn nguồn bằng chứng, kết hợp được
@@ -520,7 +520,7 @@ cp config/sb-profile.example.json5 config/sb-profile.json5
 **A — thư mục patch** (phổ biến nhất với vendor fork):
 
 ```json5
-{ patch_dirs: ["/work/sbrowser/patches"] }
+{ patch_dirs: ["/work/fork/patches"] }
 ```
 
 Đọc mọi `.patch`/`.diff`, lấy cả đường dẫn lẫn identifier trong thân hunk.
@@ -528,7 +528,7 @@ cp config/sb-profile.example.json5 config/sb-profile.json5
 **B — fork toàn bộ source trong git**:
 
 ```json5
-{ git: { repo: "/work/sbrowser/src", upstream_ref: "148.0.7778.217" } }
+{ git: { repo: "/work/fork/src", upstream_ref: "148.0.7778.217" } }
 ```
 
 Chạy `git diff --name-only <upstream_ref>`. Cần `git` trong PATH.
@@ -536,10 +536,10 @@ Chạy `git diff --name-only <upstream_ref>`. Cần `git` trong PATH.
 **C — quét mã riêng của bạn** (bắt được thứ patch bỏ sót):
 
 ```json5
-{ source_roots: ["/work/sbrowser/sbrowser_chrome", "/work/sbrowser/sbrowser_java"] }
+{ source_roots: ["/work/fork/vendor_chrome", "/work/fork/vendor_java"] }
 ```
 
-Cách này đáng nói riêng. Thay vì tìm tên Samsung trong cây Chromium khổng lồ, công cụ lấy **từ vựng của Chromium** — mọi tên feature, switch, pref — rồi quét một lượt qua cây mã nhỏ của bạn. Đảo bài toán từ "nhiều lượt qua cây khổng lồ" thành "một lượt qua cây nhỏ", và bắt được cả những chỗ code bạn *đọc* một tính năng mà không hề vá file khai báo nó.
+Cách này đáng nói riêng. Thay vì tìm tên của vendor trong cây Chromium khổng lồ, công cụ lấy **từ vựng của Chromium** — mọi tên feature, switch, pref — rồi quét một lượt qua cây mã nhỏ của bạn. Đảo bài toán từ "nhiều lượt qua cây khổng lồ" thành "một lượt qua cây nhỏ", và bắt được cả những chỗ code bạn *đọc* một tính năng mà không hề vá file khai báo nó.
 
 Một chi tiết ở đây từng là lỗi: từ vựng phải dựng từ **cả hai** phiên bản. Nếu chỉ dựng từ bản mới thì thứ vừa bị xoá sẽ không nằm trong từ vựng và bị lọc mất — mà đó chính là ca làm vỡ build.
 
@@ -592,23 +592,23 @@ Trường `kind` có ba giá trị, và chỉ khai loại `product` là sai lầ
 
 ```json5
 vendor_markers: {
-  macros:           ["SBROWSER", "SAMSUNG"],   // cờ build trong #if
-  symbol_prefixes:  ["kSbrowser", "kSamsung"], // tiền tố định danh C++
-  path_markers:     ["samsung/", "sbrowser/"], // thư mục
-  filename_markers: ["-si"],                   // hậu tố biến thể của file upstream
+  macros:           ["ACME", "ACME_UI"],  // cờ build trong #if
+  symbol_prefixes:  ["kAcme"],            // tiền tố định danh C++
+  path_markers:     ["acme/"],            // thư mục
+  filename_markers: ["-acme"],            // hậu tố biến thể của file upstream
 }
 ```
 
-Không khai thì phần phân tích fork bị bỏ qua, chứ không đoán bừa. Chạy `chromedrift discover --fork-src <đường-dẫn>` để lấy khối này điền sẵn từ chính cây fork.
+Không khai thì phần phân tích fork bị bỏ qua, chứ không đoán bừa. Chạy `chromedrift discover --fork-src <đường-dẫn> --token <tên-vendor>` để lấy khối này điền sẵn từ chính cây fork. `acme` ở trên chỉ là chỗ điền — thay bằng tên thật của fork.
 
 ### Kiểm hồ sơ trước khi chạy thật
 
 ```bash
-python3 -m chromedrift profile config/sb-profile.json5 --ref 151.0.7922.138
+python3 -m chromedrift profile config/profile.json5 --ref 151.0.7922.138
 ```
 
 ```
-profile: Samsung Browser (platform windows)
+profile: Example Browser (platform windows)
   areas:            7
   patched files:    3
   symbols:          11
@@ -726,7 +726,7 @@ Nên `report.json` **luôn chứa tất cả**, và việc cắt lát diễn ra 
 
 ```bash
 # Phân tích một lần
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --profile config/sb-profile.json5
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --profile config/profile.json5
 
 # Xem có những vùng nào
 python3 -m chromedrift report out/report.json --list-areas
@@ -946,9 +946,9 @@ export CHROMEDRIFT_CACHE=/shared/chromedrift-cache
 FROM="148.0.7778.217"        # ghim, đừng dùng số milestone trần
 TO="151.0.7922.138"
 
-python3 -m chromedrift check --profile config/sb-profile.json5
+python3 -m chromedrift check --profile config/profile.json5
 python3 -m chromedrift run "$FROM" "$TO" \
-  --profile config/sb-profile.json5 \
+  --profile config/profile.json5 \
   --out "reports/${FROM}_to_${TO}"
 
 # Chặn merge nếu còn mục Must fix chưa xử lý
@@ -1009,7 +1009,7 @@ chromedrift/
   extract/      2.306        9 bộ đọc + tiện ích quét C++
   diff.py         927        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
   cluster.py      214        gom mảnh vụn thành một câu chuyện
-  sbprofile.py    474        tập chạm của fork + định nghĩa vùng
+  downstream.py   474        tập chạm của fork + định nghĩa vùng
   impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
   catalog.py      362        đo target set thiếu gì; kiểm bao đóng tham chiếu
   discover.py     311        tìm file của vendor trong cây fork

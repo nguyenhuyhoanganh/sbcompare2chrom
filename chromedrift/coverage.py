@@ -4,7 +4,7 @@ A vendor fork of this shape does not overwrite Chromium's code. It merges the
 new Chromium in whole, keeps its own implementation beside it, and chooses
 between them at build time::
 
-    #if defined(SBROWSER_CUSTOM_DOWNLOADS)
+    #if defined(ACME_CUSTOM_DOWNLOADS)
       ... the vendor's implementation, which is what actually ships ...
     #else
       ... Chromium's, untouched since the merge ...
@@ -63,9 +63,9 @@ class VendorMarkers:
     disables the analysis rather than inventing matches.
     """
 
-    macros: List[str] = field(default_factory=list)          # SBROWSER, SAMSUNG
-    symbol_prefixes: List[str] = field(default_factory=list)  # kSbrowser
-    path_markers: List[str] = field(default_factory=list)     # sbrowser/
+    macros: List[str] = field(default_factory=list)          # ACME, ACME_UI
+    symbol_prefixes: List[str] = field(default_factory=list)  # kAcme
+    path_markers: List[str] = field(default_factory=list)     # acme/
     # A vendor variant of an upstream file lives *inside* the upstream
     # directory and keeps Chromium's own component name, with a suffix:
     #     .../settings/privacy_page/privacy_page-si.html

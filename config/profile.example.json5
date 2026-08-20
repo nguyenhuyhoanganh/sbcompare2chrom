@@ -7,7 +7,7 @@
 // Everything below is illustrative.  Replace the paths, symbols and areas
 // with your real fork's inventory before trusting the output.
 {
-  name: "Samsung Browser",
+  name: "Example Browser",
   // Fixed: this tool analyses a Chromium-based desktop browser on
   // Windows and nothing else. Any other value is refused at load time
   // rather than quietly disabling the not-compiled scoring.
@@ -25,7 +25,7 @@
 
   // 2. A full source fork tracked in git.  Resolves via
   //    `git diff --name-only <upstream_ref>`.
-  // git: { repo: "/work/sbrowser/src", upstream_ref: "139.0.7258.155" },
+  // git: { repo: "/work/fork/src", upstream_ref: "139.0.7258.155" },
 
   // 3. A hand-maintained list, for teams that track ownership in a doc.
   //    A trailing slash (or a name with no extension) means "prefix".
@@ -38,7 +38,7 @@
   // 4. Your own (non-Chromium) source, scanned for references to Chromium
   //    feature names, switches and prefs.  This catches code that depends on
   //    a feature without patching the file that declares it.
-  // source_roots: ["/work/sbrowser/sbrowser_chrome"],
+  // source_roots: ["/work/fork/vendor_chrome"],
 
   // 5. Symbols you know you depend on, regardless of the above.
   symbols: [
@@ -55,7 +55,7 @@
   // Chromium in whole, keeps its own implementation beside it, and picks
   // between them at build time:
   //
-  //     #if defined(SBROWSER_CUSTOM_DOWNLOADS)
+  //     #if defined(ACME_CUSTOM_DOWNLOADS)
   //       ... ours, which is what actually ships ...
   //     #else
   //       ... Chromium's, untouched since the merge ...
@@ -72,27 +72,28 @@
   // ---------------------------------------------------------------------
   vendor_markers: {
     // Build flags naming our code, matched as substrings, case-insensitive.
-    macros: ["SBROWSER", "SAMSUNG", "S_TERRACE"],
+    macros: ["ACME", "ACME_UI"],
     // Prefixes on our own feature and variable names.
-    symbol_prefixes: ["kSbrowser", "kSamsung"],
+    symbol_prefixes: ["kAcme"],
     // Directories that are ours outright, at any depth. This fork places its
     // own code inside Chromium's tree, so these appear as subfolders:
-    //     chrome/browser/resources/samsung/
-    //     chrome/browser/resources/settings/samsung/
-    //     ui/samsung/views/
-    path_markers: ["sbrowser/", "samsung/"],
+    //     chrome/browser/resources/acme/
+    //     chrome/browser/resources/settings/acme/
+    //     ui/acme/views/
+    path_markers: ["acme/"],
 
     // Filename suffix marking OUR variant of an upstream component. This one
     // is the reason the field exists: the file sits inside an upstream
     // directory and keeps Chromium's own component name --
-    //     chrome/browser/resources/settings/privacy_page/privacy_page-si.html
+    //     chrome/browser/resources/settings/privacy_page/privacy_page-acme.html
     // -- so no path prefix reaches it and it carries no vendor symbol prefix.
     // Without this it is indistinguishable from Chromium's own file.
-    filename_markers: ["-si"],
+    filename_markers: ["-acme"],
   },
 
   // Do not fill the three lists above from memory. Run:
-  //     python3 -m chromedrift discover --fork-src /path/to/sbrowser/src
+  //     python3 -m chromedrift discover --fork-src /path/to/fork/src \\
+  //         --token acme --suffix=-acme
   // It walks the checkout, reports every file that looks vendor-owned, prints
   // a ready-to-paste block, and -- more importantly -- names the vendor
   // directories the target list never fetches, which are absent from every
@@ -217,7 +218,7 @@
     },
     {
       id: "payments",
-      title: "Samsung Pay & payments",
+      title: "Payments & wallet",
       kind: "product",
       weight: 85,
       owner: "payments-team",

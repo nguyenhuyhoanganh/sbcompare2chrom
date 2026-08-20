@@ -10,7 +10,7 @@ Measured on M143 the whole target set is roughly 35-40 MB per version, which
 makes a two-version comparison a couple of minutes on a cold cache and
 instant on a warm one.
 
-If a team *does* have a checkout (or a Samsung internal mirror), `LocalSource`
+If a team *does* have a checkout (or an internal mirror), `LocalSource`
 reads from disk instead and the rest of the pipeline is unchanged.
 """
 

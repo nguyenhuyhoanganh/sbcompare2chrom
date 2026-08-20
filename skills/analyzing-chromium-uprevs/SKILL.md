@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-uprevs
-description: Compares Chromium versions for a downstream browser fork - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from upstream cleanup, and also compares the fork itself against the upstream release it was merged from to find carried divergence and merge debt. Produces a triaged report of what the fork must fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked how a fork such as Samsung Browser differs from the Chromium it is based on, when asked which upstream features the fork never took or silently lost across merges, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+description: Compares Chromium versions for a downstream browser fork - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from upstream cleanup, and also compares the fork itself against the upstream release it was merged from to find carried divergence and merge debt. Produces a triaged report of what the fork must fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked how a downstream browser fork differs from the Chromium it is based on, when asked which upstream features the fork never took or silently lost across merges, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
 # Analyzing Chromium uprevs
@@ -62,7 +62,7 @@ Ask for anything missing.
   is newest stable today and drifts between runs. Real example:
   `ServiceWorkerAutoPreload` is ENABLED in 143.0.7499.40 and DISABLED in
   143.0.7499.194 — same milestone, different patch release.
-- **Downstream profile** (`config/sb-profile.json5`) pointing at real patches or
+- **Downstream profile** (`config/profile.json5`) pointing at real patches or
   fork source. Without it **nothing can reach Must fix**, and a report showing
   `must fix: 0` means "no evidence supplied", not "clean uprev".
 
@@ -72,7 +72,7 @@ Ask for anything missing.
 python3 -m chromedrift check          # verify machine, network, configs
 
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --profile config/sb-profile.json5 \
+  --profile config/profile.json5 \
   --out out/M148_to_M151
 ```
 
@@ -237,12 +237,12 @@ anyone decide that".
 
 ```bash
 # What differs, right now, at the same milestone
-python3 -m chromedrift run 148.0.7778.217 sb-main-dev --mode fork \
-  --to-src /path/to/sbrowser/src --profile config/sb-profile.json5
+python3 -m chromedrift run 148.0.7778.217 fork-main-dev --mode fork \
+  --to-src /path/to/fork/src --profile config/profile.json5
 
 # Decision or debt? Compare against the series we merged through
-python3 -m chromedrift provenance sb-main-dev 131.0.x 139.0.x 148.0.7778.217 \
-  --fork-src /path/to/sbrowser/src --profile config/sb-profile.json5
+python3 -m chromedrift provenance fork-main-dev 131.0.x 139.0.x 148.0.7778.217 \
+  --fork-src /path/to/fork/src --profile config/profile.json5
 ```
 
 Direction is fixed as **upstream → fork**, so "removed" means *we* removed it
@@ -254,7 +254,7 @@ Two results a two-way diff cannot produce on its own:
   decided anything — we are stale, and the report names the milestone we are
   stuck on. Matching no upstream version means someone wrote it.
 - **Shadowing.** A fork of this shape does not overwrite Chromium; it keeps its
-  code beside upstream's behind `#if defined(SBROWSER_*)`. Both ship, so
+  code beside upstream's behind `#if defined(<VENDOR>_*)`. Both ship, so
   comparing values finds nothing: upstream's branch really is untouched, and the
   branch that runs is ours. Needs `vendor_markers` in the profile — without them
   the analysis is skipped rather than guessed.
@@ -332,7 +332,7 @@ State these limits in every report. A clean report does not imply a clean uprev.
   can say whether someone chose it. A commit message, a bug id or an owner
   settles that, and none of them are in the data.
 - **Implementation behind a vendor guard.** Shadow analysis finds *which*
-  declarations a `SBROWSER_*` flag covers, not what our branch does differently.
+  declarations a `<VENDOR>_*` flag covers, not what our branch does differently.
 - **Anything outside the repository**: server-side Finch configs, launch
   scripts, test automation, store metadata.
 - **Rendered UI.** No screenshots, no layout, no visual regressions.

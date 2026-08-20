@@ -33,7 +33,7 @@ from .impact import score_all, summarize_findings
 from .model import Report, read_json, write_json
 from .report import html as html_report
 from .report import markdown as md_report
-from .sbprofile import TouchSet, load_profile
+from .downstream import TouchSet, load_profile
 from .snapshot import build_snapshot
 from .targets import partition_names
 
@@ -375,10 +375,16 @@ def cmd_discover(args: argparse.Namespace) -> int:
     were being filled in from memory, and a forgotten path removes a whole
     surface from every comparison without saying so.
     """
-    report = discover.scan(args.fork_src, dir_tokens=args.token or
-                           discover.DEFAULT_DIR_TOKENS,
-                           file_suffixes=args.suffix or
-                           discover.DEFAULT_FILE_SUFFIXES,
+    if not args.token and not args.suffix:
+        _log("error: give at least one --token or --suffix naming your fork's "
+             "own code, e.g. --token acme --suffix=-acme.")
+        _log("       There is no default: this tool carries no vendor "
+             "vocabulary, and a guessed marker invents matches rather than "
+             "failing.")
+        return 1
+    report = discover.scan(args.fork_src,
+                           dir_tokens=args.token or (),
+                           file_suffixes=args.suffix or (),
                            scan_content=args.scan_content, log=_log)
     print()
     for line in discover.summarize(report):
@@ -696,13 +702,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fork-src", required=True,
                    help="path to the fork checkout (read from disk, no network)")
     p.add_argument("--token", action="append",
-                   help="directory name marking vendor code (repeatable; "
-                        f"default: {', '.join(discover.DEFAULT_DIR_TOKENS)})")
+                   help="directory name marking vendor code, e.g. acme "
+                        "(repeatable; no default -- see --suffix)")
     p.add_argument("--suffix", action="append",
                    help="filename suffix marking a vendor variant of an "
-                        f"upstream file (default: {', '.join(discover.DEFAULT_FILE_SUFFIXES)})")
+                        "upstream file (repeatable). Write it with an equals "
+                        "sign, --suffix=-acme, or argparse reads the leading "
+                        "dash as another option. At least one --token or "
+                        "--suffix is required: the tool carries no vendor "
+                        "vocabulary of its own")
     p.add_argument("--scan-content", action="store_true",
-                   help="also read sources for #if defined(SBROWSER_*) guards "
+                   help="also read sources for #if defined(<VENDOR>_*) guards "
                         "(minutes, not seconds)")
     p.add_argument("--limit", type=int, default=30,
                    help="how many uncovered directories to print (default: 30)")
@@ -711,7 +721,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("provenance", parents=[cache, which_files],
                        help="separate deliberate divergence from merge debt")
-    p.add_argument("fork", help="label for the fork snapshot, e.g. sb-main-dev")
+    p.add_argument("fork", help="label for the fork snapshot, e.g. fork-main-dev")
     p.add_argument("upstream", nargs="+",
                    help="upstream refs oldest first, e.g. 143.0.x 148.0.x")
     p.add_argument("--fork-src", required=True,

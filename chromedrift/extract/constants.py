@@ -59,7 +59,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     masked = mask_comments(text)
     # The build guard around a declaration, recorded for the same reason
     # base_features records it: a vendor fork does not edit upstream's key, it
-    # puts its own beside it behind `#if defined(SBROWSER_...)` and ships that
+    # puts its own beside it behind `#if defined(<VENDOR>_...)` and ships that
     # one. Both are present, so comparing values finds nothing -- the guard is
     # the whole evidence. Without it the shadow analysis could only ever see
     # base::Feature, which is 11% of the surface and none of the preference

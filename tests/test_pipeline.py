@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from chromedrift.diff import diff_snapshots
 from chromedrift.impact import score_all, score_change
 from chromedrift.model import Fact, Report, Snapshot
-from chromedrift.sbprofile import Area, TouchSet, _symbols_from_hunks
+from chromedrift.downstream import Area, TouchSet, _symbols_from_hunks
 
 
 def feature(name, state, var=None, form="macro2", path="content/features.cc"):
@@ -395,13 +395,13 @@ class TestForkModeSurvivesTheDiff(unittest.TestCase):
     def _fork_findings(self, old_facts, new_facts):
         from chromedrift.model import MODE_FORK
         changes = diff_snapshots(snap("148.0.0.0", old_facts),
-                                 snap("sb-main-dev", new_facts),
+                                 snap("fork-main-dev", new_facts),
                                  mode=MODE_FORK)
-        return score_all(changes, TouchSet(name="SB", platform="windows"),
+        return score_all(changes, TouchSet(name="Fork", platform="windows"),
                          mode=MODE_FORK)
 
     def test_vendor_addition_is_not_an_opportunity(self):
-        finding = self._fork_findings([], [feature("SbrowserSauce", "enabled")])[0]
+        finding = self._fork_findings([], [feature("AcmeSauce", "enabled")])[0]
         self.assertIn("fork_added", finding.change.signals)
         # Our own shipped customization is not a capability on offer.
         self.assertNotEqual(finding.bucket, "opportunity")
@@ -415,10 +415,10 @@ class TestForkModeSurvivesTheDiff(unittest.TestCase):
         self.assertEqual([f for f in findings if f.bucket == "opportunity"], [])
 
     def test_divergence_we_reference_must_be_carried(self):
-        touch = TouchSet(name="SB", platform="windows", symbols={"kDropped"})
+        touch = TouchSet(name="Fork", platform="windows", symbols={"kDropped"})
         from chromedrift.model import MODE_FORK
         changes = diff_snapshots(snap("148.0.0.0", [feature("Dropped", "enabled")]),
-                                 snap("sb-main-dev", []), mode=MODE_FORK)
+                                 snap("fork-main-dev", []), mode=MODE_FORK)
         finding = score_all(changes, touch, mode=MODE_FORK)[0]
         # We removed it and our own source names it: the next rebase puts it
         # back, so this is work, not trivia.
@@ -428,7 +428,7 @@ class TestForkModeSurvivesTheDiff(unittest.TestCase):
         """The fork branch must not quietly change uprev behaviour."""
         changes = diff_snapshots(snap("148.0.0.0", []),
                                  snap("151.0.0.0", [feature("Shiny", "enabled")]))
-        finding = score_all(changes, TouchSet(name="SB", platform="windows"))[0]
+        finding = score_all(changes, TouchSet(name="Fork", platform="windows"))[0]
         self.assertEqual(finding.bucket, "opportunity")
 
     def test_report_says_which_comparison_it_is(self):
@@ -436,8 +436,8 @@ class TestForkModeSurvivesTheDiff(unittest.TestCase):
         from chromedrift.report import html as html_report
         from chromedrift.report import markdown as md_report
 
-        findings = self._fork_findings([], [feature("SbrowserSauce", "enabled")])
-        report = Report(from_ref="148.0.0.0", to_ref="sb-main-dev",
+        findings = self._fork_findings([], [feature("AcmeSauce", "enabled")])
+        report = Report(from_ref="148.0.0.0", to_ref="fork-main-dev",
                         findings=findings, meta={"mode": MODE_FORK})
         for text in (md_report.render(report), html_report.render(report)):
             self.assertNotIn("uprev impact", text.lower())
@@ -458,7 +458,7 @@ class TestProvenance(unittest.TestCase):
 
     def _run(self, fork_facts, series, base=None):
         from chromedrift.provenance import analyze
-        return analyze(fork=snap("sb", fork_facts),
+        return analyze(fork=snap("fork", fork_facts),
                        upstream=[snap(ref, facts) for ref, facts in series],
                        base_ref=base)
 
@@ -514,7 +514,7 @@ class TestProvenance(unittest.TestCase):
         from chromedrift.provenance import VENDOR_ONLY
 
         report = self._run(
-            [feature("SamsungOnly", "enabled")],
+            [feature("VendorOnly", "enabled")],
             [("143.0.0.0", []), ("148.0.0.0", [])])
 
         self.assertEqual(report.verdicts[0].state, VENDOR_ONLY)
@@ -607,7 +607,7 @@ class TestDocumentedInterface(unittest.TestCase):
     `--platform` was removed from the CLI while eight documented commands kept
     passing it (they now exit with an argparse error before doing any work),
     and the skill's signal reference still named `android_enabled_by_default`
-    after the rename, while missing every fork-mode signal -- the ones the SB
+    after the rename, while missing every fork-mode signal -- the ones the fork
     comparison produces exclusively.
     """
 
@@ -683,18 +683,18 @@ class TestProfilePlatform(unittest.TestCase):
         return path
 
     def test_a_stale_platform_is_refused_not_believed(self):
-        from chromedrift.sbprofile import load_profile
-        path = self._profile('{ name: "SB", platform: "android" }')
+        from chromedrift.downstream import load_profile
+        path = self._profile('{ name: "Fork", platform: "android" }')
         with self.assertRaises(ValueError) as caught:
             load_profile(path, log=lambda m: None)
         self.assertIn("android", str(caught.exception))
         self.assertIn("windows", str(caught.exception))
 
     def test_windows_and_an_absent_field_both_work(self):
-        from chromedrift.sbprofile import load_profile
-        for body in ('{ name: "SB", platform: "windows" }',
-                     '{ name: "SB", platform: "Windows" }',
-                     '{ name: "SB" }'):
+        from chromedrift.downstream import load_profile
+        for body in ('{ name: "Fork", platform: "windows" }',
+                     '{ name: "Fork", platform: "Windows" }',
+                     '{ name: "Fork" }'):
             touch = load_profile(self._profile(body), log=lambda m: None)
             self.assertEqual(touch.platform, "windows")
 
@@ -703,7 +703,7 @@ class TestProfilePlatform(unittest.TestCase):
         change = Change(change_type="modified", kind="base_feature",
                         key="Foo", name="Foo",
                         after={"platform_state": {"windows": "not_compiled"}})
-        finding = score_change(change, TouchSet(name="SB", platform="windows"))
+        finding = score_change(change, TouchSet(name="Fork", platform="windows"))
         self.assertTrue(any("not compiled" in r for r in finding.reasons))
 
 
@@ -923,28 +923,33 @@ class TestHtmlReportScales(unittest.TestCase):
 class TestVendorDiscovery(unittest.TestCase):
     """Find the vendor's files without being told where they are.
 
-    This fork is taken from Chromium whole, then its own files are placed
-    *inside* Chromium's directories: a `samsung/` subfolder here, a `-si`
-    suffix on a variant of an upstream component there. So "which files are
-    ours" cannot be read off Chromium's layout, and after enough years nobody
-    has the list. Both `vendor_markers` and the target list were being filled
-    in from memory, and a forgotten path removes a whole surface from every
-    comparison silently.
+    A fork of this shape is taken from Chromium whole, then its own files are
+    placed *inside* Chromium's directories: an `acme/` subfolder here, an
+    `-acme` suffix on a variant of an upstream component there. So "which files
+    are ours" cannot be read off Chromium's layout, and after enough years
+    nobody has the list. Both `vendor_markers` and the target list were being
+    filled in from memory, and a forgotten path removes a whole surface from
+    every comparison silently.
+
+    `acme` is a placeholder throughout. The module carries no vendor vocabulary
+    of its own, so every test states the markers it is scanning for.
     """
+
+    MARKERS = {"dir_tokens": ("acme",), "file_suffixes": ("-acme",)}
 
     LAYOUT = (
         # upstream
         "chrome/browser/resources/settings/privacy_page/privacy_page.html",
         "chrome/browser/resources/settings/route.ts",
         # vendor variants of upstream components, inside upstream directories
-        "chrome/browser/resources/settings/privacy_page/privacy_page-si.html",
-        "chrome/browser/resources/downloads/item-si.html.ts",
+        "chrome/browser/resources/settings/privacy_page/privacy_page-acme.html",
+        "chrome/browser/resources/downloads/item-acme.html.ts",
         # vendor subfolder inside a tracked surface
-        "chrome/browser/resources/settings/samsung/secret_mode.html",
+        "chrome/browser/resources/settings/acme/secret_mode.html",
         # vendor subfolder beside the surfaces, outside every target
-        "chrome/browser/resources/samsung/quick_menu.html",
+        "chrome/browser/resources/acme/quick_menu.html",
         # native UI: vendor-owned, but no extractor reads it
-        "ui/samsung/views/sbrowser_toolbar.cc",
+        "ui/acme/views/acme_toolbar.cc",
     )
 
     def setUp(self):
@@ -962,7 +967,18 @@ class TestVendorDiscovery(unittest.TestCase):
 
     def _scan(self, **kw):
         from chromedrift import discover
-        return discover.scan(self.root, log=lambda m: None, **kw)
+        return discover.scan(self.root, log=lambda m: None,
+                             **dict(self.MARKERS, **kw))
+
+    def test_scanning_without_markers_refuses_rather_than_finding_nothing(self):
+        """"No vendor files" and "you told me nothing to look for" differ.
+
+        A tool that carries no vendor vocabulary cannot report the second as
+        the first: an empty result would read as a clean fork.
+        """
+        from chromedrift import discover
+        with self.assertRaises(ValueError):
+            discover.scan(self.root, log=lambda m: None)
 
     def test_upstream_files_are_not_claimed(self):
         found = {h.path for h in self._scan().hits}
@@ -970,27 +986,28 @@ class TestVendorDiscovery(unittest.TestCase):
         self.assertNotIn(
             "chrome/browser/resources/settings/privacy_page/privacy_page.html", found)
 
-    def test_the_si_suffix_is_found_inside_an_upstream_directory(self):
+    def test_the_suffix_is_found_inside_an_upstream_directory(self):
         """No path prefix reaches it and it has no vendor symbol prefix."""
         from chromedrift.discover import BY_NAME
         hits = {h.path: h for h in self._scan().hits}
-        for rel in ("chrome/browser/resources/settings/privacy_page/privacy_page-si.html",
-                    "chrome/browser/resources/downloads/item-si.html.ts"):
+        for rel in ("chrome/browser/resources/settings/privacy_page/"
+                    "privacy_page-acme.html",
+                    "chrome/browser/resources/downloads/item-acme.html.ts"):
             self.assertIn(rel, hits, rel)
             self.assertEqual(hits[rel].rule, BY_NAME)
 
     def test_a_double_extension_still_matches(self):
-        """item-si.html.ts must strip both extensions before testing the stem."""
+        """item-acme.html.ts must strip both extensions before testing the stem."""
         report = self._scan()
-        self.assertIn("-si", report.suffixes_seen())
-        self.assertEqual(report.suffixes_seen()["-si"], 2)
+        self.assertIn("-acme", report.suffixes_seen())
+        self.assertEqual(report.suffixes_seen()["-acme"], 2)
 
-    def test_samsung_folders_are_found_at_any_depth(self):
+    def test_vendor_folders_are_found_at_any_depth(self):
         from chromedrift.discover import BY_DIR
         hits = {h.path: h for h in self._scan().hits}
-        for rel in ("chrome/browser/resources/settings/samsung/secret_mode.html",
-                    "chrome/browser/resources/samsung/quick_menu.html",
-                    "ui/samsung/views/sbrowser_toolbar.cc"):
+        for rel in ("chrome/browser/resources/settings/acme/secret_mode.html",
+                    "chrome/browser/resources/acme/quick_menu.html",
+                    "ui/acme/views/acme_toolbar.cc"):
             self.assertIn(rel, hits, rel)
             self.assertEqual(hits[rel].rule, BY_DIR)
 
@@ -998,37 +1015,53 @@ class TestVendorDiscovery(unittest.TestCase):
         """A worklist mixing the two is mostly unactionable."""
         from chromedrift.discover import uncovered_dirs
         fetchable, unreadable = uncovered_dirs(self._scan())
-        self.assertIn("chrome/browser/resources/samsung",
+        self.assertIn("chrome/browser/resources/acme",
                       [d for d, _ in fetchable])
         # Native C++ UI is vendor-owned and no extractor reads it; calling that
         # "missing" implies a fix that does not exist.
-        self.assertIn("ui/samsung/views", [d for d, _ in unreadable])
+        self.assertIn("ui/acme/views", [d for d, _ in unreadable])
 
     def test_macro_scanning_catches_the_common_shape(self):
-        """SBROWSER_CUSTOM_DOWNLOADS, not only S_SBROWSER_X."""
+        """ACME_CUSTOM_DOWNLOADS, not only X_ACME_Y."""
         path = os.path.join(self.root, "chrome/browser/download/download_prefs.cc")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write("#if defined(SBROWSER_CUSTOM_DOWNLOADS)\n// ours\n#endif\n")
+            fh.write("#if defined(ACME_CUSTOM_DOWNLOADS)\n// ours\n#endif\n")
         report = self._scan(scan_content=True)
-        self.assertIn("SBROWSER_CUSTOM_DOWNLOADS", report.macros)
+        self.assertIn("ACME_CUSTOM_DOWNLOADS", report.macros)
+
+    def test_the_build_flags_come_from_the_tokens_given(self):
+        """One list to get right, not two that drift.
+
+        A vendor's build flags are its own name shouted, so they are derived
+        from the directory tokens rather than kept as a second list.
+        """
+        path = os.path.join(self.root, "chrome/browser/net/x.cc")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("#if defined(OTHERVENDOR_THING)\n// not ours\n#endif\n")
+        report = self._scan(scan_content=True)
+        self.assertEqual(dict(report.macros), {})
 
     def test_the_suggested_profile_reflects_the_tree(self):
         from chromedrift.discover import suggest_profile
         text = suggest_profile(self._scan())
-        self.assertIn('"samsung/"', text)
-        self.assertIn('"-si"', text)
+        self.assertIn('"acme/"', text)
+        self.assertIn('"-acme"', text)
+        # The symbol prefixes are derived from the directories found, not from
+        # a vendor list this module refuses to carry.
+        self.assertIn('"kAcme"', text)
 
-    def test_markers_recognise_a_si_file_as_ours(self):
+    def test_markers_recognise_a_variant_file_as_ours(self):
         """The marker vocabulary had no way to express this before."""
         from chromedrift.coverage import VendorMarkers
         markers = VendorMarkers.from_profile(
-            {"vendor_markers": {"path_markers": ["samsung/"],
-                                "filename_markers": ["-si"]}})
+            {"vendor_markers": {"path_markers": ["acme/"],
+                                "filename_markers": ["-acme"]}})
         self.assertTrue(markers.path_is_ours(
-            "chrome/browser/resources/settings/privacy_page-si.html"))
+            "chrome/browser/resources/settings/privacy_page-acme.html"))
         self.assertTrue(markers.path_is_ours(
-            "chrome/browser/resources/settings/item-si.html.ts"))
+            "chrome/browser/resources/settings/item-acme.html.ts"))
         self.assertFalse(markers.path_is_ours(
             "chrome/browser/resources/settings/privacy_page.html"))
 
@@ -1251,8 +1284,8 @@ class TestVendorShadowing(unittest.TestCase):
     def setUp(self):
         from chromedrift.coverage import VendorMarkers
         self.MARKERS = VendorMarkers(
-            macros=["SBROWSER"], symbol_prefixes=["kSbrowser"],
-            path_markers=["sbrowser/"])
+            macros=["ACME"], symbol_prefixes=["kAcme"],
+            path_markers=["acme/"])
 
     def _fact(self, name, state="enabled", conditions=(), path="a_features.cc"):
         f = feature(name, state, path=path)
@@ -1263,20 +1296,20 @@ class TestVendorShadowing(unittest.TestCase):
         from chromedrift.coverage import SHADOWED, analyze
 
         report = analyze(
-            fork=snap("sb", [self._fact("Foo", "enabled",
-                                        ["defined(SBROWSER_CUSTOM)"])]),
+            fork=snap("fork", [self._fact("Foo", "enabled",
+                                        ["defined(ACME_CUSTOM)"])]),
             upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
             markers=self.MARKERS)
 
         # The value matches exactly. Only the guard reveals the shadow.
         self.assertEqual(report.verdicts[0].state, SHADOWED)
-        self.assertEqual(report.verdicts[0].guards, ["defined(SBROWSER_CUSTOM)"])
+        self.assertEqual(report.verdicts[0].guards, ["defined(ACME_CUSTOM)"])
 
     def test_unguarded_identical_declaration_is_untouched(self):
         from chromedrift.coverage import UNTOUCHED, analyze
 
         report = analyze(
-            fork=snap("sb", [self._fact("Foo", "enabled")]),
+            fork=snap("fork", [self._fact("Foo", "enabled")]),
             upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
             markers=self.MARKERS)
         self.assertEqual(report.verdicts[0].state, UNTOUCHED)
@@ -1290,7 +1323,7 @@ class TestVendorShadowing(unittest.TestCase):
         from chromedrift.coverage import UNTOUCHED, analyze
 
         guarded = lambda: self._fact("Foo", "enabled", ["BUILDFLAG(IS_WIN)"])
-        report = analyze(fork=snap("sb", [guarded()]),
+        report = analyze(fork=snap("fork", [guarded()]),
                          upstream=snap("148.0.0.0", [guarded()]),
                          markers=self.MARKERS)
         self.assertEqual(report.verdicts[0].state, UNTOUCHED)
@@ -1306,7 +1339,7 @@ class TestVendorShadowing(unittest.TestCase):
         from chromedrift.coverage import MODIFIED, SHADOWED, analyze
 
         report = analyze(
-            fork=snap("sb", [self._fact("Foo", "enabled",
+            fork=snap("fork", [self._fact("Foo", "enabled",
                                         ["BUILDFLAG(IS_WIN)"])]),
             upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
             markers=self.MARKERS)
@@ -1332,7 +1365,7 @@ class TestVendorShadowing(unittest.TestCase):
                     attrs={"var": "kFoo", "default_state": "enabled",
                            "platform_state": {"windows": "disabled"},
                            "conditions": []})
-        report = analyze(fork=snap("sb", [ours]),
+        report = analyze(fork=snap("fork", [ours]),
                          upstream=snap("148.0.0.0", [theirs]),
                          markers=self.MARKERS)
         self.assertEqual(report.verdicts[0].state, MODIFIED)
@@ -1347,31 +1380,31 @@ class TestVendorShadowing(unittest.TestCase):
         """
         from chromedrift.coverage import ORPHANED, VENDOR_ONLY, analyze
 
-        mine = self._fact("SbrowserThing", "enabled",
-                          ["defined(SBROWSER_CUSTOM)"])
+        mine = self._fact("AcmeThing", "enabled",
+                          ["defined(ACME_CUSTOM)"])
         leftover = self._fact("LongDeadUpstreamFlag", "enabled")
-        report = analyze(fork=snap("sb", [mine, leftover]),
+        report = analyze(fork=snap("fork", [mine, leftover]),
                          upstream=snap("148.0.0.0", []),
                          markers=self.MARKERS)
         states = {v.key: v.state for v in report.verdicts}
-        self.assertEqual(states["SbrowserThing"], VENDOR_ONLY)
+        self.assertEqual(states["AcmeThing"], VENDOR_ONLY)
         self.assertEqual(states["LongDeadUpstreamFlag"], ORPHANED)
 
     def test_guards_used_reports_what_each_flag_covers(self):
         from chromedrift.coverage import analyze
 
         report = analyze(
-            fork=snap("sb", [self._fact("A", "enabled", ["defined(SBROWSER_UI)"]),
-                             self._fact("B", "enabled", ["defined(SBROWSER_UI)"])]),
+            fork=snap("fork", [self._fact("A", "enabled", ["defined(ACME_UI)"]),
+                             self._fact("B", "enabled", ["defined(ACME_UI)"])]),
             upstream=snap("148.0.0.0", [self._fact("A"), self._fact("B")]),
             markers=self.MARKERS)
-        self.assertEqual(report.guards_used(), {"defined(SBROWSER_UI)": 2})
+        self.assertEqual(report.guards_used(), {"defined(ACME_UI)": 2})
 
     def test_without_markers_the_analysis_is_skipped_not_guessed(self):
         from chromedrift.coverage import VendorMarkers, analyze
 
         report = analyze(
-            fork=snap("sb", [self._fact("Foo", "enabled", ["defined(X)"])]),
+            fork=snap("fork", [self._fact("Foo", "enabled", ["defined(X)"])]),
             upstream=snap("148.0.0.0", [self._fact("Foo")]),
             markers=VendorMarkers())
         self.assertFalse(report.markers_configured)
@@ -1380,8 +1413,8 @@ class TestVendorShadowing(unittest.TestCase):
     def test_guard_appearing_is_itself_a_change(self):
         """The value never moves; the guard around it does."""
         old = self._fact("Foo", "enabled")
-        new = self._fact("Foo", "enabled", ["defined(SBROWSER_CUSTOM)"])
-        changes = diff_snapshots(snap("148.0.0.0", [old]), snap("sb", [new]),
+        new = self._fact("Foo", "enabled", ["defined(ACME_CUSTOM)"])
+        changes = diff_snapshots(snap("148.0.0.0", [old]), snap("fork", [new]),
                                  platform="windows")
         self.assertEqual(len(changes), 1)
         self.assertIn("conditions", changes[0].deltas)
@@ -2004,7 +2037,7 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
         from chromedrift.model import MODE_FORK
         changes = diff_snapshots(
             snap("148.0.0.0", [self._control("a11y.old", "t")]),
-            snap("sb-main-dev", [self._control("a11y.new", "t")]), mode=MODE_FORK)
+            snap("fork-main-dev", [self._control("a11y.new", "t")]), mode=MODE_FORK)
         self.assertEqual(len(changes), 2)
 
 
@@ -2190,7 +2223,7 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
         from chromedrift.targets import get_targets, reaches, scope_of
 
         report = DiscoveryReport(root="/fork")
-        report.hits = [Hit(self.NESTED, BY_DIR, "samsung")]
+        report.hits = [Hit(self.NESTED, BY_DIR, "acme")]
 
         files, trees = scope_of(get_targets("wide"))
         self.assertTrue(reaches(self.NESTED, files, trees))
@@ -2657,13 +2690,13 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
 
     def test_an_elif_branch_carries_the_branches_above_it(self):
         from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
-        source = ('#if defined(SBROWSER_X)\nA\n'
+        source = ('#if defined(ACME_X)\nA\n'
                   '#elif BUILDFLAG(IS_WIN)\nB\n#else\nC\n#endif\n')
         spans = conditional_spans(source)
         self.assertEqual(enclosing_conditions(spans, source.index("\nB") + 1),
-                         ["!(defined(SBROWSER_X))", "BUILDFLAG(IS_WIN)"])
+                         ["!(defined(ACME_X))", "BUILDFLAG(IS_WIN)"])
         self.assertEqual(enclosing_conditions(spans, source.index("\nC") + 1),
-                         ["!(defined(SBROWSER_X))", "!(BUILDFLAG(IS_WIN))"])
+                         ["!(defined(ACME_X))", "!(BUILDFLAG(IS_WIN))"])
 
     def test_a_plain_else_is_unchanged(self):
         from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
@@ -2703,7 +2736,7 @@ class TestShadowAnalysisSeesEveryGuard(unittest.TestCase):
     def _markers(self):
         from chromedrift.coverage import VendorMarkers
         return VendorMarkers.from_profile(
-            {"vendor_markers": {"macros": ["SBROWSER"]}})
+            {"vendor_markers": {"macros": ["ACME"]}})
 
     def _guards(self, attrs):
         from chromedrift.coverage import _vendor_guards
@@ -2711,12 +2744,12 @@ class TestShadowAnalysisSeesEveryGuard(unittest.TestCase):
         return _vendor_guards(Fact("pref", "k", "k", attrs=attrs), self._markers())
 
     def test_a_cpp_guard_is_found(self):
-        self.assertEqual(self._guards({"conditions": ["defined(SBROWSER_A)"]}),
-                         ["defined(SBROWSER_A)"])
+        self.assertEqual(self._guards({"conditions": ["defined(ACME_A)"]}),
+                         ["defined(ACME_A)"])
 
     def test_a_grit_guard_is_found(self):
-        self.assertEqual(self._guards({"build_conditions": ["sbrowser_custom"]}),
-                         ["sbrowser_custom"])
+        self.assertEqual(self._guards({"build_conditions": ["acme_custom"]}),
+                         ["acme_custom"])
 
     def test_an_upstream_platform_guard_is_not_ours(self):
         self.assertEqual(self._guards({"conditions": ["BUILDFLAG(IS_WIN)"],
@@ -2729,7 +2762,7 @@ class TestShadowAnalysisSeesEveryGuard(unittest.TestCase):
                                                   attrs={"var": "kA"})])
         fork = Snapshot(ref="fork", facts=[
             Fact("pref", "a.b", "a.b",
-                 attrs={"var": "kA", "conditions": ["defined(SBROWSER_A)"]})])
+                 attrs={"var": "kA", "conditions": ["defined(ACME_A)"]})])
         report = analyze(fork=fork, upstream=upstream, markers=self._markers())
         self.assertEqual([v.state for v in report.verdicts], [SHADOWED])
 
@@ -3021,12 +3054,12 @@ class TestEveryTreeWalkIsSorted(unittest.TestCase):
         from chromedrift.discover import _readable_by_any_extractor
 
         self.assertTrue(_readable_by_any_extractor(
-            "chrome/browser/samsung/sb_features.cc"))
+            "chrome/browser/acme/acme_features.cc"))
         self.assertFalse(_readable_by_any_extractor(
-            "chrome/browser/samsung/test/sb_features.cc"),
+            "chrome/browser/acme/test/acme_features.cc"),
             "extraction skips it, so adding a target would not fix anything")
         self.assertFalse(_readable_by_any_extractor(
-            "chrome/browser/samsung/toolbar.grd"))
+            "chrome/browser/acme/toolbar.grd"))
 
 
 class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):

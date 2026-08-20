@@ -1,15 +1,15 @@
-SYNTHETIC DEMO DATA -- not a real Samsung Internet patch.
+SYNTHETIC DEMO DATA -- not a real vendor patch.
 
 This one deliberately depends on two Chromium features that were DELETED
 between M139 and M143 (kAutomaticFullscreenContentSetting and
 kFedCmCooldownOnIgnore). That is the case the tool exists to catch: code that
 still compiles against the old tree and stops compiling against the new one.
 
-diff --git a/chrome/browser/sbrowser/sbrowser_feature_overrides.cc b/chrome/browser/sbrowser/sbrowser_feature_overrides.cc
+diff --git a/chrome/browser/acme/acme_feature_overrides.cc b/chrome/browser/acme/acme_feature_overrides.cc
 index 3333333..4444444 100644
---- a/chrome/browser/sbrowser/sbrowser_feature_overrides.cc
-+++ b/chrome/browser/sbrowser/sbrowser_feature_overrides.cc
-@@ -42,6 +42,18 @@ void SbrowserFeatureOverrides::ApplyDefaults(
+--- a/chrome/browser/acme/acme_feature_overrides.cc
++++ b/chrome/browser/acme/acme_feature_overrides.cc
+@@ -42,6 +42,18 @@ void AcmeFeatureOverrides::ApplyDefaults(
    // Fullscreen is handled by our own permission surface, so the upstream
    // content setting must stay disabled.
    overrides->push_back({&features::kAutomaticFullscreenContentSetting,
@@ -20,7 +20,7 @@ index 3333333..4444444 100644
 +  overrides->push_back({&features::kFedCmCooldownOnIgnore,
 +                        base::FEATURE_DISABLED_BY_DEFAULT});
 +
-+  // Keep IdP registration off until the Samsung Account IdP ships.
++  // Keep IdP registration off until our own account IdP ships.
 +  // NOTE: the Finch string for this one is "FedCmIdPregistration" in M139.
 +  overrides->push_back({&features::kFedCmIdPRegistration,
 +                        base::FEATURE_DISABLED_BY_DEFAULT});
@@ -31,8 +31,8 @@ index 5555555..6666666 100644
 --- a/content/browser/renderer_host/render_widget_host_view_android.cc
 +++ b/content/browser/renderer_host/render_widget_host_view_android.cc
 @@ -1204,6 +1204,9 @@ void RenderWidgetHostViewAndroid::OnGestureEvent(
-   // SBROWSER: route through our gesture arbiter before the compositor sees it.
-   if (sbrowser_gesture_arbiter_ && sbrowser_gesture_arbiter_->ShouldIntercept(event)) {
+   // ACME: route through our gesture arbiter before the compositor sees it.
+   if (acme_gesture_arbiter_ && acme_gesture_arbiter_->ShouldIntercept(event)) {
      return;
    }
 +  if (base::FeatureList::IsEnabled(features::kEarlyEstablishGpuChannel)) {

@@ -472,7 +472,7 @@ def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
                     # Reaching a later branch means every earlier one was
                     # false, and those conditions are part of this branch's
                     # guard. Dropping them lost the vendor macro in
-                    # `#if defined(SBROWSER_X) / #elif ...`, which is the one
+                    # `#if defined(VENDOR_X) / #elif ...`, which is the one
                     # shape the shadow analysis exists to find.
                     holding = [f"!({e})" for e in seen]
                     if directive == "elif":
@@ -498,8 +498,8 @@ def condition_macros(block: str) -> List[str]:
     A vendor fork does not usually replace upstream code; it adds its own
     beside it and picks between them at build time::
 
-        #if defined(SBROWSER_CUSTOM_DOWNLOADS)
-          ... Samsung's implementation ...
+        #if defined(ACME_CUSTOM_DOWNLOADS)
+          ... the vendor's implementation ...
         #else
           ... Chromium's ...
         #endif

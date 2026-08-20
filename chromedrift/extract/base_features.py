@@ -93,7 +93,7 @@ def feature_name_from_var(var: str) -> str:
     The single definition, imported by every stage that has to get from a C++
     identifier back to the feature string a fact is keyed on: the reference
     closure in `catalog`, the clustering in `cluster`, and area routing in
-    `sbprofile`. It is applied here first, to derive the key from the
+    `downstream`. It is applied here first, to derive the key from the
     two-argument macro form, so a copy elsewhere that drifted would silently
     stop matching the keys this produces.
     """

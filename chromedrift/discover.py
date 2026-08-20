@@ -3,9 +3,9 @@
 A fork of this shape is taken from Chromium whole, then the vendor's own files
 are placed **inside Chromium's directories** rather than beside them:
 
-    chrome/browser/resources/settings/privacy_page/privacy_page-si.html   <- ours
-    chrome/browser/resources/samsung/samsung_pass.html                    <- ours
-    ui/samsung/views/toolbar.cc                                           <- ours
+    chrome/browser/resources/settings/privacy_page/privacy_page-acme.html <- ours
+    chrome/browser/resources/acme/acme_wallet.html                        <- ours
+    ui/acme/views/toolbar.cc                                              <- ours
 
 So "which files are ours" is not answerable from Chromium's layout, and after
 enough years nobody remembers the full list. That is a problem for every other
@@ -17,18 +17,22 @@ This module answers it from the tree instead. It costs one `os.walk` over a
 local checkout -- no network, no content reading in the default mode -- because
 the two strongest signals are in the names:
 
-  * a **directory** named after the vendor (`samsung/`, `sbrowser/`)
-  * a **filename suffix** marking a vendor variant of an upstream file (`-si`)
+  * a **directory** named after the vendor (`acme/`, `acmebrowser/`)
+  * a **filename suffix** marking a vendor variant of an upstream file (`-acme`)
 
 The second one matters more than it looks. It sits *inside* an upstream
 directory, so no path prefix finds it, and it has no vendor symbol prefix
 either -- it is Chromium's own component name with a suffix. Nothing in the
 marker vocabulary caught it before this module existed.
 
-Content scanning (for `#if defined(SBROWSER_*)`) is available but off by
+Content scanning (for `#if defined(ACME_*)`) is available but off by
 default: it reads every source file in the tree, which is minutes rather than
 seconds, and the name-based signals already locate the directories worth
 looking at.
+
+`acme` above is a placeholder. This module ships no vendor vocabulary of its
+own and never guesses one: the tokens are arguments, because a wrong guess does
+not fail, it invents matches. Callers pass the names their fork actually uses.
 """
 
 from __future__ import annotations
@@ -41,12 +45,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from .targets import get_targets, reaches, scope_of
 
-# Names that identify the vendor. Deliberately a parameter rather than a
-# constant: a different downstream browser has different ones, and guessing is
-# how an analysis invents matches.
-DEFAULT_DIR_TOKENS = ("samsung", "sbrowser", "sec_", "terrace")
-DEFAULT_FILE_SUFFIXES = ("-si", "_si")
-
 SKIP_DIRS = {".git", "out", "node_modules", "__pycache__", "build", ".gradle"}
 
 # Source and resource extensions worth reporting. A vendor .png is real but
@@ -58,10 +56,9 @@ INTERESTING_EXTS = (".cc", ".h", ".mm", ".java", ".ts", ".js", ".html",
 # Match any uppercase macro in a preprocessor condition, then filter by
 # substring in Python. Encoding "contains one of these words" directly in the
 # pattern needs a leading `[A-Z][A-Z0-9_]*`, which silently requires at least
-# one character *before* the word -- so `SBROWSER_CUSTOM_DOWNLOADS`, the most
-# common shape, matched nothing while `S_SBROWSER_X` matched.
+# one character *before* the word -- so `ACME_CUSTOM_DOWNLOADS`, the most
+# common shape, matched nothing while `X_ACME_Y` matched.
 MACRO_RE = re.compile(r"#\s*(?:if|elif|ifdef)\s+.*?\b([A-Z][A-Z0-9_]{3,})\b")
-MACRO_WORDS = ("SBROWSER", "SAMSUNG", "TERRACE", "SEC_")
 
 BY_DIR = "vendor directory"
 BY_NAME = "vendor filename suffix"
@@ -146,17 +143,31 @@ def _name_is_vendor(filename: str, suffixes: Sequence[str]) -> Optional[str]:
     return None
 
 
-def scan(root: str, dir_tokens: Sequence[str] = DEFAULT_DIR_TOKENS,
-         file_suffixes: Sequence[str] = DEFAULT_FILE_SUFFIXES,
+def scan(root: str, dir_tokens: Sequence[str] = (),
+         file_suffixes: Sequence[str] = (),
+         macro_words: Sequence[str] = (),
          scan_content: bool = False,
          log=lambda m: None) -> DiscoveryReport:
-    """Walk a local fork checkout and report every file that looks vendor-owned."""
+    """Walk a local fork checkout and report every file that looks vendor-owned.
+
+    At least one marker is required. With none, the walk finds nothing and
+    reports "no vendor files", which is indistinguishable from a fork that
+    really has none -- the one wrong answer this module must not give.
+    """
+    if not dir_tokens and not file_suffixes:
+        raise ValueError(
+            "no vendor markers given: pass dir_tokens and/or file_suffixes. "
+            "This tool ships no vendor vocabulary of its own, because a "
+            "guessed marker invents matches instead of failing.")
     root = os.path.abspath(root)
     if not os.path.isdir(root):
         raise NotADirectoryError(root)
 
     report = DiscoveryReport(root=root, scanned_content=scan_content)
     tokens = [t.lower() for t in dir_tokens]
+    # A vendor's build flags are its own name shouted: `acme/` -> `ACME_*`.
+    # Deriving them keeps one list to get right instead of two that drift.
+    words = [w.upper() for w in (macro_words or dir_tokens)]
 
     for dirpath, dirnames, filenames in os.walk(root):
         # Sorted for the same reason extraction sorts: a walk that depends on
@@ -189,8 +200,7 @@ def scan(root: str, dir_tokens: Sequence[str] = DEFAULT_DIR_TOKENS,
                         found = MACRO_RE.findall(fh.read())
                 except OSError:
                     continue
-                ours = [m for m in found
-                        if any(w in m for w in MACRO_WORDS)]
+                ours = [m for m in found if any(w in m for w in words)]
                 if ours:
                     report.macros.update(ours)
                     report.hits.append(Hit(rel, BY_MACRO, ours[0]))
@@ -270,7 +280,13 @@ def suggest_profile(report: DiscoveryReport) -> str:
         lines.append("    macros: [" + ", ".join(f'"{m}"' for m in macros) + "],")
     else:
         lines.append("    // macros: run again with --scan-content to fill these")
-    lines.append('    symbol_prefixes: ["kSbrowser", "kSamsung"],  // verify by hand')
+    # Chromium's own convention is `kName`, so a vendor's variables are
+    # `k<Vendor>...`. Derived from the directories actually found rather than
+    # from a list, which is the same guess this module refuses to make.
+    prefixes = [f"k{d[:1].upper()}{d[1:].lower()}" for d in dirs] or ["kVendor"]
+    lines.append("    symbol_prefixes: ["
+                 + ", ".join(f'"{p}"' for p in sorted(set(prefixes)))
+                 + "],  // verify by hand")
     if dirs:
         lines.append("    path_markers: ["
                      + ", ".join(f'"{d.lower()}/"' for d in dirs) + "],")
