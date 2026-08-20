@@ -149,11 +149,16 @@ things -- *Now ON by default on Windows* (77), *Mojo method signature changed
 (ABI)* (40), *Preference no longer in the file we read* (139). Each is a
 partition, not a highlight reel: every finding appears under exactly one, so the
 counts are the report. That tells you what the milestone did before you have
-read a single identifier, and it is grouped by the three consequence groups --
-behaviour switches, external contracts, UI and scheduling -- so the two thirds
-of a report that is *not* about features being turned on or off is visible as
-its own set. Findings on `chrome://` surfaces are grouped by screen instead,
-which is the axis that carries their meaning.
+read a single identifier.
+
+`report.md` groups these under the three consequence groups -- behaviour
+switches, external contracts, UI and scheduling -- so the two thirds of a report
+that is *not* about features being turned on or off is visible as its own set.
+`report.html` is a menu instead, one entry per kind of object, each splitting
+into new / changed / gone and then into the same sentences; `chrome://` screens
+split by page, which is the axis that carries their meaning. If you are reading
+the HTML, the **Overview** tab is one table of where the work is, and every
+number on it opens the rows it counted.
 
 ### Step 4: Classify each finding
 
