@@ -101,8 +101,8 @@ fork instead of across time, and `--target-set` to choose how much is read:
 that version's own tree rather than assumed:
 
 ```
-coverage: reads 42 of 1008 files in this tree that could declare (4% of files)
-  largest gaps: chrome/browser/ (245 files), components/enterprise/ (50 files)
+coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
+  largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
 ```
 
 Read that line before reading the findings. A hand-written list of target files
@@ -261,12 +261,12 @@ State these limits in every report. A clean report does not imply a clean uprev.
 
   | | `default` | `wide` |
   |---|---:|---:|
-  | Files read, of the 1,008 that could declare | 42 (4%) | **1,008 (100%)** |
-  | Facts | 24,679 | 35,932 |
-  | `base::Feature` | 2,062 | 3,944 |
+  | Files read, of the 1,039 that could declare | 42 (4%) | **1,039 (100%)** |
+  | Facts | 24,679 | 36,095 |
+  | `base::Feature` | 2,062 | 3,951 |
   | Feature params | 862 | 1,623 |
   | Preference keys | 689 | 2,404 |
-  | Command-line switches | 288 | 955 |
+  | Command-line switches | 288 | 1,111 |
   | Mojo interfaces | 338 | 1,455 |
   | Mojo methods | 1,362 | 5,738 |
   | WebUI controls | 788 | 1,256 |

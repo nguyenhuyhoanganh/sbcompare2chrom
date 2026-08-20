@@ -4,11 +4,11 @@ The extractors say *what* changed; chromestatus says *why*, in prose a human
 wrote: a summary, the spec link, the shipping milestone, and whether there is
 a known interoperability story.
 
-This matters most for the AI stage.  Handing a model the string
-``"CSSAnchorScope"`` and a status transition invites it to invent an
-explanation; handing it the feature's own one-paragraph summary and spec URL
-lets it reason from fact.  Enrichment is best-effort and cached: an offline
-run simply produces findings without it.
+It matters because the tool stops at the evidence.  A row saying
+``"CSSAnchorScope"`` went from experimental to stable invites whoever reads it
+to guess what that means; the feature's own one-paragraph summary and spec URL
+let them look it up instead.  Enrichment is best-effort and cached, so an
+offline run simply produces findings without it.
 """
 
 from __future__ import annotations

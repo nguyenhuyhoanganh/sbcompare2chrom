@@ -26,29 +26,15 @@ checkout of the candidates proved far slower than the archive downloads.
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, List, Optional, Sequence, Set
 
 from .acquire import GITILES_BASE
-from .targets import get_targets
+from .targets import could_declare, get_targets
 
-# Files whose name suggests they declare features, switches or field trials --
-# or preference keys, which were added after the pref surface turned out to be
-# spread across 87 files while the target list read one of them.
-CANDIDATE_RE = re.compile(
-    r"(features|feature_list|switches|fieldtrial|field_trial|flags"
-    r"|pref_names)\.(cc|h)$")
-
-# Test files declare features that drive tests and ship to nobody.
-TEST_PATH_RE = re.compile(
-    r"(unittest|browsertest|_test\.|/test/|/tests/|/testing/|test_util)")
-
-# Trees a desktop product never compiles.
-IRRELEVANT_RE = re.compile(r"^(ash|chromeos|ios|fuchsia|android|android_webview)/")
 
 
 @dataclass
@@ -131,51 +117,61 @@ def list_tree(ref: str, workdir: Optional[str] = None,
     return paths
 
 
-def target_prefixes(target_set: str = "default",
-                    partitions: Optional[Sequence[str]] = None) -> Set[str]:
-    """What the fetch list actually reaches: exact files plus tree roots.
+def covered_by_targets(path: str, targets: Sequence) -> bool:
+    """Would this target set actually put this file on disk?
 
-    Partitions belong here: a coverage number measured against the full target
-    list, while the run being described only fetches one partition, is a
-    reassuring number about a scan that never happened.
+    Answered by `targets.reaches`, the single definition of scope, rather than
+    by a copy kept here. Two things went wrong while this module had its own:
+
+    A tree target carries a suffix filter as well as a path, and matching on
+    the path alone ignores it. `chrome/browser/ui/webui` is fetched for `.cc`
+    only, so a header underneath it is never written to disk and never read --
+    but a prefix-only check counted it as covered. At M151 that was 5 files
+    reported as read that no run reads, in the one command whose job is to
+    measure the gap, and the error pointed the reassuring way.
+
+    Nested targets also have to be tried in full: a path excluded by the
+    narrow filter on `chrome/browser/ui/webui` may still be reached by the
+    wide one on `chrome/browser`.
     """
-    out: Set[str] = set()
-    for target in get_targets(target_set, partitions):
-        out.add(target.path if target.kind == "file" else target.path.rstrip("/") + "/")
-    return out
+    from .targets import reaches, scope_of
+
+    files, trees = scope_of(targets)
+    return reaches(path, files, trees)
 
 
-def _is_covered(path: str, prefixes: Iterable[str]) -> bool:
-    for prefix in prefixes:
-        if prefix.endswith("/"):
-            if path.startswith(prefix):
-                return True
-        elif path == prefix:
-            return True
-    return False
+def target_paths(target_set: str = "default",
+                 partitions: Optional[Sequence[str]] = None,
+                 complete: bool = False) -> List[str]:
+    """The paths this target set names, for the report's own record."""
+    return sorted(t.path for t in get_targets(target_set, partitions, complete))
 
 
 def analyze(paths: Sequence[str], ref: str, target_set: str = "default",
             include_irrelevant: bool = False,
-            partitions: Optional[Sequence[str]] = None) -> CatalogReport:
-    prefixes = target_prefixes(target_set, partitions)
+            partitions: Optional[Sequence[str]] = None,
+            complete: bool = False) -> CatalogReport:
+    # `complete` has to be passed through, not dropped. It replaces the curated
+    # file list with whole directory roots, so measuring a `--complete` run
+    # against the list it does not use reports every file it does fetch as
+    # missing.
+    targets = get_targets(target_set, partitions, complete)
     report = CatalogReport(ref=ref, total_files=len(paths),
                            partitions=sorted(partitions) if partitions else [],
-                           target_paths=sorted(prefixes))
+                           target_paths=target_paths(target_set, partitions,
+                                                     complete))
 
     for path in paths:
-        # Pref keys are declared in headers as often as in .cc files, so the
-        # candidate set cannot be .cc-only any more.
-        if not path.endswith((".cc", ".h")):
-            continue
-        if not CANDIDATE_RE.search(path):
-            continue
-        if TEST_PATH_RE.search(path):
-            continue
-        if not include_irrelevant and IRRELEVANT_RE.match(path):
+        # `could_declare` is the same rule the per-run coverage line uses, so
+        # the two numbers describe the same population. It knows both pref
+        # naming conventions, and that pref keys live in headers as often as
+        # in .cc files.
+        note = could_declare(path, include_other_platforms=include_irrelevant)
+        if not note:
             continue
         report.candidates.append(
-            CatalogEntry(path=path, covered=_is_covered(path, prefixes)))
+            CatalogEntry(path=path, reason=note,
+                         covered=covered_by_targets(path, targets)))
 
     report.candidates.sort(key=lambda c: (c.covered, c.path))
     return report

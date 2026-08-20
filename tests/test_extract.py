@@ -687,6 +687,64 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
             self.assertTrue(any(applies(probe) for _, applies, _ in REGISTRY),
                             f"{suffix} is fetched but nothing reads {probe}")
 
+    def test_a_bare_filename_is_read_as_well_as_a_prefixed_one(self):
+        """Chromium writes both `content_switches.cc` and plain `switches.cc`.
+
+        The hints were spelled `_switches.`, with the underscore required, so
+        the bare form was fetched and never read. At M151 that was 44 files --
+        `components/embedder_support/switches.cc` declares `--headless` and
+        `--disable-popup-blocking`, `extensions/common/switches.cc` declares
+        35 more -- inside a target set reporting full coverage.
+        """
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import _WIDE_SUFFIXES
+
+        for suffix in _WIDE_SUFFIXES:
+            if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
+                continue
+            probe = f"components/x/{suffix}"
+            self.assertTrue(any(applies(probe) for _, applies, _ in REGISTRY),
+                            f"{suffix} is fetched but nothing reads {probe}")
+
+    def test_every_convention_the_candidate_rule_names_is_readable(self):
+        """Coverage must not count a file no extractor would read.
+
+        The candidate rule and the extractors are two lists of filename
+        conventions, and they had drifted apart in both directions: coverage
+        did not count `*flags.{cc,h}` although the extractors read them, and
+        the extractors did not read a bare `switches.cc` although coverage
+        counted it. A denominator that disagrees with what is read makes the
+        percentage describe nothing.
+        """
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import could_declare
+
+        conventions = ("features", "switches", "feature_list", "field_trial",
+                       "fieldtrial", "flags", "pref_names", "prefs")
+        for convention in conventions:
+            for ext in (".cc", ".h"):
+                for stem in (convention, "foo_" + convention):
+                    path = f"components/x/{stem}{ext}"
+                    self.assertTrue(could_declare(path),
+                                    f"coverage does not count {path}")
+                    self.assertTrue(
+                        any(applies(path) for _, applies, _ in REGISTRY),
+                        f"coverage counts {path} but nothing reads it")
+
+    def test_a_bare_switches_file_yields_its_switches(self):
+        from chromedrift.extract import constants
+
+        source = """
+        namespace switches {
+        // Enable headless mode.
+        const char kHeadless[] = "headless";
+        }  // namespace switches
+        """
+        path = "components/embedder_support/switches.cc"
+        self.assertTrue(constants.applies_to(path))
+        facts = constants.extract(source, path)
+        self.assertEqual([f.key for f in facts], ["headless"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

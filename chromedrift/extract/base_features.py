@@ -44,15 +44,19 @@ from ._cpp import (
 # Widening the filter is free for correctness because the *download* list in
 # targets.py already bounds what is on disk; this only decides what to read
 # from it.
-FILE_HINTS = ("_features.cc", "_features.h", "features.cc", "features.h",
-              "_switches.cc", "_switches.h", "media_switches.cc",
-              "media_switches.h", "gpu_finch_features.cc",
-              "_fieldtrial.cc", "_fieldtrial.h",
-              "_field_trial.cc", "_field_trial.h", "_flags.cc", "_flags.h",
+# Matched as substrings of the basename, so the bare spelling covers the
+# prefixed one: "switches.cc" reads both `switches.cc` and
+# `content_switches.cc`. They used to be spelled "_switches.cc", with the
+# underscore required, which read the second and skipped the first.
+FILE_HINTS = ("features.cc", "features.h",
+              "switches.cc", "switches.h",
+              "fieldtrial.cc", "fieldtrial.h",
+              "field_trial.cc", "field_trial.h",
+              "flags.cc", "flags.h",
               # Every other pair here covers both halves; this one covered only
               # the .cc, so a declaration in the header beside it was fetched
               # and then not read -- the quietest way to lose one.
-              "_feature_list.cc", "_feature_list.h",
+              "feature_list.cc", "feature_list.h",
               "_util.cc", "_handler.cc", "_manager.cc")
 
 # ...but widening pulls in test-only features, which are noise: a feature

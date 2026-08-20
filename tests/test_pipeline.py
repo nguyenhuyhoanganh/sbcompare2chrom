@@ -6,6 +6,7 @@ whether the output is worth reading.
 """
 
 import os
+import re
 import sys
 import unittest
 
@@ -611,8 +612,7 @@ class TestDocumentedInterface(unittest.TestCase):
     """
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DOCS = ("README.md", "SETUP.md", "HANDOFF.md",
-            "PIPELINE.md", "COVERAGE.md",
+    DOCS = ("README.md",
             "skills/analyzing-chromium-uprevs/SKILL.md",
             "skills/analyzing-chromium-uprevs/reference/signals.md",
             "skills/analyzing-chromium-uprevs/reference/traps.md",
@@ -1961,10 +1961,10 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
     """Three target sets, and each has to say what it costs and what it reads.
 
     Coverage is a property of a run, not of the tool, so nothing may hard-code
-    it as a constant. Measured at M151: `default` reads 42 of the 1,010 files
-    in the tree that could declare -- 4% of files, but 58% of declarations,
-    because the curated files are the large ones -- and `wide` reads 96% of the
-    files for about 315 MB per version against 40.
+    it as a constant. Measured at M151: `default` reads 42 of the 1,039 files
+    in the tree that could declare -- 4% of files, but more than half the
+    `base::Feature` declarations, because the curated files are the large ones
+    -- and `wide` reads all 1,039, for about 315 MB per version against 40.
     """
 
     def test_every_named_set_resolves(self):
@@ -2112,6 +2112,228 @@ class TestOneDefinitionOfScope(unittest.TestCase):
         self.assertEqual(cov["missed"], 0, cov["missed_paths"])
         self.assertEqual(scope_violations(snap), [])
 
+
+
+class TestEveryScopeCheckAgrees(unittest.TestCase):
+    """One question, one answer, in all four places that ask it.
+
+    "Is this path in scope" is asked by extraction, by the coverage
+    measurement, by the snapshot scope check, by `catalog`, and by
+    `discover`. Whenever a copy of the rule drifts, the tool reports on a
+    scope it is not actually using -- which is the defect this project has
+    now hit four separate times.
+    """
+
+    NESTED = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
+
+    def test_discover_agrees_with_the_shared_rule(self):
+        """`wide` reaches this file; discover used to call it a gap.
+
+        discover kept its own copy that stopped at the first prefix that
+        matched. `chrome/browser/ui/webui` is declared for .cc, so it
+        answered no -- while `chrome/browser`, declared for a dozen
+        suffixes, fetches the file and an extractor reads it. The result
+        was a worklist telling you to add targets you already have.
+        """
+        from chromedrift.discover import DiscoveryReport, Hit, BY_DIR, uncovered_dirs
+        from chromedrift.targets import get_targets, reaches, scope_of
+
+        report = DiscoveryReport(root="/fork")
+        report.hits = [Hit(self.NESTED, BY_DIR, "samsung")]
+
+        files, trees = scope_of(get_targets("wide"))
+        self.assertTrue(reaches(self.NESTED, files, trees))
+
+        fetchable, unreadable = uncovered_dirs(report, "wide")
+        self.assertEqual(fetchable, [], "a covered file was reported as a gap")
+        self.assertEqual(unreadable, [])
+
+    def test_catalog_agrees_with_the_shared_rule(self):
+        """catalog measured on the path prefix and ignored the suffix filter.
+
+        The default set asks for .cc under chrome/browser/ui/webui, so this
+        header is never written to disk and never read. catalog counted it
+        as covered -- an error in the reassuring direction, in the one
+        command whose whole job is measuring the gap.
+        """
+        from chromedrift.catalog import covered_by_targets
+        from chromedrift.targets import get_targets, reaches, scope_of
+
+        targets = get_targets("default")
+        files, trees = scope_of(targets)
+        self.assertFalse(reaches(self.NESTED, files, trees))
+        self.assertFalse(covered_by_targets(self.NESTED, targets))
+
+    def test_catalog_honours_complete(self):
+        """`--complete` fetches whole roots, so it must be measured that way.
+
+        catalog took the flag from the shared parser and never passed it on,
+        so a `--complete` run was measured against the curated file list it
+        replaces -- reporting as missing every file the run does fetch.
+        """
+        from chromedrift.catalog import covered_by_targets
+        from chromedrift.targets import get_targets
+
+        path = "components/bookmarks/browser/bookmark_pref_names.h"
+        filtered = get_targets("default", ["bookmarks"])
+        complete = get_targets("default", ["bookmarks"], complete=True)
+        self.assertFalse(covered_by_targets(path, filtered))
+        self.assertTrue(covered_by_targets(path, complete))
+
+
+class TestOneDefinitionOfWhatCouldDeclare(unittest.TestCase):
+    """"Could this file declare something" must have one answer too.
+
+    catalog carried its own filename regex, written before the `*_prefs.{h,cc}`
+    convention was known and before the platform filter was fixed. Measured
+    against the real M151 tree it disagreed with the coverage measurement on
+    320 of about a thousand files: it missed 204 pref files that every run now
+    reads, and counted 116 Android and about_flags files that no run reads.
+
+    catalog exists to be the authority on what is missing, so it disagreeing
+    with the number each run prints is the worst place for this to happen.
+    """
+
+    PREF_CONVENTION = "chrome/browser/accessibility/animation_policy_prefs.cc"
+    ANDROID = "chrome/browser/android/chrome_startup_flags.cc"
+
+    def test_catalog_uses_the_same_rule_as_the_coverage_measurement(self):
+        from chromedrift.targets import could_declare
+
+        self.assertTrue(could_declare(self.PREF_CONVENTION))
+        self.assertFalse(could_declare(self.ANDROID))
+
+        report = self._catalog([self.PREF_CONVENTION, self.ANDROID])
+        self.assertEqual([c.path for c in report.candidates],
+                         [self.PREF_CONVENTION])
+
+    def test_all_platforms_still_widens_it(self):
+        report = self._catalog([self.ANDROID], include_irrelevant=True)
+        self.assertEqual([c.path for c in report.candidates], [self.ANDROID])
+
+    def test_test_files_are_excluded_either_way(self):
+        path = "components/foo/foo_features_unittest.cc"
+        self.assertEqual(self._catalog([path]).candidates, [])
+        self.assertEqual(
+            self._catalog([path], include_irrelevant=True).candidates, [])
+
+    def _catalog(self, paths, include_irrelevant=False):
+        from chromedrift.catalog import analyze
+        return analyze(paths, ref="151", include_irrelevant=include_irrelevant)
+
+
+class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
+    """Nothing shown to a user may quote a coverage figure of its own.
+
+    Coverage changes whenever a filter changes, and it has gone stale twice:
+    help text and a log line were still advertising 96% after `wide` reached
+    100%. Every run measures its own coverage and prints it, so a second copy
+    in a string can only ever disagree with the first.
+
+    Comments recording a historical measurement are fine -- they name the
+    milestone they were taken at. This guards the strings that reach a user.
+    """
+
+    CLAIM = re.compile(r"\d+\s*%+\s*of (the )?(files|declarations)")
+
+    def _user_visible_strings(self):
+        """Every argparse `help=` and every string logged, across the package."""
+        import ast
+        import glob
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+                              recursive=True):
+            with open(path, encoding="utf-8") as fh:
+                tree = ast.parse(fh.read())
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                name = getattr(node.func, "attr", getattr(node.func, "id", ""))
+                if name == "log":
+                    args = list(node.args)
+                elif name == "add_argument":
+                    args = [kw.value for kw in node.keywords if kw.arg == "help"]
+                else:
+                    continue
+                for arg in args:
+                    for sub in ast.walk(arg):
+                        if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                            yield os.path.basename(path), sub.lineno, sub.value
+
+    def test_no_help_text_or_log_line_quotes_a_percentage(self):
+        offenders = [f"{f}:{n}  {t.strip()[:60]}"
+                     for f, n, t in self._user_visible_strings()
+                     if self.CLAIM.search(t)]
+        self.assertEqual(offenders, [])
+
+
+class TestEveryFlagIsActedOn(unittest.TestCase):
+    """A command must not accept a flag it then ignores.
+
+    Every subcommand used to inherit one shared parent parser, so `catalog`
+    advertised --local-src, --refresh and --mode and did nothing with any of
+    them, and `discover` advertised eight it ignored. The worst of those was
+    --complete: catalog took it, dropped it, and measured the run against the
+    curated file list that --complete exists to replace -- reporting as
+    missing every file the run does fetch.
+    """
+
+    # Flags argparse always adds, and positional/handler plumbing.
+    IGNORED = {"help", "func", "command"}
+
+    def _handler_reads(self, name):
+        import ast
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "chromedrift", "cli.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        fn = next(n for n in ast.walk(tree)
+                  if isinstance(n, ast.FunctionDef) and n.name == f"cmd_{name}")
+        return {n.attr for n in ast.walk(fn)
+                if isinstance(n, ast.Attribute)
+                and getattr(n.value, "id", "") == "args"}
+
+    def test_no_subcommand_offers_a_flag_it_never_reads(self):
+        from chromedrift.cli import build_parser
+
+        parser = build_parser()
+        commands = parser._subparsers._group_actions[0].choices
+        unused = {}
+        for name, sub in commands.items():
+            offered = {a.dest for a in sub._actions} - self.IGNORED
+            leftover = sorted(offered - self._handler_reads(name))
+            if leftover:
+                unused[name] = leftover
+        self.assertEqual(unused, {})
+
+
+class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
+    """The AI stage is gone. Help text and docstrings must not advertise it."""
+
+    def test_the_run_command_help_does_not_promise_ai(self):
+        from chromedrift.cli import build_parser
+
+        parser = build_parser()
+        run = parser._subparsers._group_actions[0].choices["run"]
+        self.assertNotIn("AI", run.description or "")
+        text = " ".join(
+            c.help or "" for c in
+            parser._subparsers._group_actions[0]._choices_actions)
+        self.assertNotIn("AI", text)
+
+    def test_no_module_docstring_mentions_the_ai_stage(self):
+        import glob
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        offenders = []
+        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+                              recursive=True):
+            with open(path, encoding="utf-8") as fh:
+                for lineno, line in enumerate(fh, 1):
+                    if "AI stage" in line:
+                        offenders.append(f"{os.path.basename(path)}:{lineno}")
+        self.assertEqual(offenders, [])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

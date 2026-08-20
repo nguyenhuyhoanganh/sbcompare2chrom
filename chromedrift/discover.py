@@ -37,9 +37,9 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
-from .targets import get_targets
+from .targets import get_targets, reaches, scope_of
 
 # Names that identify the vendor. Deliberately a parameter rather than a
 # constant: a different downstream browser has different ones, and guessing is
@@ -220,23 +220,19 @@ def uncovered_dirs(report: DiscoveryReport, target_set: str = "default",
       instead. For a fork with a large native UI this is usually the bigger
       pile, and calling it "missing" would imply a fix that does not exist.
     """
-    targets = get_targets(target_set)
-    files: Set[str] = {t.path for t in targets if t.kind == "file"}
-    prefixes: List[Tuple[str, Optional[tuple]]] = [
-        (t.path.rstrip("/") + "/", t.include) for t in targets if t.kind == "tree"]
-
-    def covered(path: str) -> bool:
-        if path in files:
-            return True
-        for prefix, include in prefixes:
-            if path.startswith(prefix):
-                return not include or any(path.endswith(s) for s in include)
-        return False
+    # Scope is asked here exactly as extraction and coverage ask it. This
+    # module used to keep its own copy, which stopped at the first prefix that
+    # matched. Nested targets have different filters -- `chrome/browser/ui/webui`
+    # is fetched for .cc, `chrome/browser` for a dozen suffixes -- so a header
+    # under the first is reached by the second, and stopping early answered
+    # "not covered" for files already on disk. That turned into a worklist
+    # telling you to add targets you already have.
+    files, trees = scope_of(get_targets(target_set))
 
     fetchable: Counter = Counter()
     unreadable: Counter = Counter()
     for hit in report.hits:
-        if covered(hit.path):
+        if reaches(hit.path, files, trees):
             continue
         directory = "/".join(hit.path.split("/")[:-1])
         if _readable_by_any_extractor(hit.path):

@@ -25,7 +25,11 @@ _STRING_CONST_RE = re.compile(
     r"(k\w+)\s*\[\s*\]\s*=\s*\"([^\"]*)\"\s*;"
 )
 
-_SWITCH_HINT = "_switches."
+# Chromium writes this filename both ways: `content_switches.cc` and, in a
+# component that needs no prefix, plain `switches.cc`. Requiring the underscore
+# read the first and silently skipped the second -- 44 files at M151, holding
+# real switches like --headless, all of them fetched and none of them read.
+_SWITCH_HINT = "switches."
 # Two naming conventions carry pref keys, not one. `*pref_names.{h,cc}` is the
 # older and larger set; `*_prefs.{h,cc}` is the newer one Chromium uses for
 # per-component keys. Measured at M151, the second convention holds 469 keys in

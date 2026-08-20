@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 from .acquire import (
     AcquireError,
@@ -109,17 +109,21 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "
             f"files in this tree that could declare ({pct}% of files)")
         if coverage["missed"]:
-            # File count is what can be measured without fetching, and it
-            # understates the position: the curated targets are the large
-            # files. Measured at M151, those 42 files hold 2,062 base::Feature
-            # declarations while all 1,010 hold 3,586 -- 4% of the files, 58%
-            # of the declarations. Both numbers are worth knowing and neither
-            # is the whole answer.
+            # A file count understates what the curated set gets, because the
+            # files someone chose are the big ones: measured at M151, the 42
+            # files `default` reads hold 2,062 of the 3,944 base::Feature
+            # declarations in all 1,008. Both numbers are worth knowing, and
+            # neither is the whole answer, so the log gives the one that can
+            # be measured without fetching and says what to run for the rest.
             top = list(coverage["missed_by_directory"].items())[:3]
             log("    largest gaps: "
                 + ", ".join(f"{d}/ ({n} files)" for d, n in top))
-            log("    `--target-set wide` reads these too: ~315 MB per version "
-                "against 40, and 96% of the files")
+            if target_set != "wide":
+                # Only useful advice if it names something you are not already
+                # doing. A wide run that still misses files is a partitioned
+                # one, and widening the target set is not the fix for that.
+                log("    to read these too, run `--target-set wide`: "
+                    "about 315 MB per version instead of 40")
     log(f"  {len(targets)} targets")
 
     started = time.time()

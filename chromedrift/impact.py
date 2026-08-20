@@ -6,9 +6,8 @@ stage answers the question the team actually has: **does it matter to us**.
 The scoring is deliberately transparent rather than clever.  Every adjustment
 appends a human-readable reason, so a reviewer can see why something landed in
 "Must fix" and can argue with it.  A ranking nobody can audit gets ignored the
-first time it is wrong, and this ranking also decides what the AI stage spends
-its context on -- so an unexplained score would propagate into an unexplained
-recommendation.
+first time it is wrong.  This ranking also decides what a reader sees first,
+which is the whole value of it, so the reasons have to travel with the score.
 """
 
 from __future__ import annotations

@@ -102,8 +102,8 @@ _PREF_FILE_RE = re.compile(
 # Feature flags and command-line switches. The convention is strong but not a
 # rule, which is what `catalog` measures.
 _FEATURE_FILE_RE = re.compile(
-    r"(^|/)[a-z0-9_]*(features|switches|feature_list|field_trial|fieldtrial)"
-    r"\.(cc|h)$")
+    r"(^|/)[a-z0-9_]*(features|switches|feature_list|field_trial|fieldtrial"
+    r"|flags)\.(cc|h)$")
 
 
 class DiscoveryRule:
@@ -116,9 +116,10 @@ class DiscoveryRule:
         self.roots = roots
         self.note = note
 
-    def matches(self, path: str) -> bool:
-        if (_TEST_RE.search(path) or _OTHER_PLATFORM_RE.search(path)
-                or _NOT_THE_PRODUCT_RE.search(path)):
+    def matches(self, path: str, include_other_platforms: bool = False) -> bool:
+        if _TEST_RE.search(path) or _NOT_THE_PRODUCT_RE.search(path):
+            return False
+        if not include_other_platforms and _OTHER_PLATFORM_RE.search(path):
             return False
         return bool(self.pattern.search(path))
 
@@ -127,6 +128,25 @@ DISCOVERY_RULES = (
     DiscoveryRule(_PREF_FILE_RE, note="preference keys"),
     DiscoveryRule(_FEATURE_FILE_RE, note="feature flags and switches"),
 )
+
+
+def could_declare(path: str,
+                  include_other_platforms: bool = False) -> Optional[str]:
+    """What this file could declare, by its name, or None if nothing.
+
+    The single definition of "is this file worth reading", used both by the
+    coverage measured on every run and by `catalog`. They each had their own
+    before, written at different times, and they disagreed on 320 of the
+    roughly 1,000 files in the M151 tree: catalog had never heard of the
+    `*_prefs.{h,cc}` convention that holds 469 keys, and its platform filter
+    only matched a leading `android/`, so it counted `chrome/browser/android/`
+    as well. catalog is meant to be the authority on what is missing, which
+    makes it the worst place to disagree with the number each run prints.
+    """
+    for rule in DISCOVERY_RULES:
+        if rule.matches(path, include_other_platforms):
+            return rule.note
+    return None
 
 
 def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
@@ -328,10 +348,9 @@ def minimal_targets() -> List[FetchTarget]:
     ]
 
 
-# Whole-root archives for the directories the curated list can only sample.
-# Measured at M151: these three plus the roots already fetched raise declaration
-# coverage from 42 of 1,010 candidate files to 976 of them, for 315 MB and
-# eleven requests. Expensive enough to be a choice, cheap enough to be one.
+# Whole-directory archives for what the curated list can only sample. One
+# request each, filtered as they unpack. The measured effect is in
+# `wide_targets` below; it is stated once so the two cannot disagree.
 _WIDE_ROOTS = (
     ("components", "every components/ declaration"),
     ("chrome/browser", "every chrome/browser declaration, including all 132 "
@@ -386,15 +405,17 @@ _WIDE_SUFFIXES = (
 
 
 def wide_targets() -> List[FetchTarget]:
-    """The default set, plus whole roots for what it can only sample.
+    """The default set, plus whole directories for what it can only sample.
 
-    Slower and much larger to fetch -- about 315 MB per version against 40 --
-    but not to keep: the archives are filtered as they are unpacked, so the
-    tree on disk stays around 42 MB either way. The cost is bandwidth once per
-    version, not storage.
+    Much larger to fetch: about 315 MB per version against 40. The archives
+    are filtered as they unpack, so the tree kept on disk is 94 MB against
+    roughly 38. The real cost is bandwidth, once per version, and a tag is
+    cached forever afterwards.
 
-    Measured at M151: coverage goes from 42 of 1,010 candidate files to 971,
-    and base::Feature declarations from 2,062 to 3,836.
+    Measured at M151, against a recursive listing of that version's own tree:
+    the files read go from 42 of 1,008 to all 1,008, and base::Feature
+    declarations from 2,062 to 3,944. These are the numbers as of that
+    measurement -- every run prints its own, and that is the one to trust.
     """
     return default_targets() + [
         FetchTarget(root, "tree", _WIDE_SUFFIXES, note=note)

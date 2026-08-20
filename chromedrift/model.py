@@ -100,7 +100,17 @@ from typing import Any, Dict, Iterable, List, Optional
 #      in a filter. String constants are also read across platform trees now,
 #      so a pref key moving into a ChromeOS file reads as a move rather than a
 #      deletion.
-SCHEMA_VERSION = 17
+#  18: filename hints match the bare spelling as well as the prefixed one.
+#      Chromium writes both `content_switches.cc` and plain `switches.cc`, and
+#      the hints required the underscore, so 44 files at M151 were fetched and
+#      never read -- among them `components/embedder_support/switches.cc`,
+#      which declares --headless, and `extensions/common/switches.cc`, which
+#      declares 35 more. Version 17 snapshots are missing those switches while
+#      reporting that they read every file in the tree. The candidate rule also
+#      learned the `*flags.{cc,h}` convention, which the extractors already
+#      read, so coverage now counts 31 files it used to leave out of its own
+#      denominator.
+SCHEMA_VERSION = 18
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

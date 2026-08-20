@@ -57,8 +57,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     _log(f"snapshot {args.ref}")
     snap = build_snapshot(args.ref, args.cache, args.target_set,
                           platform=PLATFORM, local_src=args.local_src,
-                          refresh=args.refresh,
-                          partitions=args.partitions,
+                          refresh=args.refresh, partitions=args.partitions,
                           complete=args.complete, log=_log)
     print(f"{snap.ref}  milestone={snap.milestone}  facts={len(snap.facts)}")
     for kind, count in snap.counts().items():
@@ -70,15 +69,15 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
 
 def cmd_diff(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
-                         platform=PLATFORM, local_src=args.local_src,
-                         refresh=args.refresh,
-                         partitions=args.partitions,
-                          complete=args.complete, log=_log)
+                         platform=PLATFORM,
+                         local_src=args.from_src or args.local_src,
+                         refresh=args.refresh, partitions=args.partitions,
+                         complete=args.complete, log=_log)
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
-                         platform=PLATFORM, local_src=args.local_src,
-                         refresh=args.refresh,
-                         partitions=args.partitions,
-                          complete=args.complete, log=_log)
+                         platform=PLATFORM,
+                         local_src=args.to_src or args.local_src,
+                         refresh=args.refresh, partitions=args.partitions,
+                         complete=args.complete, log=_log)
     changes = diff_snapshots(old, new, platform=PLATFORM,
                              target_milestone=new.milestone, mode=args.mode)
     print(f"{len(changes)} semantic changes  {old.ref} -> {new.ref} "
@@ -96,10 +95,10 @@ def cmd_diff(args: argparse.Namespace) -> int:
 def cmd_profile(args: argparse.Namespace) -> int:
     snapshots = []
     if args.ref:
-        snapshots.append(build_snapshot(args.ref, args.cache, args.target_set,
-                                        platform=PLATFORM,
-                                        partitions=args.partitions,
-                          complete=args.complete, log=_log))
+        snapshots.append(build_snapshot(
+            args.ref, args.cache, args.target_set, platform=PLATFORM,
+            refresh=args.refresh, partitions=args.partitions,
+            complete=args.complete, log=_log))
     touch = load_profile(args.profile, snapshots=snapshots, log=_log)
     print(f"profile: {touch.name} (platform {touch.platform})")
     print(f"  areas:            {len(touch.areas)}")
@@ -127,15 +126,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     _log(f"[1/5] snapshot {args.from_ref}")
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=from_src,
-                         refresh=args.refresh,
-                         partitions=args.partitions,
-                          complete=args.complete, log=_log)
+                         refresh=args.refresh, partitions=args.partitions,
+                         complete=args.complete, log=_log)
     _log(f"[2/5] snapshot {args.to_ref}")
     new = build_snapshot(args.to_ref, args.cache, args.target_set,
                          platform=PLATFORM, local_src=to_src,
-                         refresh=args.refresh,
-                         partitions=args.partitions,
-                          complete=args.complete, log=_log)
+                         refresh=args.refresh, partitions=args.partitions,
+                         complete=args.complete, log=_log)
 
     # Completeness is only checkable after extraction: whether the surface is
     # self-contained depends on what it references, not on what was fetched.
@@ -339,7 +336,8 @@ def cmd_catalog(args: argparse.Namespace) -> int:
     paths = catalog.list_tree(args.ref, workdir=args.keep_clone, log=_log)
     report = catalog.analyze(paths, ref=args.ref, target_set=args.target_set,
                              include_irrelevant=args.all_platforms,
-                             partitions=args.partitions)
+                             partitions=args.partitions,
+                             complete=args.complete)
     print()
     for line in catalog.summarize(report):
         print(line)
@@ -568,72 +566,94 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=__version__)
 
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--cache", default=DEFAULT_CACHE,
-                        help=f"cache directory (default: {DEFAULT_CACHE})")
-    common.add_argument("--target-set", default="default",
-                        choices=("default", "minimal", "wide"),
-                        help="which Chromium files to pull. default: curated, "
-                             "~40 MB per version, reads 4%% of the files in "
-                             "the tree that could declare but 58%% of the "
+    # Flags are grouped so that a command only offers the ones it acts on.
+    # They used to come from one shared parent, which meant `catalog` accepted
+    # --local-src and --mode and silently did nothing with either.
+
+    cache = argparse.ArgumentParser(add_help=False)
+    cache.add_argument("--cache", default=DEFAULT_CACHE,
+                       help=f"cache directory (default: {DEFAULT_CACHE})")
+    cache.add_argument("--refresh", action="store_true",
+                       help="ignore caches and refetch")
+
+    target_set = argparse.ArgumentParser(add_help=False)
+    target_set.add_argument("--target-set", default="default",
+                            choices=("default", "minimal", "wide"),
+                            help="which Chromium files to pull. default: a "
+                             "curated list, about 40 MB per version. It reads "
+                             "a small share of the files that could declare "
+                             "something, but a large share of the "
                              "declarations, because the curated files are the "
-                             "large ones. wide: adds whole-root archives for "
-                             "components/, chrome/browser/, media/ and six "
-                             "others -- fetches 315 MB but keeps 42, and "
-                             "reads 96%% of the files, for a release gate. "
-                             "minimal: three files, for smoke "
-                             "tests. Every run prints the coverage it achieved")
-    common.add_argument("--local-src", default=None,
-                        help="use an existing checkout instead of gitiles "
-                             "(applies to both sides)")
-    common.add_argument("--from-src", default=None,
-                        help="checkout for the FROM side only")
-    common.add_argument("--to-src", default=None,
-                        help="checkout for the TO side only, e.g. a vendor fork")
-    common.add_argument("--refresh", action="store_true",
-                        help="ignore caches and refetch")
-    common.add_argument("--partition", action="append", dest="partitions",
-                        metavar="NAME",
-                        help="limit what is fetched and scanned to one part of "
-                             "the product (repeatable). Faster and LESS "
-                             "complete: a change affecting downloads can live "
-                             "in content/ or in a Mojo interface and match no "
-                             "partition. Use the full set for a release gate. "
-                             f"Available: {', '.join(partition_names())}")
-    common.add_argument("--complete", action="store_true",
-                        help="with --partition: fetch the partition's whole "
-                             "directory roots instead of a curated file list, "
-                             "so coverage inside those roots is complete by "
+                             "big ones. wide: whole-directory archives for "
+                             "components/, chrome/browser/, content/ and "
+                             "others -- about 315 MB per version, and it reads "
+                             "everything an extractor understands. Use it for "
+                             "a release gate. minimal: three files, for smoke "
+                             "tests. Every run measures and prints the "
+                             "coverage it achieved")
+    which_files = argparse.ArgumentParser(add_help=False, parents=[target_set])
+    which_files.add_argument("--partition", action="append", dest="partitions",
+                             metavar="NAME",
+                             help="limit what is fetched and scanned to one "
+                             "part of the product (repeatable). Faster, and "
+                             "less complete by design: a change affecting "
+                             "downloads can live in content/ or in a Mojo "
+                             "interface and match no partition. Use the full "
+                             "set for a release gate. Available: "
+                             f"{', '.join(partition_names())}")
+    which_files.add_argument("--complete", action="store_true",
+                             help="with --partition: fetch the partition's "
+                             "whole directories instead of a curated file "
+                             "list, so coverage inside them is complete by "
                              "construction. Costs a few MB more; refused for "
                              "partitions whose roots are whole subsystems")
-    common.add_argument("--mode", default=MODE_UPREV, choices=MODES,
-                        help="uprev: upstream over time (default). "
-                             "fork: upstream vs a vendor fork at the same "
-                             "milestone, where a missing fact means the vendor "
-                             "removed it")
+
+    one_checkout = argparse.ArgumentParser(add_help=False)
+    one_checkout.add_argument("--local-src", default=None,
+                              help="read from an existing checkout instead of "
+                                   "gitiles")
+
+    # Each side of a comparison can come from its own tree. Comparing a vendor
+    # fork against upstream needs exactly that, and a single --local-src would
+    # point both sides at the same one.
+    two_checkouts = argparse.ArgumentParser(add_help=False,
+                                            parents=[one_checkout])
+    two_checkouts.add_argument("--from-src", default=None,
+                               help="checkout for the FROM side only "
+                                    "(overrides --local-src)")
+    two_checkouts.add_argument("--to-src", default=None,
+                               help="checkout for the TO side only, e.g. a "
+                                    "vendor fork (overrides --local-src)")
+
+    compare = argparse.ArgumentParser(add_help=False)
+    compare.add_argument("--mode", default=MODE_UPREV, choices=MODES,
+                         help="uprev: upstream over time (default). "
+                              "fork: upstream vs a vendor fork at the same "
+                              "milestone, where a missing fact means the "
+                              "vendor removed it")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("snapshot", parents=[common],
+    p = sub.add_parser("snapshot", parents=[cache, which_files, one_checkout],
                        help="extract the feature surface of one Chromium ref")
     p.add_argument("ref", help="milestone (143), version (143.0.7499.40) or git ref")
     p.set_defaults(func=cmd_snapshot)
 
-    p = sub.add_parser("diff", parents=[common],
+    p = sub.add_parser("diff", parents=[cache, which_files, two_checkouts, compare],
                        help="semantic diff between two refs")
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
     p.add_argument("--out", help="write changes JSON here")
     p.set_defaults(func=cmd_diff)
 
-    p = sub.add_parser("profile", parents=[common],
+    p = sub.add_parser("profile", parents=[cache, which_files],
                        help="inspect what a downstream profile resolves to")
     p.add_argument("profile", help="path to the profile json5")
     p.add_argument("--ref", help="snapshot ref to build the symbol vocabulary from")
     p.set_defaults(func=cmd_profile)
 
-    p = sub.add_parser("run", parents=[common],
-                       help="full pipeline: snapshot, diff, impact, AI, report")
+    p = sub.add_parser("run", parents=[cache, which_files, two_checkouts, compare],
+                       help="full pipeline: snapshot, diff, score, report")
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
     p.add_argument("--profile", help="downstream profile json5")
@@ -648,7 +668,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--profile", help="also validate a downstream profile")
     p.set_defaults(func=cmd_check)
 
-    p = sub.add_parser("catalog", parents=[common],
+    p = sub.add_parser("catalog", parents=[which_files],
                        help="measure what the target set is missing")
     p.add_argument("ref", help="Chromium ref, e.g. 151.0.7922.138")
     p.add_argument("--limit", type=int, default=40,
@@ -661,7 +681,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write the report JSON here")
     p.set_defaults(func=cmd_catalog)
 
-    p = sub.add_parser("discover", parents=[common],
+    p = sub.add_parser("discover", parents=[target_set],
                        help="find the vendor's own files in a fork checkout")
     p.add_argument("--fork-src", required=True,
                    help="path to the fork checkout (read from disk, no network)")
@@ -679,7 +699,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write the full report JSON here")
     p.set_defaults(func=cmd_discover)
 
-    p = sub.add_parser("provenance", parents=[common],
+    p = sub.add_parser("provenance", parents=[cache, which_files],
                        help="separate deliberate divergence from merge debt")
     p.add_argument("fork", help="label for the fork snapshot, e.g. sb-main-dev")
     p.add_argument("upstream", nargs="+",

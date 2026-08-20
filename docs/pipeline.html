@@ -654,7 +654,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           Một khai báo đã được đọc ra và chuẩn hoá thành dữ liệu. Ở M148, công cụ
           đọc được: <em>tên</em> <code>GlicActorUiMagicCursor</code>, <em>trạng thái
           trên Windows</em> là <b>tắt</b>. Ở M151 cũng khai báo đó, trạng thái là
-          <b>bật</b>. Một snapshot M151 cho ra khoảng <b>24.600 fact</b>.
+          <b>bật</b>. Một snapshot M151 với target set mặc định cho ra khoảng <b>24.700 fact</b>.
         </div>
       </div>
       <div class="step">
@@ -847,18 +847,18 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <table>
             <thead><tr><th>Phạm vi</th><th class="n">Giây</th><th class="n">Fact</th></tr></thead>
             <tbody>
-              <tr><td>Toàn bộ (<code>default</code>)</td><td class="n">120</td><td class="n">24.677</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">29.348</td></tr>
-              <tr><td class="mono">--partition settings</td><td class="n">24</td><td class="n">4.467</td></tr>
-              <tr><td class="mono">--partition downloads</td><td class="n">17</td><td class="n">2.692</td></tr>
+              <tr><td>Toàn bộ (<code>default</code>)</td><td class="n">~120</td><td class="n">24.679</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36.095</td></tr>
+              <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2.692</td></tr>
             </tbody>
           </table>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:11px 0 0">
           Khoảng 40 MB cho mỗi phiên bản. Lần chạy đầu mất hơn một phút; các lần
           sau đọc từ cache nên gần như tức thì. <code>--target-set wide</code>
-          tải 315 MB nhưng chỉ giữ 42 MB trên đĩa, và đọc 96% số file khai báo
-          thay vì 4%.
+          tải 315 MB và giữ 94 MB trên đĩa, đổi lại đọc toàn bộ số file khai báo
+          trong cây thay vì 4%. Mỗi lần chạy đều tự đo và in ra con số của chính
+          nó, nên đây là số đo tại M151 chứ không phải một hằng số.
         </p>
       </div>
     </div>
@@ -1187,14 +1187,14 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <span class="chip">feature param · 862</span>
       <span class="chip ok">blink runtime · 1.212</span>
       <span class="chip">chrome://flags · 1.753</span>
-      <span class="chip hot">pref · 683</span>
+      <span class="chip hot">pref · 689</span>
       <span class="chip hot">switch · 288</span>
       <span class="chip hot">Mojo method · 1.362</span>
       <span class="chip">Mojo interface · 338</span>
       <span class="chip">IDL member · 11.941</span>
       <span class="chip">IDL interface · 2.608</span>
       <span class="chip ok">route · 108</span>
-      <span class="chip ok">control · 761</span>
+      <span class="chip ok">control · 788</span>
       <span class="chip ok">gate · 668</span>
     </div>
     <p style="font-size:.83rem;color:var(--muted);margin-top:10px">
@@ -1543,9 +1543,14 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       </table>
     </div>
     <p style="margin-top:14px">
-      Độ bao phủ trên toàn cây mã: khoảng <b>60%</b> với feature flag, <b>30%</b> với
-      Mojo, và <b>1%</b> với pref, do phần lớn pref nằm
-      trong các file mà danh sách tải hiện chưa với tới.
+      Độ bao phủ phụ thuộc target set, và mỗi lần chạy đều in ra con số nó đo
+      được. Tại M151, <code>default</code> đọc 42 trong 1.039 file có thể khai
+      báo (4%) nhưng vẫn lấy được hơn một nửa số khai báo <code>base::Feature</code>,
+      vì các file được chọn thủ công là những file lớn nhất.
+      <code>--target-set wide</code> đọc cả 1.039 file. Với những mặt như pref,
+      switch và Mojo thì chênh lệch giữa hai target set là rất lớn — pref 689 so
+      với 2.404, Mojo interface 338 so với 1.455 — nên khi câu trả lời thực sự
+      quan trọng thì chạy <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
       Vì vậy <code>must fix: 0</code> <b>không bao giờ có nghĩa là “đợt uprev
@@ -1557,7 +1562,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
 
 <footer>
   <div>Mọi số liệu trong tài liệu này được đo trên mã nguồn Chromium thật (M139, M143, M148, M151) và dựng lại được bằng lệnh <code>chromedrift catalog</code> và <code>chromedrift run</code>.</div>
-  <div>Tài liệu liên quan: <code>PIPELINE.md</code> mô tả quy trình ở mức chi tiết hơn · <code>COVERAGE.md</code> trình bày cách đo độ bao phủ.</div>
+  <div>Tài liệu liên quan: <code>README.md</code> — dự án là gì, cài đặt, chín lệnh, hồ sơ downstream, và cách đọc báo cáo.</div>
 </footer>
 
 </div>
