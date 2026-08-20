@@ -43,15 +43,32 @@ global.document = {
   createElement: t => new El(t),
 };
 
+// Rows are shaped like the real payload, which drops empty values -- so a row
+// legitimately arrives without `we_patch`, `chromestatus` or `ours`. Every
+// tenth one scores zero, because that is a real and reachable score (base 35
+// for a removed pref, minus 45 for one not compiled on Windows, clamped) and
+// the fixture used to give every row a truthy score. That is why nothing
+// caught `score: 0` being dropped from the payload as if it were `false`,
+// leaving 238 of 6,757 rows rendering the string `undefined` in the Score
+// column of a real report.
 const N = 3000;
-global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => ({
-  name: 'Feature' + i, kind: 'base_feature', kind_label: 'Chromium feature flag',
-  bucket: i < 40 ? 'must_fix' : 'fyi', bucket_label: 'FYI', score: 100 - (i % 100),
-  signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'], we_patch: [],
-  we_ref: [], areas: [], deltas: [['default_state', 'disabled', 'enabled']],
-  reasons: ['base severity 75'], moved: 'disabled -> enabled',
-  chromestatus: 'x'.repeat(300),
-})) };
+global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
+  const row = {
+    name: 'Feature' + i, kind: 'base_feature',
+    bucket: i < 40 ? 'must_fix' : 'fyi', score: i % 10 === 0 ? 0 : 100 - (i % 100),
+    change_type: 'modified', what: 'feature flag Feature' + i,
+    why: 'flag_retired_on', where: 'content/public/common',
+    signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'],
+    areas: [], deltas: [['default_state', 'disabled', 'enabled']],
+    reasons: ['base severity 75'], moved: 'disabled -> enabled',
+  };
+  if (i < 40) { row.we_patch = ['content/f' + i + '.cc']; row.ours = true;
+                row.chromestatus = 'x'.repeat(300); }
+  return row;
+}) };
+global.window.__KINDS__ = { base_feature: 'Chromium feature flag' };
+global.window.__BUCKETS__ = { must_fix: 'Must fix', fyi: 'FYI' };
+global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
 
 let pending = null;
 global.setTimeout = fn => { pending = fn; return 1; };
@@ -64,6 +81,22 @@ eval(js);
 
 const out = { total: N, initialRows: els.tb.trCount, initialCount: els.cnt.textContent,
               detailsBuiltUpfront: detailRows.length, moreShown: !els.more.hidden };
+
+// Nothing may render as `undefined`. Every cell comes from a field the payload
+// is allowed to omit, so a missing key has to print as empty, never as the
+// word JavaScript uses for it.
+out.undefinedInRows = /undefined/.test(els.tb.innerHTML);
+
+// A zero score has to render as 0. Filtering to must_fix puts all 40 of them
+// on one page, four of which score zero. The script is eval'd, so its own
+// functions are out of scope here -- everything goes through the DOM, as the
+// listeners above do.
+els.fb.value = 'must_fix';
+els.fb.listeners['change'].forEach(f => f());
+out.zeroRendersAsZero = /class="score[^"]*">0</.test(els.tb.innerHTML);
+out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
+els.fb.value = '';
+els.fb.listeners['change'].forEach(f => f());
 
 // Type a word one character at a time; only the debounced tail should run.
 // Counting DOM rebuilds is the measure that matters: the row count after

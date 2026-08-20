@@ -37,22 +37,67 @@ from ._cpp import PLATFORM, grit_platform_state, line_of
 
 RESOURCES_DIR = "chrome/browser/resources/"
 
-# Interactive controls and structural markers, not layout wrappers.
-CONTROL_TAGS = (
-    "settings-toggle-button", "settings-dropdown-menu", "settings-radio-group",
-    "settings-slider", "settings-checkbox", "settings-textarea",
-    "settings-subpage", "settings-section",
-    "controlled-button", "controlled-radio-button",
-    "cr-toggle", "cr-checkbox", "cr-radio-group", "cr-radio-button",
-    "cr-input", "cr-link-row", "cr-expand-button", "cr-button",
-    "cr-searchable-drop-down", "cr-slider", "cr-textarea",
-    "history-toolbar", "downloads-item", "bookmarks-item",
-    "extensions-toggle-row", "extensions-item",
-)
+# What counts as a control, as a rule rather than a list of names.
+#
+# This used to be 27 tag names someone typed out, and it decayed the way every
+# curated list in this project has decayed -- silently, because a tag nobody
+# listed is a control nobody sees. Measured at M151 across the eight surfaces
+# the default target set reads: 471 distinct custom elements appear in the
+# templates, 2,462 times, and the list matched 902 of those occurrences (36%).
+#
+# The misses were not exotic. 41 of them bind a real preference, which makes
+# them controls by definition: `settings-collapse-radio-button` alone writes one
+# 27 times, and `wording.py` already carried a word for that very tag -- so the
+# renderer knew about a control the extractor never emitted. `cr-icon-button`
+# appears 143 times, 105 of them with an element id.
+#
+# So the question is answered by shape, the same move `targets.py` made when its
+# file list decayed:
+#
+#   1. it binds a preference -- whatever it is called, something that writes a
+#      user setting is a control;
+#   2. a hyphen-separated segment of its tag names an interactive component
+#      *and* it carries a stable identity, an element id or a label; or
+#   3. it is one of the structural units a page is built from.
+#
+# Segments rather than substrings is what separates the button from the icon:
+# `cr-icon-button` has a `button` segment, `cr-icon` has none.
+#
+# The identity requirement in rule 2 is what keeps widening from costing
+# anything. An element with no pref, no id and no label can only be identified
+# by its position -- "the third button in this file" -- which churns whenever
+# the template is reordered. Measured at M151 the rule is strictly better than
+# the list it replaces on every axis: 971 controls against 884, 190 of them
+# binding a preference against 156, and positional identities down from 130
+# (14%) to 15 (1%).
+INTERACTIVE_SEGMENTS = frozenset((
+    "button", "toggle", "checkbox", "radio", "group", "input", "select",
+    "dropdown", "drop", "slider", "menu", "switch", "textarea", "combobox",
+    "picker", "row", "searchable",
+))
 
-_TAG_RE = re.compile(
-    r"<(" + "|".join(re.escape(t) for t in CONTROL_TAGS) + r")(?=[\s/>])([^>]*)>",
-    re.S)
+# Not interactive, but the units a page is made of: a page losing one is a
+# change worth reporting, and no word in the tag says so.
+STRUCTURAL_TAGS = frozenset((
+    "settings-subpage", "settings-section",
+    "history-toolbar", "downloads-item", "bookmarks-item", "extensions-item",
+))
+
+# Every custom element -- a tag with a hyphen. Which of them is a control is
+# decided by `is_control` below, once the attributes are in hand, because rule 1
+# cannot be answered from the tag name alone.
+_TAG_RE = re.compile(r"<([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?=[\s/>])([^>]*)>", re.S)
+
+
+def is_control(tag: str, pref: str, element_id: str = "", label: str = "") -> bool:
+    """Whether this custom element is a control, by the rule above."""
+    if pref or tag in STRUCTURAL_TAGS:
+        return True
+    if not (element_id or label):
+        return False
+    return any(seg in INTERACTIVE_SEGMENTS for seg in tag.split("-"))
+
+
 # Attribute names carry a Lit sigil: ?bool, .property, @event, or none.
 _ATTR_RE = re.compile(r"[?.@]?([\w-]+)\s*=\s*\"([^\"]*)\"")
 # Polymer  pref="{{prefs.a.b}}"  or  pref="[[prefs.a.b]]"
@@ -171,9 +216,6 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     facts: List[Fact] = []
     seen: Dict[str, int] = {}
     for m in _TAG_RE.finditer(masked):
-        conditions = [expr for start, end, expr in spans
-                      if start <= m.start() < end]
-        state = grit_platform_state(conditions)
         tag, raw_attrs = m.group(1), m.group(2)
         attrs = dict(_ATTR_RE.findall(raw_attrs))
 
@@ -196,6 +238,17 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             if i18n:
                 label = i18n.group(1)
                 break
+
+        # Asked once the pref and the identity are in hand, because both are
+        # part of the answer: binding a preference makes an element a control
+        # whatever it is called, and an interactive tag with nothing to identify
+        # it is not worth a fact.
+        if not is_control(tag, pref, attrs.get("id", ""), label):
+            continue
+
+        conditions = [expr for start, end, expr in spans
+                      if start <= m.start() < end]
+        state = grit_platform_state(conditions)
 
         # Identity, most stable first: the pref it drives, then its id, then
         # its label. Position is the last resort and the least stable.

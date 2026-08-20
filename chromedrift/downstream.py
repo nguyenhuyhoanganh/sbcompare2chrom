@@ -388,9 +388,26 @@ def paths_from_git(repo: str, upstream_ref: str, log=lambda m: None) -> List[str
     return [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
 
 
+# Kinds whose bare name means nothing without the thing that owns it. A Web IDL
+# member called `disabled`, a Mojo method called `Run`, a feature param called
+# `true`: each is a real declaration and none of them is evidence of anything on
+# its own.
+#
+# One definition, applied at both ends, because it was only ever applied at one.
+# `build_vocabulary` already refused to *collect* bare member names -- Web IDL is
+# full of members called `before`, `has` and `values` -- but `change_tokens`
+# still *emitted* them when scoring, so a token only had to reach the vocabulary
+# by some other route to match. It did: Chromium declares
+# `kTouchEventFeatureDetectionDisabled[] = "disabled"`, which puts the word
+# `disabled` in the switch vocabulary, a patch hunk mentioning it puts it in the
+# fork's symbol set, and the Web IDL member `HTMLSubmitButtonBehavior.disabled`
+# then scored +30 for "our source references disabled" and landed in **Must
+# fix** -- one of six items in a real M143 -> M151 run.
+QUALIFIED_KINDS = {"idl_member", "mojo_method", "feature_param"}
+
 # Kinds whose *name* is a distinctive identifier, so finding it in vendor
 # source is real evidence of a dependency.
-_NAMED_KINDS = {"base_feature", "blink_runtime_feature", "feature_param",
+_NAMED_KINDS = {"base_feature", "blink_runtime_feature",
                 "idl_interface", "mojo_interface"}
 
 # Type names common enough that matching them means nothing.
@@ -458,8 +475,15 @@ def scan_sources(roots: Sequence[str], vocab_tokens: Set[str],
 
 
 def change_tokens(change: Change) -> List[str]:
-    """Identifiers a downstream codebase could plausibly reference."""
-    tokens = [change.name, change.key]
+    """Identifiers a downstream codebase could plausibly reference.
+
+    A member's bare name is not one of them -- see QUALIFIED_KINDS. The
+    qualified key stays, and so does the interface or owning feature, which is
+    where the real evidence for a member lives: `PaymentRequest.canMakePayment`
+    still matches a fork that references `PaymentRequest`.
+    """
+    tokens = [] if change.kind in QUALIFIED_KINDS else [change.name]
+    tokens.append(change.key)
     for attrs in (change.before, change.after):
         if not attrs:
             continue

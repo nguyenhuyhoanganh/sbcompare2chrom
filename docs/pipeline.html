@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Dây chuyền Chromedrift</title>
+<title>The chromedrift pipeline</title>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0}
@@ -14,8 +14,8 @@ img,svg{max-width:100%}
 <body>
 <style>
 /* ─────────────────────────────────────────────────────────────
-   Bảng màu: đá phiến · xanh mòng két · đất nung · đồng thau
-   Xám lệch xanh, không phải xám trung tính mặc định.
+   Palette: slate · teal · terracotta · brass
+   A green-leaning grey, not the default neutral.
    ───────────────────────────────────────────────────────────── */
 :root{
   --ground:#EDF0EF;
@@ -94,7 +94,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
 .lede{font-size:clamp(1.02rem,2vw,1.18rem);color:var(--ink-soft);max-width:62ch}
 .lede b{color:var(--ink);font-weight:620}
 
-/* ── Băng chuyền: ví dụ thật chạy qua 7 trạm ──────────────── */
+/* ── Belt: a real example through the stops ──────────────── */
 .belt{
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   box-shadow:var(--shadow);padding:20px;margin-top:8px;overflow-x:auto;
@@ -140,7 +140,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
 
 
 
-/* ── So sánh hai bên ──────────────────────────────────────── */
+/* ── Side-by-side comparison ──────────────────────────────────────── */
 .scen{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
 .scen button{
   font:inherit;font-size:.79rem;padding:7px 13px;border-radius:9px;cursor:pointer;
@@ -193,7 +193,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
   .vs-mid{padding:2px 0}
 }
 
-/* ── Thang điểm ───────────────────────────────────────────── */
+/* ── Score scale ───────────────────────────────────────────── */
 .scale{margin-top:15px}
 .scale-bar{
   position:relative;height:34px;border-radius:9px;overflow:hidden;
@@ -219,7 +219,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
 .mathrow .op{background:none;border:0;color:var(--muted);padding:0 1px}
 .mathrow .tot{background:var(--flow-soft);border-color:var(--flow);color:var(--flow);font-weight:700}
 
-/* ── Vai trò từng nguồn ───────────────────────────────────── */
+/* ── Per-source role ───────────────────────────────────── */
 .why{display:grid;gap:12px}
 .src{
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -244,7 +244,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
 .qa .v b{color:var(--ink)}
 @media (max-width:560px){.qa div{grid-template-columns:1fr;gap:2px}}
 
-/* ── Trạm ─────────────────────────────────────────────────── */
+/* ── Station ─────────────────────────────────────────────────── */
 .station{
   display:grid;grid-template-columns:64px 1fr;gap:20px;
   padding:44px 0;border-top:1px solid var(--line);
@@ -264,7 +264,7 @@ h1{font-size:clamp(2.1rem,5.4vw,3.4rem);line-height:1.06;letter-spacing:-.025em;
   display:inline-block;margin-bottom:12px;
 }
 
-/* ── Khối phụ ─────────────────────────────────────────────── */
+/* ── Sub-blocks ─────────────────────────────────────────────── */
 .card{
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
   padding:18px;box-shadow:var(--shadow);
@@ -306,7 +306,7 @@ td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .chip.ok{background:var(--flow-soft);border-color:var(--flow);color:var(--flow)}
 h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
 
-/* ── Khối bấm để mở ───────────────────────────────────────── */
+/* ── Click-to-expand block ───────────────────────────────────────── */
 .expand{
   border:1px solid var(--line);border-radius:12px;background:var(--panel);
   margin-top:13px;overflow:hidden;
@@ -339,7 +339,7 @@ h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
 .gloss p b{color:var(--ink)}
 .gloss pre{margin:9px 0}
 
-/* ── Chuỗi khái niệm ─────────────────────────────────────── */
+/* ── Vocabulary chain ─────────────────────────────────────── */
 .chain{display:grid;gap:10px;margin:14px 0 4px}
 .chain .step{
   display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:start;
@@ -353,7 +353,7 @@ h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
 .chain .tx{font-size:.88rem;color:var(--ink-soft);line-height:1.6}
 @media (max-width:640px){ .chain .step{grid-template-columns:1fr;gap:6px} }
 
-/* ── Tương tác 2: máy chấm điểm ───────────────────────────── */
+/* ── Interactive 2: the scoring machine ───────────────────────────── */
 .scorebox{display:grid;grid-template-columns:1fr 168px;gap:18px;align-items:start}
 .toggles{display:grid;gap:9px}
 .tg{
@@ -385,7 +385,7 @@ h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
 .reasons{margin-top:13px;display:grid;gap:5px;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
 .reasons div{background:var(--panel-2);border-radius:7px;padding:6px 10px}
 
-/* ── Bảng chứng ───────────────────────────────────────────── */
+/* ── Evidence cards ───────────────────────────────────────────── */
 .proof{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px}
 .pcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center}
 .pcard .big{font-family:var(--mono);font-size:1.8rem;font-weight:700;color:var(--flow);font-variant-numeric:tabular-nums}
@@ -414,102 +414,103 @@ footer{
 <div class="wrap">
 
 <header class="hero">
-  <div class="eyebrow">chromedrift · tài liệu quy trình</div>
-  <h1>So sánh hai phiên bản Chromium:<br>cái gì đã đổi, cái gì ảnh hưởng đến mình</h1>
+  <div class="eyebrow">chromedrift · pipeline documentation</div>
+  <h1>Comparing two Chromium versions:<br>what changed, and what it does to us</h1>
   <p class="lede">
-    Mỗi lần <b>uprev</b> — đưa fork của mình lên nền Chromium mới hơn — đội ngũ đều cần
-    trả lời hai câu: <b>Chromium đã đổi những gì?</b> và <b>trong đó, cái nào chạm
-    tới sản phẩm của mình?</b>
+    Every <b>uprev</b> — moving our fork onto a newer Chromium — the team has to
+    answer two questions: <b>what did Chromium change?</b> and <b>which of those
+    changes touch our product?</b>
   </p>
   <p class="lede">
-    Chạy <code>git diff</code> giữa hai phiên bản cho ra vài triệu dòng, gần như
-    toàn bộ không trả lời được câu nào trong hai câu đó. <b>chromedrift</b> đi đường
-    khác: nó không đọc mã nguồn, mà chỉ đọc <b>các file khai báo</b> — nơi Chromium
-    tự liệt kê ra mình có những gì, ở dạng máy đọc được — rồi đối chiếu danh sách
-    đó với những phần mà fork thực sự đụng tới.
+    Running <code>git diff</code> between two versions produces several million
+    lines, almost none of which answer either question. <b>chromedrift</b> takes a
+    different route: it does not read the code, it reads only the <b>declaration
+    files</b> — the places where Chromium lists what it has, in a machine-readable
+    form — and matches that list against the parts the fork actually touches.
   </p>
   <p class="lede">
-    Tài liệu này đi qua toàn bộ quy trình, từ hai số phiên bản đầu vào cho tới báo
-    cáo cuối cùng, và nói rõ ở phần cuối những gì công cụ <b>không</b> đọc được.
+    This document walks the whole process, from two version numbers going in to the
+    finished report coming out, and states plainly at the end what the tool
+    <b>cannot</b> read.
   </p>
 
   <div class="belt">
     <div class="belt-head">
-      <span class="t">Một thay đổi có thật, đi qua đủ chín bước</span>
+      <span class="t">One real change, through all nine stops</span>
       <span class="s mono">GlicActorUiMagicCursor · M148 → M151</span>
     </div>
     <div class="belt-track" id="track">
       <div class="belt-line"></div>
       <div class="belt-fill" id="fill"></div>
-      <div class="token mono" id="token">file nguồn</div>
+      <div class="token mono" id="token">source file</div>
     </div>
-    <div class="belt-say" id="say">Bấm “Chạy thử” để xem thay đổi này đi qua từng bước.</div>
-    <button class="belt-btn" id="run">Chạy thử</button>
+    <div class="belt-say" id="say">Press “Run it” to watch this change move through each stage.</div>
+    <button class="belt-btn" id="run">Run it</button>
   </div>
 </header>
 
-<!-- ── 1. Khái niệm ──────────────────────────────────────── -->
+<!-- ── 1. Vocabulary ─────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">1</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Trước hết: “tính năng” là gì?</h2>
-    <div class="file">Phần này định nghĩa các từ được dùng lại ở tám bước sau</div>
+    <h2>First: what is a “feature”?</h2>
+    <div class="file">This section defines the words used in the eight stops that follow</div>
     <p>
-      Câu “tính năng X thay đổi” nghe thì rõ, nhưng trong Chromium nó mơ hồ, và
-      chính chỗ mơ hồ đó sinh ra phần lớn kết luận sai. Lấy một ví dụ có thật:
-      <b>tải file song song</b>.
+      “Feature X changed” sounds clear, but inside Chromium it is ambiguous, and that
+      ambiguity is where most wrong conclusions come from. Take a real example:
+      <b>parallel downloading</b>.
     </p>
 
-    <h3 class="sub">Một tính năng người dùng gọi tên được nằm rải ở nhiều chỗ</h3>
+    <h3 class="sub">One feature a user can name is spread across several places</h3>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Nằm ở đâu trong Chromium</th><th>Là cái gì</th><th>Ví dụ</th></tr></thead>
+        <thead><tr><th>Where it lives in Chromium</th><th>What it is</th><th>Example</th></tr></thead>
         <tbody>
           <tr>
             <td><b>Feature flag</b></td>
-            <td>Một flag bật/tắt trong mã C++, có tên và trạng thái mặc định</td>
+            <td>An on/off switch in C++ code, with a name and a default state</td>
             <td class="mono">ParallelDownloading</td>
           </tr>
           <tr>
             <td><b>Feature param</b></td>
-            <td>Các con số chỉnh kèm theo flag đó</td>
+            <td>The tuning numbers that go with that flag</td>
             <td class="mono">min_slice_size, parallel_request_count</td>
           </tr>
           <tr>
             <td><b>Pref</b></td>
-            <td>Nơi Chromium lưu cài đặt của người dùng. Mỗi pref là một khoá trong
-                file <code>Preferences</code> nằm trong profile</td>
+            <td>Where Chromium stores the user's setting. Each pref is a key in the
+                <code>Preferences</code> file inside the profile</td>
             <td class="mono">download.prompt_for_download</td>
           </tr>
           <tr>
             <td><b>Control</b></td>
-            <td>Thành phần UI người dùng bấm được trên trang Settings: toggle,
-                dropdown, checkbox</td>
+            <td>The UI element the user clicks on the Settings page: a toggle,
+                a dropdown, a checkbox</td>
             <td class="mono">settings-toggle-button</td>
           </tr>
           <tr>
-            <td><b>Mục chrome://flags</b></td>
-            <td>Chỗ người dùng tự bật thử, kèm phiên bản dự kiến bị gỡ</td>
+            <td><b>chrome://flags entry</b></td>
+            <td>Where a user can turn it on themselves, with the release it is due to be removed</td>
             <td class="mono">enable-parallel-downloading</td>
           </tr>
         </tbody>
       </table>
     </div>
     <details class="expand">
-      <summary>Năm mục trên là gì — bấm để xem giải nghĩa</summary>
+      <summary>What those five are — click for the explanations</summary>
       <div class="expand-body">
         <div class="gloss">
 
           <div>
             <h4>Feature flag <span class="tag">base_feature</span></h4>
             <p>
-              Một hằng trong mã C++, gồm <b>một cái tên</b> và <b>một trạng thái mặc
-              định</b> bật hoặc tắt. Code chạy tới chỗ cần rẽ nhánh thì hỏi “flag này
-              đang bật không?” rồi đi theo nhánh tương ứng. Đây cũng là thứ Finch —
-              hệ thử nghiệm phía server của Chromium — dùng để bật tính năng cho một
-              phần trăm người dùng nhất định.
+              A constant in C++ code with <b>a name</b> and <b>a default state</b>, on
+              or off. When the code reaches a branching point it asks “is this flag
+              on?” and takes the matching branch. This is also what Finch — Chromium's
+              server-side experiment system — uses to turn a feature on for some
+              percentage of users.
             </p>
-            <p>Khai báo thật của <code>ParallelDownloading</code> ở M151:</p>
+            <p>The real declaration of <code>ParallelDownloading</code> at M151:</p>
             <pre><span class="c">// components/download/public/common/download_features.cc</span>
 BASE_FEATURE(kParallelDownloading,
 <b>#if BUILDFLAG(IS_ANDROID)</b>
@@ -519,113 +520,115 @@ BASE_FEATURE(kParallelDownloading,
 <b>#endif</b>
 );</pre>
             <p>
-              Đọc lướt sẽ thấy <code>ENABLED</code> và tưởng tính năng đang bật. Thật
-              ra dòng đó là <b>nhánh dành cho Android</b>; trên Windows nó rơi vào
-              nhánh <code>#else</code>, tức là <b>tắt</b>. Đây đúng là loại nhầm lẫn
-              làm đảo ngược kết luận, và là lý do bước 5 phải đọc điều kiện build bao
-              quanh khai báo chứ không lấy giá trị đầu tiên gặp được.
+              Skim it and you see <code>ENABLED</code> and assume the feature is on. In
+              fact that line is <b>the Android branch</b>; on Windows it falls into the
+              <code>#else</code>, which is <b>off</b>. This is exactly the mistake that
+              inverts a conclusion, and it is why stop 5 has to read the build
+              condition around a declaration rather than taking the first value it finds.
             </p>
           </div>
 
           <div>
             <h4>Feature param <span class="tag">feature_param</span></h4>
             <p>
-              Con số đi kèm <em>một</em> flag cụ thể. Flag quyết định <b>“có bật
-              không”</b>; param quyết định <b>“bật rồi thì chạy với thông số nào”</b>:
-              ngưỡng, thời gian chờ, tỉ lệ lấy mẫu, số lần thử lại.
+              A number attached to <em>one</em> specific flag. The flag decides
+              <b>“is it on”</b>; the param decides <b>“once it is on, with what
+              settings”</b>: thresholds, timeouts, sampling rates, retry counts.
             </p>
-            <p>Một param công cụ đọc được ở M151:</p>
+            <p>A param the tool reads at M151:</p>
             <pre>flag  <b>DownloadWarningSurvey</b>
 param <span class="g">ignore_delay_seconds</span> = 300</pre>
             <p>
-              Đổi 300 thành 30 là <b>thay đổi hành vi thật</b> — nhưng flag vẫn nguyên
-              trạng thái, nên nếu chỉ theo dõi flag thì không thấy gì cả. Đó là lý do
-              param được tách thành một loại riêng.
+              Changing 300 to 30 is <b>a real behaviour change</b> — but the flag's
+              state has not moved, so watching flags alone shows nothing. That is why
+              params are a fact kind of their own.
             </p>
             <p>
-              <b>Một điểm thành thật về độ bao phủ.</b> Hai param ghi ở cột ví dụ phía
-              trên — <code>min_slice_size</code> và <code>parallel_request_count</code>
-              — là param của chính <code>ParallelDownloading</code>, nhưng chúng nằm
-              trong một file mà danh sách tải hiện <b>chưa với tới</b>, nên công cụ
-              không đọc được chúng. Đây đúng là loại lỗ hổng mà lệnh
-              <code>chromedrift catalog</code> sinh ra để đo, và là lý do phần cuối tài
-              liệu nói rõ độ bao phủ chứ không im lặng.
+              <b>An honest note on coverage.</b> The two params in the example column
+              above — <code>min_slice_size</code> and <code>parallel_request_count</code>
+              — belong to <code>ParallelDownloading</code> itself, but they live in a
+              file the current fetch list <b>does not reach</b>, so the tool cannot read
+              them. That is precisely the kind of gap the
+              <code>chromedrift catalog</code> command exists to measure, and why the
+              end of this document states coverage rather than staying quiet about it.
             </p>
           </div>
 
           <div>
             <h4>Pref <span class="tag">pref</span></h4>
             <p>
-              Cài đặt của người dùng. Chromium <b>không</b> lưu chúng trong registry
-              hay database, mà trong <b>một file JSON tên <code>Preferences</code></b>
-              nằm trong thư mục profile. Với Chrome trên Windows, file đó ở
+              A user setting. Chromium does <b>not</b> keep these in the registry or a
+              database, but in <b>a JSON file called <code>Preferences</code></b> inside
+              the profile directory. For Chrome on Windows that is
               <code>…\User Data\Default\Preferences</code>.
             </p>
             <p>
-              <b>Dấu chấm trong tên pref chính là đường đi vào file JSON đó.</b>
-              <code>download.prompt_for_download</code> nghĩa là: vào object
-              <code>download</code>, lấy khoá <code>prompt_for_download</code>.
+              <b>The dots in a pref name are the path into that JSON file.</b>
+              <code>download.prompt_for_download</code> means: go into the
+              <code>download</code> object, take the <code>prompt_for_download</code> key.
             </p>
-            <pre><span class="c">// file Preferences trong profile của người dùng</span>
+            <pre><span class="c">// the Preferences file in a user's profile</span>
 {
   "<b>download</b>": {
     "<span class="g">prompt_for_download</span>": true,
     "default_directory": "C:\\Users\\me\\Downloads"
   }
 }</pre>
-            <p>Còn trong mã nguồn, khoá đó được khai báo thành một hằng:</p>
+            <p>And in the source, that key is declared as a constant:</p>
             <pre><span class="c">// chrome/common/pref_names.h:416</span>
 inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.prompt_for_download"</span>;
-<span class="c">//         ^ biến C++, ổn định        ^ CHUỖI, mới là danh tính</span></pre>
+<span class="c">//         ^ C++ variable, stable      ^ THE STRING, which is the identity</span></pre>
             <p>
-              Phân biệt hai thứ đó là quan trọng. Nếu Chromium <b>đổi chuỗi mà giữ
-              nguyên biến</b>: code vẫn build được (mọi nơi đều gọi qua biến), test vẫn
-              pass (test cũng dùng biến) — nhưng trên máy người dùng, Chromium đi tìm
-              khoá mới trong file <code>Preferences</code>, không thấy, và dùng giá trị
-              mặc định. <b>Cài đặt của toàn bộ người dùng hiện có lặng lẽ trở về mặc
-              định</b>, không một dòng lỗi nào.
+              Telling those two apart matters. If Chromium <b>changes the string and
+              keeps the variable</b>: the code still builds (everything goes through the
+              variable), the tests still pass (they use the variable too) — but on the
+              user's machine, Chromium looks for the new key in
+              <code>Preferences</code>, does not find it, and uses the default.
+              <b>Every existing user's setting quietly resets</b>, without a single
+              error line.
             </p>
           </div>
 
           <div>
             <h4>Control <span class="tag">webui_control</span></h4>
             <p>
-              Thành phần giao diện mà người dùng bấm được trên một trang
-              <code>chrome://</code>: toggle, dropdown, checkbox, nút bấm. Các trang này
-              là <b>trang web thật</b>, nên control được khai báo trong file HTML.
+              The UI element a user can click on a <code>chrome://</code> page: a
+              toggle, a dropdown, a checkbox, a button. These pages are <b>real web
+              pages</b>, so controls are declared in HTML files.
             </p>
-            <p>Cái toggle “Hỏi nơi lưu mỗi file trước khi tải”, khai báo thật ở M151:</p>
+            <p>The “Ask where to save each file before downloading” toggle, as really declared at M151:</p>
             <pre><span class="c">// chrome/browser/resources/settings/downloads_page/downloads_page.html:31</span>
 &lt;<b>settings-toggle-button</b>
     pref="{{prefs.<span class="g">download.prompt_for_download</span>}}"
     label="$i18n{promptForDownload}"&gt;</pre>
             <p>
-              Hai chi tiết đáng chú ý. Thứ nhất, <b>loại control nằm ngay trong tên
-              thẻ</b> — nên chuyện một dropdown bị đổi thành toggle là phát hiện được
-              tự động, không cần nhìn ảnh chụp màn hình. Thứ hai, thuộc tính
-              <code>pref=</code> <b>nối thẳng control với pref bên dưới nó</b>; đây là
-              liên kết khai báo mạnh nhất giữa giao diện và lõi trình duyệt, và nó sống
-              sót ngay cả khi một fork thay toàn bộ giao diện, vì pref phía dưới không đổi.
+              Two things are worth noting. First, <b>the control's type is the tag
+              name</b> — so a dropdown turning into a toggle is detectable
+              automatically, without looking at a screenshot. Second, the
+              <code>pref=</code> attribute <b>links the control straight to the pref
+              underneath it</b>; that is the strongest declared link between the UI and
+              the browser core, and it survives a fork replacing the entire UI, because
+              the pref underneath does not change.
             </p>
           </div>
 
           <div>
-            <h4>Mục chrome://flags <span class="tag">flag_entry</span></h4>
+            <h4>chrome://flags entry <span class="tag">flag_entry</span></h4>
             <p>
-              <code>chrome://flags</code> là trang cho người dùng tự bật thử các tính
-              năng chưa phát hành. Mỗi mục trên trang đó có một bản ghi trong
-              <code>flag-metadata.json</code>, và bản ghi này chứa một thứ không nguồn
-              nào khác có: <b>phiên bản dự kiến gỡ bỏ flag</b>.
+              <code>chrome://flags</code> is the page where users can try out unreleased
+              features themselves. Every entry on it has a record in
+              <code>flag-metadata.json</code>, and that record holds something no other
+              source has: <b>the release the flag is due to be removed in</b>.
             </p>
             <pre><span class="c">// chrome/browser/flag-metadata.json</span>
 { "name": "<b>enable-parallel-downloading</b>",
   "owners": ["qinmin@chromium.org", "xingliu@chromium.org"],
-  "expiry_milestone": <span class="g">-1</span> }   <span class="c">// -1 = không có hạn gỡ</span></pre>
+  "expiry_milestone": <span class="g">-1</span> }   <span class="c">// -1 = no removal date</span></pre>
             <p>
-              Đây là <b>nguồn duy nhất trong mã nguồn nói về tương lai</b> thay vì hiện
-              trạng. Nhờ nó, câu “mười hai flag chúng ta đang phụ thuộc sẽ bị gỡ ở M151”
-              trở thành việc lên kế hoạch được từ hôm nay, thay vì một lỗi build phát
-              hiện ở đợt uprev sau.
+              This is <b>the only source in the tree that talks about the future</b>
+              rather than the present. Because of it, "twelve flags we depend on will be
+              removed at M151" becomes something you can plan for today, instead of a
+              build failure discovered at the next uprev.
             </p>
           </div>
 
@@ -634,197 +637,197 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </details>
 
     <div class="note" style="margin-top:13px">
-      Năm dòng trên là <b>năm khai báo riêng biệt, nằm ở năm file khác nhau</b>.
-      Không có file nào trong Chromium nói “tải file song song gồm năm thứ này”.
-      Công cụ đọc từng khai báo một; việc ghép chúng lại thành một tính năng mà
-      người dùng gọi tên được là <b>việc của người đọc báo cáo</b>, không phải của
-      công cụ.
+      Those five rows are <b>five separate declarations, in five different files</b>.
+      No file in Chromium says “parallel downloading consists of these five things”.
+      The tool reads each declaration on its own; assembling them into a feature a
+      user can name is <b>the reader's job</b>, not the tool's.
     </div>
 
-    <h3 class="sub">Bốn từ dùng xuyên suốt tài liệu</h3>
+    <h3 class="sub">Four words used throughout this document</h3>
     <p>
-      Bốn từ dưới đây là tên thật của bốn giai đoạn dữ liệu trong công cụ — bạn sẽ
-      gặp lại đúng các từ này trong <code>report.json</code>. Ví dụ đi kèm là thay
-      đổi thật đang chạy ở băng chuyền phía trên.
+      The four words below are the real names of the four data stages inside the tool
+      — you will meet exactly these words again in <code>report.json</code>. The
+      examples are the real change running on the belt above.
     </p>
     <div class="chain">
       <div class="step">
-        <div class="nm">fact<span>một khai báo</span></div>
+        <div class="nm">fact<span>one declaration</span></div>
         <div class="tx">
-          Một khai báo đã được đọc ra và chuẩn hoá thành dữ liệu. Ở M148, công cụ
-          đọc được: <em>tên</em> <code>GlicActorUiMagicCursor</code>, <em>trạng thái
-          trên Windows</em> là <b>tắt</b>. Ở M151 cũng khai báo đó, trạng thái là
-          <b>bật</b>. Một snapshot M151 với target set mặc định cho ra khoảng <b>24.700 fact</b>.
+          One declaration, read out and normalized into data. At M148 the tool read:
+          <em>name</em> <code>GlicActorUiMagicCursor</code>, <em>state on
+          Windows</em> is <b>off</b>. At M151 the same declaration says
+          <b>on</b>. An M151 snapshot with the default target set produces about
+          <b>24,960 facts</b>.
         </div>
       </div>
       <div class="step">
-        <div class="nm">change<span>khác biệt</span></div>
+        <div class="nm">change<span>a difference</span></div>
         <div class="tx">
-          Đặt hai fact cùng tên ở hai phiên bản cạnh nhau và ghi lại chỗ khác nhau:
-          <em>trạng thái trên Windows: tắt → bật</em>. Mỗi loại fact có một danh sách
-          cố định những thuộc tính mà công cụ đem so — thuộc tính nào không nằm trong
-          danh sách đó thì có đổi cũng không tính.
+          Put two facts with the same name from two versions side by side and record
+          where they differ: <em>state on Windows: off → on</em>. Every fact kind has a
+          fixed list of attributes the tool compares — an attribute outside that list
+          can move without counting as a change.
         </div>
       </div>
       <div class="step">
-        <div class="nm">signal<span>nghĩa là gì</span></div>
+        <div class="nm">signal<span>what it means</span></div>
         <div class="tx">
-          Nhãn giải thích khác biệt đó có nghĩa gì, kèm mức nghiêm trọng tối thiểu.
-          Ở đây: <em>“mặc định trên Windows chuyển sang bật”</em>, mức <b>75</b>.
-          Một change có thể mang nhiều signal; mức nghiêm trọng lấy theo signal cao nhất.
+          The label explaining what that difference means, with a minimum severity.
+          Here: <em>“default flipped on for Windows”</em>, severity <b>75</b>.
+          A change can carry several signals; the severity is the highest of them.
         </div>
       </div>
       <div class="step">
-        <div class="nm">finding<span>có liên quan đến mình không</span></div>
+        <div class="nm">finding<span>does it concern us</span></div>
         <div class="tx">
-          Change cộng thêm câu trả lời cho câu hỏi <em>“mã nguồn fork của mình có
-          đụng tới cái này không?”</em>. Ở đây là <b>chưa thấy</b>, nên điểm dừng ở
-          75 và mục này rơi vào nhóm <b>Needs review</b>. Đây là thứ xuất hiện trong
-          báo cáo.
+          A change plus the answer to <em>“does our fork's source touch this?”</em>.
+          Here that is <b>nothing found</b>, so the score stays at 75 and the item
+          lands in <b>Needs review</b>. This is what appears in the report.
         </div>
       </div>
     </div>
 
-    <h3 class="sub">Ba kiểu change, và cái bẫy khi đọc chúng</h3>
+    <h3 class="sub">Three kinds of change, and the trap in reading them</h3>
     <p>
-      Công cụ chạy được ở hai chế độ. Chế độ <b>uprev</b> so hai phiên bản Chromium
-      theo thời gian. Chế độ <b>fork</b> so Chromium gốc với fork của mình tại
-      cùng một phiên bản. Cùng một kiểu change, <b>nghĩa ngược nhau</b> giữa hai chế độ.
+      The tool runs in two modes. <b>uprev</b> mode compares two Chromium versions
+      over time. <b>fork</b> mode compares upstream Chromium against our fork at the
+      same version. The same kind of change means <b>opposite things</b> in the two modes.
     </p>
     <div class="tablewrap">
       <table>
         <thead>
-          <tr><th>Kiểu</th><th>Nghĩa đen</th>
-              <th>Chế độ uprev</th><th>Chế độ fork</th></tr>
+          <tr><th>Kind</th><th>Literally</th>
+              <th>In uprev mode</th><th>In fork mode</th></tr>
         </thead>
         <tbody>
           <tr>
             <td class="mono"><b>added</b></td>
-            <td>Có ở bên phải, không có ở bên trái</td>
-            <td>Chromium vừa thêm. Là thứ mình có thể cân nhắc lấy về.</td>
-            <td>Fork của mình tự thêm. Là phần tuỳ biến của mình, <b>phải giữ qua mọi lần merge</b>, không phải thứ để cân nhắc lấy về.</td>
+            <td>Present on the right, absent on the left</td>
+            <td>Chromium just added it. Something we might consider adopting.</td>
+            <td>Our fork added it. It is our customization, <b>to be carried through every merge</b>, not something to consider adopting.</td>
           </tr>
           <tr>
             <td class="mono"><b>removed</b></td>
-            <td>Có ở bên trái, không có ở bên phải</td>
-            <td>Chromium vừa gỡ. Phần lớn là dọn dẹp sau khi tính năng đã ship.</td>
-            <td><b>Mình</b> đã xoá, không phải Chromium. Lần merge sau sẽ đưa nó về lại, trừ khi có patch giữ lại.</td>
+            <td>Present on the left, absent on the right</td>
+            <td>Chromium just removed it. Usually cleanup after a feature shipped.</td>
+            <td><b>We</b> deleted it, not Chromium. The next merge puts it back unless a patch keeps it out.</td>
           </tr>
           <tr>
             <td class="mono"><b>modified</b></td>
-            <td>Cùng tên, khác giá trị</td>
-            <td>Chromium đổi giá trị. Nếu là trạng thái mặc định thì người dùng thấy khác.</td>
-            <td>Giá trị bên mình khác Chromium gốc. Câu hỏi là: cố ý sửa, hay merge sót?</td>
+            <td>Same name, different value</td>
+            <td>Chromium changed the value. If it is a default state, users see something different.</td>
+            <td>Our value differs from upstream's. The question is: deliberate, or missed in a merge?</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      Cột cuối không phải cách nói khác của cột kế bên. Ở chế độ fork, <code>removed</code>
-      nghĩa là <b>mình đã xoá</b>. Đọc theo nghĩa của chế độ uprev sẽ ra kết luận
-      ngược hẳn, nên báo cáo luôn ghi rõ chế độ ngay ở tiêu đề.
+      The last column is not a rewording of the one beside it. In fork mode,
+      <code>removed</code> means <b>we deleted it</b>. Reading it with uprev meanings
+      gives exactly the opposite conclusion, which is why the report always states
+      the mode in its title.
     </div>
 
-    <h3 class="sub">Bốn nhóm trong báo cáo</h3>
+    <h3 class="sub">The four buckets in the report</h3>
     <p>
-      Mỗi finding rơi vào một nhóm. Quyết định nhóm là <b>bằng chứng</b>, không phải
-      mức nghiêm trọng: một thay đổi rất nặng nhưng fork không hề đụng tới thì vẫn
-      không lên được nhóm cao nhất.
+      Every finding lands in one bucket. What decides the bucket is <b>evidence</b>,
+      not severity: a very severe change that the fork does not touch at all still
+      cannot reach the top bucket.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Nhóm</th><th>Vào nhóm khi</th><th>Đọc như thế nào</th></tr></thead>
+        <thead><tr><th>Bucket</th><th>Lands here when</th><th>How to read it</th></tr></thead>
         <tbody>
           <tr>
             <td><span class="bucket b-must">Must fix</span></td>
-            <td>Mã nguồn fork có nhắc đúng tên, <b>và</b> change mang signal gây vỡ
-                hoặc đạt từ 60 điểm</td>
-            <td>Coi như có việc phải làm</td>
+            <td>The fork's source names it, <b>and</b> the change carries a breaking
+                signal or scores 60 or more</td>
+            <td>Assume there is work to do</td>
           </tr>
           <tr>
             <td><span class="bucket b-review">Needs review</span></td>
-            <td>Có bằng chứng liên quan và đạt từ 35 điểm; hoặc không có bằng chứng
-                nhưng đạt từ 65 điểm</td>
-            <td>Cần một người xác nhận là có việc hay không</td>
+            <td>There is related evidence and it scores 35 or more; or there is no
+                evidence but it scores 65 or more</td>
+            <td>Someone has to confirm whether there is work</td>
           </tr>
           <tr>
             <td><span class="bucket b-fyi" style="background:var(--flow-soft);color:var(--flow)">New opportunity</span></td>
-            <td>Năng lực mới, không mang signal gây vỡ</td>
-            <td>Đầu vào cho quyết định sản phẩm, không phải rủi ro</td>
+            <td>New capability, carrying no breaking signal</td>
+            <td>Input to a product decision, not a risk</td>
           </tr>
           <tr>
             <td><span class="bucket b-fyi">FYI</span></td>
-            <td>Phần còn lại</td>
-            <td>Ghi lại để tra khi cần</td>
+            <td>Everything else</td>
+            <td>Recorded so it can be looked up</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="note" style="margin-top:13px">
-      <code>must fix: 0</code> <b>không có nghĩa là uprev này an toàn.</b> Nếu hồ sơ
-      fork chưa khai bằng chứng nào thì không finding nào lên nổi nhóm này — báo cáo
-      ghi rõ tình trạng đó ngay ở đầu.
+      <code>must fix: 0</code> <b>does not mean this uprev is safe.</b> If the fork's
+      profile declares no evidence, nothing can reach this bucket — and the report
+      states that at the top.
     </div>
 
-    <h3 class="sub">Một bảng, và mỗi dòng tự nói được nó là cái gì</h3>
+    <h3 class="sub">One table, and every row says what it is</h3>
     <p>
-      Bốn nhóm trên xếp theo mức nghiêm trọng. <code>report.html</code> là
-      <b>một bảng duy nhất</b>, lọc và sắp xếp được. Đã thử hai bố cục khác
-      chồng lên nó và cả hai đều tệ hơn — ghi lại để không quay lại.
+      The four buckets above are ordered by severity. <code>report.html</code> is
+      <b>a single table</b>, filterable and sortable. Two other layouts were tried on
+      top of it and both were worse — recorded here so nobody goes back.
     </p>
     <div class="note">
-      <b>Gộp mọi finding theo signal, đặt trên một trang cuộn dài.</b> Thành hai
-      mươi mốt thanh đóng mà tên là các từ gần đồng nghĩa trong từ vựng
-      Chromium — <code>Default flipped on</code>, <code>Now ON by default on
-      Windows</code>, <code>New feature, on by default</code> là ba mục khác
-      nhau — tám mươi thanh, ba tầng, trước khi người đọc chạm được vào một
-      dòng đọc được.
+      <b>Grouping every finding by signal on one long scrolling page.</b> It became
+      twenty-one collapsed bars whose titles are near-synonyms in Chromium's own
+      vocabulary — <code>Default flipped on</code>, <code>Now ON by default on
+      Windows</code>, <code>New feature, on by default</code> are three different
+      entries — eighty bars, three levels deep, before the reader reaches one
+      readable row.
       <br><br>
-      <b>Đưa những mục đó vào menu chia theo đội.</b> Hết tường accordion,
-      nhưng mất đúng cái bảng làm tốt: không còn nhìn được toàn bộ cùng lúc,
-      không sắp xếp được, không tìm được.
+      <b>Putting those behind a per-team menu.</b> The accordion wall went away, and
+      so did the one thing a table is good for: seeing everything at once, sorting
+      it, searching it.
     </div>
     <p>
-      Thứ thiếu chưa bao giờ là hình dạng. Nó là chuyện một dòng ghi
-      <code>id:cancelButton</code> rồi để người đọc tự đoán: trang nào, thêm
-      hay bớt, nút gì, có liên quan tới mình không. Nên bảng giữ nguyên hình
-      dạng, và mỗi dòng mang sẵn câu trả lời.
+      What was missing was never the shape. It was that a row said
+      <code>id:cancelButton</code> and left the reader to guess: which page, added or
+      removed, what kind of control, does it concern us. So the table keeps its
+      shape, and every row now carries the answer.
     </p>
     <pre class="mono">~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
    disabled → enabled
                     Now ON by default on Windows │ content/public/common │ 100</pre>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Cột</th><th>Trả lời</th></tr></thead>
+        <thead><tr><th>Column</th><th>Answers</th></tr></thead>
         <tbody>
-          <tr><td>Score</td><td>Xếp hạng, giải thích được từng điểm</td></tr>
-          <tr><td>Bucket</td><td>Rơi vào nhóm triage nào</td></tr>
-          <tr><td>What</td><td>Chiều thay đổi (<code>+</code> mới,
-            <code>~</code> đổi, <code>−</code> mất) và vật đó <b>bằng lời</b>,
-            không phải định danh trần. Nhãn <code>OURS</code> khi dòng đó chạm
-            mã ta vá hoặc tham chiếu</td></tr>
-          <tr><td>What happened</td><td>Câu mô tả chuyện đã xảy ra</td></tr>
-          <tr><td>Where</td><td>Màn hình nó nằm trên, hoặc thư mục khai báo</td></tr>
-          <tr><td>Surface</td><td>Loại fact, kèm nhóm nghĩa của nó</td></tr>
+          <tr><td>Score</td><td>The ranking, with every point explained</td></tr>
+          <tr><td>Bucket</td><td>Which triage bucket it falls in</td></tr>
+          <tr><td>What</td><td>The direction (<code>+</code> new,
+            <code>~</code> changed, <code>−</code> gone) and the thing <b>in words</b>,
+            not a bare identifier. The <code>OURS</code> tag when the row touches
+            code we patch or reference</td></tr>
+          <tr><td>What happened</td><td>The sentence describing what happened</td></tr>
+          <tr><td>Where</td><td>The screen it sits on, or the declaring directory</td></tr>
+          <tr><td>Surface</td><td>The fact kind, with its meaning group</td></tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:13px">
-      Câu ở cột <code>What happened</code> là nhãn của signal <b>đã ấn định mức
-      nghiêm trọng</b> cho finding đó, không phải signal đầu tiên trong danh
-      sách: nếu lấy nhầm, một dòng mang một câu và bị chấm điểm theo một câu
-      khác. Finding không mang signal nào lấy chiều và loại làm câu mô tả
-      (<code>New feature flag</code>), nên mọi dòng đều có một câu.
+      The sentence in the <code>What happened</code> column is the label of the signal
+      that <b>set the severity</b> for that finding, not the first signal in the list:
+      pick the wrong one and a row carries one sentence while being scored by
+      another. A finding with no signal at all uses its direction and kind as the
+      sentence (<code>New feature flag</code>), so every row has one.
     </p>
 
-    <h3 class="sub">Màn hình nào đổi gì</h3>
+    <h3 class="sub">What changed on each screen</h3>
     <p>
-      Người sở hữu một màn hình <code>chrome://</code> đến với câu hỏi khác —
-      <b>trang của tôi khác gì so với bản trước</b> — và cột <code>Where</code>
-      trả lời đúng câu đó cho từng dòng: <code>settings › privacy_page</code>
-      cho một control, thư mục khai báo cho mọi thứ khác. Riêng
-      <code>report.md</code> còn có hẳn một mục gộp theo màn hình, vì bản
-      markdown đọc tuần tự chứ không lọc được.
+      Whoever owns a <code>chrome://</code> screen arrives with a different question —
+      <b>what is different about my page</b> — and the <code>Where</code> column
+      answers exactly that for every row: <code>settings › privacy_page</code> for a
+      control, the declaring directory for everything else.
+      <code>report.md</code> additionally has a whole section grouped by screen,
+      because markdown is read top to bottom and cannot be filtered.
     </p>
     <pre class="mono">settings › ai_page — 13 new · 1 changed · 5 gone
   + section    aiPageTitle
@@ -832,172 +835,171 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   ~ toggle — glicExperimentalTriggering  (writes glic.experimental_triggering_enabled)
   − page /localNetworkAccess</pre>
     <p>
-      Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng
-      được hiển thị: control mang bề mặt, trang, file, tên thẻ và pref nó ghi;
-      route mang đường dẫn và điều kiện canh; gate mang handler đặt nó. Cùng
-      một <code>loadTimeData</code> key xuất hiện một lần cho mỗi handler đặt
-      nó, nên không có cột này thì <code>webuiRefresh2026</code> hiện chín dòng
-      giống hệt nhau.
+      The data for that was already on the facts and had simply never been displayed:
+      a control carries its surface, page, file, tag name and the pref it writes; a
+      route carries its path and its guard; a gate carries the handler that sets it.
+      The same <code>loadTimeData</code> key appears once per handler that sets it, so
+      without this column <code>webuiRefresh2026</code> shows up as nine identical rows.
     </p>
   </div>
 </section>
 
-<!-- ── 2. Chốt phiên bản ─────────────────────────────────── -->
+<!-- ── 2. Pinning the version ────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">2</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Chốt phiên bản</h2>
-    <div class="file">acquire.py · hàm resolve_ref</div>
+    <h2>Pinning the version</h2>
+    <div class="file">acquire.py · the resolve_ref function</div>
     <p>
-      Công cụ nhận ba dạng đầu vào và xử lý mỗi dạng theo một cách khác nhau.
+      The tool accepts three kinds of input and handles each differently.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Đầu vào</th><th>Cách xử lý</th><th>Kết quả</th></tr></thead>
+        <thead><tr><th>Input</th><th>How it is handled</th><th>Result</th></tr></thead>
         <tbody>
           <tr>
             <td class="mono">151.0.7922.138</td>
-            <td>Số phiên bản đầy đủ, dùng trực tiếp</td>
+            <td>A full version number, used directly</td>
             <td class="mono">refs/tags/151.0.7922.138</td>
           </tr>
           <tr>
             <td class="mono">151</td>
-            <td>Số mốc phiên bản rút gọn; công cụ hỏi dịch vụ chromiumdash để lấy
-                bản ổn định mới nhất của mốc đó</td>
-            <td class="mono">thay đổi theo ngày chạy</td>
+            <td>A bare milestone number; the tool asks the chromiumdash service for
+                the newest stable release of that milestone</td>
+            <td class="mono">changes with the day you run it</td>
           </tr>
           <tr>
             <td class="mono">main/dev</td>
-            <td>Không khớp hai dạng trên, chuyển thẳng cho Git</td>
+            <td>Matches neither of the above, passed straight to Git</td>
             <td class="mono">main/dev</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      <b>Nên dùng số phiên bản đầy đủ cho mọi báo cáo chính thức.</b>
-      Số mốc rút gọn được giải ra bản ổn định mới nhất <em>tại thời điểm chạy</em>,
-      nên hai lần chạy cách nhau vài tuần có thể cho hai kết luận khác nhau mà cả
-      hai đều đúng. Trường hợp đã gặp: flag <code>ServiceWorkerAutoPreload</code> ở
-      trạng thái <b>bật</b> trong bản <code>143.0.7499.40</code> nhưng <b>tắt</b>
-      trong bản <code>143.0.7499.194</code> — cùng một mốc phiên bản, khác bản patch,
-      vì thay đổi đã bị revert.
+      <b>Use full version numbers for anything official.</b>
+      A bare milestone resolves to the newest stable release <em>at the moment you
+      run it</em>, so two runs a few weeks apart can produce two different
+      conclusions and both are correct. A case we hit: the
+      <code>ServiceWorkerAutoPreload</code> flag is <b>on</b> in
+      <code>143.0.7499.40</code> but <b>off</b> in <code>143.0.7499.194</code> — the
+      same milestone, a different patch release, because the change was reverted.
     </div>
   </div>
 </section>
 
-<!-- ── 3. Thu thập ───────────────────────────────────────── -->
+<!-- ── 3. Fetching ───────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">3</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Thu thập file khai báo</h2>
+    <h2>Fetching the declaration files</h2>
     <div class="file">targets.py · acquire.py</div>
     <p>
-      Đồng bộ một bản Chromium đầy đủ tốn khoảng 100 GB và vài giờ cho mỗi phiên bản.
-      Công cụ không cần toàn bộ mã nguồn mà chỉ cần các file khai báo, nên nó tải
-      từng thư mục dưới dạng file nén trực tiếp từ máy chủ Gitiles và giải nén ra
-      thành một cây thư mục y hệt Chromium nhưng chỉ có vài nghìn file.
+      Syncing a full Chromium costs about 100 GB and several hours per version. The
+      tool does not need all the source, only the declaration files, so it fetches
+      individual directories as archives straight from the Gitiles server and unpacks
+      them into a directory tree that looks like Chromium but holds a few thousand files.
     </p>
     <div class="grid2">
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Những gì được tải</h3>
+        <h3 class="sub" style="margin-top:0">What gets fetched</h3>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Nhóm</th><th>Ví dụ đường dẫn</th></tr></thead>
+            <thead><tr><th>Group</th><th>Example path</th></tr></thead>
             <tbody>
-              <tr><td>Feature flag</td><td class="mono">chrome_features.cc</td></tr>
-              <tr><td>File liệt kê API web</td><td class="mono">runtime_enabled_features.json5</td></tr>
-              <tr><td>Định nghĩa API web</td><td class="mono">blink/renderer/**/*.idl</td></tr>
+              <tr><td>Feature flags</td><td class="mono">chrome_features.cc</td></tr>
+              <tr><td>The web API manifest</td><td class="mono">runtime_enabled_features.json5</td></tr>
+              <tr><td>Web API definitions</td><td class="mono">blink/renderer/**/*.idl</td></tr>
               <tr><td>Mojo</td><td class="mono">blink/public/mojom/*.mojom</td></tr>
-              <tr><td>Giao diện Cài đặt</td><td class="mono">resources/settings/**.html</td></tr>
-              <tr><td>Cầu nối flag và giao diện</td><td class="mono">ui/webui/**/*.cc</td></tr>
+              <tr><td>Settings UI</td><td class="mono">resources/settings/**.html</td></tr>
+              <tr><td>The flag-to-UI bridge</td><td class="mono">ui/webui/**/*.cc</td></tr>
             </tbody>
           </table>
         </div>
       </div>
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Chi phí đo được</h3>
+        <h3 class="sub" style="margin-top:0">Measured cost</h3>
         <div class="tablewrap">
           <table>
-            <thead><tr><th>Phạm vi</th><th class="n">Giây</th><th class="n">Fact</th></tr></thead>
+            <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
-              <tr><td>Toàn bộ (<code>default</code>)</td><td class="n">~120</td><td class="n">24.871</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36.089</td></tr>
-              <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2.692</td></tr>
+              <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">24,959</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36,158</td></tr>
+              <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,692</td></tr>
             </tbody>
           </table>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:11px 0 0">
-          Khoảng 40 MB cho mỗi phiên bản. Lần chạy đầu mất hơn một phút; các lần
-          sau đọc từ cache nên gần như tức thì. <code>--target-set wide</code>
-          tải 315 MB và giữ 94 MB trên đĩa, đổi lại đọc toàn bộ số file khai báo
-          trong cây thay vì 4%. Mỗi lần chạy đều tự đo và in ra con số của chính
-          nó, nên đây là số đo tại M151 chứ không phải một hằng số.
+          About 40 MB per version. The first run takes over a minute; later runs read
+          from the cache and are nearly instant. <code>--target-set wide</code>
+          downloads 315 MB and keeps 94 MB on disk, and in exchange reads every
+          declaration file in the tree instead of 4%. Every run measures and prints
+          its own number, so this is a measurement taken at M151, not a constant.
         </p>
       </div>
     </div>
     <div class="note" style="margin-top:14px">
-      <b>Cache ghi lại kết quả của mỗi lần tải, không chỉ ghi “đã xong”.</b>
-      Một file không có ở phiên bản cũ là chuyện bình thường, nên cache cũng ghi lại
-      cả trường hợp đó. Nhưng nó phải ghi rõ <b>“tải được”</b> hay <b>“không có
-      file”</b>, chứ không phải chỉ ghi “đã xong”. Vì nếu chỉ ghi “đã xong”: lần chạy
-      đầu mà mọi file đều tải hỏng sẽ báo lỗi, nhưng lần chạy thứ hai đọc lại cache
-      thấy “đã xong” hết, tưởng thành công, rồi ghi ra một snapshot không có gì
-      trong đó.
+      <b>The cache records the outcome of each fetch, not merely that one happened.</b>
+      A file legitimately missing from an older version is normal, so the cache
+      records that case too. But it has to record <b>“fetched”</b> or <b>“not
+      there”</b>, not just “done”. Because with only “done”: a first run where every
+      fetch failed reports an error, and then the second, identical run reads the
+      cache, sees “done” everywhere, believes it succeeded, and writes out a snapshot
+      with nothing in it.
     </div>
   </div>
 </section>
 
-<!-- ── 4. Chín nguồn ─────────────────────────────────────── -->
+<!-- ── 4. Nine sources ───────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">4</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Chín nguồn dữ liệu</h2>
-    <div class="file">Mỗi nguồn trả lời một câu hỏi khác nhau về đợt uprev</div>
+    <h2>Nine sources of data</h2>
+    <div class="file">Each source answers a different question about an uprev</div>
     <p>
-      Chín nguồn dưới đây được chọn theo đúng một tiêu chí: chúng là những chỗ
-      <b>Chromium bắt buộc phải tự khai mình có gì, ở dạng máy đọc được</b>. Một số
-      là đầu vào của code generator nên không thể sai; số còn lại viết theo quy ước
-      đã ổn định nhiều năm. Nhờ vậy công cụ đọc được chúng mà không cần compiler và
-      không cần checkout Chromium đầy đủ.
+      The nine sources below were chosen by exactly one criterion: they are the
+      places <b>Chromium is obliged to declare what it has, in machine-readable
+      form</b>. Some are inputs to a code generator, so they cannot be wrong; the rest
+      follow conventions that have been stable for years. That is what lets the tool
+      read them without a compiler and without a full Chromium checkout.
     </p>
     <p>
-      Mỗi nguồn được mô tả theo cùng bốn mục: <b>nội dung</b> của file, <b>vai trò</b>
-      của nó trong Chromium, <b>công cụ so sánh theo cái gì</b>, và <b>hậu quả nếu
-      bỏ sót</b> nguồn đó.
+      Each source is described the same four ways: what the file <b>contains</b>, its
+      <b>role</b> in Chromium, <b>what the tool compares</b>, and <b>the consequence
+      of missing it</b>.
     </p>
 
-    <h3 class="sub">Nhóm A — Flag điều khiển hành vi</h3>
+    <h3 class="sub">Group A — flags that control behaviour</h3>
     <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
-      Ba nguồn quyết định người dùng thực sự nhận được gì. Thay đổi ở đây là thay
-      đổi hành vi, kể cả khi không có một dòng mã logic nào được sửa.
+      Three sources decide what users actually get. A change here is a behaviour
+      change, even when not a single line of logic was edited.
     </p>
 
     <div class="why">
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">Khai báo flag trong file <code>.cc</code></span>
+          <span class="nm">Flag declarations in <code>.cc</code> files</span>
           <span class="rl rl-switch">flag</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Khai báo flag trong mã C++. Mỗi flag gồm một tên và một trạng thái mặc định: <b>bật</b> hoặc <b>tắt</b>.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Đây là hệ thống feature flag lúc chạy của Chromium. Hầu hết thay đổi hành vi đáng kể đều nằm sau một flag. Finch — hệ thống thử nghiệm phía server của Chromium — cũng bật/tắt theo từng nhóm người dùng thông qua chính các flag này.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo <b>tên flag đã chuẩn hoá</b>. Giá trị đem so là trạng thái mặc định áp dụng cho bản Windows, cùng với điều kiện build bao quanh khai báo.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Không biết tính năng nào vừa được bật cho người dùng của mình. Trạng thái mặc định chuyển từ tắt sang bật là cách Chromium thông báo một tính năng <b>đã phát hành</b>, và thông tin này <b>không xuất hiện trong ghi chú phát hành</b>.</span></div>
+          <div><span class="k">Contains</span><span class="v">Flag declarations in C++. Each flag has a name and a default state: <b>on</b> or <b>off</b>.</span></div>
+          <div><span class="k">Role</span><span class="v">This is Chromium's runtime feature-flag system. Almost every meaningful behaviour change sits behind a flag. Finch — Chromium's server-side experiment system — also turns things on and off per user group through these same flags.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Paired by <b>normalized flag name</b>. The compared value is the default state that applies to the Windows build, together with the build condition around the declaration.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Not knowing which feature was just turned on for our users. A default moving from off to on is how Chromium announces that a feature <b>shipped</b>, and that information <b>does not appear in the release notes</b>.</span></div>
         </div>
       </div>
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">Tham số đi kèm flag</span>
+          <span class="nm">The parameters attached to a flag</span>
           <span class="rl rl-switch">flag</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Tham số gắn với một flag cụ thể: ngưỡng, thời gian chờ, tỉ lệ lấy mẫu, số lần thử lại.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Cho phép điều chỉnh hành vi <b>mà không cần bật hoặc tắt flag</b>. Flag vẫn nguyên trạng thái, chỉ con số bên trong đổi.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo cặp <em>flag sở hữu</em> và <em>tên tham số</em>. Giá trị đem so là giá trị mặc định.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ qua một lớp thay đổi hành vi hoàn toàn không kèm thay đổi trạng thái flag. Hạ thời gian chờ từ 2.000 mili giây xuống 500 là thay đổi thật với người dùng, trong khi mọi flag vẫn nguyên trạng.</span></div>
+          <div><span class="k">Contains</span><span class="v">Parameters tied to one specific flag: thresholds, timeouts, sampling rates, retry counts.</span></div>
+          <div><span class="k">Role</span><span class="v">They allow behaviour to be tuned <b>without turning the flag on or off</b>. The flag's state does not move; only the number inside changes.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Paired by the <em>owning flag</em> plus the <em>parameter name</em>. The compared value is the default.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Skipping an entire class of behaviour change that comes with no flag-state change at all. Dropping a timeout from 2,000 milliseconds to 500 is a real change for users while every flag stays exactly as it was.</span></div>
         </div>
       </div>
 
@@ -1007,430 +1009,439 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <span class="rl rl-switch">flag</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">File liệt kê toàn bộ tính năng nền web, mỗi mục kèm trạng thái phát hành: <code>stable</code>, <code>experimental</code> hoặc <code>test</code>, khai báo được riêng cho từng nền tảng.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Danh sách đầy đủ <b>mọi API web mà Chromium có</b>, ở dạng máy đọc được. Đây là nguồn duy nhất công cụ phủ trọn vẹn, vì toàn bộ danh sách nằm gọn trong một file.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo tên tính năng. Giá trị đem so là trạng thái phát hành trên Windows.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Không biết API nào bắt đầu hiển thị với người dùng thật. Chuyển từ <code>experimental</code> sang <code>stable</code> nghĩa là các website sẽ bắt đầu sử dụng API đó.</span></div>
+          <div><span class="k">Contains</span><span class="v">The manifest of every web-platform feature, each with its release status: <code>stable</code>, <code>experimental</code> or <code>test</code>, declarable per platform.</span></div>
+          <div><span class="k">Role</span><span class="v">A complete, machine-readable list of <b>every web API Chromium has</b>. It is the one source the tool covers completely, because the whole list is one file.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Paired by feature name. The compared value is the release status on Windows.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Not knowing which API is about to become visible to real users. Moving from <code>experimental</code> to <code>stable</code> means websites will start using it.</span></div>
         </div>
       </div>
 
     </div>
 
-    <h3 class="sub" style="margin-top:26px">Nhóm B — Hợp đồng với bên ngoài</h3>
+    <h3 class="sub" style="margin-top:26px">Group B — contracts with the outside world</h3>
     <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
-      Bốn nguồn mô tả những gì Chromium hứa với thế giới bên ngoài: website, script khởi
-      chạy, dữ liệu đã lưu, và các process khác. Đặc điểm chung của cả nhóm
-      là <b>vi phạm hợp đồng không gây lỗi build</b>.
+      Four sources describe what Chromium promises the world outside it: websites,
+      launch scripts, stored data, and other processes. What they have in common is
+      that <b>breaking the contract does not break the build</b>.
     </p>
 
     <div class="why">
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">pref_names.h — khai báo pref</span>
-          <span class="rl rl-contract">hợp đồng</span>
+          <span class="nm">pref_names.h — pref declarations</span>
+          <span class="rl rl-contract">contract</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Hằng chuỗi đặt tên cho từng pref người dùng.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Mỗi pref là một khoá thật trong file <code>Preferences</code> nằm trong profile của người dùng. Đây cũng là chỗ mà enterprise policy và trang Settings ghi vào.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Danh tính là <b>chuỗi khoá</b>, không phải tên biến. Tên biến C++ được dùng để ghép một mục bị gỡ với một mục được thêm, nhằm nhận ra trường hợp đổi tên.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ lọt một lớp hỏng không để lại dấu vết nào. Đổi tên một khoá làm toàn bộ giá trị đã lưu của người dùng hiện hữu <b>trở nên vô chủ</b>: code vẫn build được, test vẫn pass, và cài đặt của người dùng lặng lẽ trở về mặc định.</span></div>
+          <div><span class="k">Contains</span><span class="v">String constants naming each user pref.</span></div>
+          <div><span class="k">Role</span><span class="v">Every pref is a real key in the <code>Preferences</code> file inside the user's profile. It is also where enterprise policy and the Settings page write.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Identity is <b>the key string</b>, not the variable name. The C++ variable is used to pair a removal with an addition, so a rename can be recognised.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Missing a class of breakage that leaves no trace at all. Renaming a key <b>orphans</b> every existing user's stored value: the code still builds, the tests still pass, and the user's setting quietly reverts to the default.</span></div>
         </div>
       </div>
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">*_switches.cc — tham số dòng lệnh</span>
-          <span class="rl rl-contract">hợp đồng</span>
+          <span class="nm">*_switches.cc — command-line switches</span>
+          <span class="rl rl-contract">contract</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Hằng chuỗi đặt tên cho từng tham số dòng lệnh.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Hợp đồng với những thứ nằm <b>ngoài mã nguồn browser</b>: script khởi chạy, automation test, cấu hình thiết bị.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Danh tính là chuỗi tham số, kèm cơ chế nhận diện đổi tên giống như với pref.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Đổi tên một tham số không gây lỗi ở bất kỳ đâu. Script vẫn chạy bình thường, chỉ là tham số không còn tác dụng. <b>Không compiler nào bắt được</b>, vì bên sử dụng nằm ngoài kho mã.</span></div>
+          <div><span class="k">Contains</span><span class="v">String constants naming each command-line switch.</span></div>
+          <div><span class="k">Role</span><span class="v">A contract with things <b>outside the browser's source</b>: launch scripts, test automation, device configuration.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Identity is the switch string, with the same rename detection as prefs.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Renaming a switch produces an error nowhere. The script still runs, the switch simply stops taking effect. <b>No compiler can catch it</b>, because the user of it lives outside the repository.</span></div>
         </div>
       </div>
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">*.idl — định nghĩa API web</span>
-          <span class="rl rl-contract">hợp đồng với website</span>
+          <span class="nm">*.idl — web API definitions</span>
+          <span class="rl rl-contract">contract with websites</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Định nghĩa của mọi API web mở ra cho JavaScript: tên interface, danh sách member, và signature của từng member.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Chromium <b>sinh binding thẳng từ chính các file này</b>. Chúng không mô tả API — chúng <b>chính là</b> API.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo <em>tên interface</em> cộng <em>tên member</em>. Giá trị đem so là signature đầy đủ và các extended attribute đi kèm.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Mất nguồn duy nhất xác định được việc <b>gỡ bỏ một API</b>. Một member biến mất nghĩa là website đang chạy sẽ vỡ. Lưu ý rằng flag Blink biến mất <em>không</em> phải signal của việc này — xem phần vòng đời ba giai đoạn ở bước 6.</span></div>
+          <div><span class="k">Contains</span><span class="v">The definition of every web API exposed to JavaScript: interface names, member lists, and each member's signature.</span></div>
+          <div><span class="k">Role</span><span class="v">Chromium <b>generates its bindings straight from these files</b>. They do not describe the API — they <b>are</b> the API.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Paired by <em>interface name</em> plus <em>member name</em>. The compared value is the full signature and its extended attributes.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Losing the only source that can identify <b>an API being removed</b>. A member disappearing means live websites break. Note that a Blink flag disappearing is <em>not</em> a signal of this — see the three-stage lifecycle at stop 6.</span></div>
         </div>
       </div>
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">*.mojom — Mojo, cách các process gọi nhau</span>
-          <span class="rl rl-contract">hợp đồng nội bộ</span>
+          <span class="nm">*.mojom — Mojo, how processes call each other</span>
+          <span class="rl rl-contract">internal contract</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Định nghĩa interface Mojo: tên method, danh sách tham số, giá trị trả về.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Mojo là cách các process của Chromium gọi lẫn nhau — browser, renderer, GPU, network. Binding ở cả hai đầu đều sinh ra từ chính các file này.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Ghép cặp theo tên đầy đủ của method. Giá trị đem so là <b>toàn bộ signature</b>, nên một tham số bị đổi kiểu hay đổi thứ tự đều bị bắt.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Bỏ lọt nhóm thay đổi nghiêm trọng nhất. Đổi signature của một Mojo method thì <b>vỡ lúc chạy chứ không lúc build</b>, vì hai đầu nằm ở hai process khác nhau và mỗi bên tự sinh binding của mình. Không test web nào bắt được.</span></div>
+          <div><span class="k">Contains</span><span class="v">Mojo interface definitions: method names, parameter lists, return values.</span></div>
+          <div><span class="k">Role</span><span class="v">Mojo is how Chromium's processes call each other — browser, renderer, GPU, network. The bindings on both ends are generated from these files.</span></div>
+          <div><span class="k">Compared by</span><span class="v">Paired by the method's fully qualified name. The compared value is <b>the whole signature</b>, so a parameter changing type or order is caught.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Missing the most severe class of change. Changing a Mojo method's signature <b>breaks at runtime, not at build time</b>, because the two ends live in different processes and each generates its own bindings. No web test catches it.</span></div>
         </div>
       </div>
 
     </div>
 
-    <h3 class="sub" style="margin-top:26px">Nhóm C — Giao diện và kế hoạch</h3>
+    <h3 class="sub" style="margin-top:26px">Group C — the UI and the schedule</h3>
     <p style="font-size:.88rem;color:var(--ink-soft);max-width:64ch">
-      Hai nguồn còn lại mô tả những gì người dùng nhìn thấy, và những gì Chromium
-      dự định gỡ bỏ trong tương lai.
+      The last two sources describe what users see, and what Chromium plans to remove
+      in future.
     </p>
 
     <div class="why">
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">Ba file của một trang <code>chrome://</code></span>
-          <span class="rl rl-ui">giao diện</span>
+          <span class="nm">The three files of a <code>chrome://</code> page</span>
+          <span class="rl rl-ui">UI</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Các trang <code>chrome://settings</code>, <code>chrome://history</code>, <code>chrome://downloads</code> đều là trang web dựng theo cùng một khuôn mẫu gồm ba file: <b>route table</b> liệt kê các trang con kèm gate; <b>template</b> khai báo từng control; <b>handler C++</b> chuyển giá trị flag thành biến mà JavaScript đọc được.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Ba file tạo thành một chuỗi ba chặng: <b>route → gate → feature flag</b>. Đi đủ chuỗi này mới trả lời được câu “vì sao một trang biến mất”.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Với route: đường dẫn, route cha, và gate. Với control: <b>loại thẻ HTML</b> (nên chuyện một dropdown biến thành toggle là phát hiện được tự động), pref mà nó ghi vào, và nhãn hiển thị. Với handler: biểu thức flag quyết định giá trị.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Không phát hiện được thay đổi giao diện. <b>Phải đọc đủ cả ba file:</b> route table liệt kê cả những trang đang bị một flag ẩn đi, nên dừng lại ở file đầu tiên sẽ cho kết luận ngược với thực tế.</span></div>
+          <div><span class="k">Contains</span><span class="v"><code>chrome://settings</code>, <code>chrome://history</code> and <code>chrome://downloads</code> are all web pages built from the same three-file pattern: a <b>route table</b> listing the sub-pages with their gates; a <b>template</b> declaring each control; a <b>C++ handler</b> turning flag values into variables JavaScript can read.</span></div>
+          <div><span class="k">Role</span><span class="v">The three files form a three-hop chain: <b>route → gate → feature flag</b>. Only by walking the whole chain can you answer “why did this page disappear”.</span></div>
+          <div><span class="k">Compared by</span><span class="v">For a route: its path, its parent route, and its gate. For a control: <b>the HTML tag</b> (so a dropdown turning into a toggle is caught automatically), the pref it writes, and its label. For a handler: the flag expression that decides the value.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Not detecting UI changes at all. <b>All three files have to be read:</b> a route table also lists pages a flag is currently hiding, so stopping at the first file gives a conclusion opposite to reality.</span></div>
         </div>
       </div>
 
       <div class="src">
         <div class="src-h">
-          <span class="nm">flag-metadata.json — lịch gỡ bỏ</span>
-          <span class="rl rl-ui">kế hoạch</span>
+          <span class="nm">flag-metadata.json — the removal schedule</span>
+          <span class="rl rl-ui">schedule</span>
         </div>
         <div class="qa">
-          <div><span class="k">Nội dung</span><span class="v">Siêu dữ liệu của từng mục trong <code>chrome://flags</code>, trong đó có <b>mốc phiên bản dự kiến gỡ bỏ</b>.</span></div>
-          <div><span class="k">Vai trò</span><span class="v">Nguồn duy nhất trong mã nguồn nói về <b>tương lai</b> thay vì hiện trạng.</span></div>
-          <div><span class="k">So sánh theo</span><span class="v">Mốc phiên bản gỡ bỏ. Flag nào có lịch gỡ rơi vào đúng phiên bản đang lên, hoặc ngay sau đó, thì công cụ đánh dấu lại.</span></div>
-          <div><span class="k">Bỏ sót thì</span><span class="v">Mất khả năng lập kế hoạch. “Mười hai flag chúng ta đang phụ thuộc sẽ bị gỡ ở M151” là việc có thể lên kế hoạch từ hôm nay, thay vì một lỗi build phát hiện ở đợt uprev sau.</span></div>
+          <div><span class="k">Contains</span><span class="v">Metadata for each <code>chrome://flags</code> entry, including <b>the milestone it is scheduled for removal in</b>.</span></div>
+          <div><span class="k">Role</span><span class="v">The only source in the tree that talks about <b>the future</b> rather than the present.</span></div>
+          <div><span class="k">Compared by</span><span class="v">The removal milestone. A flag whose removal date falls on the version being adopted, or just after it, is marked.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Losing the ability to plan. "Twelve flags we depend on will be removed at M151" is something you can schedule today, instead of a build failure discovered at the next uprev.</span></div>
         </div>
       </div>
 
     </div>
 
     <div class="note" style="margin-top:16px">
-      <b>Vì sao chỉ chín nguồn này.</b> Điểm chung của chúng là tính bắt buộc: định
-      nghĩa API và định nghĩa Mojo là đầu vào của code generator nên không thể lệch
-      với thực tế; file liệt kê tính năng nền web là file cấu hình; còn khai báo flag
-      và hằng chuỗi C++ thì tuân theo quy ước đã ổn định nhiều năm. Ngược lại, <b>logic bên trong thân hàm không tự
-      mô tả gì cả</b>, nên nó nằm ngoài phạm vi công cụ. Đây là giới hạn được nêu rõ
-      ở phần cuối tài liệu chứ không phải điều được che đi.
+      <b>Why only these nine.</b> What they share is that they are obligatory: API
+      definitions and Mojo definitions are code-generator inputs, so they cannot
+      diverge from reality; the web-platform manifest is a configuration file; and
+      flag declarations and C++ string constants follow conventions that have held
+      for years. By contrast, <b>the logic inside a function body describes
+      nothing</b>, so it is outside the tool's scope. That is a limit stated plainly
+      at the end of this document, not one hidden away.
     </div>
   </div>
 </section>
 
-<!-- ── 5. Đọc thành fact ──────────────────────────────── -->
+<!-- ── 5. Reading files into facts ───────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">5</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Đọc file thành fact</h2>
-    <div class="file">extract/ · chín bộ đọc, mỗi bộ đọc một loại file</div>
+    <h2>Reading files into facts</h2>
+    <div class="file">extract/ · nine extractors, one per kind of file</div>
     <p>
-      Công cụ không có compiler, cũng không có checkout Chromium đầy đủ.
-      Nhưng các khai báo cần đọc đều tuân theo quy ước viết đã ổn định nhiều năm,
-      nên <b>quét theo mẫu</b> — nhận dạng chính các khuôn viết đó — cho kết quả đủ
-      chính xác mà không cần parse cú pháp đầy đủ. Chỗ bắt buộc phải làm đúng là <b>điều kiện bao quanh khai báo</b>.
+      The tool has no compiler and no full Chromium checkout. But the declarations it
+      needs all follow writing conventions that have been stable for years, so
+      <b>pattern scanning</b> — recognising those exact shapes — is accurate enough
+      without full syntactic parsing. The part that has to be exactly right is
+      <b>the condition around the declaration</b>.
     </p>
 
-    <h3 class="sub">Mỗi loại file được so sánh như thế nào</h3>
+    <h3 class="sub">How each kind of file is compared</h3>
     <p>
-      So sánh gồm hai bước. Bước một, <b>ghép cặp</b>: tìm xem khai báo này ở phiên
-      bản cũ tương ứng với khai báo nào ở phiên bản mới — ghép theo cái gì thì gọi
-      là <b>danh tính</b>. Bước hai, <b>đối chiếu giá trị</b> của cặp vừa ghép được.
-      Chọn sai danh tính là lỗi tai hại nhất: ghép trượt thì mọi khai báo đều hiện
-      ra như vừa bị xoá xong thêm lại.
+      Comparing has two steps. Step one, <b>pairing</b>: work out which declaration in
+      the old version corresponds to which in the new one — what you pair on is called
+      <b>identity</b>. Step two, <b>comparing the values</b> of the pair you just
+      matched. Choosing the wrong identity is the most damaging mistake: pair wrongly
+      and every declaration looks as though it was just deleted and re-added.
     </p>
     <div class="tablewrap">
       <table>
         <thead>
           <tr>
-            <th>Loại file</th>
-            <th>Danh tính dùng để ghép cặp</th>
-            <th>Giá trị được đối chiếu</th>
+            <th>Kind of file</th>
+            <th>The identity used to pair</th>
+            <th>The values compared</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><b>Khai báo flag</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.cc, .h</span></td>
-            <td>Tên flag sau chuẩn hoá</td>
-            <td>Trạng thái mặc định trên Windows; điều kiện build bao quanh</td>
+            <td><b>Flag declarations</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.cc, .h</span></td>
+            <td>The normalized flag name</td>
+            <td>The default state on Windows; the build condition around it</td>
           </tr>
           <tr>
-            <td><b>Hằng chuỗi C++</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">pref_names, switches</span></td>
-            <td>Chính giá trị chuỗi</td>
-            <td>Tên biến C++ khai báo ra chuỗi đó</td>
+            <td><b>C++ string constants</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">pref_names, switches</span></td>
+            <td>The string value itself</td>
+            <td>The C++ variable declaring that string</td>
           </tr>
           <tr>
-            <td><b>File liệt kê API web</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.json5</span></td>
-            <td>Tên tính năng</td>
-            <td>Trạng thái phát hành trên Windows; flag C++ liên kết; tên origin trial đi kèm</td>
+            <td><b>The web API manifest</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.json5</span></td>
+            <td>The feature name</td>
+            <td>Release status on Windows; the linked C++ flag; the origin trial name</td>
           </tr>
           <tr>
-            <td><b>Định nghĩa API web</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.idl</span></td>
-            <td>Tên interface, cộng tên member</td>
-            <td>Signature đầy đủ; thuộc tính mở rộng; flag đi kèm</td>
+            <td><b>Web API definitions</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.idl</span></td>
+            <td>Interface name, plus member name</td>
+            <td>The full signature; extended attributes; the gating flag</td>
           </tr>
           <tr>
             <td><b>Mojo</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.mojom</span></td>
-            <td>Tên module, interface và method</td>
-            <td>Danh sách tham số và giá trị trả về, đã chuẩn hoá khoảng trắng</td>
+            <td>Module, interface and method name</td>
+            <td>Parameter list and return value, with whitespace normalized</td>
           </tr>
           <tr>
-            <td><b>Mẫu giao diện</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.html, .html.ts</span></td>
-            <td>Trang, cộng pref, cộng id của phần tử</td>
-            <td>Loại thẻ HTML; pref; nhãn hiển thị; điều kiện dựng theo nền tảng</td>
+            <td><b>UI templates</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">.html, .html.ts</span></td>
+            <td>Page, plus pref, plus element id</td>
+            <td>The HTML tag; the pref; the label; the per-platform build condition</td>
           </tr>
           <tr>
-            <td><b>Route table</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">route.ts</span></td>
-            <td>Tên trang, cộng tên route</td>
-            <td>Đường dẫn; route cha; gate</td>
+            <td><b>Route tables</b><br><span class="mono" style="font-size:.74rem;color:var(--muted)">route.ts</span></td>
+            <td>Surface name, plus route name</td>
+            <td>The path; the parent route; the gate</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h3 class="sub">Danh tính phải bền qua thay đổi cú pháp</h3>
+    <h3 class="sub">Identity has to survive a change of syntax</h3>
     <p>
-      Giữa M139 và M143, Chromium sửa chính macro dùng để khai báo flag: tham số
-      chứa tên flag bị bỏ đi, và tên được suy ra từ tên biến. Không một flag nào đổi
-      tên, đổi trạng thái hay đổi hành vi — chỉ cách viết thay đổi.
+      Between M139 and M143, Chromium changed the very macro used to declare a flag:
+      the argument holding the flag's name was dropped, and the name is now derived
+      from the variable name. Not one flag changed its name, its state or its
+      behaviour — only how it is written.
     </p>
     <p>
-      Trong một file đo được, M139 có <b>170 trên 170</b> khai báo viết theo dạng cũ,
-      còn M143 chỉ còn <b>12 trên 187</b>. Một công cụ lấy danh tính từ văn bản mã
-      nguồn sẽ báo rằng toàn bộ file vừa bị viết lại. Sau khi chuẩn hoá tên biến
-      thành tên flag, khác biệt thật là <b>152 giữ nguyên, 18 gỡ bỏ, 35 thêm mới</b>.
+      In one measured file, M139 has <b>170 of 170</b> declarations in the old form,
+      while M143 has only <b>12 of 187</b>. A tool taking identity from the source
+      text would report that the entire file had just been rewritten. After
+      normalizing the variable name into the flag name, the real difference is
+      <b>152 unchanged, 18 removed, 35 added</b>.
     </p>
 
-    <h3 class="sub">Điều kiện build quyết định giá trị nào được đọc</h3>
+    <h3 class="sub">The build condition decides which value gets read</h3>
     <p>
-      Một flag có thể mang nhiều trạng thái mặc định khác nhau trong cùng một khai báo,
-      chọn theo nền tảng được build: bật trên máy tính để bàn, tắt trên di động,
-      hoặc ngược lại. Lấy giá trị đầu tiên gặp được là cách làm sai, vì nếu nhánh
-      dành cho Windows không đứng đầu thì kết luận sẽ <b>ngược hoàn toàn</b> chứ
-      không chỉ kém chính xác. Trong một file đo được, <b>14 trên 187</b> flag có mặc
-      định khác nhau giữa các nền tảng.
+      One flag can carry several different default states inside a single
+      declaration, selected by the platform being built: on for desktop, off for
+      mobile, or the reverse. Taking the first value you find is wrong, because if the
+      Windows branch is not first, the conclusion is <b>exactly backwards</b> rather
+      than merely imprecise. In one measured file, <b>14 of 187</b> flags have
+      per-platform defaults.
     </p>
     <p>
-      Công cụ đọc điều kiện bao quanh khai báo và chọn nhánh áp dụng cho Windows.
-      Kết quả rơi vào một trong ba trạng thái:
+      The tool reads the condition around the declaration and picks the branch that
+      applies to Windows. The result is one of three states:
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Điều kiện phụ thuộc vào</th><th>Kết quả</th><th>Công cụ ghi nhận</th></tr></thead>
+        <thead><tr><th>The condition depends on</th><th>Result</th><th>What the tool records</th></tr></thead>
         <tbody>
           <tr>
-            <td>Nền tảng chúng ta phát hành</td>
-            <td>Áp dụng</td>
-            <td>Giá trị trong nhánh đó</td>
+            <td>The platform we ship</td>
+            <td>Applies</td>
+            <td>The value in that branch</td>
           </tr>
           <tr>
-            <td>Một nền tảng khác</td>
-            <td>Không áp dụng</td>
-            <td>Bỏ qua nhánh đó, hoặc ghi <em>không được build</em> nếu khai báo chỉ tồn tại ở đó</td>
+            <td>A different platform</td>
+            <td>Does not apply</td>
+            <td>That branch is skipped, or recorded as <em>not compiled</em> if the declaration exists only there</td>
           </tr>
           <tr>
-            <td>Một build flag không liên quan đến nền tảng</td>
-            <td>Không xác định được</td>
-            <td><b>“Không xác định”</b> — công cụ không chọn nhánh nào</td>
+            <td>A build flag unrelated to platform</td>
+            <td>Undecidable</td>
+            <td><b>“Undecidable”</b> — the tool picks no branch</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="note" style="margin-top:13px">
-      Trạng thái thứ ba là phần quan trọng nhất. Khi điều kiện phụ thuộc vào một
-      tham số bật hoặc tắt một thành phần tuỳ chọn, công cụ không có đủ dữ liệu để
-      quyết định. Nó ghi nhận <b>“không xác định”</b> thay vì chọn lấy một nhánh, vì
-      một giá trị sai trông giống hệt một giá trị đúng, còn “không xác định” thì
-      người đọc biết ngay là cần tra thêm.
+      The third state is the important one. When the condition depends on a parameter
+      that enables or disables an optional component, the tool does not have enough
+      data to decide. It records <b>“undecidable”</b> rather than picking a branch,
+      because a wrong value looks exactly like a right one, whereas “undecidable”
+      tells the reader immediately that they need to check.
     </div>
 
-    <h3 class="sub">Mười ba loại fact được trích ra</h3>
+    <h3 class="sub">The thirteen fact kinds extracted</h3>
     <p style="font-size:.88rem;color:var(--ink-soft);margin-bottom:12px">
-      Đây đúng là các tên bạn thấy ở trường <code>kind</code> trong <code>report.json</code>.
+      These are exactly the names you see in the <code>kind</code> field of <code>report.json</code>.
     </p>
     <div class="chips">
-      <span class="chip ok">feature flag · 2.062</span>
-      <span class="chip">feature param · 862</span>
-      <span class="chip ok">blink runtime · 1.212</span>
-      <span class="chip">chrome://flags · 1.753</span>
+      <span class="chip ok">feature flag · 2,062</span>
+      <span class="chip">feature param · 863</span>
+      <span class="chip ok">blink runtime · 1,212</span>
+      <span class="chip">chrome://flags · 1,753</span>
       <span class="chip hot">pref · 689</span>
       <span class="chip hot">switch · 288</span>
-      <span class="chip hot">Mojo method · 1.362</span>
+      <span class="chip hot">Mojo method · 1,362</span>
       <span class="chip">Mojo interface · 338</span>
-      <span class="chip">IDL member · 11.941</span>
-      <span class="chip">IDL interface · 2.608</span>
+      <span class="chip">IDL member · 11,941</span>
+      <span class="chip">IDL interface · 2,608</span>
       <span class="chip ok">route · 108</span>
-      <span class="chip ok">control · 884</span>
+      <span class="chip ok">control · 971</span>
       <span class="chip ok">gate · 764</span>
     </div>
     <p style="font-size:.83rem;color:var(--muted);margin-top:10px">
-      Số liệu đo tại M151.
-      <span style="color:var(--flow)">Xanh</span> — flag điều khiển hành vi ·
-      <span style="color:var(--clay)">Đỏ</span> — hợp đồng với bên ngoài, thay đổi
-      gây hỏng không kèm thông báo lỗi.
+      Measured at M151.
+      <span style="color:var(--flow)">Green</span> — flags that control behaviour ·
+      <span style="color:var(--clay)">Red</span> — contracts with the outside world,
+      where a change breaks something without producing an error.
     </p>
   </div>
 </section>
 
-<!-- ── 6. So sánh ────────────────────────────────────────── -->
+<!-- ── 6. Comparing ──────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">6</div><div class="thread"></div></div>
   <div class="body">
-    <h2>So sánh hai phiên bản</h2>
+    <h2>Comparing two versions</h2>
     <div class="file">diff.py</div>
     <p>
-      Hai quy tắc dưới đây làm gần hết việc thu hẹp. Quy tắc thứ nhất vứt bỏ những
-      khác biệt không nói lên điều gì. Quy tắc thứ hai giải thích vì sao phần lớn
-      những thứ <em>trông như</em> mất tính năng lại không phải mất tính năng.
+      The two rules below do most of the narrowing. The first throws away differences
+      that say nothing. The second explains why most of what <em>looks like</em> a
+      lost feature is not a lost feature.
     </p>
 
-    <h3 class="sub">Quy tắc 1 — chỉ so những thuộc tính thật sự nói lên điều gì</h3>
+    <h3 class="sub">Rule 1 — compare only the attributes that actually mean something</h3>
     <p>
-      Mỗi loại fact có một danh sách cố định những thuộc tính mà công cụ đem so.
-      Thuộc tính ngoài danh sách đó thì đổi bao nhiêu cũng không tính là thay đổi. Bảng dưới đây đặt hai phiên bản
-      của cùng một flag cạnh nhau. Chọn từng tình huống để thấy thuộc tính nào được
-      đối chiếu và kết luận thay đổi theo.
+      Every fact kind has a fixed list of attributes the tool compares. An attribute
+      outside that list can move as much as it likes without counting as a change. The
+      panel below puts two versions of the same flag side by side. Pick a scenario to
+      see which attributes are compared and how the conclusion follows.
     </p>
 
     <div class="card">
       <div class="scen" id="scen">
-        <button data-s="0" aria-pressed="true">Mặc định đổi trạng thái</button>
-        <button data-s="1" aria-pressed="false">Chỉ đổi cách viết</button>
-        <button data-s="2" aria-pressed="false">Gỡ flag sau khi đã phát hành</button>
-        <button data-s="3" aria-pressed="false">Gỡ flag chưa từng phát hành</button>
-        <button data-s="4" aria-pressed="false">Flag mới, bật sẵn</button>
+        <button data-s="0" aria-pressed="true">The default changes state</button>
+        <button data-s="1" aria-pressed="false">Only the syntax changes</button>
+        <button data-s="2" aria-pressed="false">Flag removed after shipping</button>
+        <button data-s="3" aria-pressed="false">Flag removed, never shipped</button>
+        <button data-s="4" aria-pressed="false">New flag, already on</button>
       </div>
 
       <div class="vs">
         <div id="sideA"></div>
-        <div class="vs-mid">đối chiếu</div>
+        <div class="vs-mid">compared</div>
         <div id="sideB"></div>
       </div>
 
       <div class="legend">
-        <span><i style="background:var(--clay)"></i>khác nhau, tính là thay đổi</span>
-        <span><i style="background:var(--flow)"></i>giống nhau</span>
-        <span><i style="background:var(--line)"></i>không nằm trong danh sách đối chiếu</span>
+        <span><i style="background:var(--clay)"></i>differs, counts as a change</span>
+        <span><i style="background:var(--flow)"></i>identical</span>
+        <span><i style="background:var(--line)"></i>not on the compared list</span>
       </div>
 
       <div class="outcome">
-        <div class="row"><span class="lab">Kết luận</span><span class="mean" id="oType"></span></div>
-        <div class="row"><span class="lab">Dấu hiệu</span><span id="oSig"></span></div>
-        <div class="row"><span class="lab">Mức nghiêm trọng</span><span><span class="sev" id="oSev"></span></span></div>
-        <div class="row"><span class="lab">Nghĩa là</span><span class="mean" id="oWhy"></span></div>
+        <div class="row"><span class="lab">Conclusion</span><span class="mean" id="oType"></span></div>
+        <div class="row"><span class="lab">Signals</span><span id="oSig"></span></div>
+        <div class="row"><span class="lab">Severity</span><span><span class="sev" id="oSev"></span></span></div>
+        <div class="row"><span class="lab">Meaning</span><span class="mean" id="oWhy"></span></div>
       </div>
     </div>
 
     <div class="note" style="margin-top:14px">
-      Bấm <b>“Chỉ đổi cách viết”</b> là thấy rõ nhất quy tắc này làm gì. Hai phiên
-      bản khác nhau ở thuộc tính ghi <em>dạng khai báo</em>, nhưng thuộc tính đó
-      không nằm trong danh sách đem so, nên kết luận là <b>không có thay đổi nào</b>
-      — đúng với thực tế. Nếu công cụ so cả thuộc tính đó, riêng đợt sửa macro giữa
-      M139 và M143 đã đẻ ra <b>hàng nghìn “thay đổi”</b> mà không cái nào đáng đọc.
+      Pressing <b>“Only the syntax changes”</b> shows this rule most clearly. The two
+      versions differ in the attribute recording <em>the declaration form</em>, but
+      that attribute is not on the compared list, so the conclusion is <b>no change at
+      all</b> — which matches reality. Had the tool compared it, the macro migration
+      between M139 and M143 alone would have produced <b>thousands of “changes”</b>,
+      not one of them worth reading.
     </div>
 
-    <h3 class="sub">Quy tắc 2 — vòng đời ba giai đoạn</h3>
+    <h3 class="sub">Rule 2 — the three-stage lifecycle</h3>
     <p>
-      Chromium đưa mọi tính năng đi qua ba giai đoạn, thường <b>cách nhau nhiều mốc
-      phiên bản</b>. Hệ quả là một phép so sánh giữa hai phiên bản chủ yếu nhìn thấy
-      giai đoạn A và giai đoạn C, trong khi giai đoạn B mới là lúc người dùng thấy
-      khác biệt.
+      Chromium moves every feature through three stages, usually <b>several
+      milestones apart</b>. The consequence is that a comparison between two versions
+      mostly sees stage A and stage C, while stage B is when users actually notice
+      a difference.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Giai đoạn</th><th>Diễn ra trong mã nguồn</th><th>Người dùng thấy</th></tr></thead>
+        <thead><tr><th>Stage</th><th>What happens in the source</th><th>What users see</th></tr></thead>
         <tbody>
-          <tr><td><b>A</b></td><td>Mã mới được thêm vào, flag mặc định tắt</td><td style="color:var(--muted)">không thấy gì</td></tr>
-          <tr><td><b>B</b></td><td>Flag chuyển sang bật</td><td style="color:var(--flow);font-weight:640">đây là thay đổi</td></tr>
-          <tr><td><b>C</b></td><td>Nhánh mã cũ và flag bị gỡ bỏ</td><td style="color:var(--muted)">không thấy gì</td></tr>
+          <tr><td><b>A</b></td><td>New code is added, flag defaults off</td><td style="color:var(--muted)">nothing</td></tr>
+          <tr><td><b>B</b></td><td>The flag flips on</td><td style="color:var(--flow);font-weight:640">this is the change</td></tr>
+          <tr><td><b>C</b></td><td>The old code path and the flag are deleted</td><td style="color:var(--muted)">nothing</td></tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:14px">
-      Vì vậy khi một flag biến mất, công cụ đọc <b>trạng thái nó giữ ngay trước khi bị
-      gỡ</b>. Flag bị gỡ khi đang bật nghĩa là tính năng đã phát hành từ trước và nay
-      không thể tắt được nữa; flag bị gỡ khi đang tắt nghĩa là tính năng chưa từng phát
-      hành và mã đã bị xoá. Hai trường hợp này khác hẳn nhau, và cả hai đều <b>không</b> phải là mất tính năng.
+      So when a flag disappears, the tool reads <b>the state it held immediately
+      before removal</b>. A flag removed while on means the feature shipped earlier
+      and can now no longer be turned off; a flag removed while off means the feature
+      never shipped and the code has been deleted. Those two are completely different,
+      and <b>neither</b> is a lost feature.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      Số liệu đo trên M148 → M151, nền tảng Windows: <b>90 flag bị gỡ, chia đúng 45 và 45</b>
-      giữa hai trường hợp trên. Gán cả 90 mục là “mất tính năng” thì một nửa danh sách
-      là báo động giả. Với tính năng nền web còn rõ hơn: <b>202 mục biến mất, trong đó
-      170 mục đang ở trạng thái <code>stable</code></b> — tức là dọn dẹp sau khi đã
-      ship, không phải gỡ API.
+      Measured on M148 → M151, Windows: <b>90 flags removed, splitting exactly 45 and 45</b>
+      between the two cases above. Labelling all 90 “feature lost” makes half the list
+      a false alarm. For web-platform features it is starker still: <b>202 entries
+      disappeared, of which 170 were in <code>stable</code></b> — cleanup after
+      shipping, not an API removal.
     </div>
 
-    <h3 class="sub">Trường hợp khó phát hiện nhất: đổi tên</h3>
+    <h3 class="sub">The hardest case to spot: a rename</h3>
     <p>
-      Với pref, tham số dòng lệnh và tên flag, danh tính là <b>chuỗi ký tự</b>,
-      trong khi tên biến C++ thì ổn định. Một lần đổi tên vì vậy xuất hiện trong kết
-      quả dưới dạng <em>một mục bị gỡ</em> cộng <em>một mục được thêm</em>, hai mục
-      trông không liên quan gì đến nhau, và hậu quả thật nằm lấp giữa chúng.
+      For prefs, command-line switches and flag names, identity is <b>a string</b>,
+      while the C++ variable name is stable. So a rename shows up in the results as
+      <em>one item removed</em> plus <em>one item added</em>, two entries that look
+      unrelated, with the real consequence hidden between them.
     </p>
     <p>
-      Trường hợp đã gặp: đợt sửa macro giữa M139 và M143 làm tên một flag đổi từ
-      <code>FedCmIdPregistration</code> thành <code>FedCmIdPRegistration</code> — khác
-      nhau đúng một chữ hoa. Không ai sửa tên; chính việc đổi cách viết macro đã đổi
-      nó. Từ đó, mọi cấu hình thử nghiệm phía máy chủ và mọi tham số dòng lệnh viết
-      theo cách cũ <b>lặng lẽ mất tác dụng</b>, và không compiler nào cảnh báo.
+      A case we hit: the macro migration between M139 and M143 changed a flag's name
+      from <code>FedCmIdPregistration</code> to <code>FedCmIdPRegistration</code> — one
+      letter's case. Nobody edited the name; changing how the macro is written changed
+      it. From then on, every server-side experiment config and every command-line
+      switch written the old way <b>silently stopped working</b>, and no compiler
+      warned about it.
     </p>
     <p>
-      Công cụ ghép một mục bị gỡ với một mục được thêm khi <b>chúng dùng chung tên
-      biến C++</b>, và báo cáo cặp đó như một lần đổi tên thay vì hai sự kiện rời rạc.
+      The tool pairs a removal with an addition when <b>they share the same C++
+      variable name</b>, and reports the pair as one rename rather than two unrelated
+      events.
     </p>
   </div>
 </section>
 
-<!-- ── 7. Chấm điểm ──────────────────────────────────────── -->
+<!-- ── 7. Scoring ────────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">7</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Chấm điểm theo mức ảnh hưởng</h2>
+    <h2>Scoring by impact</h2>
     <div class="file">downstream.py · impact.py</div>
     <p>
-      Bước trước trả lời câu hỏi “thay đổi này thường quan trọng đến đâu”. Bước này
-      trả lời câu hỏi đội ngũ thực sự cần: <b>nó có ảnh hưởng đến chúng ta không</b>.
+      The previous stop answers "how much does this change normally matter". This one
+      answers the question the team actually has: <b>does it affect us</b>.
     </p>
     <p>
-      Bằng chứng lấy từ ba nguồn: thư mục chứa các file patch của fork, kết quả
-      <code>git diff</code> so với Chromium gốc, hoặc một lượt quét mã nguồn fork.
-      Lượt quét đi theo chiều ngược với trực giác thông thường: thay vì tìm tên của
-      fork trong cây mã Chromium, công cụ lấy <b>danh sách định danh của Chromium</b>
-      rồi tìm chúng trong cây mã nhỏ hơn nhiều của fork. Cách này đổi một bài toán
-      nhiều lượt quét trên cây lớn thành một lượt quét trên cây nhỏ.
+      Evidence comes from three sources: the directory holding the fork's patch files,
+      the output of <code>git diff</code> against upstream Chromium, or a scan of the
+      fork's own source. The scan runs in the opposite direction to intuition: instead
+      of searching Chromium's tree for the fork's names, the tool takes
+      <b>Chromium's list of identifiers</b> and looks for them in the fork's much
+      smaller tree. That turns a many-passes-over-a-huge-tree problem into one pass
+      over a small one.
     </p>
 
     <p style="margin-bottom:10px">
-      Bảng dưới đây tính điểm cho một thay đổi có điểm nền 75. Bật hoặc tắt từng loại
-      bằng chứng để xem điểm và nhóm thay đổi ra sao.
+      The panel below scores a change with a base severity of 75. Turn each kind of
+      evidence on or off to see how the score and the bucket move.
     </p>
     <div class="card">
       <div class="scorebox">
         <div class="toggles" id="toggles">
-          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 fork có vá file chứa khai báo này">
-            <span class="d"><b>Có vá file chứa khai báo</b>
-            <span>Bằng chứng yếu: một file có thể chứa gần 200 khai báo khác nhau</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 mã nguồn fork nhắc đúng định danh">
-            <span class="d"><b>Mã nguồn nhắc đúng định danh</b>
-            <span>Bằng chứng mạnh: chỉ loại này mới đưa được lên nhóm Must fix</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 thuộc mảng đã khai người phụ trách (trọng số 75)">
-            <span class="d"><b>Thuộc mảng đã có người phụ trách</b>
-            <span>Cộng thêm bằng trọng số của mảng nhân 0,20</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 không được build trên Windows">
-            <span class="d"><b>Không được build trên Windows</b>
-            <span>Khai báo chỉ tồn tại cho nền tảng khác</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 the fork patches the file holding this declaration">
+            <span class="d"><b>We patch the declaring file</b>
+            <span>Weak evidence: one file can hold nearly 200 different declarations</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 the fork's source names the identifier">
+            <span class="d"><b>Our source names the identifier</b>
+            <span>Strong evidence: only this kind can reach the Must fix bucket</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 belongs to an area with a declared owner (weight 75)">
+            <span class="d"><b>Belongs to an area with an owner</b>
+            <span>The bonus is the area's weight times 0.20</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 not compiled on Windows">
+            <span class="d"><b>Not compiled on Windows</b>
+            <span>The declaration exists only for another platform</span></span></label>
         </div>
         <div class="dial">
           <div class="v" id="scoreval">75</div>
-          <div class="cap">điểm</div>
+          <div class="cap">points</div>
           <div class="bucket b-review" id="bucketlbl">Needs review</div>
         </div>
       </div>
@@ -1451,226 +1462,225 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <div class="reasons" id="reasons"></div>
     </div>
 
-    <h3 class="sub">Điểm nền lấy từ đâu</h3>
+    <h3 class="sub">Where the base score comes from</h3>
     <p>
-      Điểm nền không do người nhập tay. Mỗi <b>signal</b> có một mức nghiêm trọng
-      tối thiểu, và điểm nền của một thay đổi là mức cao nhất trong số các signal
-      nó nhận được.
+      The base score is not typed in by hand. Every <b>signal</b> carries a minimum
+      severity, and a change's base score is the highest among the signals it
+      received.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Dấu hiệu</th><th class="n">Mức tối thiểu</th><th>Lý do đặt ở mức đó</th></tr></thead>
+        <thead><tr><th>Signal</th><th class="n">Minimum</th><th>Why it sits there</th></tr></thead>
         <tbody>
-          <tr><td>Mặc định trên Windows chuyển sang bật</td><td class="n">75</td><td>Người dùng <b>của chúng ta</b> nhận được hành vi khác</td></tr>
-          <tr><td>Mặc định toàn cục chuyển sang bật</td><td class="n">60</td><td>Chưa chắc áp dụng cho Windows, cần kiểm tra thêm</td></tr>
-          <tr><td>Flag bị xoá, không đọc được trạng thái trước đó</td><td class="n">65</td><td>Không đủ dữ liệu để phân loại, phải tự tra</td></tr>
-          <tr><td>Flag bị gỡ sau khi đã ship</td><td class="n">35</td><td>Hành vi không đổi trong đợt uprev này</td></tr>
-          <tr><td>Flag bị gỡ khi chưa từng ship</td><td class="n">30</td><td>Mã đã bị xoá, không còn bật lại được</td></tr>
-          <tr><td>Signature của một Mojo method đổi</td><td class="n">80</td><td><b>Cao nhất hệ thống</b>: hỏng lúc chạy, vỡ ở ranh giới giữa hai process</td></tr>
+          <tr><td>Default flipped on for Windows</td><td class="n">75</td><td><b>Our</b> users get different behaviour</td></tr>
+          <tr><td>Global default flipped on</td><td class="n">60</td><td>May not apply to Windows; needs checking</td></tr>
+          <tr><td>Flag deleted, prior state unreadable</td><td class="n">65</td><td>Not enough data to classify; someone has to look it up</td></tr>
+          <tr><td>Flag retired after shipping</td><td class="n">35</td><td>Behaviour does not change in this uprev</td></tr>
+          <tr><td>Flag retired without ever shipping</td><td class="n">30</td><td>The code is gone; it cannot be turned back on</td></tr>
+          <tr><td>A Mojo method's signature changed</td><td class="n">80</td><td><b>The highest in the system</b>: it breaks at runtime, across a process boundary</td></tr>
         </tbody>
       </table>
     </div>
     <div class="note" style="margin-top:13px">
-      Chú ý khoảng cách giữa hai dòng đầu. Dòng thứ nhất nói <b>người dùng của chúng
-      ta nhận được gì</b>; dòng thứ hai nói <b>Chromium viết gì trong mã nguồn</b>.
-      Hai điều này thường xuyên không trùng nhau, và chỉ điều thứ nhất mới đáng gọi
-      là thay đổi hành vi.
+      Note the gap between the first two rows. The first says <b>what our users
+      get</b>; the second says <b>what Chromium wrote in the source</b>. Those two
+      frequently disagree, and only the first deserves to be called a behaviour change.
     </div>
     <div class="note" style="margin-top:12px">
-      Việc bằng chứng cấp định danh cộng nhiều điểm hơn bằng chứng cấp file là có
-      chủ ý. Vá một file chứa gần 200 khai báo gần như không nói lên điều gì về việc
-      chúng ta phụ thuộc vào khai báo nào trong đó; nhắc đúng tên một flag thì nói lên
-      rất nhiều. Mọi lần cộng trừ điểm đều <b>được ghi lại kèm lý do đọc được</b>,
-      vì một bảng xếp hạng không tranh luận được là bảng xếp hạng bị bỏ qua ngay lần
-      đầu nó sai.
+      Identifier-level evidence scoring higher than file-level evidence is
+      deliberate. Patching a file that holds nearly 200 declarations says almost
+      nothing about which of them we depend on; naming one flag says a great deal.
+      Every point added or subtracted is <b>recorded with a readable reason</b>,
+      because a ranking that cannot be argued with is a ranking that gets ignored the
+      first time it is wrong.
     </div>
   </div>
 </section>
 
-<!-- ── 8. Gom nhóm ───────────────────────────────────────── -->
+<!-- ── 8. Clustering ─────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">8</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Gom các mục rời rạc về đúng một thay đổi</h2>
+    <h2>Gathering scattered items back into one change</h2>
     <div class="file">cluster.py</div>
     <p>
-      Một thay đổi duy nhất ở Chromium thường để lại dấu vết trên nhiều nguồn khác
-      nhau, và do đó xuất hiện trong báo cáo dưới dạng nhiều mục rời rạc. Đọc riêng
-      từng mục, chúng <b>mâu thuẫn với nhau</b>: mục này nói một trang bị gỡ, mục kia
-      nói có thêm một trang.
+      A single change in Chromium usually leaves traces in several different sources,
+      and therefore appears in the report as several separate items. Read
+      individually, they <b>contradict each other</b>: one says a page was removed,
+      the next says a page appeared.
     </p>
     <p>
-      Ví dụ có thật là đợt chuyển đổi cơ chế cấp quyền truy cập mạng nội bộ giữa
-      M148 và M151. Nó sinh ra <b>bảy finding</b> nằm trên năm loại fact:
-      hai route, hai gate, một control, một flag
-      tính năng và một tính năng nền web.
+      The real example is the local-network permission migration between M148 and
+      M151. It produces <b>seven findings</b> across five fact kinds: two routes, two
+      gates, one control, one feature flag and one web-platform feature.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Loại fact</th><th>Tên</th><th>Ghi nhận</th></tr></thead>
+        <thead><tr><th>Fact kind</th><th>Name</th><th>Recorded as</th></tr></thead>
         <tbody>
-          <tr><td>Tuyến trang</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK_ACCESS</td><td style="color:var(--clay)">bị gỡ</td></tr>
-          <tr><td>Tuyến trang</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK</td><td style="color:var(--flow)">đổi gate</td></tr>
-          <tr><td>Điều kiện hiển thị</td><td class="mono">enableLocalNetworkAccessSplitPermissions</td><td style="color:var(--clay)">bị gỡ</td></tr>
-          <tr><td>Điều kiện hiển thị</td><td class="mono">enableLocalNetworkAccessSetting</td><td>đổi biểu thức</td></tr>
-          <tr><td>Thành phần điều khiển</td><td class="mono">siteSettingsLocalNetworkAccess</td><td style="color:var(--clay)">bị gỡ</td></tr>
-          <tr><td>Feature flag</td><td class="mono">LocalNetworkAccessChecksSplitPermissions</td><td>gỡ flag sau phát hành</td></tr>
-          <tr><td>Tính năng nền web</td><td class="mono">LocalNetworkAccessSplitPermissions</td><td>bị gỡ</td></tr>
+          <tr><td>Page route</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK_ACCESS</td><td style="color:var(--clay)">removed</td></tr>
+          <tr><td>Page route</td><td class="mono">SITE_SETTINGS_LOCAL_NETWORK</td><td style="color:var(--flow)">gate changed</td></tr>
+          <tr><td>Visibility gate</td><td class="mono">enableLocalNetworkAccessSplitPermissions</td><td style="color:var(--clay)">removed</td></tr>
+          <tr><td>Visibility gate</td><td class="mono">enableLocalNetworkAccessSetting</td><td>expression changed</td></tr>
+          <tr><td>Control</td><td class="mono">siteSettingsLocalNetworkAccess</td><td style="color:var(--clay)">removed</td></tr>
+          <tr><td>Feature flag</td><td class="mono">LocalNetworkAccessChecksSplitPermissions</td><td>retired after shipping</td></tr>
+          <tr><td>Web-platform feature</td><td class="mono">LocalNetworkAccessSplitPermissions</td><td>dropped</td></tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:14px">
-      Việc gom nhóm dựa trên <b>các liên kết mà chính dữ liệu đã khai báo</b>, không
-      dựa trên độ giống nhau của tên: một route gọi tên gate của nó,
-      một gate gọi tên flag mà nó đọc, một tính năng nền web khai rõ flag C++
-      tương ứng. Vì các liên kết này là fact chứ không phải phỏng đoán, nhóm được
-      tạo ra là <b>chính xác</b> chứ không phải gần đúng.
+      Grouping is based on <b>the links the data itself declares</b>, not on how
+      similar the names look: a route names its gate, a gate names the flag it reads,
+      a web-platform feature declares its matching C++ flag. Because those links are
+      facts rather than guesses, the resulting group is <b>exact</b>, not approximate.
     </p>
     <div class="note" style="margin-top:13px">
-      Đọc thành một nhóm, bảy mục trên nói một điều duy nhất và đơn giản: trang cấp
-      quyền đã chuyển sang cơ chế tách quyền, <b>người dùng đã nhìn thấy thay đổi này
-      từ M148</b> vì flag tương ứng đã bật từ lúc đó, và việc duy nhất phải làm là cập
-      nhật một tham chiếu route đã cũ.
+      Read as one group, those seven items say something single and simple: the
+      permission page moved to the split-permission mechanism, <b>users have been
+      seeing this since M148</b> because the matching flag was already on then, and
+      the only thing to do is update one stale route reference.
     </div>
   </div>
 </section>
 
-<!-- ── 9. Báo cáo ────────────────────────────────────────── -->
+<!-- ── 9. The report ─────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">9</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Báo cáo</h2>
+    <h2>The report</h2>
     <div class="file">report/markdown.py · report/html.py</div>
     <p>
-      Quy trình kết thúc ở báo cáo. Công cụ <b>không tự kết luận</b> một thay đổi có
-      ý nghĩa gì với sản phẩm: đó là phần cần phán đoán, và nó thuộc về người đọc. Vì
-      vậy mỗi finding luôn mang theo lý do chấm điểm, đường dẫn file khai báo
-      và bằng chứng phía fork — đủ để người đọc tự đi tới kết luận và tranh luận
-      lại nếu thấy sai.
+      The process ends at the report. The tool <b>does not conclude</b> what a change
+      means for the product: that takes judgement, and it belongs to the reader. So
+      every finding carries its score reasoning, the paths of the declaring files and
+      the evidence from the fork side — enough for the reader to reach their own
+      conclusion, and to argue back if they think it is wrong.
     </p>
     <div class="grid2">
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Ba dạng kết quả</h3>
+        <h3 class="sub" style="margin-top:0">Three output formats</h3>
         <p style="font-size:.87rem;margin:0">
-          <code>report.md</code> — dán thẳng vào ticket hoặc wiki.<br>
-          <code>report.html</code> — chia mục theo câu hỏi người đọc mang tới, bảng
-          cuối lọc và sắp xếp được, <b>không tải tài nguyên từ bên ngoài</b>, nên
-          mở được trong mạng nội bộ tách biệt và gửi kèm email.<br>
-          <code>report.json</code> — dùng cho script và để so sánh giữa các đợt uprev.
+          <code>report.md</code> — paste straight into a ticket or a wiki.<br>
+          <code>report.html</code> — sectioned by the questions a reader arrives with,
+          with a final table that filters and sorts, and <b>no external resources</b>,
+          so it opens on an isolated network and can be attached to an email.<br>
+          <code>report.json</code> — for scripts and for comparing across uprevs.
         </p>
       </div>
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Cắt theo đội mà không mất dữ liệu</h3>
+        <h3 class="sub" style="margin-top:0">Slicing per team without losing data</h3>
         <p style="font-size:.87rem;margin:0">
-          Việc lọc diễn ra <b>lúc dựng báo cáo, không bao giờ trước khi phân tích</b>.
-          File JSON luôn giữ đủ mọi finding, nên cắt một lát cho từng đội không
-          tốn thêm chi phí và <b>không thể giấu mất mục nào</b>.
+          Filtering happens <b>when the report is rendered, never before the
+          analysis</b>. The JSON always holds every finding, so cutting a slice per
+          team costs nothing and <b>cannot hide anything</b>.
         </p>
       </div>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      Báo cáo luôn in <b>số finding không thuộc nhóm nào có người phụ trách</b>. Đây không phải chú
-      thích bên lề: đo trên M148 → M151, nhóm không ai phụ trách này chứa <b>281 mục đạt
-      từ 60 điểm</b>, trong đó có <b>cả mười mục nghiêm trọng nhất toàn báo cáo</b> —
-      đều là thay đổi signature Mojo, vốn không thuộc về tính năng sản phẩm nào. Nếu chỉ
-      gửi báo cáo theo từng đội, toàn bộ nhóm này sẽ không đến tay ai.
+      The report always prints <b>the number of findings belonging to no owned
+      area</b>. This is not a footnote: measured on M148 → M151, that ownerless group
+      held <b>281 items scoring 60 or more</b>, including <b>all ten of the most
+      severe items in the whole report</b> — all Mojo signature changes, which belong
+      to no product feature. If the report is only ever sent out per team, that entire
+      group reaches nobody.
     </div>
   </div>
 </section>
 
-<!-- ── Kiểm chứng ────────────────────────────────────────── -->
+<!-- ── Verification ──────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num" style="background:var(--brass-soft);color:var(--brass)">✓</div></div>
   <div class="body">
-    <h2>Kiểm chứng và giới hạn</h2>
+    <h2>Verification and limits</h2>
     <p>
-      Độ bao phủ được đo trên trang Settings giữa M143 và M148, đối chiếu với một
-      bộ chuẩn dựng riêng bằng cách grep mã nguồn bằng regex — <b>hoàn
-      toàn không đi qua bộ đọc của công cụ</b>, để hai bên không cùng sai theo một
-      cách giống nhau.
+      Coverage was measured on the Settings page between M143 and M148, against a
+      reference set built separately by grepping the source with regexes — <b>going
+      nowhere near the tool's own extractors</b>, so that the two could not be wrong
+      in the same way.
     </p>
     <div class="proof">
-      <div class="pcard"><div class="big">10/10</div><div class="lbl">route<br>7 thêm · 3 gỡ</div></div>
-      <div class="pcard"><div class="big">48/48</div><div class="lbl">gate<br>34 thêm · 14 gỡ</div></div>
-      <div class="pcard"><div class="big">40/40</div><div class="lbl">điều khiển có pref<br>19 thêm · 21 gỡ</div></div>
+      <div class="pcard"><div class="big">10/10</div><div class="lbl">routes<br>7 added · 3 removed</div></div>
+      <div class="pcard"><div class="big">48/48</div><div class="lbl">gates<br>34 added · 14 removed</div></div>
+      <div class="pcard"><div class="big">40/40</div><div class="lbl">controls with a pref<br>19 added · 21 removed</div></div>
     </div>
     <div class="note" style="margin-top:14px">
-      <b>Hai con số đã dịch chuyển trong quá trình đo, theo hai hướng ngược nhau.</b>
-      Chuẩn đối chiếu báo thiếu ba gate, và cả ba đều là <em>lỗi của
-      chuẩn</em>: regex đọc theo từng dòng nên không thấy lời gọi viết xuống nhiều dòng, thứ mà bộ đếm ngoặc của công cụ xử lý đúng. Nhưng chuẩn cũng
-      phát hiện <em>một lỗi thật của công cụ</em>: danh tính của control
-      lúc đó chỉ dựa trên pref, mà pref <b>không duy nhất</b> —
-      142 trên 881 thành phần bị gộp mất, và mục nào còn lại phụ thuộc vào thứ tự
-      duyệt thư mục. Lỗi đã được sửa bằng cách đưa thêm id của phần tử vào danh tính.
+      <b>Two numbers moved during the measurement, in opposite directions.</b>
+      The reference set reported three missing gates, and all three were <em>errors in
+      the reference</em>: its regexes read line by line, so they missed calls written
+      across several lines, which the tool's bracket counter handles correctly. But
+      the reference also found <em>one real bug in the tool</em>: a control's identity
+      was then based on its pref alone, and prefs are <b>not unique</b> — 142 of 881
+      elements were being swallowed, and which one survived depended on directory walk
+      order. Fixed by adding the element's id to the identity.
     </div>
 
-    <h3 class="sub">Những gì công cụ không đọc</h3>
+    <h3 class="sub">What the tool does not read</h3>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Không đọc</th><th>Hệ quả</th></tr></thead>
+        <thead><tr><th>Not read</th><th>Consequence</th></tr></thead>
         <tbody>
-          <tr><td>Thân hàm C++</td><td>Logic thay đổi bên trong một hàm là vô hình với công cụ</td></tr>
-          <tr><td>Logic TypeScript của trang</td><td>Chỉ đọc phần khai báo trong template, không đọc hành vi trang</td></tr>
-          <tr><td>Chuỗi hiển thị trong file <code>.grd</code></td><td><b>Đổi nhãn một mục Cài đặt là thay đổi người dùng nhìn thấy, và công cụ không phát hiện được</b></td></tr>
-          <tr><td>CSS, bố cục, biểu tượng</td><td>Không chụp màn hình, không phát hiện lỗi hiển thị</td></tr>
-          <tr><td>Cấu hình build (GN)</td><td>Có khai báo trong cây mã không có nghĩa là nó được build vào binary thật</td></tr>
+          <tr><td>C++ function bodies</td><td>Logic changing inside a function is invisible to the tool</td></tr>
+          <tr><td>A page's TypeScript logic</td><td>Only the declarative part of a template is read, not the page's behaviour</td></tr>
+          <tr><td>Display strings in <code>.grd</code> files</td><td><b>Relabelling a Settings entry is a user-visible change, and the tool does not detect it</b></td></tr>
+          <tr><td>Mojo structs, enums and unions</td><td>Only <code>interface</code> declarations are read. At M151 the tree holds 1,581 interfaces against 2,524 structs, 1,587 enums and 219 unions, so this is 26% of the Mojo surface — and a struct field changing type is an ABI break of the same kind as a method signature moving</td></tr>
+          <tr><td>CSS, layout, icons</td><td>No screenshots, no visual regression detection</td></tr>
+          <tr><td>The build configuration (GN)</td><td>A declaration existing in the tree does not mean it is compiled into the shipped binary</td></tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:14px">
-      Độ bao phủ phụ thuộc target set, và mỗi lần chạy đều in ra con số nó đo
-      được. Tại M151, <code>default</code> đọc 42 trong 1.039 file có thể khai
-      báo (4%) nhưng vẫn lấy được hơn một nửa số khai báo <code>base::Feature</code>,
-      vì các file được chọn thủ công là những file lớn nhất.
-      <code>--target-set wide</code> đọc cả 1.039 file. Với những mặt như pref,
-      switch và Mojo thì chênh lệch giữa hai target set là rất lớn — pref 689 so
-      với 2.404, Mojo interface 338 so với 1.455 — nên khi câu trả lời thực sự
-      quan trọng thì chạy <code>wide</code>.
+      Coverage depends on the target set, and every run prints the number it measured.
+      At M151, <code>default</code> reads 42 of the 1,039 files that could declare
+      something (4%) but still captures more than half the <code>base::Feature</code>
+      declarations, because the hand-picked files are the largest ones.
+      <code>--target-set wide</code> reads all 1,039. For surfaces like prefs,
+      switches and Mojo the gap between the two target sets is very large — prefs 689
+      against 2,404, Mojo interfaces 338 against 1,455 — so when the answer really
+      matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      Vì vậy <code>must fix: 0</code> <b>không bao giờ có nghĩa là “đợt uprev
-      không có rủi ro”.</b> Nó có nghĩa là “không phát hiện thấy gì trong phạm vi đã
-      quét”. Mọi báo cáo cần nêu lại giới hạn này.
+      So <code>must fix: 0</code> <b>never means “this uprev carries no risk”.</b> It
+      means “nothing was found within the scope that was scanned”. Every report should
+      restate that limit.
     </div>
   </div>
 </section>
 
 <footer>
-  <div>Mọi số liệu trong tài liệu này được đo trên mã nguồn Chromium thật (M139, M143, M148, M151) và dựng lại được bằng lệnh <code>chromedrift catalog</code> và <code>chromedrift run</code>.</div>
-  <div>Tài liệu liên quan: <code>README.md</code> — dự án là gì, cài đặt, chín lệnh, hồ sơ downstream, và cách đọc báo cáo.</div>
+  <div>Every figure in this document was measured against real Chromium source (M139, M143, M148, M151) and can be reproduced with <code>chromedrift catalog</code> and <code>chromedrift run</code>.</div>
+  <div>Related document: <code>README.md</code> — what the project is, installation, the nine commands, the downstream profile, and how to read a report.</div>
 </footer>
 
 </div>
-
 <script>
 (function(){
   "use strict";
   var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* ── Hiện dần khi cuộn tới ──────────────────────────────── */
+  /* ── Reveal on scroll ───────────────────────────────────── */
   var io = new IntersectionObserver(function(es){
     es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } });
   }, {threshold:.12, rootMargin:"0px 0px -40px 0px"});
   document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
 
-  /* ── Một thay đổi có thật đi qua chín bước ──────────────── */
+  /* ── One real change through nine stops ─────────────────── */
   var STOPS = [
-    {lbl:"File nguồn", tok:"chrome_features.cc",
-     say:"Tải về 92.615 byte từ Gitiles: chỉ file khai báo, không phải toàn bộ mã nguồn Chromium."},
-    {lbl:"Chốt phiên bản", tok:"refs/tags/151.0.7922.138",
-     say:"Số phiên bản đầy đủ được ghim lại. Nếu nhập số mốc rút gọn, kết quả sẽ thay đổi theo ngày chạy."},
-    {lbl:"Tải về", tok:"giải nén ra đĩa",
-     say:"Kết quả là một cây thư mục y hệt Chromium nhưng chỉ có vài nghìn file."},
-    {lbl:"Trích fact", tok:"feature flag: GlicActorUiMagicCursor",
-     say:"Trạng thái trên Windows: đang bật. Không có điều kiện build bao quanh. Tên biến trong mã nguồn: kGlicActorUiMagicCursor."},
-    {lbl:"So sánh", tok:"tắt → bật",
-     say:"Trạng thái mặc định chuyển từ tắt sang bật. Hai signal được gắn: mặc định trên Windows chuyển sang bật, và mặc định toàn cục chuyển sang bật."},
-    {lbl:"Chấm điểm", tok:"75 điểm",
-     say:"Lấy mức nghiêm trọng cao nhất trong hai signal. Chưa có bằng chứng nào cho thấy fork phụ thuộc vào flag này, nên điểm dừng ở 75."},
-    {lbl:"Gom nhóm", tok:"đứng riêng",
-     say:"Không có liên kết dữ liệu nào nối mục này với mục khác, nên nó đứng một mình."},
-    {lbl:"Báo cáo", tok:"Needs review",
-     say:"Đủ nghiêm trọng để cần một người xác nhận, nhưng chưa đủ bằng chứng để xếp vào nhóm Must fix."}
+    {lbl:"Source file", tok:"chrome_features.cc",
+     say:"92,615 bytes fetched from Gitiles: declaration files only, not all of Chromium."},
+    {lbl:"Pin the version", tok:"refs/tags/151.0.7922.138",
+     say:"The full version is pinned. Give a bare milestone instead and the result moves with the day you run it."},
+    {lbl:"Fetch", tok:"unpacked to disk",
+     say:"The result is a directory tree shaped like Chromium holding a few thousand files."},
+    {lbl:"Extract facts", tok:"feature flag: GlicActorUiMagicCursor",
+     say:"State on Windows: on. No build condition around it. The variable in the source: kGlicActorUiMagicCursor."},
+    {lbl:"Compare", tok:"off → on",
+     say:"The default state moved from off to on. Two signals attached: default flipped on for Windows, and the global default flipped on."},
+    {lbl:"Score", tok:"75 points",
+     say:"The highest severity of the two signals. No evidence that the fork depends on this flag, so the score stays at 75."},
+    {lbl:"Cluster", tok:"stands alone",
+     say:"No declared link ties this item to any other, so it stands on its own."},
+    {lbl:"Report", tok:"Needs review",
+     say:"Severe enough that someone has to confirm it, but without the evidence to reach Must fix."}
   ];
   var track=document.getElementById("track"), fill=document.getElementById("fill"),
       token=document.getElementById("token"), say=document.getElementById("say"),
@@ -1705,35 +1715,35 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     }, 1600);
   });
 
-  /* ── Đối chiếu hai phiên bản: năm tình huống ─────────────
-     Danh sách thuộc tính được đối chiếu và kết quả của từng
-     tình huống lấy đúng theo diff.py.                       */
-  var COMPARED = ["trạng thái mặc định","trạng thái trên Windows","điều kiện build"];
+  /* ── Comparing two versions: five scenarios ──────────────
+     The list of compared attributes and each scenario's
+     outcome are taken straight from diff.py.               */
+  var COMPARED = ["default state","state on Windows","build condition"];
   function F(state, form){
     var o = {};
-    o["trạng thái mặc định"]     = state;
-    o["trạng thái trên Windows"] = state;
-    o["điều kiện build"]     = "không có";
-    o["tên biến"]                = "kFoo";
-    o["dạng khai báo"]           = form || "hai tham số";
+    o["default state"]       = state;
+    o["state on Windows"]    = state;
+    o["build condition"]     = "none";
+    o["variable"]            = "kFoo";
+    o["declaration form"]    = form || "two-argument";
     return o;
   }
   var SCEN = [
     {a:F("tắt"), b:F("bật"),
-     type:"Sửa đổi", sig:["mặc định trên Windows chuyển sang bật","mặc định toàn cục chuyển sang bật"], sev:75,
-     why:"Trạng thái mặc định trên Windows chuyển từ tắt sang bật. Đây là thay đổi hành vi thật: người dùng của chúng ta sẽ thấy khác trước."},
+     type:"Modified", sig:["default flipped on for Windows","global default flipped on"], sev:75,
+     why:"The default state on Windows moved from off to on. This is a real behaviour change: our users will see something different."},
     {a:F("bật","ba tham số"), b:F("bật","hai tham số"),
-     type:"Không có thay đổi nào", sig:[], sev:0,
-     why:"Hai phiên bản chỉ khác nhau ở cách viết khai báo. Thuộc tính đó không nằm trong danh sách đối chiếu, nên kết luận đúng với thực tế: không có gì thay đổi."},
+     type:"No change at all", sig:[], sev:0,
+     why:"The two versions differ only in how the declaration is written. That attribute is not on the compared list, so the conclusion matches reality: nothing changed."},
     {a:F("bật"), b:null,
-     type:"Gỡ bỏ", sig:["flag bị gỡ sau khi đã phát hành"], sev:35,
-     why:"Flag biến mất, nhưng trạng thái ngay trước khi bị gỡ là bật. Tính năng đã phát hành từ trước; nay hành vi trở thành cố định và không còn tắt được nữa."},
+     type:"Removed", sig:["flag retired after shipping"], sev:35,
+     why:"The flag is gone, but the state it held just before removal was on. The feature shipped earlier; the behaviour is now permanent and can no longer be turned off."},
     {a:F("tắt"), b:null,
-     type:"Gỡ bỏ", sig:["flag bị gỡ khi chưa từng phát hành"], sev:30,
-     why:"Flag biến mất khi đang tắt. Tính năng chưa từng phát hành và mã nguồn đã bị xoá, nên không còn bật lại được."},
+     type:"Removed", sig:["flag retired without shipping"], sev:30,
+     why:"The flag disappeared while off. The feature never shipped and the code is deleted, so it cannot be turned back on."},
     {a:null, b:F("bật"),
-     type:"Thêm mới", sig:["tính năng mới, bật sẵn"], sev:55,
-     why:"Một flag mới xuất hiện và đã ở trạng thái bật. Đây là năng lực mới để cân nhắc, không phải rủi ro hỏng."}
+     type:"Added", sig:["new feature, already on"], sev:55,
+     why:"A new flag appeared already switched on. This is new capability to consider, not a breakage risk."}
   ];
   var sideA=document.getElementById("sideA"), sideB=document.getElementById("sideB"),
       oType=document.getElementById("oType"), oSig=document.getElementById("oSig"),
@@ -1741,7 +1751,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
 
   function renderSide(el, fact, other, label){
     if(!fact){
-      el.innerHTML='<div class="vs-gone">không tồn tại<br>ở phiên bản này</div>';
+      el.innerHTML='<div class="vs-gone">does not exist<br>in this version</div>';
       return;
     }
     var rows = Object.keys(fact).map(function(k){
@@ -1755,12 +1765,12 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   }
   function renderScen(i){
     var s=SCEN[i];
-    renderSide(sideA, s.a, s.b, "M148 · phiên bản cũ");
-    renderSide(sideB, s.b, s.a, "M151 · phiên bản mới");
+    renderSide(sideA, s.a, s.b, "M148 · old version");
+    renderSide(sideB, s.b, s.a, "M151 · new version");
     oType.textContent=s.type;
     oSig.innerHTML = s.sig.length
       ? s.sig.map(function(x){return '<span class="sig">'+x+'</span>';}).join("")
-      : '<span style="color:var(--muted);font-size:.85rem">không có signal nào</span>';
+      : '<span style="color:var(--muted);font-size:.85rem">no signals</span>';
     oSev.textContent=s.sev||"—";
     oSev.style.color = s.sev>=60?"var(--clay)":s.sev>=35?"var(--brass)":"var(--muted)";
     oWhy.textContent=s.why;
@@ -1775,10 +1785,10 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   });
   renderScen(0);
 
-  /* ── Bảng tính điểm ảnh hưởng ────────────────────────────
-     Các mức cộng trừ lấy đúng theo impact.py: nền 75,
-     +12 bằng chứng cấp file, +30 cấp định danh, +15 vùng sở
-     hữu, −45 không được build trên nền tảng này.        */
+  /* ── Impact scoring panel ────────────────────────────
+     The adjustments are taken straight from impact.py: base 75,
+     +12 file-level evidence, +30 identifier-level, +15 owned
+     area, -45 not compiled on this platform.              */
   var BASE=75;
   var toggles=document.getElementById("toggles"),
       scoreval=document.getElementById("scoreval"),
@@ -1789,7 +1799,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
 
   function renderScore(){
     var score=BASE, hasSym=false, hasPath=false,
-        why=["điểm nền 75 (sửa đổi một feature flag)"];
+        why=["base severity 75 (modified feature flag)"];
     toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked){
         score += parseInt(i.dataset.add,10);
@@ -1801,7 +1811,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     score=Math.max(0,Math.min(100,score));
     scoreval.textContent=score;
 
-    /* Thứ tự nhánh giống hệt hàm _bucket() trong impact.py. */
+    /* The branch order mirrors _bucket() in impact.py. */
     var b,cls;
     if(hasSym && score>=60){ b="Must fix"; cls="b-must"; }
     else if((hasSym||hasPath) && score>=35){ b="Needs review"; cls="b-review"; }
@@ -1812,7 +1822,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     scoreval.style.color = cls==="b-must"?"var(--clay)":cls==="b-review"?"var(--brass)":"var(--muted)";
     reasons.innerHTML = why.map(function(w){ return "<div>"+w+"</div>"; }).join("");
 
-    /* Hiện rõ phép tính, để người đọc không phải tự cộng. */
+    /* Show the arithmetic so the reader does not have to add it up. */
     var parts=['<span>nền 75</span>'];
     toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked){
@@ -1823,7 +1833,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     var raw=BASE; toggles.querySelectorAll("input").forEach(function(i){
       if(i.checked) raw+=parseInt(i.dataset.add,10); });
     parts.push('<span class="op">=</span><span class="tot">'+score+'</span>');
-    if(raw!==score) parts.push('<span class="op">(giới hạn lại về '+(raw>100?"100":"0")+')</span>');
+    if(raw!==score) parts.push('<span class="op">(clamped to '+(raw>100?"100":"0")+')</span>');
     mathrow.innerHTML=parts.join("");
     pin.style.left=score+"%";
   }

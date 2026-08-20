@@ -93,8 +93,18 @@ def build_index(features: List[dict]) -> Dict[str, dict]:
 
 
 def _compact(feature: dict) -> dict:
-    """Keep only the fields worth spending AI context on."""
-    summary = (feature.get("summary") or "").strip()
+    """Keep only the fields a reader needs, in a shape a report can print.
+
+    The summary is collapsed to a single line first. Chromestatus prose is
+    written for a web page and routinely carries blank lines and indented code
+    samples; 84 of 200 entries in a real M143 -> M151 window did. Printed raw
+    into a markdown list they break out of it, so the fenced CSS in an entry
+    about `@scroll-state` became top-level prose and the `Spec:` line after it
+    re-entered at the wrong depth. Collapsing here rather than in the renderer
+    also means the truncation below counts characters a reader will see, and
+    that every consumer -- markdown, HTML, `report.json` -- gets the same text.
+    """
+    summary = re.sub(r"\s+", " ", (feature.get("summary") or "")).strip()
     if len(summary) > 600:
         summary = summary[:600].rsplit(" ", 1)[0] + "..."
     out = {
@@ -119,7 +129,7 @@ def _compact(feature: dict) -> dict:
     return {k: v for k, v in out.items() if v}
 
 
-def milestone_brief(milestones: List[int], cache_dir: str, limit: int = 200,
+def milestone_brief(milestones: List[int], cache_dir: str,
                     refresh: bool = False, log=lambda m: None) -> List[dict]:
     """What Chromium says shipped across a milestone span, as shared context.
 
@@ -128,14 +138,26 @@ def milestone_brief(milestones: List[int], cache_dir: str, limit: int = 200,
     identifiers, and fuzzy matching tops out around 2% before it starts
     inventing pairs.
 
-    So the list is carried whole instead of matched. Around 110 entries land in
-    the report as a folded background section, which says what upstream
+    So the list is carried whole instead of matched: it says what upstream
     intended to ship in this window without pretending to know which finding
     each entry belongs to.
+
+    **Newest milestone first, and nothing is dropped here.** Both of those were
+    wrong, and in the same direction. The list used to be filled oldest-first
+    and cut at 200, so on a real 143 -> 151 run it held 200 entries covering
+    M144 to M150 and *nothing at all from M151* -- the milestone actually being
+    adopted, and the only one the reader is certain to care about. Nothing said
+    so either: the renderer's "... and N more" line never fired, because the
+    truncation had already happened here, and `report.json` genuinely did not
+    hold the rest despite the report promising it did.
+
+    Capping is the renderer's job, because the renderer is the only place that
+    knows what it cut. Deduplication keeps the newest milestone a feature
+    appears under, for the same reason the order does.
     """
     out: List[dict] = []
     seen = set()
-    for milestone in milestones:
+    for milestone in sorted(milestones, reverse=True):
         for feature in fetch_milestone_features(milestone, cache_dir, refresh, log):
             name = feature.get("name")
             if not name or name in seen:
@@ -146,8 +168,6 @@ def milestone_brief(milestones: List[int], cache_dir: str, limit: int = 200,
             if entry.get("summary") and len(entry["summary"]) > 220:
                 entry["summary"] = entry["summary"][:220].rsplit(" ", 1)[0] + "..."
             out.append(entry)
-            if len(out) >= limit:
-                return out
     return out
 
 

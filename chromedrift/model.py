@@ -164,7 +164,41 @@ from typing import Any, Dict, Iterable, List, Optional
 #          MIDL, and it read both wrongly rather than not at all: 1,081 facts at
 #          M151, 96 of them with a whole nested declaration inside their own
 #          signature, all reported as Web API changes.
-SCHEMA_VERSION = 21
+#  22: two curated lists that had decayed became rules, and every attribute the
+#      comparison treats as meaningful now produces a label.
+#        - a WebUI control is recognised by shape rather than by a list of 27
+#          tag names. Measured at M151 across the eight surfaces the default
+#          set reads, that list matched 902 of 2,462 custom-element occurrences
+#          (36%), and 41 of the misses bind a real preference --
+#          `settings-collapse-radio-button` writes one 27 times, and
+#          `report/wording.py` already carried a word for that very tag, so the
+#          renderer knew about a control the extractor never emitted. A version
+#          21 snapshot holds 884 controls where 971 exist, 156 of them
+#          preference-bound where 190 are, and 130 identified only by position
+#          against 15 now.
+#        - `BASE_FEATURE_PARAM` without a name string derives the name from the
+#          variable, as `BASE_FEATURE` already did. 20 declarations at M151 are
+#          written that way, and version 21 read the *default value* as the
+#          param name and dropped the default: `kCacheCertVerificationTtlSecs`
+#          came out as a param called `1800`, so changing 1800 to 3600 read as
+#          one param removed and another added instead of a default moving.
+#        - nine attributes were compared and never explained. A base::Feature's
+#          `conditions` (55 rows in M143 -> M148), a Mojo method's `attrs`, a
+#          Windows state moving to `conditional`, a feature param's type or
+#          owning flag, an IDL member's `member_type`, and the three Blink
+#          fields that decide who may reach a flag from outside the renderer.
+#          `mojo_interface.module` was dropped from the compared set instead:
+#          it is part of the key and can never differ.
+#        - two more curated lists found by the same audit. A preference key
+#          written `inline constexpr std::string_view kFoo = "..."` is read;
+#          version 21 knew only the `char kFoo[]` spelling, so all 63 keys in
+#          files Chromium has migrated -- `components/soda/pref_names.h`
+#          entirely -- were invisible while the file itself counted as covered.
+#          And the Blink manifest's `origin_trial_os`, `origin_trial_type`,
+#          `origin_trial_allows_insecure` and `is_protected_feature` are
+#          carried, which is 40 declarations at M151 deciding who may turn a
+#          flag on from outside the binary.
+SCHEMA_VERSION = 22
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

@@ -64,24 +64,45 @@ WEBUI_KINDS = (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE)
 # A tag name is the control's type -- that is what makes "a dropdown became a
 # toggle" mechanically visible -- but `settings-dropdown-menu` is jargon in a
 # summary meant to be skimmed.
+#
+# First match wins, so the specific spellings lead and the bare ones catch what
+# is left. Every word the extractor's rule can admit has to appear somewhere
+# below, or that control reaches the report as its raw tag name -- which is the
+# jargon this table exists to remove. A test ties the two together, because
+# they had already drifted in both directions: this table carried
+# `collapse-radio-button`, a tag the old extractor never emitted, while
+# `cr-searchable-drop-down` was extracted and came out verbatim.
 CONTROL_WORDS = (
     ("toggle", "toggle"),
     ("dropdown", "dropdown"),
+    ("drop", "dropdown"),
     ("radio-group", "radio group"),
     ("radio-button", "radio button"),
+    ("collapse-radio-button", "radio button"),
+    ("radio", "radio button"),
     ("checkbox", "checkbox"),
     ("slider", "slider"),
     ("link-row", "link row"),
-    ("collapse-radio-button", "radio button"),
     ("button", "button"),
     ("input", "text field"),
     ("textarea", "text box"),
+    ("combobox", "combo box"),
+    ("searchable", "search field"),
+    ("select", "dropdown"),
+    ("switch", "switch"),
+    ("picker", "picker"),
     ("section", "section"),
     ("subpage", "subpage"),
     ("card", "card"),
     ("list", "list"),
     ("menu", "menu"),
     ("dialog", "dialog"),
+    ("group", "group"),
+    ("row", "row"),
+    # The structural units. `downloads-item` is one download in the list, not a
+    # widget, so "item" is the honest word for it.
+    ("toolbar", "toolbar"),
+    ("item", "item"),
 )
 
 # What the reader should take from each direction, in the words of the surface

@@ -102,11 +102,20 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         }
         # Carry through the fields that describe how the flag is wired up:
         # these are what break downstream overrides when they change.
+        #
+        # Every field the manifest uses, not a chosen subset. The subset was
+        # missing four at M151 -- `origin_trial_os` (18 entries),
+        # `origin_trial_type` (8), `is_protected_feature` (8) and
+        # `origin_trial_allows_insecure` (6) -- and each of them decides who
+        # can turn a flag on from outside the binary, which is the same reason
+        # the neighbouring three are here.
         for field in ("base_feature", "base_feature_status", "public",
                       "origin_trial_feature_name", "depends_on", "implied_by",
                       "copied_from_base_feature_if", "settable_from_internals",
                       "origin_trial_allows_third_party", "browser_process_read_access",
-                      "browser_process_read_write_access"):
+                      "browser_process_read_write_access",
+                      "origin_trial_os", "origin_trial_type",
+                      "origin_trial_allows_insecure", "is_protected_feature"):
             if field in entry:
                 attrs[field] = entry[field]
         facts.append(Fact(

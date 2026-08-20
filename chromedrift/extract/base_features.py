@@ -254,6 +254,23 @@ def _extract_feature_params(masked: str, rel_path: str) -> List[Fact]:
 
 
 def _param_fact(args, ptype, var, rel_path, line, owner_first=True) -> Optional[Fact]:
+    """One param, however the macro spelled it.
+
+    The name argument is optional, exactly as it is for ``BASE_FEATURE``: when
+    it is absent the macro derives the param name from the variable. 20
+    declarations at M151 are written that way::
+
+        BASE_FEATURE_PARAM(int, kCacheCertVerificationTtlSecs,
+                           &kCacheCertVerification, 1800);
+
+    Reading the last argument as the name recorded ``1800`` as the param name
+    and left ``default`` empty -- so the identity moved with the value, and
+    changing 1800 to 3600 came out as one param removed and another added
+    instead of ``param_default_changed``. That is the same defect the two-
+    argument ``BASE_FEATURE`` form causes one level up, and it is fixed the
+    same way: derive the name from the variable so identity survives a value
+    change, and put the value where the diff looks for it.
+    """
     owner = ""
     pname = ""
     default = ""
@@ -266,9 +283,15 @@ def _param_fact(args, ptype, var, rel_path, line, owner_first=True) -> Optional[
             rest = args
         if rest:
             nm = re.match(r'^"([^"]*)"$', rest[0].strip())
-            pname = nm.group(1) if nm else rest[0].strip()
-        if len(rest) > 1:
-            default = collapse_ws(rest[1])
+            if nm:
+                pname = nm.group(1)
+                if len(rest) > 1:
+                    default = collapse_ws(rest[1])
+            else:
+                # No name string: the remaining argument is the default, and
+                # the name comes from the variable.
+                pname = feature_name_from_var(var.strip())
+                default = collapse_ws(rest[0])
     if not pname:
         return None
     key = f"{owner}/{pname}" if owner else f"{rel_path}:{pname}"

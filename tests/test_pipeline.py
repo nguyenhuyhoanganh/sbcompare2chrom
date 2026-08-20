@@ -826,9 +826,8 @@ class TestHtmlReportScales(unittest.TestCase):
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    def _report_html(self, n=3000):
+    def _report(self, n=3000):
         from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
         findings = [
             Finding(change=Change(change_type="modified", kind="base_feature",
                                   key=f"Feature{i}", name=f"Feature{i}",
@@ -837,8 +836,11 @@ class TestHtmlReportScales(unittest.TestCase):
                     score=100 - i % 100, bucket="fyi",
                     reasons=["base severity 75"])
             for i in range(n)]
-        return html_report.render(Report(from_ref="a", to_ref="b",
-                                         findings=findings))
+        return Report(from_ref="a", to_ref="b", findings=findings)
+
+    def _report_html(self, n=3000):
+        from chromedrift.report import html as html_report
+        return html_report.render(self._report(n))
 
     def test_every_finding_is_still_embedded(self):
         """Paging must not become a way to lose data.
@@ -918,6 +920,43 @@ class TestHtmlReportScales(unittest.TestCase):
                          "the debounced tail should repaint exactly once")
         self.assertIn("of 1111", out["afterDebounce"])
         self.assertEqual(out["rowsAfterFilter"], out["initialRows"])
+
+        # 4. A score of zero is a real result -- base severity 35 for a removed
+        #    preference, minus 45 for one not compiled on Windows, clamped --
+        #    and it has to survive the trip into the payload. It did not: the
+        #    payload dropped empty values with `v not in ("", [], {}, None,
+        #    False)`, and `0 == False` in Python, so 238 of 6,757 rows in a
+        #    real M143 -> M151 report lost their score and rendered the word
+        #    `undefined` in the Score column. The old fixture gave every row a
+        #    truthy score, which is why nothing here noticed.
+        self.assertFalse(out["undefinedInRows"],
+                         "a cell rendered the string 'undefined'; a field the "
+                         "payload may omit is being printed without a guard")
+        self.assertFalse(out["undefinedAfterFilter"])
+        self.assertTrue(out["zeroRendersAsZero"],
+                        "a zero score must render as 0, not as blank")
+
+    def test_a_zero_score_survives_into_the_payload(self):
+        """The other half of the same bug, at the layer that caused it.
+
+        The harness above proves the page renders a zero; this proves one
+        reaches it. `_to_rows` dropped empty values with
+        `v not in ("", [], {}, None, False)`, and `0 == False`, so the score
+        key vanished for every finding scoring zero -- 238 of 6,757 rows in a
+        real M143 -> M151 run. `ours: False` still has to be dropped, which is
+        what makes the two cases easy to conflate.
+        """
+        from chromedrift.report.html import _to_rows
+
+        report = self._report()
+        report.findings[0].score = 0
+        report.findings[0].matched_paths = []
+        report.findings[0].matched_symbols = []
+        rows = _to_rows(report, "windows")
+        self.assertEqual(rows[0].get("score"), 0,
+                         "a finding scoring zero lost its score")
+        self.assertNotIn("ours", rows[0],
+                         "False still has to be dropped")
 
 
 class TestVendorDiscovery(unittest.TestCase):
@@ -2477,6 +2516,143 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
         self.assertNotIn("Coverage at", md.render(report))
 
 
+class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
+    """What the extractor admits, the renderer has to be able to name.
+
+    Two lists, and they had drifted in both directions at once.
+    `wording.CONTROL_WORDS` carried `collapse-radio-button`, a tag the old
+    extractor never emitted because it was not one of the 27 names in
+    `CONTROL_TAGS`; and `cr-searchable-drop-down` was emitted and came out as
+    its raw tag, because no word matched it. A tag that reaches the report
+    unnamed is the jargon that table exists to remove.
+    """
+
+    def test_every_admissible_tag_gets_a_word(self):
+        from chromedrift.extract.webui_controls import (INTERACTIVE_SEGMENTS,
+                                                        STRUCTURAL_TAGS)
+        from chromedrift.report.wording import control_word
+
+        unnamed = [tag for tag in
+                   [f"cr-{seg}" for seg in sorted(INTERACTIVE_SEGMENTS)]
+                   + sorted(STRUCTURAL_TAGS)
+                   if control_word(tag) == tag]
+        self.assertEqual(unnamed, [],
+                         "these tags reach the report as raw tag names")
+
+    def test_the_rule_admits_what_it_was_built_for(self):
+        from chromedrift.extract.webui_controls import is_control
+
+        for tag in ("settings-toggle-button", "cr-icon-button",
+                    "settings-collapse-radio-button", "cr-action-menu",
+                    "settings-category-default-radio-group",
+                    "cr-searchable-drop-down"):
+            self.assertTrue(is_control(tag, "", element_id="x"), tag)
+
+    def test_the_rule_keeps_decoration_out(self):
+        from chromedrift.extract.webui_controls import is_control
+
+        for tag in ("cr-icon", "cr-iconset", "cr-ripple", "site-favicon",
+                    "iron-media-query"):
+            self.assertFalse(is_control(tag, "", element_id="x", label="y"), tag)
+
+    def test_a_preference_makes_anything_a_control(self):
+        """The rule that recovered the 41 the name list was dropping."""
+        from chromedrift.extract.webui_controls import is_control
+
+        self.assertTrue(is_control("some-unknown-widget", "download.prompt"))
+        self.assertFalse(is_control("some-unknown-widget", ""))
+
+    def test_an_interactive_tag_with_no_identity_is_not_worth_a_fact(self):
+        """Position is the only identity left, and it churns on reorder."""
+        from chromedrift.extract.webui_controls import is_control
+
+        self.assertFalse(is_control("cr-button", ""))
+        self.assertTrue(is_control("cr-button", "", element_id="save"))
+        self.assertTrue(is_control("cr-button", "", label="saveLabel"))
+
+
+class TestTheDocumentedSourceMapStillHolds(unittest.TestCase):
+    """The README's map of the source is a second derivation of the source.
+
+    It goes stale exactly the way the measured tables do, and for longer,
+    because nothing recomputes it. Caught drifted: a stated total of 10,180
+    lines against 10,017 actual, `report/` at 1,691 against 1,493, and a test
+    count of 273 against 287. Those are small numbers to be wrong about, and
+    that is the point -- a reader who checks one and finds it wrong stops
+    trusting the ones they cannot check, like the coverage tables.
+
+    Unlike the M151 fact table, this needs nothing on disk, so it runs
+    everywhere.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def _readme(self):
+        with open(os.path.join(self.ROOT, "README.md"), encoding="utf-8") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _int(raw):
+        return int(raw.replace(".", "").replace(",", ""))
+
+    def _lines_of(self, name):
+        """Line count for a module or a package directory."""
+        path = os.path.join(self.ROOT, "chromedrift", name)
+        if name.endswith("/"):
+            total = 0
+            for dirpath, _, filenames in os.walk(path):
+                for filename in sorted(filenames):
+                    if filename.endswith(".py"):
+                        with open(os.path.join(dirpath, filename),
+                                  encoding="utf-8") as fh:
+                            total += sum(1 for _ in fh)
+            return total
+        with open(path, encoding="utf-8") as fh:
+            return sum(1 for _ in fh)
+
+    def test_the_source_map_matches_the_source(self):
+        rows = re.findall(r"(?m)^  ([a-z_]+\.py|[a-z]+/)\s+([\d.,]+)\s",
+                          self._readme())
+        self.assertGreaterEqual(len(rows), 15, "source map not found in README")
+        wrong = []
+        for name, stated in rows:
+            actual = self._lines_of(name)
+            if self._int(stated) != actual:
+                wrong.append(f"{name}: README says {stated}, actually {actual}")
+        self.assertEqual(wrong, [], "the README's source map has drifted")
+
+    def test_the_stated_total_matches_the_files_it_counts(self):
+        m = re.search(r"\(([\d.,]+) lines, (\d+) files\)", self._readme())
+        self.assertIsNotNone(m, "the line/file total is not in the README")
+        stated_lines, stated_files = self._int(m.group(1)), int(m.group(2))
+
+        total, files = 0, 0
+        for dirpath, dirnames, filenames in os.walk(
+                os.path.join(self.ROOT, "chromedrift")):
+            dirnames[:] = [d for d in dirnames if d != "__pycache__"]
+            for filename in filenames:
+                if not filename.endswith(".py"):
+                    continue
+                files += 1
+                with open(os.path.join(dirpath, filename), encoding="utf-8") as fh:
+                    total += sum(1 for _ in fh)
+        self.assertEqual((stated_lines, stated_files), (total, files))
+
+    def test_the_stated_test_count_matches_this_suite(self):
+        """Counting the suite from inside it. Discovery imports, it does not run."""
+        loader = unittest.defaultTestLoader
+        suite = loader.discover(os.path.join(self.ROOT, "tests"))
+        self.assertEqual(loader.errors, [], "test discovery reported errors")
+
+        def count(s):
+            return sum(count(x) if isinstance(x, unittest.TestSuite) else 1
+                       for x in s)
+
+        m = re.search(r"\*\*([\d.,]+) tests", self._readme())
+        self.assertIsNotNone(m, "the test count is not in the README")
+        self.assertEqual(self._int(m.group(1)), count(suite))
+
+
 class TestTheDocumentedFiguresStillHold(unittest.TestCase):
     """A measured number written into a document is a second derivation of it.
 
@@ -2846,6 +3022,92 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         from chromedrift.diff import BASE_SEVERITY, SIGNAL_SEVERITY
         self.assertLess(SIGNAL_SEVERITY["flag_expiry_moved"],
                         BASE_SEVERITY[("flag_entry", "modified")])
+
+    # A value for every attribute the comparison treats as meaningful, chosen
+    # so that moving it is a real move rather than a type accident. Kept beside
+    # the invariant it feeds rather than inside it, because adding an attribute
+    # to MEANINGFUL_ATTRS should fail here loudly until someone says what a
+    # change to it means.
+    _SAMPLE = {
+        "default_state": ("disabled", "enabled"),
+        "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
+        "platform_status": ({"windows": "test"}, {"windows": "stable"}),
+        "windows_status": ("test", "stable"),
+        "status": ("experimental", "stable"),
+        "conditions": ([], ["BUILDFLAG(IS_WIN)"]),
+        "build_conditions": (["is_win"], ["not is_win"]),
+        "var": ("kOld", "kNew"),
+        "default": ("100", "200"),
+        "type": ("int", "double"),
+        "feature": ("OldOwner", "NewOwner"),
+        "signature": ("a()", "b()"),
+        "params": ("int32 a", "int32 a, bool b"),
+        "response": ("", "(bool ok)"),
+        "attrs": ({}, {"Sync": True}),
+        "member_type": ("attribute", "operation"),
+        "idl_kind": ("interface", "dictionary"),
+        "inherits": ("", "Base"),
+        "ext": ({}, {"SecureContext": True}),
+        "values": (["a"], ["a", "b"]),
+        "runtime_enabled": ("", "SomeFlag"),
+        "module": ("blink.mojom", "other.mojom"),
+        "expiry_milestone": (150, 160),
+        "route": ("/a", "/b"),
+        "parent": ("", "PARENT"),
+        "guards": ([], ["someKey"]),
+        "control": ("cr-toggle", "cr-checkbox"),
+        "pref": ("a.b", "a.c"),
+        "label": ("labelA", "labelB"),
+        "expression": ("IsEnabled(kA)", "IsEnabled(kB)"),
+        "features": (["kA"], ["kB"]),
+        "enabled_checks": (["kA"], ["kB"]),
+        "base_feature": ("Feature", "none"),
+        "base_feature_status": ("stable", "test"),
+        "origin_trial_feature_name": ("", "Trial"),
+        "depends_on": ([], ["Other"]),
+        "implied_by": ([], ["Other"]),
+        "public": (False, True),
+        "copied_from_base_feature_if": ("", "overridden"),
+        "origin_trial_allows_third_party": (False, True),
+        "settable_from_internals": (False, True),
+        "browser_process_read_access": (False, True),
+        "browser_process_read_write_access": (False, True),
+        "origin_trial_os": ([], ["win"]),
+        "origin_trial_type": ("", "deprecation"),
+        "origin_trial_allows_insecure": (False, True),
+        "is_protected_feature": (False, True),
+    }
+
+    def test_every_compared_attribute_produces_a_signal(self):
+        """The invariant itself, with no snapshots needed to check it.
+
+        The real-range test below is the one that found these, but it only runs
+        where someone has already pulled two versions -- so on a bare checkout
+        the rule went unchecked, and four attributes had drifted out from under
+        it: a base::Feature's `conditions`, a Mojo method's `attrs`, a Windows
+        state moving to `conditional`, and the three Blink fields that say who
+        may reach a flag from outside the renderer.
+        """
+        from chromedrift.diff import MEANINGFUL_ATTRS
+
+        missing_sample = []
+        unexplained = []
+        for kind, attrs in MEANINGFUL_ATTRS.items():
+            for attr in attrs:
+                if attr not in self._SAMPLE:
+                    missing_sample.append(f"{kind}.{attr}")
+                    continue
+                before, after = self._SAMPLE[attr]
+                change = self._change(kind, attr, before, after)
+                if not change.signals:
+                    unexplained.append(f"{kind}.{attr}")
+
+        self.assertEqual(missing_sample, [],
+                         "no sample value here, so the rule cannot be checked "
+                         "for these -- add one to _SAMPLE")
+        self.assertEqual(unexplained, [],
+                         "compared and then never explained: a row with a "
+                         "severity and a blank reason column")
 
     def test_no_modified_change_in_the_real_range_is_unexplained(self):
         import glob

@@ -1,102 +1,102 @@
 # chromedrift
 
-Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
+A tool that compares two Chromium versions and answers one question: **what does a downstream browser team have to fix when they move to the new base.**
 
-Sản phẩm đích là một trình duyệt nền Chromium bản desktop trên Windows. Toàn bộ là Python thuần (10.180 dòng, 33 file), không dùng thư viện ngoài nào, không cần `pip install`.
+The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,425 lines, 33 files), no third-party libraries, no `pip install`.
 
-Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
-
----
-
-## Mục lục
-
-1. [Vấn đề](#1-vấn-đề)
-2. [Bắt đầu nhanh](#2-bắt-đầu-nhanh)
-3. [Cái bẫy quan trọng nhất](#3-cái-bẫy-quan-trọng-nhất)
-4. [Công cụ đọc những gì](#4-công-cụ-đọc-những-gì)
-5. [Độ phủ: đọc được bao nhiêu cây nguồn](#5-độ-phủ-đọc-được-bao-nhiêu-cây-nguồn)
-6. [Chín lệnh](#6-chín-lệnh)
-7. [Hồ sơ downstream](#7-hồ-sơ-downstream)
-8. [Đọc báo cáo](#8-đọc-báo-cáo)
-9. [Giới hạn](#9-giới-hạn)
-10. [Môi trường và xử lý sự cố](#10-môi-trường-và-xử-lý-sự-cố)
-11. [Kiểm thử](#11-kiểm-thử)
-12. [Cấu trúc mã nguồn](#12-cấu-trúc-mã-nguồn)
+There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
 ---
 
-## 1. Vấn đề
+## Contents
 
-Cứ vài phiên bản, đội lại nâng nền Chromium lên một mốc mới — ví dụ từ M148 lên M151. Mỗi lần như vậy có ba câu hỏi phải trả lời:
+1. [The problem](#1-the-problem)
+2. [Quick start](#2-quick-start)
+3. [The trap that matters most](#3-the-trap-that-matters-most)
+4. [What the tool reads](#4-what-the-tool-reads)
+5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
+6. [Nine commands](#6-nine-commands)
+7. [The downstream profile](#7-the-downstream-profile)
+8. [Reading the report](#8-reading-the-report)
+9. [Limits](#9-limits)
+10. [Environment and troubleshooting](#10-environment-and-troubleshooting)
+11. [Tests](#11-tests)
+12. [Source layout](#12-source-layout)
 
-- Chromium **thêm** gì mới?
-- Chromium **bỏ** gì đi?
-- Cái gì **vẫn còn nhưng đổi cách hoạt động**?
+---
 
-Nếu tải hai bản Chromium về rồi chạy `git diff`, kết quả là vài triệu dòng khác nhau. Phần lớn không liên quan: đổi tên biến, dọn code, sửa chính tả trong comment, cập nhật thư viện bên thứ ba. Đọc hết thì không khả thi, đọc lướt thì bỏ sót đúng cái quan trọng.
+## 1. The problem
 
-Nên vấn đề thật không phải "làm sao so được", mà là **"làm sao lọc ra đúng phần có nghĩa"**. Đó là việc chromedrift làm.
+Every few releases the team moves its Chromium base to a newer milestone — M148 to M151, say. Each time, three questions have to be answered:
 
-### Ba nguyên tắc thiết kế
+- What did Chromium **add**?
+- What did Chromium **remove**?
+- What is **still there but behaves differently**?
 
-**Không cần tải Chromium về.** Một bản đầy đủ nặng khoảng 100 GB và mất vài giờ đồng bộ. Công cụ chỉ cần vài nghìn file khai báo — những file liệt kê "có gì, tên gì, mặc định bật hay tắt". Chromium cho tải riêng từng thư mục qua Gitiles:
+Download two Chromium releases and run `git diff` and you get several million changed lines. Most of it is irrelevant: renamed variables, cleanup, typo fixes in comments, third-party library rolls. Reading all of it is not possible; skimming it misses exactly the thing that mattered.
+
+So the real problem is not "how do we compare them" but **"how do we filter down to the part that means something"**. That is what chromedrift does.
+
+### Three design principles
+
+**No Chromium checkout.** A full one is about 100 GB and hours of syncing. The tool only needs a few thousand declaration files — the ones that list what exists, what it is called, and whether it defaults on or off. Chromium serves individual directories over Gitiles:
 
 ```
-https://chromium.googlesource.com/chromium/src/+archive/refs/tags/<phiên-bản>/<thư-mục>.tar.gz
+https://chromium.googlesource.com/chromium/src/+archive/refs/tags/<version>/<directory>.tar.gz
 ```
 
-Khoảng 40 MB mỗi phiên bản với target set mặc định. Đội nào đã có checkout hoặc mirror nội bộ thì dùng `--local-src`, phần còn lại không đổi.
+About 40 MB per version with the default target set. A team that already has a checkout or an internal mirror uses `--local-src` instead; nothing else changes.
 
-**Chuẩn hoá trước, so sánh sau.** Giữa M139 và M143, Chromium đổi cách viết macro khai báo tính năng:
+**Normalize first, compare second.** Between M139 and M143, Chromium changed how the feature-declaration macro is written:
 
 ```cpp
-// M139 trở về trước
+// M139 and earlier
 BASE_FEATURE(kBackForwardCache, "BackForwardCache", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// M142 trở đi — tên chuỗi tự suy ra từ tên biến
+// M142 onwards — the string name is derived from the variable name
 BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
 ```
 
-Chỉ trong một file, M139 có 170/170 khai báo kiểu cũ, M143 có 12/187. Công cụ so theo văn bản mã nguồn sẽ báo "170 tính năng bị xoá, 187 tính năng mới" — vô nghĩa. chromedrift chuẩn hoá `kBackForwardCache` thành `"BackForwardCache"` trước khi so, và cho kết quả đọc được: 152 giữ nguyên, 18 bị bỏ, 35 thêm mới.
+In a single file, M139 has 170 of 170 declarations in the old form and M143 has 12 of 187. A tool that compares source text reports "170 features deleted, 187 features added" — which is meaningless. chromedrift normalizes `kBackForwardCache` to `"BackForwardCache"` before comparing, and gets a readable answer: 152 unchanged, 18 dropped, 35 added.
 
-**Dừng ở bằng chứng.** Các bước tất định — trích xuất, chuẩn hoá, so sánh, chấm điểm — lọc từ vài nghìn thay đổi xuống còn vài trăm mục đáng chú ý, rồi dừng. Công cụ không kết luận "cái này có nghĩa gì với sản phẩm". Đó là phần cần suy xét, thuộc về người đọc báo cáo hoặc về agent chạy skill [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md). Việc của chromedrift là làm cho đầu vào ấy đầy đủ, có xếp hạng và trích dẫn được.
+**Stop at the evidence.** The deterministic stages — extract, normalize, compare, score — filter several thousand changes down to a few hundred worth attention, and then stop. The tool does not conclude "this means X for the product". That takes judgement, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md) skill. chromedrift's job is to make that input complete, ranked and citable.
 
 ---
 
-## 2. Bắt đầu nhanh
+## 2. Quick start
 
-### Yêu cầu
+### Requirements
 
-| Hạng mục | Yêu cầu |
+| Item | Requirement |
 |---|---|
-| Python | 3.9 trở lên. Không dùng cú pháp 3.10+. Đã chạy trên 3.14.6 |
-| Thư viện ngoài | Không có. Chỉ stdlib |
-| Đĩa trống | ~150 MB cho hai phiên bản với target set mặc định |
-| Mạng | Ba host HTTPS, xem bảng dưới. Bỏ được hết nếu dùng checkout nội bộ |
-| Chromium checkout | Không cần |
+| Python | 3.9 or newer. No 3.10+ syntax. Tested on 3.14.6 |
+| Third-party libraries | None. Standard library only |
+| Free disk | ~150 MB for two versions with the default target set |
+| Network | Three HTTPS hosts, see the table below. All skippable with an internal checkout |
+| Chromium checkout | Not needed |
 
-| Host | Dùng để | Bắt buộc |
+| Host | Used for | Required |
 |---|---|---|
-| `chromium.googlesource.com` | Tải mã nguồn theo tag | Có |
-| `chromiumdash.appspot.com` | Phân giải `151` → `151.0.7922.138` | Không, nếu luôn ghi phiên bản đầy đủ |
-| `chromestatus.com` | Tóm tắt tính năng và link spec | Không, bỏ bằng `--no-enrich` |
+| `chromium.googlesource.com` | Fetching source by tag | Yes |
+| `chromiumdash.appspot.com` | Resolving `151` to `151.0.7922.138` | No, if you always write the full version |
+| `chromestatus.com` | Feature summaries and spec links | No, skip with `--no-enrich` |
 
-### Cài đặt
+### Installing
 
-Không có bước build. Chép thư mục sang máy đích là chạy được:
+There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
 tar czf chromedrift.tgz chromedrift/ config/ examples/ tests/ skills/ docs/ README.md
-# trên máy đích
+# on the target machine
 tar xzf chromedrift.tgz && cd chromedrift
 python3 -m chromedrift --version
 ```
 
-Trên Windows dùng `py -3` thay cho `python3`.
+On Windows use `py -3` instead of `python3`.
 
-### Kiểm tra máy
+### Checking the machine
 
-Nên làm đầu tiên trên mọi máy mới. Lệnh này kiểm mọi thứ thường hỏng trong một lượt, thay vì để bạn phát hiện từng cái sau hai phút chạy:
+Run this first on any new machine. It checks everything that commonly breaks, in one pass, instead of letting you discover each failure two minutes into a run:
 
 ```bash
 python3 -m chromedrift check
@@ -115,18 +115,18 @@ network
 ready
 ```
 
-Thoát code `0` là sẵn sàng, `1` là có dòng FAIL cần xử lý — dùng được trong CI làm bước tiền kiểm. Thêm `--profile config/profile.json5` để kiểm luôn hồ sơ downstream.
+Exit code `0` means ready, `1` means there is a FAIL line to deal with — usable in CI as a preflight step. Add `--profile config/profile.json5` to validate the downstream profile as well.
 
-### Chạy thử đường ống (~10 giây)
+### Smoke-testing the pipeline (~10 seconds)
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --target-set minimal --no-enrich
 ```
 
-`minimal` chỉ tải ba file — đủ để xác nhận đường ống thông suốt.
+`minimal` fetches three files — enough to confirm the pipeline is wired up.
 
-### Chạy đầy đủ
+### A full run
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
@@ -134,167 +134,171 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151
 ```
 
-Khoảng hai phút với cache nguội. Lần chạy sau với cùng cặp tag là cache hit, đo được **0,24 giây**. Tag đã phát hành thì nội dung không bao giờ đổi, nên cache giữ vĩnh viễn.
+About three and a half minutes on a cold cache. Measured per version: 97 seconds, of which 69 are fetching and 25 are the fourteen directory listings, leaving about 3 for extraction — so two versions plus enrichment. A second run over the same pair of tags is a cache hit, measured at **0.5 seconds** for the whole pipeline: both snapshots read, 6,784 changes compared and scored, and all three report files written. A released tag's content never changes, so the cache is kept forever, and network speed is the only reason your cold number will differ.
 
-Kết quả trong `out/M148_to_M151/`:
+Results land in `out/M148_to_M151/`:
 
-| File | Kích thước | Dùng khi nào |
+| File | Size | Use it for |
 |---|---|---|
-| `report.md` | ~66 KB | Dán vào Jira, Confluence, MR |
-| `report.html` | ~1,7 MB | Mở bằng browser, lọc và sắp xếp được, tự chứa hoàn toàn |
-| `report.json` | ~2,4 MB | Script, dashboard, so sánh giữa các kỳ |
+| `report.md` | ~66 KB | Pasting into Jira, Confluence, a merge request |
+| `report.html` | ~1.7 MB | Opening in a browser; filterable and sortable, fully self-contained |
+| `report.json` | ~2.4 MB | Scripts, dashboards, comparing across cycles |
 
-`report.html` không tải tài nguyên ngoài nào, nên mở được trong mạng cách ly và gửi kèm mail được.
+`report.html` loads no external resources, so it works on an air-gapped network and can be attached to an email.
 
-### Luôn ghi phiên bản đầy đủ
+### Always write the full version
 
-`151` phân giải sang bản stable mới nhất *tại thời điểm chạy*, và nó trôi. Đây là khác biệt thật:
+`151` resolves to whatever is the newest stable release *at the moment you run it*, and that moves. Here is a real difference:
 
 ```
 143.0.7499.40   → ServiceWorkerAutoPreload = ENABLED
-143.0.7499.194  → ServiceWorkerAutoPreload = DISABLED   (bị revert trong bản vá)
+143.0.7499.194  → ServiceWorkerAutoPreload = DISABLED   (reverted in a patch release)
 ```
 
-Cùng lệnh `run 139 143` chạy cách nhau vài tuần có thể cho hai kết luận khác nhau, và cả hai đều đúng. Với báo cáo chính thức, luôn ghi phiên bản đầy đủ và lưu lại trong ticket. Số milestone trần chỉ dùng khi thăm dò.
+The same `run 139 143` a few weeks apart can produce two different conclusions, and both are correct. For anything official, write the full version and record it in the ticket. Bare milestone numbers are for exploring.
 
 ---
 
-## 3. Cái bẫy quan trọng nhất
+## 3. The trap that matters most
 
-Nếu chỉ đọc một phần trong README này, hãy đọc phần này. Nó là lý do công cụ tồn tại.
+If you read only one section of this README, read this one. It is why the tool exists.
 
-### Chromium không bao giờ bật thẳng một tính năng mới
+### Chromium never turns a new feature straight on
 
-Quy trình của họ luôn là bốn bước:
+Their process is always four steps:
 
-1. Viết code mới, **đặt sau một công tắc**, mặc định tắt. Code có trong bản phát hành nhưng không ai thấy gì.
-2. **Bật dần từ xa** — 1% người dùng, rồi 10%, rồi 50%. Có sự cố thì tắt lại ngay, không cần phát hành bản mới. Công tắc này gọi là *feature flag*.
-3. **Đặt mặc định bật trong code**, khi đã chắc chắn ổn.
-4. Vài phiên bản sau, **xoá luôn công tắc** và code cũ, vì không còn ai cần tắt nữa.
+1. Write the new code **behind a switch**, defaulting off. The code ships but nobody sees anything.
+2. **Turn it on remotely** — 1% of users, then 10%, then 50%. If something goes wrong they turn it back off without shipping a release. That switch is called a *feature flag*.
+3. **Set the default to on in code**, once it is clearly fine.
+4. A few releases later, **delete the switch** and the old code, because nobody needs to turn it off any more.
 
-### Hệ quả: một tính năng có ba mốc thời gian
+### The consequence: a feature has three moments
 
-| Mốc | Trong code xảy ra gì | Người dùng thấy gì |
+| Moment | What happens in the code | What users see |
 |---|---|---|
-| A | Code mới xuất hiện, công tắc tắt | Không thấy gì |
-| B | Công tắc chuyển sang bật | **Đây mới là lúc thấy đổi** |
-| C | Code cũ và công tắc bị xoá | Không thấy gì |
+| A | New code appears, switch off | Nothing |
+| B | Switch flips on | **This is when it changes** |
+| C | Old code and switch deleted | Nothing |
 
-Ba mốc này thường cách nhau nhiều phiên bản: xuất hiện ở M145, bật ở M147, dọn dẹp ở M151.
+Those three are usually several releases apart: appears at M145, turns on at M147, cleaned up at M151.
 
-Bây giờ giả sử bạn so M148 với M151 và chỉ nhìn code. Bạn thấy **mốc C** — code cũ biến mất — và kết luận "Chromium vừa bỏ tính năng này". Trong khi sự thật là tính năng đã đổi từ M147, và giữa M148 với M151 người dùng chẳng thấy gì khác.
+Now suppose you compare M148 with M151 and look only at the code. You see **moment C** — old code gone — and conclude "Chromium just removed this feature". In fact the feature changed at M147, and between M148 and M151 users saw nothing different at all.
 
-Nói gọn: **file khai báo cho biết cái gì tồn tại; chỉ công tắc mới cho biết người dùng thật sự thấy gì.**
+Put shortly: **the declaration files tell you what exists; only the switch tells you what users actually get.**
 
-### Ví dụ có thật: Local Network Access
+### A real example: Local Network Access
 
-Kiểm trên dữ liệu M148 → M151:
+Checked against real M148 → M151 data:
 
-**Bước 1.** So danh sách trang settings, mục `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` biến mất. Đọc thô: "Chromium bỏ trang Local Network Access" — một trang quyền riêng tư quan trọng. Đủ để cả đội hoảng.
+**Step 1.** Compare the settings page list, and `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` is gone. Read naively: "Chromium removed the Local Network Access page" — an important privacy page. Enough to alarm the whole team.
 
-**Bước 2.** Đọc kỹ ở M148 thì thấy có **hai** trang cùng tồn tại:
+**Step 2.** Read M148 more carefully and there are **two** pages declared at once:
 
 ```js
-Nếu công tắc 'enableLocalNetworkAccessSetting' bật:
-    → tạo trang  /localNetworkAccess     (bản cũ)
+If the switch 'enableLocalNetworkAccessSetting' is on:
+    → create page  /localNetworkAccess     (the old one)
 
-Nếu công tắc 'enableLocalNetworkAccessSplitPermissions' bật:
-    → tạo trang  /localNetwork           (bản mới, tách quyền chi tiết hơn)
+If the switch 'enableLocalNetworkAccessSplitPermissions' is on:
+    → create page  /localNetwork           (the new one, with finer-grained permissions)
 ```
 
-**Bước 3.** Ở M151 chỉ còn bản mới.
+**Step 3.** At M151 only the new one is left.
 
-**Bước 4.** Kiểm công tắc: `kLocalNetworkAccessChecksSplitPermissions` **mặc định bật ở M148**, và bị xoá hoàn toàn ở M151.
+**Step 4.** Check the switch: `kLocalNetworkAccessChecksSplitPermissions` was **enabled by default at M148**, and deleted entirely at M151.
 
-**Kết luận thật:** trang không bị bỏ, nó được **thay** bằng bản tách quyền. Vì công tắc đã bật sẵn từ M148, người dùng M148 đã nhìn thấy bản mới rồi. Giữa hai mốc, trải nghiệm không đổi; M151 chỉ dọn code.
+**The real conclusion:** the page was not removed, it was **replaced** by the split-permissions version. Because the switch was already on at M148, M148 users were already seeing the new one. Between the two versions the experience did not change; M151 only cleaned up the code.
 
-Việc cần làm khi nâng lên M151 không phải "khôi phục tính năng bị mất", mà chỉ là: nếu code của fork có chỗ nào trỏ tới `/localNetworkAccess` cũ thì sửa thành `/localNetwork`. Một việc nhỏ, hoàn toàn khác với cái mà diff thô làm bạn tưởng.
+The work required to move to M151 is not "restore a lost feature" — it is: if anything in the fork points at the old `/localNetworkAccess`, change it to `/localNetwork`. A small job, and completely different from what a raw diff makes you think.
 
-### Quy mô
+### The scale of it
 
-Đây không phải ca cá biệt:
+This is not an isolated case:
 
-- **M148 → M151, Windows:** 90 công tắc bị gỡ, chia đúng 45 cái đã ship / 45 cái bỏ dở. Không cái nào đổi hành vi. Gắn nhãn "mất tính năng" cho cả 90 thì một nửa danh sách cảnh báo là báo động giả.
-- **M139 → M143, tầng web:** trong 202 tính năng "biến mất", 170 cái vốn đã ở trạng thái ổn định — công tắc bị dọn sau khi tính năng đã ship thành công.
+- **M148 → M151, Windows:** 90 switches removed, splitting exactly 45 that shipped / 45 that were abandoned. Neither group changes behaviour. Labelling all 90 "feature lost" makes half the alert list a false alarm.
+- **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the switch was cleaned up after the feature shipped successfully.
 
-Một công cụ báo 170 báo động giả ngay đầu danh sách sẽ mất hết uy tín ngay lần chạy đầu.
+A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
 
-### Gom mảnh vụn thành một câu chuyện
+### Assembling the fragments into one story
 
-Một thay đổi của Chromium không đến gọn một chỗ. Ca Local Network Access ở trên sinh ra đúng bảy mảnh:
-
-```
-webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS         bị xoá
-webui_route    SITE_SETTINGS_LOCAL_NETWORK                đổi điều kiện canh
-webui_gate     enableLocalNetworkAccessSplitPermissions   bị xoá
-webui_gate     enableLocalNetworkAccessSetting            đổi biểu thức
-webui_control  label:siteSettingsLocalNetworkAccess       bị xoá
-base_feature   LocalNetworkAccessChecksSplitPermissions   cờ đã ship rồi gỡ
-blink_runtime  LocalNetworkAccessSplitPermissions         cờ thử nghiệm bỏ
-```
-
-Đọc rời từng dòng thì chúng mâu thuẫn nhau: dòng trên nói một trang bị xoá, dòng dưới nói một trang xuất hiện. Đọc thành một cụm thì nó nói một điều đơn giản và đúng.
-
-`cluster.py` gom bằng **liên kết mà chính dữ liệu đã khai**, không phải bằng tên giống nhau:
+One Chromium change does not arrive in one place. The Local Network Access case above produces exactly seven fragments:
 
 ```
-route  --khai tên guard-->  gate  --khai tên feature-->  base_feature
-control  --khai label-->  route
-feature_param  --khai feature cha-->  base_feature
-blink  --khai base_feature-->  base_feature
+webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS         removed
+webui_route    SITE_SETTINGS_LOCAL_NETWORK                guard changed
+webui_gate     enableLocalNetworkAccessSplitPermissions   removed
+webui_gate     enableLocalNetworkAccessSetting            expression changed
+webui_control  label:siteSettingsLocalNetworkAccess       removed
+base_feature   LocalNetworkAccessChecksSplitPermissions   shipped, then flag retired
+blink_runtime  LocalNetworkAccessSplitPermissions         experimental flag dropped
 ```
 
-Mỗi mũi tên là một trường dữ liệu có thật. Mảnh thứ bảy — `blink_runtime LocalNetworkAccessSplitPermissions` — cố ý đứng riêng, vì fact của nó khai `base_feature: "none"`: Chromium nói thẳng là cờ này không có feature C++ tương ứng. Tên gần giống không phải là quan hệ.
+Read line by line they contradict each other: one says a page was removed, the next says a page appeared. Read as one group they say something simple and true.
 
-Trên lần chạy M148 → M151: **72 cụm, lớn nhất 7 mảnh**. Báo cáo có mục *Related changes, grouped* xếp theo điểm cao nhất trong cụm.
+`cluster.py` groups them using **links the data itself declares**, not name similarity:
+
+```
+route  --names its guard-->  gate  --names its feature-->  base_feature
+control  --names its label-->  route
+feature_param  --names its owning feature-->  base_feature
+blink  --names its base_feature-->  base_feature
+```
+
+Each arrow is a real field. The seventh fragment — `blink_runtime LocalNetworkAccessSplitPermissions` — deliberately stands apart, because its fact declares `base_feature: "none"`: Chromium is saying outright that this flag has no matching C++ feature. A similar name is not a relationship.
+
+On the M148 → M151 run: **72 clusters, the largest 7 fragments**. The report has a *Related changes, grouped* section ordered by the highest score in each cluster.
 
 ---
 
-## 4. Công cụ đọc những gì
+## 4. What the tool reads
 
-### Chín bộ đọc
+### Nine extractors
 
-Mỗi bộ đọc là hai hàm thuần: "file này có thuộc phần tôi đọc không" và "đọc ra được những gì". Nhờ vậy mỗi bộ kiểm thử được độc lập, không cần mạng, không cần Chromium.
+Each extractor is two pure functions: "does this file belong to what I read" and "what can I read out of it". That makes every one of them testable on its own, with no network and no Chromium.
 
-| Bộ đọc | Đọc gì | Cho biết |
+| Extractor | Reads | Tells you |
 |---|---|---|
-| `base_features.py` | Khai báo `base::Feature` trong C++ | Công tắc tính năng và mặc định bật/tắt theo nền tảng |
-| `blink_runtime.py` | `runtime_enabled_features.json5` | Tính năng tầng web engine, trạng thái ổn định/thử nghiệm |
-| `web_idl.py` | File `.idl` | Hình dạng chính xác của API web: interface, phương thức, thuộc tính |
-| `mojom.py` | File `.mojom` | Giao diện giữa các tiến trình, kèm chữ ký phương thức |
-| `constants.py` | `*switches.{cc,h}`, `*pref_names.{h,cc}`, `*_prefs.{h,cc}` | Tham số dòng lệnh và khoá thiết lập người dùng |
-| `flags_metadata.py` | `flag-metadata.json` | Công tắc nào sắp bị xoá ở phiên bản tới |
-| `webui_routes.py` | `route.ts` | Danh sách trang của màn hình `chrome://`, kèm điều kiện hiển thị |
-| `webui_controls.py` | Template `.html` và `.html.ts` | Từng điều khiển, loại của nó, và thiết lập nó gắn vào |
-| `webui_gates.py` | `*_ui.cc` | Mắt xích nối điều kiện giao diện với công tắc |
+| `base_features.py` | `base::Feature` declarations in C++ | Feature switches and their per-platform default on/off |
+| `blink_runtime.py` | `runtime_enabled_features.json5` | Web-engine features and their stable/experimental status |
+| `web_idl.py` | `.idl` files | The exact shape of a web API: interfaces, methods, attributes |
+| `mojom.py` | `.mojom` files | The interface between processes, with method signatures |
+| `constants.py` | `*switches.{cc,h}`, `*pref_names.{h,cc}`, `*_prefs.{h,cc}` | Command-line switches and user settings keys |
+| `flags_metadata.py` | `flag-metadata.json` | Which switches are scheduled for removal in an upcoming release |
+| `webui_routes.py` | `route.ts` | The page list of a `chrome://` surface, with its visibility conditions |
+| `webui_controls.py` | `.html` and `.html.ts` templates | Each control, its type, and the setting it writes |
+| `webui_gates.py` | `*_ui.cc` | The link between a UI condition and a feature switch |
 
-Hỗ trợ cho các bộ đọc C++ là `_cpp.py`. Nó che comment mà giữ nguyên độ dài file (để số dòng báo cáo vẫn đúng), cắt đối số cân bằng ngoặc (bỏ qua ngoặc trong chuỗi ký tự), và đánh giá điều kiện tiền xử lý theo nền tảng. `jsonc.py` là bộ đọc JSON5 tự viết, vì Chromium dùng định dạng này còn Python không có sẵn và ta không được cài thêm thư viện.
+Supporting the C++ extractors is `_cpp.py`. It masks comments while preserving file length (so reported line numbers stay correct), splits balanced arguments (ignoring parentheses inside string literals), and evaluates preprocessor conditions for our platform. `jsonc.py` is a hand-written JSON5 reader, because Chromium uses that format, Python has none built in, and we are not allowed to add a library.
 
-### Ba bộ đọc WebUI dùng chung cho mọi màn hình
+### Three WebUI extractors cover every screen
 
-`chrome://settings`, `chrome://history`, `chrome://downloads`, `chrome://bookmarks`, `chrome://extensions` và khoảng 130 màn hình `chrome://` khác đều xây theo cùng một cách: một trang web nằm dưới `chrome/browser/resources/`. Nên ba bộ đọc trên đọc được tất cả.
+`chrome://settings`, `chrome://history`, `chrome://downloads`, `chrome://bookmarks`, `chrome://extensions` and roughly 130 other `chrome://` screens are all built the same way: a web page under `chrome/browser/resources/`. So those three extractors read all of them.
 
-Chúng nối thành chuỗi ba chặng, và phải đi đủ cả ba mới ra kết luận đúng:
+They form a three-hop chain, and you have to walk all three hops to reach the right conclusion:
 
 ```
-route.ts                          trang nào tồn tại
-   ↓ bị canh bởi
-loadTimeData key                  điều kiện hiển thị
-   ↓ được gán giá trị ở
-settings_ui.cc  →  base::Feature  công tắc thật
+route.ts                          which pages exist
+   ↓ guarded by
+loadTimeData key                  the visibility condition
+   ↓ given its value in
+settings_ui.cc  →  base::Feature  the real switch
 ```
 
-Dừng ở chặng đầu chính là rơi vào bẫy Local Network Access.
+Stopping at the first hop is exactly the Local Network Access trap.
 
-Loại điều khiển nằm thẳng trong tên thẻ — `settings-toggle-button` là nút gạt, `settings-dropdown-menu` là danh sách xổ xuống, `cr-radio-group` là nhóm nút chọn — nên "đổi dropdown thành toggle" bắt được ngay bằng phép so tên thẻ.
+The control's type is the tag name itself — `settings-toggle-button` is a toggle, `settings-dropdown-menu` is a dropdown, `cr-radio-group` is a radio group — so "a dropdown became a toggle" is caught by comparing tag names.
 
-Chromium đang chuyển WebUI từ Polymer (`.html`) sang Lit (`.html.ts`), và chuyển không đều: ở M151, settings còn 243 file Polymer và 6 file Lit, còn extensions thì 2 và 33, print_preview 2 và 32. Bộ đọc hiểu cả hai dialect.
+Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unevenly: at M151, settings still has 243 Polymer files against 6 Lit, while extensions is 2 against 33 and print_preview 2 against 32. The extractor reads both dialects.
 
-**Danh tính phải đủ để phân biệt.** Một loadTimeData key không phải là duy nhất: ở M151, 62 trong 668 key được đặt bởi nhiều hơn một handler — `undoDescription` do cả `bookmarks_ui.cc` lẫn `downloads_ui.cc` — và 27 trong số đó đặt giá trị khác nhau. Điều khiển cũng vậy: 98 trong 1.256 key trùng nhau giữa các file cùng thư mục, như `id:nicknameInput` có ở cả `credit_card_edit_dialog` lẫn `iban_edit_dialog`. Trùng key thì một bản bị bỏ, và bản nào sống sót lại tuỳ thứ tự duyệt thư mục. Nên gate mang thêm tên handler, control mang thêm tên file: lấy lại 318 khai báo từng bị vứt. Route vẫn nối tới gate bằng key trần, nên chuỗi ba chặng không đổi.
+**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight surfaces the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
-### Vì sao phải đọc điều kiện tiền xử lý
+An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 884, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
-Chromium hay viết mặc định của một tính năng khác nhau theo hệ điều hành:
+**Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
+
+### Why preprocessor conditions have to be read
+
+Chromium frequently gives a feature a different default per operating system:
 
 ```cpp
 BASE_FEATURE(kAudioServiceOutOfProcess,
@@ -306,82 +310,82 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
 );
 ```
 
-Cách đọc thô — lấy giá trị đầu tiên gặp được — trả về "đang bật". Ở ví dụ này tình cờ đúng, vì `IS_WIN` nằm ngay nhánh đầu. Nguy hiểm nằm ở trường hợp ngược lại, khi Windows rơi vào nhánh `#else`. Chỉ trong một file, 14/187 tính năng có mặc định khác nhau theo nền tảng.
+Reading naively — take the first value you find — gives "enabled". In this example that happens to be right, because `IS_WIN` is in the first branch. The danger is the opposite case, where Windows falls into the `#else`. In a single file, 14 of 187 features have per-platform defaults.
 
-| Guard bọc quanh khai báo | Đọc thô | Giá trị thực trên Windows |
+| Guard around the declaration | Naive read | Real value on Windows |
 |---|---|---|
-| `IS_WIN \|\| IS_MAC \|\| IS_LINUX` | `enabled` | `enabled` — trùng nhau |
-| `IS_ANDROID` … `#else` | `enabled` | **`disabled`** — đọc thô cho kết luận ngược |
-| `ENABLE_PLUGINS` … `#else` | `enabled` | `conditional` — không đoán |
+| `IS_WIN \|\| IS_MAC \|\| IS_LINUX` | `enabled` | `enabled` — they agree |
+| `IS_ANDROID` … `#else` | `enabled` | **`disabled`** — the naive read is backwards |
+| `ENABLE_PLUGINS` … `#else` | `enabled` | `conditional` — no guess |
 
-Dòng thứ hai là lý do công cụ tồn tại: đọc nhầm không phải sai số nhỏ mà đảo ngược kết luận. Dòng thứ ba cũng quan trọng: khi điều kiện phụ thuộc vào một buildflag không phải nền tảng, bộ đánh giá ba trạng thái trả lời "không xác định" thay vì đoán bừa.
+The second row is why the tool exists: reading the wrong one is not a small error, it inverts the conclusion. The third row matters too: when the condition depends on a non-platform buildflag, the three-valued evaluator answers "undecidable" rather than guessing.
 
-### Nền tảng là cố định, không phải tuỳ chọn
+### The platform is fixed, not an option
 
-Sản phẩm là trình duyệt desktop trên Windows, nên **không có tuỳ chọn `--platform`**. Đây là chủ ý: một tuỳ chọn mà không ai kiểm là một cách để sai trong im lặng, và như trên, sai ở đây đảo ngược kết luận.
+The product is a desktop browser on Windows, so **there is no `--platform` option**. That is deliberate: an option nobody checks is a way to be silently wrong, and as above, being wrong here inverts the conclusion.
 
-Macro của các nền tảng khác vẫn được nhận diện, nhưng để đánh giá thành *sai*, không phải "không xác định":
+Other platforms' macros are still recognised, but so they evaluate to *false* rather than "undecidable":
 
 ```python
 eval_condition("BUILDFLAG(IS_WIN)")          # True
-eval_condition("BUILDFLAG(IS_ANDROID)")      # False  — chắc chắn không phải ta
-eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — không đoán
+eval_condition("BUILDFLAG(IS_ANDROID)")      # False  — definitely not us
+eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — no guess
 ```
 
-Điều kiện build được giải cho Windows ở mọi nơi nó xuất hiện, không chỉ trong macro khai báo feature: `#if` bọc quanh một hằng pref hay switch (115 khoá ở M151 không nằm trong bản build Windows), và `<if expr="...">` của GRIT bọc quanh một điều khiển WebUI (14 điều khiển). Cùng một bộ đánh giá ba trạng thái, hai cú pháp — `not is_win` và `!BUILDFLAG(IS_WIN)` hỏi cùng một câu.
+Build conditions are resolved for Windows everywhere they appear, not only in feature macros: an `#if` around a pref or switch constant (115 keys at M151 are not in the Windows build), and a GRIT `<if expr="...">` around a WebUI control (14 controls). One three-valued evaluator, two dialects — `not is_win` and `!BUILDFLAG(IS_WIN)` ask the same question.
 
-Cây mã của các nền tảng khác (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) bị bỏ qua, **trừ một ngoại lệ**: hằng chuỗi vẫn được đọc ở mọi nơi. Lý do là một khoá pref được định danh bằng chuỗi của nó, và Chromium đang tách nhỏ `chrome/common/pref_names.h`. Khi một khoá chuyển sang file ChromeOS mà ta không nhìn thấy đích đến, công cụ sẽ báo là bị xoá — mà pref bị xoá nghĩa là giá trị đã lưu của mọi người dùng thành mồ côi. Đo M148 → M151: trong 141 khoá biến mất, 100 khoá chỉ đơn giản là đã chuyển sang đó.
+Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: of 141 keys that vanished, 100 had simply moved there.
 
-### So sánh theo ý nghĩa, không theo văn bản
+### Comparison by meaning, not by text
 
-`diff.py` dựa trên hai nguyên tắc:
+`diff.py` rests on two rules:
 
-**Chỉ so những thuộc tính có ý nghĩa.** Giữa M139 và M143 mọi khai báo đều đổi cú pháp; nếu so cả thuộc tính "kiểu cú pháp" thì sinh ra hàng nghìn thay đổi vô nghĩa. Mỗi loại dữ liệu có danh sách trắng thuộc tính đáng so.
+**Only compare attributes that mean something.** Between M139 and M143 every declaration changed syntax; comparing a "which syntax" attribute would produce thousands of meaningless changes. Each kind of fact has a whitelist of attributes worth comparing.
 
-**Chấm theo nền tảng thật.** Một mặc định lật trên desktop mà không lật trên Windows thì không phải thay đổi của bạn.
+**Score for the real platform.** A default that flips on desktop but not on Windows is not a change for you.
 
-Rồi nó gắn **nhãn ý nghĩa** cho từng thay đổi — đây là thứ biến "dòng code khác nhau" thành thông tin đọc được:
+Then it attaches a **meaning label** to every change — this is what turns "a line of code differs" into something readable:
 
-| Nhãn | Người dùng thấy đổi? | Nghĩa |
+| Label | Do users see a change? | Meaning |
 |---|---|---|
-| `default_flip_on` | Có | Công tắc lật sang bật |
-| `web_api_shipped` | Có | API web đạt trạng thái ổn định |
-| `ipc_signature_change` | Có | Chữ ký giao tiếp giữa tiến trình đổi — vỡ âm thầm lúc chạy |
-| `flag_retired_on` | Không | Đã ship, công tắc gỡ đi, hành vi thành vĩnh viễn không tắt được |
-| `flag_retired_off` | Không | Chưa từng ship, code gỡ đi, không bật được nữa |
-| `feature_string_renamed` | Không, nhưng… | Tên Finch đổi — cấu hình phía server ngừng khớp trong im lặng |
-| `feature_symbol_renamed` | Không, nhưng… | Định danh C++ đổi — build của ta vỡ sau khi merge |
-| `pref_renamed` | Không, nhưng… | Khoá thiết lập đổi — giá trị đã lưu của mọi người dùng thành mồ côi |
+| `default_flip_on` | Yes | The switch flipped on |
+| `web_api_shipped` | Yes | A web API reached stable |
+| `ipc_signature_change` | Yes | A cross-process call signature changed — breaks silently at runtime |
+| `flag_retired_on` | No | Shipped, switch removed, behaviour is now permanent and cannot be turned off |
+| `flag_retired_off` | No | Never shipped, code removed, cannot be turned on any more |
+| `feature_string_renamed` | No, but… | The Finch name changed — server-side configs silently stop matching |
+| `feature_symbol_renamed` | No, but… | The C++ identifier changed — our build breaks after the merge |
+| `pref_renamed` | No, but… | A settings key changed — every existing user's stored value is orphaned |
 
-Mọi thuộc tính được đem ra so đều sinh được một nhãn như vậy. Đó là quy tắc chứ không phải mong muốn: một thuộc tính nằm trong danh sách trắng vì ai đó đã quyết định nó có nghĩa, nên nếu nó đổi mà báo cáo không nói gì thì dòng ấy không đọc được. Đo M148 → M151, **380 trong 709 thay đổi loại "modified" từng đến theo cách đó**; giờ có test chặn.
+Every attribute that gets compared can produce a label like this. That is a rule, not an aspiration: an attribute is in the whitelist because someone decided it means something, so if it moves and the report says nothing, that row is unreadable. Measured M148 → M151, **380 of 709 "modified" changes used to arrive that way**; a test now blocks it, and the same test found nine more attributes drifting out from under it — a `base::Feature`'s build guard among them, 55 rows in M143 → M148.
 
-Bốn nhãn cuối là loại nguy hiểm nhất: **biên dịch sạch, test xanh, và hỏng ngoài thực địa** — hoặc vỡ build ngay sau khi merge, đúng lúc muộn nhất.
+The last four labels are the dangerous kind: **compiles clean, tests green, and breaks in the field** — or breaks the build right after the merge, at the latest possible moment.
 
-`diff.py` còn nhận diện đổi tên. Với pref và switch, danh tính là chuỗi ký tự, còn tên biến C++ giữ nguyên; nên một lần đổi tên sẽ hiện ra thành "một cái bị xoá, một cái mới thêm" chẳng liên quan gì nhau. Ghép cặp theo tên biến sẽ lộ ra bản chất. Một ca có thật:
+`diff.py` also detects renames. For prefs and switches, identity is the string, while the C++ variable name stays put; so a rename shows up as an unrelated removal plus an unrelated addition. Pairing them by variable name reveals what really happened. A real case:
 
 ```cpp
 // M139
-BASE_FEATURE(kFedCmIdPRegistration, "FedCmIdPregistration", ...);   // chữ r thường
-// M143 — macro tự suy tên từ biến
+BASE_FEATURE(kFedCmIdPRegistration, "FedCmIdPregistration", ...);   // lowercase r
+// M143 — the macro derives the name from the variable
 BASE_FEATURE(kFedCmIdPRegistration, base::FEATURE_DISABLED_BY_DEFAULT);
-//   tên chuỗi giờ là "FedCmIdPRegistration"                        // chữ R hoa
+//   the string name is now "FedCmIdPRegistration"                  // uppercase R
 ```
 
-Không ai sửa tên cả — chính việc đổi macro đã đổi tên. Mọi cấu hình field-trial phía server và mọi cờ `--enable-features` dùng cách viết cũ **âm thầm mất tác dụng**. Không lỗi biên dịch, không cảnh báo.
+Nobody edited a name — changing the macro changed it. Every server-side field-trial config and every `--enable-features` flag using the old spelling **silently stopped working**. No compile error, no warning.
 
-Khi một pref hay switch biến mất mà không ghép được cặp, công cụ **không** khẳng định là đã bị xoá. Nó gắn nhãn `pref_left_scan` / `switch_left_scan`, nghĩa là "đã rời khỏi phạm vi quét" — có thể bị xoá thật, có thể chỉ chuyển sang file ta không đọc. Trên lần chạy M148 → M151 với target set mặc định, cả 139 pref biến mất đều mang nhãn này.
+When a pref or switch disappears and cannot be paired, the tool does **not** claim it was deleted. It labels it `pref_left_scan` / `switch_left_scan`, meaning "left the scanned scope" — possibly deleted, possibly moved to a file we do not read. On the M148 → M151 run with the default target set, all 139 vanished prefs carried that label.
 
 ---
 
-## 5. Độ phủ: đọc được bao nhiêu cây nguồn
+## 5. Coverage: how much of the tree gets read
 
-### Mỗi lần chạy đều tự đo
+### Every run measures it
 
-Một danh sách file viết tay chỉ đúng cho phiên bản nó được viết ra. Dựng danh sách theo hiện trạng M130 rồi đem chạy ở M151, hai mươi mốt mốc sau, thì nó bỏ sót 27% số file pref và 34% số file feature đang tồn tại ở đó. Một phần ba độ phủ bốc hơi sau hai năm, và bốc hơi trong im lặng — file không ai liệt kê là file không ai để ý.
+A hand-written file list is only correct for the version it was written against. Build the list as it stood at M130 and run it at M151, twenty-one milestones later, and it misses 27% of the pref files and 34% of the feature files that exist there. A third of the coverage evaporates over two years, silently — a file nobody listed is a file nobody notices.
 
-Nên mỗi lần chạy, công cụ hỏi chính cây nguồn của phiên bản đó xem có những file nào, rồi đối chiếu target set với nó. Gitiles trả về danh sách đệ quy của một thư mục trong một request, nên mười bốn thư mục gốc tốn khoảng 24 MB và 21 giây, cache vĩnh viễn vì cây của một tag không bao giờ đổi.
+So on every run the tool asks that version's own tree what exists, and measures the target set against it. Gitiles returns a recursive listing of a directory in one request, so fourteen roots cost about 24 MB and 21 seconds, cached forever because a tag's tree never changes.
 
-Kết quả in ra ở mỗi lần chạy, lưu trong snapshot, và đi vào báo cáo — `report.json` ở `meta.coverage` (`{from, to}`, mỗi bên một số đo) cùng danh sách đường dẫn chưa đọc ở `meta.uncovered_files`, `report.md` ở mục cuối *How this was produced*:
+The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 
 ```
 coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
@@ -389,49 +393,49 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
   to read these too, run `--target-set wide`: about 315 MB per version instead of 40
 ```
 
-**Con số trong tài liệu này là số đo tại M151. Con số đáng tin là con số lần chạy của bạn in ra.**
+**The numbers in this document are a measurement taken at M151. The number to trust is the one your run prints.**
 
-### Ba target set
+### Three target sets
 
-| | Tải về | Giữ trên đĩa | File khai báo đọc được | Dùng khi nào |
+| | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
-| `minimal` | ~300 KB | ~1 MB | 3 file | Kiểm khói, kiểm đường ống CI |
-| `default` | ~40 MB | ~38 MB | 42 / 1.039 (4%) | Làm việc hằng ngày |
-| `wide` | ~315 MB | ~94 MB | **1.039 / 1.039 (100%)** | Cổng chặn trước release |
+| `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
+| `default` | ~40 MB | ~38 MB | 42 / 1,039 (4%) | Day-to-day work |
+| `wide` | ~315 MB | ~94 MB | **1,039 / 1,039 (100%)** | A release gate |
 
-4% nghe rất tệ, nhưng **số file không phải số khai báo**. Các file được chọn thủ công là những file lớn nhất. Đo tại M151:
+4% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
 | | `default` | `wide` |
 |---|---:|---:|
-| `base::Feature` | 2.062 | 3.951 |
-| Tham số feature | 862 | 1.623 |
-| Pref | 689 | 2.404 |
-| Switch | 288 | 1.111 |
-| Mojo interface | 338 | 1.455 |
-| Mojo method | 1.362 | 5.738 |
-| Điều khiển WebUI | 884 | 1.421 |
-| **Tổng số fact** | **24.871** | **36.089** |
+| `base::Feature` | 2,062 | 3,951 |
+| Feature params | 863 | 1,626 |
+| Prefs | 689 | 2,460 |
+| Switches | 288 | 1,111 |
+| Mojo interfaces | 338 | 1,455 |
+| Mojo methods | 1,362 | 5,738 |
+| WebUI controls | 971 | 1,431 |
+| **Total facts** | **24,959** | **36,158** |
 
-Tức là `default` đọc 4% số file nhưng hơn một nửa số khai báo `base::Feature`. Đó là một đánh đổi có chủ ý, không phải một khiếm khuyết — nhưng khi câu trả lời thực sự quan trọng thì chạy `wide`.
+So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
-`wide` đọc 100% theo nghĩa chặt: mọi file mà quy ước tên cho biết là có thể khai báo đều được tải về, **và** mọi file tải về đều có ít nhất một bộ đọc nhận. Có test giữ cả hai chiều, vì cả hai đều đã từng lệch: có lúc phép đo không đếm `*flags.{cc,h}` dù bộ đọc vẫn đọc chúng, có lúc bộ đọc bỏ qua `switches.cc` dạng trần dù phép đo vẫn đếm, và có lúc `--complete` lọc bằng một bản danh sách hậu tố riêng chưa biết quy ước `*_prefs.{h,cc}`.
+`wide` reads 100% in a strict sense: every file whose name says it could declare something is fetched, **and** every fetched file is claimed by at least one extractor. Tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
 
-Danh sách hậu tố ấy giờ chỉ có một bản (`targets.READABLE_SUFFIXES`), dùng chung cho `wide` và `--complete`, vì cả hai hỏi cùng một câu: bộ đọc đọc được những dạng tên file nào.
+That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared by `wide` and `--complete`, because both ask the same question: which filename shapes can an extractor read.
 
-### Phân vùng: giới hạn phần phải tải và quét
+### Partitions: bounding what is fetched and scanned
 
-Khi chỉ quan tâm một mảng, `--partition` giới hạn cả việc tải lẫn việc đọc:
+When you only care about one area, `--partition` bounds both the fetching and the reading:
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition downloads
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition settings --partition bookmarks
 ```
 
-Vùng có sẵn: `settings, downloads, bookmarks, history, extensions, passwords, printing, newtab, webplatform, network, media`.
+Available: `settings, downloads, bookmarks, history, extensions, passwords, printing, newtab, webplatform, network, media`.
 
-Phân vùng là **bộ lọc trên danh sách target**, không phải danh sách thứ hai phải bảo trì — thêm một target mới thì nó tự chảy vào đúng vùng khớp đường dẫn. Vài mục luôn được giữ trong mọi phân vùng vì rẻ và liên quan tới tất cả: `pref_names.h`, `flag-metadata.json`, `content_switches.cc`.
+A partition is a **filter over the target list**, not a second list to maintain — add a target and it flows into whichever partitions its path matches. A few entries are kept in every partition because they are cheap and relevant to everything: `pref_names.h`, `flag-metadata.json`, `content_switches.cc`.
 
-Chạy phân vùng cũng in độ phủ của riêng nó, đo trên đúng thư mục gốc mà phân vùng ấy tải:
+A partitioned run prints its own coverage, measured against exactly the roots that partition fetches:
 
 ```
 $ python3 -m chromedrift snapshot 151.0.7922.138 --partition downloads
@@ -439,129 +443,131 @@ coverage: reads 3 of 6 files in this tree that could declare (50% of files)
 snapshot: 2692 facts
 ```
 
-**Đánh đổi phải nói rõ:** phân vùng nhanh hơn và kém đầy đủ hơn, một chiều. Chromium không tổ chức code theo tính năng sản phẩm — một thay đổi ảnh hưởng Downloads có thể nằm ở `content/`, ở một Mojo interface, hoặc ở một file cờ không khớp vùng nào. Đúng khi đang lặp trên một mảng; **sai khi chạy làm cổng chặn trước release**.
+**The trade has to be stated plainly:** a partition is faster and less complete, in one direction only. Chromium is not organized by product feature — a change affecting Downloads can live in `content/`, in a Mojo interface, or in a flag file matching no partition at all. Right while iterating on one area; **wrong as a release gate**.
 
-Thêm `--complete` thì phân vùng tải trọn thư mục gốc thay vì lọc theo danh sách file, nên độ phủ bên trong các thư mục đó là trọn vẹn theo cấu trúc. Đo tại M151: `--partition extensions --complete` đọc 19/19 file. Tuỳ chọn này bị từ chối với những phân vùng có thư mục gốc là cả một hệ thống con (`webplatform`), vì Gitiles trả về cả thư mục hoặc không gì cả.
+Add `--complete` and the partition fetches whole directory roots instead of filtering a file list, so coverage inside those directories is complete by construction. Measured at M151: `--partition extensions --complete` reads 19 of 19 files. The option is refused for partitions whose roots are entire subsystems (`webplatform`), because Gitiles serves a whole directory or nothing.
 
-### Đo bằng blobless clone — lệnh `catalog`
+### Measuring with a blobless clone — the `catalog` command
 
-`catalog` trả lời cùng câu hỏi bằng nguồn khác: một clone không tải nội dung file lấy được toàn bộ cấu trúc cây Chromium trong vài giây.
+`catalog` answers the same question from a different source: a clone that downloads no file contents gets Chromium's entire tree structure in seconds.
 
 ```bash
 python3 -m chromedrift catalog 151.0.7922.138
 ```
 
-Nó dùng **chung một luật** với phép đo chạy mỗi lần, nên hai con số mô tả cùng một tập hợp, và nó nêu đích danh từng file còn thiếu để bổ sung theo thứ tự ưu tiên.
+It uses **the same rule** as the per-run measurement, so the two numbers describe the same population, and it names every missing file so they can be added in priority order.
 
-### Hai nghĩa của "đầy đủ"
+### Two meanings of "complete"
 
-| Câu hỏi | Trả lời được không |
+| Question | Can it be answered |
 |---|---|
-| Đọc hết mọi khai báo **bên trong** thư mục của một vùng? | **Có** — bằng `--complete`, hoặc `--target-set wide` cho toàn cây |
-| Đọc hết mọi tính năng **thuộc về** vùng đó? | **Không** — vùng nào cũng tham chiếu ra ngoài |
+| Did we read every declaration **inside** an area's directories? | **Yes** — with `--complete`, or `--target-set wide` for the whole tree |
+| Did we read every feature that **belongs to** that area? | **No** — every area references things outside itself |
 
-Ví dụ: mọi khai báo trong `chrome/browser/resources/settings` đều đọc được, nhưng một tính năng hiện trên trang Settings có thể được điều khiển bởi một cờ khai ở `content/`. Đó là lý do báo cáo có mục *bao đóng tham chiếu* — nó đi theo mọi liên kết mà dữ liệu tự khai và liệt kê những liên kết trỏ tới thứ không có trong snapshot.
+For example: every declaration in `chrome/browser/resources/settings` is readable, but a feature shown on the Settings page may be controlled by a flag declared in `content/`. That is why the report has a *reference closure* section — it walks every link the data itself declares and lists the ones pointing at something absent from the snapshot.
 
 ---
 
-## 6. Chín lệnh
+## 6. Nine commands
 
 ```bash
-python3 -m chromedrift check      # kiểm tra máy có chạy được không
-python3 -m chromedrift snapshot   # trích bề mặt tính năng của MỘT phiên bản
-python3 -m chromedrift diff       # so ngữ nghĩa giữa HAI phiên bản
-python3 -m chromedrift profile    # xem hồ sơ downstream giải ra cái gì
-python3 -m chromedrift run        # chạy toàn bộ: snapshot → diff → chấm điểm → báo cáo
-python3 -m chromedrift report     # dựng lại báo cáo, lọc được theo vùng
-python3 -m chromedrift catalog    # đo target set đang thiếu file nào
-python3 -m chromedrift discover   # tìm file của vendor trong cây fork
-python3 -m chromedrift provenance # tách quyết định cố ý khỏi nợ merge
+python3 -m chromedrift check      # verify this machine can run the pipeline
+python3 -m chromedrift snapshot   # extract the feature surface of ONE version
+python3 -m chromedrift diff       # semantic comparison between TWO versions
+python3 -m chromedrift profile    # inspect what the downstream profile resolves to
+python3 -m chromedrift run        # the whole pipeline: snapshot → diff → score → report
+python3 -m chromedrift report     # re-render a saved report, optionally one area
+python3 -m chromedrift catalog    # measure which files the target set is missing
+python3 -m chromedrift discover   # find the vendor's own files in a fork checkout
+python3 -m chromedrift provenance # separate deliberate divergence from merge debt
 ```
 
-Tách thành từng lệnh không phải để trang trí. Bước đắt (tải về) và bước bạn chỉnh đi chỉnh lại (chấm điểm, báo cáo) có chi phí hoàn toàn khác nhau. Chạy lại được nửa rẻ trên cache ấm là khác biệt giữa một công cụ người ta tinh chỉnh và một công cụ người ta chạy đúng một lần.
+Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (scoring, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
 
-Mỗi lệnh chỉ nhận những tuỳ chọn nó thật sự dùng. `catalog` không có `--local-src`, `discover` không có `--partition` — nếu một lệnh nhận một cờ rồi bỏ qua thì đó là lỗi, và có test chặn.
+Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `discover` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
-### Ba lệnh dành cho fork
+### Three commands for forks
 
-`discover` đi bộ qua một checkout fork và tìm file của vendor bằng tên: thư mục mang tên vendor (`acme/`) và hậu tố tên file đánh dấu biến thể của một file upstream (`privacy_page-acme.html`). Không có giá trị mặc định nào: công cụ không mang sẵn từ vựng của vendor nào, nên phải truyền `--token` và/hoặc `--suffix` — đoán bừa thì không lỗi, chỉ bịa ra kết quả. Cái thứ hai quan trọng hơn vẻ ngoài của nó, vì nó nằm *bên trong* thư mục của Chromium nên không tiền tố đường dẫn nào tìm ra.
+`discover` walks a fork checkout and finds the vendor's files by name: directories named after the vendor (`acme/`) and filename suffixes marking a variant of an upstream file (`privacy_page-acme.html`). There are no defaults: the tool carries no vendor vocabulary of its own, so you must pass `--token` and/or `--suffix` — guessing does not fail, it invents matches. The second one matters more than it looks, because it sits *inside* Chromium's own directory and no path prefix reaches it.
 
-Kết quả chia làm hai, và tách hai loại này ra là điểm mấu chốt:
+Results split in two, and separating them is the point:
 
-- **Sửa được** — có bộ đọc nhận file này, nên thứ duy nhất còn thiếu là một dòng trong `targets.py`.
-- **Ngoài mô hình** — không bộ đọc nào đọc file này dù có tải về: UI C++ native, chuỗi hiển thị `.grd`, file `.gn`. Thêm target không thay đổi gì; chúng thuộc phần giới hạn ở §9.
+- **Fixable** — an extractor recognises this file, so the only thing missing is a line in `targets.py`.
+- **Out of model** — no extractor reads this file however it is fetched: native C++ UI, `.grd` display strings, `.gn` files. Adding a target changes nothing; these belong in the limits in §9.
 
-`coverage.py` trả lời một câu hỏi khác mà một fork dạng merge luôn gặp. Fork loại này không ghi đè code Chromium — nó merge nguyên bản mới vào, giữ bản của mình bên cạnh, và chọn giữa hai bằng cờ build:
+`coverage.py` answers a different question that every merge-style fork hits. This kind of fork does not overwrite Chromium's code — it merges the new version in whole, keeps its own version beside it, and picks between them with a build flag:
 
 ```cpp
 #if defined(ACME_CUSTOM_DOWNLOADS)
-  ... bản của vendor, đây mới là bản chạy thật ...
+  ... the vendor's version, the one that actually runs ...
 #else
-  ... bản của Chromium, nguyên vẹn từ lần merge ...
+  ... Chromium's, untouched since the merge ...
 #endif
 ```
 
-Vì cả hai đều có mặt nên phép so giá trị không tìm ra gì: code upstream đúng là y hệt upstream. Câu hỏi đáng trả lời không phải "code upstream còn nguyên không" mà là **phần nào đang bị che**. `provenance.py` trả lời nửa sau: so bản của vendor với một dãy phiên bản upstream để biết lớp che ấy được viết cho mốc nào.
+Because both are present, comparing values finds nothing: upstream's code really is identical to upstream. The question worth answering is not "is upstream's code intact" but **which parts of it are shadowed**. `provenance.py` answers the second half: comparing the vendor's version against a series of upstream releases says which milestone that cover was written for.
 
-Tên cờ không đoán được, nên hồ sơ phải khai — xem `vendor_markers` ở §7.
+Flag names cannot be guessed, so the profile declares them — see `vendor_markers` in §7.
 
 ---
 
-## 7. Hồ sơ downstream
+## 7. The downstream profile
 
-Đây là việc duy nhất bắt buộc phải làm nghiêm túc. Chất lượng cột **Must fix** tỉ lệ thuận trực tiếp với file này. Không có nó, công cụ chỉ biết "Chromium đổi gì", không biết "đổi đó có đụng tới ta không".
+This is the one thing you have to do properly. The quality of the **Must fix** column is directly proportional to this file. Without it the tool knows what Chromium changed, but not whether it touches you.
 
 ```bash
 cp config/profile.example.json5 config/profile.json5
 ```
 
-### Bốn nguồn bằng chứng, kết hợp được
+### Four evidence sources, combinable
 
-**A — thư mục patch** (phổ biến nhất với vendor fork):
+**A — a patch directory** (the usual shape of a vendor fork):
 
 ```json5
 { patch_dirs: ["/work/fork/patches"] }
 ```
 
-Đọc mọi `.patch`/`.diff`, lấy cả đường dẫn lẫn identifier trong thân hunk.
+Reads every `.patch`/`.diff`, taking both the touched paths and the identifiers inside the hunks.
 
-**B — fork toàn bộ source trong git**:
+**B — a full source fork in git**:
 
 ```json5
 { git: { repo: "/work/fork/src", upstream_ref: "148.0.7778.217" } }
 ```
 
-Chạy `git diff --name-only <upstream_ref>`. Cần `git` trong PATH.
+Runs `git diff --name-only <upstream_ref>`. Needs `git` on PATH.
 
-**C — quét mã riêng của bạn** (bắt được thứ patch bỏ sót):
+**C — scanning your own code** (catches what the patches miss):
 
 ```json5
 { source_roots: ["/work/fork/vendor_chrome", "/work/fork/vendor_java"] }
 ```
 
-Cách này đáng nói riêng. Thay vì tìm tên của vendor trong cây Chromium khổng lồ, công cụ lấy **từ vựng của Chromium** — mọi tên feature, switch, pref — rồi quét một lượt qua cây mã nhỏ của bạn. Đảo bài toán từ "nhiều lượt qua cây khổng lồ" thành "một lượt qua cây nhỏ", và bắt được cả những chỗ code bạn *đọc* một tính năng mà không hề vá file khai báo nó.
+This one is worth explaining. Instead of searching Chromium's enormous tree for the vendor's name, the tool takes **Chromium's vocabulary** — every feature, switch and pref name — and makes one pass over your small tree. That turns "many passes over a huge tree" into "one pass over a small one", and it catches code that *reads* a feature without patching the file declaring it.
 
-Một chi tiết ở đây từng là lỗi: từ vựng phải dựng từ **cả hai** phiên bản. Nếu chỉ dựng từ bản mới thì thứ vừa bị xoá sẽ không nằm trong từ vựng và bị lọc mất — mà đó chính là ca làm vỡ build.
+One detail here used to be a bug: the vocabulary has to be built from **both** versions. Building it from the new one alone filters out anything just deleted — and that is exactly the case that breaks the build.
 
-**D — danh sách tự duy trì**:
+**D — a hand-maintained list**:
 
 ```json5
 {
   modified_paths: [
     "content/browser/renderer_host/render_widget_host_view_aura.cc",
-    "media/base/win/",              // dấu / cuối = khớp theo tiền tố
+    "media/base/win/",              // trailing / = prefix match
   ],
   symbols: ["BackForwardCache", "kBackForwardCache"],
 }
 ```
 
-### Chỉ bằng chứng cấp ký hiệu mới đẩy lên Must fix
+### Only symbol-level evidence promotes to Must fix
 
-Bằng chứng cấp đường dẫn thì quá thô: `content_features.cc` khai báo gần 200 tính năng, nên biết bạn vá *file* đó gần như không nói lên điều gì. Biết bạn động vào `kServiceWorkerAutoPreload` thì rất có nghĩa. Điểm cộng phản ánh đúng chênh lệch đó.
+Path-level evidence is too blunt: `content_features.cc` declares nearly 200 features, so knowing you patch that *file* says almost nothing. Knowing you touch `kServiceWorkerAutoPreload` says a great deal. The score bonuses reflect that gap.
 
-### Khai báo `areas`
+A member's bare name is not evidence either. Web IDL is full of members called `before`, `has`, `values` and `disabled`, so a member is matched only by its qualified name and by the interface that owns it — `PaymentRequest.canMakePayment` still matches a fork that references `PaymentRequest`. Without that rule, Chromium declaring a switch whose value is the string `"disabled"` was enough to put an unrelated Web IDL member called `disabled` into **Must fix**.
 
-Đây là thứ khiến finding tự định tuyến về đúng đội. `weight` (0–100) vào thẳng điểm số, `owner` hiện trong báo cáo:
+### Declaring `areas`
+
+This is what routes findings to the right team. `weight` (0–100) feeds straight into the score, and `owner` appears in the report:
 
 ```json5
 areas: [
@@ -574,34 +580,34 @@ areas: [
 ]
 ```
 
-Năm cách khớp — đường dẫn, ký hiệu, pref, cờ, và trọn một loại dữ liệu — chỉ cần trúng một là nhận. Cần đến năm cách vì Chromium không tổ chức code theo tính năng sản phẩm: "Download" nằm rải ở `components/`, `chrome/browser/`, `content/`, cộng thêm pref, cờ và Mojo.
+Five ways to match — path, symbol, pref, flag, and a whole fact kind — and any one of them claims the finding. Five are needed because Chromium is not organized by product feature: "Downloads" is spread across `components/`, `chrome/browser/` and `content/`, plus prefs, flags and Mojo.
 
-`symbols` là **khớp chuỗi con**, không phải khớp chính xác — `"Audio"` sẽ bắt cả `RestrictOwnAudio`. Cố ý như vậy để phân loại theo chủ đề, nhưng đừng đặt từ quá ngắn hoặc quá chung.
+`symbols` is a **substring match**, not exact — `"Audio"` also catches `RestrictOwnAudio`. That is deliberate, for topic-level classification, but do not use words that are short or generic.
 
-### Ba loại vùng, không phải một
+### Three kinds of area, not one
 
-Trường `kind` có ba giá trị, và chỉ khai loại `product` là sai lầm kinh điển:
+The `kind` field has three values, and declaring only `product` areas is the classic mistake:
 
-- **`product`** — có đội sở hữu rõ ràng: Downloads, Bookmarks, History, Extensions, Media
-- **`infra`** — hạ tầng cắt ngang, không thuộc tính năng nào nhưng **chứa các mục nghiêm trọng nhất**: Mojo, Web IDL
-- **`platform`** — nền chung: cờ tính năng, pref, tham số dòng lệnh
+- **`product`** — has a clear owning team: Downloads, Bookmarks, History, Extensions, Media
+- **`infra`** — cross-cutting plumbing, belonging to no feature but **holding the most severe findings**: Mojo, Web IDL
+- **`platform`** — the shared base: feature flags, prefs, command-line switches
 
-Đo trên một lần chạy thật: nếu chỉ khai vùng theo tính năng sản phẩm thì **81% số finding không khớp vùng nào**, trong đó có cả mười mục điểm cao nhất toàn báo cáo — `CreateLanguageModel`, `CreateSummarizer`, `AttachDevToolsSession`, đều là Mojo đổi chữ ký, 80 điểm, vỡ âm thầm lúc chạy. Chúng không thuộc tính năng sản phẩm nào vì chúng là hạ tầng dùng chung. Khai đủ ba loại thì phần không thuộc vùng nào giảm còn khoảng 8%.
+Measured on a real run: declaring only product areas left **81% of findings unassigned**, including all ten highest-scoring items in the whole report — `CreateLanguageModel`, `CreateSummarizer`, `AttachDevToolsSession`, all Mojo signature changes at 80 points, all breaking silently at runtime. They belong to no product feature because they are shared infrastructure. Declaring all three kinds brings the unassigned share down to around 8%.
 
-### `vendor_markers` — cho phân tích fork
+### `vendor_markers` — for fork analysis
 
 ```json5
 vendor_markers: {
-  macros:           ["ACME", "ACME_UI"],  // cờ build trong #if
-  symbol_prefixes:  ["kAcme"],            // tiền tố định danh C++
-  path_markers:     ["acme/"],            // thư mục
-  filename_markers: ["-acme"],            // hậu tố biến thể của file upstream
+  macros:           ["ACME", "ACME_UI"],  // build flags in #if
+  symbol_prefixes:  ["kAcme"],            // C++ identifier prefixes
+  path_markers:     ["acme/"],            // directories
+  filename_markers: ["-acme"],            // suffix marking our variant of an upstream file
 }
 ```
 
-Không khai thì phần phân tích fork bị bỏ qua, chứ không đoán bừa. Chạy `chromedrift discover --fork-src <đường-dẫn> --token <tên-vendor>` để lấy khối này điền sẵn từ chính cây fork. `acme` ở trên chỉ là chỗ điền — thay bằng tên thật của fork.
+Leave it out and the fork analysis is skipped rather than guessed. Run `chromedrift discover --fork-src <path> --token <vendor-name>` to generate this block from the fork's own tree. `acme` above is a placeholder — replace it with the fork's real name.
 
-### Kiểm hồ sơ trước khi chạy thật
+### Validating the profile before a real run
 
 ```bash
 python3 -m chromedrift profile config/profile.json5 --ref 151.0.7922.138
@@ -615,44 +621,44 @@ profile: Example Browser (platform windows)
     symbols_from_patches: 7
 ```
 
-Nếu `symbols: 0` thì không mục nào lên được Must fix, và công cụ sẽ cảnh báo.
+If `symbols: 0`, nothing can reach Must fix, and the tool warns about it.
 
 ---
 
-## 8. Đọc báo cáo
+## 8. Reading the report
 
-### Bốn nhóm
+### Four buckets
 
 ```
-must fix:      4     ← ta có bằng chứng phụ thuộc VÀ nó đã đổi. Coi như có việc.
-needs review: 210    ← hoặc ta có đụng, hoặc mức độ đủ nghiêm trọng để xác nhận
-opportunity: 1313    ← năng lực mới có thể lấy về
-fyi:         1229    ← ghi nhận cho đủ
+must fix:      4     ← we have evidence we depend on it AND it changed. Assume work.
+needs review: 210    ← either we touch it, or it is severe enough to confirm
+opportunity: 1313    ← new capability we could adopt
+fyi:         1229    ← recorded for completeness
 ```
 
-Đọc theo thứ tự Must fix → Needs review → Opportunity. `fyi` chỉ tra khi cần.
+Read in order: Must fix → Needs review → Opportunity. Consult `fyi` only when looking something up.
 
-`must fix: 0` nghĩa là **chưa cung cấp bằng chứng**, không phải "bản nâng cấp này sạch". Không có hồ sơ trỏ vào patch hoặc source thật thì không mục nào lên được Must fix, và báo cáo có ghi rõ điều đó.
+`must fix: 0` means **no evidence was supplied**, not "this upgrade is clean". Without a profile pointing at real patches or source, nothing can reach Must fix, and the report says so explicitly.
 
-Ở chế độ `--mode fork` bốn nhóm này mang nghĩa khác, vì phép so cũng khác: không phải Chromium theo thời gian, mà upstream đối chiếu bản fork ở cùng milestone. "Removed" nghĩa là *ta* đã bỏ, "added" nghĩa là *ta* đang mang thêm.
+In `--mode fork` the four buckets mean something different, because the comparison is different: not Chromium over time, but upstream against the fork at the same milestone. "Removed" means *we* removed it, "added" means *we* carry it.
 
-| Nhóm | Ở `uprev` | Ở `fork` |
+| Bucket | In `uprev` | In `fork` |
 |---|---|---|
-| Must fix | Ta tham chiếu tới nó và nó đã đổi | Khác biệt ta phụ thuộc — lần rebase sau sẽ âm thầm xoá nó |
-| Needs review | Ta động tới vùng đó, hoặc đủ nghiêm trọng | Khác biệt chưa rõ ai chịu trách nhiệm |
-| New opportunity | Năng lực mới | **Không dùng** — trong phép so fork không có gì là "cơ hội" |
-| FYI | Ghi nhận cho đủ | Như trên |
+| Must fix | We reference it and it changed | Divergence we depend on — the next rebase silently removes it |
+| Needs review | We touch that area, or it is severe enough | Divergence with no clear owner |
+| New opportunity | New capability | **Not used** — nothing in a fork comparison is an opportunity |
+| FYI | Recorded for completeness | As above |
 
-Mỗi finding trỏ tới **`đường-dẫn:dòng`** của cả hai phía, không chỉ tên file. `content_features.cc` khai gần hai trăm tính năng — đúng lý do mà bằng chứng cấp ký hiệu được xếp trên bằng chứng cấp đường dẫn khi chấm điểm.
+Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features — the same reason symbol evidence outranks path evidence when scoring.
 
-### Một bảng, và mỗi dòng phải tự nói được nó là cái gì
+### One table, and every row says what it is
 
-`report.html` là **một bảng duy nhất**, lọc và sắp xếp được. Đã thử hai bố cục khác chồng lên nó và cả hai đều tệ hơn — ghi lại để không quay lại:
+`report.html` is **a single table**, filterable and sortable. Two other layouts were tried on top of it and both were worse — recorded here so nobody goes back:
 
-- **Gộp mọi finding theo signal, đặt trên một trang cuộn dài.** Thành hai mươi mốt thanh đóng mà tên là các từ gần đồng nghĩa trong từ vựng Chromium: `Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` là ba mục khác nhau. Tám mươi thanh, ba tầng, trước khi người đọc chạm được vào một dòng đọc được.
-- **Đưa những mục đó vào menu chia theo đội.** Hết tường accordion, nhưng mất đúng cái bảng làm tốt: không còn nhìn được toàn bộ cùng lúc, không sắp xếp được, không tìm được.
+- **Grouping every finding by signal on one long scrolling page.** It became twenty-one collapsed bars whose titles are near-synonyms in Chromium's own vocabulary: `Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` are three different entries. Eighty bars, three levels deep, before the reader reaches one readable row.
+- **Putting those behind a per-team menu.** The accordion wall went away, and so did the one thing a table is good for: seeing everything at once, sorting it, searching it.
 
-Thứ thiếu chưa bao giờ là hình dạng. Nó là chuyện một dòng ghi `id:cancelButton` rồi để người đọc tự đoán: trang nào, thêm hay bớt, nút gì, có liên quan tới mình không. Nên bảng giữ nguyên hình dạng, và mỗi dòng mang sẵn câu trả lời:
+What was missing was never the shape. It was that a row said `id:cancelButton` and left the reader to work out which page, added or removed, what kind of control, and whether it concerns them. So the table keeps its shape and every row carries the answer:
 
 ```
 ~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
@@ -660,17 +666,17 @@ Thứ thiếu chưa bao giờ là hình dạng. Nó là chuyện một dòng ghi
                     Now ON by default on Windows │ content/public/common │ 100
 ```
 
-Dấu ở đầu ô: `+` mới, `~` đổi, `−` mất. Nhãn `OURS` khi dòng đó chạm mã ta vá hoặc tham chiếu — trên một lần chạy thật là 53 trong 2.792 dòng, và 53 dòng đó là lý do báo cáo tồn tại.
+The marker at the start of the cell: `+` new, `~` changed, `−` gone. The `OURS` tag appears when the row touches code we patch or reference — on a real run that is 53 of 2,792 rows, and those 53 are why the report exists.
 
-Câu "chuyện gì đã xảy ra" là **nhãn của signal đã ấn định mức nghiêm trọng** cho finding đó, không phải signal đầu tiên trong danh sách. Nếu lấy nhầm, một dòng sẽ mang một câu và bị chấm điểm theo một câu khác. Finding không mang signal nào — thứ vừa xuất hiện, chưa có mặc định nào dịch chuyển — lấy chiều và loại làm câu mô tả (`New feature flag`, `Removed chrome://flags entry`), nên mọi dòng đều có một câu.
+The "what happened" sentence is **the label of the signal that set the severity** for that finding, not the first signal in the list. Pick the wrong one and a row carries one sentence while being ranked by another. A finding with no signal at all — something that just appeared, with no default to move — uses its direction and kind as the sentence (`New feature flag`, `Removed chrome://flags entry`), so every row has one.
 
-### Bốn ô triage bấm được
+### Four clickable triage cards
 
-Bốn ô ở đầu trang là bộ lọc: bấm vào là bảng bên dưới lọc đúng nhóm vừa bấm. Con số trên ô và số dòng bảng lọc ra luôn bằng nhau — có test giữ.
+The four cards at the top are filters: click one and the table below filters to that bucket. The number on the card and the number of filtered rows always match — a test holds that.
 
-### Màn hình nào đổi gì
+### What changed on each screen
 
-Cột **Where** trả lời câu "nó ở đâu" cho từng dòng: `settings › privacy_page` cho một control, thư mục khai báo cho mọi thứ khác. Riêng `report.md` còn có hẳn một mục gộp theo màn hình, vì bản markdown đọc tuần tự chứ không lọc được:
+The **Where** column answers "where is this" for every row: `settings › privacy_page` for a control, the declaring directory for everything else. `report.md` additionally has a whole section grouped by screen, because the markdown version is read top to bottom and cannot be filtered:
 
 ```
 settings › ai_page — 13 new · 1 changed · 5 gone
@@ -680,24 +686,24 @@ settings › ai_page — 13 new · 1 changed · 5 gone
   − page /localNetworkAccess
 ```
 
-Dữ liệu để viết ra như vậy vốn đã nằm sẵn trên fact và chỉ là chưa từng được hiển thị: mỗi control mang bề mặt, trang, file, tên thẻ và pref nó ghi; mỗi route mang đường dẫn và điều kiện canh; mỗi gate mang handler đặt nó. Cùng một loadTimeData key xuất hiện một lần cho mỗi handler đặt nó, nên nếu không có cột này thì `webuiRefresh2026` hiện chín dòng giống hệt nhau.
+The data for that was already on the facts and simply never displayed: every control carries its surface, page, file, tag and the pref it writes; every route carries its path and guard; every gate carries the handler that sets it. The same loadTimeData key appears once per handler that sets it, so without this column `webuiRefresh2026` shows up as nine identical rows.
 
-### Bảng cuối: định danh không phải mô tả
+### The table: an identifier is not a description
 
-Bảng có sáu cột, và ba trong số đó trước đây chỉ đọc được khi bấm mở từng dòng hoặc không có ở đâu cả:
+The table has six columns, and three of them used to be reachable only by expanding a row, or not present at all:
 
-| Cột | Trả lời |
+| Column | Answers |
 |---|---|
-| Score | Xếp hạng, giải thích được từng điểm |
-| Bucket | Rơi vào nhóm triage nào |
-| What | Chiều thay đổi (`+` / `~` / `−`) và vật đó **bằng lời**, không phải định danh trần: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
-| What happened | Câu mô tả chuyện đã xảy ra |
-| Where | Màn hình, hoặc thư mục khai báo |
-| Surface | Loại fact, kèm nhóm nghĩa của nó |
+| Score | The ranking, with every point explained |
+| Bucket | Which triage bucket it falls in |
+| What | The direction (`+` / `~` / `−`) and the thing **in words**, not a bare identifier: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
+| What happened | The sentence describing what happened |
+| Where | The screen, or the declaring directory |
+| Surface | The fact kind, with its meaning group |
 
-Cột `Change` cũ đã bỏ: chiều thay đổi giờ là một dấu màu ở đầu ô What, vì `~` chiếm một ký tự còn cái pill chiếm 112px.
+The old `Change` column is gone: direction is now a coloured marker at the start of the What cell, because `~` takes one character and a pill took 112px.
 
-### Mọi điểm số đều giải thích được
+### Every score is explainable
 
 ```
 base severity 75 (modified base_feature)
@@ -706,31 +712,31 @@ base severity 75 (modified base_feature)
   | +16 owned area 'Video & media' (weight 80)
 ```
 
-Một bảng xếp hạng không ai cãi lại được là bảng xếp hạng bị bỏ qua ngay lần đầu nó sai. Muốn chỉnh ưu tiên thì sửa `weight` trong `areas`, hoặc sửa bảng `BASE_SEVERITY` / `SIGNAL_SEVERITY` trong `chromedrift/diff.py`. Cả hai đều là dữ liệu thuần, không phải logic.
+A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. To adjust priorities, change `weight` in `areas`, or the `BASE_SEVERITY` / `SIGNAL_SEVERITY` tables in `chromedrift/diff.py`. Both are plain data, not logic.
 
-### Phân tích hết, lọc lúc đọc
+### Analyse everything, slice at read time
 
-Cách làm tự nhiên khi mở rộng ra nhiều mảng là lọc ngay từ đầu: "lần này chỉ phân tích Download thôi". Đó là cách chắc chắn nhất để vứt mất phần đầu danh sách, vì lý do đã nêu ở §7: các mục nghiêm trọng nhất là hạ tầng dùng chung, không thuộc vùng sản phẩm nào.
+The natural move when scaling to many areas is to filter up front: "this time we only analyse Downloads". That is the surest way to lose the top of the list, for the reason given in §7: the most severe findings are shared infrastructure belonging to no product area.
 
-Nên `report.json` **luôn chứa tất cả**, và việc cắt lát diễn ra lúc đọc:
+So `report.json` **always holds everything**, and slicing happens at read time:
 
 ```bash
-# Phân tích một lần
+# Analyse once
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --profile config/profile.json5
 
-# Xem có những vùng nào
+# See which areas exist
 python3 -m chromedrift report out/report.json --list-areas
 
-# Cắt lát cho từng đội — không chạy lại, không quét lại
+# Slice per team — no re-run, no re-scan
 python3 -m chromedrift report out/report.json --area downloads --out downloads
 python3 -m chromedrift report out/report.json --area ipc       --out ipc
 ```
 
-Kích thước không phải nút thắt: toàn bộ phần không-FYI của một kỳ uprev là khoảng 1 MB JSON, còn `report.md` chỉ 66 KB. Nút thắt là thời gian đọc của con người.
+Size is not the constraint: the whole non-FYI part of an uprev is about 1 MB of JSON, and `report.md` is 66 KB. The constraint is human reading time.
 
-### Phần thừa phải hiện ra
+### The leftovers have to be visible
 
-Chia vùng mà im lặng nuốt phần không khớp là cách chắc chắn nhất để bỏ lọt lỗi. Nên công cụ luôn in số finding không thuộc vùng nào, và cảnh báo khi trong đó có mục điểm cao:
+Splitting by area while silently swallowing whatever matched nothing is the surest way to lose a bug. So the tool always prints the number of findings belonging to no area, and warns when any of them score highly:
 
 ```
 ⚠️ 50 unassigned findings score 60 or more (highest: 87). These belong to no
@@ -738,148 +744,150 @@ Chia vùng mà im lặng nuốt phần không khớp là cách chắc chắn nh�
    or review this set explicitly.
 ```
 
-Xem được luôn bằng `--area _unassigned`. Con số này cũng là thước đo chất lượng của chính định nghĩa vùng.
+View them with `--area _unassigned`. That number is also a measure of how good the area definitions are.
 
-### Mười ba loại fact, ba nhóm nghĩa
+### Thirteen fact kinds, three meaning groups
 
-Báo cáo nhóm bộ lọc theo *ý nghĩa của thay đổi*, không xếp mười ba loại thành một danh sách phẳng:
+The report groups its filter by *what a change means*, rather than presenting thirteen kinds as a flat list:
 
-| Nhóm | Gồm | Một thay đổi ở đây nghĩa là |
+| Group | Contains | A change here means |
 |---|---|---|
-| Behaviour switches | feature flag, feature param, Blink runtime | Hành vi tự nó đổi |
-| External contracts | pref, switch, Web IDL, Mojo | Vỡ một thứ bên ngoài binary, âm thầm: dữ liệu người dùng đã lưu, script khởi chạy, website đang chạy, tiến trình bên kia |
-| UI and scheduling | route/control/gate WebUI, `chrome://flags` | Đổi cái người dùng thấy, hoặc đổi ngày một cờ bị xoá |
+| Behaviour switches | feature flag, feature param, Blink runtime | Behaviour itself changed |
+| External contracts | pref, switch, Web IDL, Mojo | Something outside the binary breaks, silently: stored user data, launch scripts, live websites, the other process |
+| UI and scheduling | WebUI route/control/gate, `chrome://flags` | What the user sees changed, or the date something is scheduled for removal moved |
 
-Trên một báo cáo M139 → M143 thật, 3.120 finding chia 34% / 35% / 30%. Tức là **hai phần ba báo cáo không phải chuyện tính năng được bật hay tắt** — đọc phẳng thành mười ba loại "tính năng" là cách hiểu sai phổ biến nhất.
+On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as thirteen kinds of "feature" is the most common misreading.
 
-Ba nhóm này hiện ở hai chỗ trong `report.html`: dòng phụ dưới cột `Surface` của mỗi dòng, và nhóm của dropdown `All surfaces`. `report.md` thì xếp hẳn các mục theo ba nhóm này, vì bản markdown đọc tuần tự chứ không lọc được. Có test giữ mỗi loại fact thuộc đúng một nhóm — sót một loại thì cột `Surface` của nó in ra rỗng.
+The three groups appear in two places in `report.html`: as a sub-line under each row's `Surface` column, and as the option groups of the `All surfaces` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Surface` column renders empty.
 
-### Ngữ cảnh từ chromestatus
+### Context from chromestatus
 
-`enrich/chromestatus.py` lấy mô tả tính năng do người viết. Ghép từng mục thì tỉ lệ trúng rất thấp (~2%) vì tên bên đó là văn xuôi còn tên trong mã là định danh. Nên thay vì cố ghép, công cụ ghi cả danh sách "Chromium đã ship gì trong khoảng này" vào báo cáo như phần nền — khoảng 100 mục. Đó là nguồn duy nhất nói *upstream định ship cái gì*, nên nó nằm trong báo cáo dưới dạng bối cảnh, không phải dưới dạng ý kiến thứ hai về bất kỳ dòng nào.
+`enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works (~2% hit rate) because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what upstream *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
 
+The window is counted back from the version being adopted, and the list is ordered newest milestone first. Both used to be the other way round, and the result was that a 143 → 151 report carried 200 entries covering M144 to M150 and **nothing at all from M151** — the milestone actually being adopted. Truncation now happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` really does hold the rest.
 ---
 
-## 9. Giới hạn
+## 9. Limits
 
-Nói rõ để không ai đọc báo cáo sạch rồi tưởng bản nâng cấp sạch.
+Stated plainly, so nobody reads a clean report as a clean upgrade.
 
-### Công cụ đọc khai báo, không đọc logic
+### The tool reads declarations, not logic
 
-Mỗi trang WebUI có hai file song song:
+Every WebUI page has two parallel files:
 
 ```
-downloads_page.html   ← ĐỌC   khai báo: có điều khiển nào, loại gì, gắn pref nào
-downloads_page.ts     ← BỎ    hành vi:  khi nào hiện, bấm vào thì làm gì
+downloads_page.html   ← READ     declarations: which controls exist, of what type, bound to which pref
+downloads_page.ts     ← SKIPPED  behaviour:    when they show, what happens on click
 ```
 
-Trong `.html` công cụ đọc được:
+In the `.html` the tool can read:
 
 ```html
 <template is="dom-if" if="[[autoOpenDownloads_]]" restamp>
-    ... nút "Xoá tất cả" ...
+    ... the "Clear all" button ...
 </template>
 ```
 
-Nó biết có một khối bị canh bởi điều kiện tên `autoOpenDownloads_`. Nhưng trong `.ts`:
+It knows there is a block guarded by a condition named `autoOpenDownloads_`. But in the `.ts`:
 
 ```ts
-autoOpenDownloads_ = autoOpen;    // autoOpen là trạng thái lúc chạy
+autoOpenDownloads_ = autoOpen;    // autoOpen is runtime state
 ```
 
-Nó **không biết** khi nào điều kiện đó đúng — điều đó phụ thuộc người dùng có đặt loại file tự mở hay không, tức trạng thái runtime chứ không phải khai báo.
+it **cannot know** when that condition is true — it depends on whether the user has set a file type to auto-open, which is runtime state, not a declaration.
 
-Đo trên 332 file template của tám bề mặt: 602 khối điều kiện, 460 ràng buộc `hidden="[[...]]"`, và **37% điều khiển nằm trong một khối điều kiện**. Khoảng một phần ba điều khiển có điều kiện hiển thị mà công cụ không giải được.
+Measured over 332 template files across the eight surfaces: 602 conditional blocks, 460 `hidden="[[...]]"` bindings, and **37% of controls sit inside a conditional block**. So roughly a third of controls have a visibility condition the tool cannot resolve.
 
 | | |
 |---|---|
-| Thêm/bớt một điều khiển | Bắt được |
-| Đổi loại điều khiển (dropdown → toggle) | Bắt được |
-| Đổi pref mà điều khiển ghi vào | Bắt được |
-| Thêm/bớt trang, đổi điều kiện canh **trang** | Bắt được |
-| Đổi logic quyết định khi nào **điều khiển** hiện | Không |
-| Đổi việc bấm nút thì làm gì | Không |
-| Đổi cách sắp xếp, lọc danh sách | Không |
+| A control added or removed | Caught |
+| A control changing type (dropdown → toggle) | Caught |
+| A control changing which pref it writes | Caught |
+| A page added or removed, or its **page**-level guard changing | Caught |
+| The logic deciding when a **control** shows | No |
+| What a button does when clicked | No |
+| How a list is sorted or filtered | No |
 
-Ba lý do cố ý bỏ:
+Three deliberate reasons for skipping it:
 
-1. **Đọc logic là phân tích luồng dữ liệu, không phải quét cú pháp.** Để biết `autoOpenDownloads_` khi nào đúng phải lần theo callback và cả trạng thái từ C++ gửi sang. Nó sẽ sai ngay khi Chromium viết lại một hàm.
-2. **Phá vỡ nguyên tắc "không cần tải Chromium về".** Phần khai báo vài chục MB; đọc logic thì phải kéo cả cây TypeScript, và vẫn không đủ vì logic nối sang C++.
-3. **Nhất quán với tầng C++.** Công cụ cũng không đọc thân hàm C++, chỉ đọc macro khai báo. Đọc được logic một bên thì phải đọc cả hai, và lúc đó nó thành một compiler chứ không còn là công cụ chạy trong hai phút.
+1. **Reading logic is dataflow analysis, not lexical scanning.** Knowing when `autoOpenDownloads_` is true means following callbacks and state sent over from C++. It would break the moment Chromium rewrote a function.
+2. **It breaks the "no Chromium checkout" principle.** The declarations are a few dozen megabytes; reading logic means pulling the whole TypeScript tree, and even then it is not enough because the logic continues into C++.
+3. **Consistency with the C++ layer.** The tool does not read C++ function bodies either, only declaration macros. Read logic on one side and you have to read it on both — at which point it is a compiler, not a tool that runs in two minutes.
 
-Chuỗi `route → guard → flag` bù được phần quan trọng nhất — điều kiện hiển thị ở cấp **trang**, vì Chromium khai nó dưới dạng `loadTimeData` chứ không phải logic. Đó là lý do ca Local Network Access truy được đến tận cùng. Phần không bù được là điều kiện ở cấp **điều khiển bên trong trang**; chỗ đó chỉ so sánh ảnh chụp giao diện mới trả lời được.
+The `route → guard → flag` chain covers the most important part — **page**-level visibility, because Chromium declares that as `loadTimeData` rather than as logic. That is why the Local Network Access case can be traced all the way down. What is not covered is the condition on a **control inside a page**; only comparing screenshots answers that.
 
-### Các giới hạn còn lại
+### The remaining limits
 
-- **Một khai báo có trong cây nguồn vẫn có thể không được biên dịch vào binary.** Công cụ không đọc đồ thị GN, nên nó biết cái gì được *khai báo*, không biết cái gì được *build*.
-- **Thay đổi nằm hoàn toàn trong thân hàm C++** — cùng lý do như trên, ở tầng khác.
-- **Chuỗi hiển thị trong `.grd`** — đổi nhãn hiển thị không bắt được.
-- **API của extension.** Đuôi `.idl` trong cây Chromium dùng cho ba ngôn ngữ khác nhau: Web IDL của Blink, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`), và MIDL (`ichromeaccessible.idl`). Bộ đọc chỉ hiểu ngôn ngữ đầu, nên nó chỉ đọc dưới `third_party/blink/renderer/`. Trước đây nó đọc cả ba và cho ra 1.081 fact sai ở M151 — 96 fact có nguyên một khai báo lồng nằm trong chữ ký của chính nó, số còn lại bị gắn nhãn "Web API" trong khi không website nào gọi được `chrome.fileManagerPrivate`. Đọc sai một phương ngữ tệ hơn là không đọc; muốn phủ bề mặt extension thì cần một bộ đọc riêng với loại fact riêng.
-- **Mọi thứ ngoài repo:** cấu hình Finch phía server, script khởi chạy, hệ thống test tự động.
-- **Giao diện đã render** — không ảnh chụp, không bố cục, không phát hiện lỗi hiển thị.
+- **A declaration present in the source tree may still not be compiled into the binary.** The tool does not read the GN graph, so it knows what is *declared*, not what is *built*.
+- **A change entirely inside a C++ function body** — the same reason as above, a layer down.
+- **Display strings in `.grd`** — a changed label is not caught.
+- **Mojo structs, enums and unions.** The extractor reads `interface` declarations only. At M151 the tree holds 1,581 interfaces against 2,524 structs, 1,587 enums and 219 unions, so this is 26% of the Mojo declaration surface. A struct field changing type is an ABI break of exactly the same kind as a method signature moving; covering it needs its own fact kinds, not the existing one relabelled.
+- **Extension APIs.** The `.idl` extension serves three different languages in the Chromium tree: Blink's Web IDL, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`) and MIDL (`ichromeaccessible.idl`). The extractor understands only the first, so it reads only under `third_party/blink/renderer/`. It used to read all three and produced 1,081 wrong facts at M151 — 96 of them with an entire nested declaration inside their own signature, the rest labelled "Web API" when no website can call `chrome.fileManagerPrivate`. Reading a dialect wrongly is worse than not reading it; covering the extension surface needs its own extractor and its own fact kind.
+- **Everything outside the repository:** server-side Finch configs, launch scripts, test automation.
+- **Rendered UI** — no screenshots, no layout, no visual regressions.
 
-### Còn có thể mở rộng
+### What can still be extended
 
-Công cụ đang theo dõi tám bề mặt `chrome://` trong target set mặc định (`wide` đọc cả 132). Chromium có 132 thư mục dưới `chrome/browser/resources/`, nhưng con số đó gây hiểu nhầm: 39 là trang debug người dùng không bao giờ thấy, 9 chỉ dành cho ChromeOS. **Số đáng cân nhắc là khoảng 29**, chẳng hạn `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
+The default target set tracks eight `chrome://` surfaces (`wide` reads all 132). Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
 
-Thêm một bề mặt là thêm một dòng trong `chromedrift/targets.py`:
+Adding a surface is one line in `chromedrift/targets.py`:
 
 ```python
 WEBUI_SURFACES = (
     "settings",
     "history",
     ...
-    "pdf",        # ← thêm dòng này là xong
+    "pdf",        # ← this line is the whole change
 )
 ```
 
-Không cần viết parser mới — ba bộ đọc WebUI đã tổng quát cho mọi bề mặt.
+No new parser needed — the three WebUI extractors are general across surfaces.
 
-### Thêm một nguồn sự thật mới
+### Adding a new source of truth
 
-Viết một extractor với hai hàm thuần `applies_to(path)` và `extract(text, path)`, đăng ký một dòng trong `chromedrift/extract/__init__.py`, khai file cần tải trong `chromedrift/targets.py`. Không đụng tới phần còn lại.
+Write an extractor with two pure functions, `applies_to(path)` and `extract(text, path)`, register it with one line in `chromedrift/extract/__init__.py`, and declare the files to fetch in `chromedrift/targets.py`. Nothing else changes.
 
 ---
 
-## 10. Môi trường và xử lý sự cố
+## 10. Environment and troubleshooting
 
-### Hệ điều hành
+### Operating systems
 
-| Nền tảng | Trạng thái | Đã kiểm chứng thế nào |
+| Platform | Status | How it was verified |
 |---|---|---|
-| macOS | Chạy đầy đủ | Toàn bộ pipeline, Python 3.14.6 |
-| Linux / Ubuntu | Chạy đầy đủ | Ubuntu 24.04 + Python 3.12 và Debian + Python 3.9 trong Docker, kết quả trùng khớp macOS từng con số |
-| Windows | Chạy được | Chưa chạy trực tiếp; từng cơ chế Windows gây vỡ đã kiểm riêng — xem dưới |
+| macOS | Fully working | The whole pipeline, Python 3.14.6 |
+| Linux / Ubuntu | Fully working | Ubuntu 24.04 + Python 3.12 and Debian + Python 3.9 in Docker, matching macOS number for number |
+| Windows | Works | Not run directly; each Windows-specific failure mode was checked separately — see below |
 
-Về Windows, mã nguồn không có phần nào phụ thuộc POSIX. Các điểm thường làm vỡ công cụ Python đã kiểm riêng:
+On Windows, nothing in the source depends on POSIX. The things that usually break a Python tool there were each checked:
 
-- **Encoding console** — đây là lỗi thật đã tìm ra và sửa. Windows chỉ dùng UTF-8 cho console thật; hễ output bị chuyển hướng ra file hoặc pipe là rơi về cp1252, mà báo cáo chứa `→` và `·`. Nay CLI ép stdout/stderr về UTF-8 khi khởi động, và có test hồi quy chạy CLI dưới `PYTHONIOENCODING=cp1252`.
-- **Đọc file UTF-8** — mọi `open()` đều khai `encoding=` tường minh.
-- **Ngữ nghĩa đường dẫn** — kiểm trực tiếp qua module `ntpath`, gồm cả chốt chặn path-traversal khi giải nén tarball.
-- **Giới hạn 260 ký tự** — đường dẫn tương đối dài nhất trong cache đo được là 142 ký tự. Đủ thoải mái, nhưng đừng đặt dự án ở chỗ quá sâu.
-- **Tên file cấm, đụng độ hoa-thường** — quét toàn bộ cache: không có tên `CON`/`PRN`/`AUX`/`NUL`/`COM*`/`LPT*`, không có cặp file chỉ khác nhau hoa-thường, không có ký tự `: * ? " < > |`.
+- **Console encoding** — this was a real bug, found and fixed. Windows only uses UTF-8 for a real console; the moment output is redirected to a file or a pipe it falls back to cp1252, and reports contain `→` and `·`. The CLI now forces stdout/stderr to UTF-8 at startup, with a regression test that runs the CLI under `PYTHONIOENCODING=cp1252`.
+- **Reading UTF-8 files** — every `open()` declares `encoding=` explicitly.
+- **Path semantics** — checked directly against the `ntpath` module, including the path-traversal guard when unpacking tarballs.
+- **The 260-character limit** — the longest relative path in the cache measures 142 characters. Comfortable, but do not put the project somewhere very deep.
+- **Reserved filenames and case collisions** — the whole cache was scanned: no `CON`/`PRN`/`AUX`/`NUL`/`COM*`/`LPT*` names, no pairs of files differing only in case, no `: * ? " < > |` characters.
 
-### Sau proxy công ty
+### Behind a corporate proxy
 
-`urllib` tự đọc biến môi trường:
-
-```bash
-export HTTPS_PROXY=http://proxy.noi-bo:8080
-export NO_PROXY=localhost,127.0.0.1,.noi-bo
-python3 -m chromedrift check          # in ra proxy đang dùng
-```
-
-Nếu proxy giải mã TLS và gặp `CERTIFICATE_VERIFY_FAILED`, trỏ Python tới CA nội bộ:
+`urllib` reads the environment variables itself:
 
 ```bash
-export SSL_CERT_FILE=/etc/ssl/certs/ca-noi-bo.pem
+export HTTPS_PROXY=http://proxy.internal:8080
+export NO_PROXY=localhost,127.0.0.1,.internal
+python3 -m chromedrift check          # prints the proxy in use
 ```
 
-### Mạng cách ly hoàn toàn
+If the proxy terminates TLS and you get `CERTIFICATE_VERIFY_FAILED`, point Python at the internal CA:
 
-Hai lựa chọn.
+```bash
+export SSL_CERT_FILE=/etc/ssl/certs/ca-internal.pem
+```
 
-**Dùng checkout hoặc mirror nội bộ.** `--local-src` áp cho cả hai ref, nên khi hai phiên bản nằm ở hai thư mục khác nhau thì dùng `--from-src` và `--to-src`:
+### Fully air-gapped
+
+Two options.
+
+**Use an internal checkout or mirror.** `--local-src` applies to both refs, so when the two versions live in different directories use `--from-src` and `--to-src`:
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
@@ -888,52 +896,52 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --no-enrich
 ```
 
-**Chuyển cache từ máy có mạng sang.** Snapshot là JSON thuần:
+**Move the cache from a networked machine.** Snapshots are plain JSON:
 
 ```bash
-# máy có mạng
+# on the networked machine
 python3 -m chromedrift snapshot 151.0.7922.138
-# chép .chromedrift-cache/snapshots/*.json sang máy cách ly
+# copy .chromedrift-cache/snapshots/*.json to the air-gapped machine
 ```
 
-### Bảng sự cố
+### Troubleshooting table
 
-| Triệu chứng | Nguyên nhân | Cách xử lý |
+| Symptom | Cause | What to do |
 |---|---|---|
-| `could not resolve milestone 151` | Không vào được chromiumdash | Ghi phiên bản đầy đủ. Tra ở chromiumdash.appspot.com/branches |
-| `404 …` khi snapshot | Tag không tồn tại | Chỉ tag đã phát hành mới có |
-| `GET failed after 4 attempts` | Mạng chập chờn hoặc rate limit | Chạy lại — cache giữ phần đã tải xong. Lặp lại thì xem phần proxy |
-| `every target missing for <ref>` | Ref sai hoàn toàn | So lại chuỗi ref; `refs/tags/` được thêm tự động |
-| `snapshot: N facts` với N rất nhỏ | `--local-src` trỏ sai chỗ | Phải trỏ vào thư mục `src/` của Chromium, nơi có `content/` và `third_party/` |
-| `missing targets: 1` | File không tồn tại ở milestone đó | Bình thường. Chromium di chuyển file giữa các bản |
-| `cannot diff snapshots built from different target sets` | Hai snapshot tạo bằng `--target-set` khác nhau | Chạy lại với cùng target set. Công cụ từ chối thay vì so nhầm — một bên thiếu hẳn nhiều loại fact thì mọi fact bên kia sẽ bị đọc thành "mới thêm" |
-| `snapshot cache stale (schema N != M)` | Cache tạo bởi bản cũ hơn | Bình thường, tự dựng lại |
-| `scope: N FILE(S) OUT OF SCOPE` | Cache cây cũ còn sót file của một lần chạy rộng hơn | Chạy lại phía đó với `--refresh` |
-| `must fix: 0` | Hồ sơ chưa có bằng chứng | Chạy `chromedrift profile …`. Nếu `symbols: 0` xem dòng dưới |
-| `symbols: 0` trong profile | `patch_dirs` sai, hoặc patch không chứa identifier Chromium | Token trong patch được lọc theo từ vựng Chromium, nên chỉ tên feature/switch/pref thật mới được giữ |
-| Quá nhiều mục "review" | `areas.symbols` đặt từ quá chung | Từ như `"Api"`, `"Data"` khớp mọi thứ |
-| Kết quả khác lần chạy trước | Dùng số milestone trần | Luôn ghim phiên bản đầy đủ cho báo cáo chính thức |
-| (Windows) `FileNotFoundError` khi giải nén | Chạm giới hạn 260 ký tự | Đặt dự án ở đường dẫn ngắn, hoặc `set CHROMEDRIFT_CACHE=C:\cdcache` |
-| (Windows) `python3` không phải là lệnh | Windows dùng tên khác | Dùng `py -3` hoặc `python` |
+| `could not resolve milestone 151` | chromiumdash unreachable | Write the full version. Look it up at chromiumdash.appspot.com/branches |
+| `404 …` during snapshot | The tag does not exist | Only released tags are available |
+| `GET failed after 4 attempts` | Flaky network or rate limiting | Re-run — the cache keeps what already downloaded. If it repeats, see the proxy section |
+| `every target missing for <ref>` | The ref is entirely wrong | Check the ref string; `refs/tags/` is added automatically |
+| `snapshot: N facts` with N very small | `--local-src` points at the wrong place | It must point at Chromium's `src/` directory, the one containing `content/` and `third_party/` |
+| `missing targets: 1` | The file does not exist at that milestone | Normal. Chromium moves files between releases |
+| `cannot diff snapshots built from different target sets` | The two snapshots were built with different `--target-set` | Re-run with the same one. The tool refuses rather than comparing wrongly — if one side is missing whole categories of fact, every fact on the other side reads as an addition |
+| `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
+| `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
+| `must fix: 0` | The profile has no evidence | Run `chromedrift profile …`. If `symbols: 0`, see the next row |
+| `symbols: 0` in the profile | `patch_dirs` is wrong, or the patches contain no Chromium identifiers | Patch tokens are filtered against Chromium's vocabulary, so only real feature/switch/pref names are kept |
+| Too many "review" items | `areas.symbols` uses words that are too generic | Words like `"Api"` or `"Data"` match everything |
+| Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
+| (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMEDRIFT_CACHE=C:\cdcache` |
+| (Windows) `python3` is not a command | Windows names it differently | Use `py -3` or `python` |
 
-### Cache và log
+### Cache and logs
 
 ```bash
-CHROMEDRIFT_DEBUG=1 python3 -m chromedrift run …   # in nguyên traceback
-python3 -m chromedrift run … --refresh             # bỏ qua cache, tải lại
-export CHROMEDRIFT_CACHE=/shared/chromedrift-cache # đặt cache ở nơi khác
+CHROMEDRIFT_DEBUG=1 python3 -m chromedrift run …   # print full tracebacks
+python3 -m chromedrift run … --refresh             # ignore the cache and refetch
+export CHROMEDRIFT_CACHE=/shared/chromedrift-cache # put the cache elsewhere
 ```
 
-Cache dùng chung khiến các job CI sau gần như tức thì. Snapshot của tag đã phát hành không bao giờ đổi nên chia sẻ được thoải mái giữa các job và các đội.
+A shared cache makes later CI jobs nearly instant. A released tag's snapshot never changes, so it can be shared freely between jobs and between teams.
 
-### Chạy trong CI
+### Running in CI
 
 ```bash
 #!/bin/bash
 set -euo pipefail
 export CHROMEDRIFT_CACHE=/shared/chromedrift-cache
 
-FROM="148.0.7778.217"        # ghim, đừng dùng số milestone trần
+FROM="148.0.7778.217"        # pinned, not a bare milestone number
 TO="151.0.7922.138"
 
 python3 -m chromedrift check --profile config/profile.json5
@@ -941,95 +949,96 @@ python3 -m chromedrift run "$FROM" "$TO" \
   --profile config/profile.json5 \
   --out "reports/${FROM}_to_${TO}"
 
-# Chặn merge nếu còn mục Must fix chưa xử lý
+# Block the merge while Must fix items are outstanding
 MUST=$(python3 -c "import json,sys; \
   print(json.load(open(sys.argv[1]))['summary']['by_bucket'].get('must_fix', 0))" \
   "reports/${FROM}_to_${TO}/report.json")
-[ "$MUST" -eq 0 ] || { echo "Còn $MUST mục phải xử lý trước khi uprev"; exit 1; }
+[ "$MUST" -eq 0 ] || { echo "$MUST items to handle before the uprev"; exit 1; }
 ```
 
 ---
 
-## 11. Kiểm thử
+## 11. Tests
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-**273 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
+**297 tests, running in under a second, with no network.**
 
-Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
+The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
-Nên chạy lại sau mỗi lần sửa `diff.py` hoặc `impact.py` — đó là hai chỗ chứa các quyết định phân loại.
+Re-run them after any change to `diff.py` or `impact.py` — those two hold the classification decisions.
 
-Một số test không kiểm hành vi mà kiểm **tính nhất quán nội bộ**, vì lớp lỗi hay lặp lại nhất ở dự án này là cùng một sự thật được suy ra ở hai nơi rồi lệch nhau:
+Some tests check no behaviour at all but **internal consistency**, because the most frequently recurring class of bug in this project is one fact derived in two places that then drift apart:
 
-- Mọi chỗ hỏi "đường dẫn này có trong phạm vi không" phải cho cùng một câu trả lời.
-- Mọi chỗ hỏi "file này có thể khai báo gì không" phải cho cùng một câu trả lời.
-- Mọi quy ước tên mà phép đo độ phủ đếm thì phải có bộ đọc nhận, và ngược lại.
-- Mọi quy ước tên mà bộ đọc nhận thì phải nằm trong bộ lọc tải về — nếu không, file nằm trên đĩa mà không ai mở, nhìn y hệt như file không tồn tại.
-- Mỗi số đo phải có tên riêng: "độ phủ cây nguồn" và "độ phủ theo vùng" là hai thứ khác nhau.
-- Cùng một cây nguồn phải cho cùng một tập fact, bất kể hệ thống tệp trả về thư mục theo thứ tự nào.
-- Mọi thuộc tính được đem ra so thì phải sinh được một nhãn giải thích; một dòng có điểm số mà cột "vì sao" trống thì không đọc được.
-- Mọi con số đo được mà tài liệu ghi ra phải khớp với snapshot trên đĩa.
-- Mọi fact phải trỏ đúng dòng khai báo của nó, và số dòng ấy phải đi được tới báo cáo.
-- Không lệnh nào được nhận một cờ rồi bỏ qua nó.
-- Không chuỗi hiển thị nào được ghi cứng một con số độ phủ — mỗi lần chạy tự đo và tự in.
+- Everywhere that asks "is this path in scope" must give the same answer.
+- Everywhere that asks "could this file declare something" must give the same answer.
+- Every naming convention the coverage measurement counts must be claimed by an extractor, and the other way round.
+- Every naming convention an extractor claims must be inside the download filter — otherwise the file sits on disk unopened, which looks exactly like a file that does not exist.
+- Every measurement gets its own name: "tree coverage" and "area coverage" are two different things.
+- The same source tree must produce the same set of facts, whatever order the filesystem returns directories in.
+- Every attribute that gets compared must produce a label explaining it; a row with a score and an empty "why" column is unreadable. Checked both synthetically — every kind, every whitelisted attribute — and against two real snapshots.
+- Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
+- Every measured number written into a document must match the snapshot on disk, and the source map in §12 must match the source.
+- Every fact must point at the line that declares it, and that line number must survive into the report.
+- No command may accept a flag and then ignore it.
+- No display string may hard-code a coverage number — every run measures and prints its own.
 
-### Đối chứng với dữ liệu thật
+### Checking against real data
 
-Test đơn vị chỉ chứng minh code làm đúng cái người viết nghĩ. Để kiểm xem nó có đúng thực tế không, bộ trích được viết lại bằng phương pháp khác hẳn — bỏ hết chỉ thị tiền xử lý, tách theo dấu `;`, regex khác — rồi so trên `content_features.cc` giữa M148 và M151:
+Unit tests only prove the code does what its author thought. To check it against reality, the extractor was rewritten by a deliberately different method — strip every preprocessor directive, split on `;`, different regexes — and run over `content_features.cc` between M148 and M151:
 
 ```
-Phương pháp độc lập :  19 thêm,  9 bỏ
-Công cụ báo         :  19 thêm,  8 bỏ
+Independent method :  19 added,  9 removed
+The tool reported  :  19 added,  8 removed
 ```
 
-Truy mục lệch thì hoá ra **công cụ đúng, phép đối chứng sai**: feature không bị xoá mà chuyển từ `content_features.cc` sang `media_switches.cc`, và công cụ báo đúng là `declaration_moved`. Phép đối chứng chỉ nhìn một file nên không thấy.
+Tracking down the difference showed **the tool was right and the cross-check was wrong**: the feature was not deleted, it moved from `content_features.cc` to `media_switches.cc`, and the tool correctly reported `declaration_moved`. The cross-check only looked at one file, so it could not see that.
 
 ---
 
-## 12. Cấu trúc mã nguồn
+## 12. Source layout
 
 ```
 chromedrift/
-  acquire.py      536 dòng   tải nguồn qua Gitiles hoặc từ checkout local
-  targets.py      611        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
-  snapshot.py     186        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/      2.306        9 bộ đọc + tiện ích quét C++
-  diff.py         927        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
-  cluster.py      214        gom mảnh vụn thành một câu chuyện
-  downstream.py   474        tập chạm của fork + định nghĩa vùng
-  impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
-  catalog.py      362        đo target set thiếu gì; kiểm bao đóng tham chiếu
-  discover.py     311        tìm file của vendor trong cây fork
-  provenance.py   207        tách quyết định cố ý khỏi nợ merge
-  coverage.py     249        tìm chỗ fork che upstream bằng cờ build
-  model.py        628        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
-  jsonc.py        259        bộ đọc JSON5 tự viết
-  report/       1.691        markdown + bảng điều khiển HTML tự chứa;
-                             gộp finding theo chuyện đã xảy ra và theo màn hình
-  enrich/         174        ngữ cảnh từ chromestatus
-  cli.py          780        9 lệnh dòng lệnh
+  acquire.py      546 lines  fetch source over Gitiles or from a local checkout
+  targets.py      620        declares which files to fetch and why; partitions; coverage rules
+  snapshot.py     186        combines fetch + extract into one cached snapshot
+  extract/      2,404        9 extractors + the C++ scanning helpers
+  diff.py         990        semantic comparison, labelling, rename detection
+  cluster.py      214        assemble scattered fragments into one story
+  downstream.py   498        the fork's touch set + area definitions
+  impact.py       258        scoring, bucketing, area coverage
+  catalog.py      362        measure what the target set is missing; check reference closure
+  discover.py     327        find the vendor's own files in a fork checkout
+  provenance.py   207        separate deliberate divergence from merge debt
+  coverage.py     249        find where the fork shadows upstream with a build flag
+  model.py        662        shared data structures, JSON read/write, area filtering
+  jsonc.py        259        hand-written JSON5 reader
+  report/       1,629        markdown + self-contained HTML dashboard;
+                             groups findings by what happened and by screen
+  enrich/         194        context from chromestatus
+  cli.py          813        9 command-line commands
 ```
 
-Toàn bộ đường ống là một chuỗi thẳng các phép biến đổi dữ liệu thuần:
+The whole pipeline is a straight line of pure data transforms:
 
 ```
 Snapshot(ref)            ->  [Fact]      extract/
 (Snapshot, Snapshot)     ->  [Change]    diff.py
 ([Change], TouchSet)     ->  [Finding]   impact.py
 [Finding]                ->  [Finding+]  cluster.py, enrich/
-[Finding]                ->  báo cáo     report/
+[Finding]                ->  report      report/
 ```
 
-Mỗi chặng đọc và ghi JSON, nên chặng nào cũng chạy, kiểm tra và chạy lại độc lập được. Điều đó quan trọng ở đây vì chặng đắt (mạng) và chặng phải chỉnh đi chỉnh lại (chấm điểm, báo cáo) có chi phí hoàn toàn khác nhau.
+Every stage reads and writes JSON, so any stage can be run, inspected and re-run on its own. That matters here because the expensive stage (network) and the stage you keep tuning (scoring, reporting) have completely different cost profiles.
 
-`model.py` giữ một hằng `SCHEMA_VERSION`. Nó được tăng mỗi khi một artifact đã cache thôi mang nghĩa mà bản cũ tưởng nó mang, kèm ghi chú nói rõ cái gì đã hỏng trong im lặng — nhờ vậy cache cũ được dựng lại thay vì bị đọc nhầm.
+`model.py` holds a `SCHEMA_VERSION` constant. It is bumped whenever a cached artifact stops meaning what an older build thought it meant, with a note saying exactly what was silently wrong — so old caches are rebuilt instead of misread.
 
 ---
 
-## Đọc thêm
+## Further reading
 
-- **[docs/pipeline.html](docs/pipeline.html)** — đường ống từ đầu đến cuối, bám theo một thay đổi có thật. Mở thẳng bằng trình duyệt, không cần mạng, không cần server.
-- **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — gói kiến thức cho agent: quy trình phân loại, bảng tra nhãn, và các bẫy đã kiểm chứng bằng dữ liệu thật. Phần giá trị nhất không phải hướng dẫn chạy lệnh, mà là kiến thức ngăn agent kết luận sai.
+- **[docs/pipeline.html](docs/pipeline.html)** — the pipeline end to end, following one real change. Opens directly in a browser, no network, no server.
+- **[skills/analyzing-chromium-uprevs/SKILL.md](skills/analyzing-chromium-uprevs/SKILL.md)** — the knowledge pack for an agent: the triage procedure, the signal reference, and the traps verified against real data. The valuable part is not how to run the commands, but the knowledge that stops an agent reaching a wrong conclusion.

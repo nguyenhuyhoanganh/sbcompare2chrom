@@ -137,9 +137,19 @@ def _milestone_from_ref(ref: str) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+# chromiumdash spells its platform names capitalised. This tool spells its own
+# platform lowercase and passes it straight through, and the two never met:
+# `platform=windows` is not an error, it is an empty release list, so every
+# resolution spent a request getting nothing and then succeeded on the
+# hardcoded fallback below. The fallback stays, for a platform this table does
+# not know; it is no longer the thing doing the work.
+CHROMIUMDASH_PLATFORMS = {"windows": "Windows", "mac": "Mac", "linux": "Linux"}
+
+
 def _latest_stable_version(milestone: int, platform: str, timeout: int) -> Optional[str]:
     """Highest stable release for a milestone, via chromiumdash."""
-    for plat in (platform, "Windows"):
+    asked = CHROMIUMDASH_PLATFORMS.get(platform.lower(), platform)
+    for plat in dict.fromkeys((asked, "Windows")):
         url = (f"{CHROMIUMDASH}/fetch_releases?channel=Stable"
                f"&platform={urllib.parse.quote(plat)}&milestone={milestone}&num=25")
         try:

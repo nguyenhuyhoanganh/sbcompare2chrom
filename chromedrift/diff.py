@@ -72,15 +72,24 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
         # so a move is a change in reach, not bookkeeping.
         "origin_trial_allows_third_party", "settable_from_internals",
         "browser_process_read_access", "browser_process_read_write_access",
+        # Which operating systems the trial runs on, which kind of trial it is,
+        # whether it works without HTTPS, and whether the flag is protected
+        # from being forced. Same job as the four above: they decide who can
+        # reach the feature from outside the binary.
+        "origin_trial_os", "origin_trial_type", "origin_trial_allows_insecure",
+        "is_protected_feature",
     ),
     KIND_IDL_INTERFACE: ("idl_kind", "inherits", "ext", "values"),
     KIND_IDL_MEMBER: ("signature", "member_type", "ext", "runtime_enabled"),
-    # Effectively empty, and deliberately. "module" is part of the key, so it
-    # can never differ; "methods" and "method_count" do change -- 107 times
-    # across M130 -> M151 -- but every one of those is already a mojo_method
-    # added or removed finding of its own. Comparing them here would report the
-    # same ABI change twice, once vaguely and once precisely.
-    KIND_MOJO_INTERFACE: ("module",),
+    # Empty, and deliberately. "methods" and "method_count" do change -- 107
+    # times across M130 -> M151 -- but every one of those is already a
+    # mojo_method added or removed finding of its own, so comparing them here
+    # would report the same ABI change twice, once vaguely and once precisely.
+    # "module" used to sit here to keep the tuple non-empty, which was worse
+    # than empty: it is part of the key, so it can never differ, and it read as
+    # an attribute that could move and produce a row nothing explains. An
+    # interface's identity moving *is* an add plus a remove.
+    KIND_MOJO_INTERFACE: (),
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
     # "platform_state" is the guard resolved for Windows, not the guard text:
     # a key entering or leaving our binary is the change, while upstream
@@ -203,6 +212,10 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "ui_gate_removed": 40,
     "ui_gate_added": 25,
     "param_default_changed": 40,
+    # The knob itself moved rather than its value: a different C++ type, or a
+    # different owning flag. Both were compared and neither produced a row
+    # anyone could read.
+    "param_rewired": 35,
     "flag_expiring": 45,
     # Below the kind's own base severity of 15, so labelling these changes no
     # ranking. They are the largest single group in a report -- 281 at
@@ -303,6 +316,8 @@ SIGNAL_LABELS: Dict[str, str] = {
                        "is now unconditional, or went with it",
     "ui_gate_added": "New visibility condition",
     "param_default_changed": "Feature parameter default changed",
+    "param_rewired": "Feature parameter rewired — its type changed, or it now "
+                     "belongs to a different flag",
     "flag_expiring": "Flag scheduled for removal",
     "flag_expiry_moved": "Removal date moved further out — scheduling only, "
                          "no behaviour change",
@@ -548,7 +563,11 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
         elif change.change_type == ADDED:
             signals.append("web_api_added")
         else:
-            if "signature" in change.deltas or "idl_kind" in change.deltas:
+            # `member_type` is what a member *is* -- an attribute becoming an
+            # operation is a different call at every call site -- so it belongs
+            # with the signature rather than in a category of its own.
+            if any(a in change.deltas
+                   for a in ("signature", "idl_kind", "member_type")):
                 signals.append("web_api_signature_change")
             # `inherits` moves the prototype chain, `values` adds or drops an
             # enum member -- both change what a site can write, and both were
@@ -562,15 +581,24 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     elif kind in (KIND_MOJO_METHOD, KIND_MOJO_INTERFACE):
         if change.change_type == REMOVED:
             signals.append("ipc_removed")
-        elif change.change_type == MODIFIED and (
-                "signature" in change.deltas or "params" in change.deltas
-                or "response" in change.deltas):
-            signals.append("ipc_signature_change")
+        elif change.change_type == MODIFIED:
+            if ("signature" in change.deltas or "params" in change.deltas
+                    or "response" in change.deltas):
+                signals.append("ipc_signature_change")
+            elif "attrs" in change.deltas:
+                # The mojom attributes on a method, which is where the build
+                # condition lives: `[EnableIfNot=is_android|is_ios]` appearing
+                # on `LocalMainFrameHost.Maximize` decides whether the method
+                # is in our binary at all. Compared since the kind was added,
+                # labelled by nothing -- four such rows in M143 -> M148.
+                signals.append("build_gate_changed")
     elif kind == KIND_FEATURE_PARAM:
         if "default" in change.deltas:
             signals.append("param_default_changed")
         if "var" in change.deltas:
             signals.append("feature_symbol_renamed")
+        if "type" in change.deltas or "feature" in change.deltas:
+            signals.append("param_rewired")
     elif kind == KIND_WEBUI_ROUTE:
         signals += _webui_route_signals(change)
     elif kind == KIND_WEBUI_CONTROL:
@@ -664,6 +692,23 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
             signals.append("enabled_by_default")
         elif new_state == "disabled":
             signals.append("disabled_by_default")
+        else:
+            # Windows moved to or from "conditional" / "not_compiled": the
+            # feature did not flip, the guard deciding whether it is in our
+            # build did. Without this the state moved, the row was emitted and
+            # nothing said why -- two of them in M143 -> M148.
+            signals.append("build_gate_changed")
+
+    # The `#if` chain around the declaration moved. This is compared -- it is
+    # the whole evidence for a vendor shadowing a feature behind a build flag,
+    # which is why schema 4 started recording it -- and it was the one compared
+    # attribute of the tool's highest-value kind that never produced a label:
+    # 55 rows in M143 -> M148 arrived with a severity and a blank reason.
+    # Switches, preferences and WebUI controls have said `build_gate_changed`
+    # for exactly this since the guards audit; base::Feature was the omission.
+    if ("conditions" in change.deltas
+            and "build_gate_changed" not in signals):
+        signals.append("build_gate_changed")
 
     if old_fact.attrs.get("var") != new_fact.attrs.get("var"):
         signals.append("feature_symbol_renamed")
@@ -760,15 +805,33 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
         # no row, so the reader could not tell that from an unexplained one.
         signals.append("web_api_status_moved")
 
-    if ("origin_trial_feature_name" in change.deltas
-            or "origin_trial_allows_third_party" in change.deltas):
+    if any(a in change.deltas for a in ("origin_trial_feature_name",
+                                        "origin_trial_allows_third_party",
+                                        "origin_trial_os", "origin_trial_type",
+                                        "origin_trial_allows_insecure")):
         signals.append("origin_trial_change")
     # What turns this flag on from inside the binary, and what it drags with
     # it. `base_feature` going to "none" means the C++ feature that used to
     # control it is gone.
+    #
+    # The last three are the ones that decide who can reach the flag from
+    # outside the renderer -- internals, and the browser process reading or
+    # writing it. They were added to the compared set with the note that they
+    # "decide who can turn a feature on from outside the binary" and then left
+    # out of every signal, so a move produced a row nothing explained.
     if any(a in change.deltas for a in ("base_feature", "base_feature_status",
                                         "depends_on", "implied_by", "public",
-                                        "copied_from_base_feature_if")):
+                                        "copied_from_base_feature_if",
+                                        "settable_from_internals",
+                                        "browser_process_read_access",
+                                        "browser_process_read_write_access",
+                                        "is_protected_feature")):
+        signals.append("runtime_flag_rewired")
+    # The declared status moved without our platform's value moving -- a flag
+    # going from a single `status: "stable"` to a per-platform table that still
+    # says stable for Windows. Nothing changes for our users, but the row
+    # exists and had nothing to say for itself.
+    if "status" in change.deltas and not signals:
         signals.append("runtime_flag_rewired")
     return signals
 

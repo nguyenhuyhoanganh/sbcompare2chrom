@@ -20,10 +20,21 @@ from ..model import KIND_PREF, KIND_SWITCH, Fact
 from ._cpp import (PLATFORM, conditional_spans, cpp_platform_state,
                    enclosing_conditions, line_of, mask_comments)
 
-# const char kFoo[] = "foo";  /  inline constexpr char kFoo[] = "foo";
+# Two spellings of the same declaration:
+#
+#     const char kFoo[] = "foo";
+#     inline constexpr char kFoo[] = "foo";
+#     inline constexpr std::string_view kFoo = "foo";
+#
+# The third is what Chromium is migrating to, and it has no `[]`. Reading only
+# the array form left 63 keys at M151 in files this extractor already opens --
+# `components/soda/pref_names.h` is entirely written the new way, so every key
+# in it was invisible while the file itself counted as covered. The value can
+# sit on the next line, which is why the pattern spans whitespace.
 _STRING_CONST_RE = re.compile(
-    r"\b(?:inline\s+)?(?:const|constexpr)\s+(?:constexpr\s+)?char\s+"
-    r"(k\w+)\s*\[\s*\]\s*=\s*\"([^\"]*)\"\s*;"
+    r"\b(?:inline\s+)?(?:const|constexpr)\s+(?:constexpr\s+)?"
+    r"(?:char\s+(k\w+)\s*\[\s*\]|std::string_view\s+(k\w+))"
+    r"\s*=\s*\"([^\"]*)\"\s*;"
 )
 
 # Chromium writes this filename both ways: `content_switches.cc` and, in a
@@ -67,7 +78,9 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     spans = conditional_spans(masked)
     facts: List[Fact] = []
     for m in _STRING_CONST_RE.finditer(masked):
-        var, value = m.group(1), m.group(2)
+        # Group 1 is the `char kFoo[]` spelling, group 2 the `std::string_view`
+        # one; exactly one of them matches.
+        var, value = (m.group(1) or m.group(2)), m.group(3)
         if not value:
             continue
         attrs = {"var": var}

@@ -77,7 +77,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 ```
 
 Pure Python 3.9+ stdlib, no install, no Chromium checkout (pulls ~40 MB of
-declaration files per version). Cold run about two minutes; cached runs seconds.
+declaration files per version). Cold run about 97 seconds per version, so roughly three and a half minutes for a pair; a cached run is half a second.
 
 Outputs: `report.md` (paste into a ticket), `report.html` (filterable, fully
 self-contained), `report.json` (scripting). Every finding cites `path:line` on
@@ -123,7 +123,7 @@ coverage of something else.
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
 `media`) limits what is fetched and scanned. Measured at M151 on the default
-set: full run 24,871 facts, `--partition settings` 4,662. A partitioned run
+set: full run 24,959 facts, `--partition settings` 4,708. A partitioned run
 prints its own coverage line, scoped to the partition's roots. **Faster and less
 complete, one-directionally** — Chromium is not organized by product, so a
 change affecting downloads can live in `content/` or in a Mojo interface and
@@ -291,14 +291,14 @@ State these limits in every report. A clean report does not imply a clean uprev.
   | | `default` | `wide` |
   |---|---:|---:|
   | Files read, of the 1,039 that could declare | 42 (4%) | **1,039 (100%)** |
-  | Facts | 24,871 | 36,089 |
+  | Facts | 24,959 | 36,158 |
   | `base::Feature` | 2,062 | 3,951 |
-  | Feature params | 862 | 1,623 |
-  | Preference keys | 689 | 2,404 |
+  | Feature params | 863 | 1,626 |
+  | Preference keys | 689 | 2,460 |
   | Command-line switches | 288 | 1,111 |
   | Mojo interfaces | 338 | 1,455 |
   | Mojo methods | 1,362 | 5,738 |
-  | WebUI controls | 884 | 1,421 |
+  | WebUI controls | 971 | 1,431 |
 
   `default` reads 4% of the files but more than half the feature declarations,
   because curation picked the large ones. `wide` fetches about 315 MB per

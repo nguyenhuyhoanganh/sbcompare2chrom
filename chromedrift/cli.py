@@ -195,7 +195,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         # for exactly the reason a matcher cannot supply it.
         milestone_brief = chromestatus.milestone_brief(
             milestones, args.cache, refresh=args.refresh, log=_log)
-        _log(f"  milestone brief: {len(milestone_brief)} shipped features")
+        # The span is part of the number: 200 features means something
+        # different over three milestones than over eight, and a reader who
+        # cannot see which milestones were asked about cannot tell whether the
+        # one being adopted is among them.
+        span = f"M{milestones[0]}-M{milestones[-1]}" if milestones else "none"
+        _log(f"  milestone brief: {len(milestone_brief)} shipped features "
+             f"across {span}")
     else:
         _log("[5/5] enrichment skipped")
 
@@ -561,14 +567,31 @@ def _write_text(path: str, text: str) -> None:
         fh.write(text)
 
 
-def _milestone_span(start: Optional[int], end: Optional[int]) -> List[int]:
+MILESTONE_SPAN_LIMIT = 8
+
+
+def _milestone_span(start: Optional[int], end: Optional[int],
+                    limit: int = MILESTONE_SPAN_LIMIT) -> List[int]:
+    """Which milestones to ask chromestatus about, newest end kept.
+
+    Each milestone is one API call, so a long gap has to be capped somewhere.
+    It was capped at ``start + 8``, which keeps the *oldest* eight and drops
+    everything after them -- the exact opposite of the comment above it, which
+    said the useful context is concentrated in the milestones being adopted.
+    On a 139 -> 151 run that fetched M140 to M147 and never asked about M148,
+    M149, M150 or M151; on 130 -> 151 it stopped at M138. The target milestone,
+    the one the whole report is about, was the first thing thrown away.
+
+    Counting back from ``end`` keeps the window against the version being
+    adopted. Short spans are unaffected: 148 -> 151 is three milestones either
+    way.
+    """
     if not end:
         return []
     if not start or start >= end:
         return [end]
-    # Cap the span: each milestone is one API call, and the useful context is
-    # concentrated in the milestones being adopted.
-    return list(range(start + 1, min(end, start + 8) + 1))
+    first = max(start + 1, end - limit + 1)
+    return list(range(first, end + 1))
 
 
 # ---------------------------------------------------------------------------

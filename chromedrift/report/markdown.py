@@ -216,15 +216,22 @@ def _render_stories(report: Report) -> str:
         total = sum(len(s.items) for s in stories)
         out += [f"### {group_name} — {total}", "",
                 KIND_GROUP_MEANINGS.get(group_name, ""), "",
-                "| Count | What happened | Direction | Top score |",
-                "|---:|---|---|---:|"]
+                # Both numbers, because the rows are ordered by the first one
+                # and printing only the second made the table look unsorted:
+                # `Top score` ran 100, 84, 83, 80, 78, 75, 82, 50, 63 down a
+                # column with no visible reason. Severity is what Chromium
+                # changing this normally costs, and it is the ranking; top
+                # score is that after our own profile weighed in.
+                "| Count | What happened | Direction | Severity | Top score |",
+                "|---:|---|---|---:|---:|"]
         # Every story, not the top few. There are about fifty in a full uprev
         # and the tail is where the quiet ones live -- 181 flags that arrived
         # with nothing else moving is a fact about the milestone, and cutting
         # the table at fourteen rows hid 546 of these 974 findings.
         for story in stories:
             out.append(f"| {len(story.items)} | {_esc(story.title)} | "
-                       f"{story.headline()} | {story.top_score()} |")
+                       f"{story.headline()} | {story.severity()} | "
+                       f"{story.top_score()} |")
         out.append("")
     if not out:
         return ""
@@ -345,20 +352,32 @@ def _render_milestone_brief(summary: dict, limit: int = 200) -> str:
     Folded into a `<details>` block because it is background, not findings: a
     reader scanning for work should step over it, and a reader trying to
     explain a change should find it without another network call.
+
+    Newest milestone first, because the one being adopted is the one the reader
+    came for. This is also the only place the list is cut, so the count below
+    is true and the "… and N more" line means what it says -- `report.json`
+    really does hold the rest.
     """
     entries = (summary or {}).get("milestone_brief") or []
     if not entries:
         return ""
+    shown = entries[:limit]
+    span = sorted({e.get("milestone") for e in entries if e.get("milestone")})
+    scope = f" across M{span[0]}–M{span[-1]}" if span else ""
+    head_count = (f"{len(shown)} of {len(entries)}" if len(entries) > limit
+                  else str(len(entries)))
     out = ["## What Chromium says shipped in this window", "",
-           f"<details><summary>{len(entries)} features from chromestatus</summary>",
-           ""]
-    for entry in entries[:limit]:
-        head = f"- **M{entry.get('milestone', '?')}** {entry.get('name', '')}"
+           f"<details><summary>{head_count} features from chromestatus"
+           f"{scope}</summary>", ""]
+    for entry in shown:
+        head = f"- **M{entry.get('milestone', '?')}** {_esc(entry.get('name', ''))}"
         if entry.get("shipping"):
-            head += f" _({entry['shipping']})_"
+            head += f" _({_esc(entry['shipping'])})_"
         out.append(head)
+        # `_esc` collapses newlines. Chromestatus prose carries blank lines and
+        # indented code samples, and a raw one breaks out of this list.
         if entry.get("summary"):
-            out.append(f"  - {entry['summary']}")
+            out.append(f"  - {_esc(entry['summary'])}")
         if entry.get("spec"):
             out.append(f"  - Spec: {entry['spec']}")
     if len(entries) > limit:

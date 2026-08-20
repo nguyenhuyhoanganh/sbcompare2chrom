@@ -109,6 +109,7 @@ either outcome until you have looked.
 | `ui_gate_changed` / `ui_gate_removed` / `ui_gate_added` | The condition deciding a page's visibility moved, went away, or appeared |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
+| `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
 | `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |
 | `flag_expiry_moved` | The removal date moved further out. Scheduling on a settings page, not a feature change — the largest single group in most reports |
 | `build_gate_changed` | The `#if` or GRIT `<if>` around a declaration moved, so it may no longer be in the binary we ship |

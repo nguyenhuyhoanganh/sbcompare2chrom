@@ -218,6 +218,30 @@ transition:border-color .14s ease,color .14s ease,background .14s ease}
 #more:hover{border-color:var(--accent);color:var(--accent);background:var(--sunk)}
 .more-note{color:var(--faint);font-size:.81rem;margin:14px 0 0;line-height:1.6;
 max-width:78ch}
+
+/* -- shipped-feature brief ----------------------------------------------- */
+/* Background, not findings, so it sits below the table and stays folded. */
+.brief{margin:26px 0 0;background:var(--card);border:1px solid var(--line);
+border-radius:var(--r2);box-shadow:var(--sh2);overflow:hidden}
+.brief>summary{cursor:pointer;padding:15px 18px;font-size:.87rem;
+font-weight:640;list-style:none;display:flex;align-items:center;gap:9px}
+.brief>summary::-webkit-details-marker{display:none}
+.brief>summary::before{content:"▸";color:var(--accent);font-size:.8em}
+.brief[open]>summary::before{content:"▾"}
+.brief>summary:hover{background:var(--sunk)}
+.brief .body{padding:2px 18px 18px;border-top:1px solid var(--line)}
+.brief .why{color:var(--muted);font-size:.82rem;line-height:1.6;
+max-width:78ch;margin:13px 0 4px}
+.brief .feat{padding:11px 0;border-bottom:1px solid var(--line)}
+.brief .feat:last-child{border-bottom:none}
+.brief .ms{display:inline-block;font-size:.68rem;font-weight:700;
+letter-spacing:.03em;color:var(--accent);background:var(--accent-soft);
+border-radius:999px;padding:1px 8px;margin-right:8px;vertical-align:1px;
+font-variant-numeric:tabular-nums}
+.brief .fname{font-weight:600;font-size:.88rem}
+.brief .ship{color:var(--faint);font-size:.75rem;margin-left:6px}
+.brief .fsum{color:var(--muted);font-size:.83rem;line-height:1.55;margin-top:5px}
+.brief a{color:var(--accent)}
 """
 
 _JS = """
@@ -440,9 +464,29 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         # key, and on a run without a profile or enrichment these are empty on
         # every single row: measured at 3,120 findings, chromestatus, we_patch
         # and we_ref were empty 3,120 times each.
-        rows.append({k: v for k, v in row.items()
-                     if v not in ("", [], {}, None, False)})
+        rows.append({k: v for k, v in row.items() if not _is_empty(v)})
     return rows
+
+
+def _is_empty(value) -> bool:
+    """Empty in the sense the page's guards mean -- and a number never is.
+
+    This was `value not in ("", [], {}, None, False)`, and `0 == False` in
+    Python, so every finding scoring zero lost its `score` key on the way into
+    the payload. The page then rendered the literal string `undefined` in the
+    Score column: 238 of 6,757 rows on a real M143 -> M151 run, 98 of 2,792 on
+    an M148 one. Sorting broke with it, since `sortVal` returned `undefined`
+    and fell through to the string comparator for those rows only.
+
+    A score of zero is a real, reachable result -- base severity 35 for a
+    removed pref, minus 45 for one that is not compiled on Windows, clamped at
+    zero -- so it has to survive the trip.
+    """
+    if isinstance(value, bool):
+        return value is False
+    if isinstance(value, (int, float)):
+        return False
+    return value in ("", [], {}, None)
 
 
 def _trim(value, limit: int = 90) -> str:
@@ -482,6 +526,57 @@ def _triage_html(report: Report, mode: str) -> str:
         f'<div class="l">{_esc(BUCKET_LABELS[b])}</div>'
         f'<div class="m">{_esc(meanings.get(b, ""))}</div></button>'
         for b in BUCKET_ORDER)
+
+
+def _brief_html(summary: dict, limit: int = 200) -> str:
+    """What Chromium says it shipped in this window, folded below the table.
+
+    It was fetched on every run, written into `report.json` and `report.md`,
+    and then left out of the one artifact people actually open. A reader
+    looking at a row that says `CSSAnchorScope` reached stable had the
+    paragraph explaining it three files away.
+
+    Background, so it sits under the findings and stays closed: it is the
+    answer to "why did this change", not to "what do I do".
+    """
+    entries = (summary or {}).get("milestone_brief") or []
+    if not entries:
+        return ""
+    shown = entries[:limit]
+    span = sorted({e.get("milestone") for e in entries if e.get("milestone")})
+    scope = f" · M{span[0]}–M{span[-1]}" if span else ""
+    count = (f"{len(shown)} of {_n(len(entries))}" if len(entries) > limit
+             else _n(len(entries)))
+
+    items = []
+    for entry in shown:
+        head = (f'<span class="ms">M{_esc(entry.get("milestone", "?"))}</span>'
+                f'<span class="fname">{_esc(entry.get("name", ""))}</span>')
+        if entry.get("shipping"):
+            head += f'<span class="ship">{_esc(entry["shipping"])}</span>'
+        body = ""
+        if entry.get("summary"):
+            body = f'<div class="fsum">{_esc(entry["summary"])}</div>'
+        if entry.get("spec"):
+            spec = _esc(entry["spec"])
+            body += (f'<div class="fsum"><a href="{spec}" rel="noreferrer">'
+                     f'{spec}</a></div>')
+        items.append(f'<div class="feat">{head}{body}</div>')
+
+    more = ""
+    if len(entries) > limit:
+        more = (f'<div class="why">{_n(len(entries) - limit)} more are in '
+                f'<code>report.json</code> under '
+                f'<code>summary.milestone_brief</code>.</div>')
+
+    return (f'<details class="brief"><summary>What Chromium says shipped in '
+            f'this window — {count} features{scope}</summary>'
+            f'<div class="body">'
+            f'<p class="why">Chromium\'s own words about the milestones being '
+            f'adopted, newest first. These are <b>not</b> matched to the rows '
+            f'above — the names are prose and the findings are identifiers — '
+            f'so read them as background, not as a second opinion on any '
+            f'single row.</p>{"".join(items)}{more}</div></details>')
 
 
 def render(report: Report, platform: str = "windows") -> str:
@@ -575,6 +670,7 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <p class="more-note">Rows render in pages of 100 &mdash; the JSON below holds
 every finding regardless of what is on screen. Click any row for its evidence,
 its declaring line, and the reasoning behind its score.</p>
+{_brief_html(summary)}
 </div>
 <script>window.__FINDINGS__={json.dumps(rows, ensure_ascii=False)};
 window.__KINDS__={json.dumps(KIND_LABELS, ensure_ascii=False)};
