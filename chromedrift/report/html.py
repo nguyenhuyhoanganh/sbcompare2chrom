@@ -220,7 +220,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "bucket": finding.bucket,
             "score": finding.score,
             "signals": [SIGNAL_LABELS.get(s, s) for s in change.signals],
-            "paths": change.paths[:3],
+            "paths": (change.locations or change.paths)[:3],
             "we_patch": finding.matched_paths[:5],
             "we_ref": finding.matched_symbols[:8],
             "areas": finding.areas,

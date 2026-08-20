@@ -23,7 +23,8 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 from ..model import KIND_IDL_INTERFACE, KIND_IDL_MEMBER, Fact
-from ._cpp import collapse_ws, line_of, mask_comments, split_top_level
+from ._cpp import (collapse_ws, line_of, mask_comments, split_top_level,
+                   split_top_level_offsets)
 
 _DEF_RE = re.compile(
     r"\b(?P<partial>partial\s+)?"
@@ -37,8 +38,29 @@ _MEMBER_KEYWORDS = ("iterable", "maplike", "setlike", "stringifier",
                     "async iterable", "constructor")
 
 
+# Web IDL is the dialect Blink's own bindings generator reads, and it lives in
+# exactly one place. The `.idl` extension is shared by two other languages in
+# the tree, and this parser reads both of them wrongly rather than not at all:
+#
+#   chrome/common/extensions/api/*.idl   Chrome Extensions IDL. A `namespace`
+#     wrapping `dictionary` and `interface Functions` blocks, so the whole
+#     nested body came out as one member: 96 of the 1,081 facts it produced at
+#     M151 had another declaration inside their own signature. The rest parsed
+#     "successfully" and were reported as Web API changes -- `web_api_removed`
+#     says "site-visible break", and no site can call chrome.fileManagerPrivate.
+#
+#   ui/accessibility/platform/ichromeaccessible.idl   MIDL, the COM interface
+#     language, which happens to spell `interface X : IUnknown {` the same way.
+#
+# Reading a dialect this parser does not know produces confident wrong rows,
+# which is worse than a stated gap. The extensions API is a real surface worth
+# covering one day; it needs its own extractor and its own fact kind, not this
+# one relabelled.
+BLINK_IDL_DIR = "third_party/blink/renderer/"
+
+
 def applies_to(path: str) -> bool:
-    return path.endswith(".idl")
+    return path.endswith(".idl") and path.startswith(BLINK_IDL_DIR)
 
 
 # ---------------------------------------------------------------------------
@@ -147,8 +169,12 @@ def _member_name_and_type(body: str) -> Tuple[str, str]:
 
 
 def _split_members(body: str) -> List[str]:
-    """Split an interface body into member declarations on top-level ';'."""
-    return [p for p in (x.strip() for x in split_top_level(body, ";")) if p]
+    """(offset, declaration) for each member, on top-level ';'.
+
+    The offset travels with the text because a member's line number is made of
+    it: without one, all 12,141 IDL members came out at line 0.
+    """
+    return [(o, p) for o, p in split_top_level_offsets(body, ";") if p]
 
 
 def _enum_values(body: str) -> List[str]:
@@ -201,7 +227,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         if kind == "enum":
             continue
 
-        for member_text in _split_members(body):
+        for member_offset, member_text in _split_members(body):
             # Member extended attributes lead the declaration:
             #   [RuntimeEnabled=Foo] readonly attribute double timestamp;
             decl = member_text.strip()
@@ -219,6 +245,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                 key=f"{name}.{member_name}",
                 name=member_name,
                 path=rel_path,
+                line=line_of(masked, open_idx + 1 + member_offset),
                 attrs={
                     "interface": name,
                     "member_type": member_type,

@@ -2,7 +2,7 @@
 
 Công cụ so sánh hai phiên bản Chromium và trả lời một câu hỏi: **đội làm trình duyệt downstream cần sửa những gì khi nâng nền.**
 
-Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.045 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
+Sản phẩm đích là Samsung Browser bản desktop trên Windows. Toàn bộ là Python thuần (9.204 dòng, 32 file), không dùng thư viện ngoài nào, không cần `pip install`.
 
 Ngoài file này chỉ còn một tài liệu nữa: **[docs/pipeline.html](docs/pipeline.html)** — mở bằng trình duyệt, không cần mạng — đi theo một thay đổi có thật qua từng bước của đường ống, kèm định nghĩa thuật ngữ và cách so sánh từng loại tệp. README này nói dự án là gì và dùng thế nào; `pipeline.html` nói bên trong nó chạy ra sao.
 
@@ -410,7 +410,7 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 | Mojo interface | 338 | 1.455 |
 | Mojo method | 1.362 | 5.738 |
 | Điều khiển WebUI | 884 | 1.421 |
-| **Tổng số fact** | **24.871** | **36.356** |
+| **Tổng số fact** | **24.871** | **36.089** |
 
 Tức là `default` đọc 4% số file nhưng hơn một nửa số khai báo `base::Feature`. Đó là một đánh đổi có chủ ý, không phải một khiếm khuyết — nhưng khi câu trả lời thực sự quan trọng thì chạy `wide`.
 
@@ -643,6 +643,8 @@ fyi:         1229    ← ghi nhận cho đủ
 | New opportunity | Năng lực mới | **Không dùng** — trong phép so fork không có gì là "cơ hội" |
 | FYI | Ghi nhận cho đủ | Như trên |
 
+Mỗi finding trỏ tới **`đường-dẫn:dòng`** của cả hai phía, không chỉ tên file. `content_features.cc` khai gần hai trăm tính năng — đúng lý do mà bằng chứng cấp ký hiệu được xếp trên bằng chứng cấp đường dẫn khi chấm điểm.
+
 ### Mọi điểm số đều giải thích được
 
 ```
@@ -758,6 +760,7 @@ Chuỗi `route → guard → flag` bù được phần quan trọng nhất — �
 - **Một khai báo có trong cây nguồn vẫn có thể không được biên dịch vào binary.** Công cụ không đọc đồ thị GN, nên nó biết cái gì được *khai báo*, không biết cái gì được *build*.
 - **Thay đổi nằm hoàn toàn trong thân hàm C++** — cùng lý do như trên, ở tầng khác.
 - **Chuỗi hiển thị trong `.grd`** — đổi nhãn hiển thị không bắt được.
+- **API của extension.** Đuôi `.idl` trong cây Chromium dùng cho ba ngôn ngữ khác nhau: Web IDL của Blink, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`), và MIDL (`ichromeaccessible.idl`). Bộ đọc chỉ hiểu ngôn ngữ đầu, nên nó chỉ đọc dưới `third_party/blink/renderer/`. Trước đây nó đọc cả ba và cho ra 1.081 fact sai ở M151 — 96 fact có nguyên một khai báo lồng nằm trong chữ ký của chính nó, số còn lại bị gắn nhãn "Web API" trong khi không website nào gọi được `chrome.fileManagerPrivate`. Đọc sai một phương ngữ tệ hơn là không đọc; muốn phủ bề mặt extension thì cần một bộ đọc riêng với loại fact riêng.
 - **Mọi thứ ngoài repo:** cấu hình Finch phía server, script khởi chạy, hệ thống test tự động.
 - **Giao diện đã render** — không ảnh chụp, không bố cục, không phát hiện lỗi hiển thị.
 
@@ -899,7 +902,7 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**248 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
+**262 bài kiểm thử, chạy trong ~0,6 giây, không cần mạng.**
 
 Dữ liệu thử là trích đoạn rút gọn nhưng đúng cấu trúc của file Chromium thật, gồm cả những dạng khó từng làm hỏng các phiên bản parser trước: macro hai tham số, mặc định bọc trong điều kiện tiền xử lý, trạng thái theo từng nền tảng.
 
@@ -915,6 +918,7 @@ Một số test không kiểm hành vi mà kiểm **tính nhất quán nội b�
 - Cùng một cây nguồn phải cho cùng một tập fact, bất kể hệ thống tệp trả về thư mục theo thứ tự nào.
 - Mọi thuộc tính được đem ra so thì phải sinh được một nhãn giải thích; một dòng có điểm số mà cột "vì sao" trống thì không đọc được.
 - Mọi con số đo được mà tài liệu ghi ra phải khớp với snapshot trên đĩa.
+- Mọi fact phải trỏ đúng dòng khai báo của nó, và số dòng ấy phải đi được tới báo cáo.
 - Không lệnh nào được nhận một cờ rồi bỏ qua nó.
 - Không chuỗi hiển thị nào được ghi cứng một con số độ phủ — mỗi lần chạy tự đo và tự in.
 
@@ -935,22 +939,22 @@ Truy mục lệch thì hoá ra **công cụ đúng, phép đối chứng sai**: 
 
 ```
 chromedrift/
-  acquire.py      535 dòng   tải nguồn qua Gitiles hoặc từ checkout local
+  acquire.py      536 dòng   tải nguồn qua Gitiles hoặc từ checkout local
   targets.py      611        khai báo tải file nào và vì sao; phân vùng; luật độ phủ
   snapshot.py     186        gộp tải + trích xuất thành một ảnh chụp có cache
-  extract/      2.215        9 bộ đọc + tiện ích quét C++
-  diff.py         889        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
+  extract/      2.306        9 bộ đọc + tiện ích quét C++
+  diff.py         913        so sánh ngữ nghĩa, gắn nhãn, nhận diện đổi tên
   cluster.py      214        gom mảnh vụn thành một câu chuyện
   sbprofile.py    474        tập chạm của fork + định nghĩa vùng
   impact.py       258        chấm điểm, phân loại, báo cáo độ phủ vùng
   catalog.py      362        đo target set thiếu gì; kiểm bao đóng tham chiếu
-  discover.py     294        tìm file của vendor trong cây fork
+  discover.py     311        tìm file của vendor trong cây fork
   provenance.py   207        tách quyết định cố ý khỏi nợ merge
   coverage.py     249        tìm chỗ fork che upstream bằng cờ build
-  model.py        590        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
+  model.py        614        cấu trúc dữ liệu dùng chung, đọc/ghi JSON, lọc theo vùng
   jsonc.py        259        bộ đọc JSON5 tự viết
-  report/         740        markdown + bảng điều khiển HTML tự chứa
-  enrich/         175        ngữ cảnh từ chromestatus
+  report/         743        markdown + bảng điều khiển HTML tự chứa
+  enrich/         174        ngữ cảnh từ chromestatus
   cli.py          780        9 lệnh dòng lệnh
 ```
 

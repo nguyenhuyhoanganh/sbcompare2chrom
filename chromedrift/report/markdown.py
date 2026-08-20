@@ -265,10 +265,9 @@ def _render_coverage(summary: dict) -> str:
 def _render_milestone_brief(summary: dict, limit: int = 200) -> str:
     """What Chromium says it shipped in this window.
 
-    This used to exist only as context inside the model prompt. With the
-    judging stage gone, the report *is* what a reader reasons over, so the
-    grounding has to live here instead -- otherwise the one source that says
-    what upstream intended is fetched, paid for, and thrown away.
+    The report is what a reader reasons over, so the grounding lives here --
+    otherwise the one source that says what upstream *intended* to ship is
+    fetched, paid for, and thrown away.
 
     Folded into a `<details>` block because it is background, not findings: a
     reader scanning for work should step over it, and a reader trying to
@@ -311,8 +310,12 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
         out.append(f"- Surface: {KIND_LABELS.get(change.kind, change.kind)} "
                    f"({change.change_type})")
         out.append(f"- Signals: {_signals(finding)}")
-        if change.paths:
-            out.append(f"- Declared in: `{'`, `'.join(change.paths[:3])}`")
+        # The place, not just the file. Every extractor computes a line number
+        # and nothing used to carry it past the snapshot, so a Mojo method in a
+        # 900-line .mojom cited the file and left the reader to find it.
+        where = change.locations or change.paths
+        if where:
+            out.append(f"- Declared in: `{'`, `'.join(where[:3])}`")
         if finding.matched_paths:
             out.append(f"- We patch: `{'`, `'.join(finding.matched_paths[:5])}`")
         if finding.matched_symbols:

@@ -80,7 +80,9 @@ Pure Python 3.9+ stdlib, no install, no Chromium checkout (pulls ~40 MB of
 declaration files per version). Cold run about two minutes; cached runs seconds.
 
 Outputs: `report.md` (paste into a ticket), `report.html` (filterable, fully
-self-contained), `report.json` (scripting).
+self-contained), `report.json` (scripting). Every finding cites `path:line` on
+each side, under `change.locations` in the JSON -- quote it, do not paraphrase
+the file name.
 
 **The tool does not judge.** It stops at extracted evidence and a deterministic
 rank; deciding what a change means for the product is your job, and this skill
@@ -269,7 +271,7 @@ State these limits in every report. A clean report does not imply a clean uprev.
   | | `default` | `wide` |
   |---|---:|---:|
   | Files read, of the 1,039 that could declare | 42 (4%) | **1,039 (100%)** |
-  | Facts | 24,871 | 36,356 |
+  | Facts | 24,871 | 36,089 |
   | `base::Feature` | 2,062 | 3,951 |
   | Feature params | 862 | 1,623 |
   | Preference keys | 689 | 2,404 |
@@ -305,6 +307,11 @@ State these limits in every report. A clean report does not imply a clean uprev.
   current tree for the key string first** -- found elsewhere means it moved and
   there is nothing to do; genuinely absent means every existing user's stored
   value is orphaned.
+- **The extensions API.** Three languages share the `.idl` extension in this
+  tree, and the reader understands one of them, so it reads only Blink's own
+  (`third_party/blink/renderer/`). Chrome Extensions IDL and MIDL are not
+  covered at all -- deliberately, after they produced 1,081 facts at M151 that
+  were labelled as Web API changes and were not.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
   is not, and neither is `page_visibility.ts`.

@@ -149,7 +149,22 @@ from typing import Any, Dict, Iterable, List, Optional
 #          24,871 and wide from 36,095 to 36,356.
 #        - nine new signals label attributes that were compared and never
 #          explained -- 380 of 709 modified changes at M148 -> M151.
-SCHEMA_VERSION = 20
+#  21: every fact points at a line, and a finding carries the place rather than
+#      only the file.
+#        - four of the thirteen kinds set no line number at all -- every Mojo
+#          method, every IDL member, every Blink runtime flag and every
+#          chrome://flags entry, 20,844 of 36,356 facts. Mojo interfaces had
+#          one and it was wrong: `\s*` after the newline in the interface
+#          pattern crossed blank lines and masked comments, so 1,453 of 1,455
+#          were reported at the last content line above the declaration.
+#        - `Change` carries `locations` ("path:line"), and both renderers show
+#          it. Version 20 reports cite a file and leave the reader to search it.
+#        - the Web IDL reader is restricted to `third_party/blink/renderer/`.
+#          The `.idl` extension is shared with Chrome Extensions IDL and with
+#          MIDL, and it read both wrongly rather than not at all: 1,081 facts at
+#          M151, 96 of them with a whole nested declaration inside their own
+#          signature, all reported as Web API changes.
+SCHEMA_VERSION = 21
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -252,9 +267,9 @@ MODIFIED = "modified"
 #          capability on offer.
 #
 # These live here rather than in diff.py because the inversion does not stop at
-# the diff. Scoring, the model prompt and the report all describe a change in
-# words that are only true for one of the two, so each of them has to be told
-# which comparison it is looking at.
+# the diff. Scoring and both renderers describe a change in words that are only
+# true for one of the two, so each of them has to be told which comparison it
+# is looking at.
 MODE_UPREV = "uprev"
 MODE_FORK = "fork"
 MODES = (MODE_UPREV, MODE_FORK)
@@ -374,6 +389,13 @@ class Change:
     after: Optional[dict] = None
     deltas: Dict[str, List[Any]] = field(default_factory=dict)  # attr -> [old, new]
     paths: List[str] = field(default_factory=list)
+    # "path:line" per side. Separate from `paths` because a downstream profile
+    # matches path prefixes against that list, and because a reader needs the
+    # place, not just the file: content_features.cc declares nearly two hundred
+    # features, which is the same reason symbol evidence outranks path evidence
+    # when scoring. Every extractor had been computing a line number and
+    # nothing carried it past the snapshot.
+    locations: List[str] = field(default_factory=list)
     signals: List[str] = field(default_factory=list)
     severity: int = 0
 
@@ -391,6 +413,7 @@ class Change:
             "after": self.after,
             "deltas": self.deltas,
             "paths": self.paths,
+            "locations": self.locations,
             "signals": self.signals,
             "severity": self.severity,
         }
@@ -406,6 +429,7 @@ class Change:
             after=d.get("after"),
             deltas=d.get("deltas", {}) or {},
             paths=d.get("paths", []) or [],
+            locations=d.get("locations", []) or [],
             signals=d.get("signals", []) or [],
             severity=d.get("severity", 0),
         )

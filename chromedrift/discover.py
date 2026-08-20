@@ -159,7 +159,10 @@ def scan(root: str, dir_tokens: Sequence[str] = DEFAULT_DIR_TOKENS,
     tokens = [t.lower() for t in dir_tokens]
 
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        # Sorted for the same reason extraction sorts: a walk that depends on
+        # the filesystem gives two machines two answers.
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        filenames = sorted(filenames)
         rel_dir = os.path.relpath(dirpath, root).replace(os.sep, "/")
         rel_dir = "" if rel_dir == "." else rel_dir
         vendor_dir = _dir_is_vendor(rel_dir, tokens) if rel_dir else None
@@ -198,9 +201,23 @@ def scan(root: str, dir_tokens: Sequence[str] = DEFAULT_DIR_TOKENS,
 
 
 def _readable_by_any_extractor(path: str) -> bool:
-    """Would any extractor produce facts from this file, if it were fetched?"""
-    from .extract import REGISTRY
-    return any(applies(path) for _, applies, _ in REGISTRY)
+    """Would any extractor produce facts from this file, if it were fetched?
+
+    Asked the way `run_on_tree` asks it, skips included. A vendor file under a
+    test directory matches an extractor's filename rule and is then skipped
+    during extraction, so counting it as fixable puts something on the worklist
+    that adding a target would not fix -- the exact split this function exists
+    to make.
+    """
+    from .extract import REGISTRY, _other_platform, _skip
+
+    if _skip(path):
+        return False
+    matched = [n for n, applies, _ in REGISTRY if applies(path)]
+    if _other_platform(path):
+        from .extract import CROSS_PLATFORM_EXTRACTORS
+        matched = [n for n in matched if n in CROSS_PLATFORM_EXTRACTORS]
+    return bool(matched)
 
 
 def uncovered_dirs(report: DiscoveryReport, target_set: str = "default",

@@ -128,11 +128,10 @@ def milestone_brief(milestones: List[int], cache_dir: str, limit: int = 200,
     identifiers, and fuzzy matching tops out around 2% before it starts
     inventing pairs.
 
-    A large context window makes that join unnecessary.  Rather than attaching
-    a summary per finding, hand the model the whole shipped-feature list once
-    per request as background.  Around 110 entries costs a few thousand tokens
-    against a 200k window, and it grounds the model in what actually shipped in
-    this window without any matching at all.
+    So the list is carried whole instead of matched. Around 110 entries land in
+    the report as a folded background section, which says what upstream
+    intended to ship in this window without pretending to know which finding
+    each entry belongs to.
     """
     out: List[dict] = []
     seen = set()

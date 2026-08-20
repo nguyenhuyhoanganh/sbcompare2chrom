@@ -17,6 +17,7 @@ implementation of the same API).
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Dict, List
 
 from .. import jsonc
@@ -64,6 +65,18 @@ def _normalize_status(status: Any) -> Dict[str, str]:
     return {}
 
 
+# A JSON5 parse produces values, not positions, so the declaration's line is
+# recovered from the raw text. Exact, because the manifest declares one entry
+# per name and the name is a bare identifier key.
+_NAME_LINE_RE = re.compile(
+    r'^[ \t]*\{?[ \t]*name:[ \t]*"([^"]+)"', re.MULTILINE)
+
+
+def name_lines(text: str) -> Dict[str, int]:
+    return {m.group(1): text.count("\n", 0, m.start()) + 1
+            for m in _NAME_LINE_RE.finditer(text)}
+
+
 def extract(text: str, rel_path: str) -> List[Fact]:
     try:
         doc = jsonc.loads(text)
@@ -72,6 +85,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     if not isinstance(doc, dict):
         return []
     data = doc.get("data") or []
+    lines = name_lines(text)
     facts: List[Fact] = []
     for entry in data:
         if not isinstance(entry, dict):
@@ -100,6 +114,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             key=name,
             name=name,
             path=rel_path,
+            line=lines.get(name, 0),
             attrs=attrs,
         ))
     return facts

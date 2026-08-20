@@ -338,7 +338,7 @@ def paths_from_patches(patch_dir: str) -> tuple:
     if not os.path.isdir(patch_dir):
         return [], symbols
     for dirpath, dirnames, filenames in os.walk(patch_dir):
-        dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
+        dirnames[:] = sorted(d for d in dirnames if d not in SCAN_SKIP_DIRS)
         for filename in filenames:
             if not filename.endswith((".patch", ".diff")):
                 continue
@@ -436,7 +436,7 @@ def scan_sources(roots: Sequence[str], vocab_tokens: Set[str],
     files = 0
     for root in roots:
         for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in SCAN_SKIP_DIRS]
+            dirnames[:] = sorted(d for d in dirnames if d not in SCAN_SKIP_DIRS)
             for filename in filenames:
                 if not filename.endswith(SCAN_EXTS):
                     continue

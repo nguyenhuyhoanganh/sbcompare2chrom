@@ -2779,6 +2779,225 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
             "these attributes are compared and then never explained")
 
 
+class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
+    """A citation that stops at the filename is not a citation.
+
+    `content_features.cc` declares nearly two hundred features -- the same
+    argument the scoring stage uses to rank symbol evidence above path
+    evidence. Four of the thirteen kinds set no line at all (every Mojo method,
+    every IDL member, every Blink flag, every chrome://flags entry: 20,844 of
+    36,356 facts), a fifth set one that was wrong, and nothing downstream read
+    the field anyway.
+    """
+
+    MOJOM = ("module blink.mojom;\n"
+             "\n"
+             "// A comment that masking turns into blank space,\n"
+             "// several lines of it.\n"
+             "\n"
+             "interface Pinger {\n"
+             "  Ping(int32 n) => (bool ok);\n"
+             "  Pong();\n"
+             "};\n")
+
+    IDL = ("interface Thing {\n"
+           "  readonly attribute long width;\n"
+           "  void resize(long w);\n"
+           "};\n")
+
+    JSON5 = ('{\n'
+             '  data: [\n'
+             '    {\n'
+             '      name: "Alpha",\n'
+             '      status: "stable",\n'
+             '    },\n'
+             '    { name: "Beta", status: "experimental" },\n'
+             '  ],\n'
+             '}\n')
+
+    FLAGS = ('[\n'
+             '  {\n'
+             '    "name": "alpha-flag",\n'
+             '    "expiry_milestone": 150\n'
+             '  },\n'
+             '  { "name": "beta-flag", "expiry_milestone": 151 }\n'
+             ']\n')
+
+    def _lines(self, facts, source):
+        rows = source.splitlines()
+        return {f.name: (f.line, rows[f.line - 1] if f.line else "") for f in facts}
+
+    def test_a_mojo_interface_is_not_reported_at_the_line_above_it(self):
+        """`\\s*` after the newline crossed the comment block and the blank
+        line, so 1,453 of 1,455 interfaces at M151 pointed at the wrong line."""
+        from chromedrift.extract import mojom
+        found = self._lines(mojom.extract(self.MOJOM, "a/b.mojom"), self.MOJOM)
+        self.assertEqual(found["Pinger"][0], 6)
+        self.assertIn("interface Pinger", found["Pinger"][1])
+
+    def test_every_mojo_method_has_its_own_line(self):
+        from chromedrift.extract import mojom
+        found = self._lines(mojom.extract(self.MOJOM, "a/b.mojom"), self.MOJOM)
+        self.assertEqual(found["Ping"][0], 7)
+        self.assertEqual(found["Pong"][0], 8)
+
+    def test_every_idl_member_has_its_own_line(self):
+        from chromedrift.extract import web_idl
+        path = "third_party/blink/renderer/core/x.idl"
+        found = self._lines(web_idl.extract(self.IDL, path), self.IDL)
+        self.assertEqual(found["width"][0], 2)
+        self.assertEqual(found["resize"][0], 3)
+
+    def test_a_blink_flag_has_a_line_on_either_layout(self):
+        from chromedrift.extract import blink_runtime
+        path = "third_party/blink/renderer/platform/runtime_enabled_features.json5"
+        found = self._lines(blink_runtime.extract(self.JSON5, path), self.JSON5)
+        self.assertEqual(found["Alpha"][0], 4)
+        self.assertEqual(found["Beta"][0], 7, "a brace sharing the line still counts")
+
+    def test_a_flag_entry_has_a_line_on_either_layout(self):
+        from chromedrift.extract import flags_metadata
+        path = "chrome/browser/flag-metadata.json"
+        found = self._lines(flags_metadata.extract(self.FLAGS, path), self.FLAGS)
+        self.assertEqual(found["alpha-flag"][0], 3)
+        self.assertEqual(found["beta-flag"][0], 6)
+
+    def test_the_line_never_walks_back_to_the_line_above(self):
+        """`\\s` matches newlines; `[ \\t]` is what these patterns need."""
+        from chromedrift.extract import blink_runtime, flags_metadata
+        for module, source, name in (
+                (blink_runtime, self.JSON5, "Alpha"),
+                (flags_metadata, self.FLAGS, "alpha-flag")):
+            lines = module.name_lines(source)
+            self.assertIn(name, source.splitlines()[lines[name] - 1])
+
+    def test_the_change_carries_the_place_not_just_the_file(self):
+        from chromedrift.diff import _make_change
+        from chromedrift.model import Fact
+        old = Fact("mojo_method", "k", "k", path="a/b.mojom", line=41)
+        new = Fact("mojo_method", "k", "k", path="a/b.mojom", line=87)
+        change = _make_change("modified", old, new, "windows", 151,
+                              {"signature": ["x", "y"]})
+        self.assertEqual(change.locations, ["a/b.mojom:41", "a/b.mojom:87"])
+        self.assertEqual(change.paths, ["a/b.mojom"],
+                         "the profile matches path prefixes; keep them clean")
+
+    def test_both_renderers_show_it(self):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+        change = Change(change_type="modified", kind="mojo_method",
+                        key="blink.mojom.X.Y", name="Y",
+                        paths=["a/b.mojom"], locations=["a/b.mojom:41"],
+                        signals=["ipc_signature_change"], severity=80)
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=change, score=80,
+                                          bucket="review")])
+        self.assertIn("a/b.mojom:41", md_report.render(report))
+        self.assertIn("a/b.mojom:41", html_report.render(report))
+
+    def test_a_report_from_before_this_still_renders(self):
+        """Version 20 reports have no locations; fall back to the file."""
+        from chromedrift.model import Report
+        from chromedrift.report import markdown as md_report
+        blob = {"from_ref": "a", "to_ref": "b", "findings": [{
+            "change": {"change_type": "modified", "kind": "mojo_method",
+                       "key": "k", "name": "Y", "paths": ["a/b.mojom"],
+                       "signals": [], "severity": 80},
+            "score": 80, "bucket": "review"}]}
+        text = md_report.render(Report.from_dict(blob))
+        self.assertIn("a/b.mojom", text)
+
+
+class TestWebIdlReadsOnlyWebIdl(unittest.TestCase):
+    """Three languages share the `.idl` extension in this tree.
+
+    Chrome Extensions IDL wraps `dictionary` and `interface Functions` blocks
+    in a `namespace`, so the whole nested body parsed as one member: 96 of the
+    1,081 facts it produced at M151 had another declaration inside their own
+    signature, and the rest were reported as Web API changes -- where
+    `web_api_removed` reads "site-visible break" and no site can call
+    `chrome.fileManagerPrivate`. `ichromeaccessible.idl` is MIDL, which spells
+    `interface X : IUnknown {` the same way.
+
+    Reading a dialect wrongly is worse than a stated gap.
+    """
+
+    EXTENSION_IDL = ('namespace fileSystem {\n'
+                     '  dictionary AcceptOption {\n'
+                     '    DOMString? description;\n'
+                     '  };\n'
+                     '};\n')
+
+    def test_blink_idl_is_read(self):
+        from chromedrift.extract import web_idl
+        self.assertTrue(web_idl.applies_to(
+            "third_party/blink/renderer/modules/webgl/x.idl"))
+        self.assertTrue(web_idl.applies_to(
+            "third_party/blink/renderer/core/dom/element.idl"))
+
+    def test_the_extensions_dialect_is_not(self):
+        from chromedrift.extract import web_idl
+        for path in ("chrome/common/extensions/api/file_manager_private.idl",
+                     "extensions/common/api/file_system.idl",
+                     "chrome/common/apps/platform_apps/api/x.idl",
+                     "ui/accessibility/platform/ichromeaccessible.idl"):
+            self.assertFalse(web_idl.applies_to(path), path)
+
+    def test_it_would_have_read_the_namespace_as_an_interface(self):
+        """Kept as the evidence for why the door is shut.
+
+        The extension's `namespace` becomes one Web IDL interface and the
+        dictionaries inside it disappear, so the surface is neither absent nor
+        present but misdescribed -- the outcome this project treats as worse
+        than a gap.
+        """
+        from chromedrift.extract import web_idl
+        facts = web_idl.extract(self.EXTENSION_IDL,
+                                "third_party/blink/renderer/x.idl")
+        self.assertEqual([(f.kind, f.key) for f in facts],
+                         [("idl_interface", "fileSystem")])
+
+
+class TestEveryTreeWalkIsSorted(unittest.TestCase):
+    """One unsorted walk was enough to make a snapshot machine-dependent.
+
+    Fixing the one in `run_on_tree` and leaving four others is the shape of
+    problem this project keeps finding: the same decision made in several
+    places, and only some of them right. None of the remaining four can produce
+    a wrong answer today -- they feed sets, dicts or a sorted list -- but that
+    is a property of their callers, not of them.
+    """
+
+    def test_no_walk_leaves_directory_order_to_the_filesystem(self):
+        import glob
+
+        # Written as a substring check rather than a lookahead: `\s*=\s*(?!x)`
+        # backtracks the whitespace away and then matches everything, which is
+        # how the first version of this test reported all six lines as broken.
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        offenders = []
+        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+                              recursive=True):
+            with open(path, encoding="utf-8") as fh:
+                for lineno, line in enumerate(fh, 1):
+                    if "dirnames[:]" in line and "= sorted" not in line:
+                        offenders.append(f"{os.path.basename(path)}:{lineno}")
+        self.assertEqual(offenders, [])
+
+    def test_discover_splits_the_worklist_the_way_extraction_reads(self):
+        """A vendor file under a test directory is not a missing target."""
+        from chromedrift.discover import _readable_by_any_extractor
+
+        self.assertTrue(_readable_by_any_extractor(
+            "chrome/browser/samsung/sb_features.cc"))
+        self.assertFalse(_readable_by_any_extractor(
+            "chrome/browser/samsung/test/sb_features.cc"),
+            "extraction skips it, so adding a target would not fix anything")
+        self.assertFalse(_readable_by_any_extractor(
+            "chrome/browser/samsung/toolbar.grd"))
+
+
 class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
     """Nothing shown to a user may quote a coverage figure of its own.
 
@@ -2879,7 +3098,18 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
             parser._subparsers._group_actions[0]._choices_actions)
         self.assertNotIn("AI", text)
 
-    def test_no_module_docstring_mentions_the_ai_stage(self):
+    # "AI stage" was the only phrase this looked for, so five comments and
+    # docstrings still described a model consuming the output -- including one
+    # that justified a whole design decision by a context window that no longer
+    # exists. A reader who believes them looks for a stage that is not there.
+    TRACES = re.compile(
+        r"\bAI stage\b|the model\b|\bLLM\b|context window|\bprompts?\b(?!_)"
+        r"|tokens against", re.IGNORECASE)
+    # `prompt_for_download` is a real Chromium preference key, quoted in an
+    # extractor's docstring as sample markup.
+    ALLOWED = re.compile(r"prompt_for_download|promptForDownload")
+
+    def test_nothing_in_the_package_describes_a_model_reading_the_output(self):
         import glob
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -2888,9 +3118,14 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
                               recursive=True):
             with open(path, encoding="utf-8") as fh:
                 for lineno, line in enumerate(fh, 1):
-                    if "AI stage" in line:
-                        offenders.append(f"{os.path.basename(path)}:{lineno}")
-        self.assertEqual(offenders, [])
+                    if self.ALLOWED.search(line):
+                        continue
+                    if self.TRACES.search(line):
+                        offenders.append(f"{os.path.basename(path)}:{lineno}: "
+                                         f"{line.strip()[:60]}")
+        self.assertEqual(offenders, [],
+                         "the tool stops at the report; nothing may promise a "
+                         "stage that was removed")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

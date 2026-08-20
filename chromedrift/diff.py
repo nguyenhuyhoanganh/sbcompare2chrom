@@ -224,7 +224,7 @@ SIGNAL_SEVERITY: Dict[str, int] = {
 }
 
 # MODE_UPREV / MODE_FORK / MODES are defined in model.py and re-exported here,
-# because every stage downstream of this one -- scoring, prompts, reports --
+# because every stage downstream of this one -- scoring and both renderers --
 # also has to know which comparison it is describing.
 #
 # Fork-mode signals. The question is not "did behaviour change" but "is this
@@ -322,7 +322,7 @@ SIGNAL_LABELS: Dict[str, str] = {
 }
 
 # Fork-mode entries live in their own dicts above so the two vocabularies stay
-# readable, then merge here so every consumer -- reports, prompts, scoring --
+# readable, then merge here so every consumer -- both renderers and scoring --
 # looks signals up in one place.
 SIGNAL_SEVERITY.update(FORK_SIGNALS)
 SIGNAL_LABELS.update(FORK_LABELS)
@@ -428,6 +428,27 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
     return changes
 
 
+def _locations(*facts) -> List[str]:
+    """"path:line" for each side, deduplicated, in the order given."""
+    out: List[str] = []
+    for fact in facts:
+        if fact is None or not fact.path:
+            continue
+        where = f"{fact.path}:{fact.line}" if fact.line else fact.path
+        if where not in out:
+            out.append(where)
+    return out
+
+
+def _merge_locations(*changes) -> List[str]:
+    out: List[str] = []
+    for change in changes:
+        for where in change.locations:
+            if where not in out:
+                out.append(where)
+    return out
+
+
 def _make_change(change_type: str, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
@@ -446,6 +467,7 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
         after=new_fact.attrs if new_fact else None,
         deltas=deltas or {},
         paths=paths,
+        locations=_locations(old_fact, new_fact),
     )
     change.signals = _signals_for(change, old_fact, new_fact, platform,
                                   target_milestone, mode=mode)
@@ -808,7 +830,8 @@ def _detect_repointed_controls(changes: List[Change]) -> List[Change]:
             change_type=MODIFIED, kind=KIND_WEBUI_CONTROL, key=r.key,
             name=f"{r.name} -> {a.name}",
             before=r.before, after=a.after, deltas=deltas,
-            paths=sorted(set(r.paths) | set(a.paths)), signals=signals,
+            paths=sorted(set(r.paths) | set(a.paths)),
+            locations=_merge_locations(r, a), signals=signals,
         )
         repoint.severity = max(SIGNAL_SEVERITY[x] for x in signals)
         merged.append(repoint)
@@ -870,6 +893,7 @@ def _detect_renames(changes: List[Change]) -> List[Change]:
                 after=a.after,
                 deltas={"value": [r.key, a.key]},
                 paths=sorted(set(r.paths) | set(a.paths)),
+                locations=_merge_locations(r, a),
                 signals=[signal],
             )
             rename.severity = SIGNAL_SEVERITY[signal]

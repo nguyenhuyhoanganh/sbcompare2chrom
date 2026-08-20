@@ -206,10 +206,29 @@ def split_top_level(text: str, sep: str = ",") -> List[str]:
     is preceded by an identifier character, so comparison operators inside a
     default value do not corrupt the split.
     """
-    parts, buf = [], []
+    return [part for _, part in split_top_level_offsets(text, sep)]
+
+
+def split_top_level_offsets(text: str, sep: str = ",") -> List[Tuple[int, str]]:
+    """``split_top_level`` with each part's offset into ``text``.
+
+    The offset is what a line number is made of, and four of the thirteen fact
+    kinds had none because the splitter threw it away: every Mojo method and
+    every IDL member came out at line 0. Both callers of the plain form go
+    through this one, so the scanner has a single definition.
+    """
+    parts: List[Tuple[int, str]] = []
+    buf: List[str] = []
+    start = 0
     depth = 0
     angle = 0
     i, n = 0, len(text)
+
+    def flush(end: int) -> None:
+        raw = "".join(buf)
+        lead = len(raw) - len(raw.lstrip())
+        parts.append((start + lead, raw.strip()))
+
     while i < n:
         c = text[i]
         if c in "\"'":
@@ -236,14 +255,15 @@ def split_top_level(text: str, sep: str = ",") -> List[str]:
         elif c == ">" and angle > 0:
             angle -= 1
         elif c == sep and depth == 0 and angle == 0:
-            parts.append("".join(buf))
+            flush(i)
             buf = []
             i += 1
+            start = i
             continue
         buf.append(c)
         i += 1
-    parts.append("".join(buf))
-    return [p.strip() for p in parts]
+    flush(n)
+    return parts
 
 
 def line_of(text: str, index: int) -> int:

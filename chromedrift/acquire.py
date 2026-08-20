@@ -383,8 +383,8 @@ class LocalSource(Source):
             return []
         out: List[str] = []
         for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames
-                           if d not in (".git", "out", "__pycache__")]
+            dirnames[:] = sorted(d for d in dirnames
+                                 if d not in (".git", "out", "__pycache__"))
             for fn in filenames:
                 rel = os.path.relpath(os.path.join(dirpath, fn), self.src_root)
                 out.append(rel.replace(os.sep, "/"))
@@ -523,7 +523,8 @@ def _extract_tar_gz(blob: bytes, dest: str, include: Optional[Tuple[str, ...]] =
 def _copy_tree(src: str, dest: str, include: Optional[Tuple[str, ...]] = None) -> int:
     count = 0
     for dirpath, dirnames, filenames in os.walk(src):
-        dirnames[:] = [d for d in dirnames if d not in (".git", "out", "__pycache__")]
+        dirnames[:] = sorted(d for d in dirnames
+                             if d not in (".git", "out", "__pycache__"))
         for fn in filenames:
             if not _match_include(fn, include):
                 continue
