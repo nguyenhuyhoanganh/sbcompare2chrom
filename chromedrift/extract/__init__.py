@@ -38,17 +38,40 @@ REGISTRY: List[Extractor] = [
     ("webui_gates", webui_gates.applies_to, webui_gates.extract),
 ]
 
-# Directories that only add noise: generated output, tests, and platform trees
-# a Windows desktop browser never compiles.
+# Generated output and test code: noise for every extractor, always.
 SKIP_DIR_PARTS = (
     "/testing/", "/test/", "/tests/", "/out/", "/.git/", "/__pycache__/",
-    "/chromeos/", "/ash/", "/ios/", "/fuchsia/",
 )
+
+# Platforms a Windows desktop browser never compiles. Their features, web APIs
+# and UI say nothing about this product.
+OTHER_PLATFORM_PARTS = ("/chromeos/", "/ash/", "/ios/", "/fuchsia/")
+
+# ...with one exception, and it is not a loophole but the point.
+#
+# A pref key is identified by its string, and Chromium is splitting
+# chrome/common/pref_names.h apart. When a key moves out of it into a ChromeOS
+# file, a reader that cannot see the destination has only two categories for
+# what it observes -- deleted, or moved -- and no way to tell them apart. It
+# reports a deletion, which for a pref means every existing user's stored value
+# is orphaned. Measured M148 -> M151: of 141 keys that vanished, 100 had simply
+# moved into a ChromeOS pref file.
+#
+# So string constants are read wherever they live. They are cheap, they carry
+# no platform behaviour, and having them turns a wrong answer into a right one.
+# The profile's ignore_paths scores anything under those trees down; being
+# visible is not the same as being important.
+CROSS_PLATFORM_EXTRACTORS = ("constants",)
 
 
 def _skip(rel_path: str) -> bool:
     probe = "/" + rel_path.replace(os.sep, "/") + "/"
     return any(part in probe for part in SKIP_DIR_PARTS)
+
+
+def _other_platform(rel_path: str) -> bool:
+    probe = "/" + rel_path.replace(os.sep, "/") + "/"
+    return any(part in probe for part in OTHER_PLATFORM_PARTS)
 
 
 def _in_scope(rel_path: str, allow_paths: Optional[Set[str]],
@@ -68,16 +91,11 @@ def _in_scope(rel_path: str, allow_paths: Optional[Set[str]],
     "Mojo method removed" findings** -- the highest-severity signal the tool
     has, at the top of the report, describing nothing.
     """
+    from ..targets import reaches
+
     if allow_paths is None and allow_prefixes is None:
         return True  # unscoped: caller wants everything present
-    if allow_paths and rel_path in allow_paths:
-        return True
-    for prefix, include in _as_pairs(allow_prefixes):
-        if not rel_path.startswith(prefix):
-            continue
-        if not include or rel_path.endswith(tuple(include)):
-            return True
-    return False
+    return reaches(rel_path, allow_paths or set(), _as_pairs(allow_prefixes))
 
 
 def _as_pairs(allow_prefixes):
@@ -122,6 +140,11 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
             if not _in_scope(rel_path, allow_paths, allow_prefixes):
                 continue
             matched = [(n, fn) for n, applies, fn in REGISTRY if applies(rel_path)]
+            if skip_dirs and _other_platform(rel_path):
+                # Not this platform's code, so only the extractors that exist to
+                # answer "where did this string go" still run.
+                matched = [m for m in matched
+                           if m[0] in CROSS_PLATFORM_EXTRACTORS]
             if not matched:
                 continue
             try:

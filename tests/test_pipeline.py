@@ -1979,22 +1979,45 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         wide = {(t.path, t.kind) for t in get_targets("wide")}
         self.assertTrue(default <= wide, sorted(default - wide))
 
-    def test_wide_roots_keep_only_what_an_extractor_reads(self):
-        """The archives are large; the filter is what stops the tree being."""
+    def test_every_wide_suffix_is_read_by_some_extractor(self):
+        """The archives are large; the filter is what stops the tree being.
+
+        A suffix nobody reads is bytes unpacked and then ignored, and worse, it
+        reads as coverage that is not there. Several of these only match at a
+        specific path -- `route.ts` is a route table only under
+        resources/, `flag-metadata.json` only by its exact name -- so the probe
+        has to be a path that could really occur.
+        """
         from chromedrift.extract import REGISTRY
+        from chromedrift.targets import _WIDE_SUFFIXES
+
+        probes = {
+            ".json5": "third_party/blink/renderer/platform/"
+                      "runtime_enabled_features.json5",
+            "route.ts": "chrome/browser/resources/settings/route.ts",
+            "routes.ts": "chrome/browser/resources/history/routes.ts",
+            "flag-metadata.json": "chrome/browser/flag-metadata.json",
+            ".html": "chrome/browser/resources/settings/a11y_page/p.html",
+            ".html.ts": "chrome/browser/resources/downloads/item.html.ts",
+            ".mojom": "services/network/public/mojom/x.mojom",
+            ".idl": "third_party/blink/renderer/modules/x.idl",
+        }
+        for suffix in _WIDE_SUFFIXES:
+            probe = probes.get(suffix) or (
+                f"components/x/y{suffix}" if suffix.startswith(".")
+                else f"components/x/y_{suffix}")
+            self.assertTrue(
+                any(applies(probe) for _, applies, _ in REGISTRY),
+                f"{suffix} is fetched but no extractor reads {probe}")
+
+    def test_wide_roots_all_carry_a_filter(self):
+        """An unfiltered root would unpack a whole Chromium subsystem to disk."""
         from chromedrift.targets import get_targets
 
-        wide_only = [t for t in get_targets("wide")
-                     if t.kind == "tree" and t.path in
-                     {"components", "chrome/browser", "media", "net", "ui"}]
-        self.assertTrue(wide_only)
-        for target in wide_only:
-            self.assertTrue(target.include, f"{target.path} has no filter")
-            for suffix in target.include:
-                probe = f"{target.path}/sub/x_{suffix}" if not suffix.startswith(".") \
-                    else f"{target.path}/sub/x{suffix}"
-                self.assertTrue(any(applies(probe) for _, applies, _ in REGISTRY),
-                                f"{suffix} is fetched but no extractor reads it")
+        default_trees = {t.path for t in get_targets("default") if t.kind == "tree"}
+        for target in get_targets("wide"):
+            if target.kind == "tree" and target.path not in default_trees:
+                self.assertTrue(target.include, f"{target.path} has no filter")
 
     def test_the_cache_key_separates_the_sets(self):
         """Otherwise a 40 MB snapshot gets reused as if it were the 315 MB one."""
@@ -2039,6 +2062,55 @@ class TestMinimalStaysMinimal(unittest.TestCase):
         for path in PARTITION_CORE:
             self.assertTrue(path in names or any(path.startswith(p) for p in trees),
                             f"{path} is promised to partitions but not fetched")
+
+
+class TestOneDefinitionOfScope(unittest.TestCase):
+    """"Is this path in scope" had three implementations and two answers.
+
+    Nested targets are normal and their filters differ: chrome/browser/ui/webui
+    is declared for .cc while chrome/browser is declared for a dozen suffixes,
+    so a header under the former is reached by the latter. Two of the three
+    copies stopped at the first prefix that matched and answered no -- for 21
+    files that were on disk and being read, which made the coverage figure
+    under-report the tool against itself.
+    """
+
+    def _targets(self):
+        from chromedrift.acquire import FetchTarget
+        return [FetchTarget("chrome/browser/ui/webui", "tree", (".cc",)),
+                FetchTarget("chrome/browser", "tree", ("prefs.h", ".mojom")),
+                FetchTarget("chrome/common/pref_names.h", "file")]
+
+    def test_a_wider_target_covers_what_a_narrower_one_excludes(self):
+        from chromedrift.targets import reaches, scope_of
+        files, trees = scope_of(self._targets())
+        self.assertTrue(reaches(
+            "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h", files, trees))
+
+    def test_a_path_no_target_claims_is_not_reached(self):
+        from chromedrift.targets import reaches, scope_of
+        files, trees = scope_of(self._targets())
+        self.assertFalse(reaches("chrome/browser/ui/views/toolbar.cc", files, trees))
+
+    def test_an_exact_file_target_is_reached(self):
+        from chromedrift.targets import reaches, scope_of
+        files, trees = scope_of(self._targets())
+        self.assertTrue(reaches("chrome/common/pref_names.h", files, trees))
+
+    def test_extraction_and_coverage_give_the_same_answer(self):
+        """They used to disagree, which is the whole reason for one definition."""
+        from chromedrift.catalog import scope_violations
+        from chromedrift.model import Fact, Snapshot
+        from chromedrift.targets import coverage_against, get_targets
+
+        path = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
+        targets = get_targets("wide")
+        cov = coverage_against({path: "pref"}, targets)
+        snap = Snapshot(ref="t", facts=[Fact(kind="pref", key="k", name="k", path=path)],
+                        meta={"target_set": "wide", "partitions": [], "complete": False})
+        # Coverage says it is read, and the scope check agrees it is allowed.
+        self.assertEqual(cov["missed"], 0, cov["missed_paths"])
+        self.assertEqual(scope_violations(snap), [])
 
 
 if __name__ == "__main__":

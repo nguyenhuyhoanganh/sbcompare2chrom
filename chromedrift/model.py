@@ -93,7 +93,14 @@ from typing import Any, Dict, Iterable, List, Optional
 #      than assumed. Version 15 snapshots carry no such measurement, and the
 #      target set they were built from named files chosen at M151, which is a
 #      different scope from the one the same name resolves to now.
-SCHEMA_VERSION = 16
+#  17: `wide` reads every filename shape an extractor understands, not only
+#      feature and pref files, and reaches content/ and blink/public. Version 16
+#      downloaded the archives holding 934 of the tree's 1,424 .mojom files and
+#      124 of its 132 WebUI surfaces, then discarded them for want of a suffix
+#      in a filter. String constants are also read across platform trees now,
+#      so a pref key moving into a ChromeOS file reads as a move rather than a
+#      deletion.
+SCHEMA_VERSION = 17
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

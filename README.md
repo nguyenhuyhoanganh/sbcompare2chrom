@@ -401,8 +401,9 @@ Tách thành từng lệnh không phải để trang trí. Bước đắt (tải
 
 `--target-set` quyết định đọc bao nhiêu: `minimal` (~1 MB, kiểm khói),
 `default` (~40 MB, 4% số file nhưng 58% số khai báo — vì các file curate là
-những file lớn), `wide` (tải 315 MB nhưng chỉ giữ 42 MB trên đĩa, 96% số file và
-3.836 `base::Feature` thay vì 2.062 — dùng làm cổng chặn trước release). **Mỗi lần chạy đều in ra độ phủ nó đạt được**, đo bằng cách liệt kê
+những file lớn), `wide` (tải 315 MB, giữ 94 MB trên đĩa, **100% số file khai báo**:
+3.944 `base::Feature` thay vì 2.062 và 1.455 Mojo interface thay vì 338 —
+dùng làm cổng chặn trước release). **Mỗi lần chạy đều in ra độ phủ nó đạt được**, đo bằng cách liệt kê
 chính cây nguồn của phiên bản đó chứ không giả định — vì một danh sách file
 viết tay dựng ở M130 đem chạy ở M151 sẽ bỏ sót 27% file pref và 34% file
 feature đang tồn tại ở đó.

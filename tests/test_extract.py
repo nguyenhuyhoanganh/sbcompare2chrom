@@ -602,5 +602,91 @@ class TestPrefFileConventions(unittest.TestCase):
         self.assertEqual(facts[0].attrs["var"], "kMemorySaverModeEnabled")
 
 
+class TestPlatformSkipHasOneException(unittest.TestCase):
+    """ChromeOS code is skipped -- except its string constants.
+
+    A pref key is identified by its string, and Chromium is splitting
+    chrome/common/pref_names.h apart. A key that moves out of it into a
+    ChromeOS file looks, to a reader that cannot see the destination, exactly
+    like a key that was deleted -- and for a pref, "deleted" means every
+    existing user's stored value is orphaned. Measured M148 -> M151, of 141
+    keys that vanished, 100 had simply moved into a ChromeOS pref file.
+
+    So string constants are read wherever they live, and nothing else is.
+    """
+
+    def _kinds(self, tree):
+        import os
+        import tempfile
+
+        from chromedrift.extract import run_on_tree
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for rel, text in tree.items():
+                path = os.path.join(tmp, rel)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as fh:
+                    fh.write(text)
+            facts, _ = run_on_tree(tmp)
+        return {f.kind for f in facts}
+
+    PREF = 'inline constexpr char kFoo[] = "ash.foo";'
+    FEATURE = 'BASE_FEATURE(kBar, base::FEATURE_ENABLED_BY_DEFAULT);'
+
+    def test_a_chromeos_pref_is_read(self):
+        kinds = self._kinds({"chrome/browser/ash/x/pref_names.h": self.PREF})
+        self.assertIn("pref", kinds)
+
+    def test_a_chromeos_feature_is_not_read(self):
+        kinds = self._kinds({"chrome/browser/ash/x/x_features.cc": self.FEATURE})
+        self.assertEqual(kinds, set())
+
+    def test_the_same_file_on_our_platform_is_read_in_full(self):
+        kinds = self._kinds({"components/x/x_features.cc": self.FEATURE})
+        self.assertIn("base_feature", kinds)
+
+    def test_test_code_is_still_skipped_everywhere(self):
+        """The platform exception must not become a hole for test files."""
+        self.assertEqual(
+            self._kinds({"components/x/test/pref_names.h": self.PREF}), set())
+        self.assertEqual(
+            self._kinds({"chrome/browser/ash/test/pref_names.h": self.PREF}), set())
+
+
+class TestDeclarationHintsComeInPairs(unittest.TestCase):
+    """A `.cc` hint without its `.h` loses whatever the header declares.
+
+    It has happened twice: `_feature_list.h` and then `_field_trial.h`, each
+    found only because a coverage measurement named the files it could not
+    reach. Both were fetched and then not read, which is the quietest way to
+    lose a declaration -- the file is on disk, so nothing looks missing.
+    """
+
+    def test_every_cc_hint_has_an_h_hint(self):
+        from chromedrift.extract.base_features import FILE_HINTS
+
+        # These have no header form in Chromium: the definitions live in the
+        # .cc and the header, if any, declares nothing this extractor reads.
+        no_header = {"media_switches.cc", "gpu_finch_features.cc",
+                     "_util.cc", "_handler.cc", "_manager.cc"}
+        for hint in FILE_HINTS:
+            if not hint.endswith(".cc") or hint in no_header:
+                continue
+            self.assertIn(hint[:-3] + ".h", FILE_HINTS,
+                          f"{hint} is read but its header is not")
+
+    def test_the_wide_filter_and_the_hints_agree(self):
+        """Fetching a suffix nobody reads is waste; the reverse loses data."""
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import _WIDE_SUFFIXES
+
+        for suffix in _WIDE_SUFFIXES:
+            if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
+                continue
+            probe = f"components/x/y_{suffix}"
+            self.assertTrue(any(applies(probe) for _, applies, _ in REGISTRY),
+                            f"{suffix} is fetched but nothing reads {probe}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

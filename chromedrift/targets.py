@@ -88,6 +88,11 @@ _OTHER_PLATFORM_RE = re.compile(
     r"^(ash|chromeos|ios|android_webview|fuchsia|chromecast)/"
     r"|/(ash|chromeos|ios|android)/")
 
+# Binaries that are not the product. content_shell is Chromium's test browser;
+# its switches are real declarations that ship to nobody, so counting them as
+# uncovered would make the coverage figure chase something worth ignoring.
+_NOT_THE_PRODUCT_RE = re.compile(r"^content/shell/|^chrome/test/|^tools/")
+
 # Preference keys. Chromium spells these two ways and both carry keys:
 # `*pref_names.{h,cc}` is the older, larger set, `*_prefs.{h,cc}` the newer
 # per-component one.
@@ -112,7 +117,8 @@ class DiscoveryRule:
         self.note = note
 
     def matches(self, path: str) -> bool:
-        if _TEST_RE.search(path) or _OTHER_PLATFORM_RE.search(path):
+        if (_TEST_RE.search(path) or _OTHER_PLATFORM_RE.search(path)
+                or _NOT_THE_PRODUCT_RE.search(path)):
             return False
         return bool(self.pattern.search(path))
 
@@ -155,22 +161,41 @@ def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
     return found
 
 
+def scope_of(targets: Sequence[FetchTarget]) -> tuple:
+    """(exact files, [(tree prefix, suffix filter)]) a target set declares."""
+    return ({t.path for t in targets if t.kind == "file"},
+            [(t.path.rstrip("/") + "/", t.include)
+             for t in targets if t.kind == "tree"])
+
+
+def reaches(path: str, files, trees) -> bool:
+    """Whether a declared scope reaches one path.
+
+    Every prefix is tried, not just the first that matches. Nested targets are
+    normal and their filters differ: `chrome/browser/ui/webui/` is declared for
+    `.cc` while `chrome/browser/` is declared for a dozen suffixes, so a header
+    under the former is reached by the latter. Stopping at the first prefix
+    match answers "no" for 21 files that are on disk and read.
+
+    One definition, because three modules were each carrying their own and two
+    of them disagreed -- the same shape of bug as deriving fetch scope in one
+    place and extraction scope in another.
+    """
+    if path in files:
+        return True
+    for prefix, include in trees:
+        if not path.startswith(prefix):
+            continue
+        if not include or path.endswith(tuple(include)):
+            return True
+    return False
+
+
 def coverage_against(candidates: Dict[str, str],
                      targets: Sequence[FetchTarget]) -> Dict[str, object]:
     """How much of what exists this target set actually reads."""
-    files = {t.path for t in targets if t.kind == "file"}
-    trees = [(t.path.rstrip("/") + "/", t.include)
-             for t in targets if t.kind == "tree"]
-
-    def reached(path: str) -> bool:
-        if path in files:
-            return True
-        for prefix, include in trees:
-            if path.startswith(prefix):
-                return not include or path.endswith(tuple(include))
-        return False
-
-    missed = sorted(p for p in candidates if not reached(p))
+    files, trees = scope_of(targets)
+    missed = sorted(p for p in candidates if not reaches(p, files, trees))
     by_dir: Dict[str, int] = {}
     for path in missed:
         top = "/".join(path.split("/")[:2])
@@ -309,23 +334,54 @@ def minimal_targets() -> List[FetchTarget]:
 # eleven requests. Expensive enough to be a choice, cheap enough to be one.
 _WIDE_ROOTS = (
     ("components", "every components/ declaration"),
-    ("chrome/browser", "every chrome/browser declaration"),
+    ("chrome/browser", "every chrome/browser declaration, including all 132 "
+                       "WebUI surfaces under resources/"),
     ("media", "every media/ declaration"),
     ("extensions", "every extensions/ declaration"),
-    ("services", "every services/ declaration"),
+    ("services", "every services/ declaration, including 252 Mojo interfaces"),
     ("net", "every net/ declaration"),
     ("ui", "every ui/ declaration"),
     ("gpu", "every gpu/ declaration"),
     ("printing", "every printing/ declaration"),
     ("chrome/common", "every chrome/common declaration"),
+    # content/ cannot be fetched whole -- Gitiles answers 503 on an archive
+    # that size -- so it is taken a level down. Together these are 15 MB and
+    # carry 145 pref and 25 feature files the tool could not otherwise see.
+    ("content/browser", "content/browser declarations"),
+    ("content/common", "content/common declarations"),
+    ("content/public", "content/public declarations"),
+    ("content/renderer", "content/renderer declarations"),
+    ("content/child", "content/child declarations"),
+    ("content/services", "content/services declarations"),
+    ("third_party/blink/common", "Blink's shared implementation declarations"),
+    # The whole public surface, not just the mojom/ subdirectory.
+    ("third_party/blink/public", "every Blink public declaration"),
 )
 
-# What an extractor can read, as filename suffixes -- so a wide root downloads
-# a large archive but only keeps the declarations out of it.
+# Every filename shape an extractor can read, so a wide root downloads a large
+# archive and keeps the declarations out of it -- all of them, not a subset.
+#
+# Restricting this to feature and pref files was a gap hiding inside the answer
+# to another one: the archives were already on disk, and the only reason 934 of
+# the tree's 1,424 .mojom files and 124 of its 132 WebUI surfaces stayed unread
+# was that their suffixes were missing from this tuple. Widening it costs no
+# bandwidth at all.
 _WIDE_SUFFIXES = (
+    # base::Feature, FeatureParam, command-line switches
     "features.cc", "features.h", "switches.cc", "switches.h",
-    "feature_list.cc", "feature_list.h", "field_trial.cc", "fieldtrial.cc",
+    "feature_list.cc", "feature_list.h",
+    "field_trial.cc", "field_trial.h", "fieldtrial.cc", "fieldtrial.h",
+    "flags.cc", "flags.h",
+    # preference keys, both naming conventions
     "pref_names.cc", "pref_names.h", "prefs.cc", "prefs.h",
+    # the process boundary and the web platform surface
+    ".mojom", ".idl", ".json5",
+    # desktop WebUI: route tables, both template dialects, and the C++ handlers
+    # that bridge a loadTimeData key to a base::Feature
+    "route.ts", "routes.ts", ".html", ".html.ts",
+    "_handler.cc", "_util.cc", "_manager.cc",
+    # chrome://flags expiry metadata
+    "flag-metadata.json",
 )
 
 

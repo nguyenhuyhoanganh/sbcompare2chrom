@@ -94,14 +94,14 @@ fork instead of across time, and `--target-set` to choose how much is read:
 | | Per version | Files read | Use for |
 |---|---:|---:|---|
 | `minimal` | ~1 MB | 3 | smoke test |
-| `default` | ~40 MB | 4% of files, 58% of declarations | day to day |
-| `wide` | 315 MB fetched, 42 MB kept | 96% of files | release gate |
+| `default` | ~40 MB | 4% of files, over half the flags | day to day |
+| `wide` | 315 MB fetched, 94 MB kept | **100% of files** | release gate |
 
 **Every run prints the coverage it achieved**, measured against a listing of
 that version's own tree rather than assumed:
 
 ```
-coverage: reads 42 of 1010 files in this tree that could declare (4% of files)
+coverage: reads 42 of 1008 files in this tree that could declare (4% of files)
   largest gaps: chrome/browser/ (245 files), components/enterprise/ (50 files)
 ```
 
@@ -259,47 +259,45 @@ State these limits in every report. A clean report does not imply a clean uprev.
   own number.** Nothing here is a constant; quoting one as if it were is the
   mistake this section exists to prevent. Measured at M151:
 
-  | | Files read | `base::Feature` | Prefs | Switches |
-  |---|---:|---:|---:|---:|
-  | `--target-set default` | 42 of 1,010 (4%) | 2,062 | 687 | 288 |
-  | `--target-set wide` | 971 of 1,010 (96%) | 3,836 | 2,221 | 954 |
-
-  The default set reads 4% of the files but a little over half the
-  declarations, because curation picked the large ones. `wide` fetches 315 MB
-  per version against 40 and keeps 42 MB either way, since the archives are
-  filtered as they unpack.
-
-  Read the coverage line the run printed, and state it in the report. On either
-  set, `must fix: 0` never means "nothing changed".
-
-  Per source type at M151, on the default set:
-
-  | Source | Covered | In tree |
+  | | `default` | `wide` |
   |---|---:|---:|
-  | Blink runtime features | 1 file | 1 file (complete) |
-  | Web IDL | 2,167 | 2,575 (84%) |
-  | Mojo interfaces | 490 | 1,588 (**30%**) |
-  | Preference keys | 687 | ~2,200 (**31%**) |
-  | WebUI surfaces | 8 | 132 (**6%**) |
+  | Files read, of the 1,008 that could declare | 42 (4%) | **1,008 (100%)** |
+  | Facts | 24,679 | 35,932 |
+  | `base::Feature` | 2,062 | 3,944 |
+  | Feature params | 862 | 1,623 |
+  | Preference keys | 689 | 2,404 |
+  | Command-line switches | 288 | 955 |
+  | Mojo interfaces | 338 | 1,455 |
+  | Mojo methods | 1,362 | 5,738 |
+  | WebUI controls | 788 | 1,256 |
 
-  Mojo is the one to state explicitly in a report: it carries the
-  highest-severity findings, `--target-set wide` does not improve it, and only
-  `third_party/blink/public/mojom` is read either way.
+  `default` reads 4% of the files but more than half the feature declarations,
+  because curation picked the large ones. `wide` fetches about 315 MB per
+  version against 40 and keeps 94 MB, since the archives are filtered as they
+  unpack, and it reads every file in the tree that matches a declaration
+  convention.
+
+  Read the coverage line the run printed and state it in the report. On either
+  set, `must fix: 0` never means "nothing changed" -- `default` still leaves
+  two thirds of the Mojo surface and a third of the flags unread.
+
+  **Mojo is the reason to consider `wide` for anything that matters.** It
+  carries the highest-severity findings the tool produces, breaks at runtime
+  rather than at build, and `default` sees 338 of 1,455 interfaces.
 
   **Preference keys need care whichever set you ran.** Chromium is splitting
   `chrome/common/pref_names.h` apart -- 4,322 lines at M143, 3,267 at M151 --
-  and the keys land in per-component files. On the default set only that one
-  file is read, so a key moving out of it looks identical to a key being
-  deleted. Even on `wide`, the ChromeOS pref files are deliberately skipped,
-  which is right for a Windows product but means ChromeOS keys leaving the
-  shared file still read as disappearances: measured M148 → M151, of 141 keys
-  that vanished, 100 were found in ChromeOS pref files.
+  and the keys land in per-component files. `default` reads only that one file,
+  so a key moving out of it is indistinguishable from a key being deleted.
+  `wide` reads them all, and string constants are read even under ChromeOS
+  trees precisely so a move reads as a move: measured M148 → M151, of 141 keys
+  that vanished on the old scope, 100 had simply moved into a ChromeOS file.
 
-  That is what the `pref_left_scan` signal describes, and why it is scored 35
-  rather than as a confirmed removal. **Never report one as a deletion without
-  searching the current tree for the key string first** -- found elsewhere
-  means it moved and there is nothing to do; genuinely absent means every
-  existing user's stored value is orphaned.
+  That is what `pref_left_scan` describes, and why it scores 35 rather than as
+  a confirmed removal. **Never report one as a deletion without searching the
+  current tree for the key string first** -- found elsewhere means it moved and
+  there is nothing to do; genuinely absent means every existing user's stored
+  value is orphaned.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
   is not, and neither is `page_visibility.ts`.

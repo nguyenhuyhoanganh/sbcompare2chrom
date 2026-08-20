@@ -47,7 +47,8 @@ from ._cpp import (
 FILE_HINTS = ("_features.cc", "_features.h", "features.cc", "features.h",
               "_switches.cc", "_switches.h", "media_switches.cc",
               "media_switches.h", "gpu_finch_features.cc",
-              "_fieldtrial.cc", "_field_trial.cc", "_flags.cc",
+              "_fieldtrial.cc", "_fieldtrial.h",
+              "_field_trial.cc", "_field_trial.h", "_flags.cc", "_flags.h",
               # Every other pair here covers both halves; this one covered only
               # the .cc, so a declaration in the header beside it was fetched
               # and then not read -- the quietest way to lose one.

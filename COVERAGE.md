@@ -113,13 +113,17 @@ nhiên** — đó là các file trung tâm và lớn nhất (`chrome_features.cc
 
 ### Theo từng loại nguồn
 
-| Nguồn | Phủ | Toàn cây | % |
-|---|---:|---:|---:|
-| Blink runtime features | 1 file | 1 file | **100%** |
-| Web IDL | 2.167 | 2.575 | 84% |
-| **Mojo (IPC)** | 490 | 1.588 | **30%** |
-| Khoá pref | 687 (`default`) · 2.221 (`wide`) | ~2.200 ngoài ChromeOS | **31% / ~100%** |
-| **Bề mặt WebUI** | 8 | 132 | **6%** |
+| Nguồn (M151) | `default` | `wide` |
+|---|---:|---:|
+| File khai báo đọc được | 42 / 1.008 (4%) | **1.008 / 1.008 (100%)** |
+| `base::Feature` | 2.062 | **3.944** |
+| Tham số feature | 862 | **1.623** |
+| Khoá pref | 689 | **2.404** |
+| Tham số dòng lệnh | 288 | **955** |
+| Mojo interface | 338 | **1.455** |
+| Mojo method | 1.362 | **5.738** |
+| WebUI control | 788 | **1.256** |
+| Tổng fact | 24.679 | **35.932** |
 
 **Độ phủ không còn là con số viết trong tài liệu — nó được đo mỗi lần chạy.**
 
@@ -137,36 +141,34 @@ phản ứng bằng cách *thêm tên vào danh sách*, và việc đó chỉ đ
 
 Nên giờ mỗi lần chạy **hỏi chính cây nguồn của phiên bản đó**: Gitiles trả
 toàn bộ danh sách file dưới một thư mục trong một request
-(`?format=JSON&recursive=true`), 14 gốc tốn khoảng 24 MB và 21 giây, cache
+(`?format=JSON&recursive=true`), các gốc tốn khoảng 24 MB và 21 giây, cache
 vĩnh viễn theo tag. Kết quả in ra ngay khi chạy và lưu trong `report.json`:
 
 ```
-coverage: reads 42 of 1010 files in this tree that could declare (4% of files)
+coverage: reads 42 of 1008 files in this tree that could declare (4% of files)
   largest gaps: chrome/browser/ (245 files), components/enterprise/ (50 files), …
 ```
 
-**Hai con số, cả hai đều đúng.** 42 file đó là *4% số file* nhưng chứa
-**hơn nửa số khai báo** (2.062 trên 3.836 `base::Feature` ở M151), vì danh sách
-curate đã chọn đúng các file lớn. Phần trăm theo file là thứ đo được mà không
-cần tải; phần trăm theo khai báo chỉ biết sau khi đã tải.
+**Vì sao không tải hết từng file.** Có thử. Gitiles giới hạn khoảng **một
+request mỗi giây cho mỗi client**, bất kể mở bao nhiêu luồng — đo ở 8 và 16
+luồng thì nó không nhanh hơn mà bắt đầu từ chối. Kéo ~1.000 file lẻ tốn **17
+phút mỗi phiên bản** và đập vào một dịch vụ dùng chung. Cùng nội dung đó về
+dưới dạng **các archive thư mục trong khoảng 3 phút**.
 
-**Vì sao không tải hết.** Có thử. Gitiles giới hạn khoảng **một request mỗi
-giây cho mỗi client**, bất kể mở bao nhiêu luồng — đo ở 8 và 16 luồng thì nó
-không nhanh hơn mà bắt đầu từ chối. Kéo ~1.000 file lẻ tốn **17 phút mỗi phiên
-bản** và đập vào một dịch vụ dùng chung. Cùng nội dung đó về dưới dạng **11
-archive thư mục trong khoảng 3 phút**.
+Nên có `--target-set wide`: archive nguyên gốc cho `components/`,
+`chrome/browser/`, `media/`, `content/*` và các gốc khác, **lọc theo đuôi file
+ngay lúc giải nén**. Tải 315 MB nhưng cây trên đĩa còn 94 MB. Chi phí là băng
+thông một lần, không phải dung lượng lâu dài.
 
-Nên có `--target-set wide`: thêm archive nguyên gốc cho `components/`,
-`chrome/browser/`, `media/` và sáu gốc nữa, **lọc theo đuôi file ngay lúc giải
-nén**. Đo ở M151: tải về 315 MB nhưng chỉ giữ lại 1.085 file, nên cây trên đĩa
-vẫn là 42 MB. Chi phí là băng thông một lần, không phải dung lượng lâu dài.
-Kết quả: `base_feature` 2.062 → **3.836**, `switch` 288 → **954**.
+| Bộ target | Tải/phiên bản | Đĩa | File phủ | Dùng khi |
+|---|---:|---:|---:|---|
+| `minimal` | ~1 MB | ~1 MB | 3 file | kiểm khói |
+| `default` | ~40 MB | 41 MB | 4% | làm việc hằng ngày |
+| `wide` | ~315 MB | 94 MB | **100%** | cổng chặn trước release |
 
-| Bộ target | Dung lượng/phiên bản | File phủ | Dùng khi |
-|---|---:|---:|---|
-| `minimal` | ~1 MB | 3 | kiểm khói |
-| `default` | ~40 MB | 4% (58% khai báo) | làm việc hằng ngày |
-| `wide` | tải ~315 MB, **đĩa ~42 MB** | **96%** | cổng chặn trước release |
+**Điều còn lại phải nói rõ trong mọi báo cáo dùng `default`:** nó đọc 338 trên
+1.455 Mojo interface. Mojo mang finding nghiêm trọng nhất hệ thống và vỡ lúc
+chạy chứ không lúc build — nếu đợt uprev nào quan trọng, chạy `wide`.
 
 `must fix: 0` **không bao giờ** nghĩa là "uprev sạch". Nó nghĩa là "không thấy
 gì trong phần đã quét".

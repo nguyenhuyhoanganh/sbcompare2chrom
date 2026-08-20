@@ -324,10 +324,9 @@ def declared_scope(snapshot) -> tuple:
     targets = get_targets(meta.get("target_set", "default"),
                           meta.get("partitions") or None,
                           bool(meta.get("complete")))
-    files = {t.path for t in targets if t.kind == "file"}
-    return (files,
-            {t.path.rstrip("/") + "/": t.include
-             for t in targets if t.kind == "tree"})
+    from .targets import scope_of
+    files, trees = scope_of(targets)
+    return files, dict(trees)
 
 
 def scope_violations(snapshot) -> List[str]:
@@ -336,19 +335,10 @@ def scope_violations(snapshot) -> List[str]:
         files, trees = declared_scope(snapshot)
     except (KeyError, ValueError):
         return []
-    bad: Set[str] = set()
-    for fact in snapshot.facts:
-        path = fact.path
-        if not path or path in files:
-            continue
-        for prefix, include in trees.items():
-            if path.startswith(prefix):
-                if include and not path.endswith(tuple(include)):
-                    bad.add(path)
-                break
-        else:
-            bad.add(path)
-    return sorted(bad)
+    from .targets import reaches
+    pairs = list(trees.items())
+    return sorted({f.path for f in snapshot.facts
+                   if f.path and not reaches(f.path, files, pairs)})
 
 
 def summarize_violations(snapshot, violations: List[str],
