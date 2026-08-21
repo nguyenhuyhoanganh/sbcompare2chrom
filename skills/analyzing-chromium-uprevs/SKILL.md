@@ -31,7 +31,7 @@ version is adopted, silently: both ends of a Mojo interface are generated from
 the same file so a changed signature never breaks the build, and Chromium
 ignores an unrecognised command-line switch without a word.
 
-At M148 → M151, 261 of the 315 Breaking rows are half two. Applying half one's
+At M148 → M151, 226 of the 282 Breaking rows are half two. Applying half one's
 questions to them is the failure this skill prevents.
 
 ## Workflow
@@ -127,9 +127,9 @@ re-running; `chromedrift catalog <ref>` measures what the target set is missing.
 | New surface | Surface that did not exist before. Nothing switches it on |
 | Housekeeping | Chromium tidying up, and scheduling |
 
-**Retired flags are Housekeeping and that is deliberate** — 90 at M148 → M151,
-45 shipped and 45 abandoned, none user-visible. Reporting one as a lost feature
-means re-reading the traps.
+**Retired flags are Housekeeping and that is deliberate** — 148 at M148 → M151,
+81 that had shipped and 67 abandoned, none user-visible. Reporting one as a lost
+feature means re-reading the traps.
 
 **Severity versus score.** Severity is what the kind of change costs; score is
 that after two deductions (not in the Windows build on either side → 0;

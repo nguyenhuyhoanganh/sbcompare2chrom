@@ -153,7 +153,7 @@ to open the source to find out what moved. Measured M148 → M151, **380 of 709
 modified changes used to arrive that way**; a test now asserts none do.
 
 A change can also carry **no signal at all**, and about a third of a report
-does: 903 of 2,800 findings at M148 → M151, almost all of them things that
+does: 971 of 3,027 findings at M148 → M151, almost all of them things that
 simply appeared. There the direction and the kind are the whole story, and the
 report writes them as one — *New feature flag*, *Removed chrome://flags entry*.
 

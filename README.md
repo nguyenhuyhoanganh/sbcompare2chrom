@@ -176,7 +176,7 @@ Every surface is one or the other:
 | Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
 | Preferences, command-line switches | nothing | **Yes** |
 
-Both halves are large, and the second carries the higher severities: at M148 → M151, **261 of the 315 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
+Both halves are large, and the second carries the higher severities: at M148 → M151, **226 of the 282 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
 
 ---
 
@@ -233,7 +233,7 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 
 This is not an isolated case:
 
-- **M148 → M151, Windows:** 90 flags removed, splitting exactly 45 that shipped / 45 that were abandoned. Neither group changes behaviour. Labelling all 90 "feature lost" makes half the alert list a false alarm.
+- **M148 → M151, Windows:** 154 flags removed — 81 that had shipped, 67 that were abandoned, 6 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 154 "feature lost" makes most of the alert list a false alarm.
 - **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
 A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
@@ -562,7 +562,7 @@ Measured against two real pairs, the prior overrode the signal on 267 of 2,800 f
 
 Score is the severity after two adjustments, both of them facts rather than opinions:
 
-**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 117 of 2,800 findings at M148 → M151 are in that state.
+**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 118 of 3,027 findings at M148 → M151 are in that state.
 
 Chromium says this in three different ways, and for a long time the tool read only the first:
 
@@ -622,7 +622,7 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
 
-**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 90 `base::Feature` flags are removed, split exactly 45 that shipped and 45 that were abandoned, and not one of them changes what a user sees. Filing them as breakage puts 90 rows at the top of the report of which none is actionable. The label still says the switch is gone.
+**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 154 `base::Feature` flags are removed — 81 that had shipped, 67 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 148 rows at the top of the report of which none is actionable. The label still says the flag is gone.
 
 **An unconfirmed disappearance moves bucket with the coverage.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
 
@@ -965,7 +965,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**304 tests, running in about three seconds, with no network.**
+**305 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 

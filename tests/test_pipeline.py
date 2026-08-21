@@ -3612,6 +3612,107 @@ class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
             self.assertEqual(linked, [], f"{name} links another document")
 
 
+class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
+    """The headline numbers the documents quote, checked against a real run.
+
+    These go stale silently and they are the numbers a reader trusts most: the
+    documents said "90 flags removed, splitting exactly 45 and 45" for four
+    commits after widening the target set made it 154, and "261 of the 315
+    Breaking rows" for one commit after the web API gates dropped Breaking to
+    282. Both survived every other test in this file, because nothing here
+    reads prose.
+
+    Checked against `out/report.json` when one exists, which is the same
+    bargain the M151 fact table strikes: anyone who has run the tool
+    re-verifies the documents for free, and a bare checkout does not fail.
+    """
+
+    REPORT = "out/report.json"
+    PAIR = ("148.0.7778.217", "151.0.7922.138")
+
+    def _report(self):
+        import json
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(here, self.REPORT)
+        if not os.path.exists(path):
+            self.skipTest(f"no {self.REPORT}; run the pair to check the docs")
+        with open(path, encoding="utf-8") as fh:
+            report = json.load(fh)
+        meta = report.get("meta") or {}
+        if not all(v in f"{meta.get('from_ref', '')}{report.get('from_ref','')}"
+                   f"{report.get('to_ref','')}" for v in self.PAIR):
+            self.skipTest("out/report.json is a different pair")
+        if (meta.get("target_set") or "default") != "default":
+            self.skipTest("out/report.json is not the default target set")
+        return report
+
+    def _docs(self):
+        import glob
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        names = ["README.md", "docs/pipeline.html"]
+        names += [os.path.relpath(p, here) for p in
+                  glob.glob(os.path.join(here, "skills", "**", "*.md"),
+                            recursive=True)]
+        out = {}
+        for name in names:
+            with open(os.path.join(here, name), encoding="utf-8") as fh:
+                out[name] = fh.read()
+        return out
+
+    def _leading(self, finding):
+        from chromedrift.diff import SIGNAL_SEVERITY
+        signals = finding["change"].get("signals") or []
+        return max(signals, key=lambda s: (SIGNAL_SEVERITY.get(s, 0), s)) \
+            if signals else ""
+
+    def test_the_quoted_figures_match_the_run(self):
+        import re
+        from collections import Counter
+        from chromedrift.diff import SIGNAL_OWNERS
+        from chromedrift.model import KIND_OWNERS, OWNER_NATIVE
+
+        report = self._report()
+        findings = report["findings"]
+        counts = Counter(self._leading(f) for f in findings)
+        breaking = [f for f in findings if f["bucket"] == "breaking"]
+
+        def owner(finding):
+            lead = self._leading(finding)
+            return SIGNAL_OWNERS.get(lead) or KIND_OWNERS.get(
+                finding["change"]["kind"], OWNER_NATIVE)
+
+        contract = sum(1 for f in breaking
+                       if owner(f) in ("ipc", "webplatform"))
+        retired = counts["flag_retired_on"] + counts["flag_retired_off"]
+
+        # Phrase as written -> the number it has to be. The pattern is the
+        # sentence, not just the digits, so a figure that moves into a
+        # different sentence is not silently satisfied by the old one.
+        expected = [
+            (r"(\d+) of the (\d+) Breaking rows",
+             (contract, len(breaking))),
+            (r"(\d+) of ([\d,]+) findings at M148 . M151 are in that state",
+             (report["summary"]["not_in_build"], report["summary"]["total"])),
+            (r"(\d+) that had shipped(?:,| and) (\d+)",
+             (counts["flag_retired_on"], counts["flag_retired_off"])),
+        ]
+        seen = 0
+        for name, text in self._docs().items():
+            for pattern, want in expected:
+                for m in re.finditer(pattern, text):
+                    seen += 1
+                    got = tuple(int(g.replace(",", "")) for g in m.groups())
+                    self.assertEqual(
+                        got, want,
+                        f"{name}: {m.group(0)!r} but the run says {want}")
+        self.assertGreaterEqual(seen, 6, "the documented sentences moved")
+        # And the total the retired-flag sentences describe.
+        self.assertEqual(retired, 148,
+                         "the retired-flag total moved; update the documents")
+
+
 class TestTheThreeStageRuleIsNeverTaughtAsUniversal(unittest.TestCase):
     """Wherever a document explains the three stages, it says what they miss.
 

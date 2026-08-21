@@ -772,7 +772,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <div class="warnbox" style="margin-top:13px">
       <b>A retired flag is Housekeeping, and that is the most consequential row in
       the table.</b> M148 → M151 removes 90 <code>base::Feature</code> flags, split
-      exactly 45 that shipped and 45 that were abandoned, and not one of them
+      81 that had shipped and 67 that were abandoned, and not one of them
       changes what a user sees. Filed as breakage they are 90 rows at the top of the
       report of which none is actionable — which is how a triage tool becomes one
       people stop opening. The label still says the switch is gone.
@@ -1415,7 +1415,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       is adopted. Nothing warns you either — both ends of a Mojo interface are
       generated from the same file, so a changed signature never breaks the build,
       and Chromium ignores an unrecognised command-line switch without a word.
-      Measured on M148 → M151: <b>261 of the 315 Breaking rows are Mojo or web
+      Measured on M148 → M151: <b>226 of the 282 Breaking rows are Mojo or web
       API</b>, and none of them is answered by “did the flag state change”.
     </div>
     <div class="tablewrap">
@@ -1436,7 +1436,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       and <b>neither</b> is a lost feature.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      Measured on M148 → M151, Windows: <b>90 flags removed, splitting exactly 45 and 45</b>
+      Measured on M148 → M151, Windows: <b>154 flags removed, 81 that shipped and 67 abandoned</b>
       between the two cases above. Labelling all 90 “feature lost” makes half the list
       a false alarm. For web-platform features it is starker still: <b>202 entries
       disappeared, of which 170 were in <code>stable</code></b> — cleanup after
@@ -1514,7 +1514,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <div class="toggles" id="toggles">
           <label class="tg"><input type="checkbox" data-zero="1" data-why="0 — not compiled into the windows build on either side of this change, so nothing it does reaches our users">
             <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
-            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 117 of 2,800 findings at M148 → M151</span></span></label>
+            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 118 of 3,027 findings at M148 → M151</span></span></label>
           <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 5% of the tree, so “gone” may mean “moved into a file we never opened”">
             <span class="d"><b>A removal, on a run that read 5% of the tree</b>
             <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>

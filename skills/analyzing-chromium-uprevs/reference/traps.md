@@ -20,7 +20,7 @@ it was handled. Expect them; check for them before reporting any removal.
 
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
 7 and 8 about running the tool. Traps 9 to 12 are the other surfaces, which
-carry the highest severities the tool reports: at M148 → M151, 261 of the 315
+carry the highest severities the tool reports: at M148 → M151, 226 of the 282
 Breaking rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature
@@ -31,8 +31,8 @@ reads as lost capability.
 **Reality:** Chromium deletes the flag once the outcome is settled. The state
 the flag held *just before* deletion says which outcome that was.
 
-**Evidence:** M148 → M151 Windows removed 90 flags, split exactly 45 shipped /
-45 abandoned. M139 → M143 removed 202 Blink runtime features, 170 of which had
+**Evidence:** M148 → M151 Windows removed 154 flags: 81 that had shipped, 67
+abandoned, 6 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 170 of which had
 been `stable`.
 
 **Check:** read the prior state. `flag_retired_on` means behaviour is now
