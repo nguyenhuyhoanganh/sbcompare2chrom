@@ -129,7 +129,7 @@ either outcome until you have looked.
 | `ui_gate_changed` / `ui_gate_removed` / `ui_gate_added` | The condition deciding a page's visibility moved, went away, or appeared |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
-| `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |
+| `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — **the one thing in Housekeeping worth looking up on purpose**, because it is about work that has not happened yet rather than work that has |
 | `flag_expiry_moved` | The removal date moved further out. Scheduling on a settings page, not a feature change — the largest single group in most reports |
 | `build_gate_changed` | The `#if` or GRIT `<if>` around a declaration moved, so it may no longer be in the binary we ship |
 | `origin_trial_change` | Origin trial wiring changed: who may turn the feature on from outside the binary |
@@ -161,7 +161,7 @@ statement about the change rather than about the reader.
 | Breaking | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | Find every place that names it |
 | Behaviour change | The Windows build behaves differently. Someone can see a difference | Confirm what the difference is |
 | New surface | Surface that did not exist before. Nothing is switched on by it on its own | Product input, not a blocker |
-| Housekeeping | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | Do not read line by line |
+| Housekeeping | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | Do not read line by line; filter it for `flag_expiring` |
 
 Two rules make these hold together, and both are tested:
 

@@ -583,6 +583,8 @@ Housekeeping         921   ← Chromium tidying up after itself
 
 Read in that order. `report.md` gives the first three a table each and deliberately gives Housekeeping none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
 
+One thing inside Housekeeping is worth filtering for on purpose. `flag_expiring` rows are `chrome://flags` entries Chromium has scheduled for deletion in the next milestone or two — 57 of them at M148 → M151 — and they are the only rows in the report about work that has *not* happened yet. Everything else in the bucket is about work that has, and did not matter.
+
 What decides a bucket, and the two placements worth arguing about, are in §7.
 
 `report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is the shape that reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.

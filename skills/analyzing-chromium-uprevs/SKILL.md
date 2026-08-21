@@ -155,7 +155,10 @@ target set is *missing* rather than guessing.
 ### Step 3: Read the buckets in order
 
 Read **Breaking**, then **Behaviour change**, then **New surface**. Skip
-**Housekeeping** unless searching for a specific symbol.
+**Housekeeping** — with one exception. Filter it to `flag_expiring` before you
+close the report: those rows are chrome://flags entries Chromium has scheduled
+for deletion in the next milestone or two, so they are the only thing in the
+report about work that has not happened yet. 57 of them at M148 → M151.
 
 The bucket comes from *what happened*, not from severity, and it is decided by
 the same signal that set the score — so a row is filed under the sentence it was
