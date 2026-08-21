@@ -388,9 +388,9 @@ So on every run the tool asks that version's own tree what exists, and measures 
 The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 
 ```
-coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
+coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
-  to read these too, run `--target-set wide`: about 315 MB per version instead of 40
+  to read these too, run `--target-set wide`: about 337 MB per version instead of 40
 ```
 
 **The numbers in this document are a measurement taken at M151. The number to trust is the one your run prints.**
@@ -403,7 +403,7 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 | `default` | ~40 MB | ~38 MB | 64 / 1,164 (5%) | Day-to-day work |
 | `wide` | ~337 MB | ~110 MB | **1,164 / 1,164 (100%)** | A release gate |
 
-4% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
+5% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
 | | `default` | `wide` |
 |---|---:|---:|
@@ -420,7 +420,7 @@ So `default` reads 4% of the files but more than half of the `base::Feature` dec
 
 `wide` reads 100%, and that figure is worth explaining because it used to say 100% while reading 87%. Every file `wide` fetches is claimed by at least one extractor, and every filename convention the measurement counts is one an extractor reads — tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
 
-What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they are not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone hold 88 `base::Feature` declarations that no target set reads.
+What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
 Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
@@ -660,6 +660,8 @@ In `--mode fork` the four buckets mean something different, because the comparis
 | Needs review | We touch that area, or it is severe enough | Divergence with no clear owner |
 | New opportunity | New capability | **Not used** — nothing in a fork comparison is an opportunity |
 | FYI | Recorded for completeness | As above |
+
+`report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is the shape that reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
 
 Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features — the same reason symbol evidence outranks path evidence when scoring.
 
@@ -927,6 +929,9 @@ python3 -m chromedrift snapshot 151.0.7922.138
 | `snapshot: N facts` with N very small | `--local-src` points at the wrong place | It must point at Chromium's `src/` directory, the one containing `content/` and `third_party/` |
 | `missing targets: 1` | The file does not exist at that milestone | Normal. Chromium moves files between releases |
 | `cannot diff snapshots built from different target sets` | The two snapshots were built with different `--target-set` | Re-run with the same one. The tool refuses rather than comparing wrongly — if one side is missing whole categories of fact, every fact on the other side reads as an addition |
+| `cannot diff: X holds N facts against Y's M` | One side is a truncated tree, almost always a `--local-src` / `--from-src` / `--to-src` pointing at a partial checkout | Point it at a full Chromium `src/` — the directory holding `content/` and `third_party/` — and re-run that side with `--refresh`. Two real versions differ by about 3%, so a gap of half or more is not a change. Compared as-is it would report every fact only the other side has as something this one removed |
+| `X produced no facts at all` | The ref is wrong, or the checkout has none of the target files | Same check as above. Nothing can be compared against an empty side |
+| `! <ref>: N target(s) absent from that source` | Files the target set asked for were not in that tree | Normal for an older milestone, where Chromium had not created the file yet. Not normal for a local checkout — there it means the tree is partial, and each absent target is a whole file's declarations missing from the comparison |
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
 | `must fix: 0` | The profile has no evidence | Run `chromedrift profile …`. If `symbols: 0`, see the next row |
@@ -995,6 +1000,8 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - Every measured number written into a document must match the snapshot on disk, and the source map in §12 must match the source.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
 - No command may accept a flag and then ignore it.
+- The coverage denominator is the tree, not the roots the fetch list happens to live under. A rule that admits a file and a measurement that cannot see it is how a percentage learns to flatter itself.
+- Two sides of a comparison must have read comparable amounts. Refusing a truncated tree is the same reasoning as refusing two different target sets, one derivation further along.
 - No display string may hard-code a coverage number — every run measures and prints its own.
 
 ### Checking against real data

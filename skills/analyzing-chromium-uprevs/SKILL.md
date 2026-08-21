@@ -103,7 +103,7 @@ fork instead of across time, and `--target-set` to choose how much is read:
 that version's own tree rather than assumed:
 
 ```
-coverage: reads 42 of 1178 files in this tree that could declare (3% of files)
+coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
 ```
 
@@ -114,6 +114,19 @@ same rule admits -- `base/base_switches.h`, `cc/base/features.cc`,
 entirely. That gap is now closed -- `base/`, `device/`, `cc/`, `sandbox/`,
 `storage/` and the rest are fetched -- so **`wide` reads 100% and the figure
 means it.** Quote the number the run printed, never one from here.
+
+**The run can refuse, and both refusals mean the same thing.** `cannot diff
+snapshots built from different target sets` and `cannot diff: X holds N facts
+against Y's M` both say one side read a fraction of the other, so every fact
+only the fuller side has would be reported as something the other removed.
+Neither is a bug to work around: check the `--local-src` / `--from-src` /
+`--to-src` path points at a full Chromium `src/`. Two real versions differ by
+about 3%.
+
+`report.json` carries `meta.missing_targets`, a list per side of the files the
+target set asked for that the source did not have. Read it alongside the
+coverage line: coverage says how much of the tree was in scope, this says what
+was in scope and not there.
 
 Read that line before reading the findings. A hand-written list of target files
 decays — built as it stood at M130 and run at M151 it misses 27% of the pref

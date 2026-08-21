@@ -924,15 +924,15 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
             <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
               <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">24,966</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36,832</td></tr>
-              <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,692</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">36,832</td></tr>
+              <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,697</td></tr>
             </tbody>
           </table>
         </div>
         <p style="font-size:.84rem;color:var(--muted);margin:11px 0 0">
           About 40 MB per version. The first run takes over a minute; later runs read
           from the cache and are nearly instant. <code>--target-set wide</code>
-          downloads 315 MB and keeps 94 MB on disk, and in exchange reads every
+          downloads 337 MB and keeps 102 MB on disk, and in exchange reads every
           declaration file in the tree instead of 4%. Every run measures and prints
           its own number, so this is a measurement taken at M151, not a constant.
         </p>
@@ -1630,8 +1630,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </div>
     <p style="margin-top:14px">
       Coverage depends on the target set, and every run prints the number it measured.
-      At M151, <code>default</code> reads 42 of the 1,178 files that could declare
-      something (3%) but still captures more than half the <code>base::Feature</code>
+      At M151, <code>default</code> reads 64 of the 1,164 files that could declare
+      something (5%) but still captures more than half the <code>base::Feature</code>
       declarations, because the hand-picked files are the largest ones.
       <code>--target-set wide</code> reads all 1,164. That figure once said 100%
       while reading 87%, because the denominator was the roots the fetch list
