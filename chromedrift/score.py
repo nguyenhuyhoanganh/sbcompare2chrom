@@ -9,7 +9,7 @@ run rather than on the change:
     "not on Windows".  A change to one of those cannot move anything here.
   * **Did this run read enough of the tree to believe a removal?**  A removal
     is an inference from absence, and absence from a tree the run read a
-    twentieth of is a much weaker claim than absence from one it read all of.
+    part of is a much weaker claim than absence from one it read all of.
     Measured M148 -> M151 on the default set: of 141 preference keys that
     vanished, 100 had simply moved into a file the run never opened.
 
@@ -71,6 +71,32 @@ UNCONFIRMED_PENALTY = 15
 UNCONFIRMED_SIGNALS = frozenset(("pref_left_scan", "switch_left_scan"))
 
 
+# Which coverage row answers for a fact kind. A removal is only as believable
+# as the read of the surface it was removed from, and those differ by a factor
+# of fifty on the default set: 99.8% of the web API definitions against 1.7%
+# of the pref and switch files. One scalar for all of them made a vanished web
+# API exactly as doubtful as a vanished preference, which is wrong in one
+# direction or the other whichever number you pick.
+KIND_SURFACE = {
+    "base_feature": "feature flags",
+    "feature_param": "feature flags",
+    "blink_runtime_feature": "web platform flags",
+    "idl_interface": "web API definitions",
+    "idl_member": "web API definitions",
+    "mojo_interface": "process-boundary interfaces",
+    "mojo_method": "process-boundary interfaces",
+    "mojo_struct": "process-boundary interfaces",
+    "mojo_field": "process-boundary interfaces",
+    "mojo_enum": "process-boundary interfaces",
+    "pref": "preference keys and switches",
+    "switch": "preference keys and switches",
+    "flag_entry": "chrome://flags entries",
+    "webui_route": "chrome:// routes",
+    "webui_control": "chrome:// controls",
+    "webui_gate": "chrome:// visibility gates",
+}
+
+
 class Scope:
     """How much of the new version's tree the run read.
 
@@ -85,19 +111,38 @@ class Scope:
     deletions.
     """
 
-    __slots__ = ("to_ref", "to_share")
+    __slots__ = ("to_ref", "to_share", "by_surface")
 
     def __init__(self, coverage: Optional[dict] = None,
                  to_ref: str = "") -> None:
         self.to_ref = to_ref
-        self.to_share = _share((coverage or {}).get("to"))
+        to = (coverage or {}).get("to")
+        self.to_share = _share(to)
+        rows = (to or {}).get("by_surface") if isinstance(to, dict) else None
+        self.by_surface = {k: _share(v) for k, v in rows.items()} \
+            if isinstance(rows, dict) else {}
 
-    def confirms_absence(self) -> bool:
-        """Was the new tree read completely enough to call an absence real?"""
-        return self.to_share is None or self.to_share >= CONFIRMING_COVERAGE
+    def share_for(self, kind: str) -> Optional[float]:
+        """The read of the surface this kind came from, or the whole tree."""
+        surface = KIND_SURFACE.get(kind)
+        if surface and surface in self.by_surface:
+            return self.by_surface[surface]
+        return self.to_share
 
-    def read_percent(self) -> str:
-        return "?" if self.to_share is None else f"{self.to_share * 100:.0f}%"
+    def confirms_absence(self, kind: str = "") -> bool:
+        """Was this kind's surface read completely enough to believe absence?
+
+        Per kind, not per run. The overall figure is an average over surfaces
+        read from 1.7% to 99.8%, and using it discounted a web API removal --
+        seen against a near-complete read -- exactly as hard as a preference
+        removal seen against almost none.
+        """
+        share = self.share_for(kind)
+        return share is None or share >= CONFIRMING_COVERAGE
+
+    def read_percent(self, kind: str = "") -> str:
+        share = self.share_for(kind)
+        return "?" if share is None else f"{share * 100:.0f}%"
 
 
 def _share(row: Optional[dict]) -> Optional[float]:
@@ -166,10 +211,10 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     score = change.severity
     bucket = bucket_of(change)
 
-    if change.change_type == REMOVED and not scope.confirms_absence():
+    if change.change_type == REMOVED and not scope.confirms_absence(change.kind):
         score -= UNCONFIRMED_PENALTY
         why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
-               f"{scope.read_percent()} of the tree at "
+               f"{scope.read_percent(change.kind)} of that surface at "
                f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
                f"\"moved into a file we never opened\"")
         # For the two signals that are *only* an absence inference, the doubt

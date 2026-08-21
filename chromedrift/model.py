@@ -261,7 +261,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #          being in our binary.
 #        - a removal read from a tree the run did not finish reading is
 #          discounted by the share it did not read. `pref_left_scan` exists
-#          because absence from 5% of the tree is not evidence of deletion;
+#          because absence from part of the tree is not evidence of deletion;
 #          that reasoning applies to every removal and to every addition, and
 #          it was written into one signal's severity as a constant instead.
 #  26: the data half of the Mojo ABI is read. Only `interface` was extracted,
@@ -304,7 +304,14 @@ from typing import Any, Dict, Iterable, List, Optional
 #          files at M151 produced nothing at all, silently.
 #        - `/mac/` and `/linux/` join the platform directories, which is 79
 #          more Mojo facts that are not in our build.
-SCHEMA_VERSION = 29
+#  30: one eligibility policy for discovery and extraction, per-surface
+#      coverage, and Mojo ordinals compared rather than merely extracted.
+#      Version 29 read `/web_test/` files into the denominator and never into
+#      a snapshot, excluded `hit_test_opaqueness.mojom` from the denominator
+#      while extracting it, discounted a web API removal seen against a 99.8%
+#      read exactly as hard as a preference removal seen against 1.7%, and
+#      produced no change at all for `Foo@0` becoming `Foo@1`.
+SCHEMA_VERSION = 30
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

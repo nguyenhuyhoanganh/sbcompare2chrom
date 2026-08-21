@@ -475,8 +475,28 @@ def _read_marker(path: str) -> str:
         return MARKER_OK
 
 
+_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]")
+
+
+def safe_name(value: str) -> str:
+    """One path component that cannot become two.
+
+    Every cache path in the tool is built from a ref or a source path, and
+    there were two functions doing this with different rules -- one replaced
+    `/` and `:` and left `\\`, a separator on the platform this tool is
+    written for, so `..\\..\\victim` wrote outside the cache; the other
+    allowed `..` through untouched. Allow-list, because the next separator to
+    matter is the one nobody thought of, and collapse `..` so no component can
+    climb.
+    """
+    out = _UNSAFE_RE.sub("_", value)
+    while ".." in out:
+        out = out.replace("..", "_")
+    return out or "_"
+
+
 def _safe_name(path: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_.-]", "_", path)
+    return safe_name(path)
 
 
 def _target_marker(target: "FetchTarget") -> str:

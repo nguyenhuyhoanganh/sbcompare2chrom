@@ -97,7 +97,12 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # an attribute that could move and produce a row nothing explains. An
     # interface's identity moving *is* an add plus a remove.
     KIND_MOJO_INTERFACE: (),
-    KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
+    # `ordinal` is wire order. `Foo@0` and `Foo@1` are the same declaration to
+    # every other field here and a different message on the wire, so leaving it
+    # out made an ABI change produce no row at all. It was extracted and then
+    # not compared -- the two halves of this pipeline are separate doors, and
+    # opening the first is not opening the second.
+    KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
@@ -217,6 +222,11 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     # the other process reads those bytes as something else, and a struct
     # becoming a union changes the wire format under an unchanged name.
     "ipc_shape_changed": 80,
+    # A method's ordinal is how a peer decides which method it is being
+    # called. Changing it does not break the build and does not change the
+    # signature; the far side simply runs a different method, or rejects the
+    # message. Same weight as a changed signature for that reason.
+    "ipc_ordinal_changed": 80,
     # An enum gaining or losing a member. Not the same severity: adding one is
     # how Mojo extends a type, and the receiver that has to be taught about it
     # rejects the message rather than misreading it.
@@ -321,6 +331,9 @@ SIGNAL_LABELS: Dict[str, str] = {
     "web_api_signature_change": "Web API signature changed",
     "ipc_signature_change": "Mojo method signature changed (ABI)",
     "ipc_removed": "Mojo interface/method removed",
+    "ipc_ordinal_changed": "Mojo method ordinal changed (ABI) — the other "
+                           "process routes this message by that number, so it "
+                           "now reaches a different method or none",
     "ipc_shape_changed": "Mojo data shape changed (ABI) — the other process "
                          "reads these bytes as something else",
     "ipc_enum_changed": "Mojo enum members changed — a peer that does not know "
@@ -400,6 +413,7 @@ SIGNAL_BUCKET: Dict[str, str] = {
     # reason: a field read as a different type on the far side fails exactly
     # the way a moved method parameter does, and nothing warns either.
     "ipc_shape_changed": BUCKET_BREAKING,
+    "ipc_ordinal_changed": BUCKET_BREAKING,
     "ipc_enum_changed": BUCKET_BREAKING,
     # Not breaking: what an older peer sees changes, but every byte on the
     # wire is still read as the thing it is.
@@ -930,6 +944,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             if ("signature" in change.deltas or "params" in change.deltas
                     or "response" in change.deltas):
                 signals.append("ipc_signature_change")
+            elif "ordinal" in change.deltas:
+                signals.append("ipc_ordinal_changed")
             elif "attrs" in change.deltas:
                 # The mojom attributes on a method, which is where the build
                 # condition lives: `[EnableIfNot=is_android|is_ios]` appearing

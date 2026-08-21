@@ -3521,8 +3521,21 @@ class TestTheDocumentedReasoningIsTheRealReasoning(unittest.TestCase):
         from chromedrift.model import Fact
         from chromedrift.score import Scope, score_change
 
-        partial = Scope({"to": {"candidates": 1164, "read": 64}},
-                        to_ref="refs/tags/151.0.7922.138")
+        # The default set's real coverage of the M151 tree. It moved when the
+        # denominator stopped being two filename rules and started asking the
+        # extractors -- 64/1,164 was 5% of the pref and feature files, not of
+        # the tree -- and the documents quote the sentence this Scope prints,
+        # so the fixture has to be the measured pair or the check is circular.
+        partial = Scope({"to": {
+            "candidates": 8366, "read": 3677,
+            # Per surface, because that is what the sentence now quotes: a
+            # preference removal is judged against the read of the pref files
+            # and not against an average that includes 99% of the web API
+            # definitions.
+            "by_surface": {
+                "preference keys and switches": {"candidates": 348, "read": 4},
+                "web API definitions": {"candidates": 2170, "read": 2166},
+            }}}, to_ref="refs/tags/151.0.7922.138")
         key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
                    attrs={"var": "kAB"})
         api = Fact(kind="idl_interface", key="Foo", name="Foo",
@@ -3620,6 +3633,60 @@ class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
             self.assertEqual(linked, [], f"{name} links another document")
 
 
+class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
+    """Extracting a fact is not the same as comparing it.
+
+    This pipeline has two doors -- the extractor makes a Fact, and
+    `MEANINGFUL_ATTRS` decides which of its fields a diff looks at. The
+    previous commit opened the first, wrote "the ordinal is now a compared
+    attribute" in its message, and asserted only that the key existed on the
+    fact. `Foo@0 -> Foo@1` produced no change at all, on the surface this tool
+    ranks highest, and 316 tests passed.
+
+    So this one drives the whole path: two snapshots in, a scored finding out.
+    """
+
+    def _snap(self, ref, body):
+        from chromedrift.extract import mojom
+        return Snapshot(ref=ref, facts=mojom.extract(
+            f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
+            meta={"target_set": "default"})
+
+    def test_a_moved_ordinal_is_a_breaking_change(self):
+        changes = diff_snapshots(self._snap("148.0.0.0", "Foo@0(int32 a);"),
+                                 self._snap("151.0.0.0", "Foo@1(int32 a);"))
+        methods = [c for c in changes if c.kind == "mojo_method"]
+        self.assertEqual(len(methods), 1)
+        change = methods[0]
+        self.assertEqual(change.deltas, {"ordinal": ["0", "1"]})
+        self.assertEqual(change.signals, ["ipc_ordinal_changed"])
+        finding = score_change(change)
+        self.assertEqual(finding.score, 80)
+        self.assertEqual(finding.bucket, "breaking")
+
+    def test_the_row_says_what_moved(self):
+        """A reader must not have to open the mojom to see it."""
+        from chromedrift.report import wording
+        change = [c for c in diff_snapshots(
+            self._snap("148.0.0.0", "Foo@0(int32 a);"),
+            self._snap("151.0.0.0", "Foo@1(int32 a);"))
+            if c.kind == "mojo_method"][0]
+        self.assertIn("ordinal", wording.story_of(change)[0].lower())
+
+    def test_an_unchanged_ordinal_is_not_a_change(self):
+        self.assertEqual(
+            [c for c in diff_snapshots(self._snap("148.0.0.0", "Foo@0(int32 a);"),
+                                       self._snap("151.0.0.0", "Foo@0(int32 a);"))
+             if c.kind == "mojo_method"], [])
+
+    def test_a_method_that_never_had_one_is_unaffected(self):
+        """Absent, not zero, so it compares equal to how it always was."""
+        self.assertEqual(
+            [c for c in diff_snapshots(self._snap("148.0.0.0", "Foo(int32 a);"),
+                                       self._snap("151.0.0.0", "Foo(int32 a);"))
+             if c.kind == "mojo_method"], [])
+
+
 class TestTheReportIsSafeToOpen(unittest.TestCase):
     """A report is a file people forward to each other and open in a browser.
 
@@ -3644,6 +3711,20 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
         self.assertEqual(json.loads(out)["name"],
                          "</script><script>alert(1)</script>")
 
+    def test_only_http_links_are_clickable(self):
+        """Escaping keeps the attribute intact; it does not make a scheme safe.
+
+        `javascript:alert(1)` survives every entity encoding and runs on
+        click, and the value arrives from chromestatus over the network.
+        """
+        from chromedrift.report.html import _http_url
+        self.assertTrue(_http_url("https://spec.example/x"))
+        self.assertTrue(_http_url("http://spec.example/x"))
+        self.assertFalse(_http_url("javascript:alert(1)"))
+        self.assertFalse(_http_url("  JavaScript:alert(1)"))
+        self.assertFalse(_http_url("data:text/html,x"))
+        self.assertFalse(_http_url(None))
+
     def test_a_line_separator_cannot_break_the_literal(self):
         """U+2028 is valid JSON and illegal in a JS string literal."""
         from chromedrift.report.html import _embed
@@ -3656,7 +3737,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
         platform this tool is written for -- so `..\\..\\victim` wrote outside
         the cache, and `tree_path` is where a whole source tree is unpacked.
         """
-        from chromedrift.snapshot import _safe_name
+        from chromedrift.acquire import safe_name as _safe_name
         for hostile in ("..\\..\\victim", "../../etc/passwd", "a/b", "a:b",
                         "..", "....//"):
             safe = _safe_name(hostile)
@@ -3674,6 +3755,87 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
                          "http://<redacted>@proxy.corp:8080")
         self.assertEqual(_redact_proxy("http://proxy.corp:8080"),
                          "http://proxy.corp:8080")
+
+
+class TestOneEligibilityPolicy(unittest.TestCase):
+    """Discovery and extraction cannot disagree about what is product code.
+
+    Sharing the extractor predicate was not enough while each pipeline wrapped
+    it in its own exclusions. Measured at M151, they disagreed both ways:
+    `content/web_test/common/mojo_echo.mojom` counted as a candidate nothing
+    would ever read, and `cc/mojom/hit_test_opaqueness.mojom` produced facts
+    while a substring rule kept it out of the denominator -- hit testing is a
+    product concept, not test code.
+    """
+
+    CASES = {
+        "cc/mojom/hit_test_opaqueness.mojom": True,
+        "third_party/blink/renderer/core/dom/element.idl": True,
+        "content/public/common/content_features.cc": True,
+        "content/web_test/common/mojo_echo.mojom": False,
+        "services/network/public/mojom/network_service_test.mojom": False,
+        "media/mojo/mojom/video_decoder_test_service.mojom": False,
+        "mojo/public/tools/fuzzers/fuzz.mojom": False,
+        "chrome/updater/x_features.cc": False,
+    }
+
+    def test_both_pipelines_give_the_same_answer(self):
+        from chromedrift.extract import _skip
+        from chromedrift.targets import could_declare
+        for path, keep in self.CASES.items():
+            self.assertEqual(not _skip(path), keep, f"extraction: {path}")
+            self.assertEqual(could_declare(path) is not None, keep,
+                             f"discovery: {path}")
+
+    def test_a_product_word_containing_test_is_not_test_code(self):
+        """The rule is a suffix before the extension, not a substring."""
+        from chromedrift.eligibility import skip_reason
+        self.assertEqual(skip_reason("cc/mojom/hit_test_opaqueness.mojom"), "")
+        self.assertEqual(skip_reason("ui/latency_test_helper.cc"), "")
+        self.assertTrue(skip_reason("ui/widget_test.cc"))
+        self.assertTrue(skip_reason("ui/widget_test_service.mojom"))
+
+
+class TestRemovalConfidenceIsPerSurface(unittest.TestCase):
+    """A removal is only as believable as the read of its own surface.
+
+    One scalar for the whole run made a vanished web API -- seen against a
+    99.8% read of the IDL -- exactly as doubtful as a vanished preference seen
+    against 1.7% of the pref files. On the default set that cost 45 real web
+    API removals 15 points each.
+    """
+
+    COVERAGE = {"to": {
+        "candidates": 8366, "read": 3677,
+        "by_surface": {
+            "web API definitions": {"candidates": 2170, "read": 2166},
+            "preference keys and switches": {"candidates": 348, "read": 4},
+        }}}
+
+    def _scope(self):
+        return Scope(self.COVERAGE, to_ref="refs/tags/151.0.7922.138")
+
+    def test_a_well_read_surface_confirms_its_own_absences(self):
+        scope = self._scope()
+        self.assertTrue(scope.confirms_absence("idl_member"))
+        self.assertFalse(scope.confirms_absence("pref"))
+
+    def test_the_sentence_quotes_the_surface_not_the_run(self):
+        scope = self._scope()
+        self.assertEqual(scope.read_percent("idl_member"), "100%")
+        self.assertEqual(scope.read_percent("pref"), "1%")
+
+    def test_a_kind_with_no_row_falls_back_to_the_whole_read(self):
+        """Never a guess: an unmeasured surface uses the figure there is."""
+        self.assertEqual(self._scope().read_percent("mojo_method"), "44%")
+
+    def test_a_web_api_removal_keeps_its_full_severity(self):
+        api = Fact(kind="idl_interface", key="Foo", name="Foo",
+                   path="third_party/blink/renderer/core/foo.idl",
+                   attrs={"idl_kind": "interface"})
+        change = diff_snapshots(snap("148.0.0.0", [api]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        self.assertEqual(score_change(change, self._scope()).score, 70)
 
 
 class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
@@ -3804,6 +3966,31 @@ class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
                         got, want,
                         f"{name}: {m.group(0)!r} but the run says {want}")
         self.assertGreaterEqual(seen, 6, "the documented sentences moved")
+
+        # A named figure may not have two current values across the documents.
+        # Matching three sentences was not enough: the bucket counts appeared
+        # in four more places and stayed at a previous run's numbers while
+        # every test passed, because no test was looking at those places.
+        labels = {
+            "Breaking": len(breaking),
+            "Behaviour change": report["summary"]["by_bucket"]["behaviour"],
+            "New surface": report["summary"]["by_bucket"]["new"],
+            "Housekeeping": report["summary"]["by_bucket"]["housekeeping"],
+        }
+        for name, text in self._docs().items():
+            for label, want in labels.items():
+                # A count beside the label, in a table cell or a code block.
+                for m in re.finditer(
+                        rf"{re.escape(label)}\**\s*(?:\||)\s*([\d,]{{3,7}})(?=\s|\||<|$)",
+                        text):
+                    value = int(m.group(1).replace(",", ""))
+                    # Only figures in the plausible range are this pair's
+                    # counts; a year or a line number is not.
+                    if not (100 <= value <= 9999):
+                        continue
+                    self.assertEqual(
+                        value, want,
+                        f"{name}: {label} appears as {value}, the run says {want}")
         # And the total the retired-flag sentences describe.
         self.assertEqual(retired, 132,
                          "the retired-flag total moved; update the documents")

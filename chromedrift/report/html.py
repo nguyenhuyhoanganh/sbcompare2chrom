@@ -574,8 +574,16 @@ def _brief_html(summary: dict, limit: int = 200) -> str:
             body = f'<div class="fsum">{_esc(entry["summary"])}</div>'
         if entry.get("spec"):
             spec = _esc(entry["spec"])
-            body += (f'<div class="fsum"><a href="{spec}" rel="noreferrer">'
-                     f'{spec}</a></div>')
+            # Escaping keeps the attribute intact; it does not make the scheme
+            # safe. `javascript:alert(1)` survives every entity encoding and
+            # runs on click. The value comes from chromestatus over the
+            # network, so the scheme is checked rather than trusted, and a URL
+            # that is not http(s) is shown as the text it is.
+            if _http_url(entry["spec"]):
+                body += (f'<div class="fsum"><a href="{spec}" '
+                         f'rel="noreferrer">{spec}</a></div>')
+            else:
+                body += f'<div class="fsum">{spec}</div>'
         items.append(f'<div class="feat">{head}{body}</div>')
 
     more = ""
@@ -592,6 +600,12 @@ def _brief_html(summary: dict, limit: int = 200) -> str:
             f'above — the names are prose and the findings are identifiers — '
             f'so read them as background, not as a second opinion on any '
             f'single row.</p>{"".join(items)}{more}</div></details>')
+
+
+def _http_url(value: object) -> bool:
+    """Only `http:` and `https:` become a clickable link."""
+    return isinstance(value, str) and value.strip().lower().startswith(
+        ("http://", "https://"))
 
 
 def _embed(value) -> str:

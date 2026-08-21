@@ -725,7 +725,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <div class="warnbox" style="margin-top:14px">
       <b>A removal is an inference from absence, and the other two are not.</b> Both
       sides of a modification were read; an addition is a thing seen. A removal is a
-      thing <em>not</em> seen, which on a run covering 5% of the tree is a much weaker
+      thing <em>not</em> seen, which on a run covering 44% of the tree is a much weaker
       claim than on one covering all of it. Measured M148 → M151: of 141 preference
       keys that vanished, 100 had simply moved into a file the run never opened.
     </div>
@@ -813,7 +813,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </table>
     <div class="note" style="margin-top:13px">
       <b>The last two columns point opposite ways, which is the whole reason to
-      split.</b> The longest list carries two of the 315 Breaking rows; the second
+      split.</b> The longest list carries two of the 282 Breaking rows; the second
       shortest carries 126. Routing is by surface except where the fix is somewhere
       else than the declaration: a renamed C++ constant stops the build and is fixed
       in the file beside it, while a renamed Finch string compiles perfectly and is
@@ -978,7 +978,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
             <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
               <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">29,118</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">54,451</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">54,298</td></tr>
               <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,697</td></tr>
             </tbody>
           </table>
@@ -1328,8 +1328,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <span class="chip hot">Mojo struct field · 3,076</span>
       <span class="chip">Mojo struct · 703</span>
       <span class="chip">Mojo enum · 373</span>
-      <span class="chip">IDL member · 11,941</span>
-      <span class="chip">IDL interface · 2,608</span>
+      <span class="chip">IDL member · 11,962</span>
+      <span class="chip">IDL interface · 2,607</span>
       <span class="chip ok">route · 108</span>
       <span class="chip ok">control · 971</span>
       <span class="chip ok">gate · 764</span>
@@ -1515,8 +1515,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <label class="tg"><input type="checkbox" data-zero="1" data-why="0 — not compiled into the windows build on either side of this change, so nothing it does reaches our users">
             <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
             <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 187 of 3,027 findings at M148 → M151</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 5% of the tree, so “gone” may mean “moved into a file we never opened”">
-            <span class="d"><b>A removal, on a run that read 5% of the tree</b>
+          <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 44% of the tree, so “gone” may mean “moved into a file we never opened”">
+            <span class="d"><b>A removal, on a run that read 44% of the tree</b>
             <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>
         </div>
         <div class="dial">
@@ -1736,7 +1736,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       extractor whether it would read the file, so there is no second list to
       drift. For surfaces like prefs,
       switches and Mojo the gap between the two target sets is very large — prefs 689
-      against 2,460, Mojo interfaces 338 against 1,501 — so when the answer really
+      against 2,460, Mojo interfaces 338 against 1,479 — so when the answer really
       matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">

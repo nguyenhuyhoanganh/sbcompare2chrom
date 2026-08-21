@@ -453,11 +453,12 @@ def build_parser() -> argparse.ArgumentParser:
                              "declarations, because the curated files are the "
                              "big ones. wide: whole-directory archives for "
                              "components/, chrome/browser/, content/ and "
-                             "others -- about 315 MB per version, and it reads "
-                             "everything an extractor understands. Use it for "
-                             "a release gate. minimal: three files, for smoke "
-                             "tests. Every run measures and prints the "
-                             "coverage it achieved")
+                             "others -- about 315 MB per version, and nearly "
+                             "every file an extractor understands. The widest "
+                             "read available; it is not a release verdict, and "
+                             "the run prints what it missed. minimal: three "
+                             "files, for smoke tests. Every run measures and "
+                             "prints the coverage it achieved")
     which_files = argparse.ArgumentParser(add_help=False, parents=[target_set])
     which_files.add_argument("--partition", action="append", dest="partitions",
                              metavar="NAME",
@@ -465,8 +466,9 @@ def build_parser() -> argparse.ArgumentParser:
                              "part of the product (repeatable). Faster, and "
                              "less complete by design: a change affecting "
                              "downloads can live in content/ or in a Mojo "
-                             "interface and match no partition. Use the full "
-                             "set for a release gate. Available: "
+                             "interface and match no partition. A smaller "
+                             "question, not a cheaper answer to the same one. "
+                             "Available: "
                              f"{', '.join(partition_names())}")
     which_files.add_argument("--complete", action="store_true",
                              help="with --partition: fetch the partition's "

@@ -15,6 +15,7 @@ import re
 from typing import Dict, List, Optional, Sequence
 
 from .acquire import FetchTarget
+from .eligibility import in_scope
 from .extract._cpp import PLATFORM_DIR_RE
 from .extract.webui_gates import WEBUI_HANDLER_DIR
 
@@ -174,9 +175,11 @@ class DiscoveryRule:
         self.applies = applies
 
     def matches(self, path: str, include_other_platforms: bool = False) -> bool:
-        if _TEST_RE.search(path) or _NOT_THE_PRODUCT_RE.search(path):
-            return False
-        if _VENDORED_THIRD_PARTY_RE.search(path):
+        # One policy, shared with extraction. Two copies disagreed in both
+        # directions: a `/web_test/` file counted as a candidate nothing would
+        # ever read, and `hit_test_opaqueness.mojom` produced facts while being
+        # excluded from the denominator by a substring rule.
+        if not in_scope(path):
             return False
         if not include_other_platforms and _OTHER_PLATFORM_RE.search(path):
             return False
@@ -307,10 +310,24 @@ def coverage_against(candidates: Dict[str, str],
     for path in missed:
         top = "/".join(path.split("/")[:2])
         by_dir[top] = by_dir.get(top, 0) + 1
+    # Per surface as well as overall, because one scalar hides the spread and
+    # the scoring stage uses it to decide whether an absence is a removal.
+    # Measured at M151 on the default set: 99.8% of the web API definitions
+    # against 1.7% of the pref and switch files. A pref that vanished from
+    # that read is a guess; a web API that vanished is very nearly a fact, and
+    # one number cannot say both.
+    missed_set = set(missed)
+    per_note: Dict[str, Dict[str, int]] = {}
+    for path, note in candidates.items():
+        row = per_note.setdefault(note, {"candidates": 0, "read": 0})
+        row["candidates"] += 1
+        if path not in missed_set:
+            row["read"] += 1
     return {
         "candidates": len(candidates),
         "read": len(candidates) - len(missed),
         "missed": len(missed),
+        "by_surface": dict(sorted(per_note.items())),
         "missed_by_directory": dict(sorted(by_dir.items(), key=lambda kv: -kv[1])[:12]),
         "missed_paths": missed,
     }

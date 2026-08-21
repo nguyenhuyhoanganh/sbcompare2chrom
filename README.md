@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,040 lines, 29 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,212 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -450,15 +450,15 @@ coverage: reads 3669 of 8349 files in this tree that could declare (43% of files
 | Feature params | 863 | 1,686 |
 | Prefs | 689 | 2,460 |
 | Switches | 288 | 1,222 |
-| Mojo interfaces | 338 | 1,501 |
-| Mojo methods | 1,362 | 6,099 |
-| Mojo structs | 703 | 2,873 |
-| Mojo struct fields | 3,076 | 13,069 |
-| Mojo enums | 373 | 1,481 |
+| Mojo interfaces | 338 | 1,479 |
+| Mojo methods | 1,362 | 6,012 |
+| Mojo structs | 703 | 2,867 |
+| Mojo struct fields | 3,076 | 13,015 |
+| Mojo enums | 373 | 1,477 |
 | WebUI controls | 971 | 1,431 |
-| **Total facts** | **29,118** | **54,451** |
+| **Total facts** | **29,118** | **54,298** |
 
-So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
+So `default` reads 43% of the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
 `wide` reads 99%, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
 
@@ -581,13 +581,13 @@ The directory rule applies only when *every* declaration of a key sits under one
 
 The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
-**An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read a twentieth of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
+**An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read part of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
 
 ```
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
+-15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
     housekeeping rather than breaking — --target-set wide settles it
 ```
@@ -608,7 +608,7 @@ The leading signal also decides **whose desk a finding lands on**, which is the 
 | WebUI front-end | routes, templates, the booleans gating them | 277 | 1 |
 | Outside the repository | Finch configs, launch scripts, automation, policy | 301 | 53 |
 
-The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 315 Breaking rows and the second shortest carries 126.
+The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 282 Breaking rows and the second shortest carries 126.
 
 Routing is by surface, except where the fix is somewhere other than the declaration. A renamed C++ constant stops the build and is fixed in the file beside it; a renamed Finch string compiles perfectly and is fixed in a server-side config nobody can see from this repository. Those are one event to a diff and two jobs on two desks, and only the second can sit unnoticed for a milestone — so eight signals override their surface and route to **Outside the repository**, which owns nothing and is where the silent failures collect.
 
@@ -618,10 +618,10 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 | Bucket | Meaning | M148 → M151 |
 |---|---|---:|
-| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 239 |
-| **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 492 |
-| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,148 |
-| **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | 921 |
+| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 282 |
+| **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 468 |
+| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,240 |
+| **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | 1,037 |
 
 Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
 
@@ -647,10 +647,10 @@ A rule that produced the same answer either way would be wrong in one of the two
 ### The four counts at the top
 
 ```
-Breaking             239   ← something outside the binary stops working, silently
-Behaviour change     492   ← the Windows build behaves differently
-New surface         1148   ← surface that did not exist. Nothing is on by it
-Housekeeping         921   ← Chromium tidying up after itself
+Breaking             282   ← something outside the binary stops working, silently
+Behaviour change     468   ← the Windows build behaves differently
+New surface         1240   ← surface that did not exist. Nothing is on by it
+Housekeeping        1037   ← Chromium tidying up after itself
 ```
 
 Read in that order. `report.md` gives the first three a table each and deliberately gives Housekeeping none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
@@ -722,11 +722,16 @@ severity 75 — Now ON by default on Windows
 ```
 
 ```
-severity 70 — Web API removed
--15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
-    so "gone" may mean "moved into a file we never opened" — --target-set
-    wide settles it
+severity 35 — Preference no longer in the file we read — it may have been
+    deleted, orphaning stored values, or simply moved to one of the ~100
+    pref files outside the scan
+-15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
+    so "gone" may mean "moved into a file we never opened"; filed as
+    housekeeping rather than breaking — --target-set wide settles it
 ```
+
+A web API removed on the same run keeps its full 70, because the surface it
+vanished from was read at 99%. The deduction is per surface, not per run.
 
 A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
 
@@ -922,7 +927,7 @@ python3 -m chromedrift snapshot 151.0.7922.138
 | `! <ref>: N target(s) absent from that source` | Files the target set asked for were not in that tree | Normal for an older milestone, where Chromium had not created the file yet. Not normal for a local checkout — there it means the tree is partial, and each absent target is a whole file's declarations missing from the comparison |
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `Breaking: 0` on a default run | Normal, and not a clean bill of health | The default set reads a twentieth of the tree, and an unconfirmed removal is filed as Housekeeping there by design. Run `--target-set wide` before concluding anything |
+| `Breaking: 0` on a default run | Normal, and not a clean bill of health | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Housekeeping there by design. Run `--target-set wide` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMEDRIFT_CACHE=C:\cdcache` |
@@ -968,7 +973,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**316 tests, running in about three seconds, with no network.**
+**327 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1014,20 +1019,21 @@ Tracking down the difference showed **the tool was right and the cross-check was
 
 ```
 chromedrift/
-  acquire.py      546 lines  fetch source over Gitiles or from a local checkout
-  targets.py      742        declares which files to fetch and why; partitions; coverage rules
-  snapshot.py     208        combines fetch + extract into one cached snapshot
-  extract/      2,803        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,338        semantic comparison, labelling, severity, bucketing, ownership
+  acquire.py      566 lines  fetch source over Gitiles or from a local checkout
+  targets.py      759        declares which files to fetch and why; partitions; coverage rules
+  snapshot.py     188        combines fetch + extract into one cached snapshot
+  extract/      2,801        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py       1,354        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        230        the two run-dependent adjustments, and the reasons
+  score.py        275        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        847        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        854        shared data structures, the four buckets, the five owners, JSON read/write
+  eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,707        markdown + self-contained HTML dashboard;
+  report/       1,721        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          583        6 command-line commands
+  cli.py          585        6 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

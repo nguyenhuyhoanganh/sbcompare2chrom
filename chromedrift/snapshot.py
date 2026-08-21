@@ -15,6 +15,7 @@ import time
 from typing import Optional, Sequence, Tuple
 
 from .acquire import (
+    safe_name,
     AcquireError,
     GitilesSource,
     LocalSource,
@@ -27,27 +28,6 @@ from .model import SCHEMA_VERSION, Snapshot, read_json, write_json
 from .targets import coverage_against, discover_candidates, get_targets
 
 
-_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]")
-
-
-def _safe_name(ref: str) -> str:
-    """A ref turned into one path component that cannot become two.
-
-    Both cache paths are built from it and both used to replace `/` and `:`
-    and nothing else, which leaves `\\` -- a separator on the platform this
-    tool is written for -- and leaves `..`. A ref of `..\\..\\victim` wrote
-    outside the cache directory on Windows, and `tree_path` is where a whole
-    source tree gets unpacked.
-
-    Allow-list rather than deny-list, because the next separator to matter is
-    the one nobody thought of, and collapse `..` so no component can climb.
-    """
-    safe = _UNSAFE_RE.sub("_", ref)
-    while ".." in safe:
-        safe = safe.replace("..", "_")
-    return safe or "_"
-
-
 def snapshot_path(cache_dir: str, ref: str, target_set: str,
                   partitions: Optional[Sequence[str]] = None,
                   complete: bool = False) -> str:
@@ -58,7 +38,7 @@ def snapshot_path(cache_dir: str, ref: str, target_set: str,
     the same mistake that once made a "minimal" snapshot silently hold the
     full fact set, and later made a widened filter change nothing.
     """
-    safe = _safe_name(ref)
+    safe = safe_name(ref)
     part = ("." + "+".join(sorted(partitions))) if partitions else ""
     # A complete partition covers strictly more than a filtered one of the same
     # name, so it cannot share a key with it.
@@ -67,7 +47,7 @@ def snapshot_path(cache_dir: str, ref: str, target_set: str,
 
 
 def tree_path(cache_dir: str, ref: str) -> str:
-    safe = _safe_name(ref)
+    safe = safe_name(ref)
     return os.path.join(cache_dir, "trees", safe)
 
 

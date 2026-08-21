@@ -33,6 +33,7 @@ Users experience a difference. This is the short list that matters.
 | `web_api_removed_gated` | Removed while still behind a closed runtime flag — no page could call it, so this is the web API spelling of `flag_retired_off`. 32 of 77 removals at M148 → M151 |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
+| `ipc_ordinal_changed` | A Mojo method's explicit ordinal moved. The far side routes by that number, so the message now reaches a different method or none — no build error, no signature change |
 | `ipc_shape_changed` | The data half of the same break: a struct field changed type or ordinal, or a struct became a union. The other process reads those bytes as something else |
 | `ipc_enum_changed` | A Mojo enum gained or lost a member. Lower severity on purpose — a peer that does not know a value **rejects** the message rather than misreading it |
 | `ipc_removed` | Mojo interface, method, struct, field or enum removed |
@@ -111,7 +112,7 @@ non-ChromeOS `pref_names.h` files.
 read the whole tree can call a disappearance a disappearance, so they are filed
 under **Breaking** at full severity. A run that did not is filed under
 **Housekeeping** with 15 points off, and the finding says so in its own
-reasons. Measured on the same pair of versions: `default` reads 5% of the tree
+reasons. Measured on the same pair of versions: `default` reads 43% of the tree
 and produces 139 of these in Housekeeping at 20 points; `wide` reads 99% and
 produces 171 in Breaking at 35.
 
@@ -204,7 +205,7 @@ has a sentence beside it on the finding:
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
+-15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
     housekeeping rather than breaking — --target-set wide settles it
 ```

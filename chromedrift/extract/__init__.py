@@ -12,6 +12,7 @@ import os
 import re
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
+from ..eligibility import in_scope
 from ..model import Fact, dedupe_facts
 from ._cpp import PLATFORM, other_platform_dir
 from . import (
@@ -77,11 +78,8 @@ CROSS_PLATFORM_EXTRACTORS = ("constants",)
 
 
 def _skip(rel_path: str) -> bool:
-    path = rel_path.replace(os.sep, "/")
-    probe = "/" + path + "/"
-    if any(part in probe for part in SKIP_DIR_PARTS):
-        return True
-    return bool(SKIP_FILE_RE.search(path))
+    """Out of scope, by the one policy discovery also uses."""
+    return not in_scope(rel_path.replace(os.sep, "/"))
 
 
 def _other_platform(rel_path: str) -> bool:
