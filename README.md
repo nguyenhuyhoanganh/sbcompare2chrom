@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what does a downstream browser team have to fix when they move to the new base.**
 
-The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,605 lines, 33 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,659 lines, 33 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -400,36 +400,35 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
 | `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | 42 / 1,178 (3%) | Day-to-day work |
-| `wide` | ~315 MB | ~94 MB | **1,039 / 1,178 (88%)** | A release gate |
+| `default` | ~40 MB | ~38 MB | 64 / 1,164 (5%) | Day-to-day work |
+| `wide` | ~337 MB | ~110 MB | **1,164 / 1,164 (100%)** | A release gate |
 
 4% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
 | | `default` | `wide` |
 |---|---:|---:|
-| `base::Feature` | 2,062 | 3,951 |
-| Feature params | 863 | 1,626 |
+| `base::Feature` | 2,069 | 4,243 |
+| Feature params | 863 | 1,686 |
 | Prefs | 689 | 2,460 |
-| Switches | 288 | 1,111 |
-| Mojo interfaces | 338 | 1,455 |
-| Mojo methods | 1,362 | 5,738 |
+| Switches | 288 | 1,222 |
+| Mojo interfaces | 338 | 1,501 |
+| Mojo methods | 1,362 | 5,903 |
 | WebUI controls | 971 | 1,431 |
-| **Total facts** | **24,959** | **36,158** |
+| **Total facts** | **24,966** | **36,832** |
 
 So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
-`wide` reads 88%, not 100%, and the difference is worth understanding because the number used to say 100%. Every file `wide` fetches is claimed by at least one extractor, and every filename convention the measurement counts is one an extractor reads — tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
+`wide` reads 100%, and that figure is worth explaining because it used to say 100% while reading 87%. Every file `wide` fetches is claimed by at least one extractor, and every filename convention the measurement counts is one an extractor reads — tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
 
 What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they are not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone hold 88 `base::Feature` declarations that no target set reads.
 
-The roots now cover the tree, so the gap is counted and named instead of hidden, and `--target-set wide` prints where it sits:
+Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
 ```
-coverage: reads 1039 of 1178 files in this tree that could declare (88% of files)
-  largest gaps: third_party/blink/ (37 files), device/bluetooth/ (8 files), storage/browser/ (6 files)
+coverage: reads 1164 of 1164 files in this tree that could declare (100% of files)
 ```
 
-**Fetching did not change.** The roots feed the measurement only, so this costs one extra directory listing per root — 15 seconds on a cold run, nothing on a warm one, since a tag's listing is cached forever. Closing the remaining 12% is a separate decision about bandwidth, and it is now a decision someone can make with a number in front of them.
+Fourteen files went the other way, excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree, which the platform rule had been missing by one suffix. They are binaries that ship beside the browser rather than being it, so their switches reach none of our users — the same reason `content/shell/` has always been excluded.
 
 Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's product surface, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
 
@@ -1016,7 +1015,7 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ```
 chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
-  targets.py      668        declares which files to fetch and why; partitions; coverage rules
+  targets.py      711        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
   extract/      2,404        9 extractors + the C++ scanning helpers
   diff.py         1,057        semantic comparison, labelling, rename detection
@@ -1027,7 +1026,7 @@ chromedrift/
   discover.py     327        find the vendor's own files in a fork checkout
   provenance.py   207        separate deliberate divergence from merge debt
   coverage.py     249        find where the fork shadows upstream with a build flag
-  model.py        685        shared data structures, JSON read/write, area filtering
+  model.py        696        shared data structures, JSON read/write, area filtering
   jsonc.py        259        hand-written JSON5 reader
   report/       1,651        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen

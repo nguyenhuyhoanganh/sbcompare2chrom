@@ -221,7 +221,18 @@ from typing import Any, Dict, Iterable, List, Optional
 #        - a snapshot's `missing_targets` reaches the report. It was printed by
 #          the run that built the snapshot and lost on every cached run after
 #          it, and it was in none of the three report files.
-SCHEMA_VERSION = 23
+#  24: `wide` reads every file the rule admits, so its figure means what it
+#      says. Schema 23 made the denominator honest and the answer came back
+#      88%; this closes the 139 it named. base/, device/, cc/, sandbox/,
+#      storage/, google_apis/, pdf/, mojo/ and Blink's renderer/platform are
+#      fetched -- 22 MB per version on top of 315 -- and the two Blink renderer
+#      archives the default set already downloaded are filtered by everything
+#      an extractor reads rather than by `.idl` alone, which was free.
+#      Binaries that ship beside the browser rather than being it are excluded
+#      by name instead: the headless shell, Chrome Remote Desktop, the updater,
+#      the enterprise companion, the Windows services, and Fuchsia's own tree,
+#      which the platform rule had missed by one suffix.
+SCHEMA_VERSION = 24
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

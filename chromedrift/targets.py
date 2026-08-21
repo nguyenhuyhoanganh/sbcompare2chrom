@@ -108,8 +108,7 @@ DISCOVERY_ROOTS = (
     # The roots that were missing outright. Between them they hold 102 of the
     # 153 files the measurement could not see.
     "base", "device", "cc", "google_apis", "sandbox", "storage", "pdf",
-    "headless", "mojo", "apps", "crypto", "gin", "remoting", "skia", "url",
-    "dbus", "fuchsia_web",
+    "mojo", "apps", "crypto", "gin", "skia", "url", "dbus",
 )
 
 # Test code declares features and prefs that drive the test and ship to nobody.
@@ -120,13 +119,21 @@ _TEST_RE = re.compile(
 # Platforms this product does not build. Reading them is not merely wasted --
 # a ChromeOS-only declaration scores and sorts alongside real findings.
 _OTHER_PLATFORM_RE = re.compile(
-    r"^(ash|chromeos|ios|android_webview|fuchsia|chromecast)/"
+    r"^(ash|chromeos|ios|android_webview|fuchsia|fuchsia_web|chromecast)/"
     r"|/(ash|chromeos|ios|android)/")
 
 # Binaries that are not the product. content_shell is Chromium's test browser;
 # its switches are real declarations that ship to nobody, so counting them as
 # uncovered would make the coverage figure chase something worth ignoring.
-_NOT_THE_PRODUCT_RE = re.compile(r"^content/shell/|^chrome/test/|^tools/")
+# `headless/` is the headless shell, `remoting/` is Chrome Remote Desktop, and
+# `chrome/updater`, `chrome/enterprise_companion` and `chrome/windows_services`
+# are separate binaries that ship beside the browser rather than being it. Their
+# switches are real declarations that reach none of our users, so counting them
+# as uncovered would make the coverage figure chase 11 MB of downloads for
+# fourteen files nobody here can act on.
+_NOT_THE_PRODUCT_RE = re.compile(
+    r"^content/shell/|^chrome/test/|^tools/|^headless/|^remoting/"
+    r"|^chrome/(updater|enterprise_companion|windows_services)/")
 
 # Vendored third-party projects. abseil, grpc, ipcz, libxml, opus, tflite, zlib
 # and the webrtc overrides all carry files whose names match the conventions
@@ -345,10 +352,16 @@ def default_targets() -> List[FetchTarget]:
 
         # -- Web IDL: exact API shape.  Diffing these catches removed methods
         #    (a compat break for sites) and new methods (adoption work).
-        FetchTarget("third_party/blink/renderer/modules", "tree", _IDL,
-                    note="modules web IDL"),
-        FetchTarget("third_party/blink/renderer/core", "tree", _IDL,
-                    note="core web IDL"),
+        # Filtered by everything an extractor reads rather than by `.idl`
+        # alone. These two archives are 21.5 MB and were already being
+        # downloaded for their IDL, so the 22 feature and pref files inside
+        # them went unread for want of a suffix in a filter -- the same thing
+        # schema 17 found when 934 .mojom files were fetched and discarded.
+        # Widening costs no bandwidth at all.
+        FetchTarget("third_party/blink/renderer/modules", "tree",
+                    READABLE_SUFFIXES, note="modules web IDL and declarations"),
+        FetchTarget("third_party/blink/renderer/core", "tree",
+                    READABLE_SUFFIXES, note="core web IDL and declarations"),
 
         # -- Mojo: the process-boundary ABI.  Downstream code that implements
         #    or calls a mojo interface breaks silently at runtime when a
@@ -424,6 +437,36 @@ _WIDE_ROOTS = (
     ("third_party/blink/common", "Blink's shared implementation declarations"),
     # The whole public surface, not just the mojom/ subdirectory.
     ("third_party/blink/public", "every Blink public declaration"),
+
+    # -- The roots that closed the last 12%.
+    #
+    # `wide` used to read 1,039 of the 1,178 files the rule admits, and called
+    # that 100% because the measurement graded it against the roots the fetch
+    # list already lived under. Once the denominator became the tree, the 139
+    # it was missing had names: base/, device/, cc/, sandbox/, storage/ and the
+    # rest below. They are not obscure -- `base/base_switches.h` declares
+    # --enable-logging and --v, `device/fido` is WebAuthn, `cc/base` is the
+    # compositor, `google_apis/gaia` is sign-in -- and three of those files
+    # alone hold 88 base::Feature declarations.
+    #
+    # Measured at M151 they cost 22 MB per version on top of 315, which is the
+    # price of the figure meaning what it says.
+    ("base", "base:: features, switches and field trials"),
+    ("device", "Bluetooth, gamepad, VR and WebAuthn"),
+    ("cc", "the compositor"),
+    ("google_apis", "sign-in and GCM"),
+    ("sandbox", "sandbox policy"),
+    ("storage", "quota, blob and filesystem"),
+    ("pdf", "the PDF viewer"),
+    ("mojo", "Mojo core"),
+    ("apps", "Chrome apps"),
+    ("crypto", "crypto"),
+    ("gin", "V8 bindings"),
+    ("skia", "graphics"),
+    ("url", "URL parsing"),
+    # `core` and `modules` are already fetched by the default set; only
+    # `platform` is a new download, at 5.8 MB.
+    ("third_party/blink/renderer/platform", "Blink platform declarations"),
 )
 
 # Every filename shape an extractor can read, as basename suffixes.

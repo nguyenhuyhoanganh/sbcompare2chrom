@@ -97,7 +97,7 @@ fork instead of across time, and `--target-set` to choose how much is read:
 |---|---:|---:|---|
 | `minimal` | ~1 MB | 3 | smoke test |
 | `default` | ~40 MB | 4% of files, over half the flags | day to day |
-| `wide` | 315 MB fetched, 94 MB kept | **88% of files** | release gate |
+| `wide` | 337 MB fetched, 110 MB kept | **100% of files** | release gate |
 
 **Every run prints the coverage it achieved**, measured against a listing of
 that version's own tree rather than assumed:
@@ -111,7 +111,9 @@ The denominator is the tree, not the roots the fetch list happens to live under.
 It used to be the latter, which let `wide` grade itself 100% while 153 files the
 same rule admits -- `base/base_switches.h`, `cc/base/features.cc`,
 `device/fido/public/features.cc` among them -- sat outside the measurement
-entirely. **`wide` reads 88%.** Never quote 100%.
+entirely. That gap is now closed -- `base/`, `device/`, `cc/`, `sandbox/`,
+`storage/` and the rest are fetched -- so **`wide` reads 100% and the figure
+means it.** Quote the number the run printed, never one from here.
 
 Read that line before reading the findings. A hand-written list of target files
 decays — built as it stood at M130 and run at M151 it misses 27% of the pref
@@ -129,7 +131,7 @@ coverage of something else.
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
 `media`) limits what is fetched and scanned. Measured at M151 on the default
-set: full run 24,959 facts, `--partition settings` 4,708. A partitioned run
+set: full run 24,966 facts, `--partition settings` 4,708. A partitioned run
 prints its own coverage line, scoped to the partition's roots. **Faster and less
 complete, one-directionally** — Chromium is not organized by product, so a
 change affecting downloads can live in `content/` or in a Mojo interface and
@@ -296,14 +298,14 @@ State these limits in every report. A clean report does not imply a clean uprev.
 
   | | `default` | `wide` |
   |---|---:|---:|
-  | Files read, of the 1,178 that could declare | 42 (3%) | **1,039 (88%)** |
-  | Facts | 24,959 | 36,158 |
-  | `base::Feature` | 2,062 | 3,951 |
-  | Feature params | 863 | 1,626 |
+  | Files read, of the 1,164 that could declare | 64 (5%) | **1,164 (100%)** |
+  | Facts | 24,966 | 36,832 |
+  | `base::Feature` | 2,069 | 4,243 |
+  | Feature params | 863 | 1,686 |
   | Preference keys | 689 | 2,460 |
-  | Command-line switches | 288 | 1,111 |
-  | Mojo interfaces | 338 | 1,455 |
-  | Mojo methods | 1,362 | 5,738 |
+  | Command-line switches | 288 | 1,222 |
+  | Mojo interfaces | 338 | 1,501 |
+  | Mojo methods | 1,362 | 5,903 |
   | WebUI controls | 971 | 1,431 |
 
   `default` reads 4% of the files but more than half the feature declarations,
@@ -318,7 +320,7 @@ State these limits in every report. A clean report does not imply a clean uprev.
 
   **Mojo is the reason to consider `wide` for anything that matters.** It
   carries the highest-severity findings the tool produces, breaks at runtime
-  rather than at build, and `default` sees 338 of 1,455 interfaces.
+  rather than at build, and `default` sees 338 of 1,501 interfaces.
 
   **Preference keys need care whichever set you ran.** Chromium is splitting
   `chrome/common/pref_names.h` apart -- 4,322 lines at M143, 3,267 at M151 --

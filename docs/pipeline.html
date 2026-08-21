@@ -923,8 +923,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <table>
             <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
-              <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">24,959</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36,158</td></tr>
+              <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">24,966</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~300</td><td class="n">36,832</td></tr>
               <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,692</td></tr>
             </tbody>
           </table>
@@ -1263,7 +1263,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       These are exactly the names you see in the <code>kind</code> field of <code>report.json</code>.
     </p>
     <div class="chips">
-      <span class="chip ok">feature flag · 2,062</span>
+      <span class="chip ok">feature flag · 2,069</span>
       <span class="chip">feature param · 863</span>
       <span class="chip ok">blink runtime · 1,212</span>
       <span class="chip">chrome://flags · 1,753</span>
@@ -1633,11 +1633,12 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       At M151, <code>default</code> reads 42 of the 1,178 files that could declare
       something (3%) but still captures more than half the <code>base::Feature</code>
       declarations, because the hand-picked files are the largest ones.
-      <code>--target-set wide</code> reads 1,039 of them (88%) — not all, and the
-      measurement says so: the denominator is the tree rather than the roots the
-      fetch list lives under, which is what used to make that figure read 100%. For surfaces like prefs,
+      <code>--target-set wide</code> reads all 1,164. That figure once said 100%
+      while reading 87%, because the denominator was the roots the fetch list
+      lived under rather than the tree; it is now the tree, and the roots the
+      measurement named have been fetched. For surfaces like prefs,
       switches and Mojo the gap between the two target sets is very large — prefs 689
-      against 2,404, Mojo interfaces 338 against 1,455 — so when the answer really
+      against 2,404, Mojo interfaces 338 against 1,501 — so when the answer really
       matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
