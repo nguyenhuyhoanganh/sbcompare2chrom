@@ -1016,5 +1016,79 @@ class TestPlatformDirectories(unittest.TestCase):
         self.assertNotIn("platform_state", facts[0].attrs)
 
 
+class TestFactsAnOutsideReviewFoundMissing(unittest.TestCase):
+    """Five things the tool had the evidence for and did not use.
+
+    Every one was invisible to a self-consistency test: the extractor and the
+    documents agreed with each other about a number that was wrong, because
+    neither counted what neither read. They are held individually here.
+    """
+
+    def test_the_guard_around_a_feature_reaches_its_platform_state(self):
+        """441 features at M151 sat under a Windows-excluding `#if`.
+
+        The guard was collected into `conditions` and never applied, so
+        `score._not_in_build` could not fire and an Android-only feature
+        turning on scored 75 on a Windows report.
+        """
+        facts = {f.key: f for f in base_features.extract("""
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kAndroidOnly, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+BASE_FEATURE(kOurs, base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(ENABLE_PDF)
+BASE_FEATURE(kMaybe, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+""", "x/features.cc")}
+        state = lambda k: facts[k].attrs["platform_state"][PLATFORM]
+        self.assertEqual(state("AndroidOnly"), "not_compiled")
+        self.assertEqual(state("Ours"), "enabled")
+        # A non-platform build flag is undecidable, not ours-by-default.
+        self.assertEqual(state("Maybe"), "conditional")
+
+    def test_a_mojo_method_pinned_to_an_ordinal_is_still_a_method(self):
+        """269 declarations across 23 files at M151 produced nothing.
+
+        `_parse_method` required `(` straight after the name, so `Foo@0(...)`
+        matched nothing and was skipped without an error -- on the surface
+        this tool ranks highest.
+        """
+        facts = {f.key: f for f in mojom.extract(
+            "module t;\ninterface I {\n  Foo@0(int32 a);\n  Bar(int32 b);\n"
+            "  [Sync] Baz@7(string s) => (bool ok);\n};\n", "t.mojom")}
+        self.assertIn("t.I.Foo", facts)
+        self.assertEqual(facts["t.I.Foo"].attrs["ordinal"], "0")
+        self.assertEqual(facts["t.I.Baz"].attrs["ordinal"], "7")
+        # The ordinal is part of the wire contract, so it is compared; a
+        # method that never had one carries no key at all.
+        self.assertNotIn("ordinal", facts["t.I.Bar"].attrs)
+
+    def test_mac_and_linux_are_platform_directories_too(self):
+        """79 Mojo facts at M151 live in exact `/mac/` and `/linux/` dirs."""
+        self.assertTrue(other_platform_dir("chrome/common/mac/app_shim.mojom"))
+        self.assertTrue(other_platform_dir("chrome/browser/linux/x.cc"))
+
+    def test_a_hyphenated_idl_attribute_keeps_its_whole_name(self):
+        """`\\w` does not match a hyphen, so `margin-top` was named `top`.
+
+        Its neighbour is genuinely called `top`, so the two collided on one
+        uid and deduplication dropped one. 138 member uids at M151.
+        """
+        facts = [f.key for f in web_idl.extract(
+            "interface X { attribute CSSOMString margin-top; "
+            "attribute CSSOMString top; };",
+            "third_party/blink/renderer/x.idl") if f.kind == "idl_member"]
+        self.assertEqual(sorted(facts), ["X.margin-top", "X.top"])
+
+    def test_test_and_fuzzer_declarations_never_reach_a_product_report(self):
+        """151 facts at M151 came from files that ship to nobody."""
+        from chromedrift.extract import _skip
+        for path in ("services/network/public/mojom/network_service_test.mojom",
+                     "mojo/public/tools/fuzzers/fuzz.mojom",
+                     "content/browser/indexed_db_control_test.mojom"):
+            self.assertTrue(_skip(path), path)
+        self.assertFalse(_skip("third_party/blink/public/mojom/frame/frame.mojom"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

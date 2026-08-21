@@ -1149,18 +1149,26 @@ class TestCatalog(unittest.TestCase):
         "components/y/features_browsertest.cc",            # a test, ignore
         "ash/constants/ash_features.cc",                   # platform we do not ship
         "chrome/browser/browser.cc",                       # not a feature file
-        "third_party/blink/renderer/core/dom/element.idl",  # not a .cc
+        "third_party/blink/renderer/core/dom/element.idl",  # web API definitions
+        "third_party/blink/public/mojom/frame/frame.mojom",  # process boundary
     ]
 
     def _report(self, **kw):
         from chromedrift.catalog import analyze
         return analyze(self.PATHS, ref="151.0.0.0", **kw)
 
-    def test_only_plausible_feature_files_are_candidates(self):
+    def test_every_surface_an_extractor_reads_is_a_candidate(self):
+        """The denominator asks the extractors; there is no second list.
+
+        `.idl` and `.mojom` used to be excluded from it, so `wide` reported
+        100% while 3,798 such files -- 72% of a report's facts -- sat outside
+        the measurement. A file no extractor reads is still not a candidate.
+        """
         paths = {c.path for c in self._report().candidates}
         self.assertIn("cc/base/features.cc", paths)
+        self.assertIn("third_party/blink/renderer/core/dom/element.idl", paths)
+        self.assertIn("third_party/blink/public/mojom/frame/frame.mojom", paths)
         self.assertNotIn("chrome/browser/browser.cc", paths)
-        self.assertNotIn("third_party/blink/renderer/core/dom/element.idl", paths)
 
     def test_tests_are_excluded(self):
         paths = {c.path for c in self._report().candidates}
@@ -3612,6 +3620,94 @@ class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
             self.assertEqual(linked, [], f"{name} links another document")
 
 
+class TestTheReportIsSafeToOpen(unittest.TestCase):
+    """A report is a file people forward to each other and open in a browser.
+
+    Chromium's own source is not the threat here; `--local-src` and a
+    hand-edited `report.json` are, and the tool accepts both.
+    """
+
+    def test_a_payload_cannot_end_its_own_script_tag(self):
+        import json
+        """`json.dumps` escapes nothing an HTML parser cares about.
+
+        The parser ends the script at the first `</script>` in the byte
+        stream, inside a string literal or not, and escaping at render time
+        cannot help because the break already happened when the document was
+        parsed.
+        """
+        from chromedrift.report.html import _embed
+        out = _embed({"name": "</script><script>alert(1)</script>"})
+        self.assertNotIn("</script>", out)
+        self.assertNotIn("<script", out)
+        # And still valid JSON for the browser to parse back.
+        self.assertEqual(json.loads(out)["name"],
+                         "</script><script>alert(1)</script>")
+
+    def test_a_line_separator_cannot_break_the_literal(self):
+        """U+2028 is valid JSON and illegal in a JS string literal."""
+        from chromedrift.report.html import _embed
+        self.assertNotIn("\u2028", _embed({"a": "x\u2028y"}))
+
+    def test_a_ref_cannot_climb_out_of_the_cache(self):
+        """Both cache paths are built from the ref, and both used to allow it.
+
+        `/` and `:` were replaced and `\\` was not -- a separator on the
+        platform this tool is written for -- so `..\\..\\victim` wrote outside
+        the cache, and `tree_path` is where a whole source tree is unpacked.
+        """
+        from chromedrift.snapshot import _safe_name
+        for hostile in ("..\\..\\victim", "../../etc/passwd", "a/b", "a:b",
+                        "..", "....//"):
+            safe = _safe_name(hostile)
+            self.assertNotIn("/", safe)
+            self.assertNotIn("\\", safe)
+            self.assertNotIn("..", safe)
+        # And an ordinary ref still produces the name the cache already uses.
+        self.assertEqual(_safe_name("refs/tags/151.0.7922.138"),
+                         "refs_tags_151.0.7922.138")
+
+    def test_check_does_not_print_proxy_credentials(self):
+        """`check` output is the first thing pasted into a ticket."""
+        from chromedrift.cli import _redact_proxy
+        self.assertEqual(_redact_proxy("http://user:pw@proxy.corp:8080"),
+                         "http://<redacted>@proxy.corp:8080")
+        self.assertEqual(_redact_proxy("http://proxy.corp:8080"),
+                         "http://proxy.corp:8080")
+
+
+class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
+    """There is no second list of what could declare, and that is the point.
+
+    It has been wrong twice, the same way both times. Most recently it counted
+    two filename conventions while the extractors grew to read `.mojom`,
+    `.idl` and the WebUI templates, so `wide` reported 1,164 of 1,164 -- 100%
+    -- while 3,798 files carrying 72% of a report's facts were not counted.
+    """
+
+    def test_every_extractor_widens_the_denominator(self):
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import could_declare
+        samples = {
+            "base_features": "content/public/common/content_features.cc",
+            "web_idl": "third_party/blink/renderer/core/dom/element.idl",
+            "mojom": "third_party/blink/public/mojom/frame/frame.mojom",
+        }
+        for name, path in samples.items():
+            self.assertIsNotNone(could_declare(path), f"{name}: {path}")
+        # A file no extractor reads is still not a candidate.
+        self.assertIsNone(could_declare("chrome/browser/browser.cc"))
+
+    def test_the_denominator_and_the_extractors_cannot_disagree(self):
+        """The rules *are* the extractor predicates, not a copy of them."""
+        from chromedrift.extract import REGISTRY
+        from chromedrift.targets import _discovery_rules
+        rules = _discovery_rules()
+        self.assertEqual(len(rules), len(REGISTRY))
+        for rule, (_, applies, _fn) in zip(rules, REGISTRY):
+            self.assertIs(rule.applies, applies)
+
+
 class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
     """The headline numbers the documents quote, checked against a real run.
 
@@ -3709,7 +3805,7 @@ class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
                         f"{name}: {m.group(0)!r} but the run says {want}")
         self.assertGreaterEqual(seen, 6, "the documented sentences moved")
         # And the total the retired-flag sentences describe.
-        self.assertEqual(retired, 148,
+        self.assertEqual(retired, 132,
                          "the retired-flag total moved; update the documents")
 
 

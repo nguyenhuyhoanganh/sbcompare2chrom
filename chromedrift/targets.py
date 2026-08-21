@@ -164,12 +164,14 @@ _FEATURE_FILE_RE = re.compile(
 class DiscoveryRule:
     """Files to fetch, named by shape instead of by path."""
 
-    __slots__ = ("pattern", "roots", "note")
+    __slots__ = ("pattern", "roots", "note", "applies")
 
-    def __init__(self, pattern, roots=DISCOVERY_ROOTS, note=""):
+    def __init__(self, pattern, roots=DISCOVERY_ROOTS, note="", applies=None):
         self.pattern = pattern
         self.roots = roots
         self.note = note
+        # An extractor's own predicate, when the rule is derived from one.
+        self.applies = applies
 
     def matches(self, path: str, include_other_platforms: bool = False) -> bool:
         if _TEST_RE.search(path) or _NOT_THE_PRODUCT_RE.search(path):
@@ -178,13 +180,40 @@ class DiscoveryRule:
             return False
         if not include_other_platforms and _OTHER_PLATFORM_RE.search(path):
             return False
+        if self.applies is not None:
+            return bool(self.applies(path))
         return bool(self.pattern.search(path))
 
 
-DISCOVERY_RULES = (
-    DiscoveryRule(_PREF_FILE_RE, note="preference keys"),
-    DiscoveryRule(_FEATURE_FILE_RE, note="feature flags and switches"),
-)
+# What the denominator counts, asked of the extractors themselves.
+#
+# It used to be the two filename rules above and nothing else, so `wide` could
+# report "1,164 of 1,164 files (100%)" while 3,798 `.mojom` and `.idl` files --
+# carrying 39,376 of the tree's 54,255 facts, 72% of a report -- sat outside
+# the measurement entirely. That is the third time this denominator has graded
+# itself on the region it already knew about, after the roots-instead-of-tree
+# error and the missing `*flags.{cc,h}` suffix, and the cause was the same
+# every time: a second list, maintained beside the thing it is meant to
+# measure. There is no second list now. An extractor added tomorrow widens the
+# denominator by existing.
+_EXTRACTOR_NOTES = {
+    "base_features": "feature flags",
+    "blink_runtime": "web platform flags",
+    "web_idl": "web API definitions",
+    "mojom": "process-boundary interfaces",
+    "constants": "preference keys and switches",
+    "flags_metadata": "chrome://flags entries",
+    "webui_routes": "chrome:// routes",
+    "webui_controls": "chrome:// controls",
+    "webui_gates": "chrome:// visibility gates",
+}
+
+
+def _discovery_rules():
+    from .extract import REGISTRY
+    return tuple(DiscoveryRule(None, note=_EXTRACTOR_NOTES.get(name, name),
+                               applies=applies)
+                 for name, applies, _ in REGISTRY)
 
 
 def could_declare(path: str,
@@ -200,7 +229,7 @@ def could_declare(path: str,
     as well. catalog is meant to be the authority on what is missing, which
     makes it the worst place to disagree with the number each run prints.
     """
-    for rule in DISCOVERY_RULES:
+    for rule in _discovery_rules():
         if rule.matches(path, include_other_platforms):
             return rule.note
     return None
@@ -222,12 +251,13 @@ def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
     and in the report, so a version that adds files moves a number a human
     reads, instead of quietly widening a hole nobody is looking at.
     """
+    rules = _discovery_rules()
     listings: Dict[str, List[str]] = {}
-    for root in sorted({r for rule in DISCOVERY_RULES for r in rule.roots}):
+    for root in sorted({r for rule in rules for r in rule.roots}):
         listings[root] = source.list_recursive(root)
 
     found: Dict[str, str] = {}
-    for rule in DISCOVERY_RULES:
+    for rule in rules:
         hits = 0
         for root in rule.roots:
             for path in listings.get(root, ()):

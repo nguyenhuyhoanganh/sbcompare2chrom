@@ -50,7 +50,7 @@ PLATFORM_FLAGS = {PLATFORM: {"IS_WIN"}}
 # change, on a Windows report.
 PLATFORM_DIR_RE = re.compile(
     r"^(ash|chromeos|ios|android_webview|fuchsia|fuchsia_web|chromecast)/"
-    r"|/(ash|chromeos|ios|android)/")
+    r"|/(ash|chromeos|ios|android|mac|linux)/")
 
 
 def other_platform_dir(path: str) -> bool:

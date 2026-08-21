@@ -254,6 +254,16 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def _redact_proxy(value: str) -> str:
+    """Keep the host, drop anything that could be a credential."""
+    remainder = value.rsplit("@", 1)
+    if len(remainder) == 2:
+        scheme = value.split("://", 1)[0] + "://" if "://" in value else ""
+        return f"{scheme}<redacted>@{remainder[1]}"
+    return value
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     """Verify a fresh machine can actually run the pipeline.
 
@@ -312,7 +322,10 @@ def cmd_check(args: argparse.Namespace) -> int:
 
     for var in ("HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"):
         if os.environ.get(var):
-            print(f"        proxy env: {var}={os.environ[var]}")
+            # The name and the host, never the value: a proxy URL carries
+            # `user:password@` often enough, and `check` output is the first
+            # thing pasted into a ticket or kept as a CI artifact.
+            print(f"        proxy env: {var}={_redact_proxy(os.environ[var])}")
 
     print()
     print("ready" if ok else "not ready — see FAIL lines above")

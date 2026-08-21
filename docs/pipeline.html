@@ -772,7 +772,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <div class="warnbox" style="margin-top:13px">
       <b>A retired flag is Housekeeping, and that is the most consequential row in
       the table.</b> M148 → M151 removes 90 <code>base::Feature</code> flags, split
-      81 that had shipped and 67 that were abandoned, and not one of them
+      72 that had shipped and 60 that were abandoned, and not one of them
       changes what a user sees. Filed as breakage they are 90 rows at the top of the
       report of which none is actionable — which is how a triage tool becomes one
       people stop opening. The label still says the switch is gone.
@@ -781,7 +781,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <b>One bucket moves with the coverage, deliberately.</b>
       <code>pref_left_scan</code> means “deleted, or moved out of the files we
       read”, and which of those it is depends entirely on how much of the tree the
-      run covered. On <code>--target-set default</code> (5% of files) 139 of these
+      run covered. On <code>--target-set default</code> (43% of files) 139 of these
       are filed under Housekeeping at 20 points; on <code>wide</code> (100%) 171 are
       filed under Breaking at 35. A rule that gave the same answer either way would
       be wrong in one of the two directions.
@@ -978,7 +978,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
             <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
               <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">29,118</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">54,255</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">54,451</td></tr>
               <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,697</td></tr>
             </tbody>
           </table>
@@ -1436,7 +1436,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       and <b>neither</b> is a lost feature.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      Measured on M148 → M151, Windows: <b>154 flags removed, 81 that shipped and 67 abandoned</b>
+      Measured on M148 → M151, Windows: <b>145 flags removed, 72 that shipped and 60 abandoned</b>
       between the two cases above. Labelling all 90 “feature lost” makes half the list
       a false alarm. For web-platform features it is starker still: <b>202 entries
       disappeared, of which 170 were in <code>stable</code></b> — cleanup after
@@ -1514,7 +1514,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <div class="toggles" id="toggles">
           <label class="tg"><input type="checkbox" data-zero="1" data-why="0 — not compiled into the windows build on either side of this change, so nothing it does reaches our users">
             <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
-            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 118 of 3,027 findings at M148 → M151</span></span></label>
+            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 187 of 3,027 findings at M148 → M151</span></span></label>
           <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 5% of the tree, so “gone” may mean “moved into a file we never opened”">
             <span class="d"><b>A removal, on a run that read 5% of the tree</b>
             <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>
@@ -1723,13 +1723,18 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </div>
     <p style="margin-top:14px">
       Coverage depends on the target set, and every run prints the number it measured.
-      At M151, <code>default</code> reads 64 of the 1,164 files that could declare
-      something (5%) but still captures more than half the <code>base::Feature</code>
+      At M151, <code>default</code> reads 3,669 of the 8,349 files that could declare
+      something (43%) but still captures more than half the <code>base::Feature</code>
       declarations, because the hand-picked files are the largest ones.
-      <code>--target-set wide</code> reads all 1,164. That figure once said 100%
-      while reading 87%, because the denominator was the roots the fetch list
-      lived under rather than the tree; it is now the tree, and the roots the
-      measurement named have been fetched. For surfaces like prefs,
+      <code>--target-set wide</code> reads 8,276 of them, 99%. That figure has been
+      wrong twice and in the same way both times — the denominator was a second
+      list kept beside the thing it measured. First it counted the roots the fetch
+      list lived under rather than the tree. Then it counted two filename
+      conventions while the extractors grew to read <code>.mojom</code>,
+      <code>.idl</code> and the WebUI templates, so it said 100% of 1,164 while
+      3,798 files holding 72% of a report's facts went uncounted. It now asks each
+      extractor whether it would read the file, so there is no second list to
+      drift. For surfaces like prefs,
       switches and Mojo the gap between the two target sets is very large — prefs 689
       against 2,460, Mojo interfaces 338 against 1,501 — so when the answer really
       matters, run <code>wide</code>.

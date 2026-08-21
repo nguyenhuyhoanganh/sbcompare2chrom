@@ -132,7 +132,13 @@ def _member_name_and_type(body: str) -> Tuple[str, str]:
         return (m.group(1) if m else ""), "const"
 
     if re.match(r"^(readonly\s+)?(inherit\s+)?attribute\b", text):
-        m = re.search(r"(\w+)\s*$", text)
+        # Hyphens belong to the name. `\w` does not match one, so
+        # `attribute CSSOMString margin-top` came out named `top` -- the same
+        # name its neighbour `attribute CSSOMString top` already has, and
+        # deduplication then kept one of the two. 138 member uids at M151
+        # collided that way, most of them CSS descriptors, and a change to
+        # either was invisible.
+        m = re.search(r"([\w-]+)\s*$", text)
         return (m.group(1) if m else ""), "attribute"
 
     for keyword in ("async iterable", "iterable", "maplike", "setlike"):

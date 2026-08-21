@@ -9,6 +9,7 @@ unit-tested against a string with no network and no checkout.
 from __future__ import annotations
 
 import os
+import re
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ..model import Fact, dedupe_facts
@@ -42,7 +43,17 @@ REGISTRY: List[Extractor] = [
 # Generated output and test code: noise for every extractor, always.
 SKIP_DIR_PARTS = (
     "/testing/", "/test/", "/tests/", "/out/", "/.git/", "/__pycache__/",
+    "/fuzzers/", "/fuzzer/", "/web_test/", "/web_tests/",
 )
+
+# ...and the ones that are test code by filename rather than by directory.
+# The directory list alone let 151 facts at M151 into a product report from
+# `network_service_test.mojom`, `fuzz.mojom` and `usb_manager_test.mojom` --
+# interfaces that exist to drive a test and ship to nobody. A change in one
+# would be presented as a moved product contract, at Mojo severity.
+SKIP_FILE_RE = re.compile(
+    r"(^|/)[^/]*(_test|_unittest|_browsertest|_fuzzer|_test_api)\.[a-z0-9]+$"
+    r"|(^|/)fuzz\.mojom$")
 
 # Platforms a Windows desktop browser never compiles. Their features, web APIs
 # and UI say nothing about this product.
@@ -66,8 +77,11 @@ CROSS_PLATFORM_EXTRACTORS = ("constants",)
 
 
 def _skip(rel_path: str) -> bool:
-    probe = "/" + rel_path.replace(os.sep, "/") + "/"
-    return any(part in probe for part in SKIP_DIR_PARTS)
+    path = rel_path.replace(os.sep, "/")
+    probe = "/" + path + "/"
+    if any(part in probe for part in SKIP_DIR_PARTS):
+        return True
+    return bool(SKIP_FILE_RE.search(path))
 
 
 def _other_platform(rel_path: str) -> bool:

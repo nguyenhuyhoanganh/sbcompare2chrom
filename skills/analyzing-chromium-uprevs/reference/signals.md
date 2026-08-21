@@ -112,7 +112,7 @@ read the whole tree can call a disappearance a disappearance, so they are filed
 under **Breaking** at full severity. A run that did not is filed under
 **Housekeeping** with 15 points off, and the finding says so in its own
 reasons. Measured on the same pair of versions: `default` reads 5% of the tree
-and produces 139 of these in Housekeeping at 20 points; `wide` reads 100% and
+and produces 139 of these in Housekeeping at 20 points; `wide` reads 99% and
 produces 171 in Breaking at 35.
 
 Resolve one by searching the current Chromium tree for the key string. Found

@@ -29,6 +29,8 @@ from ._cpp import (
     balanced_args,
     collapse_ws,
     conditional_spans,
+    PLATFORM,
+    cpp_platform_state,
     enclosing_conditions,
     line_of,
     mask_comments,
@@ -109,10 +111,30 @@ def _normalize_state(token: str) -> str:
     return _STATE_MAP.get(m.group(1), "unknown")
 
 
-def _platform_states(block: str) -> dict:
+def _platform_states(block: str, conditions=()) -> dict:
+    """The declaration's own state, narrowed by the guard around it.
+
+    Two different `#if` chains decide this and only one was read. The inner
+    one picks a default *within* the macro arguments -- the
+    `AudioServiceOutOfProcess` shape, where the state itself is per-platform.
+    The outer one decides whether the declaration is compiled at all, and it
+    was collected into `conditions` and then never applied: at M151, 441
+    base features sit under a guard that excludes Windows and were recorded
+    `enabled` or `disabled` for Windows anyway, so `score._not_in_build`
+    could not fire and an Android-only feature turning on scored 75 on a
+    Windows report.
+
+    ANDed, the way `guard_platform_state` ANDs a list: a declaration outside
+    the build has no state, and one whose guard cannot be decided has no
+    decidable state either.
+    """
     raw = resolve_platform_state(block, STATE_RE)
-    return {k: _normalize_state(v) if v.startswith("FEATURE_") else v
-            for k, v in raw.items()}
+    states = {k: _normalize_state(v) if v.startswith("FEATURE_") else v
+              for k, v in raw.items()}
+    outer = cpp_platform_state(list(conditions))
+    if outer in ("not_compiled", "conditional"):
+        return {k: outer for k in states} or {PLATFORM: outer}
+    return states
 
 
 def extract(text: str, rel_path: str) -> List[Fact]:
@@ -168,7 +190,8 @@ def _extract_base_feature_macro(masked: str, rel_path: str,
             attrs={
                 "var": var,
                 "default_state": state,
-                "platform_state": _platform_states(inner),
+                "platform_state": _platform_states(
+                    inner, enclosing_conditions(list(spans), m.start())),
                 "declared_form": "macro3" if len(args) >= 3 else "macro2",
                 "conditions": enclosing_conditions(list(spans), m.start()),
             },
@@ -211,7 +234,8 @@ def _extract_legacy_feature(masked: str, rel_path: str, spans=()) -> List[Fact]:
             attrs={
                 "var": var,
                 "default_state": _normalize_state(inner),
-                "platform_state": _platform_states(inner),
+                "platform_state": _platform_states(
+                    inner, enclosing_conditions(list(spans), m.start())),
                 "declared_form": "legacy",
                 "conditions": enclosing_conditions(list(spans), m.start()),
             },

@@ -71,8 +71,8 @@ half minutes cold for a pair; half a second cached.
 | `--target-set` | Per version | Files read | Use for |
 |---|---:|---:|---|
 | `minimal` | ~1 MB | 3 | smoke test |
-| `default` | ~40 MB | 5% of files, over half the flags | day to day |
-| `wide` | 337 MB fetched | **100% of files** | a release gate |
+| `default` | ~40 MB | 43% of files, over half the flags | day to day |
+| `wide` | 337 MB fetched | **99% of files** | the widest read available |
 
 Outputs: `report.md` (paste into a ticket), `report.html` (filterable),
 `report.json` (scripting). Every finding cites `path:line` under
@@ -86,7 +86,7 @@ rank. It knows nothing about what anyone patches, ships or overrides: a
 never quote one from this file.
 
 ```
-coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
+coverage: reads 3669 of 8349 files in this tree that could declare (43% of files)
 ```
 
 **Coverage changes the answer, not just the confidence.** A removal is an
@@ -127,8 +127,8 @@ re-running; `chromedrift catalog <ref>` measures what the target set is missing.
 | New surface | Surface that did not exist before. Nothing switches it on |
 | Housekeeping | Chromium tidying up, and scheduling |
 
-**Retired flags are Housekeeping and that is deliberate** — 148 at M148 → M151,
-81 that had shipped and 67 abandoned, none user-visible. Reporting one as a lost
+**Retired flags are Housekeeping and that is deliberate** — 132 at M148 → M151,
+72 that had shipped and 60 abandoned, none user-visible. Reporting one as a lost
 feature means re-reading the traps.
 
 **Severity versus score.** Severity is what the kind of change costs; score is

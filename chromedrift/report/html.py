@@ -594,6 +594,29 @@ def _brief_html(summary: dict, limit: int = 200) -> str:
             f'single row.</p>{"".join(items)}{more}</div></details>')
 
 
+def _embed(value) -> str:
+    """JSON for an inline `<script>`, which is not the same as JSON.
+
+    `json.dumps` escapes nothing that matters to an HTML parser, and the
+    parser ends the script at the first `</script>` in the byte stream --
+    inside a string literal or not. A fact name carrying one would run
+    whatever followed it, in a file people open in a browser and forward to
+    each other, and escaping at render time cannot help because the break
+    happened when the document was parsed.
+
+    Chromium's own source is not the threat; `--local-src` and a hand-edited
+    `report.json` are, and neither is worth trusting for this. U+2028 and
+    U+2029 go too: they are valid JSON and illegal in a JavaScript string
+    literal, so a page carrying one fails to parse at all.
+    """
+    return (json.dumps(value, ensure_ascii=False)
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029"))
+
+
 def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
     meta = report.meta or {}
@@ -686,9 +709,9 @@ every finding regardless of what is on screen. Click any row for its evidence,
 its declaring line, and the reasoning behind its score.</p>
 {_brief_html(summary)}
 </div>
-<script>window.__FINDINGS__={json.dumps(rows, ensure_ascii=False)};
-window.__KINDS__={json.dumps(KIND_LABELS, ensure_ascii=False)};
-window.__BUCKETS__={json.dumps(BUCKET_LABELS, ensure_ascii=False)};
-window.__STORIES__={json.dumps(stories, ensure_ascii=False)};</script>
+<script>window.__FINDINGS__={_embed(rows)};
+window.__KINDS__={_embed(KIND_LABELS)};
+window.__BUCKETS__={_embed(BUCKET_LABELS)};
+window.__STORIES__={_embed(stories)};</script>
 <script>{_JS}</script>
 """

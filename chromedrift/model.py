@@ -293,7 +293,18 @@ from typing import Any, Dict, Iterable, List, Optional
 #      `AndroidNewMediaPicker` at 75 in Behaviour change. Stamped only when
 #      every declaration of the uid is under such a directory, since five keys
 #      at M151 are declared in both.
-SCHEMA_VERSION = 28
+#  29: three things an outside review found, all of them facts the tool had
+#      and did not use.
+#        - the `#if` *around* a base feature reaches `platform_state`. It was
+#          collected into `conditions` and never applied, so 441 features at
+#          M151 sat under a guard excluding Windows and were recorded
+#          `enabled` or `disabled` for Windows anyway.
+#        - a Mojo method written `Foo@0(...)` produces a fact. The regex
+#          required `(` straight after the name, so 269 declarations across 23
+#          files at M151 produced nothing at all, silently.
+#        - `/mac/` and `/linux/` join the platform directories, which is 79
+#          more Mojo facts that are not in our build.
+SCHEMA_VERSION = 29
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

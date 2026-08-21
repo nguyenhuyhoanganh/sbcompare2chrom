@@ -31,7 +31,7 @@ reads as lost capability.
 **Reality:** Chromium deletes the flag once the outcome is settled. The state
 the flag held *just before* deletion says which outcome that was.
 
-**Evidence:** M148 → M151 Windows removed 154 flags: 81 that had shipped, 67
+**Evidence:** M148 → M151 Windows removed 145 flags: 72 that had shipped, 60
 abandoned, 6 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 170 of which had
 been `stable`.
 

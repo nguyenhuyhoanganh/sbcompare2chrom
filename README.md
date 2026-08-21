@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,882 lines, 29 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,040 lines, 29 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -233,7 +233,7 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 
 This is not an isolated case:
 
-- **M148 → M151, Windows:** 154 flags removed — 81 that had shipped, 67 that were abandoned, 6 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 154 "feature lost" makes most of the alert list a false alarm.
+- **M148 → M151, Windows:** 145 flags removed — 72 that had shipped, 60 that were abandoned, 6 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 145 "feature lost" makes most of the alert list a false alarm.
 - **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
 A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
@@ -427,7 +427,7 @@ So on every run the tool asks that version's own tree what exists, and measures 
 The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 
 ```
-coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
+coverage: reads 3669 of 8349 files in this tree that could declare (43% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
   to read these too, run `--target-set wide`: about 337 MB per version instead of 40
 ```
@@ -439,8 +439,8 @@ coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
 | `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | 64 / 1,164 (5%) | Day-to-day work |
-| `wide` | ~337 MB | ~110 MB | **1,164 / 1,164 (100%)** | A release gate |
+| `default` | ~40 MB | ~38 MB | 3,669 / 8,349 (43%) | Day-to-day work |
+| `wide` | ~337 MB | ~110 MB | **8,276 / 8,349 (99%)** | The widest read available |
 
 5% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
@@ -451,23 +451,26 @@ coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
 | Prefs | 689 | 2,460 |
 | Switches | 288 | 1,222 |
 | Mojo interfaces | 338 | 1,501 |
-| Mojo methods | 1,362 | 5,903 |
+| Mojo methods | 1,362 | 6,099 |
 | Mojo structs | 703 | 2,873 |
 | Mojo struct fields | 3,076 | 13,069 |
 | Mojo enums | 373 | 1,481 |
 | WebUI controls | 971 | 1,431 |
-| **Total facts** | **29,118** | **54,255** |
+| **Total facts** | **29,118** | **54,451** |
 
 So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
-`wide` reads 100%, and that figure is worth explaining because it used to say 100% while reading 87%. Every file `wide` fetches is claimed by at least one extractor, and every filename convention the measurement counts is one an extractor reads — tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
+`wide` reads 99%, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
+
+There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. The remaining 1% has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
 
 What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
 Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
 ```
-coverage: reads 1164 of 1164 files in this tree that could declare (100% of files)
+coverage: reads 8276 of 8349 files in this tree that could declare (99% of files)
+  largest gaps: chrome/services/ (24 files), chrome/credential_provider/ (15 files)
 ```
 
 Fourteen files went the other way, excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree, which the platform rule had been missing by one suffix. They are binaries that ship beside the browser rather than being it, so their switches reach none of our users — the same reason `content/shell/` has always been excluded.
@@ -562,7 +565,7 @@ Measured against two real pairs, the prior overrode the signal on 267 of 2,800 f
 
 Score is the severity after two adjustments, both of them facts rather than opinions:
 
-**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 118 of 3,027 findings at M148 → M151 are in that state.
+**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 187 of 3,027 findings at M148 → M151 are in that state.
 
 Chromium says this in three different ways, and for a long time the tool read only the first:
 
@@ -622,7 +625,7 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
 
-**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 154 `base::Feature` flags are removed — 81 that had shipped, 67 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 148 rows at the top of the report of which none is actionable. The label still says the flag is gone.
+**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 145 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
 
 **An unconfirmed disappearance moves bucket with the coverage.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
 
@@ -965,7 +968,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**305 tests, running in about three seconds, with no network.**
+**316 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1012,19 +1015,19 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ```
 chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
-  targets.py      712        declares which files to fetch and why; partitions; coverage rules
-  snapshot.py     186        combines fetch + extract into one cached snapshot
-  extract/      2,744        9 extractors + the C++/GRIT/mojom condition scanner
+  targets.py      742        declares which files to fetch and why; partitions; coverage rules
+  snapshot.py     208        combines fetch + extract into one cached snapshot
+  extract/      2,803        9 extractors + the C++/GRIT/mojom condition scanner
   diff.py       1,338        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
   score.py        230        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        836        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        847        shared data structures, the four buckets, the five owners, JSON read/write
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,684        markdown + self-contained HTML dashboard;
+  report/       1,707        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          570        6 command-line commands
+  cli.py          583        6 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

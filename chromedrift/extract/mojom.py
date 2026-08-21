@@ -126,10 +126,18 @@ def _parse_method(decl: str) -> Optional[dict]:
         attrs = {k.strip(): True for k in lead.group(1).split(",") if k.strip()}
         text = text[lead.end():]
 
-    m = re.match(r"^(\w+)\s*\(", text)
+    # `Foo@0(...)` is a method pinned to an explicit ordinal, which is how a
+    # versioned interface keeps its wire order while methods move in the file.
+    # The ordinal is part of the ABI and the name is not the same thing, so it
+    # is captured rather than skipped -- and before it was neither: the regex
+    # required `(` straight after the name, so 269 declarations across 23 files
+    # at M151 produced no fact at all, silently, on the surface this tool
+    # ranks highest.
+    m = re.match(r"^(\w+)\s*(?:@(\d+))?\s*\(", text)
     if not m:
         return None
     name = m.group(1)
+    ordinal = m.group(2)
 
     open_idx = text.index("(", m.start())
     close_idx = _match_paren(text, open_idx)
@@ -146,12 +154,15 @@ def _parse_method(decl: str) -> Optional[dict]:
             if rclose is not None:
                 response = rest[1:rclose]
 
-    return {
+    out = {
         "name": name,
         "params": _normalize_params(params),
         "response": _normalize_params(response),
         "attrs": attrs,
     }
+    if ordinal is not None:
+        out["ordinal"] = ordinal
+    return out
 
 
 def _match_paren(text: str, open_idx: int) -> Optional[int]:
@@ -218,6 +229,10 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                     "params": parsed["params"],
                     "response": parsed["response"],
                     "attrs": parsed["attrs"],
+                    # Recorded only when present, so a method that never had
+                    # one compares equal to how it always was.
+                    **({"ordinal": parsed["ordinal"]}
+                       if "ordinal" in parsed else {}),
                     **_platform_attrs(iface_conditions
                                       + _conditions(",".join(parsed["attrs"]))),
                 },
