@@ -222,7 +222,10 @@ answered by "did the flag state change".
 1. **Is it in our build?** `platform_state.windows` on the finding. 256
    declarations at M151 are `EnableIf=is_android`. `not_compiled` scores zero
    already; `conditional` means the attribute names a build flag, not a
-   platform, and is undetermined.
+   platform, and is undetermined. The same applies to every surface: a
+   declaration under `android/`, `ash/`, `chromeos/` or `ios/` carries no
+   guard at all, because Chromium excludes those directories in BUILD.gn —
+   trap 9.
 2. **Who is on the other side?** Both ends compile from the same tree, so this
    is a build break for out-of-tree code before it is a runtime break — trap 10
    sets out when it is a runtime break. Say which applies; do not assume.

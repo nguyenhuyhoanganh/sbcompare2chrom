@@ -849,6 +849,10 @@ SIGNAL_OWNERS = {
     "killswitch_retired": OWNER_CONFIG,
     # The one thing in Housekeeping about work that has not happened yet.
     "flag_expiring": OWNER_CONFIG,
+    # And its quieter half: a removal date moving is scheduling news for
+    # whoever depends on being able to set the flag, which is never the person
+    # who owns the file it is declared in.
+    "flag_expiry_moved": OWNER_CONFIG,
 }
 
 

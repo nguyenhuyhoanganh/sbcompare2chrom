@@ -13,14 +13,18 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift import jsonc
+from chromedrift.model import Fact
 from chromedrift.extract import base_features, blink_runtime, constants, mojom, web_idl
 from chromedrift.extract import webui_controls as web_ui
+from chromedrift.extract import _stamp_platform_dirs
 from chromedrift.extract._cpp import (
+    PLATFORM,
     balanced_args,
     eval_condition,
     eval_mojom_condition,
     mask_comments,
     mojom_platform_state,
+    other_platform_dir,
     resolve_platform_state,
     split_top_level,
 )
@@ -953,6 +957,63 @@ interface Desktop {
             "module test.mojom;\n\nstruct Plain { int32 a; };\n", "test.mojom")
         for fact in facts:
             self.assertNotIn("platform_state", fact.attrs)
+
+
+class TestPlatformDirectories(unittest.TestCase):
+    """A directory Chromium excludes in BUILD.gn leaves no guard to read.
+
+    Nothing inside `chrome/browser/ash/` carries `#if BUILDFLAG(IS_CHROMEOS)`,
+    because the whole directory is outside the build on every other platform.
+    The path is the only evidence, and it decides the same thing a guard does.
+    """
+
+    def test_the_rule_matches_directories_and_not_words_containing_them(self):
+        self.assertTrue(other_platform_dir("ash/constants/ash_features.cc"))
+        self.assertTrue(other_platform_dir("chrome/browser/ash/login/prefs.h"))
+        self.assertTrue(other_platform_dir("chrome/browser/flags/android/x.cc"))
+        self.assertFalse(other_platform_dir("chrome/common/pref_names.h"))
+        # `hash` and `studios` end in the platform names, and start no
+        # directory called one.
+        self.assertFalse(other_platform_dir("components/hash/hash.cc"))
+        self.assertFalse(other_platform_dir("media/studios/x.cc"))
+
+    def test_one_definition_serves_every_stage_that_asks(self):
+        """There were two, and they disagreed about `android/`.
+
+        `targets.py` decided what to fetch and what the coverage denominator
+        is; `extract/` decided which extractors run. Nothing asked when
+        scoring, so 164 findings on a wide M148 -> M151 run were declared
+        under a platform we do not build and none of them scored zero.
+        """
+        from chromedrift.extract._cpp import PLATFORM_DIR_RE
+        from chromedrift.targets import _OTHER_PLATFORM_RE
+        self.assertIs(_OTHER_PLATFORM_RE, PLATFORM_DIR_RE)
+
+    def test_a_declaration_under_a_platform_directory_is_not_in_our_build(self):
+        facts = _stamp_platform_dirs([
+            Fact(kind="base_feature", key="AndroidOnly", name="AndroidOnly",
+                 path="chrome/browser/flags/android/chrome_feature_list.cc",
+                 attrs={"var": "kAndroidOnly"}),
+            Fact(kind="base_feature", key="Ours", name="Ours",
+                 path="content/public/common/content_features.cc",
+                 attrs={"var": "kOurs"}),
+        ], ours_somewhere=set())
+        state = {f.key: f.attrs.get("platform_state") for f in facts}
+        self.assertEqual(state["AndroidOnly"], {PLATFORM: "not_compiled"})
+        self.assertIsNone(state["Ours"])
+
+    def test_a_key_declared_in_both_places_keeps_its_build(self):
+        """Five keys at M151 are, and dedupe keeps the ChromeOS copy.
+
+        `pref:id`, `pref:name`, `pref:system` and two more are declared under
+        a platform directory and outside one. Marking them from the copy we do
+        not build would take a real preference out of the report.
+        """
+        facts = _stamp_platform_dirs([
+            Fact(kind="pref", key="system", name="system",
+                 path="chrome/browser/ash/x.h", attrs={"var": "kSystem"}),
+        ], ours_somewhere={"pref:system"})
+        self.assertNotIn("platform_state", facts[0].attrs)
 
 
 if __name__ == "__main__":

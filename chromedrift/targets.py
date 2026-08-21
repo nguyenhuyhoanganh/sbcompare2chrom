@@ -15,6 +15,7 @@ import re
 from typing import Dict, List, Optional, Sequence
 
 from .acquire import FetchTarget
+from .extract._cpp import PLATFORM_DIR_RE
 from .extract.webui_gates import WEBUI_HANDLER_DIR
 
 # Suffix filters keep the extracted tree small: the blink core tarball is
@@ -117,10 +118,10 @@ _TEST_RE = re.compile(
     r"fuzzer|_mock\.|/mock/)")
 
 # Platforms this product does not build. Reading them is not merely wasted --
-# a ChromeOS-only declaration scores and sorts alongside real findings.
-_OTHER_PLATFORM_RE = re.compile(
-    r"^(ash|chromeos|ios|android_webview|fuchsia|fuchsia_web|chromecast)/"
-    r"|/(ash|chromeos|ios|android)/")
+# a ChromeOS-only declaration scores and sorts alongside real findings. The
+# rule lives in `_cpp` because three stages ask it and two of them used to ask
+# their own copy.
+_OTHER_PLATFORM_RE = PLATFORM_DIR_RE
 
 # Binaries that are not the product. content_shell is Chromium's test browser;
 # its switches are real declarations that ship to nobody, so counting them as

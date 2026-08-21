@@ -282,7 +282,18 @@ from typing import Any, Dict, Iterable, List, Optional
 #      and prints it at the top of a Windows report. Conditions are inherited
 #      from enclosing declarations, because an enum inside an
 #      `[EnableIf=is_android]` struct is not in our binary either.
-SCHEMA_VERSION = 27
+#  28: a declaration under a platform directory carries `platform_state` too.
+#      Chromium excludes `chrome/browser/ash/` and `.../android/` in BUILD.gn
+#      rather than with a preprocessor guard, so nothing inside them carries an
+#      `#if` for the scanner to find and the path is the only evidence. Two
+#      copies of the directory list existed, in `targets.py` and in
+#      `extract/__init__.py`, and they disagreed about `android/`; neither was
+#      read when scoring. On a wide M148 -> M151 run 164 findings were declared
+#      under a platform we do not build and none scored zero, topped by
+#      `AndroidNewMediaPicker` at 75 in Behaviour change. Stamped only when
+#      every declaration of the uid is under such a directory, since five keys
+#      at M151 are declared in both.
+SCHEMA_VERSION = 28
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

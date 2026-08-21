@@ -13,7 +13,7 @@ it was handled. Expect them; check for them before reporting any removal.
 - 6. Declarative files declare more than ships
 - 7. Bare milestone numbers drift
 - 8. Mixed target sets and partitions produce plausible nonsense
-- 9. A platform-gated Mojo declaration is not ours
+- 9. A platform-gated declaration is not ours, and it may say so only by its path
 - 10. A Mojo ABI break has to break it for somebody
 - 11. A new web API can be unreachable
 - 12. A removed switch fails silently; a removed pref may orphan data
@@ -190,10 +190,15 @@ and must never be reused as if it were a full run. A partitioned run is a
 smaller question, not a cheaper answer to the same one — never use one as a
 release gate, and say in the report which partitions were scanned.
 
-## 9. A platform-gated Mojo declaration is not ours
+## 9. A platform-gated declaration is not ours, and it may say so only by its path
 
-**Symptom:** a Mojo field or method changes and scores 75 to 80, at the top of
-a Windows report.
+**Symptom:** a change scores 60 to 80 at the top of a Windows report, and the
+thing it names is Android or ChromeOS.
+
+There are two ways a declaration can be out of our build and neither is the
+`#if BUILDFLAG(IS_WIN)` chain that trap 5 covers.
+
+### 9a. A mojom attribute rather than a preprocessor line
 
 **Reality:** mojom has its own build conditions, spelled as an attribute rather
 than a preprocessor line:
@@ -220,6 +225,33 @@ existed on four of the sixteen fact kinds and none of them were Mojo. Read
 `conditional` means the attribute names a build flag rather than a platform —
 `enable_print_preview`, `webnn_enable_graph_dump` and 40 others — and is
 undetermined, not ours-by-default.
+
+### 9b. A directory excluded in BUILD.gn, with no guard anywhere
+
+Chromium keeps whole platforms in their own directories and excludes them at
+the build-system level, so **nothing inside them carries a guard at all**:
+
+```
+chrome/browser/flags/android/chrome_feature_list.cc   Android only
+chrome/browser/ash/login/login_pref_names.h           ChromeOS only
+ash/  chromeos/  ios/  fuchsia/  android_webview/  chromecast/
+```
+
+There is no `#if` for a preprocessor scanner to find. The path is the only
+evidence there is, and it is conclusive.
+
+Measured on a wide M148 → M151 run before this was read: **164 findings** were
+declared under one of those directories and not one scored zero, topped by
+`AndroidNewMediaPicker` at 75 points in **Behaviour change**. It bites only on
+`wide`, because the default target set does not fetch those directories — which
+means it bit exactly when the report was being used as a release gate.
+
+**Check:** the tool resolves this now, into the same `platform_state` a guard
+produces, and only when *every* declaration of the key is under such a
+directory. Five keys at M151 are declared both inside and outside one, and
+deduplication keeps the ChromeOS copy — so a per-file rule would take a real
+preference out of the report. Three findings on that pair still score, all of
+them correctly: they carry a second declaration in `components/`.
 
 ## 10. A Mojo ABI break has to break it for somebody
 

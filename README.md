@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,812 lines, 29 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,882 lines, 29 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -540,7 +540,9 @@ Score is the severity after two adjustments, both of them facts rather than opin
 
 **A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 117 of 2,800 findings at M148 → M151 are in that state.
 
-This question is asked of every surface that can answer it, which took a second pass to be true. `platform_state` existed on four of the sixteen fact kinds — 2,264 of 29,118 facts at M151, none of them Mojo — while mojom states the same condition as an attribute rather than a preprocessor line: `[EnableIf=is_win]`, `[EnableIfNot=is_android|is_ios]`. 256 declarations at M151 are `is_android` and 186 are `is_win`, conditions are inherited by nested declarations, and until they were read an Android-only field changing type scored 80 at the top of a Windows report.
+This question is asked of every surface that can answer it, and in every way Chromium can answer it, which took two more passes to be true. `platform_state` existed on four of the sixteen fact kinds — 2,264 of 29,118 facts at M151, none of them Mojo — while mojom states the same condition as an attribute rather than a preprocessor line: `[EnableIf=is_win]`, `[EnableIfNot=is_android|is_ios]`. 256 declarations at M151 are `is_android` and 186 are `is_win`, conditions are inherited by nested declarations, and until they were read an Android-only field changing type scored 80 at the top of a Windows report.
+
+There is a third answer that is neither a guard nor an attribute. Chromium excludes whole platforms at the build-system level — `chrome/browser/flags/android/`, `chrome/browser/ash/`, `ash/`, `chromeos/`, `ios/` — so **nothing inside them carries a guard for a scanner to find**, and the path is the only evidence. Two copies of that directory list existed, one in `targets.py` deciding what to fetch and one in `extract/` deciding which extractors run, and they disagreed about `android/`; neither was consulted when scoring. On a wide M148 → M151 run, 164 findings were declared under a platform we do not build and none of them scored zero. It is one rule now, and it applies only when *every* declaration of a key sits under such a directory — five keys at M151 are declared both inside and outside one, and deduplication keeps the copy we do not build.
 
 The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
@@ -931,7 +933,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**299 tests, running in about three seconds, with no network.**
+**303 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -978,14 +980,14 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ```
 chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
-  targets.py      711        declares which files to fetch and why; partitions; coverage rules
+  targets.py      712        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
-  extract/      2,690        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,334        semantic comparison, labelling, severity, bucketing, ownership
+  extract/      2,744        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py       1,338        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
   score.py        230        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        825        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        836        shared data structures, the four buckets, the five owners, JSON read/write
   jsonc.py        259        hand-written JSON5 reader
   report/       1,684        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen

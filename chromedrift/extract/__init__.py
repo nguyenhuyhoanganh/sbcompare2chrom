@@ -12,6 +12,7 @@ import os
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ..model import Fact, dedupe_facts
+from ._cpp import PLATFORM, other_platform_dir
 from . import (
     base_features,
     blink_runtime,
@@ -128,6 +129,12 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
     stats: Dict[str, int] = {name: 0 for name, _, _ in REGISTRY}
     files_seen = 0
     errors = 0
+    # Uids seen at least once outside a platform directory. Chromium declares
+    # the same key in both places five times at M151 -- all of them the generic
+    # fragments `pref:id`, `pref:name`, `pref:system` -- and dedupe keeps the
+    # lowest path, which is the ChromeOS one. Stamping per file would mark
+    # those five as not ours on the strength of a copy we do not build.
+    ours_somewhere: Set[str] = set()
 
     for dirpath, dirnames, filenames in os.walk(root):
         # Sorted, like the filenames below already were. os.walk hands back
@@ -147,6 +154,7 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
             if not _in_scope(rel_path, allow_paths, allow_prefixes):
                 continue
             matched = [(n, fn) for n, applies, fn in REGISTRY if applies(rel_path)]
+            other_platform = other_platform_dir(rel_path)
             if skip_dirs and _other_platform(rel_path):
                 # Not this platform's code, so only the extractors that exist to
                 # answer "where did this string go" still run.
@@ -170,10 +178,34 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
                     continue
                 stats[name] += len(produced)
                 facts.extend(produced)
+                if not other_platform:
+                    ours_somewhere.update(f.uid for f in produced)
 
     stats["_files"] = files_seen
     stats["_errors"] = errors
-    return dedupe_facts(facts), stats
+    return dedupe_facts(_stamp_platform_dirs(facts, ours_somewhere)), stats
+
+
+def _stamp_platform_dirs(facts: List[Fact], ours_somewhere: Set[str]) -> List[Fact]:
+    """Mark what a platform directory keeps out of our binary.
+
+    Chromium excludes these directories in BUILD.gn, not with a preprocessor
+    guard, so nothing inside `chrome/browser/ash/` carries an
+    `#if BUILDFLAG(IS_CHROMEOS)` for `resolve_platform_state` to find. The path
+    is the only evidence there is, and it decides the same thing a guard does,
+    so it is written into the same attribute rather than a second one the
+    scoring stage would also have to learn.
+
+    Only when *every* declaration of the uid is under such a directory --
+    the rule `score._not_in_build` already applies across the two sides of a
+    change, applied here across the places one fact is declared.
+    """
+    for fact in facts:
+        if fact.uid in ours_somewhere or not other_platform_dir(fact.path):
+            continue
+        fact.attrs["platform_state"] = dict(fact.attrs.get("platform_state") or {},
+                                            **{PLATFORM: "not_compiled"})
+    return facts
 
 
 def extractor_names() -> List[str]:

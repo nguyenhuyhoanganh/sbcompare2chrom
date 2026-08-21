@@ -36,6 +36,28 @@ PLATFORM = "windows"
 
 PLATFORM_FLAGS = {PLATFORM: {"IS_WIN"}}
 
+# Chromium excludes whole directories per platform in BUILD.gn rather than with
+# a preprocessor guard, so nothing inside `chrome/browser/ash/` carries an
+# `#if BUILDFLAG(IS_CHROMEOS)` -- the directory is simply not in the build.
+# That makes the path the only evidence, and it is good evidence.
+#
+# One definition, because there were two and they disagreed. `targets.py` had
+# this list to decide what to fetch and what the coverage denominator is, and
+# `extract/__init__.py` had a shorter one, missing `android/`, to decide which
+# extractors run. Nothing read either when scoring, so 164 findings on a wide
+# M148 -> M151 run were declared under a platform we do not build and none of
+# them scored zero -- `AndroidNewMediaPicker` at 75 points, in Behaviour
+# change, on a Windows report.
+PLATFORM_DIR_RE = re.compile(
+    r"^(ash|chromeos|ios|android_webview|fuchsia|fuchsia_web|chromecast)/"
+    r"|/(ash|chromeos|ios|android)/")
+
+
+def other_platform_dir(path: str) -> bool:
+    """True when this path is in a directory our platform does not build."""
+    return bool(PLATFORM_DIR_RE.search(path.replace("\\", "/")))
+
+
 # Every other platform's macros still have to be recognised, so a guard naming
 # one of them evaluates to False for us instead of "undecidable".
 OTHER_PLATFORM_MACROS = {
