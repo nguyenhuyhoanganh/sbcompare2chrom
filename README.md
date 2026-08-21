@@ -12,7 +12,7 @@ There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)*
 
 1. [The problem](#1-the-problem)
 2. [Quick start](#2-quick-start)
-3. [The trap that matters most](#3-the-trap-that-matters-most)
+3. [What stands between the code and the user](#3-what-stands-between-the-code-and-the-user)
 4. [What the tool reads](#4-what-the-tool-reads)
 5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
 6. [Six commands](#6-six-commands)
@@ -160,11 +160,29 @@ The same `run 139 143` a few weeks apart can produce two different conclusions, 
 
 ---
 
-## 3. The trap that matters most
+## 3. What stands between the code and the user
 
-If you read only one section of this README, read this one. It is why the tool exists.
+This is why the tool exists, and it has **two halves that fail in opposite directions**. Reading only the first is the mistake this section is written to prevent.
 
-### Chromium never turns a new feature straight on
+Between "the code changed" and "someone sees a difference" there is usually something holding the door — a **gate**. Where there is a gate, a code change and a user-visible change land in different milestones, and a diff shows you the wrong milestone. Where there is no gate, the code change *is* the change, and it takes effect the moment the version is adopted.
+
+Every surface is one or the other:
+
+| Surface | What holds the door | Code change and user-visible change land together? |
+|---|---|---|
+| `base::Feature`, Blink runtime flags | the flag's own default, per platform | No — usually several releases apart |
+| chrome:// screens | a `loadTimeData` boolean, which resolves to a flag | No — same as above |
+| Web IDL | `[RuntimeEnabled=Foo]`, on the member **or** its interface | Sometimes — 133 of 220 added members at M148 → M151 are reachable on arrival |
+| Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
+| Preferences, command-line switches | nothing | **Yes** |
+
+The two halves are about the same size, and the second one carries the higher severities: at M148 → M151, **261 of the 315 Breaking rows are Mojo or web API**. The classic mistake is reading half one's rule onto half two, and the report is deliberately ordered so that does not happen — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
+
+---
+
+### Half one: a gate, and a change you will attribute to the wrong milestone
+
+#### Chromium never turns a new feature straight on
 
 Their process is always four steps:
 
@@ -173,7 +191,7 @@ Their process is always four steps:
 3. **Set the default to on in code**, once it is clearly fine.
 4. A few releases later, **delete the flag** and the old code, because nobody needs to turn it off any more.
 
-### The consequence: a feature has three moments
+#### The consequence: a feature has three moments
 
 | Moment | What happens in the code | What users see |
 |---|---|---|
@@ -185,23 +203,9 @@ Those three are usually several releases apart: appears at M145, turns on at M14
 
 Now suppose you compare M148 with M151 and look only at the code. You see **moment C** — old code gone — and conclude "Chromium just removed this feature". In fact the feature changed at M147, and between M148 and M151 users saw nothing different at all.
 
-Put shortly: **the declaration files tell you what exists; only the gate tells you what users actually get.**
+Put shortly: **the declaration files tell you what exists; only the gate tells you what users actually get.** Which is why half two below matters as much: a Mojo field or a preference has no gate, so there is no moment A and no moment C — there is only the change, and it arrives with the version.
 
-### Which surfaces this governs, and which it does not
-
-It is a rule about **gates**, not about feature flags. A flag is the commonest gate, not the only one, and two surfaces have none at all:
-
-| Surface | What holds the door | Code change and user-visible change land together? |
-|---|---|---|
-| `base::Feature`, Blink runtime flags | the flag's own default, per platform | No — usually several releases apart |
-| chrome:// screens | a `loadTimeData` boolean, which resolves to a flag | No — same as above |
-| Web IDL | `[RuntimeEnabled=Foo]`, on the member **or** its interface | Sometimes — 133 of 220 added members at M148 → M151 are reachable on arrival |
-| Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
-| Preferences, command-line switches | nothing | **Yes** |
-
-So "a code change and a user-visible change almost never land in the same milestone" is true of the top two rows and false of the bottom two — and the bottom half is where the highest severities are. At M148 → M151, 261 of the 315 **Breaking** rows are Mojo or web API. Reading the flag rule onto them is how a real ABI break gets dismissed as cleanup; that is trap 10, and traps 9 to 12 exist for exactly these surfaces.
-
-### A real example: Local Network Access
+#### A real example: Local Network Access
 
 Checked against real M148 → M151 data:
 
@@ -225,7 +229,7 @@ If the flag 'enableLocalNetworkAccessSplitPermissions' is on:
 
 The work required to move to M151 is not "restore a lost feature" — it is: if anything still points at the old `/localNetworkAccess`, change it to `/localNetwork`. A small job, and completely different from what a raw diff makes you think.
 
-### The scale of it
+#### The scale of it
 
 This is not an isolated case:
 
@@ -233,6 +237,26 @@ This is not an isolated case:
 - **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
 A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
+
+---
+
+### Half two: no gate, and nothing warns you
+
+Mojo, preferences and command-line switches have no gate at all. There is no stage A, no remote rollout, no milestone where it quietly becomes true. **The declaration is the contract, and changing it changes the contract on the day you adopt the version.**
+
+What makes this half dangerous is not that it is fast. It is that **nothing tells you**:
+
+```
+blink.mojom.PublicKeyCredentialRequestOptions.challenge
+    array<uint8>?  →  array<uint8>
+```
+
+A WebAuthn message field stopped being nullable. Nothing in Chromium warns about this, and it does not break the build: both ends of a Mojo interface are generated from this same file, so they always agree with each other. It breaks whatever is on the *other* side that was not regenerated — which is why the tool scores it 80 and why trap 10 exists to say who that other side actually is.
+
+Preferences and switches fail the same way, one step further out. Chromium **ignores a command-line switch it does not recognise** — no warning, no error, no log line — so a launch script keeps starting the browser exactly as before and the flag it passes stops doing anything at all.
+
+For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these surfaces, and the per-owner decision procedure in the skill branches on the surface before it asks anything.
+
 
 ### Assembling the fragments into one story
 
@@ -933,7 +957,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**303 tests, running in about three seconds, with no network.**
+**304 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 

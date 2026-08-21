@@ -1401,13 +1401,23 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       not one of them worth reading.
     </div>
 
-    <h3 class="sub">Rule 2 — the three-stage lifecycle</h3>
+    <h3 class="sub">Rule 2 — the three-stage lifecycle, where there is a gate</h3>
     <p>
-      Chromium moves every feature through three stages, usually <b>several
+      A feature behind a flag moves through three stages, usually <b>several
       milestones apart</b>. The consequence is that a comparison between two versions
       mostly sees stage A and stage C, while stage B is when users actually notice
       a difference.
     </p>
+    <div class="note">
+      <b>This rule covers about half a report, and the other half fails the
+      opposite way.</b> Mojo, preferences and command-line switches have no gate
+      at all: the declaration is the contract, and it changes the day the version
+      is adopted. Nothing warns you either — both ends of a Mojo interface are
+      generated from the same file, so a changed signature never breaks the build,
+      and Chromium ignores an unrecognised command-line switch without a word.
+      Measured on M148 → M151: <b>261 of the 315 Breaking rows are Mojo or web
+      API</b>, and none of them is answered by “did the flag state change”.
+    </div>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Stage</th><th>What happens in the source</th><th>What users see</th></tr></thead>

@@ -12,10 +12,26 @@ Finding differences is easy and useless: a four-milestone gap changes millions
 of lines. **Most apparent changes are not changes.** This skill's main job is to
 stop confident wrong conclusions.
 
-## The rule that governs everything
+## A report has two halves that fail in opposite directions
 
-Chromium gates every feature behind a flag and moves it through three stages,
-normally **several milestones apart**:
+Between "the code changed" and "someone sees a difference" there is usually a
+**gate**. Where there is one, the code change and the visible change land in
+different milestones and a diff shows the wrong one. Where there is none, the
+declaration *is* the contract and it changes the day the version is adopted.
+
+| Surface | Gate | Fails by |
+|---|---|---|
+| `base::Feature`, Blink runtime, chrome:// screens | the flag's default, per platform | **looking like a change when it is not** |
+| Web IDL | `[RuntimeEnabled]`, on the member or its interface | either — 133 of 220 added members at M148 → M151 are reachable on arrival, 87 are not |
+| Mojo, preferences, command-line switches | **none** | **looking like nothing when it is a break** |
+
+Both halves are large and the second carries the higher severities: at
+M148 → M151, **261 of the 315 Breaking rows are Mojo or web API**. Applying the
+first half's questions to the second is the failure this skill exists to stop —
+"did the flag state change?" has no answer for a Mojo field, and answering "no"
+reads as "then nothing happened".
+
+**Half one — the three stages.** Normally several milestones apart:
 
 | Stage | Code | Users see |
 |---|---|---|
@@ -23,16 +39,18 @@ normally **several milestones apart**:
 | B | Flag default flips ON | **the change** |
 | C | Old path and flag deleted | nothing |
 
-So a diff between two versions mostly shows stages A and C. **A code change and
-a user-visible change almost never land in the same milestone.**
+A diff between two versions mostly shows A and C, so never report "X changed"
+alone on this half: ask whether the **flag state** moved on our platform, or
+whether only code moved. Retired flags are the commonest false alarm in the
+whole report — 90 at M148 → M151, none of them user-visible.
 
-Therefore never report "X changed" alone. Always answer two separate questions:
+**Half two — nothing warns you.** Both ends of a Mojo interface are generated
+from the same file, so a signature or field change never breaks the build; it
+breaks whatever was not regenerated. Chromium ignores an unrecognised
+command-line switch silently. A removed preference leaves the key on the user's
+disk. Nothing here is caught by a compiler or a test.
 
-1. Did the **flag state** change on our platform? → behaviour changed
-2. Did only **code** change? → cleanup; matters only to something outside the
-   binary that names the symbol
-
-These are two lists with different owners and urgency. Keep them separate.
+Step 4 branches on the surface before it asks anything, for this reason.
 
 ## Workflow
 

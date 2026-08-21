@@ -3612,6 +3612,66 @@ class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
             self.assertEqual(linked, [], f"{name} links another document")
 
 
+class TestTheThreeStageRuleIsNeverTaughtAsUniversal(unittest.TestCase):
+    """Wherever a document explains the three stages, it says what they miss.
+
+    The rule is true of flags, Blink runtime features and the chrome:// screens
+    they gate, and false of Mojo, preferences and command-line switches, where
+    the declaration is the contract and it changes on adoption. Measured at
+    M148 -> M151, 261 of the 315 Breaking rows are on the second half.
+
+    It was written as universal three times -- "the rule that governs
+    everything", "the trap that matters most", "Chromium moves every feature
+    through three stages" -- and each time the surrounding prose then taught a
+    reader to dismiss the highest-severity findings in the report as cleanup.
+    Correcting the wording is not enough on its own, because the sentence is
+    natural to write; so the invariant is that the *same passage* names the
+    surfaces the rule does not cover.
+    """
+
+    # Scoped to the section the passage sits in, not to a character window.
+    # A window was tried first and passed while the warning it was meant to
+    # require had been deleted: these documents mention Mojo everywhere, so
+    # any window wide enough to hold a section also catches a neighbour's
+    # mention. The section is the unit a reader actually reads.
+    MARKERS = ("three stages", "three moments", "three-stage")
+    EXCEPTIONS = ("mojo",)
+
+    DOCUMENTS = (
+        "README.md",
+        "skills/analyzing-chromium-uprevs/SKILL.md",
+        "docs/pipeline.html",
+    )
+
+    @staticmethod
+    def _sections(text: str):
+        """Split on headings, markdown and HTML alike."""
+        import re
+        cuts = [m.start() for m in
+                re.finditer(r"^#{1,6} |<h[1-6][ >]", text, re.M)]
+        cuts = [0] + cuts + [len(text)]
+        return [text[a:b] for a, b in zip(cuts, cuts[1:]) if b > a]
+
+    def test_every_section_naming_the_stages_also_names_the_exception(self):
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        checked = 0
+        for name in self.DOCUMENTS:
+            with open(os.path.join(here, name), encoding="utf-8") as fh:
+                text = fh.read()
+            for section in self._sections(text):
+                lowered = section.lower()
+                if not any(m in lowered for m in self.MARKERS):
+                    continue
+                checked += 1
+                self.assertTrue(
+                    any(word in lowered for word in self.EXCEPTIONS),
+                    f"{name}: a section teaches the three-stage rule without "
+                    f"naming a surface it does not govern:\n"
+                    f"{section[:200]}")
+        self.assertGreaterEqual(checked, 3, "the passages moved or were renamed")
+
+
 class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):
     """No Vietnamese left in anything a reader or an agent opens.
 
