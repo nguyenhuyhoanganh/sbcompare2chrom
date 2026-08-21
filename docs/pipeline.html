@@ -787,6 +787,42 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       be wrong in one of the two directions.
     </div>
 
+    <h3 class="sub">And a third axis: whose desk it lands on</h3>
+    <p>
+      The bucket says how bad and the consequence group says what kind of
+      consequence. Neither says whether a row is <em>yours</em>, and a 3,000-row
+      report is read by several people who each own a fifth of it. So the same
+      leading signal that set the score and the bucket also routes the finding to
+      one of five owners.
+    </p>
+    <table>
+      <thead><tr><th>Owner</th><th>What it holds</th>
+      <th class="n">M148&nbsp;→&nbsp;M151</th><th class="n">of which Breaking</th></tr></thead>
+      <tbody>
+        <tr><td>Process boundaries</td><td>Mojo interfaces, methods, structs, fields, enums</td>
+            <td class="n">339</td><td class="n"><b>126</b></td></tr>
+        <tr><td>Web platform</td><td>Blink IDL and the runtime flags gating it</td>
+            <td class="n">724</td><td class="n">100</td></tr>
+        <tr><td>Browser C++</td><td>feature flags, prefs, switches, chrome://flags entries</td>
+            <td class="n"><b>1,386</b></td><td class="n"><b>2</b></td></tr>
+        <tr><td>WebUI front-end</td><td>routes, templates, the booleans gating them</td>
+            <td class="n">277</td><td class="n">1</td></tr>
+        <tr><td>Outside the repository</td><td>Finch configs, launch scripts, automation, policy</td>
+            <td class="n">301</td><td class="n">53</td></tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:13px">
+      <b>The last two columns point opposite ways, which is the whole reason to
+      split.</b> The longest list carries two of the 315 Breaking rows; the second
+      shortest carries 126. Routing is by surface except where the fix is somewhere
+      else than the declaration: a renamed C++ constant stops the build and is fixed
+      in the file beside it, while a renamed Finch string compiles perfectly and is
+      fixed in a server-side config nobody can see from this repository. Eight
+      signals override their surface for that reason and route to <b>Outside the
+      repository</b> — the owner that owns no files, and where the silent failures
+      collect.
+    </div>
+
     <h3 class="sub">One table, and every row says what it is</h3>
     <p>
       The four buckets above are the reading order, not a severity order — a

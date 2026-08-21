@@ -18,6 +18,7 @@ from . import wording as surfaces
 from ..model import (
     BUCKET_BEHAVIOUR,
     BUCKET_BREAKING,
+    BUCKET_HOUSEKEEPING,
     BUCKET_LABELS,
     BUCKET_MEANINGS,
     BUCKET_NEW,
@@ -25,6 +26,9 @@ from ..model import (
     KIND_GROUP_MEANINGS,
     KIND_GROUPS,
     KIND_LABELS,
+    OWNER_LABELS,
+    OWNER_MEANINGS,
+    OWNER_ORDER,
     Finding,
     Report,
 )
@@ -139,6 +143,7 @@ def render(report: Report, platform: str = "windows",
         out.append(line)
         out.append("")
 
+    out.append(_render_owners(report, platform))
     out.append(_render_stories(report))
     out.append(_render_screens(report))
     out.append(_render_clusters(summary))
@@ -176,6 +181,68 @@ def render(report: Report, platform: str = "windows",
     out.append("## How this was produced")
     out.append("")
     out.append(_render_provenance(report))
+    return "\n".join(out)
+
+
+def _render_owners(report: Report, platform: str,
+                   per_owner: int = 8) -> str:
+    """Who has to do something, and what the top of their list is.
+
+    The buckets say how bad and the groups say what kind of consequence.
+    Neither tells a reader whether to keep reading, and a 3,000-row report is
+    read by several people who each own a fifth of it. Measured M148 -> M151:
+    the Browser C++ list is the longest at 1,386 rows and holds 2 of the 315
+    Breaking ones, while Mojo is 339 rows and holds 126 -- so the size of a
+    list and the urgency of it point opposite ways, and only splitting them
+    shows that.
+
+    Housekeeping is counted but never listed: it is the bucket nothing in it
+    needs doing about, so putting it under someone's name would be handing
+    them work that does not exist.
+    """
+    out = ["## Who has to do something", "",
+           "Every finding is routed to exactly one of these, by the same "
+           "signal that set its score. A row is on this list because the fix "
+           "would be made here, not because the breakage was noticed here.",
+           "",
+           "| Owner | Breaking | Behaviour | New | Housekeeping | Total |",
+           "|---|---:|---:|---:|---:|---:|"]
+    listed = []
+    for owner in OWNER_ORDER:
+        findings = report.by_owner(owner)
+        if not findings:
+            continue
+        counts = {b: 0 for b in BUCKET_ORDER}
+        for finding in findings:
+            counts[finding.bucket] = counts.get(finding.bucket, 0) + 1
+        out.append(
+            f"| {OWNER_LABELS[owner]} | {counts[BUCKET_BREAKING]} "
+            f"| {counts[BUCKET_BEHAVIOUR]} | {counts[BUCKET_NEW]} "
+            f"| {counts[BUCKET_HOUSEKEEPING]} | {len(findings)} |")
+        listed.append((owner, findings))
+    out.append("")
+
+    for owner, findings in listed:
+        actionable = [f for f in findings
+                      if f.bucket in (BUCKET_BREAKING, BUCKET_BEHAVIOUR)]
+        out.append(f"### {OWNER_LABELS[owner]} — {len(actionable)} to look at")
+        out.append("")
+        out.append(OWNER_MEANINGS.get(owner, ""))
+        out.append("")
+        if not actionable:
+            out.append("Nothing in Breaking or Behaviour change. The rest is "
+                       "new surface nothing switches on, and cleanup.")
+            out.append("")
+            continue
+        out.append("| Score | What changed | Where |")
+        out.append("|---:|---|---|")
+        for finding in actionable[:per_owner]:
+            out.append(f"| {finding.score} "
+                       f"| {_esc(surfaces.describe(finding.change))} "
+                       f"| `{_esc(_location(finding))}` |")
+        if len(actionable) > per_owner:
+            out.append(f"| … | _{len(actionable) - per_owner} more_ | |")
+        out.append("")
     return "\n".join(out)
 
 

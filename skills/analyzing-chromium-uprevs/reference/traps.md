@@ -13,6 +13,15 @@ it was handled. Expect them; check for them before reporting any removal.
 - 6. Declarative files declare more than ships
 - 7. Bare milestone numbers drift
 - 8. Mixed target sets and partitions produce plausible nonsense
+- 9. A platform-gated Mojo declaration is not ours
+- 10. A Mojo ABI break has to break it for somebody
+- 11. A new web API can be unreachable
+- 12. A removed switch fails silently; a removed pref may orphan data
+
+Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
+7 and 8 about running the tool. Traps 9 to 12 are the other surfaces, which
+carry the highest severities the tool reports: at M148 → M151, 261 of the 315
+Breaking rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature
 
@@ -180,3 +189,97 @@ for exactly this reason: a partitioned snapshot covers a fraction of the surface
 and must never be reused as if it were a full run. A partitioned run is a
 smaller question, not a cheaper answer to the same one — never use one as a
 release gate, and say in the report which partitions were scanned.
+
+## 9. A platform-gated Mojo declaration is not ours
+
+**Symptom:** a Mojo field or method changes and scores 75 to 80, at the top of
+a Windows report.
+
+**Reality:** mojom has its own build conditions, spelled as an attribute rather
+than a preprocessor line:
+
+```
+[EnableIf=is_android]
+struct AndroidPayload {
+  int32 imei;
+};
+
+interface Renderer {
+  [EnableIf=is_android] OnRegisteredFontsChanged();
+};
+```
+
+Measured at M151: 256 declarations are `EnableIf=is_android` and 186 are
+`is_win`. Conditions are inherited — a field or a nested enum inside an
+Android-only struct is Android-only too.
+
+**Check:** the tool resolves these now and scores them zero, the same as a C++
+declaration behind `#if BUILDFLAG(IS_ANDROID)`. Before it did, `platform_state`
+existed on four of the sixteen fact kinds and none of them were Mojo. Read
+`platform_state.windows` on the finding, exactly as for a flag. A value of
+`conditional` means the attribute names a build flag rather than a platform —
+`enable_print_preview`, `webnn_enable_graph_dump` and 40 others — and is
+undetermined, not ours-by-default.
+
+## 10. A Mojo ABI break has to break it for somebody
+
+**Symptom:** 40 rows at 80 points saying "Mojo method signature changed
+(ABI)", read as 40 runtime breakages in the next release.
+
+**Reality:** both ends of a Mojo interface are compiled from the same tree.
+The browser process and the renderer process of one Chromium build always
+agree, because the generated bindings on both sides came out of the same
+`.mojom` file. Between two stock versions nothing at runtime is talking across
+that boundary at two different versions.
+
+So an `ipc_signature_change` between M148 and M151 is a **build break for code
+outside this tree**, not a runtime break — unless one of these is true:
+
+- something ships separately from the browser and speaks the same interface
+- an install can end up part-updated, so two versions run side by side
+- there is out-of-tree code implementing or calling the interface, which is the
+  usual case and the reason the severity is what it is
+
+**Check:** say which of those applies before calling it a runtime break. The
+tool cannot tell — it compares Chromium against Chromium, and a **Breaking**
+row says a contract moved, not that anyone had signed it.
+
+## 11. A new web API can be unreachable
+
+**Symptom:** 347 rows of new web API surface, read as 347 new capabilities.
+
+**Reality:** this is trap 1 on a different surface. Blink gates IDL members
+with `[RuntimeEnabled=Foo]`, and `Foo` moves through the same three stages a
+`base::Feature` does. The attribute alone settles nothing — a gate whose flag
+already reached stable is an open gate.
+
+Measured M148 → M151 on 220 added `idl_member` rows: 133 are reachable by a
+page on arrival and 87 are not. The gate can also sit on the *interface* rather
+than the member, which accounts for 51 of them.
+
+**Check:** the tool resolves this now, into `web_api_added_live` and
+`web_api_added_gated`, with `web_api_added` kept for the case where the gating
+flag was outside what the run read. The same applies backwards:
+`web_api_removed_gated` is a removal no page could reach, 32 of the 77 removals
+on that pair.
+
+## 12. A removed switch fails silently; a removed pref may orphan data
+
+**Symptom:** `switch_left_scan` or `pref_left_scan`, read as low-priority
+because nothing broke.
+
+**Reality:** Chromium **ignores command-line switches it does not recognise**.
+No warning, no error, no log line. A launch script, a test runner or an
+enterprise deployment keeps starting the browser exactly as before, and the
+flag it passes silently stops doing anything. This is the same failure mode as
+`feature_string_renamed`, on a surface people rarely check.
+
+A removed preference is different: the key in a user's `Preferences` file stays
+on disk. Whether that matters depends on whether Chromium wrote a migration for
+it, in `chrome/browser/prefs/browser_prefs.cc`.
+
+**Check:** for a switch, search launch scripts and test automation for the
+string — the tool cannot see either. For a pref, `browser_prefs.cc` is read on
+a `wide` run and not on a `default` one, so run `wide` before concluding a key
+was dropped without a migration. And read trap 2 first: on a `default` run,
+100 of 141 vanished keys at M148 → M151 had simply moved.

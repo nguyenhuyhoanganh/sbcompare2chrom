@@ -31,11 +31,12 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Sequence
 
-from .diff import bucket_of, leading_signal, SIGNAL_LABELS
+from .diff import bucket_of, leading_signal, owner_of, SIGNAL_LABELS
 from .model import (
     BUCKET_HOUSEKEEPING,
     BUCKET_ORDER,
     KIND_LABELS,
+    OWNER_ORDER,
     REMOVED,
     Change,
     Finding,
@@ -198,15 +199,18 @@ def score_all(changes: Sequence[Change],
 def summarize_findings(findings: Sequence[Finding]) -> Dict[str, object]:
     """The counts a report header needs, each of them a partition of the whole.
 
-    Every finding appears in exactly one bucket, one group and one signal
-    tally, so each of these adds up to the total and a reader can treat the
-    counts as the report rather than as highlights.
+    Every finding appears in exactly one bucket, one owner, one group and one
+    signal tally, so each of these adds up to the total and a reader can treat
+    the counts as the report rather than as highlights.
     """
     by_bucket: Dict[str, int] = {b: 0 for b in BUCKET_ORDER}
+    by_owner: Dict[str, int] = {o: 0 for o in OWNER_ORDER}
     by_group: Dict[str, int] = {}
     by_signal: Dict[str, int] = {}
     for finding in findings:
         by_bucket[finding.bucket] = by_bucket.get(finding.bucket, 0) + 1
+        owner = owner_of(finding.change)
+        by_owner[owner] = by_owner.get(owner, 0) + 1
         group = group_of(finding.change.kind)
         if group:
             by_group[group] = by_group.get(group, 0) + 1
@@ -216,6 +220,7 @@ def summarize_findings(findings: Sequence[Finding]) -> Dict[str, object]:
     return {
         "total": len(findings),
         "by_bucket": by_bucket,
+        "by_owner": by_owner,
         "by_group": by_group,
         "by_signal": dict(sorted(by_signal.items(), key=lambda kv: -kv[1])),
         # Counted from the condition, not from `score == 0`, so the sentence

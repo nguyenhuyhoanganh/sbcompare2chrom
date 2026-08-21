@@ -34,9 +34,10 @@ import html
 import json
 from typing import List
 
-from ..diff import SIGNAL_LABELS
+from ..diff import SIGNAL_LABELS, owner_of
 from ..model import (BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER, KIND_GROUPS,
-                     KIND_LABELS, Report, group_of)
+                     KIND_LABELS, OWNER_LABELS, OWNER_ORDER, Report,
+                     group_of)
 from .markdown import TITLE, display_name
 from . import wording as surfaces
 
@@ -261,6 +262,7 @@ whyLabel=f=>STORIES[f.why]||f.why||'';
 const PAGE=100;
 const q=document.getElementById('q'),fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
+fo=document.getElementById('fo'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
@@ -269,6 +271,7 @@ function match(f,t){
   if(fb.value&&f.bucket!==fb.value)return false;
   if(fk.value&&f.kind!==fk.value)return false;
   if(fg.value&&f.group!==fg.value)return false;
+  if(fo.value&&f.owner!==fo.value)return false;
   if(!t)return true;
   if(f._hay===undefined)
     f._hay=(f.name+' '+f.kind+' '+(f.what||'')+' '+(f.where||'')+' '+whyLabel(f)+' '
@@ -357,15 +360,15 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',
    each card carries the filter it stands for. */
 document.querySelectorAll('[data-set]').forEach(function(el){
   el.addEventListener('click',function(){
-    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg}[p[0]];
+    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg,fo:fo}[p[0]];
     if(!sel)return;
-    fb.value='';fk.value='';fg.value='';
+    fb.value='';fk.value='';fg.value='';fo.value='';
     sel.value=p.slice(1).join(':');
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
 let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);});
-[fb,fk,fg].forEach(el=>el&&el.addEventListener('change',apply));
+[fb,fk,fg,fo].forEach(el=>el&&el.addEventListener('change',apply));
 apply();
 """
 
@@ -452,6 +455,11 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # list of sixteen kinds reads as sixteen kinds of "feature", and
             # two thirds of them are not features at all.
             "group": group_of(change.kind),
+            # Whose desk it lands on. The third axis and the only one that
+            # answers "is this mine": measured M148 -> M151, the longest list
+            # holds 2 of the 315 Breaking rows and the second shortest holds
+            # 126, so length and urgency point opposite ways.
+            "owner": owner_of(change),
             "paths": (change.locations or change.paths)[:3],
             "deltas": deltas[:6],
             "reasons": finding.reasons,
@@ -659,6 +667,8 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 {surface_options}</select>
 <select id="fg"><option value="">All consequences</option>
 {''.join(option(g) for g in groups)}</select>
+<select id="fo"><option value="">All owners</option>
+{''.join(option(o, OWNER_LABELS[o]) for o in OWNER_ORDER)}</select>
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table class="find">

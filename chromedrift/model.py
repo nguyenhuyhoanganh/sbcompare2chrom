@@ -273,7 +273,16 @@ from typing import Any, Dict, Iterable, List, Optional
 #      are 17,061 declarations and adding one is Mojo's ordinary way of
 #      extending a type, so a fact each would bury the report to say what a
 #      `values` delta says in one row. Version 25 snapshots hold none of it.
-SCHEMA_VERSION = 26
+#  27: Mojo declarations carry `platform_state`, so the build question is asked
+#      on them too. It was asked on four of the sixteen kinds -- 2,264 of
+#      29,118 facts at M151, none of them Mojo -- while mojom states the same
+#      condition as an attribute: `[EnableIf=is_win]`, `[EnableIfNot=is_ios]`.
+#      256 declarations in the M151 tree are `is_android` and 186 are `is_win`,
+#      and a version 26 report scores an Android-only field changing type at 80
+#      and prints it at the top of a Windows report. Conditions are inherited
+#      from enclosing declarations, because an enum inside an
+#      `[EnableIf=is_android]` struct is not in our binary either.
+SCHEMA_VERSION = 27
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -387,6 +396,83 @@ def group_of(kind: str) -> str:
         if kind in kinds:
             return name
     return ""
+
+
+# ---------------------------------------------------------------------------
+# Who has to do something about it.
+#
+# A third axis, and the only one that answers "is this mine". The bucket says
+# how bad, the group says what kind of consequence, and neither tells the
+# person reading whether to keep reading: a Mojo signature change and a
+# settings control being relabelled are both "external contracts" to one
+# reader and two entirely different jobs on two different desks.
+#
+# Decided by surface, except where the fix is somewhere else than the
+# declaration. A renamed Finch string is a C++ edit nobody has to make and a
+# server-side config nobody can see from here, so it is owned by whoever holds
+# the configs rather than by whoever owns the file it was declared in.
+# ---------------------------------------------------------------------------
+
+OWNER_NATIVE = "native"
+OWNER_WEBUI = "webui"
+OWNER_WEBPLATFORM = "webplatform"
+OWNER_IPC = "ipc"
+OWNER_CONFIG = "config"
+
+OWNER_ORDER = [OWNER_IPC, OWNER_WEBPLATFORM, OWNER_NATIVE, OWNER_WEBUI,
+               OWNER_CONFIG]
+
+OWNER_LABELS = {
+    OWNER_NATIVE: "Browser C++",
+    OWNER_WEBUI: "WebUI front-end",
+    OWNER_WEBPLATFORM: "Web platform",
+    OWNER_IPC: "Process boundaries",
+    OWNER_CONFIG: "Outside the repository",
+}
+
+OWNER_MEANINGS = {
+    OWNER_IPC: "Mojo interfaces, methods and the data that travels along "
+               "them. Nothing here breaks the build: a mismatch shows up in "
+               "generated bindings on the far side of a process boundary, so "
+               "anything implementing or calling one of these has to be "
+               "checked by hand.",
+    OWNER_WEBPLATFORM: "What a web page can call. Blink IDL and the runtime "
+                       "flags gating it. A removal here breaks live sites; an "
+                       "addition still behind a closed flag breaks nothing "
+                       "yet.",
+    OWNER_NATIVE: "Feature flags, preferences and command-line switches "
+                  "compiled into the browser. Renames here stop the build, "
+                  "which is the easy case; a preference key that moved stops "
+                  "nothing and orphans what users already have on disk.",
+    OWNER_WEBUI: "The chrome:// screens: route tables, HTML templates and the "
+                 "loadTimeData booleans gating them. A control that vanished "
+                 "usually moved behind a flag rather than being removed.",
+    OWNER_CONFIG: "The fix is not in this repository. Server-side Finch "
+                  "configs, launch scripts, test automation and enterprise "
+                  "policy, all of which keep working and quietly stop having "
+                  "an effect. Nothing in the tool can see whether anyone was "
+                  "relying on these, which is why they are listed rather than "
+                  "scored.",
+}
+
+KIND_OWNERS = {
+    KIND_BASE_FEATURE: OWNER_NATIVE,
+    KIND_FEATURE_PARAM: OWNER_NATIVE,
+    KIND_PREF: OWNER_NATIVE,
+    KIND_SWITCH: OWNER_NATIVE,
+    KIND_FLAG_ENTRY: OWNER_NATIVE,
+    KIND_BLINK_RUNTIME: OWNER_WEBPLATFORM,
+    KIND_IDL_INTERFACE: OWNER_WEBPLATFORM,
+    KIND_IDL_MEMBER: OWNER_WEBPLATFORM,
+    KIND_MOJO_INTERFACE: OWNER_IPC,
+    KIND_MOJO_METHOD: OWNER_IPC,
+    KIND_MOJO_STRUCT: OWNER_IPC,
+    KIND_MOJO_FIELD: OWNER_IPC,
+    KIND_MOJO_ENUM: OWNER_IPC,
+    KIND_WEBUI_ROUTE: OWNER_WEBUI,
+    KIND_WEBUI_CONTROL: OWNER_WEBUI,
+    KIND_WEBUI_GATE: OWNER_WEBUI,
+}
 
 
 ADDED = "added"
@@ -657,6 +743,16 @@ class Report:
 
     def by_bucket(self, bucket: str) -> List[Finding]:
         return [f for f in self.findings if f.bucket == bucket]
+
+    def by_owner(self, owner: str) -> List[Finding]:
+        """Findings routed to one desk, in the order they were ranked.
+
+        Here rather than in either renderer so the two of them cannot disagree
+        about who owns a row -- the failure this project keeps having is one
+        fact derived twice.
+        """
+        from .diff import owner_of  # circular at module scope: diff imports us
+        return [f for f in self.findings if owner_of(f.change) == owner]
 
     def to_dict(self) -> dict:
         return {

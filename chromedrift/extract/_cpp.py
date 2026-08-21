@@ -84,6 +84,58 @@ def eval_grit_condition(expr: str, platform: str = PLATFORM) -> Optional[bool]:
     return eval_condition(_GRIT_WORD_RE.sub(rewrite, expr), platform)
 
 
+# Mojom spells the same condition as an attribute on the declaration:
+# `[EnableIf=is_win]`, `[EnableIfNot=is_android|is_ios]`. Third dialect, one
+# question, so it resolves through the same evaluator rather than growing a
+# fourth answer that could disagree with the other three.
+#
+# The names are GN build-flag names. They overlap GRIT's without matching them
+# -- mojom says `is_mac` where GRIT says `is_macosx` -- so this is its own
+# table rather than a reuse of the one above.
+_MOJOM_PLATFORM = {
+    "is_win": "IS_WIN",
+    "is_android": "IS_ANDROID",
+    "is_mac": "IS_MAC",
+    "is_apple": "IS_APPLE",
+    "is_ios": "IS_IOS",
+    "is_ios_iphoneos": "IS_IOS",
+    "is_linux": "IS_LINUX",
+    "is_chromeos": "IS_CHROMEOS",
+    "is_fuchsia": "IS_FUCHSIA",
+    # Windows is not POSIX, under either spelling. Same call the GRIT table
+    # makes above, for the same reason.
+    "is_posix": "IS_LINUX",
+    "is_non_android_posix": "IS_LINUX",
+}
+_MOJOM_ENABLE_RE = re.compile(r"^EnableIf(Not)?=(.+)$")
+
+
+def eval_mojom_condition(expr: str, platform: str = PLATFORM) -> Optional[bool]:
+    """Evaluate one mojom `[EnableIf=...]` attribute. None = undecidable.
+
+    `|` is the only operator the attribute allows, and it means or. Rewriting
+    into the C++ dialect rather than evaluating here is what makes the unknown
+    cases come out right for free: `is_win|enable_pdf` is true on Windows
+    whatever `enable_pdf` turns out to be, and the three-valued `||` already
+    knows that.
+
+    Anything that is not a platform name stays undecidable -- 40 of the 68
+    distinct attributes in the M151 tree are build flags like
+    `enable_print_preview` and `webnn_enable_graph_dump`. Guessing there would
+    be the same mistake in a new place.
+    """
+    m = _MOJOM_ENABLE_RE.match(expr.strip())
+    if not m:
+        return None
+    names = [n.strip() for n in m.group(2).split("|")]
+    rewritten = " || ".join(
+        f"BUILDFLAG({_MOJOM_PLATFORM[n]})" if n in _MOJOM_PLATFORM else n
+        for n in names)
+    if m.group(1):  # EnableIfNot
+        rewritten = f"!({rewritten})"
+    return eval_condition(rewritten, platform)
+
+
 def guard_platform_state(conditions: List[str], evaluate,
                          platform: str = PLATFORM) -> Optional[str]:
     """"not_compiled" / "compiled" / "conditional" for a set of guards.
@@ -121,6 +173,19 @@ def grit_platform_state(conditions: List[str],
     carried one.
     """
     return guard_platform_state(conditions, eval_grit_condition, platform)
+
+
+def mojom_platform_state(conditions: List[str],
+                         platform: str = PLATFORM) -> Optional[str]:
+    """Whether a mojom `[EnableIf]` chain puts this declaration in our binary.
+
+    Nothing read these before. `platform_state` existed on four of the sixteen
+    fact kinds -- 2,264 of 29,118 facts -- and none of them were Mojo, so the
+    scoring stage could not zero an Android-only declaration and a field that
+    only exists on Android scored 80 at the top of a Windows report. Measured
+    at M151: 256 declarations are `EnableIf=is_android` and 186 `is_win`.
+    """
+    return guard_platform_state(conditions, eval_mojom_condition, platform)
 
 
 def mask_comments(text: str) -> str:

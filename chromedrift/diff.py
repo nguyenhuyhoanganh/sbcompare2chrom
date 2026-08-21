@@ -25,6 +25,9 @@ from typing import Dict, List, Optional, Tuple
 from .extract._cpp import PLATFORM
 from .extract.blink_runtime import status_rank
 from .model import (
+    OWNER_NATIVE,
+    OWNER_CONFIG,
+    KIND_OWNERS,
     ADDED,
     BUCKET_BEHAVIOUR,
     BUCKET_BREAKING,
@@ -196,6 +199,15 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "web_api_unshipped": 70,
     "web_api_removed": 70,
     "web_api_added": 30,
+    # Split by whether a page can reach it. 133 of 220 additions at
+    # M148 -> M151 are live on arrival and 87 are still behind a closed gate;
+    # they used to score the same. `web_api_added` stays for the case the run
+    # cannot decide, at the severity both used to get.
+    "web_api_added_live": 35,
+    "web_api_added_gated": 20,
+    # Removing what no page could reach is the web API spelling of
+    # `flag_retired_off`, and carries its severity and its bucket.
+    "web_api_removed_gated": 30,
     "killswitch_retired": 35,
     "experimental_dropped": 20,
     "web_api_signature_change": 50,
@@ -299,6 +311,11 @@ SIGNAL_LABELS: Dict[str, str] = {
     "web_api_unshipped": "Web API pulled back from stable",
     "web_api_removed": "Web API removed",
     "web_api_added": "New web API surface",
+    "web_api_added_live": "New web API, reachable by a page now",
+    "web_api_added_gated": "New web API, still behind a runtime flag — "
+                           "nothing can call it yet",
+    "web_api_removed_gated": "Web API removed, and it was still behind a "
+                             "closed flag — no page could reach it",
     "killswitch_retired": "Kill-switch flag retired (feature now permanent)",
     "experimental_dropped": "Experimental flag dropped",
     "web_api_signature_change": "Web API signature changed",
@@ -432,6 +449,9 @@ SIGNAL_BUCKET: Dict[str, str] = {
 
     # -- New surface: something exists that did not, and nothing is on by it.
     "web_api_added": BUCKET_NEW,
+    "web_api_added_live": BUCKET_NEW,
+    "web_api_added_gated": BUCKET_NEW,
+    "web_api_removed_gated": BUCKET_HOUSEKEEPING,
     "ui_page_added": BUCKET_NEW,
     "ui_control_added": BUCKET_NEW,
     "ui_gate_added": BUCKET_NEW,
@@ -505,6 +525,77 @@ def _our_status(fact: Fact) -> str:
     return fact.attrs.get("windows_status", "")
 
 
+class Gates:
+    """What stands between a web API declaration and a page that calls it.
+
+    The three-stage rule is not a rule about flags. It is a rule about gates:
+    between "the code exists" and "someone can see it" there is always
+    something holding the door, and a flag is only its commonest form. Blink
+    spells this one `[RuntimeEnabled=Foo]`, and resolving it needs the status
+    of `Foo` -- a gate whose flag already reached stable is an open gate, so
+    the attribute alone says nothing.
+
+    Two ways of being gated, and the tool read neither: the attribute on the
+    member, and the same attribute on the interface holding it. Measured
+    M148 -> M151 on 220 added members, 133 are reachable by a page on arrival
+    and 87 are not, and every one of them was reported at the same 30 points
+    under the same sentence.
+    """
+
+    __slots__ = ("before", "after")
+
+    def __init__(self, old: Snapshot, new: Snapshot) -> None:
+        self.before = _side_gates(old)
+        self.after = _side_gates(new)
+
+
+def _side_gates(snapshot: Snapshot) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """One side's runtime-flag statuses, and which interfaces are gated."""
+    status: Dict[str, str] = {}
+    interfaces: Dict[str, str] = {}
+    for fact in snapshot.facts:
+        if fact.kind == KIND_BLINK_RUNTIME:
+            status[fact.key] = _our_status(fact)
+        elif fact.kind == KIND_IDL_INTERFACE:
+            gate = (fact.attrs.get("ext") or {}).get("RuntimeEnabled", "")
+            if gate:
+                interfaces[fact.key] = gate
+    return status, interfaces
+
+
+def _gate_names(fact: Fact, interfaces: Dict[str, str]) -> List[str]:
+    if fact.kind == KIND_IDL_INTERFACE:
+        gate = (fact.attrs.get("ext") or {}).get("RuntimeEnabled", "")
+        return [gate] if gate else []
+    return [n for n in (fact.attrs.get("runtime_enabled", ""),
+                        interfaces.get(fact.attrs.get("interface", ""), ""))
+            if n]
+
+
+def _reachable(fact: Optional[Fact],
+               side: Tuple[Dict[str, str], Dict[str, str]]) -> Optional[bool]:
+    """Can a page call this today? None when the gate is outside the read.
+
+    Gates are ANDed, the way build conditions are: a member behind two flags
+    needs both open. None rather than a guess when the flag is not in the
+    snapshot, for the same reason a non-platform BUILDFLAG stays
+    `conditional` -- a `default` run reads a third of the flags.
+    """
+    if fact is None:
+        return None
+    status, interfaces = side
+    names = _gate_names(fact, interfaces)
+    if not names:
+        return True
+    for name in names:
+        state = status.get(name)
+        if state is None:
+            return None
+        if state != "stable":
+            return False
+    return True
+
+
 def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
                    target_milestone: Optional[int] = None) -> List[Change]:
     """Produce the semantic change list between two snapshots.
@@ -531,6 +622,7 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
 
     old_index = old.index()
     new_index = new.index()
+    gates = Gates(old, new)
 
     changes: List[Change] = []
 
@@ -538,7 +630,7 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         old_fact = old_index.get(uid)
         if old_fact is None:
             changes.append(_make_change(ADDED, None, new_fact, platform,
-                                        target_milestone))
+                                        target_milestone, gates=gates))
             continue
         before = _meaningful(old_fact)
         after = _meaningful(new_fact)
@@ -551,12 +643,12 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         if not deltas:
             continue
         changes.append(_make_change(MODIFIED, old_fact, new_fact, platform,
-                                    target_milestone, deltas))
+                                    target_milestone, deltas, gates))
 
     for uid, old_fact in old_index.items():
         if uid not in new_index:
             changes.append(_make_change(REMOVED, old_fact, None, platform,
-                                        target_milestone))
+                                        target_milestone, gates=gates))
 
     # Pairing a removal with an addition by C++ variable detects a rename.
     changes = _detect_renames(changes)
@@ -655,7 +747,8 @@ def _merge_locations(*changes) -> List[str]:
 def _make_change(change_type: str, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
-                 deltas: Optional[Dict[str, List]] = None) -> Change:
+                 deltas: Optional[Dict[str, List]] = None,
+                 gates: Optional[Gates] = None) -> Change:
     fact = new_fact or old_fact
     assert fact is not None
     paths = sorted({p for p in ((old_fact.path if old_fact else ""),
@@ -672,7 +765,7 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
         locations=_locations(old_fact, new_fact),
     )
     change.signals = _signals_for(change, old_fact, new_fact, platform,
-                                  target_milestone)
+                                  target_milestone, gates)
     change.severity = _severity_for(change)
     return change
 
@@ -735,9 +828,47 @@ def bucket_of(change: Change) -> str:
     return NO_SIGNAL_BUCKET.get(change.change_type, BUCKET_HOUSEKEEPING)
 
 
+# Signals whose fix is not where the declaration is. Everything else is owned
+# by the surface it was declared on, which `KIND_OWNERS` decides.
+#
+# The test is where the edit has to happen, not what broke. A renamed C++
+# constant stops the build and is fixed in the file next to it; a renamed Finch
+# string compiles perfectly and is fixed in a server-side config nobody can
+# see from this repository. Those are the same event to a diff and two
+# different jobs, and only the second one can sit unnoticed for a milestone.
+SIGNAL_OWNERS = {
+    "feature_string_renamed": OWNER_CONFIG,
+    "switch_renamed": OWNER_CONFIG,
+    "param_removed": OWNER_CONFIG,
+    "param_rewired": OWNER_CONFIG,
+    # A retired flag changes nothing in the binary and silently kills any
+    # override that was setting it from outside -- which is the only reason
+    # anyone needs to know, and it is not a C++ job.
+    "flag_retired_on": OWNER_CONFIG,
+    "flag_retired_off": OWNER_CONFIG,
+    "killswitch_retired": OWNER_CONFIG,
+    # The one thing in Housekeeping about work that has not happened yet.
+    "flag_expiring": OWNER_CONFIG,
+}
+
+
+def owner_of(change: Change) -> str:
+    """Whose desk this lands on.
+
+    Same shape as `bucket_of`, and for the same reason: the signal is the
+    precise statement and the kind is the fallback, so a row is routed by what
+    happened rather than by which file it was found in.
+    """
+    lead = leading_signal(change)
+    if lead in SIGNAL_OWNERS:
+        return SIGNAL_OWNERS[lead]
+    return KIND_OWNERS.get(change.kind, OWNER_NATIVE)
+
+
 def _signals_for(change: Change, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
-                 target_milestone: Optional[int]) -> List[str]:
+                 target_milestone: Optional[int],
+                 gates: Optional[Gates] = None) -> List[str]:
     signals: List[str] = []
     kind = change.kind
 
@@ -746,10 +877,20 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     elif kind == KIND_BLINK_RUNTIME:
         signals += _blink_signals(change, old_fact, new_fact)
     elif kind in (KIND_IDL_MEMBER, KIND_IDL_INTERFACE):
+        # Both directions ask the gate first. An addition a page cannot reach
+        # is stage A of the three-stage rule, and a removal of something no
+        # page could reach is stage C -- the same distinction the flag signals
+        # have always made, applied to the surface that carries 14,549 of the
+        # tree's facts. When the gate names a flag this run did not read, the
+        # undecided signal keeps its old name and its old severity.
         if change.change_type == REMOVED:
-            signals.append("web_api_removed")
+            was = _reachable(old_fact, gates.before) if gates else True
+            signals.append("web_api_removed" if was is not False
+                           else "web_api_removed_gated")
         elif change.change_type == ADDED:
-            signals.append("web_api_added")
+            now = _reachable(new_fact, gates.after) if gates else None
+            signals.append("web_api_added" if now is None else
+                           "web_api_added_live" if now else "web_api_added_gated")
         else:
             # `member_type` is what a member *is* -- an attribute becoming an
             # operation is a different call at every call site -- so it belongs

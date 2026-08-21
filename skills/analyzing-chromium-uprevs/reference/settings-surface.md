@@ -38,8 +38,9 @@ The chain is:
 route.ts  --guard-->  loadTimeData key  --settings_ui.cc-->  base::Feature
 ```
 
-**Follow all three hops.** Stopping at the first gives trap 6 in
-[traps.md](traps.md): the route table declares pages that a flag may hide.
+**Follow all three hops.** Stopping at the first gives trap 6, *declarative
+files declare more than ships*: the route table declares pages that a flag may
+hide. `reference/traps.md` is linked from SKILL.md.
 
 The `pref="{{prefs.x.y}}"` binding in the templates is the strongest join key
 between a UI control and the browser core, because it is declarative. It is

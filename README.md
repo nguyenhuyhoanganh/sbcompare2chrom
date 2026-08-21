@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,371 lines, 29 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,812 lines, 29 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -168,24 +168,38 @@ If you read only one section of this README, read this one. It is why the tool e
 
 Their process is always four steps:
 
-1. Write the new code **behind a switch**, defaulting off. The code ships but nobody sees anything.
-2. **Turn it on remotely** — 1% of users, then 10%, then 50%. If something goes wrong they turn it back off without shipping a release. That switch is called a *feature flag*.
+1. Write the new code **behind a flag**, defaulting off. The code ships but nobody sees anything.
+2. **Turn it on remotely** — 1% of users, then 10%, then 50%. If something goes wrong they turn it back off without shipping a release. That is a *feature flag*.
 3. **Set the default to on in code**, once it is clearly fine.
-4. A few releases later, **delete the switch** and the old code, because nobody needs to turn it off any more.
+4. A few releases later, **delete the flag** and the old code, because nobody needs to turn it off any more.
 
 ### The consequence: a feature has three moments
 
 | Moment | What happens in the code | What users see |
 |---|---|---|
-| A | New code appears, switch off | Nothing |
-| B | Switch flips on | **This is when it changes** |
-| C | Old code and switch deleted | Nothing |
+| A | New code appears, flag off | Nothing |
+| B | Flag flips on | **This is when it changes** |
+| C | Old code and flag deleted | Nothing |
 
 Those three are usually several releases apart: appears at M145, turns on at M147, cleaned up at M151.
 
 Now suppose you compare M148 with M151 and look only at the code. You see **moment C** — old code gone — and conclude "Chromium just removed this feature". In fact the feature changed at M147, and between M148 and M151 users saw nothing different at all.
 
-Put shortly: **the declaration files tell you what exists; only the switch tells you what users actually get.**
+Put shortly: **the declaration files tell you what exists; only the gate tells you what users actually get.**
+
+### Which surfaces this governs, and which it does not
+
+It is a rule about **gates**, not about feature flags. A flag is the commonest gate, not the only one, and two surfaces have none at all:
+
+| Surface | What holds the door | Code change and user-visible change land together? |
+|---|---|---|
+| `base::Feature`, Blink runtime flags | the flag's own default, per platform | No — usually several releases apart |
+| chrome:// screens | a `loadTimeData` boolean, which resolves to a flag | No — same as above |
+| Web IDL | `[RuntimeEnabled=Foo]`, on the member **or** its interface | Sometimes — 133 of 220 added members at M148 → M151 are reachable on arrival |
+| Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
+| Preferences, command-line switches | nothing | **Yes** |
+
+So "a code change and a user-visible change almost never land in the same milestone" is true of the top two rows and false of the bottom two — and the bottom half is where the highest severities are. At M148 → M151, 261 of the 315 **Breaking** rows are Mojo or web API. Reading the flag rule onto them is how a real ABI break gets dismissed as cleanup; that is trap 10, and traps 9 to 12 exist for exactly these surfaces.
 
 ### A real example: Local Network Access
 
@@ -196,18 +210,18 @@ Checked against real M148 → M151 data:
 **Step 2.** Read M148 more carefully and there are **two** pages declared at once:
 
 ```js
-If the switch 'enableLocalNetworkAccessSetting' is on:
+If the flag 'enableLocalNetworkAccessSetting' is on:
     → create page  /localNetworkAccess     (the old one)
 
-If the switch 'enableLocalNetworkAccessSplitPermissions' is on:
+If the flag 'enableLocalNetworkAccessSplitPermissions' is on:
     → create page  /localNetwork           (the new one, with finer-grained permissions)
 ```
 
 **Step 3.** At M151 only the new one is left.
 
-**Step 4.** Check the switch: `kLocalNetworkAccessChecksSplitPermissions` was **enabled by default at M148**, and deleted entirely at M151.
+**Step 4.** Check the flag: `kLocalNetworkAccessChecksSplitPermissions` was **enabled by default at M148**, and deleted entirely at M151.
 
-**The real conclusion:** the page was not removed, it was **replaced** by the split-permissions version. Because the switch was already on at M148, M148 users were already seeing the new one. Between the two versions the experience did not change; M151 only cleaned up the code.
+**The real conclusion:** the page was not removed, it was **replaced** by the split-permissions version. Because the flag was already on at M148, M148 users were already seeing the new one. Between the two versions the experience did not change; M151 only cleaned up the code.
 
 The work required to move to M151 is not "restore a lost feature" — it is: if anything still points at the old `/localNetworkAccess`, change it to `/localNetwork`. A small job, and completely different from what a raw diff makes you think.
 
@@ -215,8 +229,8 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 
 This is not an isolated case:
 
-- **M148 → M151, Windows:** 90 switches removed, splitting exactly 45 that shipped / 45 that were abandoned. Neither group changes behaviour. Labelling all 90 "feature lost" makes half the alert list a false alarm.
-- **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the switch was cleaned up after the feature shipped successfully.
+- **M148 → M151, Windows:** 90 flags removed, splitting exactly 45 that shipped / 45 that were abandoned. Neither group changes behaviour. Labelling all 90 "feature lost" makes half the alert list a false alarm.
+- **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
 A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
 
@@ -526,6 +540,8 @@ Score is the severity after two adjustments, both of them facts rather than opin
 
 **A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 117 of 2,800 findings at M148 → M151 are in that state.
 
+This question is asked of every surface that can answer it, which took a second pass to be true. `platform_state` existed on four of the sixteen fact kinds — 2,264 of 29,118 facts at M151, none of them Mojo — while mojom states the same condition as an attribute rather than a preprocessor line: `[EnableIf=is_win]`, `[EnableIfNot=is_android|is_ios]`. 256 declarations at M151 are `is_android` and 186 are `is_win`, conditions are inherited by nested declarations, and until they were read an Android-only field changing type scored 80 at the top of a Windows report.
+
 The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
 **An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read a twentieth of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
@@ -542,6 +558,22 @@ severity 35 — Preference no longer in the file we read — it may have been
 Additions are not discounted. An addition is a thing seen rather than a thing not seen, and "it may have existed in a file we did not open" does not make it any less present in the version being adopted. The asymmetry is the documented failure mode of this tool, not a hypothetical one: what goes wrong on a partial read is removals reading as deletions.
 
 **Nothing raises a score.** Severity is the ceiling — the most this kind of change can cost — and the adjustments only take away, each with a sentence beside it. So a reader who understands the signal table understands the ranking, and every point of difference between the two numbers can be argued with.
+
+### The five owners
+
+The leading signal also decides **whose desk a finding lands on**, which is the axis that decides whether a reader keeps reading. The bucket says how bad and the consequence group says what kind of consequence; neither says whether a row is yours.
+
+| Owner | What it holds | M148 → M151 | of which Breaking |
+|---|---|---:|---:|
+| Process boundaries | Mojo interfaces, methods, structs, fields, enums | 339 | **126** |
+| Web platform | Blink IDL and the runtime flags gating it | 724 | 100 |
+| Browser C++ | feature flags, prefs, switches, chrome://flags entries | **1,386** | **2** |
+| WebUI front-end | routes, templates, the booleans gating them | 277 | 1 |
+| Outside the repository | Finch configs, launch scripts, automation, policy | 301 | 53 |
+
+The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 315 Breaking rows and the second shortest carries 126.
+
+Routing is by surface, except where the fix is somewhere other than the declaration. A renamed C++ constant stops the build and is fixed in the file beside it; a renamed Finch string compiles perfectly and is fixed in a server-side config nobody can see from this repository. Those are one event to a diff and two jobs on two desks, and only the second can sit unnoticed for a milestone — so eight signals override their surface and route to **Outside the repository**, which owns nothing and is where the silent failures collect.
 
 ### The four buckets
 
@@ -685,6 +717,14 @@ The report groups its filter by *what a change means*, rather than presenting si
 On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as sixteen kinds of "feature" is the most common misreading.
 
 The three groups appear in two places in `report.html`: as a sub-line under each row's `Surface` column, and as the option groups of the `All surfaces` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Surface` column renders empty.
+
+### And an `All owners` filter, because "is this mine" is a different question
+
+A group tells a reader what kind of consequence a change has. It does not tell them whether to keep reading, and a 3,000-row report is read by several people who each own a fifth of it. So `report.html` carries a fifth dropdown, `All owners`, and `report.md` opens with a **Who has to do something** section: a count per owner across the four buckets, then the top rows of each owner's actual list.
+
+The section is placed before *What happened* on purpose. It is the first question a reader has and the cheapest one to answer, and answering it first means four people can each read a fifth of a report instead of one person reading all of it badly.
+
+`summary.by_owner` in `report.json` carries the same counts for scripting. All three go through `owner_of` and nothing computes an owner locally — a test renders both formats and asserts the three agree, because one fact derived in three places is exactly the shape that has drifted here before.
 
 ### Context from chromestatus
 
@@ -891,7 +931,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**278 tests, running in about three seconds, with no network.**
+**299 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -940,14 +980,14 @@ chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
   targets.py      711        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
-  extract/      2,568        9 extractors + the C++ scanning helpers
-  diff.py       1,193        semantic comparison, labelling, severity, bucketing
+  extract/      2,690        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py       1,334        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        225        the two run-dependent adjustments, and the reasons
+  score.py        230        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        729        shared data structures, the four buckets, JSON read/write
+  model.py        825        shared data structures, the four buckets, the five owners, JSON read/write
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,607        markdown + self-contained HTML dashboard;
+  report/       1,684        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
   cli.py          570        6 command-line commands

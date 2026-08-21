@@ -18,7 +18,9 @@ from chromedrift.extract import webui_controls as web_ui
 from chromedrift.extract._cpp import (
     balanced_args,
     eval_condition,
+    eval_mojom_condition,
     mask_comments,
+    mojom_platform_state,
     resolve_platform_state,
     split_top_level,
 )
@@ -877,6 +879,80 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
         self.assertTrue(constants.applies_to(path))
         facts = constants.extract(source, path)
         self.assertEqual([f.key for f in facts], ["headless"])
+
+
+class TestMojomBuildConditions(unittest.TestCase):
+    """Mojom's `[EnableIf]` is the third dialect of one question.
+
+    `platform_state` existed on four of the sixteen kinds and none of them were
+    Mojo, so the scoring stage could not zero an Android-only declaration --
+    and Mojo carries the highest severities the tool produces. 256 declarations
+    in the M151 tree are `EnableIf=is_android`.
+    """
+
+    def test_platform_names_resolve_for_windows(self):
+        self.assertIs(eval_mojom_condition("EnableIf=is_win"), True)
+        self.assertIs(eval_mojom_condition("EnableIf=is_android"), False)
+        self.assertIs(eval_mojom_condition("EnableIfNot=is_win"), False)
+        self.assertIs(eval_mojom_condition("EnableIfNot=is_android|is_ios"), True)
+        self.assertIs(eval_mojom_condition("EnableIf=is_chromeos|is_linux"), False)
+
+    def test_a_non_platform_build_flag_stays_undecided(self):
+        """Guessing here would be the same mistake in a new place.
+
+        40 of the 68 distinct attributes in the M151 tree are build flags
+        rather than platforms -- `enable_print_preview`, `use_ozone`.
+        """
+        self.assertIsNone(eval_mojom_condition("EnableIf=enable_print_preview"))
+        self.assertEqual(mojom_platform_state(["EnableIf=use_ozone"]), "conditional")
+
+    def test_an_or_is_settled_by_the_half_it_can_decide(self):
+        """`is_win|enable_pdf` is true on Windows whatever `enable_pdf` is."""
+        self.assertIs(eval_mojom_condition("EnableIf=is_win|enable_pdf"), True)
+
+    def test_an_attribute_that_is_not_a_condition_decides_nothing(self):
+        self.assertIsNone(eval_mojom_condition("Sync"))
+        self.assertIsNone(eval_mojom_condition("MinVersion=3"))
+        self.assertEqual(mojom_platform_state([]), None)
+
+    def test_conditions_are_inherited_from_the_enclosing_declaration(self):
+        """An enum inside an Android-only struct is not in our binary either.
+
+        The same chain `_qualified` walks. Reading only a declaration's own
+        attributes would report the enum as ours.
+        """
+        facts = mojom.extract("""
+module test.mojom;
+
+[EnableIf=is_android]
+struct Phone {
+  int32 imei;
+  enum Radio { kLte, kNr };
+};
+
+[EnableIf=is_win]
+interface Desktop {
+  Ping();
+  [EnableIf=is_android] Never();
+};
+""", "test.mojom")
+        state = {f.key: f.attrs.get("platform_state", {}).get("windows")
+                 for f in facts}
+        self.assertEqual(state["test.mojom.Phone"], "not_compiled")
+        self.assertEqual(state["test.mojom.Phone.imei"], "not_compiled")
+        self.assertEqual(state["test.mojom.Phone.Radio"], "not_compiled")
+        self.assertEqual(state["test.mojom.Desktop"], "compiled")
+        self.assertEqual(state["test.mojom.Desktop.Ping"], "compiled")
+        # Windows interface, Android method: the guards are ANDed, so it is in
+        # neither build rather than in ours.
+        self.assertEqual(state["test.mojom.Desktop.Never"], "not_compiled")
+
+    def test_an_unconditional_declaration_carries_no_platform_state(self):
+        """Absent, not "compiled", so it compares equal to how it always was."""
+        facts = mojom.extract(
+            "module test.mojom;\n\nstruct Plain { int32 a; };\n", "test.mojom")
+        for fact in facts:
+            self.assertNotIn("platform_state", fact.attrs)
 
 
 if __name__ == "__main__":

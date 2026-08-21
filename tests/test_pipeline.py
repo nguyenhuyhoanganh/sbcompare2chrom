@@ -13,8 +13,10 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift.diff import diff_snapshots
-from chromedrift.model import Fact, Report, Snapshot
-from chromedrift.score import Scope, score_all, score_change
+from chromedrift.extract import mojom
+from chromedrift.model import BUCKET_HOUSEKEEPING, Fact, Report, Snapshot
+from chromedrift.score import (Scope, score_all, score_change,
+                               summarize_findings)
 
 
 def feature(name, state, var=None, form="macro2", path="content/features.cc"):
@@ -243,6 +245,34 @@ class TestScoring(unittest.TestCase):
         self.assertEqual(abi.severity, 80)
         self.assertEqual(gate.severity, 35)
 
+    def test_an_android_only_mojo_change_scores_zero(self):
+        """The extractor's platform_state has to be the one the scorer reads.
+
+        This is the join the two modules can drift on: mojom resolves
+        `[EnableIf=is_android]` and `score._not_in_build` reads
+        `platform_state`, and if either spelling moves the deduction goes back
+        to skipping every Mojo finding in silence -- which is how an
+        Android-only field changing type reached the top of a Windows report at
+        80 points. Measured on wide M148 -> M151: seven findings.
+        """
+        facts = mojom.extract("""
+module blink.mojom;
+
+[EnableIf=is_android]
+struct Handset {
+  int32 imei;
+};
+""", "handset.mojom")
+        gone = [f for f in facts if f.kind == "mojo_field"]
+        self.assertEqual(len(gone), 1)
+        change = diff_snapshots(snap("148.0.0.0", gone),
+                                snap("151.0.0.0", []))[0]
+        finding = score_change(change)
+        self.assertEqual(finding.score, 0)
+        self.assertEqual(finding.bucket, BUCKET_HOUSEKEEPING)
+        self.assertIn("not compiled into the windows build",
+                      " ".join(finding.reasons))
+
     def test_a_change_with_no_signal_falls_back_to_the_kind(self):
         old = snap("148.0.0.0", [])
         new = snap("151.0.0.0", [Fact(kind="switch", key="brand-new",
@@ -333,6 +363,182 @@ class TestScoring(unittest.TestCase):
         new = snap("143.0.0.0", [blink("NewApi", "test")])
         findings = score_all(diff_snapshots(old, new))
         self.assertEqual(findings[0].bucket, "new")
+
+
+class TestOwnership(unittest.TestCase):
+    """Every finding lands on exactly one desk, and the tables say which.
+
+    The third axis, and the one that decides whether a reader keeps reading.
+    It is derived in `Report.by_owner` and nowhere else on purpose: the failure
+    this project keeps having is one fact derived twice, and an owner computed
+    once in the markdown renderer and once in the HTML one would drift the same
+    way the reason strings did.
+    """
+
+    def test_every_kind_has_an_owner(self):
+        """A kind added without one would silently be filed as Browser C++."""
+        from chromedrift.model import ALL_KINDS, KIND_OWNERS
+        self.assertEqual(sorted(KIND_OWNERS), sorted(ALL_KINDS))
+
+    def test_every_owner_named_is_a_real_owner(self):
+        from chromedrift.diff import SIGNAL_OWNERS
+        from chromedrift.model import KIND_OWNERS, OWNER_ORDER
+        for source in (KIND_OWNERS, SIGNAL_OWNERS):
+            for key, owner in source.items():
+                self.assertIn(owner, OWNER_ORDER, key)
+
+    def test_every_owner_is_reachable_and_says_what_it_means(self):
+        """Reachable from one table or the other, not necessarily both.
+
+        `config` has no surface of its own -- nothing is *declared* outside the
+        repository -- so it is reached only by signal. An owner reachable from
+        neither would be a name in the report legend that no row can carry.
+        """
+        from chromedrift.diff import SIGNAL_OWNERS
+        from chromedrift.model import (KIND_OWNERS, OWNER_LABELS,
+                                       OWNER_MEANINGS, OWNER_ORDER)
+        reachable = set(KIND_OWNERS.values()) | set(SIGNAL_OWNERS.values())
+        self.assertEqual(sorted(reachable), sorted(OWNER_ORDER))
+        for owner in OWNER_ORDER:
+            self.assertTrue(OWNER_LABELS.get(owner), owner)
+            self.assertTrue(OWNER_MEANINGS.get(owner), owner)
+
+    def test_a_signal_overrides_the_surface_it_was_declared_on(self):
+        """A renamed Finch string is a config job, not a C++ one.
+
+        Both of these are `base_feature`, whose surface owner is Browser C++.
+        One stops the build and is fixed in the file beside it; the other
+        compiles and is fixed in a server-side config nobody can see from here.
+        """
+        from chromedrift.diff import owner_of
+        from chromedrift.model import OWNER_CONFIG, OWNER_NATIVE
+        renamed = diff_snapshots(
+            snap("148.0.0.0", [feature("OldName", "enabled", var="kThing")]),
+            snap("151.0.0.0", [feature("NewName", "enabled", var="kThing")]))
+        lead = [c for c in renamed
+                if "feature_string_renamed" in c.signals]
+        self.assertTrue(lead)
+        self.assertEqual(owner_of(lead[0]), OWNER_CONFIG)
+
+        flipped = diff_snapshots(
+            snap("148.0.0.0", [feature("Thing", "disabled")]),
+            snap("151.0.0.0", [feature("Thing", "enabled")]))[0]
+        self.assertEqual(owner_of(flipped), OWNER_NATIVE)
+
+    def test_both_renderers_and_the_summary_agree_on_who_owns_what(self):
+        """Three consumers of one derivation, which is where drift starts.
+
+        `report.md` prints a per-owner table, `report.html` filters on an
+        `owner` field baked into its data, and `summary.by_owner` is what a
+        script reads. All three go through `owner_of`; a fourth answer computed
+        locally in any of them would be the reason two people disagree about
+        whose row it is.
+        """
+        import json
+        import re
+
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+        from chromedrift.model import OWNER_LABELS
+
+        findings = score_all(diff_snapshots(
+            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
+            snap("151.0.0.0", [feature("A", "enabled"), feature("C", "enabled")])))
+        report = Report(from_ref="a", to_ref="b", findings=findings,
+                        summary=summarize_findings(findings))
+
+        counted = report.summary["by_owner"]
+        text = md_report.render(report)
+        for owner, total in counted.items():
+            if not total:
+                continue
+            row = re.search(rf"^\| {re.escape(OWNER_LABELS[owner])} \|.*\| (\d+) \|$",
+                            text, re.M)
+            self.assertIsNotNone(row, OWNER_LABELS[owner])
+            self.assertEqual(int(row.group(1)), total, owner)
+
+        html = html_report.render(report)
+        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
+                                    html, re.S).group(1))
+        from collections import Counter
+        self.assertEqual(Counter(r["owner"] for r in rows),
+                         Counter({k: v for k, v in counted.items() if v}))
+
+    def test_the_owner_counts_partition_the_report(self):
+        """Each tally adds up to the total, so the counts are the report."""
+        from chromedrift.model import OWNER_ORDER
+        findings = score_all(diff_snapshots(
+            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
+            snap("151.0.0.0", [feature("A", "enabled"), feature("C", "enabled")])))
+        summary = summarize_findings(findings)
+        self.assertEqual(sum(summary["by_owner"].values()), len(findings))
+        self.assertEqual(sorted(summary["by_owner"]), sorted(OWNER_ORDER))
+
+
+class TestWebApiGates(unittest.TestCase):
+    """The three-stage rule, applied to the surface that carries 14,549 facts.
+
+    An addition a page cannot reach is stage A and an addition it can is stage
+    B; the report gave both the same 30 points and the same sentence. Resolving
+    it needs the *status* of the gating flag, not just its presence: 133 of 220
+    added members at M148 -> M151 are reachable on arrival and 87 are not, and
+    several of the reachable ones do carry `[RuntimeEnabled]`.
+    """
+
+    def _idl(self, name, iface="Widget", runtime="", ext=None):
+        return Fact(kind="idl_member", key=f"{iface}.{name}", name=name,
+                    path="a.idl",
+                    attrs={"interface": iface, "member_type": "operation",
+                           "signature": f"void {name}()", "ext": ext or {},
+                           "runtime_enabled": runtime, "from_partial": False})
+
+    def _flag(self, name, status):
+        return Fact(kind="blink_runtime_feature", key=name, name=name,
+                    path="runtime_enabled_features.json5",
+                    attrs={"platform_status": {"windows": status}})
+
+    def test_an_addition_behind_a_closed_gate_is_not_the_same_as_a_live_one(self):
+        old = snap("148.0.0.0", [self._flag("Later", "experimental"),
+                                 self._flag("Shipped", "stable")])
+        new = snap("151.0.0.0", [self._flag("Later", "experimental"),
+                                 self._flag("Shipped", "stable"),
+                                 self._idl("gated", runtime="Later"),
+                                 self._idl("live", runtime="Shipped"),
+                                 self._idl("plain")])
+        by_key = {c.key: c for c in diff_snapshots(old, new)}
+        self.assertIn("web_api_added_gated", by_key["Widget.gated"].signals)
+        self.assertIn("web_api_added_live", by_key["Widget.live"].signals)
+        self.assertIn("web_api_added_live", by_key["Widget.plain"].signals)
+
+    def test_a_gate_on_the_interface_counts_too(self):
+        """51 of 220 additions are gated only there, and were read as live."""
+        iface = Fact(kind="idl_interface", key="Widget", name="Widget",
+                     path="a.idl",
+                     attrs={"ext": {"RuntimeEnabled": "Later"}, "members": []})
+        old = snap("148.0.0.0", [self._flag("Later", "test"), iface])
+        new = snap("151.0.0.0", [self._flag("Later", "test"), iface,
+                                 self._idl("hidden")])
+        change = [c for c in diff_snapshots(old, new)
+                  if c.key == "Widget.hidden"][0]
+        self.assertIn("web_api_added_gated", change.signals)
+
+    def test_an_unreadable_gate_stays_undecided(self):
+        """A `default` run reads a third of the flags; guessing is the bug."""
+        new = snap("151.0.0.0", [self._idl("mystery", runtime="NotInThisRun")])
+        change = diff_snapshots(snap("148.0.0.0", []), new)[0]
+        self.assertIn("web_api_added", change.signals)
+        self.assertNotIn("web_api_added_live", change.signals)
+        self.assertNotIn("web_api_added_gated", change.signals)
+
+    def test_removing_what_no_page_could_reach_is_housekeeping(self):
+        """32 of 77 removals at M148 -> M151. They were all Breaking."""
+        old = snap("148.0.0.0", [self._flag("Later", "experimental"),
+                                 self._idl("gone", runtime="Later")])
+        new = snap("151.0.0.0", [self._flag("Later", "experimental")])
+        change = [c for c in diff_snapshots(old, new)
+                  if c.key == "Widget.gone"][0]
+        self.assertIn("web_api_removed_gated", change.signals)
+        self.assertEqual(score_change(change).bucket, BUCKET_HOUSEKEEPING)
 
 
 class TestEverySignalIsClassified(unittest.TestCase):
@@ -703,6 +909,10 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertEqual(out["rowsAfterShowMore"], out["initialRows"] * 2)
 
         # 2. Detail markup -- half the old payload -- is built on expand only.
+        # 300 of the 3,000 fixture rows are `ipc`; the rest are `config`.
+        self.assertIn("300", out["ownerFilterCount"])
+        self.assertIn("3000", out["allOwnersRestores"])
+
         self.assertEqual(out["detailsBuiltUpfront"], 0)
         self.assertEqual(out["detailsAfterClick"], 1)
         self.assertTrue(out["detailHasEvidence"],
@@ -3338,6 +3548,68 @@ class TestTheDocumentedReasoningIsTheRealReasoning(unittest.TestCase):
         self.assertTrue(quoted, "no sample reason block found in the docs")
         wrong = [f"{doc}: {line[:90]}" for doc, line in quoted if line not in real]
         self.assertEqual(wrong, [], "documented reason lines the scorer never emits")
+
+
+class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
+    """The published rules for a skill, held as a test rather than a habit.
+
+    From the Agent Skills authoring guidance: the frontmatter has a `name` of
+    at most 64 characters in lowercase-and-hyphens and a `description` of at
+    most 1,024, the SKILL.md body stays under 500 lines, a reference file over
+    100 lines opens with a table of contents, and references are one level deep
+    -- a reference file that links another one leaves Claude previewing with
+    `head` instead of reading the whole thing.
+    """
+
+    ROOT = "skills/analyzing-chromium-uprevs"
+
+    def _read(self, name):
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(here, name), encoding="utf-8") as fh:
+            return fh.read()
+
+    def _references(self):
+        import glob
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return sorted(glob.glob(os.path.join(here, self.ROOT, "reference", "*.md")))
+
+    def test_the_frontmatter_is_within_its_limits(self):
+        import re
+        text = self._read(f"{self.ROOT}/SKILL.md")
+        name = re.search(r"^name: (.+)$", text, re.M).group(1).strip()
+        description = re.search(r"^description: (.+)$", text, re.M).group(1)
+        self.assertLessEqual(len(name), 64)
+        self.assertRegex(name, r"^[a-z0-9-]+$")
+        for reserved in ("anthropic", "claude"):
+            self.assertNotIn(reserved, name)
+        self.assertTrue(description.strip())
+        self.assertLessEqual(len(description), 1024)
+
+    def test_the_body_stays_under_five_hundred_lines(self):
+        body = self._read(f"{self.ROOT}/SKILL.md").split("---", 2)[-1]
+        self.assertLess(len(body.splitlines()), 500)
+
+    def test_a_long_reference_opens_with_a_table_of_contents(self):
+        for path in self._references():
+            text = self._read(path)
+            if len(text.splitlines()) <= 100:
+                continue
+            head = "\n".join(text.splitlines()[:12])
+            self.assertIn("## Contents", head, path)
+
+    def test_references_are_one_level_deep(self):
+        """No reference file links another; SKILL.md links them all."""
+        import os
+        import re
+        skill = self._read(f"{self.ROOT}/SKILL.md")
+        for path in self._references():
+            name = os.path.basename(path)
+            self.assertIn(f"reference/{name}", skill,
+                          f"{name} is not linked from SKILL.md")
+            linked = re.findall(r"\]\(([^)]+\.md)\)", self._read(path))
+            self.assertEqual(linked, [], f"{name} links another document")
 
 
 class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):

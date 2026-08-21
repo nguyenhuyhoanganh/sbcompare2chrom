@@ -28,7 +28,8 @@ from typing import List, Optional
 
 from ..model import (KIND_MOJO_ENUM, KIND_MOJO_FIELD, KIND_MOJO_INTERFACE,
                      KIND_MOJO_METHOD, KIND_MOJO_STRUCT, Fact)
-from ._cpp import (collapse_ws, line_of, mask_comments, split_top_level,
+from ._cpp import (PLATFORM, collapse_ws, line_of, mask_comments,
+                   mojom_platform_state, split_top_level,
                    split_top_level_offsets)
 
 _MODULE_RE = re.compile(r"^\s*module\s+([\w.]+)\s*;", re.MULTILINE)
@@ -39,8 +40,8 @@ _MODULE_RE = re.compile(r"^\s*module\s+([\w.]+)\s*;", re.MULTILINE)
 # were reported at the wrong line, most of them pointing at the closing brace
 # of the interface above.
 _INTERFACE_RE = re.compile(
-    r"(?:^|\n)\s*(?:\[[^\]]*\]\s*)?(?P<kw>interface)\s+(?P<name>\w+)\s*\{")
-_ATTRS_RE = re.compile(r"\[([^\]]*)\]\s*$")
+    r"(?:^|\n)\s*(?:\[(?P<attrs>[^\]]*)\]\s*)?(?P<kw>interface)"
+    r"\s+(?P<name>\w+)\s*\{")
 
 # The data half of the ABI: what travels along the calls the interfaces declare.
 # Only `interface` was read before, which is 1,581 of the 5,911 declarations in
@@ -48,7 +49,38 @@ _ATTRS_RE = re.compile(r"\[([^\]]*)\]\s*$")
 # the far side of the process boundary exactly the way a moved method parameter
 # does, and neither breaks the build.
 _DATA_RE = re.compile(
-    r"(?:^|\n)[ \t]*(?:\[[^\]]*\]\s*)?(?P<kw>struct|union|enum)\s+(?P<name>\w+)\s*\{")
+    r"(?:^|\n)[ \t]*(?:\[(?P<attrs>[^\]]*)\]\s*)?"
+    r"(?P<kw>struct|union|enum)\s+(?P<name>\w+)\s*\{")
+
+
+def _conditions(attr_text: Optional[str]) -> List[str]:
+    """The build conditions in an attribute block, ignoring everything else.
+
+    `[EnableIf=is_win]` and `[EnableIfNot=is_android|is_ios]` are the only two
+    that decide whether a declaration is in the binary. `[Sync]`,
+    `[MinVersion=3]` and the rest say something about how it behaves, which is
+    a different question and is compared rather than resolved.
+    """
+    if not attr_text:
+        return []
+    return [part for part in
+            (p.strip() for p in split_top_level(attr_text))
+            if part.startswith("EnableIf")]
+
+
+def _platform_attrs(conditions: List[str]) -> dict:
+    """`conditions` and `platform_state`, or nothing when unconditional.
+
+    Written in the shape `base_features` and `prefs` already use, because
+    `score._not_in_build` reads one key on every kind and a second spelling
+    here would mean it silently kept skipping Mojo.
+    """
+    if not conditions:
+        return {}
+    state = mojom_platform_state(conditions)
+    if state is None:
+        return {}
+    return {"conditions": conditions, "platform_state": {PLATFORM: state}}
 
 # `[MinVersion=1] url.mojom.Url filesystem_url@0;` and `int32 count = 5;`.
 #
@@ -160,6 +192,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         iface = m.group("name")
         qualified = f"{module}.{iface}" if module else iface
         body = masked[open_idx + 1 : close_idx]
+        iface_conditions = _conditions(m.group("attrs"))
 
         methods = []
         for offset, decl in split_top_level_offsets(body, ";"):
@@ -185,6 +218,8 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                     "params": parsed["params"],
                     "response": parsed["response"],
                     "attrs": parsed["attrs"],
+                    **_platform_attrs(iface_conditions
+                                      + _conditions(",".join(parsed["attrs"]))),
                 },
             ))
 
@@ -195,7 +230,8 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             path=rel_path,
             line=line_of(masked, m.start("kw")),
             attrs={"module": module, "method_count": len(methods),
-                   "methods": sorted(methods)},
+                   "methods": sorted(methods),
+                   **_platform_attrs(iface_conditions)},
         ))
 
     facts.extend(extract_data_types(masked, rel_path, module))
@@ -227,7 +263,8 @@ def _spans(masked: str) -> List[dict]:
                 continue
             out.append({"kw": m.group("kw"), "name": m.group("name"),
                         "decl": m.start("kw"), "open": open_idx,
-                        "close": close_idx})
+                        "close": close_idx,
+                        "conditions": _conditions(m.group("attrs"))})
     out.sort(key=lambda s: s["open"])
     return out
 
@@ -238,6 +275,21 @@ def _qualified(span: dict, spans: List[dict], module: str) -> str:
              if s["open"] < span["decl"] and span["close"] < s["close"]]
     chain.append(span["name"])
     return ".".join(([module] if module else []) + chain)
+
+
+def _enclosing_conditions(span: dict, spans: List[dict]) -> List[str]:
+    """This declaration's build conditions plus every enclosing one.
+
+    The same chain `_qualified` walks, for the same reason: an enum declared
+    inside a struct marked `[EnableIf=is_android]` is not in our binary either,
+    and reading only its own attributes would say it is.
+    """
+    out: List[str] = []
+    for s in spans:
+        if s["open"] < span["decl"] and span["close"] < s["close"]:
+            out.extend(s["conditions"])
+    out.extend(span["conditions"])
+    return out
 
 
 def _own_body(span: dict, spans: List[dict], masked: str) -> str:
@@ -266,6 +318,7 @@ def _field_facts(span, spans, masked, module, rel_path, qualified):
     names: List[str] = []
     body = _own_body(span, spans, masked)
     base = span["open"] + 1
+    outer = _enclosing_conditions(span, spans)
     for offset, decl in split_top_level_offsets(body, ";"):
         text = collapse_ws(decl)
         if not text:
@@ -297,6 +350,7 @@ def _field_facts(span, spans, masked, module, rel_path, qualified):
             attrs["default"] = collapse_ws(default)
         if field_attrs:
             attrs["attrs"] = collapse_ws(field_attrs)
+        attrs.update(_platform_attrs(outer + _conditions(field_attrs)))
         facts.append(Fact(
             kind=KIND_MOJO_FIELD,
             key=f"{qualified}.{name}",
@@ -344,7 +398,9 @@ def extract_data_types(masked: str, rel_path: str, module: str) -> List[Fact]:
             facts.append(Fact(
                 kind=KIND_MOJO_ENUM, key=qualified, name=span["name"],
                 path=rel_path, line=line,
-                attrs={"module": module, "values": _enum_values(span, spans, masked)},
+                attrs={"module": module,
+                       "values": _enum_values(span, spans, masked),
+                       **_platform_attrs(_enclosing_conditions(span, spans))},
             ))
             continue
         fields, names = _field_facts(span, spans, masked, module, rel_path,
@@ -359,6 +415,7 @@ def extract_data_types(masked: str, rel_path: str, module: str) -> List[Fact]:
             # precisely. `mojo_kind` is compared -- a struct becoming a union is
             # a different wire format under the same name.
             attrs={"module": module, "mojo_kind": span["kw"],
-                   "field_count": len(names), "fields": sorted(names)},
+                   "field_count": len(names), "fields": sorted(names),
+                   **_platform_attrs(_enclosing_conditions(span, spans))},
         ))
     return facts

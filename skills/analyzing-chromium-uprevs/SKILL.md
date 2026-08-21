@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-uprevs
-description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from cleanup, and produces a ranked report of what moved. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from cleanup, and produces a ranked report of what moved, routed to the team that would make each fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
 # Analyzing Chromium uprevs
@@ -189,6 +189,14 @@ switches, external contracts, UI and scheduling — so the two thirds of a repor
 that is *not* about features being turned on or off is visible as its own set,
 and it carries a per-screen section for the `chrome://` surfaces.
 
+**Then read your own fifth of it.** The bucket says how bad, the consequence
+group says what kind of consequence, and neither says whether a row is yours.
+`report.md`'s **Who has to do something** and `report.html`'s owner filter
+split every finding across five owners — Process boundaries, Web platform,
+Browser C++, WebUI front-end, Outside the repository — routed by the same
+signal that set the score, so a row is filed where the fix would be made
+rather than where the breakage was noticed.
+
 `report.html` is one sortable table instead, and carries the same sentence per
 row in its **What happened** column. Sort or filter on it to get the same
 grouping. Its **Where** column is the per-screen answer, one row at a time:
@@ -203,39 +211,94 @@ Nothing raises a score, so a score below its severity always has a sentence in
 
 ### Step 4: Classify each finding
 
-Stop at the first question that settles it.
+**Branch on the owner first, then ask that surface's question.** The report
+carries `owner` on every finding for exactly this. Asking the flag questions of
+everything is how the top of a report gets skipped: measured at M148 → M151,
+261 of the 315 **Breaking** rows are Mojo or web API, and none of them is
+answered by "did the flag state change".
 
-1. **Did the flag state change on our platform?** Check `platform_state` in the
-   finding. `disabled → enabled` or the reverse is a real behavioural change.
+**Process boundaries** (`ipc`) — Mojo.
+
+1. **Is it in our build?** `platform_state.windows` on the finding. 256
+   declarations at M151 are `EnableIf=is_android`. `not_compiled` scores zero
+   already; `conditional` means the attribute names a build flag, not a
+   platform, and is undetermined.
+2. **Who is on the other side?** Both ends compile from the same tree, so this
+   is a build break for out-of-tree code before it is a runtime break — trap 10
+   sets out when it is a runtime break. Say which applies; do not assume.
+3. `ipc_shape_changed` and `ipc_signature_change` break deserialization
+   silently. `ipc_enum_changed` is milder by design: an unknown value is
+   rejected rather than misread.
+
+**Web platform** (`webplatform`) — Blink IDL and runtime flags.
+
+1. **Can a page reach it?** `web_api_added_live` versus `web_api_added_gated`;
+   `web_api_added` means the gating flag was outside what this run read, so
+   check it before reporting either way.
+2. **Was a removal reachable?** `web_api_removed` breaks live sites;
+   `web_api_removed_gated` reached nobody, and is filed as Housekeeping.
+3. `web_api_shipped` is the moment users get it — the same event as a flag
+   flipping on, on this surface.
+
+**Browser C++** (`native`) — flags, prefs, switches.
+
+1. **Did the flag state change on our platform?** `platform_state` in the
+   finding; `disabled → enabled` or the reverse is a real behavioural change.
    Report and stop.
-2. **Did the flag disappear?** Check the state it held *before*. Signals
+2. **Did the flag disappear?** Check the state it held *before*.
    `flag_retired_on` / `flag_retired_off` mean behaviour did not change here.
-   The only remaining question is whether anything outside the binary was
-   setting it.
-3. **Is it a rename?** `feature_string_renamed`, `pref_renamed`,
-   `switch_renamed`, `param_removed` compile fine and fail silently in the
-   field. Always actionable if the old name appears anywhere, including
-   server-side Finch configs, launch scripts and test automation, which the tool
-   cannot see.
-4. **Is the disappearance confirmed?** `pref_left_scan` / `switch_left_scan`
+3. **Is the disappearance confirmed?** `pref_left_scan` / `switch_left_scan`
    mean "not in the files this run read". On a `default` run that is weak: of
-   141 keys that vanished at M148 → M151, 100 had simply moved. Search the
-   current tree for the key string, or re-run `wide`, before reporting either
-   outcome.
-5. Otherwise it is churn. Record, do not escalate.
+   141 keys that vanished at M148 → M151, 100 had simply moved. Search the tree
+   for the key, or re-run `wide`, before reporting either outcome.
+
+**WebUI front-end** (`webui`) — the chrome:// screens.
+
+1. **Follow the guard to its flag.** A control or page that vanished usually
+   moved behind a different guard, and the user-visible change happened when
+   that flag flipped — usually before either version being compared. Traps 2
+   and 6.
+
+**Outside the repository** (`config`) — Finch, launch scripts, automation.
+
+1. **Always actionable if the old name appears anywhere.**
+   `feature_string_renamed`, `switch_renamed`, `param_removed`,
+   `param_rewired` compile fine and stop working in the field. Retired flags
+   land here too: they change nothing in the binary and silently kill any
+   override that was setting them from outside.
+2. The tool cannot see any of these places. This list is a list of things to go
+   and check, not a list of things that broke.
+
+Anything left is churn: record, do not escalate.
 
 Signal meanings: **see [reference/signals.md](reference/signals.md)**.
 
-### Step 5: Report
+### Step 5: Report, split by who has to act
+
+A 3,000-row report is read by several people who each own a fifth of it, so
+one flat list is a list nobody finishes. `report.md` already carries **Who has
+to do something**, and `report.html` has an owner filter; use those sections
+rather than re-deriving the split.
 
 Structure, in this order:
 
-1. **Verdict** — one sentence on the risk of this uprev
-2. **Behavioural changes** — flag state actually moved on our platform
-3. **Contract breaks** — renames, removed Mojo methods, removed web APIs
-4. **Silent breaks** — the ones that compile cleanly and fail in the field
-5. **New capability** — what could be adopted; product input, not a blocker
-6. **Limits** — what was not examined, starting with the coverage figure
+1. **Verdict** — one sentence on the risk of this uprev, and which owner
+   carries most of it. These come apart: at M148 → M151 the Browser C++ list is
+   the longest at 1,386 rows and holds 2 of the 315 Breaking ones, while Mojo
+   is 339 rows and holds 126.
+2. **One section per owner, in this order** — Process boundaries, Web platform,
+   Browser C++, WebUI front-end, Outside the repository. Skip an owner with
+   nothing in Breaking or Behaviour change, and say you skipped it.
+
+   Each section: what moved, whether users see a difference, what someone has
+   to do. Cite `path:line` from `change.locations`.
+3. **Outside the repository, always last and always present** — Finch configs,
+   launch scripts, test automation, enterprise policy. This is the section
+   nobody owns by default and the one that fails silently in the field.
+4. **New capability** — what could be adopted; product input, not a blocker.
+   Separate `web_api_added_live` from `web_api_added_gated`: only the first is
+   available now.
+5. **Limits** — what was not examined, starting with the coverage figure.
 
 Always state the exact versions compared, the target set, and which partitions
 were scanned if the run was partitioned.
@@ -267,9 +330,11 @@ with a finding unless the evidence in the finding itself supports it.
 Every one of these produced a wrong conclusion before it was handled. Read
 **[reference/traps.md](reference/traps.md)** before interpreting any removal.
 
-Summary: retired flags read as removed features; declarations that moved read
-as deleted; a macro migration that renamed features nobody edited;
-platform-divergent defaults; declarative files that declare more than ships.
+Twelve of them. Traps 1 and 3 to 5 are about feature flags, 2 and 6 about
+declarative files, 7 and 8 about running the tool, and **9 to 12 about the
+surfaces that carry the highest severities**: platform-gated Mojo declarations
+that are not in our build, Mojo ABI breaks with nobody on the other side, new
+web APIs no page can reach yet, and removed switches that fail without a word.
 
 ## Scoping to settings
 

@@ -29,7 +29,8 @@ Users experience a difference. This is the short list that matters.
 | `default_flip_off` | Global default flipped off — usually a rollback |
 | `web_api_shipped` | Web API reached stable; sites will start using it |
 | `web_api_unshipped` | Web API pulled back from stable — rare, investigate |
-| `web_api_removed` | Real API removal, detected from IDL. Site-visible break |
+| `web_api_removed` | Real API removal, detected from IDL, and a page could still reach it. Site-visible break |
+| `web_api_removed_gated` | Removed while still behind a closed runtime flag — no page could call it, so this is the web API spelling of `flag_retired_off`. 32 of 77 removals at M148 → M151 |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
 | `ipc_shape_changed` | The data half of the same break: a struct field changed type or ordinal, or a struct became a union. The other process reads those bytes as something else |
@@ -123,7 +124,9 @@ either outcome until you have looked.
 
 | Signal | Meaning |
 |---|---|
-| `web_api_added` | New web API surface — test coverage, possible adoption |
+| `web_api_added_live` | New web API a page can call on arrival — nothing gates it, or the flag gating it already reached stable |
+| `web_api_added_gated` | New web API still behind a runtime flag whose status is not stable. Stage A: the code shipped, nothing can reach it yet |
+| `web_api_added` | New web API whose gate names a flag this run did not read. Undecided rather than guessed — a `default` run reads a third of the flags |
 | `ui_page_added` / `ui_page_removed` | A chrome:// page appeared or disappeared. **Check its guard before concluding** — see traps.md |
 | `ui_page_regated` | The page is now shown under a different flag. The user-visible switch happened when that flag flipped, usually earlier |
 | `ui_page_moved` | The page's URL or parent route changed |

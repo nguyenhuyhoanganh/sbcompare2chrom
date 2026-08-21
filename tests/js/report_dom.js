@@ -36,7 +36,7 @@ class El {
 }
 
 const els = {};
-for (const id of ['q', 'fb', 'fk', 'fg', 'tb', 'cnt', 'more']) els[id] = new El(id);
+for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'tb', 'cnt', 'more']) els[id] = new El(id);
 global.document = {
   getElementById: id => els[id],
   querySelectorAll: () => [],
@@ -61,6 +61,10 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'],
     areas: [], deltas: [['default_state', 'disabled', 'enabled']],
     reasons: ['base severity 75'], moved: 'disabled -> enabled',
+    // The routing axis. A retired flag routes away from its own surface --
+    // it is a config job, not a C++ one -- and every tenth row here is Mojo
+    // so the filter has two values to tell apart.
+    owner: i % 10 === 0 ? 'ipc' : 'config',
   };
   if (i < 40) { row.we_patch = ['content/f' + i + '.cc']; row.ours = true;
                 row.chromestatus = 'x'.repeat(300); }
@@ -97,6 +101,16 @@ out.zeroRendersAsZero = /class="score[^"]*">0</.test(els.tb.innerHTML);
 out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
 els.fb.value = '';
 els.fb.listeners['change'].forEach(f => f());
+
+// The owner filter narrows to exactly the rows carrying that owner. It is a
+// fifth dropdown over the same `match`, so an unwired one would silently show
+// everything rather than error.
+els.fo.value = 'ipc';
+els.fo.listeners['change'].forEach(f => f());
+out.ownerFilterCount = els.cnt.textContent;
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+out.allOwnersRestores = els.cnt.textContent;
 
 // Type a word one character at a time; only the debounced tail should run.
 // Counting DOM rebuilds is the measure that matters: the row count after
