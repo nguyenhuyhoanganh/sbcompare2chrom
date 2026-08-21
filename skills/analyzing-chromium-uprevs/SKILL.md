@@ -97,15 +97,21 @@ fork instead of across time, and `--target-set` to choose how much is read:
 |---|---:|---:|---|
 | `minimal` | ~1 MB | 3 | smoke test |
 | `default` | ~40 MB | 4% of files, over half the flags | day to day |
-| `wide` | 315 MB fetched, 94 MB kept | **100% of files** | release gate |
+| `wide` | 315 MB fetched, 94 MB kept | **88% of files** | release gate |
 
 **Every run prints the coverage it achieved**, measured against a listing of
 that version's own tree rather than assumed:
 
 ```
-coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
+coverage: reads 42 of 1178 files in this tree that could declare (3% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
 ```
+
+The denominator is the tree, not the roots the fetch list happens to live under.
+It used to be the latter, which let `wide` grade itself 100% while 153 files the
+same rule admits -- `base/base_switches.h`, `cc/base/features.cc`,
+`device/fido/public/features.cc` among them -- sat outside the measurement
+entirely. **`wide` reads 88%.** Never quote 100%.
 
 Read that line before reading the findings. A hand-written list of target files
 decays — built as it stood at M130 and run at M151 it misses 27% of the pref
@@ -290,7 +296,7 @@ State these limits in every report. A clean report does not imply a clean uprev.
 
   | | `default` | `wide` |
   |---|---:|---:|
-  | Files read, of the 1,039 that could declare | 42 (4%) | **1,039 (100%)** |
+  | Files read, of the 1,178 that could declare | 42 (3%) | **1,039 (88%)** |
   | Facts | 24,959 | 36,158 |
   | `base::Feature` | 2,062 | 3,951 |
   | Feature params | 863 | 1,626 |

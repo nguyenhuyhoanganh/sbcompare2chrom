@@ -198,7 +198,30 @@ from typing import Any, Dict, Iterable, List, Optional
 #          `origin_trial_allows_insecure` and `is_protected_feature` are
 #          carried, which is 40 declarations at M151 deciding who may turn a
 #          flag on from outside the binary.
-SCHEMA_VERSION = 22
+#  23: the coverage measurement is graded against the tree instead of against
+#      the ground it already covers.
+#        - `DISCOVERY_ROOTS` was the fourteen roots the fetch targets happen to
+#          live under, so the denominator was chosen by the same list it was
+#          grading. `wide` scored 1,039 of 1,039 and reported **100%**, while
+#          `chromedrift catalog`, which walks the real tree, counted 1,192
+#          files the same rule says can declare. The 153 in the gap could never
+#          appear as missed however wide the run: `base/base_switches.h`,
+#          `base/features.cc`, `cc/base/features.cc`, `device/fido/public/
+#          features.cc`, `sandbox/policy/features.cc`,
+#          `google_apis/gaia/gaia_switches.cc`. Three of those files alone hold
+#          88 base::Feature declarations nothing reads. This is the defect
+#          schema 18 fixed one level down, where the filename rule was the
+#          thing too narrow; here it was the ground the rule ran over. Fetching
+#          is unchanged -- the roots feed the measurement only -- so a version
+#          22 snapshot's coverage figure is the same reading taken against a
+#          smaller denominator, and reads higher than the truth.
+#        - vendored third-party projects are excluded by name rather than by
+#          falling outside the roots, so `catalog` and the per-run measurement
+#          describe one population and a test can hold them to it.
+#        - a snapshot's `missing_targets` reaches the report. It was printed by
+#          the run that built the snapshot and lost on every cached run after
+#          it, and it was in none of the three report files.
+SCHEMA_VERSION = 23
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

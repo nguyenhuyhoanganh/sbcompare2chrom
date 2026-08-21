@@ -69,13 +69,47 @@ WEBUI_SURFACES = (
 # exists to measure what the conventions themselves miss.
 # ---------------------------------------------------------------------------
 
-# Roots that between them contain every declaration this tool reads. Listing a
-# root costs one request; listing all of Chromium would cost ~90 MB, which is
-# why this is a list rather than "/".
+# The roots the coverage measurement looks in. Listing a root costs one
+# request; listing all of Chromium would cost ~90 MB, which is why this is a
+# list rather than "/".
+#
+# It is a list, so it is a *denominator you choose*, and that is exactly how a
+# coverage number learns to flatter itself. These roots used to be the fourteen
+# the fetch targets happen to live under, which meant the measurement graded
+# `wide` against the ground `wide` already covered: 1,039 of 1,039, reported as
+# **100%**, while `chromedrift catalog` -- which walks the real tree -- counted
+# 1,192 files the same rule says can declare. The 153 in the gap could never
+# show up as missed however wide the run, and they are not obscure:
+# `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the
+# compositor), `device/fido/public/features.cc` (WebAuthn),
+# `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`,
+# `storage/browser/quota/quota_features.cc`. Three of those files alone hold 88
+# base::Feature declarations that no target set reads.
+#
+# This is the same defect schema 18 fixed one level down, where the measurement
+# left `*flags.{cc,h}` out of its own denominator. There it was the filename
+# rule that was too narrow; here it was the ground the rule ran over.
+#
+# So the roots now cover the tree rather than the fetch list. **They do not
+# change what is downloaded** -- `discover_candidates` feeds the measurement
+# only, never `get_targets` -- so the effect is that a gap which was invisible
+# is now counted and named. Measured at M151: 18 more roots, 101,139 more
+# listing entries, 15 seconds on a cold run and nothing on a warm one, since a
+# tag's listing is cached forever.
 DISCOVERY_ROOTS = (
-    "components", "chrome/browser", "chrome/common", "chrome/app",
-    "extensions", "services", "net", "ui", "media", "content",
-    "printing", "gpu", "third_party/blink/public", "third_party/blink/common",
+    # `chrome` rather than three subdirectories of it: the three missed
+    # `chrome/renderer`, `chrome/services` and `chrome/utility`, and one
+    # listing of the parent is cheaper than three of its children anyway.
+    "chrome", "components", "content", "extensions", "services",
+    "net", "ui", "media", "printing", "gpu",
+    # `third_party/blink` rather than its `public` and `common` subdirectories:
+    # `renderer` holds 37 candidate files and was outside the measurement.
+    "third_party/blink",
+    # The roots that were missing outright. Between them they hold 102 of the
+    # 153 files the measurement could not see.
+    "base", "device", "cc", "google_apis", "sandbox", "storage", "pdf",
+    "headless", "mojo", "apps", "crypto", "gin", "remoting", "skia", "url",
+    "dbus", "fuchsia_web",
 )
 
 # Test code declares features and prefs that drive the test and ship to nobody.
@@ -93,6 +127,18 @@ _OTHER_PLATFORM_RE = re.compile(
 # its switches are real declarations that ship to nobody, so counting them as
 # uncovered would make the coverage figure chase something worth ignoring.
 _NOT_THE_PRODUCT_RE = re.compile(r"^content/shell/|^chrome/test/|^tools/")
+
+# Vendored third-party projects. abseil, grpc, ipcz, libxml, opus, tflite, zlib
+# and the webrtc overrides all carry files whose names match the conventions
+# above -- 14 at M151 -- but they are other people's libraries, not Chromium's
+# product surface, and no extractor is written for their dialects.
+#
+# Named here rather than left to fall outside the roots, because those are two
+# different things. A file outside the roots is one the measurement cannot see;
+# a file excluded here is one both the measurement and `catalog` agree to leave
+# out, so the two describe the same population and the exclusion is reviewable.
+# Blink is Chromium's own and stays in.
+_VENDORED_THIRD_PARTY_RE = re.compile(r"^third_party/(?!blink/)")
 
 # Preference keys. Chromium spells these two ways and both carry keys:
 # `*pref_names.{h,cc}` is the older, larger set, `*_prefs.{h,cc}` the newer
@@ -119,6 +165,8 @@ class DiscoveryRule:
 
     def matches(self, path: str, include_other_platforms: bool = False) -> bool:
         if _TEST_RE.search(path) or _NOT_THE_PRODUCT_RE.search(path):
+            return False
+        if _VENDORED_THIRD_PARTY_RE.search(path):
             return False
         if not include_other_platforms and _OTHER_PLATFORM_RE.search(path):
             return False

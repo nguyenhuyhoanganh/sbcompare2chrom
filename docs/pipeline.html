@@ -1630,10 +1630,12 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </div>
     <p style="margin-top:14px">
       Coverage depends on the target set, and every run prints the number it measured.
-      At M151, <code>default</code> reads 42 of the 1,039 files that could declare
-      something (4%) but still captures more than half the <code>base::Feature</code>
+      At M151, <code>default</code> reads 42 of the 1,178 files that could declare
+      something (3%) but still captures more than half the <code>base::Feature</code>
       declarations, because the hand-picked files are the largest ones.
-      <code>--target-set wide</code> reads all 1,039. For surfaces like prefs,
+      <code>--target-set wide</code> reads 1,039 of them (88%) — not all, and the
+      measurement says so: the denominator is the tree rather than the roots the
+      fetch list lives under, which is what used to make that figure read 100%. For surfaces like prefs,
       switches and Mojo the gap between the two target sets is very large — prefs 689
       against 2,404, Mojo interfaces 338 against 1,455 — so when the answer really
       matters, run <code>wide</code>.

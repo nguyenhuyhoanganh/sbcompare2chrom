@@ -468,6 +468,27 @@ def _tree_coverage_lines(report: Report) -> List[str]:
     return out
 
 
+def _missing_target_lines(report: Report) -> List[str]:
+    """Targets a side did not have, which is a file's worth of facts missing.
+
+    Recorded on the snapshot since the beginning and reported nowhere: the
+    warning was printed by the run that built the snapshot and lost on every
+    cached run after it. A target absent from one side and present on the other
+    is the shape that reads as a mass deletion.
+    """
+    missing = (report.meta or {}).get("missing_targets") or {}
+    out: List[str] = []
+    for ref, paths in missing.items():
+        if not paths:
+            continue
+        out.append(f"- **{len(paths)} target(s) absent from `{ref}`**, so "
+                   f"nothing they declare could be compared: "
+                   + ", ".join(f"`{p}`" for p in paths[:4])
+                   + (f" and {len(paths) - 4} more" if len(paths) > 4 else "")
+                   + ".")
+    return out
+
+
 def _render_provenance(report: Report) -> str:
     meta = report.meta or {}
     summary = report.summary or {}
@@ -477,6 +498,7 @@ def _render_provenance(report: Report) -> str:
         f"- Facts: {meta.get('facts_from', '?')} → {meta.get('facts_to', '?')}.",
     ]
     lines += _tree_coverage_lines(report)
+    lines += _missing_target_lines(report)
     profile = meta.get("profile") or {}
     if profile:
         lines.append(

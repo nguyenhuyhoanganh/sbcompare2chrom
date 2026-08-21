@@ -152,6 +152,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         for line in catalog.summarize_violations(snap, bad):
             _log("  " + line)
 
+    # Re-stated on every run, not only the one that built the snapshot.
+    for snap in (old, new):
+        absent = (snap.meta or {}).get("missing_targets") or []
+        if absent:
+            _log(f"  ! {snap.ref}: {len(absent)} target(s) absent from that "
+                 f"source: {', '.join(absent[:3])}"
+                 + (" ..." if len(absent) > 3 else ""))
+
     _log("[3/5] diff")
     platform = PLATFORM
     changes = diff_snapshots(old, new, platform=platform,
@@ -232,6 +240,18 @@ def cmd_run(args: argparse.Namespace) -> int:
             # The TO side's, because that is the tree being adopted. Capped at
             # 400 paths by the snapshot that recorded them.
             "uncovered_files": (new.meta or {}).get("uncovered_files") or [],
+            # Targets the source did not have. `cmd_snapshot` printed this and
+            # the snapshot recorded it, and then it stopped there: `run` never
+            # read it back, so on the cache hit that every second run is, the
+            # warning did not appear at all -- and it was in none of the three
+            # report files. A target that was never fetched is a whole file's
+            # declarations missing from the comparison, which is the same thing
+            # `coverage` says and the same reason it had to stop living in
+            # scrollback.
+            "missing_targets": {
+                old.ref: (old.meta or {}).get("missing_targets") or [],
+                new.ref: (new.meta or {}).get("missing_targets") or [],
+            },
             "profile": touch.provenance,
             "partitions": sorted(args.partitions) if args.partitions else [],
             "complete": args.complete,

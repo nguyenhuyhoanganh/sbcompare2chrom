@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what does a downstream browser team have to fix when they move to the new base.**
 
-The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,425 lines, 33 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,605 lines, 33 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -400,8 +400,8 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
 | `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | 42 / 1,039 (4%) | Day-to-day work |
-| `wide` | ~315 MB | ~94 MB | **1,039 / 1,039 (100%)** | A release gate |
+| `default` | ~40 MB | ~38 MB | 42 / 1,178 (3%) | Day-to-day work |
+| `wide` | ~315 MB | ~94 MB | **1,039 / 1,178 (88%)** | A release gate |
 
 4% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
@@ -418,7 +418,20 @@ coverage: reads 42 of 1039 files in this tree that could declare (4% of files)
 
 So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
-`wide` reads 100% in a strict sense: every file whose name says it could declare something is fetched, **and** every fetched file is claimed by at least one extractor. Tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
+`wide` reads 88%, not 100%, and the difference is worth understanding because the number used to say 100%. Every file `wide` fetches is claimed by at least one extractor, and every filename convention the measurement counts is one an extractor reads — tests hold both directions, because both have drifted before: once the measurement did not count `*flags.{cc,h}` although the extractor read them, once the extractor skipped the bare `switches.cc` spelling although the measurement counted it, and once `--complete` filtered through its own copy of the suffix list that had never learned the `*_prefs.{h,cc}` convention.
+
+What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they are not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone hold 88 `base::Feature` declarations that no target set reads.
+
+The roots now cover the tree, so the gap is counted and named instead of hidden, and `--target-set wide` prints where it sits:
+
+```
+coverage: reads 1039 of 1178 files in this tree that could declare (88% of files)
+  largest gaps: third_party/blink/ (37 files), device/bluetooth/ (8 files), storage/browser/ (6 files)
+```
+
+**Fetching did not change.** The roots feed the measurement only, so this costs one extra directory listing per root — 15 seconds on a cold run, nothing on a warm one, since a tag's listing is cached forever. Closing the remaining 12% is a separate decision about bandwidth, and it is now a decision someone can make with a number in front of them.
+
+Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's product surface, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
 
 That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared by `wide` and `--complete`, because both ask the same question: which filename shapes can an extractor read.
 
@@ -964,7 +977,7 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**297 tests, running in under a second, with no network.**
+**306 tests, running in under a second, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1003,10 +1016,10 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ```
 chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
-  targets.py      620        declares which files to fetch and why; partitions; coverage rules
+  targets.py      668        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
   extract/      2,404        9 extractors + the C++ scanning helpers
-  diff.py         990        semantic comparison, labelling, rename detection
+  diff.py         1,057        semantic comparison, labelling, rename detection
   cluster.py      214        assemble scattered fragments into one story
   downstream.py   498        the fork's touch set + area definitions
   impact.py       258        scoring, bucketing, area coverage
@@ -1014,12 +1027,12 @@ chromedrift/
   discover.py     327        find the vendor's own files in a fork checkout
   provenance.py   207        separate deliberate divergence from merge debt
   coverage.py     249        find where the fork shadows upstream with a build flag
-  model.py        662        shared data structures, JSON read/write, area filtering
+  model.py        685        shared data structures, JSON read/write, area filtering
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,629        markdown + self-contained HTML dashboard;
+  report/       1,651        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          813        9 command-line commands
+  cli.py          833        9 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

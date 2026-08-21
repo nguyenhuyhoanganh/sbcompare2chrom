@@ -2571,6 +2571,172 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
         self.assertTrue(is_control("cr-button", "", label="saveLabel"))
 
 
+class TestATruncatedTreeIsRefused(unittest.TestCase):
+    """The target-set guard was one derivation short of its own reasoning.
+
+    It compares the *label* a snapshot was built under, which catches `minimal`
+    against `default` and nothing else. Two sides both labelled "default" pass
+    it even when one is a truncated checkout -- and `--local-src` / `--to-src`
+    is exactly how that happens. Pointed at a partial tree, the fork side of a
+    real run held 1,647 facts against upstream's 24,959 and the tool said
+    nothing: it printed "scope: ok" twice, because every fact really did come
+    from a file the target set asked for, then reported 23,318 removals that
+    had not happened.
+    """
+
+    def _snap(self, ref, n, kind="base_feature"):
+        from chromedrift.model import Fact, Snapshot
+        return Snapshot(ref=ref, meta={"target_set": "default"},
+                        facts=[Fact(kind, f"F{i}", f"F{i}", path="a.cc",
+                                    attrs={"default_state": "enabled"})
+                               for i in range(n)])
+
+    def test_a_side_holding_a_fraction_of_the_other_is_refused(self):
+        from chromedrift.diff import diff_snapshots
+        with self.assertRaises(ValueError) as caught:
+            diff_snapshots(self._snap("upstream", 24959), self._snap("fork", 1647))
+        message = str(caught.exception)
+        self.assertIn("truncated tree", message)
+        # The message has to name the thing to check, not just the numbers.
+        self.assertIn("--to-src", message)
+
+    def test_two_real_versions_are_not_refused(self):
+        """M143 holds 24,113 facts against M151's 24,959 -- 3% apart."""
+        from chromedrift.diff import diff_snapshots
+        diff_snapshots(self._snap("m143", 24113), self._snap("m151", 24959))
+
+    def test_an_empty_side_is_refused(self):
+        from chromedrift.diff import diff_snapshots
+        with self.assertRaises(ValueError) as caught:
+            diff_snapshots(self._snap("good", 24959), self._snap("broken", 0))
+        self.assertIn("no facts at all", str(caught.exception))
+
+    def test_small_fixtures_are_left_alone(self):
+        """A ratio over a handful of facts is noise, not evidence.
+
+        Without a floor this guard fires on every unit test in this file that
+        builds a one-fact snapshot against a three-fact one, which is how it
+        was first written.
+        """
+        from chromedrift.diff import diff_snapshots
+        diff_snapshots(self._snap("a", 1), self._snap("b", 9))
+
+
+class TestMissingTargetsReachTheReport(unittest.TestCase):
+    """A target that was never fetched is a file's worth of facts missing.
+
+    `cmd_snapshot` printed it and the snapshot recorded it, and there it
+    stopped: `run` never read it back, so on the cache hit that every second
+    run is, the warning did not appear at all -- and it was in none of the
+    three report files. Same shape as the coverage figure that schema 16 had to
+    rescue from scrollback.
+    """
+
+    def _report(self, missing):
+        from chromedrift.model import Report
+        return Report(from_ref="a", to_ref="b", findings=[],
+                      summary={}, meta={"missing_targets": missing})
+
+    def test_the_markdown_names_them(self):
+        from chromedrift.report import markdown as md
+        text = md.render(self._report({"b": ["net/base/features.cc",
+                                             "media/base/media_switches.cc"]}))
+        self.assertIn("2 target(s) absent from `b`", text)
+        self.assertIn("net/base/features.cc", text)
+
+    def test_nothing_is_said_when_nothing_is_missing(self):
+        from chromedrift.report import markdown as md
+        self.assertNotIn("absent from", md.render(self._report({"b": []})))
+
+
+class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
+    """A denominator you choose is how a coverage number flatters itself.
+
+    `DISCOVERY_ROOTS` was the fourteen roots the fetch targets happen to live
+    under, so the per-run measurement graded `wide` against the ground `wide`
+    already covered: 1,039 of 1,039, reported as 100%, while `catalog` -- which
+    walks the real tree -- counted 1,192 files the same rule admits. The 153 in
+    the gap could never surface as missed, and they hold real declarations:
+    `base/base_switches.h`, `cc/base/features.cc`,
+    `device/fido/public/features.cc`.
+
+    README says the two "describe the same population". This is that sentence
+    as a test.
+    """
+
+    ROOTS_MUST_COVER = (
+        "base/base_switches.h",
+        "base/features.cc",
+        "cc/base/features.cc",
+        "device/fido/public/features.cc",
+        "sandbox/policy/features.cc",
+        "google_apis/gaia/gaia_switches.cc",
+        "storage/browser/quota/quota_features.cc",
+        "pdf/pdf_features.cc",
+        "mojo/core/embedder/features.cc",
+        "chrome/renderer/chrome_render_frame_features.cc",
+        "third_party/blink/renderer/platform/features.cc",
+    )
+
+    def test_a_file_the_rule_admits_is_inside_a_root(self):
+        """Otherwise it cannot be counted, however wide the run."""
+        from chromedrift.targets import DISCOVERY_ROOTS, could_declare
+
+        roots = tuple(r.rstrip("/") + "/" for r in DISCOVERY_ROOTS)
+        outside = [p for p in self.ROOTS_MUST_COVER
+                   if could_declare(p) and not p.startswith(roots)]
+        self.assertEqual(outside, [],
+                         "the rule says these can declare, but no root lists "
+                         "them, so the measurement can never see them")
+
+    def test_vendored_third_party_is_excluded_by_name(self):
+        """Named, so both measurements agree rather than merely coinciding.
+
+        Left to fall outside the roots instead, `catalog` would count these
+        while the per-run measurement could not, and the two numbers would
+        disagree for a reason nobody had written down.
+        """
+        from chromedrift.targets import could_declare
+
+        for path in ("third_party/zlib/cpu_features.h",
+                     "third_party/abseil-cpp/absl/base/features.h",
+                     "third_party/webrtc_overrides/field_trial.cc"):
+            self.assertIsNone(could_declare(path), path)
+        # Blink is Chromium's own code and stays in.
+        self.assertIsNotNone(
+            could_declare("third_party/blink/renderer/platform/features.cc"))
+
+    def test_the_two_measurements_describe_one_population(self):
+        """Checked against a real tree listing when one is on disk."""
+        import glob
+
+        from chromedrift.targets import (DISCOVERY_ROOTS, could_declare,
+                                         discover_candidates)
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        listings = glob.glob(os.path.join(root, ".chromedrift-cache",
+                                          "listings", "*", "*.json"))
+        if not listings:
+            self.skipTest("no cached tree listings here")
+
+        # Every path any listing holds, as the whole tree the run can see.
+        import json as _json
+        paths = []
+        by_ref = {}
+        for path in listings:
+            ref = os.path.basename(os.path.dirname(path))
+            with open(path, encoding="utf-8") as fh:
+                by_ref.setdefault(ref, []).extend(_json.load(fh))
+        ref, paths = max(by_ref.items(), key=lambda kv: len(kv[1]))
+
+        roots = tuple(r.rstrip("/") + "/" for r in DISCOVERY_ROOTS)
+        admitted = [p for p in paths if could_declare(p)]
+        unreachable = [p for p in admitted if not p.startswith(roots)]
+        self.assertEqual(unreachable[:5], [],
+                         f"{ref}: {len(unreachable)} files the rule admits sit "
+                         f"outside every root, so no run can count them")
+
+
 class TestTheDocumentedSourceMapStillHolds(unittest.TestCase):
     """The README's map of the source is a second derivation of the source.
 

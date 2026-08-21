@@ -401,6 +401,8 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
             f"--target-set {new_set or old_set!r} or pass --refresh"
         )
 
+    _refuse_lopsided(old, new)
+
     old_index = old.index()
     new_index = new.index()
 
@@ -441,6 +443,71 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         changes = _detect_repointed_controls(changes)
     changes.sort(key=lambda c: (-c.severity, c.kind, c.key))
     return changes
+
+
+# How far apart two sides may be before the comparison stops meaning anything.
+# Two real Chromium versions eight milestones apart differ by about 3%
+# (M143 24,113 facts against M151 24,959), and a vendor fork differs by less
+# than that, so half is far outside anything legitimate.
+LOPSIDED_RATIO = 0.5
+
+# ...and below which the ratio means nothing. A handful of facts on each side is
+# a unit test's fixture, where one against three is normal rather than alarming.
+# The smallest real run is `--target-set minimal` at about 1,700 facts and the
+# smallest partition about 2,700, so this floor sits far under anything a real
+# comparison produces and far over anything a fixture does.
+LOPSIDED_MIN_FACTS = 500
+
+
+def _refuse_lopsided(old: Snapshot, new: Snapshot) -> None:
+    """Refuse when one side read a fraction of what the other did.
+
+    The target-set guard above is one derivation short of its own reasoning.
+    It compares the *label* a snapshot was built under, which catches
+    `--target-set minimal` against `default` and nothing else; two sides both
+    labelled "default" pass it even when one of them is a truncated tree.
+
+    That is not hypothetical, and `--local-src` / `--to-src` is how it happens.
+    Pointed at a partial checkout, the fork side of a real run held 1,647 facts
+    against upstream's 24,959 -- 6.6% -- and the tool said nothing at all. It
+    printed "scope: ok" twice, because every fact really did come from a file
+    the target set asked for, and then reported 23,318 removals, every one of
+    them saying "we removed this; a rebase will put it back". None of it had
+    happened.
+
+    Coverage cannot catch it either: that number is measured against whatever
+    tree it is pointed at, so the truncated side scored 8 of 13 candidate files
+    -- 62%, which reads as healthy.
+
+    The only thing that sees it is the two sides side by side, which is what
+    this does. Failing loudly beats emitting a report whose numbers look
+    reasonable and are not.
+    """
+    old_n, new_n = len(old.facts), len(new.facts)
+    if max(old_n, new_n) < LOPSIDED_MIN_FACTS:
+        return
+    if not old_n or not new_n:
+        smaller, larger = (old, new) if old_n <= new_n else (new, old)
+        raise ValueError(
+            f"{smaller.ref} produced no facts at all while {larger.ref} "
+            f"produced {max(old_n, new_n)}; the ref or the checkout it was "
+            f"read from is wrong. Nothing can be compared against an empty "
+            f"side -- every fact on the other one would read as a removal."
+        )
+    if min(old_n, new_n) >= LOPSIDED_RATIO * max(old_n, new_n):
+        return
+    smaller, larger = (old, new) if old_n < new_n else (new, old)
+    small_n, large_n = min(old_n, new_n), max(old_n, new_n)
+    raise ValueError(
+        f"cannot diff: {smaller.ref} holds {small_n:,} facts against "
+        f"{larger.ref}'s {large_n:,} ({100 * small_n // large_n}%). Two "
+        f"versions of Chromium differ by a few percent, so a gap this size is "
+        f"a truncated tree rather than a change -- check the --local-src / "
+        f"--from-src / --to-src path points at a full Chromium src/ (the "
+        f"directory holding content/ and third_party/), and re-run that side "
+        f"with --refresh. Compared as-is, every fact only {larger.ref} has "
+        f"would be reported as something the other side removed."
+    )
 
 
 def _locations(*facts) -> List[str]:
