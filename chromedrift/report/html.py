@@ -388,6 +388,22 @@ def _moved(finding_dict: dict, limit: int = 34) -> str:
     return ""
 
 
+def _says_the_same(change, what: str) -> bool:
+    """Would the `moved` line repeat what the prose already said?
+
+    Both sides of the first non-platform delta, compared untruncated. A prose
+    line built from the same delta contains both of them; one built from a
+    different attribute does not.
+    """
+    for key, delta in sorted(change.deltas.items()):
+        if key in ("platform_state", "platform_status"):
+            continue
+        if not (isinstance(delta, list) and len(delta) == 2):
+            continue
+        return all(str(side) in what for side in delta if side not in (None, ""))
+    return False
+
+
 def _clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
 
@@ -433,7 +449,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "what": surfaces.describe(change),
             "why": surfaces.story_of(change)[0],
             # Which of the three consequence groups the kind belongs to. A flat
-            # list of thirteen kinds reads as thirteen kinds of "feature", and
+            # list of sixteen kinds reads as sixteen kinds of "feature", and
             # two thirds of them are not features at all.
             "group": group_of(change.kind),
             "paths": (change.locations or change.paths)[:3],
@@ -441,11 +457,19 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "reasons": finding.reasons,
             "chromestatus": status.get("summary", ""),
         }
-        moved = _moved(row)
-        # `what` already says "off -> on for Windows" for the kinds that have a
-        # platform state, so repeating it under the prose prints the same arrow
-        # twice in one cell.
-        row["moved"] = "" if moved in row["what"] else moved
+        # `what` already says "off -> on for Windows" for the kinds that have
+        # a platform state, and "array<uint8> -> BigBuffer" for a Mojo field,
+        # so repeating it under the prose prints the same arrow twice in one
+        # cell.
+        #
+        # The test is made against the *raw* delta, not the payload's copy of
+        # it. Two truncations sit between them -- `_trim` at 90 characters on
+        # the way into `deltas`, `_moved` at 34 on the way out -- and `describe`
+        # applies neither, so the two strings said the same thing and did not
+        # match. A long generic type printed both:
+        # `map<mojo_base.mojom.String16, ManifestLocalizedTextObject> ->
+        # map<Locale, ManifestLocalizedTextObject>?` above its own truncation.
+        row["moved"] = "" if _says_the_same(change, row["what"]) else _moved(row)
         # Drop empty values. Every consumer in the page guards for a missing
         # key, and on a run with --no-enrich `chromestatus` is empty on every
         # single row -- 3,120 of them on a real report.
@@ -589,7 +613,7 @@ def render(report: Report, platform: str = "windows") -> str:
 
     option = lambda v, label="": f'<option value="{html.escape(v)}">{html.escape(label or v)}</option>'
 
-    # Grouped, because a flat list of thirteen kinds reads as thirteen kinds of
+    # Grouped, because a flat list of sixteen kinds reads as sixteen kinds of
     # "feature" -- and two thirds of them are not features at all. The groups
     # say which is which without needing a legend.
     surface_options = ""

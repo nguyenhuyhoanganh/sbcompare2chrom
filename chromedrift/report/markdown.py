@@ -36,8 +36,9 @@ def _esc(text: object) -> str:
 
 
 # For these kinds the bare name is ambiguous -- several interfaces declare an
-# `echoCancellation` member -- so the qualified key is what identifies it.
-_QUALIFIED_KINDS = ("idl_member", "mojo_method")
+# `echoCancellation` member, and `bits`, `id` and `size` are field names in
+# dozens of Mojo structs -- so the qualified key is what identifies it.
+_QUALIFIED_KINDS = ("idl_member", "mojo_method", "mojo_field")
 
 
 def display_name(change) -> str:

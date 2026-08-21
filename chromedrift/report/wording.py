@@ -3,7 +3,7 @@
 A report is a list of identifiers, and an identifier is not a description.
 `AAPMBlocksWebGPU`, `AriaAttributes.ariaVirtualContent` and
 `blink.mojom.AIManager.CreateLanguageModel` are each perfectly precise and each
-require the reader to already know which of thirteen things they are looking
+require the reader to already know which of sixteen things they are looking
 at. The kind column names the category, but a category and a sentence are not
 the same help: "Mojo method" does not say that a process call is involved, and
 "Preference" does not say that the thing at risk is data already on a user's
@@ -47,8 +47,11 @@ from ..model import (
     KIND_FLAG_ENTRY,
     KIND_IDL_INTERFACE,
     KIND_IDL_MEMBER,
+    KIND_MOJO_ENUM,
+    KIND_MOJO_FIELD,
     KIND_MOJO_INTERFACE,
     KIND_MOJO_METHOD,
+    KIND_MOJO_STRUCT,
     KIND_PREF,
     KIND_SWITCH,
     KIND_WEBUI_CONTROL,
@@ -121,6 +124,12 @@ KIND_WORDS = {
     KIND_IDL_MEMBER: "web API",
     KIND_MOJO_INTERFACE: "process interface",
     KIND_MOJO_METHOD: "process call",
+    # The data half. "message" and "field" say what travels rather than what is
+    # called, which is the distinction the reader needs and the kind label
+    # ("Mojo struct") does not make.
+    KIND_MOJO_STRUCT: "process message",
+    KIND_MOJO_FIELD: "message field",
+    KIND_MOJO_ENUM: "message enum",
     KIND_SWITCH: "command-line switch",
     KIND_PREF: "user setting",
     KIND_FLAG_ENTRY: "chrome://flags entry",
@@ -304,6 +313,30 @@ def describe(change) -> str:
 
     if change.kind == KIND_MOJO_METHOD:
         return f"{word} {change.key}()"
+
+    if change.kind == KIND_MOJO_STRUCT:
+        # A struct becoming a union is the headline, so show both sides of it.
+        moved = _plain_move(change, "mojo_kind")
+        count = attrs.get("field_count")
+        out = f"{word} {change.key}"
+        if moved:
+            return f"{out} — {moved}"
+        return f"{out} ({count} fields)" if count else out
+
+    if change.kind == KIND_MOJO_FIELD:
+        # The type is the wire format, so it leads. `_plain_move` prints both
+        # sides when it moved, which is the whole finding for this kind.
+        moved = _plain_move(change, "type")
+        kind_of = attrs.get("type")
+        out = f"{word} {change.key}"
+        if moved:
+            return f"{out} — {moved}"
+        return f"{out} ({kind_of})" if kind_of else out
+
+    if change.kind == KIND_MOJO_ENUM:
+        values = attrs.get("values") or []
+        out = f"{word} {change.key}"
+        return f"{out} ({len(values)} values)" if values else out
 
     if change.kind == KIND_SWITCH:
         return f"{word} --{name}"

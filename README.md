@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,034 lines, 29 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,371 lines, 29 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -135,15 +135,15 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151
 ```
 
-About three and a half minutes on a cold cache. Measured per version: 97 seconds, of which 69 are fetching and 25 are the fourteen directory listings, leaving about 3 for extraction — so two versions plus enrichment. A second run over the same pair of tags is a cache hit, measured at **0.5 seconds** for the whole pipeline: both snapshots read, 6,784 changes compared and scored, and all three report files written. A released tag's content never changes, so the cache is kept forever, and network speed is the only reason your cold number will differ.
+About three and a half minutes on a cold cache. Measured per version: 97 seconds, of which 69 are fetching and 25 are the fourteen directory listings, leaving about 3 for extraction — so two versions plus enrichment. A second run over the same pair of tags is a cache hit, measured at **0.3 seconds** for the whole pipeline: both snapshots read, 3,027 changes compared and ranked, and all three report files written. A released tag's content never changes, so the cache is kept forever, and network speed is the only reason your cold number will differ.
 
 Results land in `out/M148_to_M151/`:
 
 | File | Size | Use it for |
 |---|---|---|
-| `report.md` | ~92 KB | Pasting into Jira, Confluence, a merge request |
-| `report.html` | ~1.8 MB | Opening in a browser; filterable and sortable, fully self-contained |
-| `report.json` | ~2.8 MB | Scripts, dashboards, comparing across cycles |
+| `report.md` | ~118 KB | Pasting into Jira, Confluence, a merge request |
+| `report.html` | ~2.0 MB | Opening in a browser; filterable and sortable, fully self-contained |
+| `report.json` | ~4.2 MB | Scripts, dashboards, comparing across cycles |
 
 `report.html` loads no external resources, so it works on an air-gapped network and can be attached to an email.
 
@@ -262,7 +262,7 @@ Each extractor is two pure functions: "does this file belong to what I read" and
 | `base_features.py` | `base::Feature` declarations in C++ | Feature switches and their per-platform default on/off |
 | `blink_runtime.py` | `runtime_enabled_features.json5` | Web-engine features and their stable/experimental status |
 | `web_idl.py` | `.idl` files | The exact shape of a web API: interfaces, methods, attributes |
-| `mojom.py` | `.mojom` files | The interface between processes, with method signatures |
+| `mojom.py` | `.mojom` files | Both halves of the process boundary: the interfaces and their method signatures, and the structs, unions, enums and fields that travel along them |
 | `constants.py` | `*switches.{cc,h}`, `*pref_names.{h,cc}`, `*_prefs.{h,cc}` | Command-line switches and user settings keys |
 | `flags_metadata.py` | `flag-metadata.json` | Which switches are scheduled for removal in an upcoming release |
 | `webui_routes.py` | `route.ts` | The page list of a `chrome://` surface, with its visibility conditions |
@@ -414,8 +414,11 @@ coverage: reads 64 of 1164 files in this tree that could declare (5% of files)
 | Switches | 288 | 1,222 |
 | Mojo interfaces | 338 | 1,501 |
 | Mojo methods | 1,362 | 5,903 |
+| Mojo structs | 703 | 2,873 |
+| Mojo struct fields | 3,076 | 13,069 |
+| Mojo enums | 373 | 1,481 |
 | WebUI controls | 971 | 1,431 |
-| **Total facts** | **24,966** | **36,832** |
+| **Total facts** | **29,118** | **54,255** |
 
 So `default` reads 4% of the files but more than half of the `base::Feature` declarations. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
@@ -667,19 +670,19 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138
 python3 -m chromedrift report out/report.json --format both --out out/again
 ```
 
-Size is not the constraint: the whole of an uprev is under 3 MB of JSON and `report.md` is about 92 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
+Size is not the constraint: the whole of an uprev is about 4 MB of JSON and `report.md` is about 118 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
 
-### Thirteen fact kinds, three meaning groups
+### Sixteen fact kinds, three meaning groups
 
-The report groups its filter by *what a change means*, rather than presenting thirteen kinds as a flat list:
+The report groups its filter by *what a change means*, rather than presenting sixteen kinds as a flat list:
 
 | Group | Contains | A change here means |
 |---|---|---|
 | Behaviour switches | feature flag, feature param, Blink runtime | Behaviour itself changed |
-| External contracts | pref, switch, Web IDL, Mojo | Something outside the binary breaks, silently: stored user data, launch scripts, live websites, the other process |
+| External contracts | pref, switch, Web IDL, and all five Mojo kinds | Something outside the binary breaks, silently: stored user data, launch scripts, live websites, the other process |
 | UI and scheduling | WebUI route/control/gate, `chrome://flags` | What the user sees changed, or the date something is scheduled for removal moved |
 
-On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as thirteen kinds of "feature" is the most common misreading.
+On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as sixteen kinds of "feature" is the most common misreading.
 
 The three groups appear in two places in `report.html`: as a sub-line under each row's `Surface` column, and as the option groups of the `All surfaces` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Surface` column renders empty.
 
@@ -744,7 +747,6 @@ The `route → guard → flag` chain covers the most important part — **page**
 - **A declaration present in the source tree may still not be compiled into the binary.** The tool does not read the GN graph, so it knows what is *declared*, not what is *built*.
 - **A change entirely inside a C++ function body** — the same reason as above, a layer down.
 - **Display strings in `.grd`** — a changed label is not caught.
-- **Mojo structs, enums and unions.** The extractor reads `interface` declarations only. At M151 the tree holds 1,581 interfaces against 2,524 structs, 1,587 enums and 219 unions, so this is 26% of the Mojo declaration surface. A struct field changing type is an ABI break of exactly the same kind as a method signature moving; covering it needs its own fact kinds, not the existing one relabelled.
 - **Extension APIs.** The `.idl` extension serves three different languages in the Chromium tree: Blink's Web IDL, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`) and MIDL (`ichromeaccessible.idl`). The extractor understands only the first, so it reads only under `third_party/blink/renderer/`. It used to read all three and produced 1,081 wrong facts at M151 — 96 of them with an entire nested declaration inside their own signature, the rest labelled "Web API" when no website can call `chrome.fileManagerPrivate`. Reading a dialect wrongly is worse than not reading it; covering the extension surface needs its own extractor and its own fact kind.
 - **Everything outside the repository:** server-side Finch configs, launch scripts, test automation.
 - **Rendered UI** — no screenshots, no layout, no visual regressions.
@@ -889,7 +891,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**262 tests, running in about three seconds, with no network.**
+**278 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -938,14 +940,14 @@ chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
   targets.py      711        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
-  extract/      2,371        9 extractors + the C++ scanning helpers
-  diff.py       1,133        semantic comparison, labelling, severity, bucketing
+  extract/      2,568        9 extractors + the C++ scanning helpers
+  diff.py       1,193        semantic comparison, labelling, severity, bucketing
   cluster.py      214        assemble scattered fragments into one story
   score.py        225        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        707        shared data structures, the four buckets, JSON read/write
+  model.py        729        shared data structures, the four buckets, JSON read/write
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,549        markdown + self-contained HTML dashboard;
+  report/       1,607        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
   cli.py          570        6 command-line commands

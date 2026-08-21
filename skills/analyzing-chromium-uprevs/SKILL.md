@@ -141,7 +141,7 @@ this was produced*.
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`,
 `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`,
 `media`) limits what is fetched and scanned. Measured at M151 on the default
-set: full run 24,966 facts, `--partition settings` 4,708. A partitioned run
+set: full run 29,118 facts, `--partition settings` 4,708. A partitioned run
 prints its own coverage line, scoped to the partition's roots. **Faster and less
 complete, one-directionally** — Chromium is not organized by product, so a
 change affecting downloads can live in `content/` or in a Mojo interface and
@@ -297,13 +297,16 @@ State these limits in every report. A clean report does not imply a clean uprev.
   | | `default` | `wide` |
   |---|---:|---:|
   | Files read, of the 1,164 that could declare | 64 (5%) | **1,164 (100%)** |
-  | Facts | 24,966 | 36,832 |
+  | Facts | 29,118 | 54,255 |
   | `base::Feature` | 2,069 | 4,243 |
   | Feature params | 863 | 1,686 |
   | Preference keys | 689 | 2,460 |
   | Command-line switches | 288 | 1,222 |
   | Mojo interfaces | 338 | 1,501 |
   | Mojo methods | 1,362 | 5,903 |
+  | Mojo structs | 703 | 2,873 |
+  | Mojo struct fields | 3,076 | 13,069 |
+  | Mojo enums | 373 | 1,481 |
   | WebUI controls | 971 | 1,431 |
 
   `default` reads 5% of the files but more than half the feature declarations,
@@ -317,8 +320,12 @@ State these limits in every report. A clean report does not imply a clean uprev.
   third of the flags unread.
 
   **Mojo is the reason to consider `wide` for anything that matters.** It
-  carries the highest-severity findings the tool produces, breaks at runtime
-  rather than at build, and `default` sees 338 of 1,501 interfaces.
+  carries the highest-severity findings the tool produces and breaks at runtime
+  rather than at build, and `default` sees 338 of 1,501 interfaces and 3,076 of
+  13,069 struct fields. Both halves matter: an interface says which calls cross
+  the process boundary, a struct says what travels along them, and a field
+  changing type breaks deserialization on the far side exactly the way a moved
+  parameter does.
 
   **Preference keys need care whichever set you ran.** Chromium is splitting
   `chrome/common/pref_names.h` apart — 4,322 lines at M143, 3,267 at M151 —
@@ -332,9 +339,6 @@ State these limits in every report. A clean report does not imply a clean uprev.
   (`third_party/blink/renderer/`). Chrome Extensions IDL and MIDL are not
   covered at all — deliberately, after they produced 1,081 facts at M151 that
   were labelled as Web API changes and were not.
-- **Mojo structs, enums and unions.** The extractor reads `interface`
-  declarations only, which is about three quarters of the Mojo declaration
-  surface at M151.
 - **Page behaviour.** Only the declarative parts of a WebUI surface are read:
   the route table and the HTML templates. Logic in the accompanying TypeScript
   is not, and neither is `page_visibility.ts`.

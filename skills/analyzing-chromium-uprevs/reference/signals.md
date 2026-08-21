@@ -32,7 +32,9 @@ Users experience a difference. This is the short list that matters.
 | `web_api_removed` | Real API removal, detected from IDL. Site-visible break |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
-| `ipc_removed` | Mojo interface or method removed |
+| `ipc_shape_changed` | The data half of the same break: a struct field changed type or ordinal, or a struct became a union. The other process reads those bytes as something else |
+| `ipc_enum_changed` | A Mojo enum gained or lost a member. Lower severity on purpose — a peer that does not know a value **rejects** the message rather than misreading it |
+| `ipc_removed` | Mojo interface, method, struct, field or enum removed |
 
 The first two are resolved for Windows specifically, by walking the `#if
 BUILDFLAG(...)` chain around the declaration. The global default and the
@@ -86,6 +88,7 @@ discover late, because nothing warns you.
 | `param_removed` | A feature parameter is gone. Anything still setting it — a Finch config most often — silently stops having an effect |
 | `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
 | `ui_control_repointed` | The control now writes a different preference; the old one is orphaned, exactly as in a rename |
+| `ipc_field_annotated` | A Mojo field's default value or its `[MinVersion]` annotation moved. Every byte on the wire is still read as the thing it is, but what an **older** peer sees changes — which is why this is a behaviour change rather than a break |
 
 Always check these against things the tool cannot see: Finch configs, launch
 scripts, CI automation, QA harnesses.

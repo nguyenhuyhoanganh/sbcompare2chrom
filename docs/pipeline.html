@@ -941,8 +941,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <table>
             <thead><tr><th>Scope</th><th class="n">Seconds</th><th class="n">Facts</th></tr></thead>
             <tbody>
-              <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">24,966</td></tr>
-              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">36,832</td></tr>
+              <tr><td>Everything (<code>default</code>)</td><td class="n">~120</td><td class="n">29,118</td></tr>
+              <tr><td><code>--target-set wide</code></td><td class="n">~340</td><td class="n">54,255</td></tr>
               <tr><td class="mono">--partition downloads</td><td class="n">~17</td><td class="n">2,697</td></tr>
             </tbody>
           </table>
@@ -1276,7 +1276,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       tells the reader immediately that they need to check.
     </div>
 
-    <h3 class="sub">The thirteen fact kinds extracted</h3>
+    <h3 class="sub">The sixteen fact kinds extracted</h3>
     <p style="font-size:.88rem;color:var(--ink-soft);margin-bottom:12px">
       These are exactly the names you see in the <code>kind</code> field of <code>report.json</code>.
     </p>
@@ -1289,6 +1289,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <span class="chip hot">switch · 288</span>
       <span class="chip hot">Mojo method · 1,362</span>
       <span class="chip">Mojo interface · 338</span>
+      <span class="chip hot">Mojo struct field · 3,076</span>
+      <span class="chip">Mojo struct · 703</span>
+      <span class="chip">Mojo enum · 373</span>
       <span class="chip">IDL member · 11,941</span>
       <span class="chip">IDL interface · 2,608</span>
       <span class="chip ok">route · 108</span>
@@ -1667,7 +1670,6 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <tr><td>C++ function bodies</td><td>Logic changing inside a function is invisible to the tool</td></tr>
           <tr><td>A page's TypeScript logic</td><td>Only the declarative part of a template is read, not the page's behaviour</td></tr>
           <tr><td>Display strings in <code>.grd</code> files</td><td><b>Relabelling a Settings entry is a user-visible change, and the tool does not detect it</b></td></tr>
-          <tr><td>Mojo structs, enums and unions</td><td>Only <code>interface</code> declarations are read. At M151 the tree holds 1,581 interfaces against 2,524 structs, 1,587 enums and 219 unions, so this is 26% of the Mojo surface — and a struct field changing type is an ABI break of the same kind as a method signature moving</td></tr>
           <tr><td>CSS, layout, icons</td><td>No screenshots, no visual regression detection</td></tr>
           <tr><td>The build configuration (GN)</td><td>A declaration existing in the tree does not mean it is compiled into the shipped binary</td></tr>
         </tbody>

@@ -36,8 +36,11 @@ from .model import (
     KIND_FLAG_ENTRY,
     KIND_IDL_INTERFACE,
     KIND_IDL_MEMBER,
+    KIND_MOJO_ENUM,
+    KIND_MOJO_FIELD,
     KIND_MOJO_INTERFACE,
     KIND_MOJO_METHOD,
+    KIND_MOJO_STRUCT,
     KIND_PREF,
     KIND_SWITCH,
     KIND_WEBUI_CONTROL,
@@ -92,6 +95,18 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # interface's identity moving *is* an add plus a remove.
     KIND_MOJO_INTERFACE: (),
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
+    # `fields` is left out for the reason `methods` is left out above: every
+    # field is a fact of its own, so comparing the list reports one ABI change
+    # twice. `mojo_kind` can move -- a struct becoming a union is a different
+    # wire format under the same name.
+    KIND_MOJO_STRUCT: ("mojo_kind",),
+    # The type and the ordinal are the wire format. The default and the
+    # `[MinVersion]` annotation are not, and they are labelled separately.
+    KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs"),
+    # One list rather than a fact per member: members are 17,061 of the tree's
+    # declarations at M151, and adding one is Mojo's ordinary way of extending
+    # a type.
+    KIND_MOJO_ENUM: ("values",),
     # "platform_state" is the guard resolved for Windows, not the guard text:
     # a key entering or leaving our binary is the change, while Chromium
     # tidying `!IS_ANDROID` off one is not. The raw `conditions` stay on the
@@ -126,6 +141,15 @@ BASE_SEVERITY: Dict[Tuple[str, str], int] = {
     (KIND_MOJO_METHOD, REMOVED): 70,
     (KIND_MOJO_METHOD, ADDED): 20,
     (KIND_MOJO_METHOD, MODIFIED): 75,
+    (KIND_MOJO_STRUCT, REMOVED): 70,
+    (KIND_MOJO_STRUCT, ADDED): 20,
+    (KIND_MOJO_STRUCT, MODIFIED): 60,
+    (KIND_MOJO_FIELD, REMOVED): 70,
+    (KIND_MOJO_FIELD, ADDED): 20,
+    (KIND_MOJO_FIELD, MODIFIED): 60,
+    (KIND_MOJO_ENUM, REMOVED): 65,
+    (KIND_MOJO_ENUM, ADDED): 20,
+    (KIND_MOJO_ENUM, MODIFIED): 45,
     # Retirement is the common case, so the floor comes from the signal:
     # flag_retired_on/off stay low, feature_deleted (state unknown) stays high.
     (KIND_BASE_FEATURE, REMOVED): 30,
@@ -177,6 +201,17 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "web_api_signature_change": 50,
     "ipc_signature_change": 80,
     "ipc_removed": 75,
+    # The data half of the same break. A field changing type or ordinal means
+    # the other process reads those bytes as something else, and a struct
+    # becoming a union changes the wire format under an unchanged name.
+    "ipc_shape_changed": 80,
+    # An enum gaining or losing a member. Not the same severity: adding one is
+    # how Mojo extends a type, and the receiver that has to be taught about it
+    # rejects the message rather than misreading it.
+    "ipc_enum_changed": 55,
+    # The default value or the `[MinVersion]` annotation moved. Neither changes
+    # how the bytes are read; both change what an older peer sees.
+    "ipc_field_annotated": 35,
     "pref_renamed": 70,
     "switch_renamed": 60,
     # A pref or switch that simply stops appearing is *not* evidence that
@@ -269,6 +304,11 @@ SIGNAL_LABELS: Dict[str, str] = {
     "web_api_signature_change": "Web API signature changed",
     "ipc_signature_change": "Mojo method signature changed (ABI)",
     "ipc_removed": "Mojo interface/method removed",
+    "ipc_shape_changed": "Mojo data shape changed (ABI) — the other process "
+                         "reads these bytes as something else",
+    "ipc_enum_changed": "Mojo enum members changed — a peer that does not know "
+                        "a value rejects the message rather than misreading it",
+    "ipc_field_annotated": "Mojo field's default or version annotation changed",
     "pref_renamed": "Preference key renamed (stored values orphaned)",
     "switch_renamed": "Command-line switch renamed",
     "pref_left_scan": "Preference no longer in the file we read — it may have "
@@ -339,6 +379,14 @@ SIGNAL_BUCKET: Dict[str, str] = {
     # -- Breaking: something outside the binary stops working, silently.
     "ipc_signature_change": BUCKET_BREAKING,
     "ipc_removed": BUCKET_BREAKING,
+    # The data half of the same boundary, and the same bucket for the same
+    # reason: a field read as a different type on the far side fails exactly
+    # the way a moved method parameter does, and nothing warns either.
+    "ipc_shape_changed": BUCKET_BREAKING,
+    "ipc_enum_changed": BUCKET_BREAKING,
+    # Not breaking: what an older peer sees changes, but every byte on the
+    # wire is still read as the thing it is.
+    "ipc_field_annotated": BUCKET_BEHAVIOUR,
     "web_api_removed": BUCKET_BREAKING,
     "web_api_unshipped": BUCKET_BREAKING,
     "web_api_signature_change": BUCKET_BREAKING,
@@ -718,6 +766,18 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             # the member exists in and which flag turns it on.
             if "ext" in change.deltas or "runtime_enabled" in change.deltas:
                 signals.append("web_api_exposure_changed")
+    elif kind in (KIND_MOJO_STRUCT, KIND_MOJO_FIELD, KIND_MOJO_ENUM):
+        if change.change_type == REMOVED:
+            signals.append("ipc_removed")
+        elif change.change_type == MODIFIED:
+            if "values" in change.deltas:
+                signals.append("ipc_enum_changed")
+            # Type, ordinal and struct-versus-union are the wire format; a
+            # default or a `[MinVersion]` is what an older peer sees.
+            if any(a in change.deltas for a in ("type", "ordinal", "mojo_kind")):
+                signals.append("ipc_shape_changed")
+            elif "default" in change.deltas or "attrs" in change.deltas:
+                signals.append("ipc_field_annotated")
     elif kind in (KIND_MOJO_METHOD, KIND_MOJO_INTERFACE):
         if change.change_type == REMOVED:
             signals.append("ipc_removed")

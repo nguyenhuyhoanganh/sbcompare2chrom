@@ -1,15 +1,24 @@
-"""Extract Mojo interfaces and method signatures.
+"""Extract the Mojo ABI: the calls that cross a process boundary and the data
+that travels along them.
 
 Mojo is the ABI between Chromium's processes.  Anything that implements or
-calls a mojo interface -- which anything doing custom UI, media or network
-work does -- breaks when a method signature moves.  Unlike an IDL change this
-is not caught by web tests and often not by the compiler
-either, because the mismatch shows up in generated bindings on the other side
-of a process boundary.
+calls a mojo interface -- which anything doing custom UI, media or network work
+does -- breaks when a method signature moves.  Unlike an IDL change this is not
+caught by web tests and often not by the compiler either, because the mismatch
+shows up in generated bindings on the other side of a process boundary.
 
 Signature-level identity (name plus normalized parameter list) is therefore
 what we key on: a reordered or retyped parameter must read as a change, not as
 an unchanged method.
+
+Both halves are read, and for a while only one was.  `interface` alone is 1,581
+of the 5,911 declarations in the M151 tree -- 26% -- and a struct field
+changing type breaks deserialization on the far side exactly the way a moved
+parameter does, with the compiler just as silent.  Structs, unions and their
+fields become facts of their own; an enum becomes one fact carrying its member
+list, because members alone are 17,061 declarations and adding one is Mojo's
+ordinary way of extending a type, so a fact each would bury the report to say
+what a `values` delta says in one row.
 """
 
 from __future__ import annotations
@@ -17,7 +26,8 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from ..model import KIND_MOJO_INTERFACE, KIND_MOJO_METHOD, Fact
+from ..model import (KIND_MOJO_ENUM, KIND_MOJO_FIELD, KIND_MOJO_INTERFACE,
+                     KIND_MOJO_METHOD, KIND_MOJO_STRUCT, Fact)
 from ._cpp import (collapse_ws, line_of, mask_comments, split_top_level,
                    split_top_level_offsets)
 
@@ -31,6 +41,29 @@ _MODULE_RE = re.compile(r"^\s*module\s+([\w.]+)\s*;", re.MULTILINE)
 _INTERFACE_RE = re.compile(
     r"(?:^|\n)\s*(?:\[[^\]]*\]\s*)?(?P<kw>interface)\s+(?P<name>\w+)\s*\{")
 _ATTRS_RE = re.compile(r"\[([^\]]*)\]\s*$")
+
+# The data half of the ABI: what travels along the calls the interfaces declare.
+# Only `interface` was read before, which is 1,581 of the 5,911 declarations in
+# the M151 tree -- 26%. A struct field changing type breaks deserialization on
+# the far side of the process boundary exactly the way a moved method parameter
+# does, and neither breaks the build.
+_DATA_RE = re.compile(
+    r"(?:^|\n)[ \t]*(?:\[[^\]]*\]\s*)?(?P<kw>struct|union|enum)\s+(?P<name>\w+)\s*\{")
+
+# `[MinVersion=1] url.mojom.Url filesystem_url@0;` and `int32 count = 5;`.
+#
+# The leading attribute block and the trailing default are peeled off before
+# this runs, rather than being groups of their own. Both contain an `=`, and a
+# greedy type is what makes the rest work -- `array<uint8>? data` has to keep
+# its whole type, and the name is the last identifier. Left in one pattern, the
+# greedy type ate the `=` and `int32 retries = 5` came out as a field named
+# `5` of type `int32 retries =`.
+_FIELD_RE = re.compile(r"^(?P<type>.+)\s+(?P<name>\w+)(?:@(?P<ordinal>\d+))?$")
+_FIELD_ATTRS_RE = re.compile(r"^\[([^\]]*)\]\s*")
+
+# `kFoo = 1` / `kBar`. The value is compared as declared, because an enum's
+# numbers are the wire format.
+_ENUM_VALUE_RE = re.compile(r"^(?P<name>\w+)(?:\s*=\s*(?P<value>.+))?$")
 
 
 def applies_to(path: str) -> bool:
@@ -163,5 +196,169 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             line=line_of(masked, m.start("kw")),
             attrs={"module": module, "method_count": len(methods),
                    "methods": sorted(methods)},
+        ))
+
+    facts.extend(extract_data_types(masked, rel_path, module))
+    return facts
+
+
+# ---------------------------------------------------------------------------
+# Structs, unions and enums: the data that travels across the boundary
+# ---------------------------------------------------------------------------
+
+
+def _spans(masked: str) -> List[dict]:
+    """Every declaration in the file, with the range it occupies.
+
+    Collected in one pass over all four keywords rather than per kind, because
+    the qualified name of a nested declaration needs the ones enclosing it.
+    Nesting is normal: 357 enums at M151 are declared inside the struct or
+    interface that uses them, and Mojo names those `Outer.Inner`.
+    """
+    out: List[dict] = []
+    for pattern in (_INTERFACE_RE, _DATA_RE):
+        for m in pattern.finditer(masked):
+            try:
+                open_idx = masked.index("{", m.end() - 1)
+            except ValueError:  # pragma: no cover - truncated file
+                continue
+            close_idx = _match_brace(masked, open_idx)
+            if close_idx is None:
+                continue
+            out.append({"kw": m.group("kw"), "name": m.group("name"),
+                        "decl": m.start("kw"), "open": open_idx,
+                        "close": close_idx})
+    out.sort(key=lambda s: s["open"])
+    return out
+
+
+def _qualified(span: dict, spans: List[dict], module: str) -> str:
+    """`module.Outer.Inner` -- the name Mojo itself uses for a nested type."""
+    chain = [s["name"] for s in spans
+             if s["open"] < span["decl"] and span["close"] < s["close"]]
+    chain.append(span["name"])
+    return ".".join(([module] if module else []) + chain)
+
+
+def _own_body(span: dict, spans: List[dict], masked: str) -> str:
+    """The body with nested declarations blanked out, offsets preserved.
+
+    Blanked rather than removed so an offset into the result still maps onto
+    the file and the line numbers stay right -- the same reason
+    `webui_controls.template_body` blanks its leading TypeScript. Without this
+    a nested enum's members would also be counted as fields of the struct
+    around it.
+    """
+    start, end = span["open"] + 1, span["close"]
+    body = list(masked[start:end])
+    for other in spans:
+        if other is span or not (start <= other["decl"] and other["close"] < end):
+            continue
+        for i in range(other["decl"] - start, min(other["close"] + 1 - start, len(body))):
+            if body[i] != "\n":
+                body[i] = " "
+    return "".join(body)
+
+
+def _field_facts(span, spans, masked, module, rel_path, qualified):
+    """One fact per struct or union field, keyed by the type that owns it."""
+    facts: List[Fact] = []
+    names: List[str] = []
+    body = _own_body(span, spans, masked)
+    base = span["open"] + 1
+    for offset, decl in split_top_level_offsets(body, ";"):
+        text = collapse_ws(decl)
+        if not text:
+            continue
+        lead = _FIELD_ATTRS_RE.match(text)
+        field_attrs = lead.group(1).strip() if lead else ""
+        if lead:
+            text = text[lead.end():]
+        default = ""
+        eq = text.find("=")
+        if eq != -1:
+            default = text[eq + 1:].strip()
+            text = text[:eq].strip()
+        m = _FIELD_RE.match(text)
+        if not m:
+            continue
+        name = m.group("name")
+        names.append(name)
+        attrs = {
+            "struct": qualified,
+            "module": module,
+            "type": collapse_ws(m.group("type")),
+        }
+        # Recorded only when present, so an ordinary field and one that simply
+        # never had an ordinal compare as the same thing.
+        if m.group("ordinal"):
+            attrs["ordinal"] = m.group("ordinal")
+        if default:
+            attrs["default"] = collapse_ws(default)
+        if field_attrs:
+            attrs["attrs"] = collapse_ws(field_attrs)
+        facts.append(Fact(
+            kind=KIND_MOJO_FIELD,
+            key=f"{qualified}.{name}",
+            name=name,
+            path=rel_path,
+            line=line_of(masked, base + offset),
+            attrs=attrs,
+        ))
+    return facts, names
+
+
+def _enum_values(span, spans, masked) -> List[str]:
+    """`kFoo = 1` for every member, in declaration order.
+
+    Carried as one list on the enum rather than as a fact per member. Members
+    are 17,061 of the tree's declarations at M151 -- more than every other new
+    fact combined -- and adding one is Mojo's ordinary way of extending a type,
+    so a fact each would bury the report to report the same thing a `values`
+    delta already says in one row. This is the shape `web_idl` already uses for
+    an IDL enum.
+    """
+    values: List[str] = []
+    for _, decl in split_top_level_offsets(_own_body(span, spans, masked), ","):
+        text = collapse_ws(decl)
+        if not text:
+            continue
+        m = _ENUM_VALUE_RE.match(text)
+        if not m:
+            continue
+        values.append(f"{m.group('name')} = {collapse_ws(m.group('value'))}"
+                      if m.group("value") else m.group("name"))
+    return values
+
+
+def extract_data_types(masked: str, rel_path: str, module: str) -> List[Fact]:
+    """Structs, unions and enums, including the ones nested inside others."""
+    spans = _spans(masked)
+    facts: List[Fact] = []
+    for span in spans:
+        if span["kw"] == "interface":
+            continue
+        qualified = _qualified(span, spans, module)
+        line = line_of(masked, span["decl"])
+        if span["kw"] == "enum":
+            facts.append(Fact(
+                kind=KIND_MOJO_ENUM, key=qualified, name=span["name"],
+                path=rel_path, line=line,
+                attrs={"module": module, "values": _enum_values(span, spans, masked)},
+            ))
+            continue
+        fields, names = _field_facts(span, spans, masked, module, rel_path,
+                                     qualified)
+        facts.extend(fields)
+        facts.append(Fact(
+            kind=KIND_MOJO_STRUCT, key=qualified, name=span["name"],
+            path=rel_path, line=line,
+            # `fields` is not compared, for the reason `mojo_interface.methods`
+            # is not: every field is already a fact of its own, so comparing the
+            # list would report one ABI change twice, once vaguely and once
+            # precisely. `mojo_kind` is compared -- a struct becoming a union is
+            # a different wire format under the same name.
+            attrs={"module": module, "mojo_kind": span["kw"],
+                   "field_count": len(names), "fields": sorted(names)},
         ))
     return facts

@@ -366,6 +366,134 @@ interface WidgetHost {
         self.assertEqual(sig.attrs["signature"], "SetCursor(Cursor cursor, bool force)")
 
 
+class TestMojomDataTypes(unittest.TestCase):
+    """The other 74% of the Mojo surface.
+
+    Only `interface` was read, which is 1,581 of the 5,911 declarations in the
+    M151 tree. A struct field changing type breaks deserialization on the far
+    side of the process boundary exactly the way a moved method parameter does,
+    and it breaks the build no more than that one does.
+    """
+
+    SRC = '''
+module blink.mojom;
+
+struct Payload {
+  bool flag;
+  network.mojom.IPEndPoint? endpoint;
+  [MinVersion=1] url.mojom.Url source@0;
+  int32 retries = 5;
+  map<string, array<uint8>> blobs;
+};
+
+union Either {
+  string text;
+  array<uint8> bytes;
+};
+
+interface Holder {
+  enum WaitMode { kWait, kNoWait = 3 };
+  Acquire(WaitMode mode) => (bool ok);
+};
+
+enum TopLevel { kA, kB = 2, };
+'''
+
+    def setUp(self):
+        self.by_key = {f.key: f for f in mojom.extract(self.SRC, "a.mojom")}
+
+    def test_structs_unions_and_enums_are_facts(self):
+        self.assertEqual(self.by_key["blink.mojom.Payload"].attrs["mojo_kind"],
+                         "struct")
+        self.assertEqual(self.by_key["blink.mojom.Either"].attrs["mojo_kind"],
+                         "union")
+        self.assertIn("blink.mojom.TopLevel", self.by_key)
+
+    def test_a_field_carries_the_type_that_is_the_wire_format(self):
+        f = self.by_key["blink.mojom.Payload.endpoint"]
+        self.assertEqual(f.attrs["type"], "network.mojom.IPEndPoint?")
+        self.assertEqual(f.attrs["struct"], "blink.mojom.Payload")
+
+    def test_generic_types_survive_intact(self):
+        self.assertEqual(self.by_key["blink.mojom.Payload.blobs"].attrs["type"],
+                         "map<string, array<uint8>>")
+
+    def test_ordinal_and_version_annotation_are_read(self):
+        f = self.by_key["blink.mojom.Payload.source"]
+        self.assertEqual(f.attrs["type"], "url.mojom.Url")
+        self.assertEqual(f.attrs["ordinal"], "0")
+        self.assertEqual(f.attrs["attrs"], "MinVersion=1")
+
+    def test_a_default_is_not_swallowed_into_the_name(self):
+        """`int32 retries = 5` came out as a field named `5`.
+
+        The attribute block and the default both contain an `=`, and the type
+        has to stay greedy so `array<uint8>? data` keeps its whole type. Both
+        are peeled off before the field pattern runs.
+        """
+        f = self.by_key["blink.mojom.Payload.retries"]
+        self.assertEqual(f.attrs["type"], "int32")
+        self.assertEqual(f.attrs["default"], "5")
+        self.assertNotIn("blink.mojom.Payload.5", self.by_key)
+
+    def test_a_nested_enum_is_named_the_way_mojo_names_it(self):
+        self.assertIn("blink.mojom.Holder.WaitMode", self.by_key)
+
+    def test_a_nested_declaration_is_not_read_as_its_parents_content(self):
+        """357 enums at M151 are declared inside the type that uses them."""
+        holder = self.by_key["blink.mojom.Holder"]
+        self.assertEqual(holder.attrs["methods"], ["Acquire"])
+        self.assertNotIn("blink.mojom.Holder.kWait", self.by_key)
+
+    def test_an_enum_carries_its_members_as_one_list(self):
+        """Members alone are 17,061 declarations; a fact each buries the report.
+
+        A `values` delta says in one row what 17,000 add/remove rows would say,
+        which is the shape `web_idl` already uses for an IDL enum.
+        """
+        self.assertEqual(self.by_key["blink.mojom.TopLevel"].attrs["values"],
+                         ["kA", "kB = 2"])
+        self.assertEqual(
+            self.by_key["blink.mojom.Holder.WaitMode"].attrs["values"],
+            ["kWait", "kNoWait = 3"])
+
+    def test_a_struct_does_not_compare_its_own_field_list(self):
+        """The same reason an interface does not compare its method list.
+
+        Every field is already a fact, so comparing the list would report one
+        ABI change twice, once vaguely and once precisely.
+        """
+        from chromedrift.diff import MEANINGFUL_ATTRS
+        from chromedrift.model import KIND_MOJO_STRUCT
+        self.assertNotIn("fields", MEANINGFUL_ATTRS[KIND_MOJO_STRUCT])
+
+    def test_a_field_type_change_is_an_abi_break(self):
+        from chromedrift.diff import diff_snapshots
+        from chromedrift.model import Snapshot
+        old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
+                       meta={"target_set": "default"})
+        new = Snapshot(ref="b", meta={"target_set": "default"},
+                       facts=mojom.extract(
+                           self.SRC.replace("bool flag;", "int32 flag;"),
+                           "a.mojom"))
+        change = {c.key: c for c in diff_snapshots(old, new)}["blink.mojom.Payload.flag"]
+        self.assertIn("ipc_shape_changed", change.signals)
+        self.assertGreaterEqual(change.severity, 80)
+
+    def test_an_enum_member_change_is_reported_once(self):
+        from chromedrift.diff import diff_snapshots
+        from chromedrift.model import Snapshot
+        old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
+                       meta={"target_set": "default"})
+        new = Snapshot(ref="b", meta={"target_set": "default"},
+                       facts=mojom.extract(
+                           self.SRC.replace("kA, kB = 2,", "kA, kB = 2, kC = 3,"),
+                           "a.mojom"))
+        changes = diff_snapshots(old, new)
+        self.assertEqual([c.key for c in changes], ["blink.mojom.TopLevel"])
+        self.assertIn("ipc_enum_changed", changes[0].signals)
+
+
 class TestWebUiControls(unittest.TestCase):
     """Chromium ships two template dialects; reading one leaves gaps.
 

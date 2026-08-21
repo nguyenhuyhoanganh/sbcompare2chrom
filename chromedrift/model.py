@@ -264,7 +264,16 @@ from typing import Any, Dict, Iterable, List, Optional
 #          because absence from 5% of the tree is not evidence of deletion;
 #          that reasoning applies to every removal and to every addition, and
 #          it was written into one signal's severity as a constant instead.
-SCHEMA_VERSION = 25
+#  26: the data half of the Mojo ABI is read. Only `interface` was extracted,
+#      which is 1,581 of the 5,911 declarations in the M151 tree -- 26% -- and
+#      a struct field changing type breaks deserialization on the far side of a
+#      process boundary exactly the way a moved method parameter does, without
+#      breaking the build either. Structs, unions and their fields become facts;
+#      an enum becomes one fact carrying its member list, because members alone
+#      are 17,061 declarations and adding one is Mojo's ordinary way of
+#      extending a type, so a fact each would bury the report to say what a
+#      `values` delta says in one row. Version 25 snapshots hold none of it.
+SCHEMA_VERSION = 26
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -277,6 +286,12 @@ KIND_IDL_INTERFACE = "idl_interface"
 KIND_IDL_MEMBER = "idl_member"
 KIND_MOJO_INTERFACE = "mojo_interface"
 KIND_MOJO_METHOD = "mojo_method"
+# The data half of the same ABI. An interface says which calls cross a process
+# boundary; a struct says what travels along them, and a field changing type
+# breaks deserialization on the far side exactly the way a moved parameter does.
+KIND_MOJO_STRUCT = "mojo_struct"
+KIND_MOJO_FIELD = "mojo_field"
+KIND_MOJO_ENUM = "mojo_enum"
 KIND_SWITCH = "switch"
 KIND_PREF = "pref"
 KIND_FLAG_ENTRY = "flag_entry"
@@ -295,6 +310,9 @@ ALL_KINDS = (
     KIND_IDL_MEMBER,
     KIND_MOJO_INTERFACE,
     KIND_MOJO_METHOD,
+    KIND_MOJO_STRUCT,
+    KIND_MOJO_FIELD,
+    KIND_MOJO_ENUM,
     KIND_SWITCH,
     KIND_PREF,
     KIND_FLAG_ENTRY,
@@ -312,6 +330,9 @@ KIND_LABELS = {
     KIND_IDL_MEMBER: "Web IDL member",
     KIND_MOJO_INTERFACE: "Mojo interface",
     KIND_MOJO_METHOD: "Mojo method",
+    KIND_MOJO_STRUCT: "Mojo struct",
+    KIND_MOJO_FIELD: "Mojo struct field",
+    KIND_MOJO_ENUM: "Mojo enum",
     KIND_SWITCH: "Command-line switch",
     KIND_PREF: "Preference",
     KIND_FLAG_ENTRY: "chrome://flags entry",
@@ -320,7 +341,7 @@ KIND_LABELS = {
     KIND_WEBUI_GATE: "WebUI visibility gate",
 }
 
-# The thirteen kinds are not thirteen kinds of "feature", and reading them as
+# The sixteen kinds are not sixteen kinds of "feature", and reading them as
 # though they were is the most common misreading of a report. They fall into
 # three groups that differ in what a change to them *means*:
 #
@@ -339,7 +360,8 @@ KIND_GROUP_SURFACE = "UI and scheduling"
 KIND_GROUPS = (
     (KIND_GROUP_SWITCH, (KIND_BASE_FEATURE, KIND_FEATURE_PARAM, KIND_BLINK_RUNTIME)),
     (KIND_GROUP_CONTRACT, (KIND_PREF, KIND_SWITCH, KIND_IDL_INTERFACE,
-                           KIND_IDL_MEMBER, KIND_MOJO_INTERFACE, KIND_MOJO_METHOD)),
+                           KIND_IDL_MEMBER, KIND_MOJO_INTERFACE, KIND_MOJO_METHOD,
+                           KIND_MOJO_STRUCT, KIND_MOJO_FIELD, KIND_MOJO_ENUM)),
     (KIND_GROUP_SURFACE, (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE,
                           KIND_FLAG_ENTRY)),
 )

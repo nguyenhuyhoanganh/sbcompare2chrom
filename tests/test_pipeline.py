@@ -2281,7 +2281,6 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
     ROWS = {
         "`base::Feature`": "base_feature",
         "Feature params": "feature_param",
-        "Tham s\u1ed1 feature": "feature_param",
         "Preference keys": "pref",
         "Pref": "pref",
         "Command-line switches": "switch",
@@ -2290,10 +2289,11 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
         "Mojo interface": "mojo_interface",
         "Mojo methods": "mojo_method",
         "Mojo method": "mojo_method",
+        "Mojo structs": "mojo_struct",
+        "Mojo struct fields": "mojo_field",
+        "Mojo enums": "mojo_enum",
         "WebUI controls": "webui_control",
-        "\u0110i\u1ec1u khi\u1ec3n WebUI": "webui_control",
         "Facts": None,                       # None = total fact count
-        "**T\u1ed5ng s\u1ed1 fact**": None,
     }
     DOCS = ("README.md", "skills/analyzing-chromium-uprevs/SKILL.md",
             "docs/pipeline.html")
@@ -2303,6 +2303,8 @@ class TestTheDocumentedFiguresStillHold(unittest.TestCase):
     CHIP_RE = re.compile(r'<span class="chip[^"]*">([^<·]+)·\s*([\d.,]+)</span>')
     CHIPS = {"base::Feature": "base_feature", "pref": "pref", "switch": "switch",
              "Mojo method": "mojo_method", "Mojo interface": "mojo_interface",
+             "Mojo struct": "mojo_struct", "Mojo struct field": "mojo_field",
+             "Mojo enum": "mojo_enum",
              "IDL member": "idl_member", "IDL interface": "idl_interface",
              "route": "webui_route", "control": "webui_control",
              "gate": "webui_gate"}
@@ -2619,6 +2621,10 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         "values": (["a"], ["a", "b"]),
         "runtime_enabled": ("", "SomeFlag"),
         "module": ("blink.mojom", "other.mojom"),
+        # A struct becoming a union is a different wire format under an
+        # unchanged name; an ordinal moving reassigns which bytes are which.
+        "mojo_kind": ("struct", "union"),
+        "ordinal": ("0", "1"),
         "expiry_milestone": (150, 160),
         "route": ("/a", "/b"),
         "parent": ("", "PARENT"),
@@ -3371,6 +3377,112 @@ class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):
                         rel = os.path.relpath(path, self.ROOT)
                         offenders.append(f"{rel}:{n}  {line.strip()[:70]}")
         self.assertEqual(offenders, [])
+
+
+class TestNoRowPrintsTheSameArrowTwice(unittest.TestCase):
+    """The `What` cell says what moved; the line under it must not repeat it.
+
+    Two truncations sit between the prose and the payload's copy of the same
+    delta -- 90 characters into `deltas`, 34 out of `_moved` -- and `describe`
+    applies neither. So the dedupe compared two strings that said the same
+    thing and did not match, and the row printed both: a Mojo field whose type
+    went from `map<mojo_base.mojom.String16, ManifestLocalizedTextObject>` to
+    `map<Locale, ManifestLocalizedTextObject>?` showed that, and then showed
+    its own truncation underneath.
+
+    The kinds that gained the most from this are the ones with long values,
+    which is why it surfaced when the Mojo data types arrived.
+    """
+
+    def _row(self, kind, key, attrs_before, attrs_after, deltas):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+        change = Change(change_type="modified", kind=kind, key=key,
+                        name=key.split(".")[-1], before=attrs_before,
+                        after=attrs_after, deltas=deltas)
+        report = Report(from_ref="a", to_ref="b",
+                        findings=[Finding(change=change, score=80)])
+        return html_report._to_rows(report, "windows")[0]
+
+    def test_a_long_type_change_is_not_shown_twice(self):
+        long_old = "map<mojo_base.mojom.String16, ManifestLocalizedTextObject>"
+        long_new = "map<Locale, ManifestLocalizedTextObject>?"
+        row = self._row("mojo_field", "blink.mojom.Manifest.description_localized",
+                        {"type": long_old}, {"type": long_new},
+                        {"type": [long_old, long_new]})
+        self.assertIn(long_new, row["what"])
+        self.assertNotIn("moved", row)
+
+    def test_a_short_type_change_is_not_shown_twice_either(self):
+        row = self._row("mojo_field", "blink.mojom.IDBValue.bits",
+                        {"type": "array<uint8>"},
+                        {"type": "mojo_base.mojom.BigBuffer"},
+                        {"type": ["array<uint8>", "mojo_base.mojom.BigBuffer"]})
+        self.assertNotIn("moved", row)
+
+    def test_a_delta_the_prose_does_not_carry_still_shows(self):
+        """The line is not decoration -- a Mojo method's signature is only
+        there, because `describe` prints the call and not its parameters."""
+        row = self._row("mojo_method", "blink.mojom.AIManager.CreateWriter",
+                        {"signature": "CreateWriter(int32 a)"},
+                        {"signature": "CreateWriter(string a)"},
+                        {"signature": ["CreateWriter(int32 a)",
+                                       "CreateWriter(string a)"]})
+        self.assertTrue(row.get("moved"))
+
+
+class TestEveryKindIsSaidInWords(unittest.TestCase):
+    """No fact kind may reach the report as a bare identifier.
+
+    `wording.py` exists because `blink.mojom.IDBValue.bits` is precise and tells
+    a reader nothing, and its `describe` ends in `return name` for anything it
+    has no branch for. That fallback is silent: the row renders, it just renders
+    as the identifier the module was written to replace.
+
+    Three kinds arrived that way -- `mojo_struct`, `mojo_field` and `mojo_enum`
+    were added to the model, the extractor, the comparison and both severity
+    tables, and `describe` was never told about them, so every one of the 3,076
+    field facts at M151 would have printed its own key back.
+    """
+
+    def _change(self, kind):
+        from chromedrift.model import Change
+        # Only the attributes every kind of that shape really carries, so the
+        # test fails when a branch is missing rather than when it is thin.
+        attrs = {
+            "mojo_struct": {"mojo_kind": "struct", "field_count": 3},
+            "mojo_field": {"struct": "a.B", "type": "int32"},
+            "mojo_enum": {"values": ["kA", "kB"]},
+            "webui_control": {"control": "cr-toggle", "label": "x"},
+            "webui_route": {"route": "/a"},
+            "webui_gate": {"features": ["kA"]},
+            "idl_member": {"member_type": "attribute"},
+            "idl_interface": {"idl_kind": "interface"},
+            "mojo_interface": {"method_count": 2},
+            "flag_entry": {"expiry_milestone": 155},
+            "feature_param": {"feature": "Owner"},
+            "base_feature": {"platform_state": {"windows": "enabled"}},
+            "blink_runtime_feature": {"status": "stable"},
+        }.get(kind, {})
+        return Change(change_type="modified", kind=kind, key="a.B.c",
+                      name="c", after=attrs)
+
+    def test_every_kind_describes_itself_as_more_than_its_name(self):
+        from chromedrift.model import ALL_KINDS
+        from chromedrift.report import wording
+
+        bare = []
+        for kind in ALL_KINDS:
+            change = self._change(kind)
+            said = wording.describe(change)
+            if said in (change.name, change.key):
+                bare.append(kind)
+        self.assertEqual(bare, [], "kinds that reach the report as an identifier")
+
+    def test_every_kind_has_a_word_for_what_it_is(self):
+        from chromedrift.model import ALL_KINDS
+        from chromedrift.report.wording import KIND_WORDS
+        self.assertEqual(sorted(set(ALL_KINDS) - set(KIND_WORDS)), [])
 
 
 class TestEveryFlagIsActedOn(unittest.TestCase):
