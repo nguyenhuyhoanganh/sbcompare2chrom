@@ -162,9 +162,9 @@ The same `run 139 143` a few weeks apart can produce two different conclusions, 
 
 ## 3. What stands between the code and the user
 
-This is why the tool exists, and it has **two halves that fail in opposite directions**. Reading only the first is the mistake this section is written to prevent.
+This section is why the tool exists. It has two halves, and they go wrong in opposite directions — the mistake worth avoiding is learning the first and assuming it covers the second.
 
-Between "the code changed" and "someone sees a difference" there is usually something holding the door — a **gate**. Where there is a gate, a code change and a user-visible change land in different milestones, and a diff shows you the wrong milestone. Where there is no gate, the code change *is* the change, and it takes effect the moment the version is adopted.
+Between "the code changed" and "someone notices" there is usually something holding the door: a **gate**. Where there is one, the code change and the visible change happen in different milestones, so a diff between two versions shows you the wrong milestone. Where there is none, the code change *is* the change, and it lands the day you adopt the version.
 
 Every surface is one or the other:
 
@@ -176,11 +176,11 @@ Every surface is one or the other:
 | Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
 | Preferences, command-line switches | nothing | **Yes** |
 
-The two halves are about the same size, and the second one carries the higher severities: at M148 → M151, **261 of the 315 Breaking rows are Mojo or web API**. The classic mistake is reading half one's rule onto half two, and the report is deliberately ordered so that does not happen — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
+Both halves are large, and the second carries the higher severities: at M148 → M151, **261 of the 315 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
 
 ---
 
-### Half one: a gate, and a change you will attribute to the wrong milestone
+### Half one: there is a gate, and the diff shows the wrong milestone
 
 #### Chromium never turns a new feature straight on
 
@@ -240,7 +240,7 @@ A tool that puts 170 false alarms at the top of the list loses all credibility o
 
 ---
 
-### Half two: no gate, and nothing warns you
+### Half two: there is no gate, and nothing warns you
 
 Mojo, preferences and command-line switches have no gate at all. There is no stage A, no remote rollout, no milestone where it quietly becomes true. **The declaration is the contract, and changing it changes the contract on the day you adopt the version.**
 
@@ -564,9 +564,17 @@ Score is the severity after two adjustments, both of them facts rather than opin
 
 **A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 117 of 2,800 findings at M148 → M151 are in that state.
 
-This question is asked of every surface that can answer it, and in every way Chromium can answer it, which took two more passes to be true. `platform_state` existed on four of the sixteen fact kinds — 2,264 of 29,118 facts at M151, none of them Mojo — while mojom states the same condition as an attribute rather than a preprocessor line: `[EnableIf=is_win]`, `[EnableIfNot=is_android|is_ios]`. 256 declarations at M151 are `is_android` and 186 are `is_win`, conditions are inherited by nested declarations, and until they were read an Android-only field changing type scored 80 at the top of a Windows report.
+Chromium says this in three different ways, and for a long time the tool read only the first:
 
-There is a third answer that is neither a guard nor an attribute. Chromium excludes whole platforms at the build-system level — `chrome/browser/flags/android/`, `chrome/browser/ash/`, `ash/`, `chromeos/`, `ios/` — so **nothing inside them carries a guard for a scanner to find**, and the path is the only evidence. Two copies of that directory list existed, one in `targets.py` deciding what to fetch and one in `extract/` deciding which extractors run, and they disagreed about `android/`; neither was consulted when scoring. On a wide M148 → M151 run, 164 findings were declared under a platform we do not build and none of them scored zero. It is one rule now, and it applies only when *every* declaration of a key sits under such a directory — five keys at M151 are declared both inside and outside one, and deduplication keeps the copy we do not build.
+| How Chromium says it | Looks like | Read since |
+|---|---|---|
+| A preprocessor guard | `#if BUILDFLAG(IS_WIN)` | always |
+| A mojom attribute | `[EnableIf=is_android]` | schema 27 |
+| A directory name | `chrome/browser/ash/`, `.../android/` | schema 28 |
+
+The second and third are not variations on the first. A `.mojom` file has no preprocessor, and a directory Chromium excludes in BUILD.gn contains **no guard anywhere** — the path is the only evidence there is. So `platform_state` sat on four of the sixteen fact kinds, none of them Mojo, and an Android-only field changing type scored 80 at the top of a Windows report. On a wide M148 → M151 run, 164 findings were declared under a platform we do not build and not one of them scored zero.
+
+The directory rule applies only when *every* declaration of a key sits under one, because five keys at M151 sit both inside and outside — and deduplication keeps the copy we do not build.
 
 The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
