@@ -1,6 +1,6 @@
 """Group related findings into one story.
 
-A single upstream change arrives as scattered fragments across every surface
+A single Chromium change arrives as scattered fragments across every surface
 the extractors read. The Local Network Access migration between M148 and M151
 produced seven separate findings:
 
@@ -15,7 +15,7 @@ produced seven separate findings:
 Read as seven lines they contradict each other -- one says a page was removed,
 another says a page appeared. Read as one cluster they say something simple and
 true: the page moved to split permissions, users already had it at M148, and
-the only downstream work is updating a stale route reference.
+the only work left is updating a stale route reference.
 
 Grouping uses the links the extractors already captured, not string similarity
 on names. A route names its guard; a guard names its features; a feature shares
@@ -198,7 +198,7 @@ def annotate(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
 
 
 def summarize(clusters: Dict[str, List[Finding]], limit: int = 25) -> List[dict]:
-    """Cluster overview for the report, biggest impact first."""
+    """Cluster overview for the report, heaviest first."""
     rows = []
     for root, members in clusters.items():
         rows.append({

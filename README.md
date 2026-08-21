@@ -1,8 +1,8 @@
 # chromedrift
 
-A tool that compares two Chromium versions and answers one question: **what does a downstream browser team have to fix when they move to the new base.**
+A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows. Everything here is plain Python (10,659 lines, 33 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (9,034 lines, 29 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -15,8 +15,8 @@ There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)*
 3. [The trap that matters most](#3-the-trap-that-matters-most)
 4. [What the tool reads](#4-what-the-tool-reads)
 5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
-6. [Nine commands](#6-nine-commands)
-7. [The downstream profile](#7-the-downstream-profile)
+6. [Six commands](#6-six-commands)
+7. [How a change is ranked](#7-how-a-change-is-ranked)
 8. [Reading the report](#8-reading-the-report)
 9. [Limits](#9-limits)
 10. [Environment and troubleshooting](#10-environment-and-troubleshooting)
@@ -59,7 +59,9 @@ BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
 
 In a single file, M139 has 170 of 170 declarations in the old form and M143 has 12 of 187. A tool that compares source text reports "170 features deleted, 187 features added" — which is meaningless. chromedrift normalizes `kBackForwardCache` to `"BackForwardCache"` before comparing, and gets a readable answer: 152 unchanged, 18 dropped, 35 added.
 
-**Stop at the evidence.** The deterministic stages — extract, normalize, compare, score — filter several thousand changes down to a few hundred worth attention, and then stop. The tool does not conclude "this means X for the product". That takes judgement, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md) skill. chromedrift's job is to make that input complete, ranked and citable.
+**Stop at the evidence.** The deterministic stages — extract, normalize, compare, rank — turn several million changed lines into a few thousand labelled changes, sorted so the ones that cost something are at the top, and then stop. The tool does not conclude "this means X for the product". That takes judgement about a particular product, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md) skill. chromedrift's job is to make that input complete, ranked and citable.
+
+It is also why nothing in the tool describes *your* codebase. An earlier version took a config file naming the files you patch and the symbols you reference, and added points when a change touched one. It was the right idea and it could not be supplied honestly: with no config the scoring collapsed into a second copy of the severity, its top bucket was unreachable by construction, and 1,384 of 2,800 findings landed in a bucket called "New opportunity" whose rule was "anything added". What is left is what two Chromium trees can establish on their own, and the step it does not take — searching your own tree for the identifier a finding cites — is one command you run yourself.
 
 ---
 
@@ -86,7 +88,7 @@ In a single file, M139 has 170 of 170 declarations in the old form and M143 has 
 There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
-tar czf chromedrift.tgz chromedrift/ config/ examples/ tests/ skills/ docs/ README.md
+tar czf chromedrift.tgz chromedrift/ tests/ skills/ docs/ README.md
 # on the target machine
 tar xzf chromedrift.tgz && cd chromedrift
 python3 -m chromedrift --version
@@ -115,7 +117,7 @@ network
 ready
 ```
 
-Exit code `0` means ready, `1` means there is a FAIL line to deal with — usable in CI as a preflight step. Add `--profile config/profile.json5` to validate the downstream profile as well.
+Exit code `0` means ready, `1` means there is a FAIL line to deal with — usable in CI as a preflight step.
 
 ### Smoke-testing the pipeline (~10 seconds)
 
@@ -130,7 +132,6 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
-  --profile config/profile.json5 \
   --out out/M148_to_M151
 ```
 
@@ -140,9 +141,9 @@ Results land in `out/M148_to_M151/`:
 
 | File | Size | Use it for |
 |---|---|---|
-| `report.md` | ~66 KB | Pasting into Jira, Confluence, a merge request |
-| `report.html` | ~1.7 MB | Opening in a browser; filterable and sortable, fully self-contained |
-| `report.json` | ~2.4 MB | Scripts, dashboards, comparing across cycles |
+| `report.md` | ~92 KB | Pasting into Jira, Confluence, a merge request |
+| `report.html` | ~1.8 MB | Opening in a browser; filterable and sortable, fully self-contained |
+| `report.json` | ~2.8 MB | Scripts, dashboards, comparing across cycles |
 
 `report.html` loads no external resources, so it works on an air-gapped network and can be attached to an email.
 
@@ -208,7 +209,7 @@ If the switch 'enableLocalNetworkAccessSplitPermissions' is on:
 
 **The real conclusion:** the page was not removed, it was **replaced** by the split-permissions version. Because the switch was already on at M148, M148 users were already seeing the new one. Between the two versions the experience did not change; M151 only cleaned up the code.
 
-The work required to move to M151 is not "restore a lost feature" — it is: if anything in the fork points at the old `/localNetworkAccess`, change it to `/localNetwork`. A small job, and completely different from what a raw diff makes you think.
+The work required to move to M151 is not "restore a lost feature" — it is: if anything still points at the old `/localNetworkAccess`, change it to `/localNetwork`. A small job, and completely different from what a raw diff makes you think.
 
 ### The scale of it
 
@@ -480,190 +481,113 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 
 ---
 
-## 6. Nine commands
+## 6. Six commands
 
 ```bash
 python3 -m chromedrift check      # verify this machine can run the pipeline
 python3 -m chromedrift snapshot   # extract the feature surface of ONE version
 python3 -m chromedrift diff       # semantic comparison between TWO versions
-python3 -m chromedrift profile    # inspect what the downstream profile resolves to
-python3 -m chromedrift run        # the whole pipeline: snapshot → diff → score → report
-python3 -m chromedrift report     # re-render a saved report, optionally one area
+python3 -m chromedrift run        # the whole pipeline: snapshot → diff → rank → report
+python3 -m chromedrift report     # re-render a saved report.json
 python3 -m chromedrift catalog    # measure which files the target set is missing
-python3 -m chromedrift discover   # find the vendor's own files in a fork checkout
-python3 -m chromedrift provenance # separate deliberate divergence from merge debt
 ```
 
-Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (scoring, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
+Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
 
-Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `discover` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
-
-### Three commands for forks
-
-`discover` walks a fork checkout and finds the vendor's files by name: directories named after the vendor (`acme/`) and filename suffixes marking a variant of an upstream file (`privacy_page-acme.html`). There are no defaults: the tool carries no vendor vocabulary of its own, so you must pass `--token` and/or `--suffix` — guessing does not fail, it invents matches. The second one matters more than it looks, because it sits *inside* Chromium's own directory and no path prefix reaches it.
-
-Results split in two, and separating them is the point:
-
-- **Fixable** — an extractor recognises this file, so the only thing missing is a line in `targets.py`.
-- **Out of model** — no extractor reads this file however it is fetched: native C++ UI, `.grd` display strings, `.gn` files. Adding a target changes nothing; these belong in the limits in §9.
-
-`coverage.py` answers a different question that every merge-style fork hits. This kind of fork does not overwrite Chromium's code — it merges the new version in whole, keeps its own version beside it, and picks between them with a build flag:
-
-```cpp
-#if defined(ACME_CUSTOM_DOWNLOADS)
-  ... the vendor's version, the one that actually runs ...
-#else
-  ... Chromium's, untouched since the merge ...
-#endif
-```
-
-Because both are present, comparing values finds nothing: upstream's code really is identical to upstream. The question worth answering is not "is upstream's code intact" but **which parts of it are shadowed**. `provenance.py` answers the second half: comparing the vendor's version against a series of upstream releases says which milestone that cover was written for.
-
-Flag names cannot be guessed, so the profile declares them — see `vendor_markers` in §7.
+Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `check` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
 ---
 
-## 7. The downstream profile
+## 7. How a change is ranked
 
-This is the one thing you have to do properly. The quality of the **Must fix** column is directly proportional to this file. Without it the tool knows what Chromium changed, but not whether it touches you.
+Two numbers travel with every finding, and the gap between them is the point.
 
-```bash
-cp config/profile.example.json5 config/profile.json5
-```
+### Severity: what this kind of change costs
 
-### Four evidence sources, combinable
+Severity comes from the **leading signal** — the label with the highest weight among the ones the comparison attached. When a change carries no signal at all, and only then, it comes from a coarse prior on the kind and the direction.
 
-**A — a patch directory** (the usual shape of a vendor fork):
+That order matters, and it used to be the other way round. Severity was `max(prior, signal)`, so the guess overrode the statement whenever the guess was higher — which is exactly when the guess was wrong:
 
-```json5
-{ patch_dirs: ["/work/fork/patches"] }
-```
+| Change | Prior | Signal says | Old | Now |
+|---|---:|---|---:|---:|
+| Mojo method, signature moved | 75 | `ipc_signature_change` | 80 | 80 |
+| Mojo method, `[EnableIfNot=is_win]` added | 75 | `build_gate_changed` | **75** | **35** |
+| chrome://flags removal date slipped | 15 | `flag_expiry_moved` | **15** | **10** |
+| Blink flag moved test → experimental | 40 | `web_api_status_moved` | **40** | **25** |
 
-Reads every `.patch`/`.diff`, taking both the touched paths and the identifiers inside the hunks.
+Measured against two real pairs, the prior overrode the signal on 267 of 2,800 findings at M148 → M151 and 345 of 6,787 at M143 → M151 — every one of them upwards. The largest group is the smallest change the tool reports, and the most wrong is four Mojo methods ranked as ABI breaks for a build condition moving.
 
-**B — a full source fork in git**:
+### Score: what it costs *here*, on *this* run
 
-```json5
-{ git: { repo: "/work/fork/src", upstream_ref: "148.0.7778.217" } }
-```
+Score is the severity after two adjustments, both of them facts rather than opinions:
 
-Runs `git diff --name-only <upstream_ref>`. Needs `git` on PATH.
+**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 117 of 2,800 findings at M148 → M151 are in that state.
 
-**C — scanning your own code** (catches what the patches miss):
+The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
-```json5
-{ source_roots: ["/work/fork/vendor_chrome", "/work/fork/vendor_java"] }
-```
-
-This one is worth explaining. Instead of searching Chromium's enormous tree for the vendor's name, the tool takes **Chromium's vocabulary** — every feature, switch and pref name — and makes one pass over your small tree. That turns "many passes over a huge tree" into "one pass over a small one", and it catches code that *reads* a feature without patching the file declaring it.
-
-One detail here used to be a bug: the vocabulary has to be built from **both** versions. Building it from the new one alone filters out anything just deleted — and that is exactly the case that breaks the build.
-
-**D — a hand-maintained list**:
-
-```json5
-{
-  modified_paths: [
-    "content/browser/renderer_host/render_widget_host_view_aura.cc",
-    "media/base/win/",              // trailing / = prefix match
-  ],
-  symbols: ["BackForwardCache", "kBackForwardCache"],
-}
-```
-
-### Only symbol-level evidence promotes to Must fix
-
-Path-level evidence is too blunt: `content_features.cc` declares nearly 200 features, so knowing you patch that *file* says almost nothing. Knowing you touch `kServiceWorkerAutoPreload` says a great deal. The score bonuses reflect that gap.
-
-A member's bare name is not evidence either. Web IDL is full of members called `before`, `has`, `values` and `disabled`, so a member is matched only by its qualified name and by the interface that owns it — `PaymentRequest.canMakePayment` still matches a fork that references `PaymentRequest`. Without that rule, Chromium declaring a switch whose value is the string `"disabled"` was enough to put an unrelated Web IDL member called `disabled` into **Must fix**.
-
-### Declaring `areas`
-
-This is what routes findings to the right team. `weight` (0–100) feeds straight into the score, and `owner` appears in the report:
-
-```json5
-areas: [
-  { id: "media", title: "Video & media", kind: "product", weight: 90, owner: "media-team",
-    paths:   ["media/", "content/browser/media/"],
-    symbols: ["Media", "Video", "Codec"],
-    prefs:   ["media."],
-    flags:   ["kMedia"],
-    kinds:   [] },
-]
-```
-
-Five ways to match — path, symbol, pref, flag, and a whole fact kind — and any one of them claims the finding. Five are needed because Chromium is not organized by product feature: "Downloads" is spread across `components/`, `chrome/browser/` and `content/`, plus prefs, flags and Mojo.
-
-`symbols` is a **substring match**, not exact — `"Audio"` also catches `RestrictOwnAudio`. That is deliberate, for topic-level classification, but do not use words that are short or generic.
-
-### Three kinds of area, not one
-
-The `kind` field has three values, and declaring only `product` areas is the classic mistake:
-
-- **`product`** — has a clear owning team: Downloads, Bookmarks, History, Extensions, Media
-- **`infra`** — cross-cutting plumbing, belonging to no feature but **holding the most severe findings**: Mojo, Web IDL
-- **`platform`** — the shared base: feature flags, prefs, command-line switches
-
-Measured on a real run: declaring only product areas left **81% of findings unassigned**, including all ten highest-scoring items in the whole report — `CreateLanguageModel`, `CreateSummarizer`, `AttachDevToolsSession`, all Mojo signature changes at 80 points, all breaking silently at runtime. They belong to no product feature because they are shared infrastructure. Declaring all three kinds brings the unassigned share down to around 8%.
-
-### `vendor_markers` — for fork analysis
-
-```json5
-vendor_markers: {
-  macros:           ["ACME", "ACME_UI"],  // build flags in #if
-  symbol_prefixes:  ["kAcme"],            // C++ identifier prefixes
-  path_markers:     ["acme/"],            // directories
-  filename_markers: ["-acme"],            // suffix marking our variant of an upstream file
-}
-```
-
-Leave it out and the fork analysis is skipped rather than guessed. Run `chromedrift discover --fork-src <path> --token <vendor-name>` to generate this block from the fork's own tree. `acme` above is a placeholder — replace it with the fork's real name.
-
-### Validating the profile before a real run
-
-```bash
-python3 -m chromedrift profile config/profile.json5 --ref 151.0.7922.138
-```
+**An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read a twentieth of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
 
 ```
-profile: Example Browser (platform windows)
-  areas:            7
-  patched files:    3
-  symbols:          11
-    symbols_from_patches: 7
+severity 35 — Preference no longer in the file we read — it may have been
+    deleted, orphaning stored values, or simply moved to one of the ~100
+    pref files outside the scan
+-15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
+    so "gone" may mean "moved into a file we never opened"; filed as
+    housekeeping rather than breaking — --target-set wide settles it
 ```
 
-If `symbols: 0`, nothing can reach Must fix, and the tool warns about it.
+Additions are not discounted. An addition is a thing seen rather than a thing not seen, and "it may have existed in a file we did not open" does not make it any less present in the version being adopted. The asymmetry is the documented failure mode of this tool, not a hypothetical one: what goes wrong on a partial read is removals reading as deletions.
+
+**Nothing raises a score.** Severity is the ceiling — the most this kind of change can cost — and the adjustments only take away, each with a sentence beside it. So a reader who understands the signal table understands the ranking, and every point of difference between the two numbers can be argued with.
+
+### The four buckets
+
+The leading signal also decides which bucket a finding is filed under, so a row is filed under the sentence it was ranked by.
+
+| Bucket | Meaning | M148 → M151 |
+|---|---|---:|
+| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 239 |
+| **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 492 |
+| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,148 |
+| **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | 921 |
+
+Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
+
+**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 90 `base::Feature` flags are removed, split exactly 45 that shipped and 45 that were abandoned, and not one of them changes what a user sees. Filing them as breakage puts 90 rows at the top of the report of which none is actionable. The label still says the switch is gone.
+
+**An unconfirmed disappearance moves bucket with the coverage.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
+
+| | Coverage | `pref_left_scan` | Bucket | Score |
+|---|---:|---:|---|---:|
+| `default` | 5% | 139 | Housekeeping | 20 |
+| `wide` | 100% | 171 | **Breaking** | **35** |
+
+A rule that produced the same answer either way would be wrong in one of the two directions, and the honest thing is for the report to say which run it is.
+
+### Changing the ranking
+
+`SIGNAL_SEVERITY`, `BASE_SEVERITY` and `SIGNAL_BUCKET` in `chromedrift/diff.py`, and the two constants in `chromedrift/score.py`, are all plain data. A test holds the three tables to the same set of signals, so a new signal cannot be added to one and forgotten in the others.
 
 ---
 
 ## 8. Reading the report
 
-### Four buckets
+### The four counts at the top
 
 ```
-must fix:      4     ← we have evidence we depend on it AND it changed. Assume work.
-needs review: 210    ← either we touch it, or it is severe enough to confirm
-opportunity: 1313    ← new capability we could adopt
-fyi:         1229    ← recorded for completeness
+Breaking             239   ← something outside the binary stops working, silently
+Behaviour change     492   ← the Windows build behaves differently
+New surface         1148   ← surface that did not exist. Nothing is on by it
+Housekeeping         921   ← Chromium tidying up after itself
 ```
 
-Read in order: Must fix → Needs review → Opportunity. Consult `fyi` only when looking something up.
+Read in that order. `report.md` gives the first three a table each and deliberately gives Housekeeping none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
 
-`must fix: 0` means **no evidence was supplied**, not "this upgrade is clean". Without a profile pointing at real patches or source, nothing can reach Must fix, and the report says so explicitly.
-
-In `--mode fork` the four buckets mean something different, because the comparison is different: not Chromium over time, but upstream against the fork at the same milestone. "Removed" means *we* removed it, "added" means *we* carry it.
-
-| Bucket | In `uprev` | In `fork` |
-|---|---|---|
-| Must fix | We reference it and it changed | Divergence we depend on — the next rebase silently removes it |
-| Needs review | We touch that area, or it is severe enough | Divergence with no clear owner |
-| New opportunity | New capability | **Not used** — nothing in a fork comparison is an opportunity |
-| FYI | Recorded for completeness | As above |
+What decides a bucket, and the two placements worth arguing about, are in §7.
 
 `report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is the shape that reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
 
-Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features — the same reason symbol evidence outranks path evidence when scoring.
+Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features, so citing the file leaves the reader to do the finding.
 
 ### One table, and every row says what it is
 
@@ -675,12 +599,12 @@ Every finding cites **`path:line`** on both sides, not just a filename. `content
 What was missing was never the shape. It was that a row said `id:cancelButton` and left the reader to work out which page, added or removed, what kind of control, and whether it concerns them. So the table keeps its shape and every row carries the answer:
 
 ```
-~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
+~  feature flag PrefetchPrerenderIntegration — off → on for Windows
    disabled → enabled
-                    Now ON by default on Windows │ content/public/common │ 100
+                    Now ON by default on Windows │ content/public/common │ 75
 ```
 
-The marker at the start of the cell: `+` new, `~` changed, `−` gone. The `OURS` tag appears when the row touches code we patch or reference — on a real run that is 53 of 2,792 rows, and those 53 are why the report exists.
+The marker at the start of the cell: `+` new, `~` changed, `−` gone.
 
 The "what happened" sentence is **the label of the signal that set the severity** for that finding, not the first signal in the list. Pick the wrong one and a row carries one sentence while being ranked by another. A finding with no signal at all — something that just appeared, with no default to move — uses its direction and kind as the sentence (`New feature flag`, `Removed chrome://flags entry`), so every row has one.
 
@@ -720,45 +644,28 @@ The old `Change` column is gone: direction is now a coloured marker at the start
 ### Every score is explainable
 
 ```
-base severity 75 (modified base_feature)
-  | +12 we patch 1 of the declaring file(s): content/public/common/content_features.cc
-  | +30 our source references ServiceWorkerAutoPreload, kServiceWorkerAutoPreload
-  | +16 owned area 'Video & media' (weight 80)
+severity 75 — Now ON by default on Windows
 ```
 
-A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. To adjust priorities, change `weight` in `areas`, or the `BASE_SEVERITY` / `SIGNAL_SEVERITY` tables in `chromedrift/diff.py`. Both are plain data, not logic.
+```
+severity 70 — Web API removed
+-15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
+    so "gone" may mean "moved into a file we never opened" — --target-set
+    wide settles it
+```
 
-### Analyse everything, slice at read time
+A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
 
-The natural move when scaling to many areas is to filter up front: "this time we only analyse Downloads". That is the surest way to lose the top of the list, for the reason given in §7: the most severe findings are shared infrastructure belonging to no product area.
+### Analyse everything, render at read time
 
-So `report.json` **always holds everything**, and slicing happens at read time:
+`report.json` always holds every finding, including Housekeeping, and the two rendered files are views of it:
 
 ```bash
-# Analyse once
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --profile config/profile.json5
-
-# See which areas exist
-python3 -m chromedrift report out/report.json --list-areas
-
-# Slice per team — no re-run, no re-scan
-python3 -m chromedrift report out/report.json --area downloads --out downloads
-python3 -m chromedrift report out/report.json --area ipc       --out ipc
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138
+python3 -m chromedrift report out/report.json --format both --out out/again
 ```
 
-Size is not the constraint: the whole non-FYI part of an uprev is about 1 MB of JSON, and `report.md` is 66 KB. The constraint is human reading time.
-
-### The leftovers have to be visible
-
-Splitting by area while silently swallowing whatever matched nothing is the surest way to lose a bug. So the tool always prints the number of findings belonging to no area, and warns when any of them score highly:
-
-```
-⚠️ 50 unassigned findings score 60 or more (highest: 87). These belong to no
-   area, so no per-area report shows them. Either extend the area definitions
-   or review this set explicitly.
-```
-
-View them with `--area _unassigned`. That number is also a measure of how good the area definitions are.
+Size is not the constraint: the whole of an uprev is under 3 MB of JSON and `report.md` is about 92 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
 
 ### Thirteen fact kinds, three meaning groups
 
@@ -776,7 +683,7 @@ The three groups appear in two places in `report.html`: as a sub-line under each
 
 ### Context from chromestatus
 
-`enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works (~2% hit rate) because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what upstream *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
+`enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works (~2% hit rate) because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what Chromium *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
 
 The window is counted back from the version being adopted, and the list is ordered newest milestone first. Both used to be the other way round, and the result was that a 143 → 151 report carried 200 entries covering M144 to M150 and **nothing at all from M151** — the milestone actually being adopted. Truncation now happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` really does hold the rest.
 ---
@@ -934,9 +841,8 @@ python3 -m chromedrift snapshot 151.0.7922.138
 | `! <ref>: N target(s) absent from that source` | Files the target set asked for were not in that tree | Normal for an older milestone, where Chromium had not created the file yet. Not normal for a local checkout — there it means the tree is partial, and each absent target is a whole file's declarations missing from the comparison |
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `must fix: 0` | The profile has no evidence | Run `chromedrift profile …`. If `symbols: 0`, see the next row |
-| `symbols: 0` in the profile | `patch_dirs` is wrong, or the patches contain no Chromium identifiers | Patch tokens are filtered against Chromium's vocabulary, so only real feature/switch/pref names are kept |
-| Too many "review" items | `areas.symbols` uses words that are too generic | Words like `"Api"` or `"Data"` match everything |
+| `Breaking: 0` on a default run | Normal, and not a clean bill of health | The default set reads a twentieth of the tree, and an unconfirmed removal is filed as Housekeeping there by design. Run `--target-set wide` before concluding anything |
+| A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMEDRIFT_CACHE=C:\cdcache` |
 | (Windows) `python3` is not a command | Windows names it differently | Use `py -3` or `python` |
@@ -961,16 +867,16 @@ export CHROMEDRIFT_CACHE=/shared/chromedrift-cache
 FROM="148.0.7778.217"        # pinned, not a bare milestone number
 TO="151.0.7922.138"
 
-python3 -m chromedrift check --profile config/profile.json5
+python3 -m chromedrift check
 python3 -m chromedrift run "$FROM" "$TO" \
-  --profile config/profile.json5 \
+  --target-set wide \
   --out "reports/${FROM}_to_${TO}"
 
-# Block the merge while Must fix items are outstanding
-MUST=$(python3 -c "import json,sys; \
-  print(json.load(open(sys.argv[1]))['summary']['by_bucket'].get('must_fix', 0))" \
+# Block the merge until someone has looked at the breaking changes
+BREAKING=$(python3 -c "import json,sys; \
+  print(json.load(open(sys.argv[1]))['summary']['by_bucket'].get('breaking', 0))" \
   "reports/${FROM}_to_${TO}/report.json")
-[ "$MUST" -eq 0 ] || { echo "$MUST items to handle before the uprev"; exit 1; }
+[ "$BREAKING" -eq 0 ] || { echo "$BREAKING breaking changes to triage"; exit 1; }
 ```
 
 ---
@@ -981,11 +887,11 @@ MUST=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**306 tests, running in under a second, with no network.**
+**262 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
-Re-run them after any change to `diff.py` or `impact.py` — those two hold the classification decisions.
+Re-run them after any change to `diff.py` or `score.py` — those two hold the classification decisions.
 
 Some tests check no behaviour at all but **internal consistency**, because the most frequently recurring class of bug in this project is one fact derived in two places that then drift apart:
 
@@ -996,6 +902,12 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - Every measurement gets its own name: "tree coverage" and "area coverage" are two different things.
 - The same source tree must produce the same set of facts, whatever order the filesystem returns directories in.
 - Every attribute that gets compared must produce a label explaining it; a row with a score and an empty "why" column is unreadable. Checked both synthetically — every kind, every whitelisted attribute — and against two real snapshots.
+- Every signal must have a severity, a label **and** a bucket, and every bucket must be reachable. One signal missing from the bucket table would be filed by "something was removed" rather than by what the removal was.
+- Every kind and direction must produce a bucket, including the third of a report that carries no signal at all.
+- No score may exceed its own severity. Severity is the ceiling and the adjustments only subtract, so a score above it would mean a rule had been added without a sentence to explain it.
+- Every reason line quoted in a document must be a line the scorer actually emits. A sample of a finding's reasoning is a second copy of a string the code owns, and it drifted within an hour of being written.
+- The source map in §12 must name every module, not only get their sizes right. A map that quietly stops listing a file is the same defect as one with a wrong number, and harder to see.
+- Nothing shipped may carry Vietnamese. These documents were translated, and the translation was reported complete twice while `pipeline.html` still held six strings — a CSS comment and five inside an interactive widget, which a proof-reader sees rendered rather than in the prose.
 - Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
 - Every measured number written into a document must match the snapshot on disk, and the source map in §12 must match the source.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
@@ -1024,21 +936,17 @@ chromedrift/
   acquire.py      546 lines  fetch source over Gitiles or from a local checkout
   targets.py      711        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     186        combines fetch + extract into one cached snapshot
-  extract/      2,404        9 extractors + the C++ scanning helpers
-  diff.py         1,057        semantic comparison, labelling, rename detection
+  extract/      2,371        9 extractors + the C++ scanning helpers
+  diff.py       1,133        semantic comparison, labelling, severity, bucketing
   cluster.py      214        assemble scattered fragments into one story
-  downstream.py   498        the fork's touch set + area definitions
-  impact.py       258        scoring, bucketing, area coverage
+  score.py        225        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  discover.py     327        find the vendor's own files in a fork checkout
-  provenance.py   207        separate deliberate divergence from merge debt
-  coverage.py     249        find where the fork shadows upstream with a build flag
-  model.py        696        shared data structures, JSON read/write, area filtering
+  model.py        707        shared data structures, the four buckets, JSON read/write
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,651        markdown + self-contained HTML dashboard;
+  report/       1,549        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          833        9 command-line commands
+  cli.py          570        6 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:
@@ -1046,12 +954,12 @@ The whole pipeline is a straight line of pure data transforms:
 ```
 Snapshot(ref)            ->  [Fact]      extract/
 (Snapshot, Snapshot)     ->  [Change]    diff.py
-([Change], TouchSet)     ->  [Finding]   impact.py
+[Change]                 ->  [Finding]   score.py
 [Finding]                ->  [Finding+]  cluster.py, enrich/
 [Finding]                ->  report      report/
 ```
 
-Every stage reads and writes JSON, so any stage can be run, inspected and re-run on its own. That matters here because the expensive stage (network) and the stage you keep tuning (scoring, reporting) have completely different cost profiles.
+Every stage reads and writes JSON, so any stage can be run, inspected and re-run on its own. That matters here because the expensive stage (network) and the stage you keep tuning (ranking, reporting) have completely different cost profiles.
 
 `model.py` holds a `SCHEMA_VERSION` constant. It is bumped whenever a cached artifact stops meaning what an older build thought it meant, with a note saying exactly what was silently wrong — so old caches are rebuilt instead of misread.
 

@@ -471,9 +471,9 @@ def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
                     seen = stack[-1][2]
                     # Reaching a later branch means every earlier one was
                     # false, and those conditions are part of this branch's
-                    # guard. Dropping them lost the vendor macro in
-                    # `#if defined(VENDOR_X) / #elif ...`, which is the one
-                    # shape the shadow analysis exists to find.
+                    # guard. Dropping them read the `#else` of
+                    # `#if BUILDFLAG(IS_ANDROID)` as unguarded, which is the
+                    # branch Windows actually compiles.
                     holding = [f"!({e})" for e in seen]
                     if directive == "elif":
                         holding = holding + [rest]
@@ -490,35 +490,6 @@ def conditional_spans(text: str) -> List[Tuple[int, int, str]]:
 
 def enclosing_conditions(spans: List[Tuple[int, int, str]], index: int) -> List[str]:
     return [expr for start, end, expr in spans if start <= index < end]
-
-
-def condition_macros(block: str) -> List[str]:
-    """Every preprocessor macro named in the ``#if`` directives of a block.
-
-    A vendor fork does not usually replace upstream code; it adds its own
-    beside it and picks between them at build time::
-
-        #if defined(ACME_CUSTOM_DOWNLOADS)
-          ... the vendor's implementation ...
-        #else
-          ... Chromium's ...
-        #endif
-
-    Both versions ship. Comparing values alone reports such a declaration as
-    identical to upstream, because upstream's branch really is untouched --
-    while the branch that actually runs is the vendor's. Recording the macro
-    names makes that visible, and lets a profile say which of them are ours.
-    """
-    macros: List[str] = []
-    for raw_line in block.splitlines():
-        m = _DIRECTIVE_RE.match(raw_line)
-        if not m or m.group(1) in ("else", "endif"):
-            continue
-        for a, b in _MACRO_RE.findall(m.group(2)):
-            name = a or b
-            if name and name not in macros:
-                macros.append(name)
-    return macros
 
 
 _DIRECTIVE_RE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")

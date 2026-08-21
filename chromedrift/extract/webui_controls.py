@@ -17,8 +17,8 @@ Two attributes carry most of the value:
 * the tag name -- ``settings-toggle-button``, ``settings-dropdown-menu``,
   ``cr-radio-group`` -- so a changed control type is a one-line diff;
 * ``pref="{{prefs.x.y}}"`` -- a declarative link from this control to the
-  preference behind it. That is the strongest join key between a vendor's UI
-  and the browser core, and it survives the vendor replacing the UI entirely.
+  preference behind it. That is the strongest join key between the UI and the
+  browser core, and it survives the page being redesigned around it.
 
 Templates also carry build-time platform conditionals (``<if expr="not
 is_chromeos">``), the template-side equivalent of ``#if BUILDFLAG``. They are

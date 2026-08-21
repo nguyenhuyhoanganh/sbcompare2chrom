@@ -69,12 +69,10 @@ def extract(text: str, rel_path: str) -> List[Fact]:
     kind = _kind_for(rel_path)
     masked = mask_comments(text)
     # The build guard around a declaration, recorded for the same reason
-    # base_features records it: a vendor fork does not edit upstream's key, it
-    # puts its own beside it behind `#if defined(<VENDOR>_...)` and ships that
-    # one. Both are present, so comparing values finds nothing -- the guard is
-    # the whole evidence. Without it the shadow analysis could only ever see
-    # base::Feature, which is 11% of the surface and none of the preference
-    # keys the README calls the most expensive thing to get wrong.
+    # base_features records it: the same `const char kFoo[] = "a.b"` line
+    # means two different things depending on the `#if` chain it sits in, and
+    # 115 keys at M151 resolve to "not in the Windows binary". Without the
+    # guard, a key entering or leaving our build reads as no change at all.
     spans = conditional_spans(masked)
     facts: List[Fact] = []
     for m in _STRING_CONST_RE.finditer(masked):
@@ -88,7 +86,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         if conditions:
             attrs["conditions"] = conditions
             # Resolved for the platform we ship, and it is the resolution
-            # rather than the raw guard that gets compared: upstream tidying
+            # rather than the raw guard that gets compared: Chromium tidying
             # `!IS_ANDROID` off a key changes nothing about whether Windows has
             # it, and comparing the raw text reported 31 such moves at
             # M148 -> M151. What matters is a guard that takes the key out of
@@ -97,7 +95,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             # Recorded only when the guard actually restricts us. "In our
             # binary" is the default, so a key with no guard and a key behind
             # `#if !BUILDFLAG(IS_ANDROID)` have to compare as the same thing --
-            # otherwise upstream tidying a guard that never excluded Windows
+            # otherwise Chromium tidying a guard that never excluded Windows
             # reads as a change, which is 30 of them at M148 -> M151.
             if state and state != "compiled":
                 attrs["platform_state"] = {PLATFORM: state}

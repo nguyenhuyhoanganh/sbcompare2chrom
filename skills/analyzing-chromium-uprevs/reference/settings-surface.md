@@ -42,9 +42,10 @@ route.ts  --guard-->  loadTimeData key  --settings_ui.cc-->  base::Feature
 [traps.md](traps.md): the route table declares pages that a flag may hide.
 
 The `pref="{{prefs.x.y}}"` binding in the templates is the strongest join key
-between a UI control and the browser core, because it is declarative. Use it
-when mapping a fork's own settings UI back to Chromium prefs — a fork usually
-replaces the UI while keeping the underlying prefs.
+between a UI control and the browser core, because it is declarative. It is
+what survives a redesign: the page can be rewritten while the preference behind
+it stays, so the binding tells you the same control moved rather than a new one
+appearing beside an old one disappearing.
 
 The control type is written in the element name, which is what makes
 "a dropdown became a toggle" mechanically detectable.
@@ -68,7 +69,7 @@ so the shared prefix of a flag name is the correlation key — for example every
 Without grouping, one capability-level change reports as roughly ten
 contradictory lines, simultaneously claiming a page was removed and a page was
 added. With grouping it is one line that states the migration, when it became
-visible to users, and what the fork must update.
+visible to users, and what is left to update.
 
 Changes with no flag (pure refactor, string-only edits) stop at control or page
 size. Record them; do not promote them to capability.

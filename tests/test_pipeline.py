@@ -1,7 +1,7 @@
-"""Diff, impact and reporting tests.
+"""Diff, scoring and reporting tests.
 
-These cover the judgement calls -- what counts as a change, what counts as
-evidence, what gets escalated -- because those are the parts that decide
+These cover the judgement calls -- what counts as a change, what it is called,
+and how far up the list it goes -- because those are the parts that decide
 whether the output is worth reading.
 """
 
@@ -13,9 +13,8 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift.diff import diff_snapshots
-from chromedrift.impact import score_all, score_change
 from chromedrift.model import Fact, Report, Snapshot
-from chromedrift.downstream import Area, TouchSet, _symbols_from_hunks
+from chromedrift.score import Scope, score_all, score_change
 
 
 def feature(name, state, var=None, form="macro2", path="content/features.cc"):
@@ -43,7 +42,6 @@ def blink(name, windows_status):
 
 
 def snap(ref, facts):
-    # A ref is not always a version: a fork snapshot is labelled by branch.
     head = ref.split(".")[0]
     return Snapshot(ref=ref, facts=facts,
                     milestone=int(head) if head.isdigit() else None)
@@ -120,17 +118,18 @@ class TestDiffSemantics(unittest.TestCase):
             self.assertNotIn("feature_deleted", c.signals)
             self.assertLess(c.severity, 65)
 
-    def test_retired_flag_still_reaches_must_fix_with_local_evidence(self):
-        """Cleanup upstream is still a build break if we name the symbol."""
+    def test_a_retired_flag_is_housekeeping_not_breakage(self):
+        """The single most consequential row in the bucket table.
+
+        90 flags are retired in a real M148 -> M151, split 45/45, and not one
+        of them changes what a user sees. Filing them as breakage is how half a
+        report becomes false alarms -- which is the failure this whole tool was
+        built around avoiding.
+        """
         old = snap("148.0.0.0", [feature("Shipped", "enabled")])
         new = snap("151.0.0.0", [])
         change = diff_snapshots(old, new, platform="windows")[0]
-        self.assertEqual(
-            score_change(change, TouchSet(platform="windows")).bucket, "fyi")
-        self.assertEqual(
-            score_change(change, TouchSet(platform="windows",
-                                          symbols={"kShipped"})).bucket,
-            "must_fix")
+        self.assertEqual(score_change(change).bucket, "housekeeping")
 
     def test_experimental_reaching_stable_is_shipped(self):
         old = snap("139.0.0.0", [blink("Api", "experimental")])
@@ -215,328 +214,175 @@ class TestSnapshotScoping(unittest.TestCase):
         self.assertIn("target set", str(ctx.exception))
 
 
-class TestImpactScoring(unittest.TestCase):
+class TestScoring(unittest.TestCase):
+    """Severity is the ceiling; every point below it has a sentence."""
+
     def setUp(self):
         self.old = snap("139.0.0.0", [feature("Foo", "disabled")])
         self.new = snap("143.0.0.0", [feature("Foo", "enabled")])
         self.change = diff_snapshots(self.old, self.new)[0]
 
-    def test_no_evidence_stays_out_of_must_fix(self):
-        finding = score_change(self.change, TouchSet())
-        self.assertNotEqual(finding.bucket, "must_fix")
+    def test_the_signal_decides_the_severity_not_the_kind(self):
+        """The precise statement wins over the coarse prior.
 
-    def test_symbol_evidence_promotes_to_must_fix(self):
-        touch = TouchSet(symbols={"kFoo"})
-        finding = score_change(self.change, touch)
-        self.assertEqual(finding.bucket, "must_fix")
-        self.assertIn("kFoo", finding.matched_symbols)
+        Both of these are `(mojo_method, modified)`, whose prior is 75. One is
+        an ABI break and the other is a build condition on the mojom, and the
+        old rule -- max(prior, signal) -- gave them the same number. Four real
+        rows arrived that way at M143 -> M151.
+        """
+        def method(sig, attrs):
+            return Fact(kind="mojo_method", key="blink.mojom.Foo.Bar",
+                        name="Bar", path="a.mojom",
+                        attrs={"interface": "blink.mojom.Foo",
+                               "signature": sig, "attrs": attrs})
+        abi = diff_snapshots(snap("148.0.0.0", [method("Bar(int32 a)", "")]),
+                             snap("151.0.0.0", [method("Bar(string a)", "")]))[0]
+        gate = diff_snapshots(snap("148.0.0.0", [method("Bar(int32 a)", "")]),
+                              snap("151.0.0.0",
+                                   [method("Bar(int32 a)", "EnableIfNot=is_win")]))[0]
+        self.assertEqual(abi.severity, 80)
+        self.assertEqual(gate.severity, 35)
 
-    def test_path_evidence_alone_is_only_review(self):
-        """Patching a file that declares hundreds of features proves little."""
-        touch = TouchSet(modified_paths={"content/features.cc"})
-        finding = score_change(self.change, touch)
-        self.assertEqual(finding.bucket, "review")
+    def test_a_change_with_no_signal_falls_back_to_the_kind(self):
+        old = snap("148.0.0.0", [])
+        new = snap("151.0.0.0", [Fact(kind="switch", key="brand-new",
+                                      name="brand-new", path="switches.cc",
+                                      attrs={"var": "kBrandNew"})])
+        change = diff_snapshots(old, new, platform="windows")[0]
+        self.assertEqual(change.signals, [])
+        self.assertEqual(change.severity, 10)
 
-    def test_not_compiled_on_our_platform_is_scored_down(self):
-        """A feature that never builds for us is not our problem."""
-        builds = feature("Foo", "enabled")
+    def test_score_never_rises_above_severity(self):
+        findings = score_all(diff_snapshots(
+            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
+            snap("151.0.0.0", [feature("A", "enabled")]), platform="windows"))
+        for f in findings:
+            self.assertLessEqual(f.score, f.change.severity)
+
+    def test_every_adjustment_carries_its_sentence(self):
+        finding = score_change(self.change)
+        self.assertTrue(finding.reasons)
+        self.assertTrue(all(r.strip() for r in finding.reasons))
+        self.assertIn(str(finding.change.severity), finding.reasons[0])
+
+    def test_a_declaration_outside_our_build_scores_nothing(self):
+        """It cannot move anything here, so it does not compete for attention."""
         never = feature("Bar", "enabled")
         never.attrs["platform_state"] = {"windows": "not_compiled"}
-        old = snap("139.0.0.0", [feature("Foo", "disabled"),
-                                 feature("Bar", "disabled")])
-        new = snap("143.0.0.0", [builds, never])
-        scored = {c.key: score_change(c, TouchSet(platform="windows")).score
-                  for c in diff_snapshots(old, new, platform="windows")}
-        self.assertLess(scored["Bar"], scored["Foo"])
+        before = feature("Bar", "disabled")
+        before.attrs["platform_state"] = {"windows": "not_compiled"}
+        change = diff_snapshots(snap("148.0.0.0", [before]),
+                                snap("151.0.0.0", [never]),
+                                platform="windows")[0]
+        finding = score_change(change)
+        self.assertEqual(finding.score, 0)
+        self.assertEqual(finding.bucket, "housekeeping")
 
-    def test_area_weight_and_reasons_are_explicit(self):
-        touch = TouchSet(symbols={"kFoo"},
-                         areas=[Area(id="media", title="Media", weight=90,
-                                     symbols=["Foo"])])
-        finding = score_change(self.change, touch)
-        self.assertIn("media", finding.areas)
-        self.assertTrue(any("owned area" in r for r in finding.reasons))
-        # Every adjustment must be traceable.
-        self.assertTrue(all(r for r in finding.reasons))
+    def test_leaving_our_build_keeps_its_full_weight(self):
+        """The case the old rule scored *down*.
 
-    def test_new_capability_goes_to_opportunity_not_review(self):
-        old = snap("139.0.0.0", [])
-        new = snap("143.0.0.0", [blink("NewApi", "stable")])
-        findings = score_all(diff_snapshots(old, new), TouchSet())
-        self.assertEqual(findings[0].bucket, "opportunity")
-
-
-class TestAreaRouting(unittest.TestCase):
-    """Areas route findings to teams; the leftover must stay visible."""
-
-    def _finding(self, fact, touch):
-        old = snap("148.0.0.0", [])
-        new = snap("151.0.0.0", [fact])
-        return score_change(diff_snapshots(old, new, platform="windows")[0], touch)
-
-    def test_matches_by_pref_prefix(self):
-        pref = Fact(kind="pref", key="download.default_directory",
-                    name="download.default_directory", path="pref_names.h",
-                    attrs={"var": "kDownloadDefaultDirectory"})
-        touch = TouchSet(platform="windows",
-                         areas=[Area(id="downloads", prefs=["download."])])
-        self.assertEqual(self._finding(pref, touch).areas, ["downloads"])
-
-    def test_matches_by_flag_prefix_on_variable_or_name(self):
-        touch = TouchSet(platform="windows",
-                         areas=[Area(id="downloads", flags=["kDownload"])])
-        self.assertEqual(
-            self._finding(feature("DownloadLater", "enabled"), touch).areas,
-            ["downloads"])
-
-    def test_matches_by_fact_kind(self):
-        """Cross-cutting infrastructure belongs to no product but needs an owner."""
-        method = Fact(kind="mojo_method", key="blink.mojom.Foo.Bar", name="Bar",
-                      path="a.mojom", attrs={"interface": "blink.mojom.Foo",
-                                             "signature": "Bar()"})
-        touch = TouchSet(platform="windows",
-                         areas=[Area(id="ipc", kind="infra",
-                                     kinds=["mojo_method"])])
-        self.assertEqual(self._finding(method, touch).areas, ["ipc"])
-
-    def test_unmatched_finding_has_no_area(self):
-        touch = TouchSet(platform="windows",
-                         areas=[Area(id="downloads", paths=["components/download/"])])
-        self.assertEqual(self._finding(feature("Unrelated", "enabled"), touch).areas, [])
-
-    def test_coverage_counts_the_leftover(self):
-        from chromedrift.impact import area_coverage
-
-        touch = TouchSet(platform="windows",
-                         areas=[Area(id="downloads", flags=["kDownload"])])
-        mine = self._finding(feature("DownloadLater", "enabled"), touch)
-        orphan = self._finding(feature("Unrelated", "enabled"), touch)
-        coverage = area_coverage([mine, orphan], touch)
-
-        self.assertEqual(coverage["areas"]["downloads"]["total"], 1)
-        self.assertEqual(coverage["unassigned"]["total"], 1)
-        self.assertGreater(coverage["unassigned"]["top_score"], 0)
-
-
-class TestForkMode(unittest.TestCase):
-    """Same engine, opposite meanings.
-
-    In an uprev a missing fact means Chromium cleaned up. Across a fork it
-    means the vendor removed it -- a deliberate decision that must survive
-    every rebase. Reading a fork comparison with uprev semantics scores every
-    intentional divergence as upstream housekeeping.
-    """
-
-    def _diff(self, old_facts, new_facts, mode):
-        from chromedrift.diff import diff_snapshots
-        return diff_snapshots(snap("148.0.0.0", old_facts),
-                              snap("148.0.0.0", new_facts),
-                              platform="windows", mode=mode)
-
-    def test_removal_means_cleanup_upstream_but_deletion_in_a_fork(self):
-        old = [feature("Shipped", "enabled")]
-        uprev = self._diff(old, [], "uprev")[0]
-        fork = self._diff(old, [], "fork")[0]
-
-        self.assertIn("flag_retired_on", uprev.signals)
-        self.assertIn("fork_dropped", fork.signals)
-        # The fork case is the more serious of the two: we removed it on
-        # purpose, and the next rebase brings it back.
-        self.assertGreater(fork.severity, uprev.severity)
-
-    def test_changed_default_is_an_override_in_fork_mode(self):
-        old = [feature("Foo", "disabled")]
-        new = [feature("Foo", "enabled")]
-        fork = self._diff(old, new, "fork")[0]
-        self.assertIn("fork_default_override", fork.signals)
-
-    def test_addition_means_the_vendor_added_it(self):
-        fork = self._diff([], [feature("VendorOnly", "enabled")], "fork")[0]
-        self.assertIn("fork_added", fork.signals)
-        self.assertNotIn("new_feature_on_by_default", fork.signals)
-
-    def test_rename_pairing_is_disabled_across_a_fork(self):
-        """Removal plus addition sharing a variable is a rename over time.
-
-        Across a fork it means the vendor replaced one thing with another,
-        which is two decisions, not one rename -- collapsing them hides one.
+        `_platform_applicable` read `after or before`, so a feature whose
+        Windows guard closed -- the case where we lose the feature -- was
+        penalised 45 points for not being in the Windows build.
         """
-        old = [Fact(kind="pref", key="old.path", name="old.path",
-                    path="pref_names.h", attrs={"var": "kHomePage"})]
-        new = [Fact(kind="pref", key="new.path", name="new.path",
-                    path="pref_names.h", attrs={"var": "kHomePage"})]
+        gone = feature("Bar", "enabled")
+        gone.attrs["platform_state"] = {"windows": "not_compiled"}
+        change = diff_snapshots(snap("148.0.0.0", [feature("Bar", "enabled")]),
+                                snap("151.0.0.0", [gone]),
+                                platform="windows")[0]
+        finding = score_change(change)
+        self.assertEqual(finding.score, finding.change.severity)
+        self.assertGreater(finding.score, 0)
 
-        uprev = self._diff(old, new, "uprev")
-        self.assertEqual(len(uprev), 1)
-        self.assertIn("pref_renamed", uprev[0].signals)
+    def test_a_removal_is_discounted_when_the_tree_was_not_read(self):
+        """Absence from a twentieth of the tree is not evidence of deletion.
 
-        fork = self._diff(old, new, "fork")
-        self.assertEqual(len(fork), 2)
-        self.assertEqual({c.change_type for c in fork}, {"added", "removed"})
+        Measured M148 -> M151 on the default set: of 141 preference keys that
+        vanished, 100 had simply moved into a file the run never opened.
+        """
+        change = diff_snapshots(snap("148.0.0.0", [feature("Gone", "enabled")]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        whole = Scope({"to": {"candidates": 1164, "read": 1164}}, to_ref="151")
+        self.assertLess(score_change(change, partial).score,
+                        score_change(change, whole).score)
+        self.assertEqual(score_change(change, whole).score, change.severity)
 
-    def test_every_fork_signal_has_a_label_and_severity(self):
-        from chromedrift.diff import FORK_LABELS, FORK_SIGNALS, SIGNAL_LABELS, SIGNAL_SEVERITY
-        for name in FORK_SIGNALS:
-            self.assertIn(name, SIGNAL_LABELS, name)
-            self.assertIn(name, SIGNAL_SEVERITY, name)
-        self.assertEqual(set(FORK_SIGNALS), set(FORK_LABELS))
+    def test_an_addition_is_not_discounted(self):
+        """An addition is a thing seen, not a thing not seen."""
+        change = diff_snapshots(snap("148.0.0.0", []),
+                                snap("151.0.0.0", [feature("New", "enabled")]),
+                                platform="windows")[0]
+        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        self.assertEqual(score_change(change, partial).score, change.severity)
+
+    def test_an_unconfirmed_disappearance_is_filed_as_housekeeping(self):
+        """`pref_left_scan` says "deleted, or moved"; coverage says which."""
+        key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
+                   attrs={"var": "kAB"})
+        change = diff_snapshots(snap("148.0.0.0", [key]), snap("151.0.0.0", []),
+                                platform="windows")[0]
+        self.assertIn("pref_left_scan", change.signals)
+        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        whole = Scope({"to": {"candidates": 1164, "read": 1164}}, to_ref="151")
+        self.assertEqual(score_change(change, partial).bucket, "housekeeping")
+        self.assertEqual(score_change(change, whole).bucket, "breaking")
+
+    def test_new_capability_is_new_surface_not_breakage(self):
+        old = snap("139.0.0.0", [])
+        new = snap("143.0.0.0", [blink("NewApi", "test")])
+        findings = score_all(diff_snapshots(old, new))
+        self.assertEqual(findings[0].bucket, "new")
 
 
-class TestForkModeSurvivesTheDiff(unittest.TestCase):
-    """The inversion has to hold all the way to the page a human reads.
+class TestEverySignalIsClassified(unittest.TestCase):
+    """One signal, one severity, one label, one bucket.
 
-    Every test above this one stops at `diff.py`, and for a while that was
-    exactly where fork semantics stopped too: scoring, the model prompt and the
-    report all kept their uprev wording, so a feature the vendor had added
-    appeared under "New opportunity -- new capability we could adopt". The
-    fork signals were right and everything downstream of them was wrong.
+    Four tables keyed on the same names, in two files, is exactly the shape of
+    duplication that drifts here. A signal missing from the bucket table would
+    silently fall through to the direction rule and be filed by "something was
+    removed" rather than by what the removal was.
     """
 
-    def _fork_findings(self, old_facts, new_facts):
-        from chromedrift.model import MODE_FORK
-        changes = diff_snapshots(snap("148.0.0.0", old_facts),
-                                 snap("fork-main-dev", new_facts),
-                                 mode=MODE_FORK)
-        return score_all(changes, TouchSet(name="Fork", platform="windows"),
-                         mode=MODE_FORK)
+    def _tables(self):
+        from chromedrift.diff import (SIGNAL_BUCKET, SIGNAL_LABELS,
+                                      SIGNAL_SEVERITY)
+        return SIGNAL_SEVERITY, SIGNAL_LABELS, SIGNAL_BUCKET
 
-    def test_vendor_addition_is_not_an_opportunity(self):
-        finding = self._fork_findings([], [feature("AcmeSauce", "enabled")])[0]
-        self.assertIn("fork_added", finding.change.signals)
-        # Our own shipped customization is not a capability on offer.
-        self.assertNotEqual(finding.bucket, "opportunity")
+    def test_the_three_tables_hold_the_same_signals(self):
+        severity, labels, buckets = self._tables()
+        self.assertEqual(set(severity), set(labels))
+        self.assertEqual(set(severity), set(buckets))
 
-    def test_no_finding_lands_in_opportunity_in_fork_mode(self):
-        findings = self._fork_findings(
-            [feature("Dropped", "enabled"), feature("Flipped", "enabled")],
-            [feature("Flipped", "disabled"), feature("Added", "enabled")],
-        )
-        self.assertTrue(findings)
-        self.assertEqual([f for f in findings if f.bucket == "opportunity"], [])
+    def test_every_bucket_named_is_a_real_bucket(self):
+        from chromedrift.model import BUCKET_ORDER
+        _, _, buckets = self._tables()
+        for signal, bucket in buckets.items():
+            self.assertIn(bucket, BUCKET_ORDER, signal)
 
-    def test_divergence_we_reference_must_be_carried(self):
-        touch = TouchSet(name="Fork", platform="windows", symbols={"kDropped"})
-        from chromedrift.model import MODE_FORK
-        changes = diff_snapshots(snap("148.0.0.0", [feature("Dropped", "enabled")]),
-                                 snap("fork-main-dev", []), mode=MODE_FORK)
-        finding = score_all(changes, touch, mode=MODE_FORK)[0]
-        # We removed it and our own source names it: the next rebase puts it
-        # back, so this is work, not trivia.
-        self.assertEqual(finding.bucket, "must_fix")
+    def test_every_bucket_is_reachable(self):
+        from chromedrift.model import BUCKET_ORDER
+        _, _, buckets = self._tables()
+        self.assertEqual(sorted(set(buckets.values())), sorted(BUCKET_ORDER))
 
-    def test_uprev_mode_keeps_its_opportunity_bucket(self):
-        """The fork branch must not quietly change uprev behaviour."""
-        changes = diff_snapshots(snap("148.0.0.0", []),
-                                 snap("151.0.0.0", [feature("Shiny", "enabled")]))
-        finding = score_all(changes, TouchSet(name="Fork", platform="windows"))[0]
-        self.assertEqual(finding.bucket, "opportunity")
+    def test_every_bucket_says_what_it_means(self):
+        from chromedrift.model import BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER
+        for bucket in BUCKET_ORDER:
+            self.assertTrue(BUCKET_LABELS.get(bucket))
+            self.assertTrue(BUCKET_MEANINGS.get(bucket))
 
-    def test_report_says_which_comparison_it_is(self):
-        from chromedrift.model import MODE_FORK, Report
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
-
-        findings = self._fork_findings([], [feature("AcmeSauce", "enabled")])
-        report = Report(from_ref="148.0.0.0", to_ref="fork-main-dev",
-                        findings=findings, meta={"mode": MODE_FORK})
-        for text in (md_report.render(report), html_report.render(report)):
-            self.assertNotIn("uprev impact", text.lower())
-            self.assertIn("upstream", text.lower())
-        # ...and an uprev report is still an uprev report.
-        uprev = Report(from_ref="148.0.0.0", to_ref="151.0.0.0", findings=[])
-        self.assertIn("uprev impact", md_report.render(uprev).lower())
-
-
-class TestProvenance(unittest.TestCase):
-    """A two-way diff cannot tell a decision from merge debt. Three-way can.
-
-    A fork built by repeatedly merging newer Chromium accumulates both, and
-    they look identical against a single upstream version: our value differs.
-    Comparing against the series the fork was merged from separates them --
-    matching an older version exactly means nobody decided anything.
-    """
-
-    def _run(self, fork_facts, series, base=None):
-        from chromedrift.provenance import analyze
-        return analyze(fork=snap("fork", fork_facts),
-                       upstream=[snap(ref, facts) for ref, facts in series],
-                       base_ref=base)
-
-    def test_matching_an_older_version_is_debt_not_a_decision(self):
-        from chromedrift.provenance import STALE
-
-        report = self._run(
-            [feature("Foo", "disabled")],                       # our value
-            [("143.0.0.0", [feature("Foo", "disabled")]),        # matches here
-             ("148.0.0.0", [feature("Foo", "enabled")])])        # base moved on
-
-        v = report.verdicts[0]
-        self.assertEqual(v.state, STALE)
-        self.assertEqual(v.matches, "143.0.0.0")
-        self.assertTrue(v.is_debt())
-
-    def test_matching_no_upstream_version_is_a_decision(self):
-        from chromedrift.provenance import DIVERGED
-
-        report = self._run(
-            [feature("Foo", "disabled")],
-            [("143.0.0.0", [feature("Foo", "enabled")]),
-             ("148.0.0.0", [feature("Foo", "enabled")])])
-
-        self.assertEqual(report.verdicts[0].state, DIVERGED)
-        self.assertFalse(report.verdicts[0].is_debt())
-
-    def test_added_after_our_base_is_debt_we_never_took(self):
-        from chromedrift.provenance import MISSING_NEW
-
-        report = self._run(
-            [],
-            [("143.0.0.0", []),
-             ("148.0.0.0", [feature("NewUpstream", "enabled")])])
-
-        v = report.verdicts[0]
-        self.assertEqual(v.state, MISSING_NEW)
-        self.assertTrue(v.is_debt())
-
-    def test_present_since_the_oldest_version_but_absent_is_our_removal(self):
-        from chromedrift.provenance import MISSING_OLD
-
-        report = self._run(
-            [],
-            [("143.0.0.0", [feature("Always", "enabled")]),
-             ("148.0.0.0", [feature("Always", "enabled")])])
-
-        v = report.verdicts[0]
-        self.assertEqual(v.state, MISSING_OLD)
-        self.assertFalse(v.is_debt())   # a removal we chose, not debt
-
-    def test_fact_upstream_never_had_is_ours(self):
-        from chromedrift.provenance import VENDOR_ONLY
-
-        report = self._run(
-            [feature("VendorOnly", "enabled")],
-            [("143.0.0.0", []), ("148.0.0.0", [])])
-
-        self.assertEqual(report.verdicts[0].state, VENDOR_ONLY)
-
-    def test_stale_reports_the_newest_version_we_still_match(self):
-        """How far behind we are, not merely that we are behind."""
-        report = self._run(
-            [feature("Foo", "disabled")],
-            [("139.0.0.0", [feature("Foo", "disabled")]),
-             ("143.0.0.0", [feature("Foo", "disabled")]),
-             ("148.0.0.0", [feature("Foo", "enabled")])])
-        self.assertEqual(report.verdicts[0].matches, "143.0.0.0")
-
-    def test_in_sync_is_not_debt(self):
-        from chromedrift.provenance import IN_SYNC
-
-        report = self._run(
-            [feature("Foo", "enabled")],
-            [("143.0.0.0", [feature("Foo", "disabled")]),
-             ("148.0.0.0", [feature("Foo", "enabled")])])
-        self.assertEqual(report.verdicts[0].state, IN_SYNC)
-        self.assertEqual(report.debt(), [])
+    def test_a_change_of_every_kind_and_direction_gets_a_bucket(self):
+        """Including the ones that carry no signal at all -- 903 of 2,800 on a
+        real M148 -> M151 run, and every one of them has to be filed."""
+        from chromedrift.diff import bucket_of
+        from chromedrift.model import (ADDED, ALL_KINDS, BUCKET_ORDER, MODIFIED,
+                                       REMOVED, Change)
+        for kind in ALL_KINDS:
+            for direction in (ADDED, REMOVED, MODIFIED):
+                bare = Change(change_type=direction, kind=kind, key="k",
+                              name="k")
+                self.assertIn(bucket_of(bare), BUCKET_ORDER,
+                              f"{kind}/{direction}")
 
 
 class TestPartitions(unittest.TestCase):
@@ -607,8 +453,7 @@ class TestDocumentedInterface(unittest.TestCase):
     `--platform` was removed from the CLI while eight documented commands kept
     passing it (they now exit with an argparse error before doing any work),
     and the skill's signal reference still named `android_enabled_by_default`
-    after the rename, while missing every fork-mode signal -- the ones the fork
-    comparison produces exclusively.
+    after the rename.
     """
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -661,50 +506,6 @@ class TestDocumentedInterface(unittest.TestCase):
                          "signals.md documents signals the tool never emits")
         self.assertEqual(sorted(real - documented), [],
                          "the tool emits signals signals.md does not explain")
-
-
-class TestProfilePlatform(unittest.TestCase):
-    """A field that can only be right one way must not fail quietly.
-
-    The CLI dropped --platform because reading the wrong platform inverts
-    conclusions. The profile kept a `platform` field and trusted it, so a
-    profile left saying "android" -- which the shipped example did -- turned off
-    the not-compiled penalty completely: platform_state holds only "windows", so
-    looking up "android" finds nothing and scores nothing down. Nothing in the
-    output mentioned it.
-    """
-
-    def _profile(self, body):
-        import tempfile
-        fd, path = tempfile.mkstemp(suffix=".json5")
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(body)
-        self.addCleanup(os.remove, path)
-        return path
-
-    def test_a_stale_platform_is_refused_not_believed(self):
-        from chromedrift.downstream import load_profile
-        path = self._profile('{ name: "Fork", platform: "android" }')
-        with self.assertRaises(ValueError) as caught:
-            load_profile(path, log=lambda m: None)
-        self.assertIn("android", str(caught.exception))
-        self.assertIn("windows", str(caught.exception))
-
-    def test_windows_and_an_absent_field_both_work(self):
-        from chromedrift.downstream import load_profile
-        for body in ('{ name: "Fork", platform: "windows" }',
-                     '{ name: "Fork", platform: "Windows" }',
-                     '{ name: "Fork" }'):
-            touch = load_profile(self._profile(body), log=lambda m: None)
-            self.assertEqual(touch.platform, "windows")
-
-    def test_the_penalty_it_protects_still_applies(self):
-        from chromedrift.model import Change
-        change = Change(change_type="modified", kind="base_feature",
-                        key="Foo", name="Foo",
-                        after={"platform_state": {"windows": "not_compiled"}})
-        finding = score_change(change, TouchSet(name="Fork", platform="windows"))
-        self.assertTrue(any("not compiled" in r for r in finding.reasons))
 
 
 class TestFetchMarkers(unittest.TestCase):
@@ -762,10 +563,9 @@ class TestFetchMarkers(unittest.TestCase):
 class TestPartitionPlumbing(unittest.TestCase):
     """Every command that accepts --partition has to act on it.
 
-    Three of them accepted the flag and dropped it: `provenance` (the command
-    the fork comparison actually runs), `profile`, and `catalog` -- which then
-    reported coverage against the full target list while describing a run that
-    only fetched one partition.
+    Three of them accepted the flag and dropped it. `catalog` was the worst:
+    it reported coverage against the full target list while describing a run
+    that only fetched one partition.
     """
 
     def _parse(self, argv):
@@ -776,8 +576,7 @@ class TestPartitionPlumbing(unittest.TestCase):
         import inspect
         from chromedrift import cli
 
-        for name in ("cmd_snapshot", "cmd_diff", "cmd_run", "cmd_profile",
-                     "cmd_provenance"):
+        for name in ("cmd_snapshot", "cmd_diff", "cmd_run"):
             src = inspect.getsource(getattr(cli, name))
             self.assertIn("build_snapshot", src, name)
             self.assertEqual(
@@ -833,7 +632,7 @@ class TestHtmlReportScales(unittest.TestCase):
                                   key=f"Feature{i}", name=f"Feature{i}",
                                   signals=["flag_retired_on"],
                                   paths=[f"content/f{i}.cc"]),
-                    score=100 - i % 100, bucket="fyi",
+                    score=100 - i % 100, bucket="housekeeping",
                     reasons=["base severity 75"])
             for i in range(n)]
         return Report(from_ref="a", to_ref="b", findings=findings)
@@ -957,152 +756,6 @@ class TestHtmlReportScales(unittest.TestCase):
                          "a finding scoring zero lost its score")
         self.assertNotIn("ours", rows[0],
                          "False still has to be dropped")
-
-
-class TestVendorDiscovery(unittest.TestCase):
-    """Find the vendor's files without being told where they are.
-
-    A fork of this shape is taken from Chromium whole, then its own files are
-    placed *inside* Chromium's directories: an `acme/` subfolder here, an
-    `-acme` suffix on a variant of an upstream component there. So "which files
-    are ours" cannot be read off Chromium's layout, and after enough years
-    nobody has the list. Both `vendor_markers` and the target list were being
-    filled in from memory, and a forgotten path removes a whole surface from
-    every comparison silently.
-
-    `acme` is a placeholder throughout. The module carries no vendor vocabulary
-    of its own, so every test states the markers it is scanning for.
-    """
-
-    MARKERS = {"dir_tokens": ("acme",), "file_suffixes": ("-acme",)}
-
-    LAYOUT = (
-        # upstream
-        "chrome/browser/resources/settings/privacy_page/privacy_page.html",
-        "chrome/browser/resources/settings/route.ts",
-        # vendor variants of upstream components, inside upstream directories
-        "chrome/browser/resources/settings/privacy_page/privacy_page-acme.html",
-        "chrome/browser/resources/downloads/item-acme.html.ts",
-        # vendor subfolder inside a tracked surface
-        "chrome/browser/resources/settings/acme/secret_mode.html",
-        # vendor subfolder beside the surfaces, outside every target
-        "chrome/browser/resources/acme/quick_menu.html",
-        # native UI: vendor-owned, but no extractor reads it
-        "ui/acme/views/acme_toolbar.cc",
-    )
-
-    def setUp(self):
-        import tempfile
-        self.root = tempfile.mkdtemp()
-        for rel in self.LAYOUT:
-            path = os.path.join(self.root, rel)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as fh:
-                fh.write("// x\n")
-
-    def tearDown(self):
-        import shutil
-        shutil.rmtree(self.root, ignore_errors=True)
-
-    def _scan(self, **kw):
-        from chromedrift import discover
-        return discover.scan(self.root, log=lambda m: None,
-                             **dict(self.MARKERS, **kw))
-
-    def test_scanning_without_markers_refuses_rather_than_finding_nothing(self):
-        """"No vendor files" and "you told me nothing to look for" differ.
-
-        A tool that carries no vendor vocabulary cannot report the second as
-        the first: an empty result would read as a clean fork.
-        """
-        from chromedrift import discover
-        with self.assertRaises(ValueError):
-            discover.scan(self.root, log=lambda m: None)
-
-    def test_upstream_files_are_not_claimed(self):
-        found = {h.path for h in self._scan().hits}
-        self.assertNotIn("chrome/browser/resources/settings/route.ts", found)
-        self.assertNotIn(
-            "chrome/browser/resources/settings/privacy_page/privacy_page.html", found)
-
-    def test_the_suffix_is_found_inside_an_upstream_directory(self):
-        """No path prefix reaches it and it has no vendor symbol prefix."""
-        from chromedrift.discover import BY_NAME
-        hits = {h.path: h for h in self._scan().hits}
-        for rel in ("chrome/browser/resources/settings/privacy_page/"
-                    "privacy_page-acme.html",
-                    "chrome/browser/resources/downloads/item-acme.html.ts"):
-            self.assertIn(rel, hits, rel)
-            self.assertEqual(hits[rel].rule, BY_NAME)
-
-    def test_a_double_extension_still_matches(self):
-        """item-acme.html.ts must strip both extensions before testing the stem."""
-        report = self._scan()
-        self.assertIn("-acme", report.suffixes_seen())
-        self.assertEqual(report.suffixes_seen()["-acme"], 2)
-
-    def test_vendor_folders_are_found_at_any_depth(self):
-        from chromedrift.discover import BY_DIR
-        hits = {h.path: h for h in self._scan().hits}
-        for rel in ("chrome/browser/resources/settings/acme/secret_mode.html",
-                    "chrome/browser/resources/acme/quick_menu.html",
-                    "ui/acme/views/acme_toolbar.cc"):
-            self.assertIn(rel, hits, rel)
-            self.assertEqual(hits[rel].rule, BY_DIR)
-
-    def test_uncovered_splits_what_can_be_fixed_from_what_cannot(self):
-        """A worklist mixing the two is mostly unactionable."""
-        from chromedrift.discover import uncovered_dirs
-        fetchable, unreadable = uncovered_dirs(self._scan())
-        self.assertIn("chrome/browser/resources/acme",
-                      [d for d, _ in fetchable])
-        # Native C++ UI is vendor-owned and no extractor reads it; calling that
-        # "missing" implies a fix that does not exist.
-        self.assertIn("ui/acme/views", [d for d, _ in unreadable])
-
-    def test_macro_scanning_catches_the_common_shape(self):
-        """ACME_CUSTOM_DOWNLOADS, not only X_ACME_Y."""
-        path = os.path.join(self.root, "chrome/browser/download/download_prefs.cc")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write("#if defined(ACME_CUSTOM_DOWNLOADS)\n// ours\n#endif\n")
-        report = self._scan(scan_content=True)
-        self.assertIn("ACME_CUSTOM_DOWNLOADS", report.macros)
-
-    def test_the_build_flags_come_from_the_tokens_given(self):
-        """One list to get right, not two that drift.
-
-        A vendor's build flags are its own name shouted, so they are derived
-        from the directory tokens rather than kept as a second list.
-        """
-        path = os.path.join(self.root, "chrome/browser/net/x.cc")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
-            fh.write("#if defined(OTHERVENDOR_THING)\n// not ours\n#endif\n")
-        report = self._scan(scan_content=True)
-        self.assertEqual(dict(report.macros), {})
-
-    def test_the_suggested_profile_reflects_the_tree(self):
-        from chromedrift.discover import suggest_profile
-        text = suggest_profile(self._scan())
-        self.assertIn('"acme/"', text)
-        self.assertIn('"-acme"', text)
-        # The symbol prefixes are derived from the directories found, not from
-        # a vendor list this module refuses to carry.
-        self.assertIn('"kAcme"', text)
-
-    def test_markers_recognise_a_variant_file_as_ours(self):
-        """The marker vocabulary had no way to express this before."""
-        from chromedrift.coverage import VendorMarkers
-        markers = VendorMarkers.from_profile(
-            {"vendor_markers": {"path_markers": ["acme/"],
-                                "filename_markers": ["-acme"]}})
-        self.assertTrue(markers.path_is_ours(
-            "chrome/browser/resources/settings/privacy_page-acme.html"))
-        self.assertTrue(markers.path_is_ours(
-            "chrome/browser/resources/settings/item-acme.html.ts"))
-        self.assertFalse(markers.path_is_ours(
-            "chrome/browser/resources/settings/privacy_page.html"))
 
 
 class TestReferenceClosure(unittest.TestCase):
@@ -1334,157 +987,8 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("base", by_area)
 
 
-class TestVendorShadowing(unittest.TestCase):
-    """A fork shadows upstream with a build flag instead of editing it.
-
-    Both implementations ship; a build flag picks one. Upstream's branch stays
-    byte-identical, so a value comparison reports nothing while the branch that
-    actually runs is the vendor's.
-    """
-
-    MARKERS = None
-
-    def setUp(self):
-        from chromedrift.coverage import VendorMarkers
-        self.MARKERS = VendorMarkers(
-            macros=["ACME"], symbol_prefixes=["kAcme"],
-            path_markers=["acme/"])
-
-    def _fact(self, name, state="enabled", conditions=(), path="a_features.cc"):
-        f = feature(name, state, path=path)
-        f.attrs["conditions"] = list(conditions)
-        return f
-
-    def test_identical_value_behind_a_vendor_guard_is_shadowed_not_untouched(self):
-        from chromedrift.coverage import SHADOWED, analyze
-
-        report = analyze(
-            fork=snap("fork", [self._fact("Foo", "enabled",
-                                        ["defined(ACME_CUSTOM)"])]),
-            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
-            markers=self.MARKERS)
-
-        # The value matches exactly. Only the guard reveals the shadow.
-        self.assertEqual(report.verdicts[0].state, SHADOWED)
-        self.assertEqual(report.verdicts[0].guards, ["defined(ACME_CUSTOM)"])
-
-    def test_unguarded_identical_declaration_is_untouched(self):
-        from chromedrift.coverage import UNTOUCHED, analyze
-
-        report = analyze(
-            fork=snap("fork", [self._fact("Foo", "enabled")]),
-            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
-            markers=self.MARKERS)
-        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
-
-    def test_platform_guard_is_not_a_vendor_guard(self):
-        """#if BUILDFLAG(IS_WIN) is upstream's own, not ours.
-
-        Both sides carry it, because that is what "upstream's own guard" means:
-        it arrived with the merge. Nothing about it says we shadowed anything.
-        """
-        from chromedrift.coverage import UNTOUCHED, analyze
-
-        guarded = lambda: self._fact("Foo", "enabled", ["BUILDFLAG(IS_WIN)"])
-        report = analyze(fork=snap("fork", [guarded()]),
-                         upstream=snap("148.0.0.0", [guarded()]),
-                         markers=self.MARKERS)
-        self.assertEqual(report.verdicts[0].state, UNTOUCHED)
-
-    def test_a_guard_only_we_have_is_a_change_even_if_it_is_not_ours(self):
-        """A non-vendor guard we added still changes what compiles.
-
-        Not SHADOWED -- no vendor marker names it -- but not untouched either.
-        Comparing only `default_state` called this identical to upstream, which
-        is the same blind spot in miniature: the value matches and the
-        condition deciding whether the value is used does not.
-        """
-        from chromedrift.coverage import MODIFIED, SHADOWED, analyze
-
-        report = analyze(
-            fork=snap("fork", [self._fact("Foo", "enabled",
-                                        ["BUILDFLAG(IS_WIN)"])]),
-            upstream=snap("148.0.0.0", [self._fact("Foo", "enabled")]),
-            markers=self.MARKERS)
-        self.assertNotEqual(report.verdicts[0].state, SHADOWED)
-        self.assertEqual(report.verdicts[0].state, MODIFIED)
-
-    def test_a_windows_branch_override_is_not_untouched(self):
-        """The case the shadow analysis exists for.
-
-        Upstream ships enabled everywhere; we ship disabled on Windows only.
-        `default_state` is "enabled" on both sides, so comparing that alone
-        reported our override as an untouched upstream declaration.
-        """
-        from chromedrift.coverage import MODIFIED, analyze
-
-        theirs = Fact(kind="base_feature", key="Foo", name="Foo",
-                      path="content/features.cc",
-                      attrs={"var": "kFoo", "default_state": "enabled",
-                             "platform_state": {"windows": "enabled"},
-                             "conditions": []})
-        ours = Fact(kind="base_feature", key="Foo", name="Foo",
-                    path="content/features.cc",
-                    attrs={"var": "kFoo", "default_state": "enabled",
-                           "platform_state": {"windows": "disabled"},
-                           "conditions": []})
-        report = analyze(fork=snap("fork", [ours]),
-                         upstream=snap("148.0.0.0", [theirs]),
-                         markers=self.MARKERS)
-        self.assertEqual(report.verdicts[0].state, MODIFIED)
-
-    def test_ours_only_is_split_by_whether_anything_says_it_is_ours(self):
-        """Two opposite situations wore the same label.
-
-        A declaration only we have, carrying a vendor marker, is ours. One with
-        no marker at all is usually the reverse: upstream deleted it and our
-        merge kept it alive. Both were reported as "vendor_only", so the debt
-        was filed under decisions.
-        """
-        from chromedrift.coverage import ORPHANED, VENDOR_ONLY, analyze
-
-        mine = self._fact("AcmeThing", "enabled",
-                          ["defined(ACME_CUSTOM)"])
-        leftover = self._fact("LongDeadUpstreamFlag", "enabled")
-        report = analyze(fork=snap("fork", [mine, leftover]),
-                         upstream=snap("148.0.0.0", []),
-                         markers=self.MARKERS)
-        states = {v.key: v.state for v in report.verdicts}
-        self.assertEqual(states["AcmeThing"], VENDOR_ONLY)
-        self.assertEqual(states["LongDeadUpstreamFlag"], ORPHANED)
-
-    def test_guards_used_reports_what_each_flag_covers(self):
-        from chromedrift.coverage import analyze
-
-        report = analyze(
-            fork=snap("fork", [self._fact("A", "enabled", ["defined(ACME_UI)"]),
-                             self._fact("B", "enabled", ["defined(ACME_UI)"])]),
-            upstream=snap("148.0.0.0", [self._fact("A"), self._fact("B")]),
-            markers=self.MARKERS)
-        self.assertEqual(report.guards_used(), {"defined(ACME_UI)": 2})
-
-    def test_without_markers_the_analysis_is_skipped_not_guessed(self):
-        from chromedrift.coverage import VendorMarkers, analyze
-
-        report = analyze(
-            fork=snap("fork", [self._fact("Foo", "enabled", ["defined(X)"])]),
-            upstream=snap("148.0.0.0", [self._fact("Foo")]),
-            markers=VendorMarkers())
-        self.assertFalse(report.markers_configured)
-        self.assertEqual(report.verdicts, [])
-
-    def test_guard_appearing_is_itself_a_change(self):
-        """The value never moves; the guard around it does."""
-        old = self._fact("Foo", "enabled")
-        new = self._fact("Foo", "enabled", ["defined(ACME_CUSTOM)"])
-        changes = diff_snapshots(snap("148.0.0.0", [old]), snap("fork", [new]),
-                                 platform="windows")
-        self.assertEqual(len(changes), 1)
-        self.assertIn("conditions", changes[0].deltas)
-
-
 class TestClustering(unittest.TestCase):
-    """One upstream change arrives as fragments; they must read as one story."""
+    """One Chromium change arrives as fragments; they must read as one story."""
 
     def _finding(self, kind, key, attrs, score=50):
         from chromedrift.model import Change, Finding
@@ -1492,7 +996,7 @@ class TestClustering(unittest.TestCase):
             change=Change(change_type="modified", kind=kind, key=key,
                           name=key.split("/")[-1], before=dict(attrs),
                           after=dict(attrs)),
-            score=score, bucket="review")
+            score=score, bucket="behaviour")
 
     def test_route_gate_feature_form_one_cluster(self):
         from chromedrift.cluster import build_clusters
@@ -1519,7 +1023,7 @@ class TestClustering(unittest.TestCase):
                           before={"guards": ["oldGate"]},
                           after={"guards": ["newGate"]},
                           deltas={"guards": [["oldGate"], ["newGate"]]}),
-            score=60, bucket="review")
+            score=60, bucket="behaviour")
         old_gate = self._finding("webui_gate", "oldGate", {"features": []}, 40)
         new_gate = self._finding("webui_gate", "newGate", {"features": []}, 40)
 
@@ -1565,65 +1069,6 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(build_clusters([a, b]), {})
 
 
-class TestReportFiltering(unittest.TestCase):
-    """Filtering happens at render time, never before analysis."""
-
-    def _report(self):
-        from chromedrift.model import Change, Finding, Report
-
-        def mk(name, areas, score):
-            return Finding(
-                change=Change(change_type="modified", kind="base_feature",
-                              key=name, name=name),
-                areas=areas, score=score, bucket="review")
-
-        return Report(from_ref="148.0.0.0", to_ref="151.0.0.0",
-                      findings=[mk("A", ["downloads"], 70),
-                                mk("B", ["ipc"], 80),
-                                mk("C", [], 90)])
-
-    def test_filter_keeps_only_that_area(self):
-        sliced = self._report().filtered("downloads")
-        self.assertEqual([f.change.key for f in sliced.findings], ["A"])
-
-    def test_unassigned_is_addressable(self):
-        """The leftover must be reachable, or it silently disappears."""
-        sliced = self._report().filtered("_unassigned")
-        self.assertEqual([f.change.key for f in sliced.findings], ["C"])
-
-    def test_filtering_does_not_mutate_the_full_report(self):
-        report = self._report()
-        report.filtered("downloads")
-        self.assertEqual(len(report.findings), 3)
-
-    def test_filter_records_what_it_hid(self):
-        sliced = self._report().filtered("ipc")
-        self.assertEqual(sliced.summary["filtered_to_area"], "ipc")
-        self.assertEqual(sliced.summary["filtered_from_total"], 3)
-
-    def test_no_area_returns_everything(self):
-        report = self._report()
-        self.assertIs(report.filtered(None), report)
-
-
-class TestPatchEvidence(unittest.TestCase):
-    def test_symbols_come_from_hunk_bodies(self):
-        patch = (
-            "--- a/content/features.cc\n"
-            "+++ b/content/features.cc\n"
-            "@@ -1,3 +1,4 @@\n"
-            " BASE_FEATURE(kExisting, base::FEATURE_DISABLED_BY_DEFAULT);\n"
-            "+  overrides->push_back({&features::kMyFeature, kOff});\n"
-            "-  RemovedSymbol();\n"
-        )
-        symbols = _symbols_from_hunks(patch)
-        self.assertIn("kMyFeature", symbols)
-        self.assertIn("kExisting", symbols)   # context lines count as evidence
-        self.assertIn("RemovedSymbol", symbols)
-        # The +++/--- headers are not hunk content.
-        self.assertNotIn("content/features.cc", symbols)
-
-
 class TestWindowsConsoleEncoding(unittest.TestCase):
     """Reports must survive a non-UTF-8 stdout.
 
@@ -1644,7 +1089,7 @@ class TestWindowsConsoleEncoding(unittest.TestCase):
                         signals=["enabled_by_default"], severity=75)
         report = Report(from_ref="139.0.0.0", to_ref="143.0.0.0",
                         findings=[Finding(change=change, score=75,
-                                          bucket="review")],
+                                          bucket="behaviour")],
                         meta={"platform": "windows"})
 
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1681,7 +1126,7 @@ class TestNoVerdictStage(unittest.TestCase):
                         signals=["enabled_by_default"], severity=75)
         return Report(from_ref="148.0.0.0", to_ref="151.0.0.0",
                       findings=[Finding(change=change, score=75,
-                                        bucket="review",
+                                        bucket="behaviour",
                                         reasons=["base severity 75"])],
                       summary=summary)
 
@@ -1756,7 +1201,7 @@ class TestNoVerdictStage(unittest.TestCase):
         change.deltas = {"default": ["https://x.test/a", "https://x.test/b"]}
         text = html_report.render(
             Report(from_ref="a", to_ref="b",
-                   findings=[Finding(change=change, score=40, bucket="fyi")]))
+                   findings=[Finding(change=change, score=40, bucket="housekeeping")]))
         markup = text.split("window.__FINDINGS__")[0]
         targets = re.findall(r'(?:src|href|action)\s*=\s*["\']([^"\']*)',
                              markup)
@@ -1770,7 +1215,7 @@ class TestNoVerdictStage(unittest.TestCase):
         """Chromestatus context used to exist only inside the model prompt.
 
         With the prompt gone it has to land in the report, or the one source
-        that says what upstream *meant* to ship is fetched and thrown away.
+        that says what Chromium *meant* to ship is fetched and thrown away.
         """
         from chromedrift.report import markdown as md_report
 
@@ -2042,7 +1487,7 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
     usable finding at all before:
 
     A base::Feature is keyed on its feature string, so renaming the C++
-    identifier while holding the string emitted nothing -- yet downstream code
+    identifier while holding the string emitted nothing -- yet any code
     writes `features::kFoo`, never the string, so the rename breaks our build.
     kDIPS -> kBtm is a real instance.
 
@@ -2097,15 +1542,6 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
             snap("148.0.0.0", [self._control("a.one", "t"), self._control("a.two", "t")]),
             snap("151.0.0.0", [self._control("a.three", "t")]))
         self.assertEqual([c for c in changes if "ui_control_repointed" in c.signals], [])
-
-    def test_fork_mode_does_not_pair_either_of_them(self):
-        """Across a fork these are two decisions, not one move."""
-        from chromedrift.model import MODE_FORK
-        changes = diff_snapshots(
-            snap("148.0.0.0", [self._control("a11y.old", "t")]),
-            snap("fork-main-dev", [self._control("a11y.new", "t")]), mode=MODE_FORK)
-        self.assertEqual(len(changes), 2)
-
 
 class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
     """Three target sets, and each has to say what it costs and what it reads.
@@ -2276,28 +1712,6 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
 
     NESTED = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
 
-    def test_discover_agrees_with_the_shared_rule(self):
-        """`wide` reaches this file; discover used to call it a gap.
-
-        discover kept its own copy that stopped at the first prefix that
-        matched. `chrome/browser/ui/webui` is declared for .cc, so it
-        answered no -- while `chrome/browser`, declared for a dozen
-        suffixes, fetches the file and an extractor reads it. The result
-        was a worklist telling you to add targets you already have.
-        """
-        from chromedrift.discover import DiscoveryReport, Hit, BY_DIR, uncovered_dirs
-        from chromedrift.targets import get_targets, reaches, scope_of
-
-        report = DiscoveryReport(root="/fork")
-        report.hits = [Hit(self.NESTED, BY_DIR, "acme")]
-
-        files, trees = scope_of(get_targets("wide"))
-        self.assertTrue(reaches(self.NESTED, files, trees))
-
-        fetchable, unreadable = uncovered_dirs(report, "wide")
-        self.assertEqual(fetchable, [], "a covered file was reported as a gap")
-        self.assertEqual(unreadable, [])
-
     def test_catalog_agrees_with_the_shared_rule(self):
         """catalog measured on the path prefix and ignored the suffix filter.
 
@@ -2460,17 +1874,17 @@ class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
 
 
 class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
-    """Two different measurements may not share one name.
+    """How much of the tree was read bounds every count above it.
 
-    Tree coverage -- how much of the version's tree was read -- was printed to
-    stderr and stored on the snapshot, and then not carried into the report,
-    while README and SKILL.md both said the report held it. What the report did
-    hold under `coverage` was area routing, so following either document led to
-    the wrong object with nothing saying so.
+    It was printed to stderr and stored on the snapshot, and then not carried
+    into the report, while README and SKILL.md both said the report held it.
+    It now also decides two things in the scoring -- what an unconfirmed
+    removal scores and where it is filed -- so the number the report states and
+    the number the ranking used have to be the same one.
     """
 
     def _report(self):
-        from chromedrift.impact import summarize_findings
+        from chromedrift.score import summarize_findings
         summary = {"changes": {"total": 0, "by_kind": {}}}
         summary.update(summarize_findings([]))
         return Report(
@@ -2484,11 +1898,19 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
                                           {"chrome/browser": 251}}},
                   "uncovered_files": ["chrome/browser/x_prefs.h"]})
 
-    def test_area_coverage_has_its_own_name(self):
-        from chromedrift.impact import summarize_findings
-        summary = summarize_findings([])
-        self.assertIn("area_coverage", summary)
-        self.assertNotIn("coverage", summary)
+    def test_the_summary_claims_no_coverage_of_its_own(self):
+        """One name per measurement. `summary.coverage` used to be area
+        routing while `meta.coverage` was tree coverage, so a reader -- or an
+        agent -- looking up one found the other with nothing saying so."""
+        from chromedrift.score import summarize_findings
+        self.assertNotIn("coverage", summarize_findings([]))
+
+    def test_the_ranking_reads_the_same_measurement_the_report_prints(self):
+        from chromedrift.score import Scope
+        meta = self._report().meta
+        scope = Scope({"to": meta["coverage"]["to"]}, to_ref="refs/tags/151")
+        self.assertFalse(scope.confirms_absence())
+        self.assertEqual(scope.read_percent(), "4%")
 
     def test_tree_coverage_survives_into_the_report_json(self):
         blob = self._report().to_dict()
@@ -2577,8 +1999,8 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
     It compares the *label* a snapshot was built under, which catches `minimal`
     against `default` and nothing else. Two sides both labelled "default" pass
     it even when one is a truncated checkout -- and `--local-src` / `--to-src`
-    is exactly how that happens. Pointed at a partial tree, the fork side of a
-    real run held 1,647 facts against upstream's 24,959 and the tool said
+    is exactly how that happens. Pointed at a partial tree, one side of a
+    real run held 1,647 facts against the other's 24,959 and the tool said
     nothing: it printed "scope: ok" twice, because every fact really did come
     from a file the target set asked for, then reported 23,318 removals that
     had not happened.
@@ -2594,7 +2016,7 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
     def test_a_side_holding_a_fraction_of_the_other_is_refused(self):
         from chromedrift.diff import diff_snapshots
         with self.assertRaises(ValueError) as caught:
-            diff_snapshots(self._snap("upstream", 24959), self._snap("fork", 1647))
+            diff_snapshots(self._snap("full", 24959), self._snap("partial", 1647))
         message = str(caught.exception)
         self.assertIn("truncated tree", message)
         # The message has to name the thing to check, not just the numbers.
@@ -2776,10 +2198,32 @@ class TestTheDocumentedSourceMapStillHolds(unittest.TestCase):
         with open(path, encoding="utf-8") as fh:
             return sum(1 for _ in fh)
 
-    def test_the_source_map_matches_the_source(self):
-        rows = re.findall(r"(?m)^  ([a-z_]+\.py|[a-z]+/)\s+([\d.,]+)\s",
+    def test_the_source_map_lists_every_module(self):
+        """A map that quietly stops naming a file is the same defect as one
+        that names a wrong number, and harder to see. `score.py` arrived and
+        four modules left in one change; nothing but this would have said so.
+
+        Dunders are excluded: `__init__.py` and `__main__.py` are three and
+        four lines of plumbing, and listing them tells a reader nothing.
+        """
+        listed = {name for name, _ in self._rows()}
+        actual = set()
+        for name in os.listdir(os.path.join(self.ROOT, "chromedrift")):
+            if name.startswith("__"):
+                continue
+            if name.endswith(".py"):
+                actual.add(name)
+            elif os.path.isdir(os.path.join(self.ROOT, "chromedrift", name)):
+                actual.add(name + "/")
+        self.assertEqual(sorted(listed), sorted(actual))
+
+    def _rows(self):
+        return re.findall(r"(?m)^  ([a-z_]+\.py|[a-z]+/)\s+([\d.,]+)\s",
                           self._readme())
-        self.assertGreaterEqual(len(rows), 15, "source map not found in README")
+
+    def test_the_source_map_matches_the_source(self):
+        rows = self._rows()
+        self.assertTrue(rows, "source map not found in README")
         wrong = []
         for name, stated in rows:
             actual = self._lines_of(name)
@@ -3018,7 +2462,7 @@ class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
 class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
     """A guard decides whether a declaration is in the binary we ship.
 
-    Only `base::Feature` recorded one, so the fork shadow analysis could see
+    Only `base::Feature` recorded one, so the comparison could see
     11% of the surface and none of the preference keys -- the thing the README
     calls the most expensive to get wrong. Resolving the guard for Windows also
     gives the scoring stage something to act on: 115 keys at M151 are not in a
@@ -3059,13 +2503,13 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
 
     def test_an_elif_branch_carries_the_branches_above_it(self):
         from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
-        source = ('#if defined(ACME_X)\nA\n'
+        source = ('#if defined(ENABLE_X)\nA\n'
                   '#elif BUILDFLAG(IS_WIN)\nB\n#else\nC\n#endif\n')
         spans = conditional_spans(source)
         self.assertEqual(enclosing_conditions(spans, source.index("\nB") + 1),
-                         ["!(defined(ACME_X))", "BUILDFLAG(IS_WIN)"])
+                         ["!(defined(ENABLE_X))", "BUILDFLAG(IS_WIN)"])
         self.assertEqual(enclosing_conditions(spans, source.index("\nC") + 1),
-                         ["!(defined(ACME_X))", "!(BUILDFLAG(IS_WIN))"])
+                         ["!(defined(ENABLE_X))", "!(BUILDFLAG(IS_WIN))"])
 
     def test_a_plain_else_is_unchanged(self):
         from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
@@ -3082,65 +2526,23 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
         self.assertIsNone(eval_grit_condition("_google_chrome"))
 
     def test_a_control_grit_excludes_is_scored_down(self):
-        from chromedrift.impact import NOT_COMPILED_PENALTY, score_change
+        from chromedrift.score import score_change
         from chromedrift.model import Change
         change = Change(change_type="modified", kind="webui_control",
                         key="k", name="k",
+                        before={"platform_state": {"windows": "not_compiled"}},
                         after={"platform_state": {"windows": "not_compiled"}})
-        finding = score_change(change, TouchSet())
-        self.assertTrue(any(str(NOT_COMPILED_PENALTY) in r
-                            for r in finding.reasons), finding.reasons)
-
-
-class TestShadowAnalysisSeesEveryGuard(unittest.TestCase):
-    """A vendor guard is a vendor guard in either dialect.
-
-    `_vendor_guards` read `conditions` only, which `base_features` alone
-    recorded. The `-si` filename marker in the shipped profile points at a
-    settings template, whose guard is a GRIT `<if expr>` under
-    `build_conditions` -- so the one example the documentation gives was the
-    one shape the analysis could not see.
-    """
-
-    def _markers(self):
-        from chromedrift.coverage import VendorMarkers
-        return VendorMarkers.from_profile(
-            {"vendor_markers": {"macros": ["ACME"]}})
-
-    def _guards(self, attrs):
-        from chromedrift.coverage import _vendor_guards
-        from chromedrift.model import Fact
-        return _vendor_guards(Fact("pref", "k", "k", attrs=attrs), self._markers())
-
-    def test_a_cpp_guard_is_found(self):
-        self.assertEqual(self._guards({"conditions": ["defined(ACME_A)"]}),
-                         ["defined(ACME_A)"])
-
-    def test_a_grit_guard_is_found(self):
-        self.assertEqual(self._guards({"build_conditions": ["acme_custom"]}),
-                         ["acme_custom"])
-
-    def test_an_upstream_platform_guard_is_not_ours(self):
-        self.assertEqual(self._guards({"conditions": ["BUILDFLAG(IS_WIN)"],
-                                       "build_conditions": ["is_win"]}), [])
-
-    def test_a_guarded_pref_reads_as_shadowed(self):
-        from chromedrift.coverage import SHADOWED, analyze
-        from chromedrift.model import Fact, Snapshot
-        upstream = Snapshot(ref="up", facts=[Fact("pref", "a.b", "a.b",
-                                                  attrs={"var": "kA"})])
-        fork = Snapshot(ref="fork", facts=[
-            Fact("pref", "a.b", "a.b",
-                 attrs={"var": "kA", "conditions": ["defined(ACME_A)"]})])
-        report = analyze(fork=fork, upstream=upstream, markers=self._markers())
-        self.assertEqual([v.state for v in report.verdicts], [SHADOWED])
+        finding = score_change(change)
+        self.assertEqual(finding.score, 0)
+        self.assertTrue(any("not compiled" in r for r in finding.reasons),
+                        finding.reasons)
 
 
 class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     """A row with a severity and a blank reason column is unreadable.
 
     An attribute in `MEANINGFUL_ATTRS` is there because someone decided a
-    change to it carries downstream meaning. If it then moves and the report
+    change to it carries meaning. If it then moves and the report
     says nothing about what moved, the reader has to open the source. Measured
     M148 -> M151, 380 of 709 modified changes arrived that way, including a
     preference whose C++ constant had been renamed.
@@ -3305,7 +2707,7 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
     argument the scoring stage uses to rank symbol evidence above path
     evidence. Four of the thirteen kinds set no line at all (every Mojo method,
     every IDL member, every Blink flag, every chrome://flags entry: 20,844 of
-    36,356 facts), a fifth set one that was wrong, and nothing downstream read
+    36,356 facts), a fifth set one that was wrong, and nothing further along read
     the field anyway.
     """
 
@@ -3411,7 +2813,7 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
                         signals=["ipc_signature_change"], severity=80)
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=change, score=80,
-                                          bucket="review")])
+                                          bucket="behaviour")])
         self.assertIn("a/b.mojom:41", md_report.render(report))
         self.assertIn("a/b.mojom:41", html_report.render(report))
 
@@ -3423,7 +2825,7 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
             "change": {"change_type": "modified", "kind": "mojo_method",
                        "key": "k", "name": "Y", "paths": ["a/b.mojom"],
                        "signals": [], "severity": 80},
-            "score": 80, "bucket": "review"}]}
+            "score": 80, "bucket": "behaviour"}]}
         text = md_report.render(Report.from_dict(blob))
         self.assertIn("a/b.mojom", text)
 
@@ -3503,19 +2905,6 @@ class TestEveryTreeWalkIsSorted(unittest.TestCase):
                     if "dirnames[:]" in line and "= sorted" not in line:
                         offenders.append(f"{os.path.basename(path)}:{lineno}")
         self.assertEqual(offenders, [])
-
-    def test_discover_splits_the_worklist_the_way_extraction_reads(self):
-        """A vendor file under a test directory is not a missing target."""
-        from chromedrift.discover import _readable_by_any_extractor
-
-        self.assertTrue(_readable_by_any_extractor(
-            "chrome/browser/acme/acme_features.cc"))
-        self.assertFalse(_readable_by_any_extractor(
-            "chrome/browser/acme/test/acme_features.cc"),
-            "extraction skips it, so adding a target would not fix anything")
-        self.assertFalse(_readable_by_any_extractor(
-            "chrome/browser/acme/toolbar.grd"))
-
 
 class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
     """A row reading `id:cancelButton` answers none of the reader's questions.
@@ -3612,7 +3001,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         from chromedrift.report import markdown as md_report
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=self._control(), score=30,
-                                          bucket="review")])
+                                          bucket="behaviour")])
         md = md_report.render(report)
         self.assertIn("What changed on each screen", md)
         # The page answers the same question per row, in the Where column: a
@@ -3629,7 +3018,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         from chromedrift.report import html as html_report
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=self._control(), score=30,
-                                          bucket="review")])
+                                          bucket="behaviour")])
         row = html_report._to_rows(report, "windows")[0]
         self.assertEqual(row["change_type"], "added")
         self.assertEqual(row["where"], "settings › privacy_page")
@@ -3640,7 +3029,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         from chromedrift.report import markdown as md_report
         flag = Change(change_type="added", kind="base_feature", key="F", name="F")
         report = Report(from_ref="a", to_ref="b",
-                        findings=[Finding(change=flag, score=20, bucket="fyi")])
+                        findings=[Finding(change=flag, score=20, bucket="housekeeping")])
         self.assertNotIn("What changed on each screen", md_report.render(report))
 
 
@@ -3745,7 +3134,7 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         from chromedrift.report import markdown as md_report
         report = Report(from_ref="a", to_ref="b", findings=[
             Finding(change=self._change(signals=["enabled_by_default"]),
-                    score=75, bucket="review")])
+                    score=75, bucket="behaviour")])
         md = md_report.render(report)
         html_text = html_report.render(report)
         for text in (md, html_text):
@@ -3767,10 +3156,10 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
         report = Report(from_ref="a", to_ref="b", findings=[
             Finding(change=self._change(key="a", signals=["enabled_by_default"]),
-                    score=75, bucket="review"),
+                    score=75, bucket="behaviour"),
             Finding(change=self._change(key="b", kind="flag_entry",
                                         change_type="removed"),
-                    score=30, bucket="fyi")])
+                    score=30, bucket="housekeeping")])
         text = html_report.render(report)
         rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
                                     text, re.S).group(1))
@@ -3829,7 +3218,7 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         change.deltas = {"signature": ["uint32 a, " * 60, "uint32 b, " * 60]}
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=change, score=80,
-                                          bucket="review")])
+                                          bucket="behaviour")])
         row = html_report._to_rows(report, "windows")[0]
         self.assertLessEqual(len(row.get("moved", "")), 80)
         # The full value stays one click away.
@@ -3883,11 +3272,113 @@ class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
         self.assertEqual(offenders, [])
 
 
+class TestTheDocumentedReasoningIsTheRealReasoning(unittest.TestCase):
+    """The reason lines quoted in the docs must be lines the scorer emits.
+
+    Both documents print a sample of a finding's `reasons` to explain what the
+    two numbers mean, and a sample is a second copy of a string the code owns.
+    It drifted within an hour of being written: the wording gained a clause
+    saying which bucket an unconfirmed disappearance is filed under, and the
+    two documents still showed the sentence without it.
+
+    Whitespace is normalised because the documents wrap for width; every other
+    character has to match.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DOCS = ("README.md", "skills/analyzing-chromium-uprevs/reference/signals.md")
+
+    @staticmethod
+    def _flat(text):
+        return " ".join(text.split())
+
+    def _real_reasons(self):
+        """Every reason line the scorer produces for the documented cases."""
+        from chromedrift.model import Fact
+        from chromedrift.score import Scope, score_change
+
+        partial = Scope({"to": {"candidates": 1164, "read": 64}},
+                        to_ref="refs/tags/151.0.7922.138")
+        key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
+                   attrs={"var": "kAB"})
+        api = Fact(kind="idl_interface", key="Foo", name="Foo",
+                   path="third_party/blink/renderer/core/foo.idl",
+                   attrs={"idl_kind": "interface"})
+        out = []
+        for fact in (key, api):
+            change = diff_snapshots(snap("148.0.0.0", [fact]),
+                                    snap("151.0.0.0", []),
+                                    platform="windows")[0]
+            out += score_change(change, partial).reasons
+        # A default flipping on, which loses nothing and so shows the shape of
+        # a finding whose score is its severity.
+        flip = diff_snapshots(snap("148.0.0.0", [feature("Foo", "disabled")]),
+                              snap("151.0.0.0", [feature("Foo", "enabled")]),
+                              platform="windows")[0]
+        out += score_change(flip, partial).reasons
+        return {self._flat(r) for r in out}
+
+    def test_every_quoted_reason_line_is_one_the_scorer_emits(self):
+        real = self._real_reasons()
+        quoted = []
+        for doc in self.DOCS:
+            with open(os.path.join(self.ROOT, doc), encoding="utf-8") as fh:
+                text = fh.read()
+            # Fenced blocks whose first line starts a reason line.
+            for block in re.findall(r"(?ms)^```\n(severity \d+ .*?)^```", text):
+                for chunk in re.split(r"(?m)^(?=severity \d+ |-\d+ |0 )", block):
+                    if chunk.strip():
+                        quoted.append((doc, self._flat(chunk)))
+        self.assertTrue(quoted, "no sample reason block found in the docs")
+        wrong = [f"{doc}: {line[:90]}" for doc, line in quoted if line not in real]
+        self.assertEqual(wrong, [], "documented reason lines the scorer never emits")
+
+
+class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):
+    """No Vietnamese left in anything a reader or an agent opens.
+
+    The documents were written in Vietnamese and translated, and the
+    translation was reported complete twice while `pipeline.html` still held
+    six of them: a CSS comment and five strings inside the interactive
+    comparison widget, which a reader sees rendered on the page rather than in
+    the prose anyone proof-read. A grep is the only thing that finds those.
+
+    Diacritics are the test rather than a word list, because they are what
+    Vietnamese has and English does not, and no identifier in this project
+    carries one.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    MARKS = re.compile(
+        "[\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5"
+        "\u00f9\u00fa\u00fd\u0103\u0111\u0129\u0169\u01a1\u01b0"
+        "\u1ea0-\u1ef9]", re.I)
+
+    def _shipped_files(self):
+        import glob
+        for pattern in ("README.md", "docs/*.html", "skills/**/*.md",
+                        "chromedrift/**/*.py", "tests/*.py", "tests/js/*.js"):
+            for path in glob.glob(os.path.join(self.ROOT, pattern),
+                                  recursive=True):
+                yield path
+
+    def test_no_document_or_source_carries_vietnamese(self):
+        offenders = []
+        for path in sorted(self._shipped_files()):
+            with open(path, encoding="utf-8") as fh:
+                for n, line in enumerate(fh, 1):
+                    if self.MARKS.search(line):
+                        rel = os.path.relpath(path, self.ROOT)
+                        offenders.append(f"{rel}:{n}  {line.strip()[:70]}")
+        self.assertEqual(offenders, [])
+
+
 class TestEveryFlagIsActedOn(unittest.TestCase):
     """A command must not accept a flag it then ignores.
 
     Every subcommand used to inherit one shared parent parser, so `catalog`
-    advertised --local-src, --refresh and --mode and did nothing with any of
+    advertised --local-src, --refresh and (while it existed) --mode, and did
+    nothing with any of
     them, and `discover` advertised eight it ignored. The worst of those was
     --complete: catalog took it, dropped it, and measured the run against the
     curated file list that --complete exists to replace -- reporting as

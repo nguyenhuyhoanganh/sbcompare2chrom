@@ -3,13 +3,17 @@
 Every finding carries one or more signals. The signal, not the score, tells you
 what actually happened. Read this column first.
 
+One of them is the **leading signal** — the one with the highest severity — and
+it does two jobs: it sets the finding's severity, and it decides which of the
+four buckets the finding is filed under. So the sentence a row is filed by is
+always the sentence it was ranked by.
+
 ## Contents
 
 - Behaviour changed
 - Behaviour unchanged (cleanup)
 - Silent breaks
 - Structural
-- Fork-comparison signals (`--mode fork`)
 - Bucket meanings
 - Scoring
 
@@ -39,8 +43,9 @@ second says what our users get.
 ## Behaviour unchanged (cleanup)
 
 The largest group in a typical report, and the most misread. **None of these
-changes behaviour.** They matter only if the fork references the symbol — in
-which case the build breaks or an override silently stops applying.
+changes what anybody sees.** They matter only to something that was setting the
+flag from outside the binary — a server-side Finch config, an
+`--enable-features` command line — which silently stops having an effect.
 
 | Signal | Meaning |
 |---|---|
@@ -59,6 +64,12 @@ Measured evidence for why this distinction exists:
 - **M139 → M143, Blink**: of 202 runtime features that disappeared, **170 had
   been `stable`** — retired after shipping, not removed capability.
 
+That is also why all three retirements are filed under **Housekeeping** rather
+than under Breaking. It is the single most consequential row in the bucket
+table: put them in Breaking and half of it is noise on every run.
+`feature_deleted` is the exception and goes to **Behaviour change**, precisely
+because the tool could not read the prior state and so cannot rule one out.
+
 ## Silent breaks
 
 Compile cleanly, pass tests, fail in the field. The most expensive class to
@@ -71,8 +82,10 @@ discover late, because nothing warns you.
 | `pref_renamed` | A preference key changed. Every existing user's stored value is orphaned and the setting quietly resets |
 | `switch_renamed` | Command-line switch renamed. Launch scripts and automation stop taking effect |
 | `pref_symbol_renamed` | The key held; its C++ constant was renamed. Stored values are safe, but code writing `prefs::kOldName` stops compiling after the merge |
-| `switch_symbol_renamed` | Same for a switch: launch scripts keep working, our build does not |
-| `origin_trial_change` | Origin trial wiring changed |
+| `switch_symbol_renamed` | Same for a switch: launch scripts keep working, a build against it does not |
+| `param_removed` | A feature parameter is gone. Anything still setting it — a Finch config most often — silently stops having an effect |
+| `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
+| `ui_control_repointed` | The control now writes a different preference; the old one is orphaned, exactly as in a rename |
 
 Always check these against things the tool cannot see: Finch configs, launch
 scripts, CI automation, QA harnesses.
@@ -81,14 +94,22 @@ scripts, CI automation, QA harnesses.
 
 | Signal | Meaning |
 |---|---|
-| `pref_left_scan` | A preference key is no longer in the one `pref_names.h` file this tool reads. It was either deleted — orphaning every user's stored value — or moved into one of the ~100 other `pref_names.h` files outside the scan |
+| `pref_left_scan` | A preference key is no longer in any file this run read. It was either deleted — orphaning every user's stored value — or moved into a file outside the scan |
 | `switch_left_scan` | Same, for a command-line switch |
 
 **These two are deliberately uncertain, and the uncertainty is the finding.**
 Chromium is actively splitting `chrome/common/pref_names.h` apart: 4,322 lines
 at M143, 3,267 at M151. Measured across M143 → M148 → M151 that produced **337
-disappearances**, and the tool cannot tell a deletion from a move because it
-reads 1 of the ~100 non-ChromeOS `pref_names.h` files.
+disappearances**, and on the default target set the tool reads 1 of the ~100
+non-ChromeOS `pref_names.h` files.
+
+**How much of the tree the run read decides how these are filed.** A run that
+read the whole tree can call a disappearance a disappearance, so they are filed
+under **Breaking** at full severity. A run that did not is filed under
+**Housekeeping** with 15 points off, and the finding says so in its own
+reasons. Measured on the same pair of versions: `default` reads 5% of the tree
+and produces 139 of these in Housekeeping at 20 points; `wide` reads 100% and
+produces 171 in Breaking at 35.
 
 Resolve one by searching the current Chromium tree for the key string. Found
 elsewhere means it moved and there is nothing to do; genuinely absent means
@@ -104,76 +125,85 @@ either outcome until you have looked.
 | `ui_page_regated` | The page is now shown under a different flag. The user-visible switch happened when that flag flipped, usually earlier |
 | `ui_page_moved` | The page's URL or parent route changed |
 | `ui_control_type_changed` | A control changed type, e.g. dropdown became a toggle |
-| `ui_control_repointed` | The control now writes a different preference; the old one is orphaned |
 | `ui_control_added` / `ui_control_removed` | A control appeared or disappeared on a page |
 | `ui_gate_changed` / `ui_gate_removed` / `ui_gate_added` | The condition deciding a page's visibility moved, went away, or appeared |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
-| `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
 | `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — future forced work |
 | `flag_expiry_moved` | The removal date moved further out. Scheduling on a settings page, not a feature change — the largest single group in most reports |
 | `build_gate_changed` | The `#if` or GRIT `<if>` around a declaration moved, so it may no longer be in the binary we ship |
+| `origin_trial_change` | Origin trial wiring changed: who may turn the feature on from outside the binary |
 | `web_api_exposure_changed` | An IDL extended attribute or the `[RuntimeEnabled]` flag gating a member moved: who can reach the API changed |
 | `web_api_shape_changed` | An interface's inheritance or an enum's member list moved |
 | `web_api_status_moved` | A Blink flag moved between `test` and `experimental`. Never reached stable, so users see nothing |
 | `runtime_flag_rewired` | The `base::Feature` behind a Blink flag, what it depends on, or its visibility changed. `base_feature: none` means the C++ flag that controlled it is gone |
-| `ui_control_relabelled` | A control's label changed |
+| `ui_control_relabelled` | A control's label key changed. The tool reads the key, never the display string — that lives in a `.grd` it does not open — so it cannot say whether anyone sees a difference |
 
 Everything the comparison treats as meaningful produces one of these rows. That
 is a rule, not an aspiration: an attribute in `MEANINGFUL_ATTRS` was put there
-because someone decided it carries downstream meaning, so a change to it that
+because someone decided its movement means something, so a change to it that
 arrives with a severity and a blank reason column is unreadable — the reader has
 to open the source to find out what moved. Measured M148 → M151, **380 of 709
 modified changes used to arrive that way**; a test now asserts none do.
 
-## Fork-comparison signals (`--mode fork`)
-
-A different run entirely: upstream Chromium against **our fork at the same
-milestone**, rather than upstream against its own future. Direction is fixed as
-upstream → fork, so these signals describe what *we* did, not what Chromium did.
-An uprev signal never appears in a fork report and vice versa.
-
-| Signal | Meaning |
-|---|---|
-| `fork_dropped` | We removed something upstream still has. **The next rebase brings it back** unless a patch carries the removal |
-| `fork_added` | We have something upstream does not. Our own divergence, already shipped, to be carried through every future merge |
-| `fork_default_override` | We ship a different default from upstream. A rebase can silently revert it |
-| `fork_modified` | Our declaration differs from upstream's in some other way |
-| `fork_ui_removed` / `fork_ui_added` | We removed or added a page or control |
-
-The hard question these cannot answer on their own is whether a difference is a
-*decision* or *debt* — someone chose it, or a merge quietly dropped it. Two-way
-comparison cannot tell them apart. `chromedrift provenance` can, by comparing
-the fork against the series of upstream versions it was merged from: matching an
-older version exactly means stale, not decided. Read that report alongside this
-one.
+A change can also carry **no signal at all**, and about a third of a report
+does: 903 of 2,800 findings at M148 → M151, almost all of them things that
+simply appeared. There the direction and the kind are the whole story, and the
+report writes them as one — *New feature flag*, *Removed chrome://flags entry*.
 
 ## Bucket meanings
 
-| Bucket | Uprev meaning | Fork meaning | Action |
-|---|---|---|---|
-| Must fix | We reference the symbol AND it changed | Divergence we depend on; a rebase undoes it silently | Assume work |
-| Needs review | We touch the area, or severity is high enough to confirm | Divergence with no clear owner: keep ours, or take upstream's | Triage by hand |
-| New opportunity | New capability | *Never used* — nothing in a fork comparison is an opportunity | Product decision |
-| FYI | Recorded for completeness | Same | Do not read line by line |
+Four buckets, decided by the leading signal, and every one of them is a
+statement about the change rather than about the reader.
 
-Only **symbol-level** evidence promotes a finding to Must fix. A path match
-means "somewhere in a file we also touch" — `content_features.cc` declares
-nearly 200 features, so patching it says almost nothing about which of them we
-depend on.
+| Bucket | Meaning | Action |
+|---|---|---|
+| Breaking | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | Find every place that names it |
+| Behaviour change | The Windows build behaves differently. Someone can see a difference | Confirm what the difference is |
+| New surface | Surface that did not exist before. Nothing is switched on by it on its own | Product input, not a blocker |
+| Housekeeping | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | Do not read line by line |
+
+Two rules make these hold together, and both are tested:
+
+- **Every signal names exactly one bucket**, so nothing falls through to a
+  default. A signal missing from the table would be filed by "something was
+  removed" rather than by what the removal was.
+- **A finding is filed under the sentence it is ranked by.** The leading signal
+  sets the severity and picks the bucket, so a row cannot be headlined *Flag
+  scheduled for removal* while having been ranked as *Shipped, then flag
+  retired*.
 
 ## Scoring
 
-Every finding lists the reasons behind its score, for example:
+Two numbers, and the gap between them is the whole point.
+
+**Severity** is what this kind of change costs, and it comes from the leading
+signal. When there is no signal, and only then, it comes from a coarse prior on
+the kind and the direction. That order matters: the prior used to win whenever
+it was higher, so a Mojo method whose mojom build condition moved was ranked 75
+— identical to one whose signature moved — because `(mojo_method, modified)` is
+75 and `build_gate_changed` is 35.
+
+**Score** is that after two facts about this particular run:
+
+- **A declaration Chromium keeps out of the Windows build on both sides scores
+  zero.** It cannot move anything here. One that *enters or leaves* the build
+  keeps its full severity — that is the change.
+- **An unconfirmed removal loses 15.** See `pref_left_scan` above.
+
+**Nothing raises a score.** Severity is the ceiling, and every point below it
+has a sentence beside it on the finding:
 
 ```
-base severity 75 (modified base_feature)
-  | +12 we patch 1 of the declaring file(s): content/public/common/content_features.cc
-  | +30 our source references ServiceWorkerAutoPreload, kServiceWorkerAutoPreload
-  | +16 owned area 'Browser UI' (weight 80)
+severity 35 — Preference no longer in the file we read — it may have been
+    deleted, orphaning stored values, or simply moved to one of the ~100
+    pref files outside the scan
+-15 unconfirmed: this run read 5% of the tree at refs/tags/151.0.7922.138,
+    so "gone" may mean "moved into a file we never opened"; filed as
+    housekeeping rather than breaking — --target-set wide settles it
 ```
 
-Argue with the score when it is wrong. To change ranking permanently, edit
-`BASE_SEVERITY` and `SIGNAL_SEVERITY` in `chromedrift/diff.py`, or the bonus
-constants and `_bucket` in `chromedrift/impact.py`. Both are plain data, not
+Argue with the score when it is wrong. To change the ranking permanently, edit
+`SIGNAL_SEVERITY`, `BASE_SEVERITY` or `SIGNAL_BUCKET` in `chromedrift/diff.py`,
+or the two constants in `chromedrift/score.py`. All of them are plain data, not
 logic.

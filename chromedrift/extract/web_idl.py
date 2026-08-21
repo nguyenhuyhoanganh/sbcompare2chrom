@@ -18,7 +18,6 @@ does not understand rather than failing the file.
 
 from __future__ import annotations
 
-import os
 import re
 from typing import Dict, List, Optional, Tuple
 

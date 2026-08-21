@@ -8,10 +8,8 @@ or per platform:
     { name: "ExampleFeature", status: {"Win": "stable", "Mac": "experimental"} }
 
 An ``experimental -> stable`` transition is a web API becoming visible to real
-users.  For a downstream browser that is simultaneously a compatibility signal
-(sites will start using it), a QA signal (it needs test coverage), and
-occasionally a conflict signal (the vendor may already ship its own
-implementation of the same API).
+users.  That is simultaneously a compatibility signal (sites will start using
+it) and a QA signal (it needs test coverage).
 """
 
 from __future__ import annotations
@@ -101,7 +99,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             "windows_status": per_platform.get("windows", ""),
         }
         # Carry through the fields that describe how the flag is wired up:
-        # these are what break downstream overrides when they change.
+        # these are what break an override of the flag when they change.
         #
         # Every field the manifest uses, not a chosen subset. The subset was
         # missing four at M151 -- `origin_trial_os` (18 entries),

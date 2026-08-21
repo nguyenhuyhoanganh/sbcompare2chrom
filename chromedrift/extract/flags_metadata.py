@@ -5,7 +5,7 @@ the milestone at which it is scheduled for removal.  That makes it the only
 source in the tree that is explicitly *about the future*: it tells a team
 which flags will disappear in the milestone after the one they are landing.
 
-For a downstream browser this converts a class of surprise breakage into
+This converts a class of surprise breakage into
 planned work -- "these 12 flags we depend on expire in M148" is a backlog item
 you can file today rather than a build failure you discover next uprev.
 """

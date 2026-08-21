@@ -4,7 +4,7 @@ The pipeline is a straight line of pure data transforms:
 
     Snapshot(ref)  ->  [Fact]         extract/*
     (Snapshot, Snapshot) -> [Change]  diff.py
-    ([Change], TouchSet) -> [Finding] impact.py
+    [Change] -> [Finding]             score.py
     [Finding] -> [Finding+context]    cluster.py, enrich/*
     [Finding] -> report               report/*
 
@@ -13,7 +13,7 @@ product is judgement, and it is left to whoever reads the report.
 
 Every stage reads and writes JSON, so any stage can be run, cached, inspected
 and re-run on its own.  That matters here because acquiring a snapshot costs
-network time while the diff/impact stages are iterated on constantly.
+network time while the diff and scoring stages are iterated on constantly.
 """
 
 from __future__ import annotations
@@ -232,7 +232,39 @@ from typing import Any, Dict, Iterable, List, Optional
 #      by name instead: the headless shell, Chrome Remote Desktop, the updater,
 #      the enterprise companion, the Windows services, and Fuchsia's own tree,
 #      which the platform rule had missed by one suffix.
-SCHEMA_VERSION = 24
+#  25: the tool compares one Chromium version against another and nothing
+#      else, and the scoring answers a different question because of it.
+#        - `--mode fork`, `--profile`, `discover` and `provenance` compared
+#          this tree against a modified copy of it, and every one of them
+#          needed a description of that copy which the tool cannot obtain on
+#          its own. Without that description the scoring
+#          degenerated: `Must fix` was unreachable by construction, and on a
+#          real M148 -> M151 run 1,384 of 2,800 findings landed in "New
+#          opportunity" because the rule for it was "anything added". A version
+#          24 report carries `areas`, `matched_paths` and `matched_symbols` on
+#          every finding, all three empty, and four bucket names that describe
+#          a workflow nothing in the tool can support.
+#        - severity comes from the signal when there is one, and from the kind
+#          and direction only when there is not. It used to be the higher of
+#          the two, so the coarse prior won whenever the precise statement was
+#          lower: a Mojo method whose mojom attributes moved scored 75, the
+#          same as one whose signature moved, because `(mojo_method, modified)`
+#          is 75 and `build_gate_changed` is 35. Measured against two real
+#          pairs, the prior overrode the signal on 267 of 2,800 findings at
+#          M148 -> M151 and 345 of 6,787 at M143 -> M151, every one of them
+#          upwards.
+#        - a declaration Chromium excludes from the Windows build on *every*
+#          side of the change scores zero rather than a fixed penalty, and one
+#          that enters or leaves the build keeps its full severity. Version 24
+#          read `after or before`, so a feature leaving our binary -- the case
+#          that costs us the feature -- was scored *down* 45 points for not
+#          being in our binary.
+#        - a removal read from a tree the run did not finish reading is
+#          discounted by the share it did not read. `pref_left_scan` exists
+#          because absence from 5% of the tree is not evidence of deletion;
+#          that reasoning applies to every removal and to every addition, and
+#          it was written into one signal's severity as a constant instead.
+SCHEMA_VERSION = 25
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -338,23 +370,6 @@ def group_of(kind: str) -> str:
 ADDED = "added"
 REMOVED = "removed"
 MODIFIED = "modified"
-
-# Two comparisons, one engine, opposite meanings.
-#
-#   uprev: upstream at time A vs upstream at time B. "Removed" means Chromium
-#          cleaned something up, which is usually harmless.
-#   fork:  upstream vs a vendor fork at the same milestone. "Removed" means the
-#          vendor deleted it -- a deliberate product decision that must survive
-#          every future rebase, and "added" is divergence to carry, not a
-#          capability on offer.
-#
-# These live here rather than in diff.py because the inversion does not stop at
-# the diff. Scoring and both renderers describe a change in words that are only
-# true for one of the two, so each of them has to be told which comparison it
-# is looking at.
-MODE_UPREV = "uprev"
-MODE_FORK = "fork"
-MODES = (MODE_UPREV, MODE_FORK)
 
 
 # ---------------------------------------------------------------------------
@@ -471,12 +486,11 @@ class Change:
     after: Optional[dict] = None
     deltas: Dict[str, List[Any]] = field(default_factory=dict)  # attr -> [old, new]
     paths: List[str] = field(default_factory=list)
-    # "path:line" per side. Separate from `paths` because a downstream profile
-    # matches path prefixes against that list, and because a reader needs the
+    # "path:line" per side. Separate from `paths` because a reader needs the
     # place, not just the file: content_features.cc declares nearly two hundred
-    # features, which is the same reason symbol evidence outranks path evidence
-    # when scoring. Every extractor had been computing a line number and
-    # nothing carried it past the snapshot.
+    # features, so citing it leaves the reader to do the finding. Every
+    # extractor had been computing a line number and nothing carried it past
+    # the snapshot.
     locations: List[str] = field(default_factory=list)
     signals: List[str] = field(default_factory=list)
     severity: int = 0
@@ -518,33 +532,65 @@ class Change:
 
 
 # ---------------------------------------------------------------------------
-# Findings (change + downstream impact + optional AI verdict)
+# Findings (a change, ranked)
 # ---------------------------------------------------------------------------
 
-BUCKET_MUST_FIX = "must_fix"
-BUCKET_REVIEW = "review"
-BUCKET_OPPORTUNITY = "opportunity"
-BUCKET_FYI = "fyi"
+# Four buckets, and every one of them is decidable from the change itself.
+#
+# The previous four -- Must fix / Needs review / New opportunity / FYI -- asked
+# "what does this cost *us*", which needs a description of what "us" is. That
+# description came from a profile naming a second, modified tree, and with
+# that gone the question has no answer: `Must fix` required symbol evidence, so it
+# was unreachable, and `New opportunity` was "anything added", so it took 1,384
+# of 2,800 findings on a real M148 -> M151 run. A bucket that cannot be filled
+# and a bucket that takes half the report are the same failure.
+#
+# These four answer the question the tool can actually answer -- **what kind of
+# thing happened** -- and they come from the signal that set the severity, so a
+# finding is filed under the sentence it is ranked by.
+BUCKET_BREAKING = "breaking"
+BUCKET_BEHAVIOUR = "behaviour"
+BUCKET_NEW = "new"
+BUCKET_HOUSEKEEPING = "housekeeping"
 
-BUCKET_ORDER = [BUCKET_MUST_FIX, BUCKET_REVIEW, BUCKET_OPPORTUNITY, BUCKET_FYI]
+BUCKET_ORDER = [BUCKET_BREAKING, BUCKET_BEHAVIOUR, BUCKET_NEW,
+                BUCKET_HOUSEKEEPING]
 
 BUCKET_LABELS = {
-    BUCKET_MUST_FIX: "Must fix",
-    BUCKET_REVIEW: "Needs review",
-    BUCKET_OPPORTUNITY: "New opportunity",
-    BUCKET_FYI: "FYI",
+    BUCKET_BREAKING: "Breaking",
+    BUCKET_BEHAVIOUR: "Behaviour change",
+    BUCKET_NEW: "New surface",
+    BUCKET_HOUSEKEEPING: "Housekeeping",
+}
+
+BUCKET_MEANINGS = {
+    BUCKET_BREAKING: "Something outside the binary stops working, and nothing "
+                     "warns you: stored user data, launch scripts, Finch "
+                     "configs, live websites, the other process.",
+    BUCKET_BEHAVIOUR: "The Windows build behaves differently after this. "
+                      "Someone can see a difference.",
+    BUCKET_NEW: "Surface that did not exist before. Nothing is switched on by "
+                "it on its own.",
+    BUCKET_HOUSEKEEPING: "Chromium tidying up after itself, and scheduling. "
+                         "Nothing observable moved, or the tool cannot tell "
+                         "that anything did.",
 }
 
 
 @dataclass
 class Finding:
+    """A change plus its rank, and the reasons behind the rank.
+
+    ``reasons`` is not decoration. The rank decides what a reader sees first,
+    which is the whole value of it, so a reader has to be able to see why a row
+    is where it is and argue with it. A ranking nobody can audit gets ignored
+    the first time it is wrong.
+    """
+
     change: Change
-    areas: List[str] = field(default_factory=list)
-    matched_paths: List[str] = field(default_factory=list)
-    matched_symbols: List[str] = field(default_factory=list)
     reasons: List[str] = field(default_factory=list)
     score: int = 0
-    bucket: str = BUCKET_FYI
+    bucket: str = BUCKET_HOUSEKEEPING
     enrichment: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -554,9 +600,6 @@ class Finding:
     def to_dict(self) -> dict:
         return {
             "change": self.change.to_dict(),
-            "areas": self.areas,
-            "matched_paths": self.matched_paths,
-            "matched_symbols": self.matched_symbols,
             "reasons": self.reasons,
             "score": self.score,
             "bucket": self.bucket,
@@ -567,19 +610,16 @@ class Finding:
     def from_dict(cls, d: dict) -> "Finding":
         return cls(
             change=Change.from_dict(d["change"]),
-            areas=d.get("areas", []) or [],
-            matched_paths=d.get("matched_paths", []) or [],
-            matched_symbols=d.get("matched_symbols", []) or [],
             reasons=d.get("reasons", []) or [],
             score=d.get("score", 0),
-            bucket=d.get("bucket", BUCKET_FYI),
+            bucket=d.get("bucket", BUCKET_HOUSEKEEPING),
             enrichment=d.get("enrichment", {}) or {},
         )
 
 
 @dataclass
 class Report:
-    """Full pipeline output for one uprev (from_ref -> to_ref)."""
+    """Full pipeline output for one comparison (from_ref -> to_ref)."""
 
     from_ref: str
     to_ref: str
@@ -595,35 +635,6 @@ class Report:
 
     def by_bucket(self, bucket: str) -> List[Finding]:
         return [f for f in self.findings if f.bucket == bucket]
-
-    def filtered(self, area: Optional[str]) -> "Report":
-        """A view of this report narrowed to one area.
-
-        Filtering happens here, at render time, and never before analysis:
-        the JSON always holds every finding, so slicing per team costs nothing
-        and cannot hide anything. Pass ``"_unassigned"`` for the leftover.
-        """
-        if not area:
-            return self
-        if area == "_unassigned":
-            keep = [f for f in self.findings if not f.areas]
-        else:
-            keep = [f for f in self.findings if area in f.areas]
-        return Report(
-            from_ref=self.from_ref,
-            to_ref=self.to_ref,
-            findings=keep,
-            summary=dict(self.summary, filtered_to_area=area,
-                         filtered_from_total=len(self.findings)),
-            meta=self.meta,
-        )
-
-    def known_areas(self) -> List[str]:
-        seen: Dict[str, int] = {}
-        for f in self.findings:
-            for a in f.areas:
-                seen[a] = seen.get(a, 0) + 1
-        return [a for a, _ in sorted(seen.items(), key=lambda kv: -kv[1])]
 
     def to_dict(self) -> dict:
         return {

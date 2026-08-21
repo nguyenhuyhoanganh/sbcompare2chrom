@@ -379,9 +379,13 @@ h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
   margin-top:13px;font-size:.8rem;font-weight:650;padding:7px 10px;border-radius:8px;
   transition:background .25s,color .25s;
 }
-.b-fyi{background:var(--panel);color:var(--muted)}
-.b-review{background:var(--brass-soft);color:var(--brass)}
-.b-must{background:var(--clay-soft);color:var(--clay)}
+/* Inside a table cell the pill is inline, and a two-word label wrapping splits
+   the background across two boxes with the corners in the wrong places. */
+td .bucket{display:inline-block;margin-top:0;white-space:nowrap}
+.b-quiet{background:var(--panel);color:var(--muted)}
+.b-new{background:var(--flow-soft);color:var(--flow)}
+.b-behaviour{background:var(--brass-soft);color:var(--brass)}
+.b-breaking{background:var(--clay-soft);color:var(--clay)}
 .reasons{margin-top:13px;display:grid;gap:5px;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
 .reasons div{background:var(--panel-2);border-radius:7px;padding:6px 10px}
 
@@ -396,7 +400,7 @@ footer{
   color:var(--muted);font-size:.82rem;display:grid;gap:6px;
 }
 
-/* ── Xuất hiện khi cuộn tới ───────────────────────────────── */
+/* ── Appears on scroll ────────────────────────────────────── */
 .reveal{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
 .reveal.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){
@@ -415,18 +419,18 @@ footer{
 
 <header class="hero">
   <div class="eyebrow">chromedrift · pipeline documentation</div>
-  <h1>Comparing two Chromium versions:<br>what changed, and what it does to us</h1>
+  <h1>Comparing two Chromium versions:<br>what changed, and how much it costs</h1>
   <p class="lede">
-    Every <b>uprev</b> — moving our fork onto a newer Chromium — the team has to
-    answer two questions: <b>what did Chromium change?</b> and <b>which of those
-    changes touch our product?</b>
+    Every <b>uprev</b> — moving onto a newer Chromium — someone has to answer two
+    questions: <b>what did Chromium change?</b> and <b>which of those changes are
+    worth reading?</b>
   </p>
   <p class="lede">
     Running <code>git diff</code> between two versions produces several million
     lines, almost none of which answer either question. <b>chromedrift</b> takes a
     different route: it does not read the code, it reads only the <b>declaration
     files</b> — the places where Chromium lists what it has, in a machine-readable
-    form — and matches that list against the parts the fork actually touches.
+    form — labels every difference with what it means, and ranks the labels.
   </p>
   <p class="lede">
     This document walks the whole process, from two version numbers going in to the
@@ -607,7 +611,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
               automatically, without looking at a screenshot. Second, the
               <code>pref=</code> attribute <b>links the control straight to the pref
               underneath it</b>; that is the strongest declared link between the UI and
-              the browser core, and it survives a fork replacing the entire UI, because
+              the browser core, and it survives a redesign of the page, because
               the pref underneath does not change.
             </p>
           </div>
@@ -672,107 +676,122 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <div class="step">
         <div class="nm">signal<span>what it means</span></div>
         <div class="tx">
-          The label explaining what that difference means, with a minimum severity.
-          Here: <em>“default flipped on for Windows”</em>, severity <b>75</b>.
-          A change can carry several signals; the severity is the highest of them.
+          The label explaining what that difference means, and the severity it
+          carries. Here: <em>“default flipped on for Windows”</em>, severity
+          <b>75</b>. A change can carry several signals; the heaviest one is the
+          leading signal, and it sets both the severity and the bucket.
         </div>
       </div>
       <div class="step">
-        <div class="nm">finding<span>does it concern us</span></div>
+        <div class="nm">finding<span>ranked, and filed</span></div>
         <div class="tx">
-          A change plus the answer to <em>“does our fork's source touch this?”</em>.
-          Here that is <b>nothing found</b>, so the score stays at 75 and the item
-          lands in <b>Needs review</b>. This is what appears in the report.
+          A change plus a score and a bucket. The declaration is in the Windows
+          build and this is not a removal, so nothing is deducted: the score
+          stays at <b>75</b> and it is filed under <b>Behaviour change</b>. This
+          is what appears in the report.
         </div>
       </div>
     </div>
 
-    <h3 class="sub">Three kinds of change, and the trap in reading them</h3>
+    <h3 class="sub">Three kinds of change</h3>
     <p>
-      The tool runs in two modes. <b>uprev</b> mode compares two Chromium versions
-      over time. <b>fork</b> mode compares upstream Chromium against our fork at the
-      same version. The same kind of change means <b>opposite things</b> in the two modes.
+      Every difference is one of three, and what each one means is not symmetric —
+      the third is the only one seen from both sides.
     </p>
     <div class="tablewrap">
       <table>
         <thead>
-          <tr><th>Kind</th><th>Literally</th>
-              <th>In uprev mode</th><th>In fork mode</th></tr>
+          <tr><th>Kind</th><th>Literally</th><th>What it means</th></tr>
         </thead>
         <tbody>
           <tr>
             <td class="mono"><b>added</b></td>
             <td>Present on the right, absent on the left</td>
-            <td>Chromium just added it. Something we might consider adopting.</td>
-            <td>Our fork added it. It is our customization, <b>to be carried through every merge</b>, not something to consider adopting.</td>
+            <td>Chromium added it. New surface — nothing is switched on by it on its own.</td>
           </tr>
           <tr>
             <td class="mono"><b>removed</b></td>
             <td>Present on the left, absent on the right</td>
-            <td>Chromium just removed it. Usually cleanup after a feature shipped.</td>
-            <td><b>We</b> deleted it, not Chromium. The next merge puts it back unless a patch keeps it out.</td>
+            <td>Chromium removed it — <b>or</b> moved it into a file this run never opened. Which of those it is depends on how much of the tree was read, and the score says so.</td>
           </tr>
           <tr>
             <td class="mono"><b>modified</b></td>
             <td>Same name, different value</td>
             <td>Chromium changed the value. If it is a default state, users see something different.</td>
-            <td>Our value differs from upstream's. The question is: deliberate, or missed in a merge?</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      The last column is not a rewording of the one beside it. In fork mode,
-      <code>removed</code> means <b>we deleted it</b>. Reading it with uprev meanings
-      gives exactly the opposite conclusion, which is why the report always states
-      the mode in its title.
+      <b>A removal is an inference from absence, and the other two are not.</b> Both
+      sides of a modification were read; an addition is a thing seen. A removal is a
+      thing <em>not</em> seen, which on a run covering 5% of the tree is a much weaker
+      claim than on one covering all of it. Measured M148 → M151: of 141 preference
+      keys that vanished, 100 had simply moved into a file the run never opened.
     </div>
 
     <h3 class="sub">The four buckets in the report</h3>
     <p>
-      Every finding lands in one bucket. What decides the bucket is <b>evidence</b>,
-      not severity: a very severe change that the fork does not touch at all still
-      cannot reach the top bucket.
+      Every finding lands in one bucket, and the bucket is decided by the
+      <b>leading signal</b> — the same one that set the severity. So a row is filed
+      under the sentence it was ranked by, rather than under a sentence chosen
+      separately from the ranking.
     </p>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Bucket</th><th>Lands here when</th><th>How to read it</th></tr></thead>
+        <thead><tr><th>Bucket</th><th>Means</th><th>How to read it</th></tr></thead>
         <tbody>
           <tr>
-            <td><span class="bucket b-must">Must fix</span></td>
-            <td>The fork's source names it, <b>and</b> the change carries a breaking
-                signal or scores 60 or more</td>
-            <td>Assume there is work to do</td>
+            <td><span class="bucket b-breaking">Breaking</span></td>
+            <td>Something outside the binary stops working, silently: stored user
+                data, launch scripts, Finch configs, live websites, the other
+                process</td>
+            <td>Find every place that names it</td>
           </tr>
           <tr>
-            <td><span class="bucket b-review">Needs review</span></td>
-            <td>There is related evidence and it scores 35 or more; or there is no
-                evidence but it scores 65 or more</td>
-            <td>Someone has to confirm whether there is work</td>
+            <td><span class="bucket b-behaviour">Behaviour change</span></td>
+            <td>The Windows build behaves differently. Someone can see a
+                difference</td>
+            <td>Confirm what the difference is</td>
           </tr>
           <tr>
-            <td><span class="bucket b-fyi" style="background:var(--flow-soft);color:var(--flow)">New opportunity</span></td>
-            <td>New capability, carrying no breaking signal</td>
+            <td><span class="bucket b-new">New surface</span></td>
+            <td>Surface that did not exist before. Nothing is switched on by it on
+                its own</td>
             <td>Input to a product decision, not a risk</td>
           </tr>
           <tr>
-            <td><span class="bucket b-fyi">FYI</span></td>
-            <td>Everything else</td>
-            <td>Recorded so it can be looked up</td>
+            <td><span class="bucket b-quiet">Housekeeping</span></td>
+            <td>Chromium tidying up after itself, and scheduling. Nothing
+                observable moved, or the tool cannot tell that anything did</td>
+            <td>Do not read line by line</td>
           </tr>
         </tbody>
       </table>
     </div>
+    <div class="warnbox" style="margin-top:13px">
+      <b>A retired flag is Housekeeping, and that is the most consequential row in
+      the table.</b> M148 → M151 removes 90 <code>base::Feature</code> flags, split
+      exactly 45 that shipped and 45 that were abandoned, and not one of them
+      changes what a user sees. Filed as breakage they are 90 rows at the top of the
+      report of which none is actionable — which is how a triage tool becomes one
+      people stop opening. The label still says the switch is gone.
+    </div>
     <div class="note" style="margin-top:13px">
-      <code>must fix: 0</code> <b>does not mean this uprev is safe.</b> If the fork's
-      profile declares no evidence, nothing can reach this bucket — and the report
-      states that at the top.
+      <b>One bucket moves with the coverage, deliberately.</b>
+      <code>pref_left_scan</code> means “deleted, or moved out of the files we
+      read”, and which of those it is depends entirely on how much of the tree the
+      run covered. On <code>--target-set default</code> (5% of files) 139 of these
+      are filed under Housekeeping at 20 points; on <code>wide</code> (100%) 171 are
+      filed under Breaking at 35. A rule that gave the same answer either way would
+      be wrong in one of the two directions.
     </div>
 
     <h3 class="sub">One table, and every row says what it is</h3>
     <p>
-      The four buckets above are ordered by severity. <code>report.html</code> is
-      <b>a single table</b>, filterable and sortable. Two other layouts were tried on
+      The four buckets above are the reading order, not a severity order — a
+      Housekeeping row can outscore a New surface one. <code>report.html</code>
+      is <b>a single table</b>, filterable and sortable. Two other layouts were tried on
       top of it and both were worse — recorded here so nobody goes back.
     </p>
     <div class="note">
@@ -790,22 +809,21 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <p>
       What was missing was never the shape. It was that a row said
       <code>id:cancelButton</code> and left the reader to guess: which page, added or
-      removed, what kind of control, does it concern us. So the table keeps its
-      shape, and every row now carries the answer.
+      removed, what kind of control, and what happened to it. So the table keeps
+      its shape, and every row now carries the answer.
     </p>
-    <pre class="mono">~  feature flag PrefetchPrerenderIntegration — off → on for Windows  OURS
+    <pre class="mono">~  feature flag PrefetchPrerenderIntegration — off → on for Windows
    disabled → enabled
-                    Now ON by default on Windows │ content/public/common │ 100</pre>
+                    Now ON by default on Windows │ content/public/common │ 75</pre>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Column</th><th>Answers</th></tr></thead>
         <tbody>
-          <tr><td>Score</td><td>The ranking, with every point explained</td></tr>
-          <tr><td>Bucket</td><td>Which triage bucket it falls in</td></tr>
+          <tr><td>Score</td><td>The ranking, with every deduction explained</td></tr>
+          <tr><td>Bucket</td><td>Which of the four kinds of change it is</td></tr>
           <tr><td>What</td><td>The direction (<code>+</code> new,
             <code>~</code> changed, <code>−</code> gone) and the thing <b>in words</b>,
-            not a bare identifier. The <code>OURS</code> tag when the row touches
-            code we patch or reference</td></tr>
+            not a bare identifier</td></tr>
           <tr><td>What happened</td><td>The sentence describing what happened</td></tr>
           <tr><td>Where</td><td>The screen it sits on, or the declaring directory</td></tr>
           <tr><td>Surface</td><td>The fact kind, with its meaning group</td></tr>
@@ -1399,50 +1417,63 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   </div>
 </section>
 
-<!-- ── 7. Scoring ────────────────────────────────────────── -->
+<!-- ── 7. Ranking ────────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num">7</div><div class="thread"></div></div>
   <div class="body">
-    <h2>Scoring by impact</h2>
-    <div class="file">downstream.py · impact.py</div>
+    <h2>Ranking</h2>
+    <div class="file">diff.py · score.py</div>
     <p>
-      The previous stop answers "how much does this change normally matter". This one
-      answers the question the team actually has: <b>does it affect us</b>.
+      Two numbers travel with every finding, and the gap between them is the
+      point. <b>Severity</b> is what this kind of change costs. <b>Score</b> is
+      that after two facts about this particular run.
     </p>
     <p>
-      Evidence comes from three sources: the directory holding the fork's patch files,
-      the output of <code>git diff</code> against upstream Chromium, or a scan of the
-      fork's own source. The scan runs in the opposite direction to intuition: instead
-      of searching Chromium's tree for the fork's names, the tool takes
-      <b>Chromium's list of identifiers</b> and looks for them in the fork's much
-      smaller tree. That turns a many-passes-over-a-huge-tree problem into one pass
-      over a small one.
+      Severity comes from the <b>leading signal</b> — the label with the highest
+      weight among the ones the comparison attached. Only when a change carries
+      no signal at all does it fall back to a coarse guess from the kind and the
+      direction. That order is the whole design: the signal is a statement about
+      what happened, the guess is a guess, and it used to be
+      <code>max(guess, signal)</code> — so the guess overrode the statement
+      exactly when the statement was lower, which is where the guess was wrong.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Change</th><th class="n">Guess</th><th>Signal says</th><th class="n">Was</th><th class="n">Now</th></tr></thead>
+        <tbody>
+          <tr><td>Mojo method, signature moved</td><td class="n">75</td><td>Mojo method signature changed (ABI)</td><td class="n">80</td><td class="n">80</td></tr>
+          <tr><td>Mojo method, <code>[EnableIfNot=is_win]</code> added</td><td class="n">75</td><td>Build condition changed</td><td class="n"><b>75</b></td><td class="n"><b>35</b></td></tr>
+          <tr><td>chrome://flags removal date slipped</td><td class="n">15</td><td>Removal date moved further out</td><td class="n"><b>15</b></td><td class="n"><b>10</b></td></tr>
+          <tr><td>Blink flag moved test → experimental</td><td class="n">40</td><td>Not yet stable, so users see nothing</td><td class="n"><b>40</b></td><td class="n"><b>25</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px">
+      Measured against two real pairs of versions, the guess overrode the signal
+      on <b>267 of 2,800</b> findings at M148 → M151 and <b>345 of 6,787</b> at
+      M143 → M151 — every one of them upwards.
     </p>
 
+    <h3 class="sub">The two deductions</h3>
     <p style="margin-bottom:10px">
-      The panel below scores a change with a base severity of 75. Turn each kind of
-      evidence on or off to see how the score and the bucket move.
+      <b>Nothing raises a score.</b> Severity is the ceiling — the most this kind
+      of change can cost — and each deduction below it arrives with a sentence
+      attached to the finding. Turn them on to see the score and the bucket move.
     </p>
     <div class="card">
       <div class="scorebox">
         <div class="toggles" id="toggles">
-          <label class="tg"><input type="checkbox" data-add="12" data-why="+12 the fork patches the file holding this declaration">
-            <span class="d"><b>We patch the declaring file</b>
-            <span>Weak evidence: one file can hold nearly 200 different declarations</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="30" data-sym="1" data-why="+30 the fork's source names the identifier">
-            <span class="d"><b>Our source names the identifier</b>
-            <span>Strong evidence: only this kind can reach the Must fix bucket</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="15" data-why="+15 belongs to an area with a declared owner (weight 75)">
-            <span class="d"><b>Belongs to an area with an owner</b>
-            <span>The bonus is the area's weight times 0.20</span></span></label>
-          <label class="tg"><input type="checkbox" data-add="-45" data-why="−45 not compiled on Windows">
-            <span class="d"><b>Not compiled on Windows</b>
-            <span>The declaration exists only for another platform</span></span></label>
+          <label class="tg"><input type="checkbox" data-zero="1" data-why="0 — not compiled into the windows build on either side of this change, so nothing it does reaches our users">
+            <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
+            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 117 of 2,800 findings at M148 → M151</span></span></label>
+          <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 5% of the tree, so “gone” may mean “moved into a file we never opened”">
+            <span class="d"><b>A removal, on a run that read 5% of the tree</b>
+            <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>
         </div>
         <div class="dial">
           <div class="v" id="scoreval">75</div>
           <div class="cap">points</div>
-          <div class="bucket b-review" id="bucketlbl">Needs review</div>
+          <div class="bucket b-behaviour" id="bucketlbl">Behaviour change</div>
         </div>
       </div>
       <div class="mathrow" id="mathrow"></div>
@@ -1451,22 +1482,34 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <div class="scale-bar">
           <div class="scale-mark" style="left:35%"></div>
           <div class="scale-mark" style="left:60%"></div>
-          <div class="scale-mark" style="left:65%"></div>
           <div class="scale-pin" id="pin" style="left:75%"></div>
         </div>
         <div class="scale-lbls">
-          <span>0</span><span>35</span><span>60 · 65</span><span>100</span>
+          <span>0</span><span>35</span><span>60</span><span>100</span>
         </div>
       </div>
 
       <div class="reasons" id="reasons"></div>
     </div>
+    <div class="warnbox" style="margin-top:14px">
+      <b>“Both sides” carries the whole first rule.</b> A declaration that
+      <em>enters or leaves</em> the Windows build keeps its full severity, because
+      that is the change. The previous version read only the new side, so a
+      feature whose Windows guard closed — the case where the feature is lost —
+      was scored <em>down</em> 45 points for not being in the Windows build.
+    </div>
+    <div class="note" style="margin-top:13px">
+      The bucket does not come from the score. It comes from the leading signal,
+      the same one that set the severity, so a row is filed under the sentence it
+      was ranked by. The one exception is above: an unconfirmed disappearance
+      moves to Housekeeping, because on a partial read that is what it is.
+    </div>
 
-    <h3 class="sub">Where the base score comes from</h3>
+    <h3 class="sub">Where the severity comes from</h3>
     <p>
-      The base score is not typed in by hand. Every <b>signal</b> carries a minimum
-      severity, and a change's base score is the highest among the signals it
-      received.
+      No severity is typed in by hand for a particular change. Every <b>signal</b>
+      carries one, and a change takes the severity of the heaviest signal it
+      received — the <b>leading signal</b>, which also decides its bucket.
     </p>
     <div class="tablewrap">
       <table>
@@ -1487,12 +1530,12 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       frequently disagree, and only the first deserves to be called a behaviour change.
     </div>
     <div class="note" style="margin-top:12px">
-      Identifier-level evidence scoring higher than file-level evidence is
-      deliberate. Patching a file that holds nearly 200 declarations says almost
-      nothing about which of them we depend on; naming one flag says a great deal.
-      Every point added or subtracted is <b>recorded with a readable reason</b>,
-      because a ranking that cannot be argued with is a ranking that gets ignored the
-      first time it is wrong.
+      Every point of difference between the severity and the score is
+      <b>recorded with a readable reason</b> on the finding itself, because a
+      ranking that cannot be argued with is a ranking that gets ignored the first
+      time it is wrong. Both documents quote those sentences, and a test holds
+      the quotes to strings the code actually emits — that pair drifted within
+      an hour of being written.
     </div>
   </div>
 </section>
@@ -1551,10 +1594,11 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <div class="file">report/markdown.py · report/html.py</div>
     <p>
       The process ends at the report. The tool <b>does not conclude</b> what a change
-      means for the product: that takes judgement, and it belongs to the reader. So
-      every finding carries its score reasoning, the paths of the declaring files and
-      the evidence from the fork side — enough for the reader to reach their own
-      conclusion, and to argue back if they think it is wrong.
+      means for any particular product: that takes judgement about a codebase this
+      tool has never seen, and it belongs to the reader. So every finding carries its
+      score reasoning and the line that declares it on each side — enough for the
+      reader to reach their own conclusion, and to argue back if they think it is
+      wrong.
     </p>
     <div class="grid2">
       <div class="card">
@@ -1568,21 +1612,22 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         </p>
       </div>
       <div class="card">
-        <h3 class="sub" style="margin-top:0">Slicing per team without losing data</h3>
+        <h3 class="sub" style="margin-top:0">Everything is analysed; nothing is cut</h3>
         <p style="font-size:.87rem;margin:0">
-          Filtering happens <b>when the report is rendered, never before the
-          analysis</b>. The JSON always holds every finding, so cutting a slice per
-          team costs nothing and <b>cannot hide anything</b>.
+          The JSON always holds <b>every</b> finding, Housekeeping included, and the
+          two rendered files are views of it. Narrowing before the analysis is how a
+          report loses its top: the most severe items are usually shared plumbing —
+          Mojo signature changes — which belongs to no product feature and is the
+          first thing any product-shaped filter drops.
         </p>
       </div>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      The report always prints <b>the number of findings belonging to no owned
-      area</b>. This is not a footnote: measured on M148 → M151, that ownerless group
-      held <b>281 items scoring 60 or more</b>, including <b>all ten of the most
-      severe items in the whole report</b> — all Mojo signature changes, which belong
-      to no product feature. If the report is only ever sent out per team, that entire
-      group reaches nobody.
+      <code>report.md</code> gives a table to Breaking, Behaviour change and New
+      surface, and deliberately none to <b>Housekeeping</b>: it is the largest bucket
+      in every report and the one nothing in it needs doing about. It is still in
+      <code>report.json</code> and still in the sortable table in
+      <code>report.html</code> — printed, not omitted, just not printed first.
     </div>
   </div>
 </section>
@@ -1638,20 +1683,22 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       lived under rather than the tree; it is now the tree, and the roots the
       measurement named have been fetched. For surfaces like prefs,
       switches and Mojo the gap between the two target sets is very large — prefs 689
-      against 2,404, Mojo interfaces 338 against 1,501 — so when the answer really
+      against 2,460, Mojo interfaces 338 against 1,501 — so when the answer really
       matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      So <code>must fix: 0</code> <b>never means “this uprev carries no risk”.</b> It
-      means “nothing was found within the scope that was scanned”. Every report should
-      restate that limit.
+      So <code>Breaking: 0</code> <b>never means “this uprev carries no risk”.</b> It
+      means “nothing was found within the scope that was scanned” — and on the default
+      set an unconfirmed disappearance is filed under Housekeeping by design, so some
+      of what would be breaking is not counted there at all. Every report should
+      restate the coverage figure the run printed.
     </div>
   </div>
 </section>
 
 <footer>
   <div>Every figure in this document was measured against real Chromium source (M139, M143, M148, M151) and can be reproduced with <code>chromedrift catalog</code> and <code>chromedrift run</code>.</div>
-  <div>Related document: <code>README.md</code> — what the project is, installation, the nine commands, the downstream profile, and how to read a report.</div>
+  <div>Related document: <code>README.md</code> — what the project is, installation, the six commands, how a change is ranked, and how to read a report.</div>
 </footer>
 
 </div>
@@ -1678,12 +1725,12 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
      say:"State on Windows: on. No build condition around it. The variable in the source: kGlicActorUiMagicCursor."},
     {lbl:"Compare", tok:"off → on",
      say:"The default state moved from off to on. Two signals attached: default flipped on for Windows, and the global default flipped on."},
-    {lbl:"Score", tok:"75 points",
-     say:"The highest severity of the two signals. No evidence that the fork depends on this flag, so the score stays at 75."},
+    {lbl:"Rank", tok:"75 points",
+     say:"The severity of the leading signal. The declaration is in the Windows build and this is not a removal, so nothing is deducted and the score stays at 75."},
     {lbl:"Cluster", tok:"stands alone",
      say:"No declared link ties this item to any other, so it stands on its own."},
-    {lbl:"Report", tok:"Needs review",
-     say:"Severe enough that someone has to confirm it, but without the evidence to reach Must fix."}
+    {lbl:"Report", tok:"Behaviour change",
+     say:"The leading signal says the default flipped on for Windows, so this is filed where someone can see a difference."}
   ];
   var track=document.getElementById("track"), fill=document.getElementById("fill"),
       token=document.getElementById("token"), say=document.getElementById("say"),
@@ -1732,19 +1779,19 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     return o;
   }
   var SCEN = [
-    {a:F("tắt"), b:F("bật"),
+    {a:F("off"), b:F("on"),
      type:"Modified", sig:["default flipped on for Windows","global default flipped on"], sev:75,
      why:"The default state on Windows moved from off to on. This is a real behaviour change: our users will see something different."},
-    {a:F("bật","ba tham số"), b:F("bật","hai tham số"),
+    {a:F("on","three-argument"), b:F("on","two-argument"),
      type:"No change at all", sig:[], sev:0,
      why:"The two versions differ only in how the declaration is written. That attribute is not on the compared list, so the conclusion matches reality: nothing changed."},
-    {a:F("bật"), b:null,
+    {a:F("on"), b:null,
      type:"Removed", sig:["flag retired after shipping"], sev:35,
      why:"The flag is gone, but the state it held just before removal was on. The feature shipped earlier; the behaviour is now permanent and can no longer be turned off."},
-    {a:F("tắt"), b:null,
+    {a:F("off"), b:null,
      type:"Removed", sig:["flag retired without shipping"], sev:30,
      why:"The flag disappeared while off. The feature never shipped and the code is deleted, so it cannot be turned back on."},
-    {a:null, b:F("bật"),
+    {a:null, b:F("on"),
      type:"Added", sig:["new feature, already on"], sev:55,
      why:"A new flag appeared already switched on. This is new capability to consider, not a breakage risk."}
   ];
@@ -1788,10 +1835,10 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   });
   renderScen(0);
 
-  /* ── Impact scoring panel ────────────────────────────
-     The adjustments are taken straight from impact.py: base 75,
-     +12 file-level evidence, +30 identifier-level, +15 owned
-     area, -45 not compiled on this platform.              */
+  /* ── Ranking panel ───────────────────────────────────
+     The two deductions, taken straight from score.py: a
+     declaration outside the Windows build on every side scores
+     0, an unconfirmed removal loses 15, and nothing adds.   */
   var BASE=75;
   var toggles=document.getElementById("toggles"),
       scoreval=document.getElementById("scoreval"),
@@ -1801,42 +1848,42 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       pin=document.getElementById("pin");
 
   function renderScore(){
-    var score=BASE, hasSym=false, hasPath=false,
-        why=["base severity 75 (modified feature flag)"];
+    var score=BASE, zeroed=false,
+        why=["severity 75 — Now ON by default on Windows"];
     toggles.querySelectorAll("input").forEach(function(i){
-      if(i.checked){
-        score += parseInt(i.dataset.add,10);
-        why.push(i.dataset.why);
-        if(i.dataset.sym) hasSym=true;
-        if(i.dataset.add==="12") hasPath=true;
-      }
+      if(!i.checked) return;
+      why.push(i.dataset.why);
+      if(i.dataset.zero) zeroed=true;
+      else score += parseInt(i.dataset.add,10);
     });
+    if(zeroed) score=0;
     score=Math.max(0,Math.min(100,score));
     scoreval.textContent=score;
 
-    /* The branch order mirrors _bucket() in impact.py. */
+    /* Bucket comes from the signal, not from the score -- the one
+       exception being the zero case, which is filed as housekeeping
+       because it cannot reach anybody. This mirrors score.py. */
     var b,cls;
-    if(hasSym && score>=60){ b="Must fix"; cls="b-must"; }
-    else if((hasSym||hasPath) && score>=35){ b="Needs review"; cls="b-review"; }
-    else if(score>=65){ b="Needs review"; cls="b-review"; }
-    else { b="FYI"; cls="b-fyi"; }
+    if(zeroed){ b="Housekeeping"; cls="b-quiet"; }
+    else { b="Behaviour change"; cls="b-behaviour"; }
     bucketlbl.textContent=b;
     bucketlbl.className="bucket "+cls;
-    scoreval.style.color = cls==="b-must"?"var(--clay)":cls==="b-review"?"var(--brass)":"var(--muted)";
+    scoreval.style.color = cls==="b-behaviour"?"var(--brass)":"var(--muted)";
     reasons.innerHTML = why.map(function(w){ return "<div>"+w+"</div>"; }).join("");
 
     /* Show the arithmetic so the reader does not have to add it up. */
-    var parts=['<span>nền 75</span>'];
-    toggles.querySelectorAll("input").forEach(function(i){
-      if(i.checked){
-        var n=parseInt(i.dataset.add,10);
-        parts.push('<span class="op">'+(n<0?"−":"+")+'</span><span>'+Math.abs(n)+'</span>');
-      }
-    });
-    var raw=BASE; toggles.querySelectorAll("input").forEach(function(i){
-      if(i.checked) raw+=parseInt(i.dataset.add,10); });
-    parts.push('<span class="op">=</span><span class="tot">'+score+'</span>');
-    if(raw!==score) parts.push('<span class="op">(clamped to '+(raw>100?"100":"0")+')</span>');
+    var parts=['<span>severity 75</span>'];
+    if(zeroed){
+      parts.push('<span class="op">→</span><span class="tot">0</span>');
+    } else {
+      toggles.querySelectorAll("input").forEach(function(i){
+        if(i.checked && i.dataset.add){
+          var n=parseInt(i.dataset.add,10);
+          parts.push('<span class="op">'+(n<0?"−":"+")+'</span><span>'+Math.abs(n)+'</span>');
+        }
+      });
+      parts.push('<span class="op">=</span><span class="tot">'+score+'</span>');
+    }
     mathrow.innerHTML=parts.join("");
     pin.style.left=score+"%";
   }

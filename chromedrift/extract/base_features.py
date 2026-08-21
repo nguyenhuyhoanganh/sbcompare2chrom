@@ -2,7 +2,7 @@
 
 Why this is the highest-value extractor: a base::Feature default flipping from
 DISABLED to ENABLED is Chromium saying "this shipped".  That single bit
-predicts most of the behaviour change a downstream browser inherits on an
+predicts most of the behaviour change a build inherits on an
 uprev, and it is invisible in release notes.
 
 Three declaration syntaxes coexist across the milestone range we care about:
@@ -93,7 +93,7 @@ def feature_name_from_var(var: str) -> str:
     The single definition, imported by every stage that has to get from a C++
     identifier back to the feature string a fact is keyed on: the reference
     closure in `catalog`, the clustering in `cluster`, and area routing in
-    `downstream`. It is applied here first, to derive the key from the
+    `cluster`. It is applied here first, to derive the key from the
     two-argument macro form, so a copy elsewhere that drifted would silently
     stop matching the keys this produces.
     """
@@ -118,10 +118,10 @@ def _platform_states(block: str) -> dict:
 def extract(text: str, rel_path: str) -> List[Fact]:
     """Parse one C++ source file into base_feature / feature_param facts."""
     masked = mask_comments(text)
-    # A vendor fork adds its code beside upstream's and picks between them with
-    # a build flag, so the guard around a declaration is as informative as the
-    # declaration. Without it, a feature the vendor has quietly shadowed reads
-    # as identical to upstream.
+    # The guard around a declaration is as informative as the declaration
+    # itself: the same `BASE_FEATURE(kFoo, ENABLED)` line means two different
+    # things depending on the `#if` chain it sits inside, and Chromium wraps
+    # 14 of 187 features in one file in a per-platform chain.
     spans = conditional_spans(masked)
     facts: List[Fact] = []
 
@@ -184,7 +184,8 @@ def _extract_legacy_feature(masked: str, rel_path: str, spans=()) -> List[Fact]:
     written the old way on one side and the macro way on the other reported as
     modified with `conditions: None -> [...]` even when the guard, the state and
     the name were identical. Rare across two Chromium releases; not rare at all
-    against a vendor fork, where old declaration styles survive for years.
+    across a long milestone range, where old declaration styles survive for
+    years.
     """
     facts: List[Fact] = []
     for m in _LEGACY_FEATURE_RE.finditer(masked):

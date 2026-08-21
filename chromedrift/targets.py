@@ -1,6 +1,6 @@
 """What to pull from Chromium, and why.
 
-Each entry answers a question a downstream browser team actually asks during
+Each entry answers a question someone actually asks during
 an uprev.  Keeping the list declarative (rather than hard-coded inside each
 extractor) means adding a new source of truth is a one-line change, and the
 cost of a snapshot stays visible.
@@ -28,7 +28,7 @@ _MOJOM = (".mojom",)
 _WEBUI_TEMPLATES = (".html", ".html.ts", "route.ts", "routes.ts")
 
 # chrome:// surfaces worth tracking.  There are ~130 under
-# chrome/browser/resources/; these are the user-facing ones a downstream
+# chrome/browser/resources/; these are the user-facing ones a desktop
 # browser normally ships and customizes.  Add a line to cover another.
 WEBUI_SURFACES = (
     "settings",
@@ -363,7 +363,7 @@ def default_targets() -> List[FetchTarget]:
         FetchTarget("third_party/blink/renderer/core", "tree",
                     READABLE_SUFFIXES, note="core web IDL and declarations"),
 
-        # -- Mojo: the process-boundary ABI.  Downstream code that implements
+        # -- Mojo: the process-boundary ABI.  Any code that implements
         #    or calls a mojo interface breaks silently at runtime when a
         #    method signature moves, so signature-level diffing matters.
         FetchTarget("third_party/blink/public/mojom", "tree", _MOJOM,

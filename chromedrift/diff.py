@@ -3,10 +3,10 @@
 The whole point of this stage is to answer "what actually changed" rather than
 "what text differs".  Two rules do most of that work:
 
-1. **Attribute whitelists.**  Only attributes with downstream meaning are
-   compared.  Between M139 and M143 every ``BASE_FEATURE`` in the tree changed
-   its declaration syntax; comparing a ``declared_form`` attribute would emit
-   thousands of modifications that mean nothing to anyone.
+1. **Attribute whitelists.**  Only attributes whose movement means something
+   are compared.  Between M139 and M143 every ``BASE_FEATURE`` in the tree
+   changed its declaration syntax; comparing a ``declared_form`` attribute
+   would emit thousands of modifications that mean nothing to anyone.
 
 2. **Platform-aware verdicts.**  A default flip is scored for Windows, the
    one platform this desktop product ships.  Chromium wraps many defaults in
@@ -26,6 +26,10 @@ from .extract._cpp import PLATFORM
 from .extract.blink_runtime import status_rank
 from .model import (
     ADDED,
+    BUCKET_BEHAVIOUR,
+    BUCKET_BREAKING,
+    BUCKET_HOUSEKEEPING,
+    BUCKET_NEW,
     KIND_BASE_FEATURE,
     KIND_BLINK_RUNTIME,
     KIND_FEATURE_PARAM,
@@ -39,9 +43,6 @@ from .model import (
     KIND_WEBUI_CONTROL,
     KIND_WEBUI_GATE,
     KIND_WEBUI_ROUTE,
-    MODE_FORK,
-    MODE_UPREV,
-    MODES,
     MODIFIED,
     REMOVED,
     Change,
@@ -49,16 +50,16 @@ from .model import (
     Snapshot,
 )
 
-# Attributes whose change carries downstream meaning.  Anything outside this
-# list is treated as bookkeeping.
+# Attributes whose change carries meaning.  Anything outside this list is
+# treated as bookkeeping.
 MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
-    # "conditions" matters because a vendor fork shadows upstream with a
-    # build flag rather than editing it: the guard appearing or
+    # "conditions" matters because a declaration can be moved into or out of
+    # a build without its value changing at all: the guard appearing or
     # disappearing is the change, while the value stays identical.
-    # "var" is the C++ identifier. Downstream code writes `features::kFoo`,
-    # never the feature string, so renaming the identifier while keeping the
-    # string breaks our build -- and the string is what this fact is keyed on,
-    # so without comparing "var" the change produces no finding at all.
+    # "var" is the C++ identifier. Code writes `features::kFoo`, never the
+    # feature string, so renaming the identifier while keeping the string
+    # breaks a build -- and the string is what this fact is keyed on, so
+    # without comparing "var" the change produces no finding at all.
     # Measured M130 -> M151: 4 such renames, including kDIPS -> kBtm.
     KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions", "var"),
     KIND_FEATURE_PARAM: ("default", "type", "feature", "var"),
@@ -92,9 +93,9 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_MOJO_INTERFACE: (),
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs"),
     # "platform_state" is the guard resolved for Windows, not the guard text:
-    # a key entering or leaving our binary is the change, while upstream
+    # a key entering or leaving our binary is the change, while Chromium
     # tidying `!IS_ANDROID` off one is not. The raw `conditions` stay on the
-    # fact, unread here, because the fork shadow analysis needs the text.
+    # fact, unread here, because a reader may want the guard text itself.
     KIND_SWITCH: ("var", "platform_state"),
     KIND_PREF: ("var", "platform_state"),
     KIND_FLAG_ENTRY: ("expiry_milestone",),
@@ -103,9 +104,15 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_WEBUI_GATE: ("expression", "features", "enabled_checks"),
 }
 
-# Base severity per (kind, change_type).  Impact scoring adjusts these using
-# the downstream profile; these numbers only encode "how much does Chromium
-# changing this normally matter".
+# Severity per (kind, change_type), used **only when a change carries no
+# signal at all**.  It is the coarse prior: "a Mojo method appeared" is the
+# whole story when nothing more precise can be said about it.
+#
+# It used to be a floor under the signal instead, and the floor won whenever it
+# was higher -- which is exactly when it was wrong, because the signal is the
+# precise statement and this is the guess.  A Mojo method whose mojom
+# attributes moved scored 75, the same as one whose signature moved, because
+# `(mojo_method, modified)` is 75 and `build_gate_changed` is 35.
 BASE_SEVERITY: Dict[Tuple[str, str], int] = {
     (KIND_IDL_INTERFACE, REMOVED): 70,
     (KIND_IDL_INTERFACE, ADDED): 30,
@@ -212,6 +219,12 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "ui_gate_removed": 40,
     "ui_gate_added": 25,
     "param_default_changed": 40,
+    # The knob itself is gone. A Finch config or a command line that still sets
+    # it silently stops having any effect, which is the same shape of failure a
+    # renamed feature string has -- and until now it was the largest kind of
+    # change in a report that produced no label at all: 53 of the 903
+    # unlabelled findings at M148 -> M151.
+    "param_removed": 35,
     # The knob itself moved rather than its value: a different C++ type, or a
     # different owning flag. Both were compared and neither produced a row
     # anyone could read.
@@ -236,39 +249,12 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "ui_control_relabelled": 20,
 }
 
-# MODE_UPREV / MODE_FORK / MODES are defined in model.py and re-exported here,
-# because every stage downstream of this one -- scoring and both renderers --
-# also has to know which comparison it is describing.
-#
-# Fork-mode signals. The question is not "did behaviour change" but "is this
-# divergence we own, and what happens to it at the next rebase".
-FORK_SIGNALS: Dict[str, int] = {
-    "fork_dropped": 65,          # vendor removed something upstream has
-    "fork_added": 45,            # vendor added something upstream lacks
-    "fork_default_override": 60,  # vendor ships a different default
-    "fork_modified": 45,         # vendor changed the declaration
-    "fork_ui_removed": 60,       # vendor removed a page or control
-    "fork_ui_added": 45,
-}
-
-FORK_LABELS: Dict[str, str] = {
-    "fork_dropped": "We removed this; upstream still has it. A future rebase "
-                    "reintroduces it unless the patch is carried",
-    "fork_added": "We added this; upstream has no equivalent. Watch for "
-                  "upstream shipping something that collides",
-    "fork_default_override": "We ship a different default from upstream",
-    "fork_modified": "We changed this declaration",
-    "fork_ui_removed": "We removed this page or control",
-    "fork_ui_added": "We added this page or control",
-}
-
-
 SIGNAL_LABELS: Dict[str, str] = {
     "enabled_by_default": "Now ON by default on Windows",
     "disabled_by_default": "Now OFF by default on Windows",
     "default_flip_on": "Default flipped on",
     "default_flip_off": "Default flipped off",
-    "feature_deleted": "Feature flag deleted upstream",
+    "feature_deleted": "Feature flag deleted, prior state unreadable",
     "flag_retired_on": "Shipped, then flag retired — behaviour is now permanent "
                        "and can no longer be turned off",
     "flag_retired_off": "Never shipped, flag and code removed — can no longer "
@@ -316,6 +302,9 @@ SIGNAL_LABELS: Dict[str, str] = {
                        "is now unconditional, or went with it",
     "ui_gate_added": "New visibility condition",
     "param_default_changed": "Feature parameter default changed",
+    "param_removed": "Feature parameter removed — anything still setting it, "
+                     "including a server-side Finch config, silently stops "
+                     "having an effect",
     "param_rewired": "Feature parameter rewired — its type changed, or it now "
                      "belongs to a different flag",
     "flag_expiring": "Flag scheduled for removal",
@@ -336,11 +325,101 @@ SIGNAL_LABELS: Dict[str, str] = {
     "ui_control_relabelled": "Control's label changed",
 }
 
-# Fork-mode entries live in their own dicts above so the two vocabularies stay
-# readable, then merge here so every consumer -- both renderers and scoring --
-# looks signals up in one place.
-SIGNAL_SEVERITY.update(FORK_SIGNALS)
-SIGNAL_LABELS.update(FORK_LABELS)
+# Which bucket a change lands in, decided by the signal that set its severity.
+#
+# The bucket answers "what kind of thing happened", which is the only question
+# this tool can answer on its own: it has one Chromium version and another, and
+# no description of who is reading. So the classification is a property of the
+# change, and a finding is filed under the same sentence it is ranked by.
+#
+# A test holds this table to exactly the keys of SIGNAL_SEVERITY, because a
+# signal with no bucket would silently fall through to the direction rule and
+# be filed by "something was removed" rather than by what the removal was.
+SIGNAL_BUCKET: Dict[str, str] = {
+    # -- Breaking: something outside the binary stops working, silently.
+    "ipc_signature_change": BUCKET_BREAKING,
+    "ipc_removed": BUCKET_BREAKING,
+    "web_api_removed": BUCKET_BREAKING,
+    "web_api_unshipped": BUCKET_BREAKING,
+    "web_api_signature_change": BUCKET_BREAKING,
+    "pref_renamed": BUCKET_BREAKING,
+    "pref_symbol_renamed": BUCKET_BREAKING,
+    "switch_renamed": BUCKET_BREAKING,
+    "switch_symbol_renamed": BUCKET_BREAKING,
+    "feature_string_renamed": BUCKET_BREAKING,
+    "feature_symbol_renamed": BUCKET_BREAKING,
+    "param_rewired": BUCKET_BREAKING,
+    "param_removed": BUCKET_BREAKING,
+    # The control still exists and writes somewhere else, so the value the
+    # user already set is stranded -- the same consequence as a renamed key.
+    "ui_control_repointed": BUCKET_BREAKING,
+    # Deletion or move; the run's own coverage decides which is the likelier
+    # reading, and the scoring stage moves these to housekeeping when the run
+    # did not read enough of the tree to tell. See score.py.
+    "pref_left_scan": BUCKET_BREAKING,
+    "switch_left_scan": BUCKET_BREAKING,
+
+    # -- Behaviour: the Windows build behaves differently.
+    "enabled_by_default": BUCKET_BEHAVIOUR,
+    "disabled_by_default": BUCKET_BEHAVIOUR,
+    "default_flip_on": BUCKET_BEHAVIOUR,
+    "default_flip_off": BUCKET_BEHAVIOUR,
+    "new_feature_on_by_default": BUCKET_BEHAVIOUR,
+    "web_api_shipped": BUCKET_BEHAVIOUR,
+    "web_api_shape_changed": BUCKET_BEHAVIOUR,
+    "web_api_exposure_changed": BUCKET_BEHAVIOUR,
+    "param_default_changed": BUCKET_BEHAVIOUR,
+    "origin_trial_change": BUCKET_BEHAVIOUR,
+    "build_gate_changed": BUCKET_BEHAVIOUR,
+    # The one removal whose prior state could not be read, so a behaviour
+    # change cannot be ruled out. Its two siblings can be, and are below.
+    "feature_deleted": BUCKET_BEHAVIOUR,
+    "ui_page_removed": BUCKET_BEHAVIOUR,
+    "ui_page_regated": BUCKET_BEHAVIOUR,
+    "ui_page_moved": BUCKET_BEHAVIOUR,
+    "ui_control_removed": BUCKET_BEHAVIOUR,
+    "ui_control_type_changed": BUCKET_BEHAVIOUR,
+    "ui_gate_changed": BUCKET_BEHAVIOUR,
+    "ui_gate_removed": BUCKET_BEHAVIOUR,
+
+    # -- New surface: something exists that did not, and nothing is on by it.
+    "web_api_added": BUCKET_NEW,
+    "ui_page_added": BUCKET_NEW,
+    "ui_control_added": BUCKET_NEW,
+    "ui_gate_added": BUCKET_NEW,
+
+    # -- Housekeeping: Chromium tidying up after itself, and scheduling.
+    #
+    # The three retirements belong here and it is the single most consequential
+    # row in this table. A retired flag is Chromium deleting a switch it no
+    # longer needs *after* the outcome settled -- 90 of them at M148 -> M151,
+    # split 45/45 -- and none of them changes behaviour. Filing them as
+    # breakage is how half a report becomes false alarms.
+    "flag_retired_on": BUCKET_HOUSEKEEPING,
+    "flag_retired_off": BUCKET_HOUSEKEEPING,
+    "killswitch_retired": BUCKET_HOUSEKEEPING,
+    "experimental_dropped": BUCKET_HOUSEKEEPING,
+    "declaration_moved": BUCKET_HOUSEKEEPING,
+    "flag_expiring": BUCKET_HOUSEKEEPING,
+    "flag_expiry_moved": BUCKET_HOUSEKEEPING,
+    "web_api_status_moved": BUCKET_HOUSEKEEPING,
+    "runtime_flag_rewired": BUCKET_HOUSEKEEPING,
+    # The tool reads the loadTimeData key, never the display string -- that
+    # lives in a .grd it does not open. So a relabelled control may or may not
+    # be visible to anyone, and at severity 20 it does not belong in a bucket
+    # people read line by line.
+    "ui_control_relabelled": BUCKET_HOUSEKEEPING,
+}
+
+# When a change carries no signal, the direction is the whole story and it
+# decides the bucket. A removal nothing could characterise is cleanup until
+# something says otherwise; the two removals that are *not* -- a feature
+# parameter and a preference -- have signals of their own above.
+NO_SIGNAL_BUCKET = {
+    ADDED: BUCKET_NEW,
+    REMOVED: BUCKET_HOUSEKEEPING,
+    MODIFIED: BUCKET_BEHAVIOUR,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -379,8 +458,7 @@ def _our_status(fact: Fact) -> str:
 
 
 def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
-                   target_milestone: Optional[int] = None,
-                   mode: str = MODE_UPREV) -> List[Change]:
+                   target_milestone: Optional[int] = None) -> List[Change]:
     """Produce the semantic change list between two snapshots.
 
     Refuses to compare snapshots built from different target sets: one side
@@ -412,7 +490,7 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         old_fact = old_index.get(uid)
         if old_fact is None:
             changes.append(_make_change(ADDED, None, new_fact, platform,
-                                        target_milestone, mode=mode))
+                                        target_milestone))
             continue
         before = _meaningful(old_fact)
         after = _meaningful(new_fact)
@@ -425,30 +503,26 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         if not deltas:
             continue
         changes.append(_make_change(MODIFIED, old_fact, new_fact, platform,
-                                    target_milestone, deltas, mode=mode))
+                                    target_milestone, deltas))
 
     for uid, old_fact in old_index.items():
         if uid not in new_index:
             changes.append(_make_change(REMOVED, old_fact, None, platform,
-                                        target_milestone, mode=mode))
+                                        target_milestone))
 
-    if mode == MODE_UPREV:
-        # Pairing a removal with an addition by C++ variable detects a rename
-        # over time. Across a fork the same pattern means the vendor replaced
-        # one thing with another, which is not a rename and must not be
-        # collapsed into one.
-        changes = _detect_renames(changes)
-        # Same shape of problem as a rename, on a different identity: the part
-        # of a control's key that moved is the preference it writes.
-        changes = _detect_repointed_controls(changes)
+    # Pairing a removal with an addition by C++ variable detects a rename.
+    changes = _detect_renames(changes)
+    # Same shape of problem as a rename, on a different identity: the part of a
+    # control's key that moved is the preference it writes.
+    changes = _detect_repointed_controls(changes)
     changes.sort(key=lambda c: (-c.severity, c.kind, c.key))
     return changes
 
 
 # How far apart two sides may be before the comparison stops meaning anything.
 # Two real Chromium versions eight milestones apart differ by about 3%
-# (M143 24,113 facts against M151 24,959), and a vendor fork differs by less
-# than that, so half is far outside anything legitimate.
+# (M143 24,113 facts against M151 24,959), so half is far outside anything
+# legitimate.
 LOPSIDED_RATIO = 0.5
 
 # ...and below which the ratio means nothing. A handful of facts on each side is
@@ -468,12 +542,11 @@ def _refuse_lopsided(old: Snapshot, new: Snapshot) -> None:
     labelled "default" pass it even when one of them is a truncated tree.
 
     That is not hypothetical, and `--local-src` / `--to-src` is how it happens.
-    Pointed at a partial checkout, the fork side of a real run held 1,647 facts
-    against upstream's 24,959 -- 6.6% -- and the tool said nothing at all. It
+    Pointed at a partial checkout, one side of a real run held 1,647 facts
+    against the other's 24,959 -- 6.6% -- and the tool said nothing at all. It
     printed "scope: ok" twice, because every fact really did come from a file
-    the target set asked for, and then reported 23,318 removals, every one of
-    them saying "we removed this; a rebase will put it back". None of it had
-    happened.
+    the target set asked for, and then reported 23,318 removals. None of them
+    had happened.
 
     Coverage cannot catch it either: that number is measured against whatever
     tree it is pointed at, so the truncated side scored 8 of 13 candidate files
@@ -534,8 +607,7 @@ def _merge_locations(*changes) -> List[str]:
 def _make_change(change_type: str, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
-                 deltas: Optional[Dict[str, List]] = None,
-                 mode: str = MODE_UPREV) -> Change:
+                 deltas: Optional[Dict[str, List]] = None) -> Change:
     fact = new_fact or old_fact
     assert fact is not None
     paths = sorted({p for p in ((old_fact.path if old_fact else ""),
@@ -552,7 +624,7 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
         locations=_locations(old_fact, new_fact),
     )
     change.signals = _signals_for(change, old_fact, new_fact, platform,
-                                  target_milestone, mode=mode)
+                                  target_milestone)
     change.severity = _severity_for(change)
     return change
 
@@ -572,51 +644,52 @@ def leading_signal(change: Change) -> str:
 
 
 def _severity_for(change: Change) -> int:
-    floor = SIGNAL_SEVERITY.get(leading_signal(change), 0)
-    # A declaration that only moved file did not change behaviour, so the
-    # per-kind base severity would overstate it. The signal governs instead.
-    if change.change_type == MODIFIED and set(change.deltas) == {"path"}:
-        return floor
-    base = BASE_SEVERITY.get((change.kind, change.change_type), 20)
-    return max(base, floor)
+    """What this change costs, from the most precise thing that can be said.
 
+    The signal is a statement about what happened; ``BASE_SEVERITY`` is a guess
+    from the kind and the direction. So the signal decides, and the guess is
+    used only when there is no signal at all.
 
-def _fork_signals(change: Change, platform: str) -> List[str]:
-    """Divergence semantics: the vendor did this, not Chromium.
+    It used to be ``max(base, floor)``, which sounds cautious and is not: the
+    guess overrode the statement in exactly the cases where the statement was
+    lower, which is where the guess was wrong. A Mojo method whose mojom
+    attributes moved and one whose signature moved both scored 75, because
+    ``(mojo_method, modified)`` is 75 and only the second is an ABI break. A
+    chrome://flags entry whose removal date slipped scored 15 while its own
+    signal says 10, and the code that set it said so in a comment: "below the
+    kind's own base severity, so labelling these changes no ranking".
 
-    Direction matters. The comparison is run as upstream -> fork, so a fact
-    missing on the fork side is something *we* removed, not something upstream
-    dropped.
+    Measured against two real pairs, the prior overrode the signal on 267 of
+    2,800 findings at M148 -> M151 and 345 of 6,787 at M143 -> M151, every one
+    of them upwards. The largest group is the smallest change the tool
+    reports -- a chrome://flags removal date slipping, 245 and 256 of them --
+    and the most wrong is the four Mojo methods whose mojom attributes moved
+    and which were ranked as ABI breaks at 75.
     """
-    kind = change.kind
-    ui_kinds = (KIND_WEBUI_ROUTE, KIND_WEBUI_CONTROL, KIND_WEBUI_GATE)
+    lead = leading_signal(change)
+    if lead:
+        return SIGNAL_SEVERITY.get(lead, 0)
+    return BASE_SEVERITY.get((change.kind, change.change_type), 20)
 
-    if change.change_type == REMOVED:
-        return ["fork_ui_removed"] if kind in ui_kinds else ["fork_dropped"]
-    if change.change_type == ADDED:
-        return ["fork_ui_added"] if kind in ui_kinds else ["fork_added"]
 
-    signals = ["fork_modified"]
-    if kind in (KIND_BASE_FEATURE, KIND_BLINK_RUNTIME):
-        states = change.deltas.get("platform_state") or change.deltas.get(
-            "platform_status")
-        flipped = False
-        if isinstance(states, list) and len(states) == 2:
-            old = states[0].get(platform) if isinstance(states[0], dict) else None
-            new = states[1].get(platform) if isinstance(states[1], dict) else None
-            flipped = old != new
-        if flipped or "default_state" in change.deltas or "status" in change.deltas:
-            signals.append("fork_default_override")
-    return signals
+def bucket_of(change: Change) -> str:
+    """Which bucket a change belongs to, from the signal that set its severity.
+
+    Public because the scoring stage may move one class of finding out of it --
+    a disappearance the run did not read enough of the tree to confirm -- and
+    it has to start from the same answer both renderers group by.
+    """
+    lead = leading_signal(change)
+    if lead:
+        bucket = SIGNAL_BUCKET.get(lead)
+        if bucket:
+            return bucket
+    return NO_SIGNAL_BUCKET.get(change.change_type, BUCKET_HOUSEKEEPING)
 
 
 def _signals_for(change: Change, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
-                 target_milestone: Optional[int],
-                 mode: str = MODE_UPREV) -> List[str]:
-    if mode == MODE_FORK:
-        return _fork_signals(change, platform)
-
+                 target_milestone: Optional[int]) -> List[str]:
     signals: List[str] = []
     kind = change.kind
 
@@ -660,6 +733,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
                 # labelled by nothing -- four such rows in M143 -> M148.
                 signals.append("build_gate_changed")
     elif kind == KIND_FEATURE_PARAM:
+        if change.change_type == REMOVED:
+            signals.append("param_removed")
         if "default" in change.deltas:
             signals.append("param_default_changed")
         if "var" in change.deltas:
@@ -689,7 +764,7 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
                            else "switch_left_scan")
         elif "platform_state" in change.deltas:
             # The `#if` chain around the declaration moved it into or out of a
-            # Windows build. Only the resolved verdict is compared, so upstream
+            # Windows build. Only the resolved verdict is compared, so Chromium
             # tidying a guard that never excluded us is not a row.
             signals.append("build_gate_changed")
         elif "var" in change.deltas:
@@ -732,9 +807,10 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
         # half the list false alarms.
         #
         # Neither case changes behaviour on its own: the feature simply becomes
-        # unconditional. What breaks is a *downstream override* -- and the build,
-        # if our source still names the symbol -- so both stay breaking signals
-        # and the impact stage promotes them only when there is local evidence.
+        # unconditional. What stops working is anything that was setting the
+        # flag from outside the binary -- a Finch config, an --enable-features
+        # command line -- which is why the label says so and the bucket does
+        # not: nothing a user can see moved.
         prior = _our_state(old_fact) if old_fact else ""
         if old_fact is not None:
             states = old_fact.attrs.get("platform_state") or {}
@@ -767,8 +843,8 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
             signals.append("build_gate_changed")
 
     # The `#if` chain around the declaration moved. This is compared -- it is
-    # the whole evidence for a vendor shadowing a feature behind a build flag,
-    # which is why schema 4 started recording it -- and it was the one compared
+    # the whole evidence for a feature moving into or out of a build without
+    # its value changing -- and it was the one compared
     # attribute of the tool's highest-value kind that never produced a label:
     # 55 rows in M143 -> M148 arrived with a severity and a blank reason.
     # Switches, preferences and WebUI controls have said `build_gate_changed`
@@ -844,8 +920,8 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
         # Scoring those as API removals would put 170 false alarms at the top
         # of the report.  What actually changed is that the kill-switch is
         # gone: the behaviour is now permanent and unconditional, which only
-        # matters downstream if this browser was overriding the flag.  Real
-        # API removals are detected from the IDL diff instead.
+        # matters to anything that was overriding the flag.  Real API removals
+        # are detected from the IDL diff instead.
         old_status = _our_status(old_fact) if old_fact else ""
         if old_status == "stable":
             return ["killswitch_retired"]

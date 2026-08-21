@@ -1,9 +1,9 @@
 """Extract Mojo interfaces and method signatures.
 
-Mojo is the ABI between Chromium's processes.  A downstream browser that
-implements or calls a mojo interface -- which any vendor doing custom UI,
-media or network work does -- breaks when a method signature moves.  Unlike an
-IDL change this is not caught by web tests and often not by the compiler
+Mojo is the ABI between Chromium's processes.  Anything that implements or
+calls a mojo interface -- which anything doing custom UI, media or network
+work does -- breaks when a method signature moves.  Unlike an IDL change this
+is not caught by web tests and often not by the compiler
 either, because the mismatch shows up in generated bindings on the other side
 of a process boundary.
 

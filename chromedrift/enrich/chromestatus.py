@@ -138,7 +138,7 @@ def milestone_brief(milestones: List[int], cache_dir: str,
     identifiers, and fuzzy matching tops out around 2% before it starts
     inventing pairs.
 
-    So the list is carried whole instead of matched: it says what upstream
+    So the list is carried whole instead of matched: it says what Chromium
     intended to ship in this window without pretending to know which finding
     each entry belongs to.
 

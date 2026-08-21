@@ -1,12 +1,12 @@
 """Markdown report: the artifact a team pastes into a ticket or a wiki.
 
-Ordered by what a reader needs first -- the triage counts, then the work, then
-the evidence.  Every finding shows the reasons behind its score, because a
-triage list that cannot be argued with is a triage list that gets ignored.
+Ordered by what a reader needs first -- the four counts, then what happened,
+then the rows.  Every finding shows the reasons behind its score, because a
+list that cannot be argued with is a list that gets ignored.
 
 Nothing here states a verdict.  The report carries evidence and a rank; the
 judgement is made by whoever reads it, which is why the score reasoning and the
-declaring paths are always present rather than summarized away.
+declaring lines are always present rather than summarized away.
 """
 
 from __future__ import annotations
@@ -16,59 +16,20 @@ from typing import List, Sequence
 from ..diff import SIGNAL_LABELS
 from . import wording as surfaces
 from ..model import (
+    BUCKET_BEHAVIOUR,
+    BUCKET_BREAKING,
     BUCKET_LABELS,
-    BUCKET_MUST_FIX,
-    BUCKET_OPPORTUNITY,
+    BUCKET_MEANINGS,
+    BUCKET_NEW,
     BUCKET_ORDER,
-    BUCKET_REVIEW,
     KIND_GROUP_MEANINGS,
     KIND_GROUPS,
     KIND_LABELS,
-    MODE_FORK,
-    MODE_UPREV,
     Finding,
     Report,
 )
 
-# The same table means two different things depending on which comparison ran,
-# and the wording is what tells a reader which one they are holding. Titling a
-# fork comparison "uprev impact" and offering the vendor's own customizations
-# as "new capability we could adopt" is not a cosmetic slip -- it inverts the
-# reading of every row.
-MODE_TITLES = {
-    MODE_UPREV: "Chromium uprev impact",
-    MODE_FORK: "Fork divergence from upstream",
-}
-
-MODE_SUBTITLES = {
-    MODE_FORK: "Comparison runs **upstream → our fork** at the same milestone. "
-               "Everything below is a difference we own: *removed* means we "
-               "dropped something upstream still has, *added* means we carry "
-               "something upstream does not.",
-}
-
-BUCKET_MEANINGS = {
-    MODE_UPREV: {
-        BUCKET_MUST_FIX: "We touch this and it changed. Assume work is needed.",
-        BUCKET_REVIEW: "Either we touch it, or it is severe enough to confirm.",
-        BUCKET_OPPORTUNITY: "New capability we could adopt.",
-        "fyi": "Recorded for completeness.",
-    },
-    MODE_FORK: {
-        BUCKET_MUST_FIX: "Divergence we depend on. A rebase undoes it silently "
-                         "unless a patch carries it.",
-        BUCKET_REVIEW: "Divergence with no clear owner. Decide: keep it, or "
-                       "take upstream's version.",
-        BUCKET_OPPORTUNITY: "Not used in a fork comparison.",
-        "fyi": "Recorded for completeness.",
-    },
-}
-
-
-def mode_of(report: Report) -> str:
-    mode = (report.meta or {}).get("mode") or MODE_UPREV
-    return mode if mode in MODE_TITLES else MODE_UPREV
-
+TITLE = "Chromium version comparison"
 
 def _esc(text: object) -> str:
     return str(text).replace("|", "\\|").replace("\n", " ")
@@ -114,13 +75,31 @@ def _signals(finding: Finding) -> str:
     return ", ".join(SIGNAL_LABELS.get(s, s) for s in finding.change.signals) or "—"
 
 
-def _evidence(finding: Finding) -> str:
-    bits = []
-    if finding.matched_paths:
-        bits.append(f"patches {len(finding.matched_paths)} file(s)")
-    if finding.matched_symbols:
-        bits.append(f"refs {', '.join(finding.matched_symbols[:2])}")
-    return "; ".join(bits) or "—"
+def _location(finding: Finding, limit: int = 52) -> str:
+    """Where to look, in one cell: the file and the line inside it.
+
+    The place, not the file. `content_features.cc` declares nearly two hundred
+    features, so citing the file leaves the reader to find the line, which is
+    the work this column exists to save.
+
+    Trimmed from the *front* when it will not fit, because the useful half is
+    at the back. Cutting the tail off `third_party/blink/public/mojom/ai/
+    ai_manager.mojom:41` at 52 characters removes the filename and the line
+    number and leaves four directory names every row in the block shares.
+    """
+    where = finding.change.locations or finding.change.paths
+    if not where:
+        return "—"
+    text = where[0]
+    if len(text) <= limit:
+        return text
+    parts = text.split("/")
+    out = parts[-1]
+    for part in reversed(parts[:-1]):
+        if len(part) + 1 + len(out) + 2 > limit:
+            break
+        out = f"{part}/{out}"
+    return "…/" + out
 
 
 def render(report: Report, platform: str = "windows",
@@ -128,68 +107,68 @@ def render(report: Report, platform: str = "windows",
     out: List[str] = []
     counts = report.bucket_counts()
     summary = report.summary or {}
-
-    mode = mode_of(report)
-    out.append(f"# {MODE_TITLES[mode]}: {report.from_ref} → {report.to_ref}")
-    out.append("")
     meta = report.meta or {}
-    out.append(
-        f"Product: **{meta.get('product', 'downstream browser')}** · "
-        f"platform **{platform}** · generated {meta.get('generated', '')}"
-    )
-    out.append("")
-    if MODE_SUBTITLES.get(mode):
-        out.append(MODE_SUBTITLES[mode])
-        out.append("")
 
-    out.append("## Triage")
+    out.append(f"# {TITLE}: {report.from_ref} → {report.to_ref}")
     out.append("")
-    out.append("| Bucket | Count | Meaning |")
+    out.append(f"Platform **{platform}** · target set "
+               f"`{meta.get('target_set', '?')}` · generated "
+               f"{meta.get('generated', '')}")
+    out.append("")
+
+    out.append("## What kind of change")
+    out.append("")
+    out.append("| | Count | Meaning |")
     out.append("|---|---:|---|")
-    meanings = BUCKET_MEANINGS[mode]
     for bucket in BUCKET_ORDER:
-        # A bucket a mode never fills would only add a confusing empty row.
-        if mode == MODE_FORK and bucket == BUCKET_OPPORTUNITY \
-                and not counts.get(bucket, 0):
-            continue
         out.append(f"| {BUCKET_LABELS[bucket]} | {counts.get(bucket, 0)} | "
-                   f"{meanings.get(bucket, '')} |")
+                   f"{BUCKET_MEANINGS.get(bucket, '')} |")
     out.append("")
 
     stats = summary.get("changes") or {}
     if stats:
-        out.append(f"Scanned {stats.get('total', 0)} semantic changes across "
-                   f"{len(stats.get('by_kind', {}))} surface types; "
-                   f"{summary.get('with_evidence', 0)} intersect our fork.")
+        idle = summary.get("not_in_build") or 0
+        line = (f"{stats.get('total', 0)} semantic changes across "
+                f"{len(stats.get('by_kind', {}))} surface types.")
+        if idle:
+            line += (f" {idle} of them score zero: Chromium's own build "
+                     f"conditions keep the declaration out of the {platform} "
+                     f"binary on both sides of the change, so nothing they do "
+                     f"reaches our users.")
+        out.append(line)
         out.append("")
 
     out.append(_render_stories(report))
     out.append(_render_screens(report))
     out.append(_render_clusters(summary))
-    out.append(_render_coverage(summary))
     out.append(_render_milestone_brief(summary))
 
     # -- buckets --------------------------------------------------------
-    for bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW, BUCKET_OPPORTUNITY):
+    # Housekeeping is deliberately not given a table. It is the largest bucket
+    # in every report and the one nothing in it needs doing about; a reader
+    # who wants it has `report.json` and the sortable table in `report.html`.
+    for bucket in (BUCKET_BREAKING, BUCKET_BEHAVIOUR, BUCKET_NEW):
         findings = report.by_bucket(bucket)
         if not findings:
             continue
         out.append(f"## {BUCKET_LABELS[bucket]} ({len(findings)})")
         out.append("")
-        out.append("| Score | What changed | Surface | What moved | Our evidence |")
+        out.append(BUCKET_MEANINGS.get(bucket, ""))
+        out.append("")
+        out.append("| Score | What changed | Surface | What moved | Where |")
         out.append("|---:|---|---|---|---|")
         for finding in findings[:detail_limit]:
             out.append(
                 f"| {finding.score} | {_esc(surfaces.describe(finding.change))} "
                 f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
                 f"| {_esc(_state_arrow(finding, platform))} "
-                f"| {_esc(_evidence(finding))} |"
+                f"| `{_esc(_location(finding))}` |"
             )
         if len(findings) > detail_limit:
             out.append(f"| … | _{len(findings) - detail_limit} more_ | | | |")
         out.append("")
 
-        if bucket in (BUCKET_MUST_FIX, BUCKET_REVIEW):
+        if bucket in (BUCKET_BREAKING, BUCKET_BEHAVIOUR):
             out.append(_render_details(findings[:detail_limit], platform))
 
     # -- appendix -------------------------------------------------------
@@ -219,9 +198,10 @@ def _render_stories(report: Report) -> str:
                 # Both numbers, because the rows are ordered by the first one
                 # and printing only the second made the table look unsorted:
                 # `Top score` ran 100, 84, 83, 80, 78, 75, 82, 50, 63 down a
-                # column with no visible reason. Severity is what Chromium
-                # changing this normally costs, and it is the ranking; top
-                # score is that after our own profile weighed in.
+                # column with no visible reason. Severity is what this kind of
+                # change costs and it is the ranking; top score is that after
+                # the build conditions and this run's own coverage weighed in,
+                # so the gap between the two columns is the discount.
                 "| Count | What happened | Direction | Severity | Top score |",
                 "|---:|---|---|---:|---:|"]
         # Every story, not the top few. There are about fifty in a full uprev
@@ -277,7 +257,7 @@ def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> st
 def _render_clusters(summary: dict) -> str:
     """Related findings, grouped into one story each.
 
-    Read individually, the fragments of one upstream change contradict each
+    Read individually, the fragments of one Chromium change contradict each
     other -- a page removed here, a page added there. Grouped, they read as
     what actually happened.
     """
@@ -286,7 +266,7 @@ def _render_clusters(summary: dict) -> str:
     if not rows:
         return ""
     out = ["## Related changes, grouped", "",
-           "Each row is one upstream change arriving across several surfaces. "
+           "Each row is one Chromium change arriving across several surfaces. "
            "Read the group, not the individual rows.", "",
            "| Top score | Story | Fragments | Surfaces |",
            "|---:|---|---:|---|"]
@@ -298,55 +278,11 @@ def _render_clusters(summary: dict) -> str:
     return "\n".join(out)
 
 
-def _render_coverage(summary: dict) -> str:
-    """Where findings landed by area, and how many landed nowhere.
-
-    The unassigned row is the point of this section. Routing a report to teams
-    by area quietly drops whatever matched no area, and that leftover is where
-    cross-cutting infrastructure changes live -- often the most severe ones.
-    """
-    coverage = (summary or {}).get("area_coverage") or {}
-    areas = coverage.get("areas") or {}
-    unassigned = coverage.get("unassigned") or {}
-    if not areas and not unassigned.get("total"):
-        return ""
-
-    out = ["## Coverage by area", ""]
-    if summary.get("filtered_to_area"):
-        out.insert(0, "")
-        out.insert(0, f"> Showing only area **{summary['filtered_to_area']}** — "
-                      f"{summary.get('filtered_from_total', '?')} findings in the "
-                      f"full report.")
-    out.append("| Area | Findings | Actionable | Kind | Owner |")
-    out.append("|---|---:|---:|---|---|")
-    for area_id, row in areas.items():
-        out.append(f"| {area_id} | {row.get('total', 0)} | "
-                   f"{row.get('actionable', 0)} | {row.get('kind', '')} | "
-                   f"{row.get('owner', '')} |")
-    total = unassigned.get("total", 0)
-    if total:
-        out.append(f"| **_unassigned** | **{total}** | "
-                   f"**{unassigned.get('actionable', 0)}** | — | **nobody** |")
-    out.append("")
-    if unassigned.get("scoring_60_plus"):
-        out.append(
-            f"⚠️ {unassigned['scoring_60_plus']} unassigned findings score 60 or "
-            f"more (highest: {unassigned.get('top_score', 0)}). These belong to "
-            f"no area, so no per-area report shows them. Either extend the area "
-            f"definitions or review this set explicitly."
-        )
-        out.append("")
-    out.append("Re-render one area with "
-               "`chromedrift report <report.json> --area <id>`.")
-    out.append("")
-    return "\n".join(out)
-
-
 def _render_milestone_brief(summary: dict, limit: int = 200) -> str:
     """What Chromium says it shipped in this window.
 
     The report is what a reader reasons over, so the grounding lives here --
-    otherwise the one source that says what upstream *intended* to ship is
+    otherwise the one source that says what Chromium *intended* to ship is
     fetched, paid for, and thrown away.
 
     Folded into a `<details>` block because it is background, not findings: a
@@ -408,12 +344,6 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
         where = change.locations or change.paths
         if where:
             out.append(f"- Declared in: `{'`, `'.join(where[:3])}`")
-        if finding.matched_paths:
-            out.append(f"- We patch: `{'`, `'.join(finding.matched_paths[:5])}`")
-        if finding.matched_symbols:
-            out.append(f"- We reference: `{'`, `'.join(finding.matched_symbols[:8])}`")
-        if finding.areas:
-            out.append(f"- Areas: {', '.join(finding.areas)}")
         for key, delta in sorted(change.deltas.items()):
             if not (isinstance(delta, list) and len(delta) == 2):
                 continue
@@ -499,18 +429,6 @@ def _render_provenance(report: Report) -> str:
     ]
     lines += _tree_coverage_lines(report)
     lines += _missing_target_lines(report)
-    profile = meta.get("profile") or {}
-    if profile:
-        lines.append(
-            f"- Downstream profile: {profile.get('paths_total', 0)} patched paths, "
-            f"{profile.get('symbols_total', 0)} referenced symbols."
-        )
-        if not profile.get("paths_total") and not profile.get("symbols_total"):
-            lines.append(
-                "- **No downstream evidence was supplied**, so nothing could land "
-                "in *Must fix*. Point the profile at your patch directory or fork "
-                "to get real impact scoring."
-            )
     lines.append(
         "- No verdict is computed here. Every row above is extracted evidence "
         "and a deterministic rank; deciding what it means for the product is "

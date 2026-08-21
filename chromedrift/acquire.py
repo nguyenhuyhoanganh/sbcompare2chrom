@@ -32,7 +32,7 @@ import urllib.parse
 import urllib.request
 from typing import Dict, Iterable, List, Optional, Tuple
 
-USER_AGENT = "chromedrift/0.1 (+chromium uprev impact analysis)"
+USER_AGENT = "chromedrift/0.1 (+chromium version comparison)"
 GITILES_BASE = "https://chromium.googlesource.com/chromium/src"
 CHROMIUMDASH = "https://chromiumdash.appspot.com"
 
@@ -115,7 +115,7 @@ def resolve_ref(ref: str, platform: str = "Windows", timeout: int = 60) -> Tuple
     Accepts a bare milestone ("143"), a full version ("143.0.7499.40"), or any
     raw git ref (branch, tag, sha) which is passed through untouched.  Bare
     milestones resolve against the *stable* release for the requested platform,
-    which is what a downstream browser actually rebases onto.
+    which is what a release actually ships from.
     """
     ref = ref.strip()
     if _FULL_VERSION_RE.match(ref):

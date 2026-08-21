@@ -23,7 +23,6 @@ its shape and every row now carries that:
     What happened   the sentence the diff engine already wrote for it, which is
                     the label of the signal that set its severity
     Where           the screen it is on, or the directory that declares it
-    ours            a tag, when the finding touches code we patch or reference
 
 Nothing here invents a fact or drops one. Every column is a field that was
 already on the finding and was simply never rendered.
@@ -36,9 +35,9 @@ import json
 from typing import List
 
 from ..diff import SIGNAL_LABELS
-from ..model import (BUCKET_LABELS, BUCKET_ORDER, KIND_GROUPS, KIND_LABELS,
-                     Report, group_of)
-from . import markdown as md_report
+from ..model import (BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER, KIND_GROUPS,
+                     KIND_LABELS, Report, group_of)
+from .markdown import TITLE, display_name
 from . import wording as surfaces
 
 _CSS = """
@@ -49,7 +48,7 @@ _CSS = """
 :root{
 --bg:#faf9f7;--bg2:#f2f0ec;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
 --line:#e7e4de;--line2:#d9d5cd;--card:#fff;--sunk:#f5f3ef;
---must:#c0392f;--review:#a06a10;--opp:#2c6b45;--fyi:#77746d;
+--brk:#c0392f;--beh:#a06a10;--new-b:#2c6b45;--hk:#77746d;
 --accent:#2f5fa8;--accent-soft:#eaf0fb;
 --new:#2c6b45;--chg:#a06a10;--gone:#c0392f;
 --r1:9px;--r2:14px;
@@ -61,7 +60,7 @@ color-scheme:light;
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
 --bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
---must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 --new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
 --sh1:0 1px 2px rgba(0,0,0,.4);
@@ -71,7 +70,7 @@ color-scheme:dark;}}
 :root[data-theme=dark]{
 --bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
---must:#f0857a;--review:#e3ae57;--opp:#7fc79b;--fyi:#a19e96;
+--brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 --new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
 --sh1:0 1px 2px rgba(0,0,0,.4);
@@ -131,17 +130,19 @@ display:flex;align-items:center;gap:7px}
 .card .l::before{content:"";flex:0 0 7px;height:7px;border-radius:50%;
 background:var(--line2)}
 .card .m{color:var(--muted);font-size:.785rem;margin-top:8px;line-height:1.5}
-.card.must{background:linear-gradient(180deg,
-color-mix(in srgb,var(--must) 8%,var(--card)),var(--card) 58%)}
-.card.review{background:linear-gradient(180deg,
-color-mix(in srgb,var(--review) 8%,var(--card)),var(--card) 58%)}
-.card.opportunity{background:linear-gradient(180deg,
-color-mix(in srgb,var(--opp) 8%,var(--card)),var(--card) 58%)}
-.card.must .n{color:var(--must)}.card.must .l::before{background:var(--must)}
-.card.review .n{color:var(--review)}.card.review .l::before{background:var(--review)}
-.card.opportunity .n{color:var(--opp)}
-.card.opportunity .l::before{background:var(--opp)}
-.card.fyi .n{color:var(--fyi)}.card.fyi .l::before{background:var(--fyi)}
+.card.breaking{background:linear-gradient(180deg,
+color-mix(in srgb,var(--brk) 8%,var(--card)),var(--card) 58%)}
+.card.behaviour{background:linear-gradient(180deg,
+color-mix(in srgb,var(--beh) 8%,var(--card)),var(--card) 58%)}
+.card.new{background:linear-gradient(180deg,
+color-mix(in srgb,var(--new-b) 8%,var(--card)),var(--card) 58%)}
+.card.breaking .n{color:var(--brk)}
+.card.breaking .l::before{background:var(--brk)}
+.card.behaviour .n{color:var(--beh)}
+.card.behaviour .l::before{background:var(--beh)}
+.card.new .n{color:var(--new-b)}.card.new .l::before{background:var(--new-b)}
+.card.housekeeping .n{color:var(--hk)}
+.card.housekeeping .l::before{background:var(--hk)}
 
 /* -- filter row ---------------------------------------------------------- */
 .controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;
@@ -190,26 +191,24 @@ box-shadow:inset 2px 0 0 var(--accent)}
 
 .score{font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.015em;
 font-size:.95rem;color:var(--muted)}
-.s-hi{color:var(--must)}.s-mid{color:var(--review)}
+.s-hi{color:var(--brk)}.s-mid{color:var(--beh)}
 
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.71rem;
 font-weight:600;letter-spacing:.01em;white-space:nowrap;
 background:color-mix(in srgb,currentColor 13%,transparent)}
-.b-must_fix{color:var(--must)}.b-review{color:var(--review)}
-.b-opportunity{color:var(--opp)}.b-fyi{color:var(--fyi)}
+.b-breaking{color:var(--brk)}.b-behaviour{color:var(--beh)}
+.b-new{color:var(--new-b)}.b-housekeeping{color:var(--hk)}
 
 .mk{font-weight:700;padding-right:6px;font-variant-numeric:tabular-nums}
-.mk-added{color:var(--new)}.mk-removed{color:var(--gone)}.mk-modified{color:var(--chg)}
+.mk-added{color:var(--new)}.mk-removed{color:var(--gone)}
+.mk-modified{color:var(--chg)}
 .where{color:var(--muted);font-size:.815rem;line-height:1.45}
 .grp{font-size:.715rem;color:var(--faint);margin-top:3px}
 .moved{font-size:.775rem;color:var(--faint);margin-top:4px;line-height:1.45}
-.ours{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
-text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
-border-radius:999px;padding:1px 7px;white-space:nowrap;vertical-align:1px}
 ul.tight{margin:7px 0;padding-left:19px;line-height:1.7}
 .empty{padding:44px;text-align:center;color:var(--faint)}
 .note{background:var(--card);border:1px solid var(--line);border-radius:var(--r1);
-border-left:3px solid var(--review);padding:12px 15px;margin:0 0 16px;
+border-left:3px solid var(--beh);padding:12px 15px;margin:0 0 16px;
 font-size:.87rem;color:var(--muted);box-shadow:var(--sh1)}
 #more{margin-top:14px;width:100%;padding:12px;background:var(--card);
 color:var(--muted);border:1px solid var(--line);border-radius:var(--r1);
@@ -261,7 +260,7 @@ whyLabel=f=>STORIES[f.why]||f.why||'';
 /* Sized for the weakest machine that has to open this, not the fastest. */
 const PAGE=100;
 const q=document.getElementById('q'),fb=document.getElementById('fb'),
-fk=document.getElementById('fk'),fa=document.getElementById('fa'),
+fk=document.getElementById('fk'),fg=document.getElementById('fg'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
@@ -269,15 +268,12 @@ function esc(s){const d=document.createElement('div');d.textContent=s==null?'':s
 function match(f,t){
   if(fb.value&&f.bucket!==fb.value)return false;
   if(fk.value&&f.kind!==fk.value)return false;
-  if(fa.value){
-    if(fa.value==='__none__'){ if((f.areas||[]).length) return false; }
-    else if(!(f.areas||[]).includes(fa.value)) return false;
-  }
+  if(fg.value&&f.group!==fg.value)return false;
   if(!t)return true;
   if(f._hay===undefined)
     f._hay=(f.name+' '+f.kind+' '+(f.what||'')+' '+(f.where||'')+' '+whyLabel(f)+' '
       +(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
-      +' '+(f.we_ref||[]).join(' ')+' '+(f.chromestatus||'')).toLowerCase();
+      +' '+(f.chromestatus||'')).toLowerCase();
   return f._hay.indexOf(t)!==-1;
 }
 /* Built only when a row is actually expanded. This was half the payload. */
@@ -285,8 +281,6 @@ function details(f){
   const L=[];
   if(f.signals&&f.signals.length)L.push('<li><b>Signals:</b> '+esc(f.signals.join(', '))+'</li>');
   if(f.paths&&f.paths.length)L.push('<li><b>Declared in:</b> <code>'+esc(f.paths.join(', '))+'</code></li>');
-  if(f.we_patch&&f.we_patch.length)L.push('<li><b>We patch:</b> <code>'+esc(f.we_patch.join(', '))+'</code></li>');
-  if(f.we_ref&&f.we_ref.length)L.push('<li><b>We reference:</b> <code>'+esc(f.we_ref.join(', '))+'</code></li>');
   (f.deltas||[]).forEach(d=>L.push('<li><b>'+esc(d[0])+':</b> <code>'+esc(d[1])+'</code> \\u2192 <code>'+esc(d[2])+'</code></li>'));
   if(f.chromestatus)L.push('<li><b>Chromestatus:</b> '+esc(f.chromestatus)+'</li>');
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
@@ -297,7 +291,6 @@ function whatCell(f){
   var c=f.change_type||'';
   var out='<span class="mk mk-'+c+'" title="'+esc(c)+'">'+(MARK[c]||'?')+'</span>'+
     (f.what?esc(f.what):'<code>'+esc(f.name)+'</code>');
-  if(f.ours) out+=' <span class="ours">ours</span>';
   if(f.moved) out+='<div class="moved">'+esc(f.moved)+'</div>';
   return out;
 }
@@ -364,15 +357,15 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',
    each card carries the filter it stands for. */
 document.querySelectorAll('[data-set]').forEach(function(el){
   el.addEventListener('click',function(){
-    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fa:fa}[p[0]];
+    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg}[p[0]];
     if(!sel)return;
-    fb.value='';fk.value='';fa.value='';
+    fb.value='';fk.value='';fg.value='';
     sel.value=p.slice(1).join(':');
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
 let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);});
-[fb,fk,fa].forEach(el=>el&&el.addEventListener('change',apply));
+[fb,fk,fg].forEach(el=>el&&el.addEventListener('change',apply));
 apply();
 """
 
@@ -426,7 +419,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         status = (finding.enrichment or {}).get("chromestatus") or {}
         row = {
             "id": finding.uid,
-            "name": md_report.display_name(change),
+            "name": display_name(change),
             "kind": change.kind,
             "change_type": change.change_type,
             "bucket": finding.bucket,
@@ -444,13 +437,6 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # two thirds of them are not features at all.
             "group": group_of(change.kind),
             "paths": (change.locations or change.paths)[:3],
-            "we_patch": finding.matched_paths[:5],
-            "we_ref": finding.matched_symbols[:8],
-            # The one bit of the impact analysis worth seeing without opening
-            # the row: on a real run 53 of 2,792 findings touch our code, and
-            # those 53 are the reason the report exists.
-            "ours": bool(finding.matched_paths or finding.matched_symbols),
-            "areas": finding.areas,
             "deltas": deltas[:6],
             "reasons": finding.reasons,
             "chromestatus": status.get("summary", ""),
@@ -461,9 +447,8 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         # twice in one cell.
         row["moved"] = "" if moved in row["what"] else moved
         # Drop empty values. Every consumer in the page guards for a missing
-        # key, and on a run without a profile or enrichment these are empty on
-        # every single row: measured at 3,120 findings, chromestatus, we_patch
-        # and we_ref were empty 3,120 times each.
+        # key, and on a run with --no-enrich `chromestatus` is empty on every
+        # single row -- 3,120 of them on a real report.
         rows.append({k: v for k, v in row.items() if not _is_empty(v)})
     return rows
 
@@ -511,20 +496,18 @@ def _n(value: int) -> str:
 # Sections
 # ---------------------------------------------------------------------------
 
-def _triage_html(report: Report, mode: str) -> str:
-    """The counts, each with what a reader is supposed to do about it.
+def _triage_html(report: Report) -> str:
+    """The counts, each with the sentence saying what the bucket means.
 
-    A number under the word "Review" is not triage; the sentence beside it is,
-    and it was only ever in the markdown report.
+    A number under one word is not triage; the sentence beside it is, and it
+    was only ever in the markdown report.
     """
     counts = report.bucket_counts()
-    meanings = md_report.BUCKET_MEANINGS[mode]
     return "".join(
-        f'<button class="card {b.replace("must_fix", "must")}" '
-        f'data-set="fb:{b}">'
+        f'<button class="card {b}" data-set="fb:{b}">'
         f'<div class="n">{_n(counts.get(b, 0))}</div>'
         f'<div class="l">{_esc(BUCKET_LABELS[b])}</div>'
-        f'<div class="m">{_esc(meanings.get(b, ""))}</div></button>'
+        f'<div class="m">{_esc(BUCKET_MEANINGS.get(b, ""))}</div></button>'
         for b in BUCKET_ORDER)
 
 
@@ -583,12 +566,10 @@ def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
     meta = report.meta or {}
     summary = report.summary or {}
-    mode = md_report.mode_of(report)
 
     kinds = sorted({r["kind"] for r in rows})
-    areas = sorted({a for r in rows for a in r.get("areas", [])})
-    unassigned_count = sum(1 for r in rows if not r.get("areas"))
-    ours = sum(1 for r in rows if r.get("ours"))
+    groups = [g for g, _ in KIND_GROUPS if any(r.get("group") == g for r in rows)]
+    idle = summary.get("not_in_build") or 0
 
     # One sentence per story, stored once instead of once per row.
     stories = {}
@@ -597,13 +578,13 @@ def render(report: Report, platform: str = "windows") -> str:
         stories[key] = headline
 
     notes = []
-    subtitle = md_report.MODE_SUBTITLES.get(mode)
-    if subtitle:
-        notes.append(html.escape(subtitle.replace("**", "").replace("*", "")))
-    profile = meta.get("profile") or {}
-    if profile and not profile.get("paths_total") and not profile.get("symbols_total"):
-        notes.append("No downstream evidence was supplied, so nothing can land in "
-                     "<b>Must fix</b>. Point the profile at your patch directory or fork.")
+    absent = sum(len(v) for v in (meta.get("missing_targets") or {}).values())
+    if absent:
+        notes.append(
+            f"{absent} file(s) the target set asked for were not in one of the "
+            f"two trees, so nothing they declare could be compared. "
+            f"<code>report.json</code> names them under "
+            f"<code>meta.missing_targets</code>.")
     notes_html = "".join(f'<div class="note">{n}</div>' for n in notes)
 
     option = lambda v, label="": f'<option value="{html.escape(v)}">{html.escape(label or v)}</option>'
@@ -624,20 +605,20 @@ def render(report: Report, platform: str = "windows") -> str:
     lede = (f"{_n(meta.get('facts_from', 0))} \u2192 "
             f"{_n(meta.get('facts_to', 0))} declarations read; "
             f"{_n(stats.get('total', len(rows)))} of them differ. ")
-    lede += (f"{_n(ours)} touch code we patch or reference \u2014 tagged "
-             f"<b>ours</b> in the table."
-             if ours else
-             "None touch code this profile says we patch or reference.")
+    lede += (f"{_n(idle)} score zero because Chromium's build conditions keep "
+             f"the declaration out of the {html.escape(platform)} binary on "
+             f"both sides of the change."
+             if idle else
+             "Every one of them is in the binary this product ships.")
 
-    return f"""<title>{html.escape(md_report.MODE_TITLES[mode])}</title>
+    return f"""<title>{html.escape(TITLE)}</title>
 <style>{_CSS}</style>
 <div class="wrap">
 <header class="top">
-<div class="eyebrow">{html.escape(md_report.MODE_TITLES[mode])}</div>
+<div class="eyebrow">{html.escape(TITLE)}</div>
 <h1><code>{html.escape(report.from_ref)}</code><span class="arrow">\u2192</span>
 <code>{html.escape(report.to_ref)}</code></h1>
-<div class="sub">{html.escape(str(meta.get('product', 'downstream browser')))} \u00b7
-platform {html.escape(platform)} \u00b7
+<div class="sub">platform {html.escape(platform)} \u00b7
 target set {html.escape(str(meta.get('target_set', '?')))} \u00b7
 generated {html.escape(str(meta.get('generated', '')))}</div>
 <p class="lede">{lede} Each row opens with
@@ -645,20 +626,19 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <b class="mk-removed">\u2212</b>&nbsp;gone.</p>
 </header>
 {notes_html}
-<div class="cards">{_triage_html(report, mode)}</div>
+<div class="cards">{_triage_html(report)}</div>
 <div class="controls">
-<input type="search" id="q" placeholder="Search name, signal, path, symbol\u2026">
+<input type="search" id="q" placeholder="Search name, signal, path, page\u2026">
 <select id="fb"><option value="">All buckets</option>
 {''.join(option(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER)}</select>
 <select id="fk"><option value="">All surfaces</option>
 {surface_options}</select>
-<select id="fa"><option value="">All areas</option>
-{''.join(option(a) for a in areas)}
-{option("__none__", f"(no area) \u2014 {unassigned_count}") if unassigned_count else ""}</select>
+<select id="fg"><option value="">All consequences</option>
+{''.join(option(g) for g in groups)}</select>
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table class="find">
-<colgroup><col style="width:62px"><col style="width:112px">
+<colgroup><col style="width:62px"><col style="width:132px">
 <col style="width:31%"><col style="width:24%"><col style="width:16%">
 <col style="width:150px"></colgroup>
 <thead><tr>

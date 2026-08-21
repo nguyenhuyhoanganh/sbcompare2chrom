@@ -28,8 +28,9 @@ been `stable`.
 
 **Check:** read the prior state. `flag_retired_on` means behaviour is now
 permanent and unremovable; `flag_retired_off` means the code is gone. Neither
-changes behaviour at this uprev — but both break the build if the fork names
-the symbol, and both silently kill any override the fork applied.
+changes behaviour at this uprev — which is why both are filed under
+Housekeeping — but both break the build of anything naming the symbol, and both
+silently kill any override that was setting the flag from outside the binary.
 
 ## 2. Declaration moved, not removed
 

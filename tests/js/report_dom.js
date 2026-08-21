@@ -36,7 +36,7 @@ class El {
 }
 
 const els = {};
-for (const id of ['q', 'fb', 'fk', 'fa', 'tb', 'cnt', 'more']) els[id] = new El(id);
+for (const id of ['q', 'fb', 'fk', 'fg', 'tb', 'cnt', 'more']) els[id] = new El(id);
 global.document = {
   getElementById: id => els[id],
   querySelectorAll: () => [],
@@ -55,7 +55,7 @@ const N = 3000;
 global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   const row = {
     name: 'Feature' + i, kind: 'base_feature',
-    bucket: i < 40 ? 'must_fix' : 'fyi', score: i % 10 === 0 ? 0 : 100 - (i % 100),
+    bucket: i < 40 ? 'breaking' : 'housekeeping', score: i % 10 === 0 ? 0 : 100 - (i % 100),
     change_type: 'modified', what: 'feature flag Feature' + i,
     why: 'flag_retired_on', where: 'content/public/common',
     signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'],
@@ -67,7 +67,7 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   return row;
 }) };
 global.window.__KINDS__ = { base_feature: 'Chromium feature flag' };
-global.window.__BUCKETS__ = { must_fix: 'Must fix', fyi: 'FYI' };
+global.window.__BUCKETS__ = { breaking: 'Breaking', housekeeping: 'Housekeeping' };
 global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
 
 let pending = null;
@@ -87,11 +87,11 @@ const out = { total: N, initialRows: els.tb.trCount, initialCount: els.cnt.textC
 // word JavaScript uses for it.
 out.undefinedInRows = /undefined/.test(els.tb.innerHTML);
 
-// A zero score has to render as 0. Filtering to must_fix puts all 40 of them
+// A zero score has to render as 0. Filtering to breaking puts all 40 of them
 // on one page, four of which score zero. The script is eval'd, so its own
 // functions are out of scope here -- everything goes through the DOM, as the
 // listeners above do.
-els.fb.value = 'must_fix';
+els.fb.value = 'breaking';
 els.fb.listeners['change'].forEach(f => f());
 out.zeroRendersAsZero = /class="score[^"]*">0</.test(els.tb.innerHTML);
 out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
