@@ -357,7 +357,11 @@ from typing import Any, Dict, Iterable, List, Optional
 #      and which come from the container, so a field losing its `[EnableIf]`
 #      and a struct losing the one around it stop resolving to one
 #      indistinguishable verdict.
-SCHEMA_VERSION = 36
+#  37: an overloaded IDL member records where each of its overloads is
+#      declared, so a row about an overload set points at the declarations
+#      rather than at whichever one deduplication kept. Recorded and rendered,
+#      not compared: line numbers move whenever anything above them does.
+SCHEMA_VERSION = 37
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -913,15 +917,17 @@ def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
             signature = f.attrs.get("signature")
             if signature:
                 ext = f.attrs.get("ext") or {}
+                where = f"{f.path}:{f.line}" if f.line else f.path
                 overloads.setdefault(f.uid, set()).add(
                     (signature, f.attrs.get("runtime_enabled", ""),
                      tuple(sorted(f"{k}={v}" if v is not True else k
-                                  for k, v in ext.items()))))
+                                  for k, v in ext.items())),
+                     where))
         current = best.get(f.uid)
         if current is None or (f.path, f.line) < (current.path, current.line):
             best[f.uid] = f
     for uid, entries in overloads.items():
-        signatures = {sig for sig, _, _ in entries}
+        signatures = {sig for sig, _, _, _ in entries}
         if len(signatures) > 1:
             # Recorded only when there is more than one, so an ordinary member
             # compares exactly as it always did.
@@ -932,10 +938,18 @@ def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
         # folded into the signature string: a gate moving is an overload
         # changing who can reach it, and putting it in the identity would
         # report that as one overload disappearing and another arriving.
-        traits = {(gate, ext) for _, gate, ext in entries}
+        traits = {(gate, ext) for _, gate, ext, _ in entries}
         if len(traits) > 1:
             best[uid].attrs["overload_traits"] = sorted(
                 f"{sig} [{gate or 'ungated'}"
                 + (f"; {', '.join(ext)}" if ext else "") + "]"
-                for sig, gate, ext in entries)
+                for sig, gate, ext, _ in entries)
+        # Where each overload is declared. Recorded and shown, and
+        # deliberately *not* compared: the group's line numbers move whenever
+        # anything above them in the file does, and comparing them would turn
+        # ordinary churn into rows. What the reader needed was to land on the
+        # right declaration, not to be told a line moved.
+        if len(signatures) > 1:
+            best[uid].attrs["overload_locations"] = sorted(
+                f"{sig} @ {where}" for sig, _, _, where in entries)
     return sorted(best.values(), key=lambda f: (f.kind, f.key))

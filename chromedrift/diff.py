@@ -817,6 +817,16 @@ def _make_change(change_type: str, old_fact: Optional[Fact],
         paths=paths,
         locations=_locations(old_fact, new_fact),
     )
+    # Where each overload of a member sits, so a row about an overload set
+    # points at the declarations rather than at whichever one deduplication
+    # kept. Added to `locations` rather than compared -- see `dedupe_facts`.
+    for fact in (new_fact, old_fact):
+        if fact is None:
+            continue
+        for entry in fact.attrs.get("overload_locations") or ():
+            where = entry.rsplit(" @ ", 1)[-1]
+            if where not in change.locations:
+                change.locations.append(where)
     change.signals = _signals_for(change, old_fact, new_fact, platform,
                                   target_milestone, gates)
     change.severity = _severity_for(change)

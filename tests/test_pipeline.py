@@ -4248,6 +4248,23 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         self.assertNotIn("overload_traits", facts["N.f"].attrs)
         self.assertIn("signatures", facts["N.f"].attrs)
 
+    def test_a_row_points_at_every_overload_it_is_about(self):
+        """The report cited the surviving declaration's line for the group.
+
+        Recorded and shown, and deliberately not compared: a group's line
+        numbers move whenever anything above them does, and comparing them
+        would turn ordinary churn into rows. What was missing was landing on
+        the right declaration, not being told a line moved.
+        """
+        from chromedrift.diff import MEANINGFUL_ATTRS
+        change = [c for c in diff_snapshots(
+            self._snap("148.0.0.0", "void f();\n  void f(long a);"),
+            self._snap("151.0.0.0", "void f();"))
+            if c.kind == "idl_member"][0]
+        self.assertEqual(len(change.locations), 2)
+        self.assertNotIn("overload_locations",
+                         MEANINGFUL_ATTRS["idl_member"])
+
     def test_the_verdict_does_not_depend_on_which_copy_survived(self):
         """One event, one score, whatever deduplication happened to keep.
 
