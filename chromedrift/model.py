@@ -326,7 +326,12 @@ from typing import Any, Dict, Iterable, List, Optional
 #      signatures at 50 points on M148 -> M151 with nothing moved. And an
 #      overload set gaining an entry at an argument count something already
 #      had can take a call from it, which version 31 called harmless.
-SCHEMA_VERSION = 32
+#  33: an overload set carries the gate on each overload, where they differ.
+#      Version 32 kept only the signature strings, so a `[RuntimeEnabled]`
+#      moving on one overload of a member was visible only if deduplication
+#      happened to keep that declaration. 12 of the 121 overload groups at
+#      M151 have overloads that disagree about their gate.
+SCHEMA_VERSION = 33
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -881,13 +886,25 @@ def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
         if f.kind in _OVERLOADED_KINDS:
             signature = f.attrs.get("signature")
             if signature:
-                overloads.setdefault(f.uid, set()).add(signature)
+                overloads.setdefault(f.uid, set()).add(
+                    (signature, f.attrs.get("runtime_enabled", "")))
         current = best.get(f.uid)
         if current is None or (f.path, f.line) < (current.path, current.line):
             best[f.uid] = f
-    for uid, signatures in overloads.items():
+    for uid, entries in overloads.items():
+        signatures = {sig for sig, _ in entries}
         if len(signatures) > 1:
             # Recorded only when there is more than one, so an ordinary member
             # compares exactly as it always did.
             best[uid].attrs["signatures"] = sorted(signatures)
+        # And the gate per overload, but only where the overloads disagree
+        # about it -- 12 of the 121 groups at M151. Kept as its own attribute
+        # rather than folded into the signature string: a gate moving is an
+        # overload changing who can reach it, and encoding it into the
+        # identity would report the same event as one overload disappearing
+        # and another arriving.
+        gates = {gate for _, gate in entries}
+        if len(gates) > 1:
+            best[uid].attrs["overload_gates"] = sorted(
+                f"{sig} [{gate or 'ungated'}]" for sig, gate in entries)
     return sorted(best.values(), key=lambda f: (f.kind, f.key))

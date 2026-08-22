@@ -2819,6 +2819,7 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     _SAMPLE = {
         "default_state": ("disabled", "enabled"),
         "signatures": (["void f()"], ["void f()", "void f(long a)"]),
+        "overload_gates": (["void f() [A]"], ["void f() [B]"]),
         "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
         "platform_status": ({"windows": "test"}, {"windows": "stable"}),
         "windows_status": ("test", "stable"),
@@ -3906,6 +3907,48 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
                   if c.kind == "idl_member"][0]
         self.assertEqual(change.signals, ["web_api_overload_shadowed"])
         self.assertEqual(score_change(change).bucket, "behaviour")
+
+    def test_a_gate_moving_on_one_overload_is_visible(self):
+        """The variant set kept signatures and dropped the gates.
+
+        So `[RuntimeEnabled]` moving on one overload of a member showed up
+        only when deduplication happened to keep that declaration. 12 of the
+        121 overload groups at M151 have overloads that disagree about their
+        gate; on M148 -> M151 none of them moved without something else
+        reporting it, so this closes the mechanism rather than fixing a
+        visible wrong answer.
+        """
+        before = ("[RuntimeEnabled=A] void f(long a); "
+                  "[RuntimeEnabled=B] void f(double b);")
+        after = ("[RuntimeEnabled=A] void f(long a); "
+                 "[RuntimeEnabled=C] void f(double b);")
+        change = [c for c in diff_snapshots(self._snap("148.0.0.0", before),
+                                            self._snap("151.0.0.0", after))
+                  if c.kind == "idl_member"][0]
+        self.assertIn("overload_gates", change.deltas)
+        # The same event the single-declaration case already names, so it
+        # carries that name rather than a signal of its own.
+        self.assertEqual(change.signals, ["web_api_exposure_changed"])
+        self.assertEqual(score_change(change).bucket, "behaviour")
+
+    def test_a_gate_change_is_not_read_as_an_overload_disappearing(self):
+        """Which is what folding the gate into the identity would have done."""
+        before = ("[RuntimeEnabled=A] void f(long a); "
+                  "[RuntimeEnabled=B] void f(double b);")
+        after = ("[RuntimeEnabled=A] void f(long a); "
+                 "[RuntimeEnabled=C] void f(double b);")
+        change = [c for c in diff_snapshots(self._snap("148.0.0.0", before),
+                                            self._snap("151.0.0.0", after))
+                  if c.kind == "idl_member"][0]
+        self.assertNotIn("web_api_overload_removed", change.signals)
+        self.assertNotIn("signatures", change.deltas)
+
+    def test_overloads_that_agree_about_their_gate_carry_no_list(self):
+        """Recorded only where it discriminates: 12 groups of the 121."""
+        facts = {f.key: f for f in
+                 self._snap("151.0.0.0", "void f(long a); void f(double b);").facts}
+        self.assertNotIn("overload_gates", facts["N.f"].attrs)
+        self.assertIn("signatures", facts["N.f"].attrs)
 
     def test_the_verdict_does_not_depend_on_which_copy_survived(self):
         """One event, one score, whatever deduplication happened to keep.

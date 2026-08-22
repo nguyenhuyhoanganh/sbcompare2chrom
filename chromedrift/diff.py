@@ -87,8 +87,8 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
         "is_protected_feature",
     ),
     KIND_IDL_INTERFACE: ("idl_kind", "inherits", "ext", "values"),
-    KIND_IDL_MEMBER: ("signature", "signatures", "member_type", "ext",
-                      "runtime_enabled"),
+    KIND_IDL_MEMBER: ("signature", "signatures", "overload_gates",
+                      "member_type", "ext", "runtime_enabled"),
     # Empty, and deliberately. "methods" and "method_count" do change -- 107
     # times across M130 -> M151 -- but every one of those is already a
     # mojo_method added or removed finding of its own, so comparing them here
@@ -1002,6 +1002,14 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             # `leading_signal` picks; the answer no longer depends on the file.
             if "signatures" in change.deltas:
                 signals += _overload_signals(*change.deltas["signatures"])
+            # One overload's gate moving while the argument lists stay put.
+            # Deduplication keeps one declaration, so unless the copy it kept
+            # was the one that moved, this said nothing. It is the same event
+            # `web_api_exposure_changed` names for a member with a single
+            # declaration, so it carries that name rather than a new one.
+            if ("overload_gates" in change.deltas
+                    and "web_api_exposure_changed" not in signals):
+                signals.append("web_api_exposure_changed")
             # `inherits` moves the prototype chain, `values` adds or drops an
             # enum member -- both change what a site can write, and both were
             # compared without ever producing a row anyone could read.
