@@ -311,7 +311,13 @@ from typing import Any, Dict, Iterable, List, Optional
 #      while extracting it, discounted a web API removal seen against a 99.8%
 #      read exactly as hard as a preference removal seen against 1.7%, and
 #      produced no change at all for `Foo@0` becoming `Foo@1`.
-SCHEMA_VERSION = 30
+#  31: an IDL member carries its whole overload set. Deduplication kept one
+#      declaration of a name, so a sibling overload appearing or disappearing
+#      moved nothing the diff could see: at M148 -> M151, 121 members have
+#      more than one signature, 56 had that set change, and 2 were silent --
+#      one of them `Document.parseHTMLUnsafe` losing an argument list, which
+#      is a web API disappearing.
+SCHEMA_VERSION = 31
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -827,6 +833,20 @@ def read_json(path: str) -> Any:
         return json.load(fh)
 
 
+# Kinds where two declarations of one name are the language working rather
+# than an accident. Web IDL overloads a member by argument list, so
+# `Navigator.install()` and `Navigator.install(InstallParams)` are two real
+# members with one name; keeping only the lowest hid an overload appearing or
+# disappearing. Measured M148 -> M151 with 121 such members: 56 had their
+# overload set change and 2 were invisible, one of them an overload being
+# removed -- which is a web API disappearing, the thing this kind scores 70
+# for when it can see it.
+#
+# The surviving fact carries the whole set, the way `mojo_enum` carries its
+# member list rather than becoming a fact per member.
+_OVERLOADED_KINDS = frozenset({"idl_member"})
+
+
 def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
     """Drop duplicate uids, keeping the declaration lowest in path order.
 
@@ -847,8 +867,18 @@ def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
     anywhere agree. The walk is sorted as well, so ordering never reaches here.
     """
     best: Dict[str, Fact] = {}
+    overloads: Dict[str, set] = {}
     for f in facts:
+        if f.kind in _OVERLOADED_KINDS:
+            signature = f.attrs.get("signature")
+            if signature:
+                overloads.setdefault(f.uid, set()).add(signature)
         current = best.get(f.uid)
         if current is None or (f.path, f.line) < (current.path, current.line):
             best[f.uid] = f
+    for uid, signatures in overloads.items():
+        if len(signatures) > 1:
+            # Recorded only when there is more than one, so an ordinary member
+            # compares exactly as it always did.
+            best[uid].attrs["signatures"] = sorted(signatures)
     return sorted(best.values(), key=lambda f: (f.kind, f.key))

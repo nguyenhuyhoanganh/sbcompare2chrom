@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,212 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,302 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -176,7 +176,7 @@ Every surface is one or the other:
 | Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
 | Preferences, command-line switches | nothing | **Yes** |
 
-Both halves are large, and the second carries the higher severities: at M148 → M151, **226 of the 282 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
+Both halves are large, and the second carries the higher severities: at M148 → M151, **227 of the 283 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
 
 ---
 
@@ -565,7 +565,7 @@ Measured against two real pairs, the prior overrode the signal on 267 of 2,800 f
 
 Score is the severity after two adjustments, both of them facts rather than opinions:
 
-**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 187 of 3,027 findings at M148 → M151 are in that state.
+**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 187 of 3,029 findings at M148 → M151 are in that state.
 
 Chromium says this in three different ways, and for a long time the tool read only the first:
 
@@ -608,7 +608,7 @@ The leading signal also decides **whose desk a finding lands on**, which is the 
 | WebUI front-end | routes, templates, the booleans gating them | 277 | 1 |
 | Outside the repository | Finch configs, launch scripts, automation, policy | 301 | 53 |
 
-The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 282 Breaking rows and the second shortest carries 126.
+The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 283 Breaking rows and the second shortest carries 126.
 
 Routing is by surface, except where the fix is somewhere other than the declaration. A renamed C++ constant stops the build and is fixed in the file beside it; a renamed Finch string compiles perfectly and is fixed in a server-side config nobody can see from this repository. Those are one event to a diff and two jobs on two desks, and only the second can sit unnoticed for a milestone — so eight signals override their surface and route to **Outside the repository**, which owns nothing and is where the silent failures collect.
 
@@ -618,9 +618,9 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 | Bucket | Meaning | M148 → M151 |
 |---|---|---:|
-| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 282 |
+| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 283 |
 | **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 468 |
-| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,240 |
+| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,241 |
 | **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | 1,037 |
 
 Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
@@ -647,9 +647,9 @@ A rule that produced the same answer either way would be wrong in one of the two
 ### The four counts at the top
 
 ```
-Breaking             282   ← something outside the binary stops working, silently
+Breaking             283   ← something outside the binary stops working, silently
 Behaviour change     468   ← the Windows build behaves differently
-New surface         1240   ← surface that did not exist. Nothing is on by it
+New surface         1241   ← surface that did not exist. Nothing is on by it
 Housekeeping        1037   ← Chromium tidying up after itself
 ```
 
@@ -973,7 +973,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**327 tests, running in about three seconds, with no network.**
+**335 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1023,17 +1023,17 @@ chromedrift/
   targets.py      759        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     188        combines fetch + extract into one cached snapshot
   extract/      2,801        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,354        semantic comparison, labelling, severity, bucketing, ownership
+  diff.py       1,377        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        275        the two run-dependent adjustments, and the reasons
+  score.py        290        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        854        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        884        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
   report/       1,721        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          585        6 command-line commands
+  cli.py          607        6 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

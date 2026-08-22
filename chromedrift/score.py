@@ -111,16 +111,24 @@ class Scope:
     deletions.
     """
 
-    __slots__ = ("to_ref", "to_share", "by_surface")
+    __slots__ = ("to_ref", "to_share", "by_surface", "incomplete")
 
     def __init__(self, coverage: Optional[dict] = None,
-                 to_ref: str = "") -> None:
+                 to_ref: str = "", incomplete: str = "") -> None:
         self.to_ref = to_ref
         to = (coverage or {}).get("to")
         self.to_share = _share(to)
         rows = (to or {}).get("by_surface") if isinstance(to, dict) else None
         self.by_surface = {k: _share(v) for k, v in rows.items()} \
             if isinstance(rows, dict) else {}
+        # Why this run cannot confirm an absence at all, whatever it read.
+        # Coverage answers "how much of the tree was in scope"; it says
+        # nothing about a file that was in scope and was not there, or one
+        # that was there and would not parse. Both produce exactly the shape
+        # a removal has -- a fact on one side and not the other -- and both
+        # are zero on every run measured so far, which is the reason to latch
+        # it now rather than after the first run where they are not.
+        self.incomplete = incomplete
 
     def share_for(self, kind: str) -> Optional[float]:
         """The read of the surface this kind came from, or the whole tree."""
@@ -137,6 +145,8 @@ class Scope:
         seen against a near-complete read -- exactly as hard as a preference
         removal seen against almost none.
         """
+        if self.incomplete:
+            return False
         share = self.share_for(kind)
         return share is None or share >= CONFIRMING_COVERAGE
 
@@ -213,10 +223,15 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
 
     if change.change_type == REMOVED and not scope.confirms_absence(change.kind):
         score -= UNCONFIRMED_PENALTY
-        why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
-               f"{scope.read_percent(change.kind)} of that surface at "
-               f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
-               f"\"moved into a file we never opened\"")
+        if scope.incomplete:
+            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {scope.incomplete} at "
+                   f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
+                   f"\"in something this run could not read\"")
+        else:
+            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
+                   f"{scope.read_percent(change.kind)} of that surface at "
+                   f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
+                   f"\"moved into a file we never opened\"")
         # For the two signals that are *only* an absence inference, the doubt
         # decides the filing as well as the number. `pref_left_scan` says
         # "deleted, or moved out of the files we read" in its own label; on a

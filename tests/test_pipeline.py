@@ -2818,6 +2818,7 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     # change to it means.
     _SAMPLE = {
         "default_state": ("disabled", "enabled"),
+        "signatures": (["void f()"], ["void f()", "void f(long a)"]),
         "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
         "platform_status": ({"windows": "test"}, {"windows": "stable"}),
         "windows_status": ("test", "stable"),
@@ -3836,6 +3837,101 @@ class TestRemovalConfidenceIsPerSurface(unittest.TestCase):
         change = diff_snapshots(snap("148.0.0.0", [api]),
                                 snap("151.0.0.0", []), platform="windows")[0]
         self.assertEqual(score_change(change, self._scope()).score, 70)
+
+
+class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
+    """Web IDL overloads a member by argument list; dedupe kept one.
+
+    So `Navigator.install` gaining `install(InstallParams)` and
+    `Document.parseHTMLUnsafe` losing `(html, SetHTMLUnsafeOptions)` both
+    produced no row at all: the declaration deduplication kept was unchanged
+    in each case. Measured M148 -> M151: 121 members carry more than one
+    signature, 56 had that set change, and these are the 2 the diff could not
+    see -- one of them a web API disappearing.
+    """
+
+    def _snap(self, ref, body):
+        from chromedrift.extract import web_idl
+        from chromedrift.model import dedupe_facts
+        return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
+            "interface N { %s };" % body,
+            "third_party/blink/renderer/x.idl")),
+            meta={"target_set": "default"})
+
+    ONE = "Promise<R> install(); Promise<R> install(USVString u);"
+    TWO = ONE + " Promise<R> install(P p);"
+
+    def test_a_member_carries_every_signature_it_has(self):
+        facts = {f.key: f for f in self._snap("151.0.0.0", self.ONE).facts}
+        self.assertEqual(facts["N.install"].attrs["signatures"],
+                         ["Promise<R> install()",
+                          "Promise<R> install(USVString u)"])
+
+    def test_a_member_with_one_signature_carries_no_list(self):
+        """Recorded only when there is more than one, so nothing else moves."""
+        facts = {f.key: f for f in
+                 self._snap("151.0.0.0", "Promise<R> install();").facts}
+        self.assertNotIn("signatures", facts["N.install"].attrs)
+
+    def test_losing_an_overload_is_breaking(self):
+        change = [c for c in diff_snapshots(self._snap("148.0.0.0", self.TWO),
+                                            self._snap("151.0.0.0", self.ONE))
+                  if c.kind == "idl_member"][0]
+        self.assertEqual(change.signals, ["web_api_overload_removed"])
+        finding = score_change(change)
+        self.assertEqual(finding.score, 60)
+        self.assertEqual(finding.bucket, "breaking")
+
+    def test_gaining_one_is_new_surface_not_breakage(self):
+        """Every existing call still matches the overload it always did."""
+        change = [c for c in diff_snapshots(self._snap("148.0.0.0", self.ONE),
+                                            self._snap("151.0.0.0", self.TWO))
+                  if c.kind == "idl_member"][0]
+        self.assertEqual(change.signals, ["web_api_overload_added"])
+        self.assertEqual(score_change(change).bucket, "new")
+
+
+class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
+    """A missing target and an unparsable file both look like a removal.
+
+    Coverage measures what was in scope, not what came back, so neither shows
+    up in it. Both are zero on every version measured so far; the latch is
+    here so the first run where they are not does not quietly confirm a
+    removal it cannot see.
+    """
+
+    FULL = {"to": {"candidates": 100, "read": 100}}
+
+    def test_a_complete_run_confirms_an_absence(self):
+        self.assertTrue(Scope(self.FULL, "refs/tags/151").confirms_absence("pref"))
+
+    def test_a_missing_target_withholds_confirmation(self):
+        scope = Scope(self.FULL, "refs/tags/151",
+                      incomplete="2 target(s) the source did not have")
+        self.assertFalse(scope.confirms_absence("pref"))
+
+    def test_the_reason_says_which_it_was(self):
+        from chromedrift.model import Fact
+        scope = Scope(self.FULL, "refs/tags/151",
+                      incomplete="1 file(s) that would not parse")
+        fact = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
+                    attrs={"var": "kAB"})
+        change = diff_snapshots(snap("148.0.0.0", [fact]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        reasons = " ".join(score_change(change, scope).reasons)
+        self.assertIn("would not parse", reasons)
+        self.assertNotIn("of that surface", reasons)
+
+    def test_the_reason_is_built_from_the_snapshot(self):
+        from chromedrift.cli import _incomplete_reason
+        clean = Snapshot(ref="r", facts=[], meta={"missing_targets": [],
+                                                  "extract_stats": {"_errors": 0}})
+        holed = Snapshot(ref="r", facts=[], meta={"missing_targets": ["a", "b"],
+                                                  "extract_stats": {"_errors": 3}})
+        self.assertEqual(_incomplete_reason(clean), "")
+        self.assertEqual(_incomplete_reason(holed),
+                         "2 target(s) the source did not have and "
+                         "3 file(s) that would not parse")
 
 
 class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):

@@ -2,11 +2,11 @@
 
 > Ngày đánh giá ban đầu: 21-08-2026
 > Follow-up review: 22-08-2026
-> Commit hiện tại được đọc: `46dae58` — schema `29`
-> Lịch sử được đọc: đủ 66/66 commit, từ `d9fca08` đến `46dae58`, gồm subject, body và diff của các quyết định quan trọng.
+> Commit hiện tại được đọc: `8ced148` — schema `30`
+> Lịch sử được đọc: đủ 67/67 commit, từ `d9fca08` đến `8ced148`, gồm subject, body và diff của các quyết định quan trọng.
 > Phạm vi: toàn bộ source Python, extractor, target, cache, snapshot, diff, scoring, report, test và dữ liệu cache M143/M147/M148/M151 có sẵn trong project.
 
-> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Trạng thái mới nhất sau commit `46dae58` nằm ở **mục 26** và có quyền thay thế các con số cũ. Các mục bị thay đổi lớn cũng được ghi chú ngay tại chỗ để người đọc không phải tự đoán.
+> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Trạng thái mới nhất sau commit `8ced148` nằm ở **mục 27** và có quyền thay thế các con số cũ. Các mục 1–26 là lịch sử lập luận và số đo ở những commit trước.
 
 ## 1. Đọc phần này trước nếu bạn không rành kỹ thuật
 
@@ -27,15 +27,15 @@ Sau khi đọc toàn bộ commit history, release-gate verdict ở trên **khôn
 - Determinism, scope guard, reference closure và score ceiling đều có rationale rõ và test đi kèm.
 - Function body, TypeScript behavior, `.grd` và GN config schema là documented exclusions, không phải phần tác giả quên làm.
 
-Commit `46dae58` sửa được nhiều lỗi thật: coverage denominator rộng hơn rất nhiều, base-feature guard đi vào `platform_state`, `/mac/` và `/linux/` được nhận diện, lỗi `margin-top`, `</script>`, cache ref chính và proxy credential đều có regression test. Vì vậy đánh giá hiện tại tích cực hơn bản đầu.
+Commit `8ced148` sửa đúng lỗi ordinal tường minh mà review trước bắt được: `Foo@0 → Foo@1` giờ đi xuyên suốt extract → diff → score và thành `ipc_ordinal_changed`, 80 điểm, bucket Breaking. Commit cũng làm bare `unittest discover` chạy đủ test, dùng coverage theo surface khi xác nhận removal, tập trung eligibility vào một module, chặn non-HTTP spec URL và hợp nhất cache sanitizer.
 
-Tuy nhiên release-gate verdict vẫn chưa đổi, chủ yếu vì một lỗi nằm đúng ở process-boundary comparison: method Mojo đã đọc được `ordinal`, nhưng diff không so thuộc tính đó. Probe `Foo@0 → Foo@1` hiện trả về `0 change`.
+Tuy nhiên release-gate verdict vẫn chưa đổi. Review sâu hơn cho thấy ordinal tường minh mới chỉ là phần dễ thấy: method/field không viết `@N` vẫn có ordinal ngầm theo vị trí, và ChromeDrift không lưu hoặc compare vị trí này. Ngoài ra, build guard bao quanh interface/struct Mojo đã được extract vào `platform_state` nhưng cũng chưa nằm trong `MEANINGFUL_ATTRS`. Đây chính là cùng kiểu lỗi “mở cửa extraction nhưng chưa mở cửa comparison” vừa xảy ra với ordinal.
 
 Nói dễ hiểu hơn:
 
 - Nếu ChromeDrift báo một thay đổi nguy hiểm, ta nên mở source ra kiểm tra lại. Báo cáo có thể đúng, nhưng cũng có thể là cảnh báo nhầm.
 - Nếu ChromeDrift không báo gì nguy hiểm, ta vẫn chưa thể nói bản nâng cấp an toàn. Công cụ có thể chưa tải file đó, parser có thể không hiểu cú pháp đó, hoặc hai declaration khác nhau đã bị gộp làm một.
-- Coverage hiện đã đổi từ `1.164 / 1.164 (100%)` thành `8.276 / 8.349 (99%)` cho `wide`. Đây là cải tiến lớn, nhưng vẫn là file-scope coverage, chưa phải parser completeness hoặc product completeness.
+- Coverage M151 hiện là `8.295 / 8.366 (99%)` cho `wide`, còn thiếu 71 file. Đây là cải tiến lớn, nhưng vẫn là file-scope coverage, chưa phải parser completeness hoặc product completeness. Các row `by_surface` đã dùng để score, nhưng hiện còn first-match bias khi một file thuộc nhiều extractor và chưa được in trong report thường.
 - Điểm `75` không có nghĩa là “75% khả năng xảy ra lỗi”. Nó chỉ là một trọng số do người viết công cụ đặt bằng tay để sắp xếp kết quả.
 
 Đây không phải là đánh giá rằng project “tệ”. Ngược lại, project có nhiều ý tưởng đúng, test khá nhiều và code có tính kỷ luật. Vấn đề là tài liệu đang hứa nhiều hơn mức mà cơ chế hiện tại thật sự chứng minh được.
@@ -51,20 +51,20 @@ Bạn có thể đọc theo lộ trình này:
 - Muốn hiểu fact và score: đọc mục 9, 10 và 11.
 - Muốn biết commit history đã quyết định gì: đọc mục 17 và 18.
 - Muốn biết lỗi nào cần sửa trước: đọc mục 19, 20 và 21.
-- Muốn có kết luận ngắn cuối cùng: đọc mục 24.
+- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 27.1, 27.14 và 27.15.
 
 ### Bảng trả lời nhanh
 
 | Câu hỏi | Trả lời ngắn nhất |
 |---|---|
 | Target `default` đủ chưa? | Không; nó cố ý chỉ lấy mẫu để chạy nhanh. |
-| Target `wide` đủ chưa? | Chưa hoàn toàn; nó đạt 8.276 / 8.349 candidate file, còn 73 file, và eligibility giữa coverage/extraction vẫn chưa dùng chung một policy. |
-| Đã extract hết source đã tải chưa? | Chưa; Mojo ordinal đã được đọc nhưng chưa được diff, WebIDL overload vẫn bị collapse và parser error vẫn có thể bị nuốt. |
+| Target `wide` đủ chưa? | Chưa hoàn toàn; nó đạt 8.295 / 8.366 candidate file, còn 71 file. Per-surface denominator cũng đang gán mỗi file cho surface đầu tiên match, dù 378 file match nhiều surface. |
+| Đã extract hết source đã tải chưa? | Chưa; explicit Mojo ordinal đã được diff, nhưng implicit ordinal và enclosing Mojo guard vẫn có false negative. WebIDL overload vẫn bị collapse và parser error vẫn có thể bị nuốt. |
 | Hai version được nối với nhau thế nào? | Bằng `kind:key`, rồi so một allowlist thuộc tính. |
 | Conflict trong cùng version xử lý thế nào? | Hiện giữ bản có path/line nhỏ nhất; ổn định nhưng có thể sai semantics. |
 | Fact đủ làm release verdict chưa? | Chưa; đủ cho inventory và manual triage. |
 | Score có phải xác suất lỗi không? | Không; đó là trọng số heuristic để xếp thứ tự đọc. |
-| 316 test pass có chứng minh đầy đủ không? | Không; test Mojo mới chỉ kiểm extraction nên vẫn pass dù comparison bỏ qua ordinal. |
+| 327 test pass có chứng minh đầy đủ không? | Không. Bare discovery giờ thật sự chạy đủ 327 test và ordinal test mới là end-to-end; nhưng docs test vẫn bỏ lọt nhiều số cũ, implicit ordinal và enclosing guard vẫn chưa có contract test. |
 | Có nên bỏ project không? | Không; nền tảng tốt, nhưng cần sửa comparison completeness, variants, confidence và provenance. |
 
 ## 2. Một ví dụ đời thường để hiểu toàn bộ hệ thống
@@ -1961,3 +1961,627 @@ Các lỗi base-platform, Mac/Linux, inline JSON, main cache traversal và proxy
 8. Thêm test count guard hoặc package discovery để bare `unittest discover` thật sự chạy test.
 
 Sau các bước 1–5, chạy lại real-version matrix ít nhất M143/M147/M148/M151 và so raw grammar inventory với deduped snapshot. Khi đó mới nên đánh giá lại release gate, không chỉ dựa vào việc toàn bộ regression tests pass.
+
+## 27. Follow-up review commit `8ced148` — schema 30
+
+### 27.1. Kết luận trước, để không bị ngợp bởi chi tiết
+
+Commit này là một bước tiến thật. Maintainer đã nhận đúng lỗi mình vừa tạo ở commit trước, không né tránh, và regression test mới cho explicit Mojo ordinal đi qua cả ba tầng `extract → diff → score`. Bare `unittest discover` cũng đã được sửa đúng, kể cả trên Python 3.9 là phiên bản thấp nhất project tuyên bố hỗ trợ.
+
+Nhưng câu “ba mục partial đã đóng nốt” vẫn hơi sớm. Kết quả review độc lập là:
+
+| Hạng mục | Kết quả review mới | Trạng thái |
+|---|---|---|
+| `Foo@0 → Foo@1` | Có delta `ordinal`, signal `ipc_ordinal_changed`, score 80, Breaking | **Fixed** |
+| Ordinal Mojo nói chung | Ordinal ngầm theo vị trí vẫn không được lưu hoặc compare | **Partial** |
+| Shared eligibility | Đã thống nhất test/vendor/product filter; platform policy vẫn khác có chủ ý, và 17 test-only facts vẫn lọt | **Partial** |
+| Per-surface removal confidence | Scorer hỏi đúng surface; denominator của hai surface bị thiếu membership vì mỗi path chỉ giữ surface đầu tiên | **Partial** |
+| Hiển thị per-surface coverage | Có trong snapshot/report JSON, chưa xuất hiện trong CLI, Markdown hoặc HTML bình thường | **Chưa đúng claim “in ra”** |
+| `javascript:` trong spec | Non-HTTP(S) render thành text, không thành link | **Fixed** |
+| Cache sanitizer thứ hai | Đã hợp nhất vào `acquire.safe_name` và chặn traversal cũ | **Fixed**, còn edge case portability/collision |
+| Bare `unittest discover` | Chạy đủ 327 test trên Python 3.14 và Python 3.9 | **Fixed** |
+| “Docs test quét mọi con số có nhãn trong mọi tài liệu” | Test chỉ nhận ba sentence shape và bốn bucket label; nhiều số active vẫn cũ | **Chưa fixed** |
+| WebIDL overload | Maintainer đã ghi nhận, chưa sửa | **Open** |
+| Missing target / parse error đi vào absence confidence | Maintainer đã ghi nhận, chưa sửa | **Open** |
+
+Kết luận release gate vẫn là **chưa đạt**. Lý do lần này cụ thể hơn: explicit ordinal đã đóng, nhưng process-boundary comparison vẫn có hai false-negative class tái hiện được là **implicit ordinal** và **enclosing build guard**.
+
+### 27.2. Tôi đã kiểm lại những gì?
+
+Tại thời điểm bắt đầu phép đo, baseline ở đúng trạng thái:
+
+```text
+HEAD             8ced148
+main             8ced148
+origin/main      8ced148
+source tree      clean
+schema           30
+commit history   67 commit
+```
+
+Trong lúc hoàn thiện file audit, một process khác trong cùng workspace bắt đầu tạo các thay đổi chưa commit cho WebIDL overload và absence completeness. Tôi giữ nguyên chúng, không đưa chúng vào số đo hay verdict của mục này. Mục 27 review đúng commit đã được yêu cầu là `8ced148`, không review trạng thái dirty xuất hiện sau đó.
+
+Hai cách discover test đều chạy thật:
+
+```text
+python3 -m unittest discover -q
+Ran 327 tests
+OK
+
+python3 -m unittest discover -s tests -q
+Ran 327 tests
+OK
+```
+
+Tôi còn chạy bare discovery bằng `/usr/bin/python3` 3.9.6. Kết quả vẫn là 327 test, exit code 0. Vì vậy fix `tests/__init__.py` không chỉ đúng trên Python 3.14.6 của môi trường hiện tại mà còn đúng ở lower bound Python 3.9 được README hỗ trợ.
+
+Đo lại snapshot M148 → M151 từ cache schema 30, có truyền `target_milestone` giống đường chạy thật của CLI:
+
+| Target | Facts M148 → M151 | Changes | Breaking | Behaviour | New | Housekeeping | Score 0 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `default` | 28.507 → 29.138 | 3.027 | 282 | 468 | 1.240 | 1.037 | 187 |
+| `wide` | 52.367 → 54.298 | 6.069 | 804 | 695 | 2.979 | 1.591 | 441 |
+
+Coverage M151:
+
+```text
+default: 3.677 / 8.366, missing 4.689
+wide:    8.295 / 8.366, missing 71
+```
+
+Các số maintainer gửi là đúng. Một chi tiết cần nói rõ: M148 → M151 không có explicit ordinal delta thật nào. M151 `default` có 0 method fact mang `ordinal`, `wide` có 196; nhưng không có method `@N` chung giữa hai phía đổi từ số này sang số khác. Vì vậy signal mới được chứng minh bằng synthetic contract test, không phải là nguyên nhân làm bucket count của real report thay đổi.
+
+Per-surface scoring cũng có hiệu ứng đúng như maintainer mô tả:
+
+- 77 WebIDL removals không còn nhận dòng `-15 unconfirmed`.
+- 45 removal giữ score 70; 32 removal còn score 30 vì build/platform evidence, không phải vì coverage.
+- `default` có 139 `pref_left_scan` và 1 `switch_left_scan`; surface này chỉ được đọc rất ít nên chúng vẫn bị giảm confidence.
+- `wide` không trừ unconfirmed penalty cho các pref/switch removal đó.
+
+### 27.3. Explicit ordinal đã được sửa đúng — đây là điểm nên ghi nhận
+
+Ở commit trước, test chỉ hỏi:
+
+> “Fact có key `ordinal` không?”
+
+Câu hỏi đó chỉ kiểm cửa thứ nhất là extraction. Test mới hỏi đủ chuỗi:
+
+```text
+old mojom: Foo@0(int32 a)
+new mojom: Foo@1(int32 a)
+        ↓
+diff_snapshots
+        ↓
+deltas = {"ordinal": ["0", "1"]}
+signal = ipc_ordinal_changed
+score  = 80
+bucket = Breaking
+```
+
+Đây là regression test đúng loại: nếu một ngày parser vẫn extract nhưng `MEANINGFUL_ATTRS` lại bỏ `ordinal`, test sẽ đỏ. Comment và assertion giờ cùng chứng minh một claim.
+
+Signal riêng cũng hợp lý hơn việc gộp vào `ipc_signature_change`: signature chữ có thể không đổi trong khi số định tuyến trên wire đổi. Label giải thích trực tiếp hậu quả cho người đọc report.
+
+### 27.4. Blocker mới: explicit ordinal không phải toàn bộ ordinal
+
+#### Ví dụ cực ngắn
+
+Mojom cho phép không viết `@N`:
+
+```mojom
+// Version cũ
+interface I {
+  Foo();  // ordinal ngầm 0
+  Bar();  // ordinal ngầm 1
+};
+
+// Version mới
+interface I {
+  Bar();  // ordinal ngầm 0
+  Foo();  // ordinal ngầm 1
+};
+```
+
+Hai method vẫn cùng tên, cùng params, cùng response và không có field `ordinal` trong Fact. Probe chạy đúng code hiện tại trả:
+
+```text
+implicit method reorder changes: []
+```
+
+Nói đời thường: commit mới đã kiểm được số ghế khi số được in trên vé. Nhưng khi rạp tự đánh số ghế theo thứ tự hàng, ChromeDrift không lưu thứ tự đó, nên đổi chỗ hai ghế vẫn bị coi là “không có gì thay đổi”.
+
+Đây không phải giả định riêng của review. Tài liệu Mojom chính thức nói ordinal ngầm được gán theo lexical position; explicit ordinal phải được dùng nhất quán trong declaration. Xem [Mojom IDL documentation](https://chromium.googlesource.com/chromium/src/+/master/mojo/public/tools/bindings/README.md).
+
+Đối với method, tình hình còn có thêm một lớp build-time:
+
+- bindings generator đi qua các method theo thứ tự và dùng index cho method không có explicit ordinal; xem [mojom bindings generator](https://chromium.googlesource.com/chromium/src/+/master/mojo/public/tools/bindings/mojom_bindings_generator.py);
+- Chromium desktop mặc định có message-ID scrambling dựa trên `chrome/VERSION`, và từng GN target có thể tắt bằng `scramble_message_ids`; xem [mojom.gni](https://chromium.googlesource.com/chromium/src/+/master/mojo/public/tools/bindings/mojom.gni).
+
+Vì vậy “wire ID thực tế” có thể phụ thuộc đồng thời vào:
+
+```text
+explicit @N, nếu có
+hoặc lexical position, nếu không có
++ generator salt/version
++ GN target configuration
+```
+
+ChromeDrift hiện chỉ thấy dòng đầu tiên.
+
+#### Đo trên M148 → M151 thật
+
+Tôi dựng lại vị trí bằng `path + line`, chỉ xét fact tồn tại ở cả hai version và không có explicit `ordinal`:
+
+| Kind | Fact cũ còn tồn tại nhưng vị trí ngầm đổi | Số container bị ảnh hưởng | Không có diff row nào cho fact đó | Có row, nhưng vì thuộc tính khác |
+|---|---:|---:|---:|---:|
+| Mojo method | 503 | 48 interface | 485 | 18 |
+| Mojo field | 607 | 72 struct/union | 602 | 5 |
+
+Không được đọc bảng này thành “có chắc 1.110 breaking change”. Mức nguy hiểm phụ thuộc vào:
+
+- declaration có `[Stable]` hay không;
+- hai peer có được build và deploy cùng version hay có version skew;
+- GN target có scramble message ID hay không;
+- thay đổi là append hợp lệ hay insert/reorder phá vị trí cũ;
+- interface có thực sự đi qua boundary mà sản phẩm quan tâm hay không.
+
+Nhưng bảng đủ chứng minh một điều hẹp và chắc chắn: **comparison model hiện chưa thể phát hiện hoặc giải thích class thay đổi này**. Việc không báo không có nghĩa là an toàn.
+
+#### Cách sửa đúng, không nên chỉ nhét một field rồi chấm tất cả 80
+
+Parser nên lưu tối thiểu:
+
+```text
+ordinal_source: explicit | implicit
+declared_ordinal: N | null
+lexical_index: N
+```
+
+Sau đó comparison tách ba trường hợp:
+
+1. Explicit `@N` đổi: signal mạnh như hiện tại.
+2. Existing implicit member đổi `lexical_index`: tạo signal riêng, mang warning về build config/version skew.
+3. Member mới được append cuối: không gắn cùng severity với reorder/insert trước member cũ.
+
+Nếu muốn gọi đây là wire-compatible release gate, tool còn phải đọc hoặc được truyền GN policy và phải giữ `[Stable]` evidence. Nếu chưa có dữ liệu đó, report nên nói “implicit wire order changed; compatibility depends on generated binding policy”, không nên giả vờ chắc chắn bằng một score 80 cho mọi trường hợp.
+
+### 27.5. Blocker mới thứ hai: enclosing Mojo guard được extract nhưng không compare
+
+Probe:
+
+```mojom
+// old
+[EnableIf=is_android]
+interface I { Foo(); };
+
+// new
+[EnableIf=is_win]
+interface I { Foo(); };
+```
+
+Fact thực tế cho thấy extractor làm đúng phần việc của nó:
+
+```text
+old Foo: conditions=[EnableIf=is_android], windows=not_compiled
+new Foo: conditions=[EnableIf=is_win],     windows=compiled
+```
+
+Nhưng kết quả diff vẫn là:
+
+```text
+enclosing guard changes: []
+```
+
+Nguyên nhân rất giống lỗi ordinal vừa sửa:
+
+| Kind | Extractor có lưu guard? | `MEANINGFUL_ATTRS` có compare? |
+|---|---|---|
+| `mojo_interface` | Có `conditions`, `platform_state` | Không; tuple rỗng |
+| `mojo_method` | Có inherited `conditions`, `platform_state` | Không; chỉ compare signature/params/response/attrs/ordinal |
+| `mojo_struct` | Có | Không; chỉ `mojo_kind` |
+| `mojo_field` | Có | Không; chỉ type/ordinal/default/attrs |
+| `mojo_enum` | Có | Không; chỉ values |
+
+M151 `wide` có khá nhiều fact mang enclosing condition:
+
+| Kind | Có `conditions` | Tổng fact |
+|---|---:|---:|
+| Interface | 28 | 1.479 |
+| Method | 288 | 6.012 |
+| Struct/union | 53 | 2.867 |
+| Field | 314 | 13.015 |
+| Enum | 24 | 1.477 |
+
+Trong pair M148 → M151 hiện tại, tôi không tìm thấy thêm pure enclosing-guard transition làm thay đổi bucket count: những row có condition/platform delta quan sát được đồng thời còn có direct attribute hoặc signature delta. Vì vậy đây là **contract false negative tái hiện bằng fixture**, chưa phải tuyên bố rằng real report đang thiếu đúng N row.
+
+Cách sửa cần tránh tạo hàng trăm row trùng nhau. Nếu interface guard đổi, mọi method con đều đổi effective platform state. Một design sạch hơn là lưu riêng:
+
+```text
+own_conditions
+inherited_conditions
+effective_platform_state
+```
+
+Sau đó:
+
+- guard của interface/struct đổi thì emit một container-level finding;
+- direct guard của method/field đổi thì emit member-level finding;
+- child chỉ mang inherited evidence để giải thích, không tự nhân bản cùng một finding cho mọi member;
+- compare effective state cho platform đang review, còn raw condition text là evidence phụ.
+
+### 27.6. Per-surface scoring đúng hướng, nhưng denominator chưa thật sự per-surface
+
+Phần score đã sửa đúng logic chính:
+
+```text
+removal kind
+    ↓ KIND_SURFACE
+surface coverage row
+    ↓
+>= 95%  → xác nhận absence, không trừ 15
+<  95%  → trừ 15; pref/switch inferred removal chuyển Housekeeping
+```
+
+Lỗi nằm trước đó, khi tạo các row. `discover_candidates()` trả `Dict[path, note]` và dùng:
+
+```python
+found.setdefault(path, rule.note)
+```
+
+Một file có thể được cả extractor feature, pref và WebUI gate đọc. Nhưng `setdefault` chỉ giữ note của extractor match đầu tiên. Từ đó trở đi file biến mất khỏi denominator của các surface còn lại.
+
+Trên listing M151 có **378 path match nhiều hơn một surface**:
+
+| Overlap | Số file |
+|---|---:|
+| feature flags + chrome:// visibility gates | 194 |
+| feature flags + preference keys and switches | 181 |
+| preference keys and switches + visibility gates | 3 |
+
+So row đang lưu với phép đếm độc lập theo từng extractor:
+
+| Surface | Row hiện tại `default` | Đúng theo membership `default` | Row hiện tại `wide` | Đúng theo membership `wide` |
+|---|---:|---:|---:|---:|
+| Preference keys and switches | 4 / 348 = 1,1% | 9 / 529 = 1,7% | 345 / 348 = 99,1% | 526 / 529 = 99,4% |
+| Visibility gates | 340 / 340 = 100% | 537 / 537 = 100% | 340 / 340 = 100% | 537 / 537 = 100% |
+
+Feature flags đứng trước nên giữ cả các file overlap; row của nó vẫn là 363 / 3.011 ở `default` và 2.971 / 3.011 ở `wide`.
+
+Hiện tại lỗi này chưa đổi quyết định `confirms_absence` vì:
+
+- `default` pref vẫn dưới 95% theo cả hai cách;
+- `wide` pref vẫn trên 95%;
+- visibility gate vẫn 100%.
+
+Tức là score của pair hiện tại vẫn đúng theo threshold đã chọn. Nhưng label “coverage của preference keys and switches” đang không đúng population, và một surface gần mốc 95% có thể đổi kết luận chỉ vì registry order.
+
+Cách sửa:
+
+```text
+path -> set(surface)
+```
+
+Global coverage vẫn dedupe path để có `8.295 / 8.366`. Riêng từng surface thì một path được tính vào mọi surface mà extractor tương ứng có thể đọc. Tổng candidate của các row được phép lớn hơn global total; đó là overlap thật, không phải double-count bug.
+
+Ngoài ra `_EXTRACTOR_NOTES` trong `targets.py` và `KIND_SURFACE` trong `score.py` là hai mapping phải tự nhớ cập nhật cùng nhau. Kind mới không có mapping sẽ silently fallback về global coverage. Tốt hơn là registry khai một lần:
+
+```text
+extractor name
+candidate surface
+fact kinds produced
+```
+
+và test bắt mọi fact kind phải có surface rõ ràng, thay vì coi global fallback là behavior hợp lệ.
+
+### 27.7. “Coverage per-surface giờ in ra thật” chưa đúng với normal output
+
+Điều đã có thật:
+
+- `snapshot.meta.coverage.by_surface` có dữ liệu;
+- report JSON giữ dữ liệu đó ở `meta.coverage.from/to.by_surface`;
+- `Scope` dùng row tương ứng để score removal.
+
+Điều chưa có:
+
+- snapshot log chỉ in overall `read / candidates`;
+- Markdown report chỉ in overall coverage và ba directory gap lớn nhất;
+- HTML không có bảng surface coverage;
+- tìm toàn source, `by_surface` chỉ xuất hiện ở targets, score và tests, không nằm trong renderer.
+
+Vì vậy bảng maintainer gửi là bảng có thể lấy từ JSON, không phải thứ user bình thường nhìn thấy sau command. Claim chính xác nên là:
+
+> “Per-surface coverage đã được lưu và dùng khi score; UI/report table chưa expose.”
+
+Một câu khác trong generated `out/report.md` vẫn overclaim:
+
+```text
+Run --target-set wide to read every file an extractor understands.
+```
+
+Ngay cùng run, `wide` là 8.295 / 8.366 và còn 71 file. Câu đúng là “use the widest built-in target set; the report will still name remaining gaps”.
+
+### 27.8. Shared eligibility đã tốt hơn, nhưng cần mô tả đúng biên
+
+`eligibility.py` là sửa đúng cho lỗi hai chiều đã nêu:
+
+- exact directory component loại `web_test/`;
+- suffix trước extension loại `_test_service.mojom`;
+- `hit_test_opaqueness.mojom` không còn bị substring `_test_` bắt nhầm;
+- discovery và extraction cùng gọi một test/vendor/product filter.
+
+Nhưng hai pipeline vẫn có policy khác nhau với platform directory:
+
+- discovery loại Android/Ash/iOS/Mac/Linux/Fuchsia khỏi denominator của Windows run;
+- extraction vẫn cho extractor `constants` đọc các file đó để tìm pref/switch đã chuyển sang platform khác.
+
+Trên full cached listing M151 có 68 file dạng này mà `constants` có thể đọc:
+
+```text
+default reaches 1 / 68
+wide reaches   64 / 68
+```
+
+Bốn file còn lại nằm dưới `fuchsia_web/`. Những file này không nằm trong per-surface denominator dù fact của 64 file có thể được dùng để tránh kết luận nhầm “pref đã bị xóa”. Đây có thể là design đúng: chúng là **auxiliary cross-platform evidence**, không phải Windows product candidates. Nhưng contract cần nói rõ vậy; câu “cả hai pipeline có một eligibility policy” hiện rộng hơn code thực tế.
+
+Eligibility theo filename cũng chưa đóng hết test-only source. M151 `wide` vẫn có 17 Mojo facts từ bốn file có mục đích test rất rõ:
+
+| File | Facts | Evidence trong tên/comment |
+|---|---:|---|
+| `components/autofill/core/common/mojom/test_autofill_types.mojom` | 9 | Interface `TypeTraitsTest` |
+| `components/heap_profiling/in_process/mojom/test_connector.mojom` | 4 | Comment nói dùng cho multiprocess test |
+| `services/audio/public/mojom/testing_api.mojom` | 2 | Comment nói chỉ expose trong testing environment |
+| `services/video_capture/public/mojom/testing_controls.mojom` | 2 | Comment nói integration testing |
+
+Không nên sửa bằng regex “filename bắt đầu bằng `test_` thì loại ở mọi extractor”: WebIDL có những tên chuẩn chứa `test_` thật và generic rule có thể đổi false positive thành false negative. Hướng an toàn hơn:
+
+1. Có convention riêng theo extractor/language.
+2. Nếu có Chromium checkout đầy đủ, đọc `BUILD.gn` `testonly = true` hoặc target reachability.
+3. Cho phép explicit include/exclude override và in reason trong catalog.
+
+Bốn file trên không tạo finding trong M148 → M151, nên chúng chưa làm bucket count hiện tại sai; chúng chứng minh eligibility contract vẫn còn lỗ.
+
+### 27.9. Documentation test lại mắc đúng lỗi “test chứng minh ít hơn comment”
+
+Commit message nói:
+
+> “Test figure giờ quét mọi con số có nhãn trong mọi tài liệu.”
+
+Code thật không làm vậy. `TestTheDocumentedM148FiguresAreStillTrue` kiểm:
+
+- ba regex sentence cụ thể;
+- bốn label bucket: Breaking, Behaviour change, New surface, Housekeeping;
+- một invariant retired-flag total bằng 132.
+
+Nó không kiểm mọi labelled number, không hiểu schema/test/fact/coverage count, và regex label còn phụ thuộc label đứng ngay trước con số trong một vài dạng Markdown. HTML layout khác có thể không match.
+
+Quan trọng hơn, test gọi `skipTest` nếu `out/report.json` không tồn tại hoặc không đúng pair/target. `out/` nằm trong `.gitignore`, nên fresh checkout chạy unit tests không tự có oracle này trừ khi CI tạo report trước. Nói cách khác, guard docs là optional local check, chưa phải CI contract độc lập.
+
+327 test vẫn pass trong khi các active docs đang giữ số cũ:
+
+| Nơi | Đang ghi | Đo lại schema 30 |
+|---|---:|---:|
+| README default coverage | 3.669 / 8.349 | 3.677 / 8.366 |
+| README wide coverage | 8.276 / 8.349 | 8.295 / 8.366 |
+| README default facts | 29.118 | 29.138 |
+| `docs/pipeline.html` default facts | 29.118 | 29.138 |
+| `docs/pipeline.html` coverage | 3.669 / 8.349 và 8.276 / 8.349 | 3.677 / 8.366 và 8.295 / 8.366 |
+| Skill coverage example | 3.669 / 8.349 | 3.677 / 8.366 |
+
+README còn câu “5% sounds terrible” ngay sau bảng nói 43%. Bảng scoring vẫn ghi `default 5% / wide 100%` cho `pref_left_scan`; semantics mới phải là coverage của pref/switch surface, khoảng 1% / 99%, không phải global coverage. `docs/pipeline.html` còn widget dùng global 44% để minh họa deduction, trong khi scorer đã chuyển sang per-surface.
+
+Fix bền hơn không phải thêm regex thứ năm. Nên có một canonical machine-readable measurement fixture, rồi:
+
+- generate bảng README/pipeline/skill từ fixture;
+- hoặc parse tất cả code block/table có marker rõ như `data-audit-figure="m148-m151"`;
+- CI phải tự build hoặc tải fixture, không được silently skip;
+- test phải fail nếu tài liệu có current-value block ngoài canonical renderer.
+
+Historical numbers vẫn có thể tồn tại nếu được gắn nhãn commit/schema rõ ràng. Điều cần cấm là hai con số cùng tự nhận là trạng thái hiện tại.
+
+### 27.10. Mojo attributes chưa đủ để chấm đúng semantics
+
+Parser hiện chia attribute theo cách quá thô:
+
+- trên interface/struct/enum, `_conditions()` chỉ giữ `EnableIf*`; các attribute khác bị bỏ;
+- trên method, toàn bộ direct attribute được giữ trong một dict `attrs`;
+- diff thấy bất kỳ pure `attrs` delta nào ở method đều gắn `build_gate_changed`.
+
+Nhưng Mojom attribute không cùng nghĩa. Ví dụ:
+
+| Nhóm | Ví dụ | Ý nghĩa gần đúng |
+|---|---|---|
+| Build availability | `EnableIf`, `EnableIfNot` | Declaration có được compile không |
+| Wire/versioning | `Stable`, `Extensible`, `MinVersion` | Version skew và compatibility contract |
+| Sandbox/context | `AllowedContext`, `RequireContext`, `ServiceSandbox` | Context nào được phép bind/call service |
+| Call behavior | `Sync` và attribute khác | Cách call/binding hoạt động |
+
+Trong 8.295 candidate file mà `wide` thực sự tải ở M151, scan attribute block sau khi mask comment thấy, ví dụ:
+
+```text
+Stable          215 occurrences / 58 files
+Extensible      149 occurrences / 33 files
+AllowedContext   18 occurrences / 9 files
+RequireContext   20 occurrences / 16 files
+```
+
+Đặc biệt, tài liệu Mojom dùng `[Stable]` để đánh dấu type/interface phù hợp với version-skewed independent binaries. Đây là evidence rất quan trọng để biết implicit ordinal change nào đáng báo mạnh, nhưng ChromeDrift đang bỏ nó ở container.
+
+Có một misclassification thật trong M148 → M151:
+
+```text
+network.mojom.NetworkContext.CreateNetLogExporter
+attrs: {} → {AllowedContext=sandbox.mojom.Context.kBrowser}
+```
+
+Tool hiện báo:
+
+```text
+signal: build_gate_changed
+score: 35
+reason: declaration may no longer be in the binary we ship
+```
+
+Đây là context/sandbox restriction, không phải Windows build condition. Row có thể vẫn đáng review, nhưng reason đang giải thích sai cơ chế.
+
+Fix nên parse attribute thành field có type rõ, ví dụ `build_conditions`, `stability`, `min_version`, `sandbox_context`; rồi map signal theo semantic group. Không nên để mọi `attrs` delta đi qua một `elif` chung.
+
+### 27.11. Security: URL fix tốt; cache traversal cũ đóng, sanitizer còn edge case
+
+#### Spec URL
+
+Tôi chạy output thật của HTML renderer với ba giá trị:
+
+```text
+javascript:alert(1)
+data:text/html,...
+https://example.test/spec
+```
+
+Sau đó parse DOM bằng `html.parser`:
+
+- hai scheme đầu xuất hiện dưới dạng visible text, không có `<a>`;
+- chỉ HTTPS tạo anchor;
+- payload chứa `<script>` được escape, không xuất hiện thành element.
+
+Như vậy fix scheme allow-list hoạt động đúng ở renderer output, không chỉ đúng ở helper predicate. Tôi chưa gọi đây là browser E2E vì browser connector của môi trường review lỗi trước khi mở page (`sandboxPolicy` metadata bị thiếu); đó là giới hạn của môi trường review, không phải lỗi project.
+
+#### Cache name
+
+Việc bỏ `_safe_name` thứ hai và dùng một allow-list đã đóng đường `..\\..\\` trên Windows mà review trước nêu. Tuy nhiên helper hiện vẫn có ba edge case:
+
+```text
+safe_name(".")   -> "."
+safe_name("a/b") -> "a_b"
+safe_name("a:b") -> "a_b"
+safe_name("a\\b")-> "a_b"
+safe_name("CON") -> "CON"
+```
+
+Hệ quả:
+
+- `trees/.` được filesystem normalize thành chính container `trees/`, không phải một child riêng;
+- nhiều ref khác nhau collision vào cùng cache key;
+- `CON`, `NUL`, `COM1`, tên kết thúc bằng dấu chấm là reserved/problematic trên Windows.
+
+Đây không còn là traversal blocker giống lỗi cũ, nhưng là reliability và cache-isolation residual. Cách đơn giản là tạo slug dễ đọc cộng hash ngắn của raw value, đồng thời reject `.` và Windows reserved basenames.
+
+### 27.12. Hai blocker maintainer đã thừa nhận vẫn giữ nguyên
+
+#### WebIDL overload / variant identity
+
+Sửa `margin-top` là đúng nhưng không giải quyết overload. Sau parser fix vẫn còn 121 collision UID trong raw M151 inventory và hai false negative thật ở pair này:
+
+- `Navigator.install`
+- `Document.parseHTMLUnsafe`
+
+Không nên đưa signature thẳng vào UID rồi coi xong, vì như vậy signature change dễ biến thành remove + add và có thể che parser collision. Cần variant set dưới một stable declaration identity, sau đó compare multiset/signature set.
+
+#### Parse/missing-target completeness
+
+`coverage >= 95%` hiện chỉ nói “đã fetch phần lớn filename candidate”. Nó không nói:
+
+- target được yêu cầu nhưng fetch lỗi;
+- extractor exception;
+- parser gặp declaration nhưng không hiểu;
+- dedupe collapse hai variant;
+- file được đọc nhưng extractor trả 0 bất thường.
+
+`meta.missing_targets` và `extract_stats._errors` chưa làm `confirms_absence(kind)` fail closed. Vì vậy một removal vẫn có thể được xác nhận chỉ nhờ file coverage cao dù chính file quan trọng bị thiếu hoặc parse thất bại.
+
+Confidence nên là nhiều cột evidence, không phải một percentage duy nhất:
+
+```text
+file_scope_complete
+fetch_complete
+parse_complete_for_kind
+identity_collision_free
+comparison_attribute_complete
+```
+
+Chỉ khi các cột cần thiết đều đạt mới dùng chữ “confirmed removal”.
+
+### 27.13. Cơ chế score hiện tại, giải thích lại thật ngắn
+
+Đây là đường đi thật của một finding:
+
+```text
+Fact cũ + Fact mới
+        ↓ match bằng kind:key
+Meaningful attribute delta
+        ↓ signal
+leading signal chọn severity ceiling và bucket
+        ↓ policy deductions
+not compiled → score 0
+unconfirmed removal → -15; một số signal chuyển Housekeeping
+        ↓
+score cuối 0..100 + reason lines
+```
+
+Điểm tốt:
+
+- `leading signal` làm câu giải thích và severity đi cùng nhau;
+- score chỉ giảm từ evidence ceiling, không cộng product guess;
+- platform-out-of-build về 0;
+- per-surface absence tốt hơn global scalar rõ rệt.
+
+Điểm chưa đóng:
+
+- signal chỉ tốt bằng `MEANINGFUL_ATTRS`; implicit ordinal và enclosing guard đang không qua cửa này;
+- generic Mojo `attrs` làm signal sai nghĩa;
+- coverage row đang first-match biased;
+- fetch/parse error chưa hạ confidence;
+- score 80 vẫn chỉ là heuristic priority, không phải “80% khả năng break”.
+
+Tách severity và confidence thành hai cột vẫn là hướng đúng. Không nhân chúng với product relevance; product relevance nên để `unknown` trong core và chỉ được downstream evidence của SB-AXon điền.
+
+### 27.14. Release-gate verdict và thứ tự sửa mới
+
+#### P0 — correctness trước khi thêm surface mới
+
+1. Model implicit ordinal cho method và field; giữ explicit/implicit provenance, lexical index và `[Stable]` evidence.
+2. Compare Mojo effective platform state, nhưng tách own/inherited guard để không tạo duplicate finding.
+3. Sửa WebIDL variant identity và khóa hai false negative thật bằng end-to-end tests.
+4. Cho missing target, fetch error, extractor error và parser anomaly làm absence confidence fail closed theo kind.
+
+#### P1 — làm coverage và eligibility đúng với tên gọi
+
+5. Đổi candidate map thành `path -> set(surface)`; giữ global total unique.
+6. Gộp extractor → fact kinds → coverage surface vào một registry có invariant test.
+7. Expose bảng per-surface trong CLI, Markdown và HTML; bỏ câu “wide reads every file”.
+8. Ghi rõ auxiliary cross-platform evidence; bổ sung extractor-specific test-only policy hoặc BUILD ownership.
+
+#### P1 — giữ docs/test trung thực
+
+9. Thay optional regex docs test bằng canonical generated measurement fixture chạy trong CI.
+10. Sửa toàn bộ active 3.669/8.349, 8.276/8.349, 29.118, 5%/100% và global-44% scoring examples.
+
+#### P2 — hardening
+
+11. Phân loại Mojo attributes theo semantics thay vì generic `attrs`.
+12. Làm cache key collision-resistant và Windows-safe.
+13. Thêm browser-level security test khi CI có browser runtime; DOM-level regression vẫn giữ.
+
+### 27.15. Verdict cuối cùng sau `8ced148`
+
+Maintainer đúng ở bốn điểm quan trọng:
+
+- họ đã tự nhận và sửa đúng explicit ordinal bug;
+- per-surface scoring là hướng đúng và đã sửa 45 Web API removals;
+- bare discovery giờ thật sự chạy test;
+- URL scheme và duplicate sanitizer issue đã được xử lý nghiêm túc.
+
+Nhưng review mới cũng bắt được đúng pattern mà commit đang cố loại bỏ:
+
+> Comment nói rộng hơn assertion và data model thực tế.
+
+Ba ví dụ cụ thể:
+
+1. “Compare ordinal” mới compare explicit `@N`, chưa compare implicit position.
+2. “One eligibility policy” chưa bao gồm platform/auxiliary policy và vẫn lọt test-only naming khác.
+3. “Quét mọi con số có nhãn trong mọi tài liệu” chỉ là ba sentence regex cộng bốn bucket labels, lại có thể skip khi `out/report.json` không tồn tại.
+
+Vì vậy đánh giá công bằng nhất là:
+
+> **Commit `8ced148` đóng tốt explicit ordinal, bare discovery và spec-link security; đóng phần scoring decision của per-surface coverage; nhưng chưa đóng process-boundary comparison completeness, coverage membership completeness, documentation correctness contract hay release gate.**
+
+Project vẫn rất đáng tiếp tục. Điểm mạnh nhất của maintainer là chịu đo, ghi rationale trong commit message và chấp nhận rút claim sai. Bước tiếp theo nên dùng chính kỷ luật đó cho implicit ordinal và enclosing guard: fixture nhỏ chứng minh cơ chế, real-version measurement để biết quy mô, rồi mới chọn signal/score.

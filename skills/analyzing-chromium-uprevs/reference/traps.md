@@ -20,7 +20,7 @@ it was handled. Expect them; check for them before reporting any removal.
 
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
 7 and 8 about running the tool. Traps 9 to 12 are the other surfaces, which
-carry the highest severities the tool reports: at M148 → M151, 226 of the 282
+carry the highest severities the tool reports: at M148 → M151, 227 of the 283
 Breaking rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature

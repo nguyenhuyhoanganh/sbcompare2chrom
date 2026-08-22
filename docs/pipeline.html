@@ -813,7 +813,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </table>
     <div class="note" style="margin-top:13px">
       <b>The last two columns point opposite ways, which is the whole reason to
-      split.</b> The longest list carries two of the 282 Breaking rows; the second
+      split.</b> The longest list carries two of the 283 Breaking rows; the second
       shortest carries 126. Routing is by surface except where the fix is somewhere
       else than the declaration: a renamed C++ constant stops the build and is fixed
       in the file beside it, while a renamed Finch string compiles perfectly and is
@@ -1415,7 +1415,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       is adopted. Nothing warns you either — both ends of a Mojo interface are
       generated from the same file, so a changed signature never breaks the build,
       and Chromium ignores an unrecognised command-line switch without a word.
-      Measured on M148 → M151: <b>226 of the 282 Breaking rows are Mojo or web
+      Measured on M148 → M151: <b>227 of the 283 Breaking rows are Mojo or web
       API</b>, and none of them is answered by “did the flag state change”.
     </div>
     <div class="tablewrap">
@@ -1514,7 +1514,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <div class="toggles" id="toggles">
           <label class="tg"><input type="checkbox" data-zero="1" data-why="0 — not compiled into the windows build on either side of this change, so nothing it does reaches our users">
             <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
-            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 187 of 3,027 findings at M148 → M151</span></span></label>
+            <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 187 of 3,029 findings at M148 → M151</span></span></label>
           <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 44% of the tree, so “gone” may mean “moved into a file we never opened”">
             <span class="d"><b>A removal, on a run that read 44% of the tree</b>
             <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>

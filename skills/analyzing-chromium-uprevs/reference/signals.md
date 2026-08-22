@@ -31,6 +31,8 @@ Users experience a difference. This is the short list that matters.
 | `web_api_unshipped` | Web API pulled back from stable — rare, investigate |
 | `web_api_removed` | Real API removal, detected from IDL, and a page could still reach it. Site-visible break |
 | `web_api_removed_gated` | Removed while still behind a closed runtime flag — no page could call it, so this is the web API spelling of `flag_retired_off`. 32 of 77 removals at M148 → M151 |
+| `web_api_overload_removed` | A member kept its name and lost one of the argument lists it accepted. Deduplication used to hide this — the surviving declaration was unchanged, so nothing was reported |
+| `web_api_overload_added` | A member gained an argument list. Every existing call still matches the overload it always did, so this is new surface |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
 | `ipc_ordinal_changed` | A Mojo method's explicit ordinal moved. The far side routes by that number, so the message now reaches a different method or none — no build error, no signature change |

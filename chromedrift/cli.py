@@ -150,7 +150,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     # measurement the coverage line prints keeps the two from drifting into
     # separate answers.
     scope = Scope({"to": (new.meta or {}).get("coverage") or {}},
-                  to_ref=new.ref)
+                  to_ref=new.ref, incomplete=_incomplete_reason(new))
     findings = score_all(changes, scope)
     # Group related findings before anything reads them. One Chromium change
     # arrives as fragments across several surfaces; ungrouped they contradict
@@ -262,6 +262,28 @@ def _redact_proxy(value: str) -> str:
         scheme = value.split("://", 1)[0] + "://" if "://" in value else ""
         return f"{scheme}<redacted>@{remainder[1]}"
     return value
+
+
+
+def _incomplete_reason(snapshot) -> str:
+    """Why this snapshot cannot settle an absence, beyond how much it read.
+
+    A target the source did not have, and a file that would not parse, both
+    leave a hole shaped exactly like a removal: a fact on one side and not the
+    other. Coverage cannot see either -- it measures what was in scope, not
+    what came back -- so an absence is not confirmed while either is non-zero.
+    Both are zero on every version measured so far, which is why this is a
+    latch rather than a fix.
+    """
+    meta = snapshot.meta or {}
+    missing = meta.get("missing_targets") or []
+    errors = (meta.get("extract_stats") or {}).get("_errors") or 0
+    reasons = []
+    if missing:
+        reasons.append(f"{len(missing)} target(s) the source did not have")
+    if errors:
+        reasons.append(f"{errors} file(s) that would not parse")
+    return " and ".join(reasons)
 
 
 def cmd_check(args: argparse.Namespace) -> int:

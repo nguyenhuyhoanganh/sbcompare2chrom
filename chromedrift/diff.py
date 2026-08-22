@@ -87,7 +87,8 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
         "is_protected_feature",
     ),
     KIND_IDL_INTERFACE: ("idl_kind", "inherits", "ext", "values"),
-    KIND_IDL_MEMBER: ("signature", "member_type", "ext", "runtime_enabled"),
+    KIND_IDL_MEMBER: ("signature", "signatures", "member_type", "ext",
+                      "runtime_enabled"),
     # Empty, and deliberately. "methods" and "method_count" do change -- 107
     # times across M130 -> M151 -- but every one of those is already a
     # mojo_method added or removed finding of its own, so comparing them here
@@ -216,6 +217,13 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     "killswitch_retired": 35,
     "experimental_dropped": 20,
     "web_api_signature_change": 50,
+    # An overload set losing a member is a callable shape disappearing: any
+    # site passing that argument list stops matching. Below a whole-member
+    # removal at 70 because the name still resolves.
+    "web_api_overload_removed": 60,
+    # Gaining one breaks nothing -- every existing call still matches the
+    # overload it always did -- so it is new surface, not a contract move.
+    "web_api_overload_added": 25,
     "ipc_signature_change": 80,
     "ipc_removed": 75,
     # The data half of the same break. A field changing type or ordinal means
@@ -329,6 +337,11 @@ SIGNAL_LABELS: Dict[str, str] = {
     "killswitch_retired": "Kill-switch flag retired (feature now permanent)",
     "experimental_dropped": "Experimental flag dropped",
     "web_api_signature_change": "Web API signature changed",
+    "web_api_overload_removed": "Web API overload removed — the member is "
+                                "still there, but one of the argument lists "
+                                "it accepted is gone",
+    "web_api_overload_added": "Web API gained an overload — a new argument "
+                              "list on a member that already existed",
     "ipc_signature_change": "Mojo method signature changed (ABI)",
     "ipc_removed": "Mojo interface/method removed",
     "ipc_ordinal_changed": "Mojo method ordinal changed (ABI) — the other "
@@ -421,6 +434,8 @@ SIGNAL_BUCKET: Dict[str, str] = {
     "web_api_removed": BUCKET_BREAKING,
     "web_api_unshipped": BUCKET_BREAKING,
     "web_api_signature_change": BUCKET_BREAKING,
+    "web_api_overload_removed": BUCKET_BREAKING,
+    "web_api_overload_added": BUCKET_NEW,
     "pref_renamed": BUCKET_BREAKING,
     "pref_symbol_renamed": BUCKET_BREAKING,
     "switch_renamed": BUCKET_BREAKING,
@@ -916,6 +931,14 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             if any(a in change.deltas
                    for a in ("signature", "idl_kind", "member_type")):
                 signals.append("web_api_signature_change")
+            # The overload set, which the member's own signature cannot show:
+            # deduplication keeps one declaration, so a sibling overload
+            # appearing or disappearing moved nothing this branch could see.
+            elif "signatures" in change.deltas:
+                before, after = change.deltas["signatures"]
+                gone = set(before or ()) - set(after or ())
+                signals.append("web_api_overload_removed" if gone
+                               else "web_api_overload_added")
             # `inherits` moves the prototype chain, `values` adds or drops an
             # enum member -- both change what a site can write, and both were
             # compared without ever producing a row anyone could read.
