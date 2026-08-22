@@ -1024,6 +1024,24 @@ def _overload_signals(before, after) -> List[str]:
     return out
 
 
+def _moved_within_stability(change: Change) -> bool:
+    """Did a member's lexical index move while both sides promised it would not?
+
+    `position` is recorded only inside `[Stable]`, so when a declaration stops
+    being stable the attribute disappears and the delta reads `[6, None]`.
+    That is the promise being withdrawn, not the member moving -- Chromium
+    dropped `[Stable]` from `device.mojom.HidCollectionInfo` between M143 and
+    M147 and every one of its fields then arrived as an ABI break. 183 rows at
+    80 points on that pair, all of them invented by the attribute's absence.
+
+    So a position is evidence only against another position.
+    """
+    delta = change.deltas.get("position")
+    if not (isinstance(delta, list) and len(delta) == 2):
+        return False
+    return delta[0] is not None and delta[1] is not None
+
+
 def _signals_for(change: Change, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
@@ -1110,11 +1128,12 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
                 signals.append("ipc_enum_changed")
             # Type, ordinal and struct-versus-union are the wire format; a
             # default or a `[MinVersion]` is what an older peer sees.
-            if any(a in change.deltas
-                   for a in ("type", "ordinal", "position", "mojo_kind")):
+            if (any(a in change.deltas
+                    for a in ("type", "ordinal", "mojo_kind"))
+                    or _moved_within_stability(change)):
                 signals.append("ipc_shape_changed")
             elif any(a in change.deltas
-                     for a in ("default", "attrs", "min_version", "stable")):
+                     for a in ("default", "attrs", "min_version")):
                 signals.append("ipc_field_annotated")
     elif kind in (KIND_MOJO_METHOD, KIND_MOJO_INTERFACE):
         if change.change_type == REMOVED:
@@ -1123,7 +1142,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             if ("signature" in change.deltas or "params" in change.deltas
                     or "response" in change.deltas):
                 signals.append("ipc_signature_change")
-            elif "ordinal" in change.deltas or "position" in change.deltas:
+            elif ("ordinal" in change.deltas
+                  or _moved_within_stability(change)):
                 # `position` is only recorded inside `[Stable]`, where mojom
                 # assigns the wire id from it and promises it will not move.
                 signals.append("ipc_ordinal_changed")
@@ -1206,7 +1226,7 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     # compatibility for a stable one and nothing for the rest, so this is the
     # promise itself moving -- on any of the five Mojo kinds, and above the
     # annotation signal that already covers a field's own attributes.
-    if "stable" in change.deltas and "ipc_field_annotated" not in signals:
+    if "stable" in change.deltas and not signals:
         signals.append("ipc_stability_changed")
 
     # The guard moved between the declaration and the container around it,

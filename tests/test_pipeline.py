@@ -3828,6 +3828,33 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
             self.assertIn("position", change.deltas)
             self.assertIn("ipc_shape_changed", change.signals)
 
+    def test_withdrawing_stability_is_not_a_hundred_members_moving(self):
+        """The regression the full version matrix found, and I introduced.
+
+        `position` is recorded only inside `[Stable]`, so when Chromium drops
+        the annotation the attribute disappears and every field's delta reads
+        `[6, None]`. Read as an ordinal move that is an ABI break each: 183
+        rows at 80 points on M143 -> M147 wide, from
+        `device.mojom.HidCollectionInfo` and its neighbours losing `[Stable]`
+        upstream. A position is evidence only against another position.
+        """
+        from chromedrift.extract import mojom
+
+        def snap_of(ref, header):
+            return Snapshot(ref=ref, facts=mojom.extract(
+                f"module t;\n{header}struct S {{ int32 a; int32 b; }};\n",
+                "t.mojom"), meta={"target_set": "default"})
+
+        changes = diff_snapshots(snap_of("148.0.0.0", "[Stable]\n"),
+                                 snap_of("151.0.0.0", ""))
+        fields = [c for c in changes if c.kind == "mojo_field"]
+        self.assertEqual(len(fields), 2)
+        for change in fields:
+            self.assertIn("position", change.deltas)
+            # The promise was withdrawn; nothing moved.
+            self.assertEqual(change.signals, ["ipc_stability_changed"])
+            self.assertEqual(score_change(change).bucket, "behaviour")
+
     def test_the_same_move_outside_a_stable_struct_is_not_reported(self):
         """1,110 of them at M148 -> M151. Chromium reorders freely there."""
         from chromedrift.extract import mojom

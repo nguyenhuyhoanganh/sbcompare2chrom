@@ -2,11 +2,11 @@
 
 > Ngày đánh giá ban đầu: 21-08-2026
 > Follow-up review: 22-08-2026
-> Baseline mới nhất được review: commit `a88f5fc` — schema `33`
-> Lịch sử đến baseline đã được đọc: đủ 70/70 commit, từ `d9fca08` đến `a88f5fc`, gồm subject, body và diff của các quyết định quan trọng.
+> Baseline mới nhất được review: commit `0933dcd` — schema `37`
+> Lịch sử đến baseline đã được đọc: đủ 74/74 commit, từ `d9fca08` đến `0933dcd`, gồm subject, body và diff của các quyết định quan trọng.
 > Phạm vi: toàn bộ source Python, extractor, target, cache, snapshot, diff, scoring, report, test và dữ liệu cache M130/M136/M139/M143/M147/M148/M151 có sẵn trong project.
 
-> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28; review mới nhất của `5edc91e` và `a88f5fc` nằm ở **mục 29** và có quyền thay thế các con số cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
+> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28, `5edc91e`/`a88f5fc` ở mục 29; review mới nhất của `cd1ee05` → `0933dcd` nằm ở **mục 30** và có quyền thay thế các con số/verdict cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
 
 ## 1. Đọc phần này trước nếu bạn không rành kỹ thuật
 
@@ -18,27 +18,36 @@ Công cụ hiện làm được khá nhiều việc tốt. Nó đọc source Chr
 
 Nhưng kết luận quan trọng nhất của lần review này là:
 
-> **ChromeDrift hiện phù hợp để tìm manh mối và lập danh sách việc cần kiểm tra. Nó chưa đủ đáng tin để tự động kết luận một bản nâng cấp là an toàn hay không an toàn.**
+> **ChromeDrift đạt mục tiêu làm radar cảnh báo sớm: phát hiện được một phần thay đổi đáng chú ý để con người kiểm tra trước. Project không cần, và hiện cũng không tuyên bố, chứng minh 100% thay đổi hoặc tự động kết luận một bản nâng cấp an toàn.**
 
-Sau khi đọc toàn bộ commit history, release-gate verdict ở trên **không đổi**, nhưng đánh giá về engineering quality tích cực hơn ban đầu:
+Chủ dự án đã làm rõ rằng **automated release gate không phải acceptance criterion hiện tại**. Vì vậy các đoạn cũ nói “chưa đạt release gate” chỉ nên đọc như ranh giới sử dụng, không phải verdict project thất bại. Tiêu chuẩn đúng ở baseline này là:
+
+- có bắt được một tập thay đổi hữu ích đủ sớm hay không;
+- finding có dẫn người đọc tới evidence để kiểm tra hay không;
+- kết quả có deterministic và đủ ổn định để dùng lặp lại hay không;
+- blind spot và mức không chắc chắn có được nói rõ, thay vì biến “không thấy” thành “chắc chắn không có” hay không.
+
+Theo tiêu chuẩn đó, verdict là **đạt**.
+
+Sau khi đọc toàn bộ commit history, đánh giá về engineering quality tích cực hơn ban đầu:
 
 - Nhiều rule không được chọn tùy ý; commit body ghi phép đo trên M130–M151, phương án đã thử rồi bỏ và test giữ invariant.
 - Việc bỏ AI judgement, fork/product scoring và provenance khỏi core là quyết định có chủ ý: core dừng ở evidence thay vì giả vờ hiểu product usage.
 - Determinism, scope guard, reference closure và score ceiling đều có rationale rõ và test đi kèm.
 - Function body, TypeScript behavior, `.grd` và GN config schema là documented exclusions, không phải phần tác giả quên làm.
 
-Commit `5edc91e` đã sửa đúng lỗi score 50/60 phụ thuộc representative đối với overload set đã tồn tại, loại bảy whitespace-only Breaking rows, phân loại `Navigator.install` thành same-arity shadowing và đưa `platform_state` qua comparison cho toàn bộ mười kind hiện thật sự mang thuộc tính đó. Commit `a88f5fc` giữ mapping runtime gate theo từng overload. Bare `unittest discover` chạy đủ 340 test trên cả Python 3.14 và 3.9.
+Chuỗi `cd1ee05` → `0933dcd` tiếp tục sửa đúng nhiều lỗi: singleton → overload set đã reconstruct old signature; optional/extra-argument behavior được xét tốt hơn; string literal đơn giản không còn bị normalization viết lại; per-overload extended attributes và vị trí declaration đã được giữ; hard extraction hole được hỏi đúng direction; current M148 → M151 figures đã được đưa vào `docs/figures.json`. Bare `unittest discover` chạy đủ **360 test** trên cả Python 3.14 và 3.9.
 
-Tuy nhiên release-gate verdict vẫn chưa đổi. Cách phân loại overload theo số parameter khai báo không phải effective overload set của WebIDL; transition từ một signature sang hai signature còn mất old set vì thuộc tính `signatures` chỉ tồn tại khi có nhiều hơn một. Whitespace normalization mới làm mất thay đổi thật bên trong string default. Completeness latch đã có hai phía nhưng đang dùng hai phía lẫn nhau, vẫn không có old-side coverage và vẫn để finding không chắc chắn trong bucket New. `a88f5fc` sửa runtime gate nhưng chưa giữ extended attributes hay location của từng variant. Implicit Mojo method/field ordinal và enclosing Mojo guard vẫn chưa được model.
+Với mục tiêu early detection, các hạn chế còn lại **không phủ nhận tính hữu dụng của project**. Chúng là backlog nâng chất lượng tín hiệu. Full matrix tìm ra một regression nên sửa sớm: ở wide M143 → M147, việc `[Stable]` biến mất làm **164 child rows chỉ có `stable/position`** xuất hiện như Breaking 80 dù ordinal không đổi, và thêm 14 annotation rows bị nâng sai lên 80. Guard provenance vẫn fan-out xuống child và vẫn bỏ sót provenance của nested container. `cmd_run` vẫn chỉ truyền coverage phía `to`; default M148 → M151 hiện có ít nhất hai row bị gọi là “new” dù old wide snapshot chứng minh chúng đã tồn tại. Per-surface vẫn first-match; per-overload locations có đủ trong JSON nhưng Markdown/HTML cắt còn ba. Artifact tài liệu hiện đúng cho selected figures, nhưng clean checkout vẫn skip oracle report và nhiều active measurements vẫn nằm ngoài artifact.
 
 Nói dễ hiểu hơn:
 
 - Nếu ChromeDrift báo một thay đổi nguy hiểm, ta nên mở source ra kiểm tra lại. Báo cáo có thể đúng, nhưng cũng có thể là cảnh báo nhầm.
 - Nếu ChromeDrift không báo gì nguy hiểm, ta vẫn chưa thể nói bản nâng cấp an toàn. Công cụ có thể chưa tải file đó, parser có thể không hiểu cú pháp đó, hoặc hai declaration khác nhau đã bị gộp làm một.
-- Coverage M151 hiện là `8.295 / 8.366 (99%)` cho `wide`, còn thiếu 71 file. Đây là cải tiến lớn, nhưng vẫn là file-scope coverage, chưa phải parser completeness hoặc product completeness. Các row `by_surface` đã dùng để score, nhưng hiện còn first-match bias khi một file thuộc nhiều extractor và chưa được in trong report thường.
+- Coverage M151 hiện là `8.295 / 8.366 (99%)` cho `wide`, còn thiếu 71 file. Đây là cải tiến lớn, nhưng vẫn là file-scope coverage, chưa phải parser completeness hoặc product completeness. Raw inventory M151 còn 85 callback definitions, 144 typedefs, 200 `includes` relations, 18 Mojo `feature` blocks và hàng trăm Mojo constants không có fact kind. Các row `by_surface` đã dùng để score, nhưng vẫn first-match biased khi một file thuộc nhiều extractor và chưa được in trong report thường.
 - Điểm `75` không có nghĩa là “75% khả năng xảy ra lỗi”. Nó chỉ là một trọng số do người viết công cụ đặt bằng tay để sắp xếp kết quả.
 
-Đây không phải là đánh giá rằng project “tệ”. Ngược lại, project có nhiều ý tưởng đúng, test khá nhiều và code có tính kỷ luật. Vấn đề là tài liệu đang hứa nhiều hơn mức mà cơ chế hiện tại thật sự chứng minh được.
+Đây không phải là đánh giá rằng project “tệ”. Ngược lại, project có nhiều ý tưởng đúng, test khá nhiều và code có tính kỷ luật. Điều cần giữ là tài liệu mô tả đúng đây là early-warning inventory và không biến một lần “không thấy” thành bằng chứng “không có”.
 
 ### Nếu bạn không muốn đọc toàn bộ tài liệu dài
 
@@ -51,21 +60,22 @@ Bạn có thể đọc theo lộ trình này:
 - Muốn hiểu fact và score: đọc mục 9, 10 và 11.
 - Muốn biết commit history đã quyết định gì: đọc mục 17 và 18.
 - Muốn biết lỗi nào cần sửa trước: đọc mục 19, 20 và 21.
-- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 29.1, 29.11 và 29.12.
+- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 30.1, 30.11 và 30.12.
 
 ### Bảng trả lời nhanh
 
 | Câu hỏi | Trả lời ngắn nhất |
 |---|---|
-| Target `default` đủ chưa? | Không; nó cố ý chỉ lấy mẫu để chạy nhanh. |
-| Target `wide` đủ chưa? | Chưa hoàn toàn; nó đạt 8.295 / 8.366 candidate file, còn 71 file. Per-surface denominator cũng đang gán mỗi file cho surface đầu tiên match, dù 378 file match nhiều surface. |
-| Đã extract hết source đã tải chưa? | Chưa. Runtime gate theo overload đã được giữ, nhưng extended attributes/location vẫn mất; normalization có thể nuốt string-default change; implicit Mojo ordinal, enclosing guard và silent parser skip vẫn còn. |
+| Target `default` đủ chưa? | **Đủ cho lượt scan nhanh**, vì mục tiêu của nó là lấy mẫu có chủ đích; không phải exhaustive scan. |
+| Target `wide` đủ chưa? | **Đủ cho lượt scan rộng theo rule hiện có**: 8.295 / 8.366 candidate file. Nó không đồng nghĩa parser/product coverage 100%; per-surface denominator còn first-match bias trên 378 file. |
+| Đã extract hết source đã tải chưa? | Chưa, và mục tiêu hiện tại không bắt buộc phải lấy hết. Overload signature/gate/ext/location đã được giữ tốt hơn; WebIDL callback/typedef/includes và Mojo feature/constant là known scope chưa model. Stable transition và enclosing guard là các lỗi signal nên sửa. |
 | Hai version được nối với nhau thế nào? | Bằng `kind:key`, rồi so một allowlist thuộc tính. |
-| Conflict trong cùng version xử lý thế nào? | Phần lớn giữ bản có path/line nhỏ nhất. WebIDL overload còn gộp signature và runtime gate, nhưng full ext/location vẫn lấy từ representative nên semantics chưa đầy đủ. |
+| Conflict trong cùng version xử lý thế nào? | Phần lớn giữ bản có path/line nhỏ nhất. WebIDL overload hiện gộp signature, gate, ext và location của variants; location không tham gia diff là đúng, nhưng renderer chỉ hiện tối đa ba vị trí. |
 | Fact đủ làm release verdict chưa? | Chưa; đủ cho inventory và manual triage. |
+| Có đạt mục tiêu cảnh báo sớm một phần không? | **Có.** Tool bắt được hàng nghìn thay đổi trên version thật, có evidence và thứ tự ưu tiên để con người triage. |
 | Score có phải xác suất lỗi không? | Không; đó là trọng số heuristic để xếp thứ tự đọc. |
-| 340 test pass có chứng minh đầy đủ không? | Không. Năm test mới tập trung vào overload order/arity và runtime gate; không có regression test cho normalization, directional completeness hay `platform_state`. Các probe ngược đều đang sai mà suite vẫn xanh. |
-| Có nên bỏ project không? | Không; nền tảng tốt, nhưng cần sửa comparison completeness, variants, confidence và provenance. |
+| 360 test pass có chứng minh đầy đủ không? | Không. Full real-version matrix tìm ra 164 Stable-derived Breaking rows dù 360 test đều xanh; CLI coverage wiring, renderer truncation và raw grammar classes không đi qua những unit fixture hiện tại. |
+| Có nên dùng project không? | **Có**, để phát hiện sớm và manual triage. Nên ưu tiên sửa các lỗi làm nhiễu hoặc gắn nhãn sai finding. |
 
 ## 2. Một ví dụ đời thường để hiểu toàn bộ hệ thống
 
@@ -3527,3 +3537,577 @@ Vì vậy 340 pass vẫn là internal consistency cho population test đã chọ
 #### Verdict cuối
 
 > **`5edc91e` sửa thật order-dependent removal, bảy current whitespace false positives, same-arity `Navigator.install` và platform-state comparison mechanism. `a88f5fc` sửa thật per-overload runtime gate. Nhưng declared-arity policy mới không đúng WebIDL, normalization mới có false negative, completeness direction vẫn trộn, extended attributes/provenance chưa được giữ, implicit field ordinal chưa được trả lời, và phản bác documentation nhắm sai claim. Danh sách chưa đóng; release-gate verdict vẫn là chưa đạt.**
+
+## 30. Review cuối chuỗi `cd1ee05` → `3f28ac8` → `0a9638e` → `0933dcd` — schema 37
+
+### 30.1. Kết luận ngắn nhất
+
+Chuỗi bốn commit này **sửa thật nhiều mục**. Sau khi chủ dự án làm rõ mục tiêu là cảnh báo sớm một phần, không phải automated release gate hay coverage 100%, verdict cần được đặt lại:
+
+> **Schema 37 đạt mục tiêu hiện tại: phát hiện sớm một tập thay đổi hữu ích, xếp chúng để con người kiểm tra và giữ evidence truy vết được.**
+
+Câu “xong hết danh sách” vẫn chưa chính xác, vì full version matrix tìm ra một regression thật trên M143 → M147. Nhưng regression này là backlog cải thiện precision của radar; nó không làm toàn bộ công cụ mất giá trị hay không đạt mục tiêu sản phẩm.
+
+| Claim của maintainer | Kiểm chứng độc lập | Trạng thái |
+|---|---|---|
+| Singleton → overload set đã so đúng | Old singleton signature được reconstruct; same-arity addition đi 45/Behaviour | **Fixed** |
+| Optional và extra-argument behavior đã xử lý | Các fixture mới đúng; long overload không còn bị gọi là safe | **Fixed phần chính** |
+| Whitespace normalizer không viết lại literal | Literal đơn giản đã giữ nguyên | **Fixed case đã nêu; escaped quote còn hở** |
+| Per-overload extended attributes được giữ | `overload_traits` mang signature + gate + ext; probe non-representative ext có row | **Fixed** |
+| Directional hard-hole matrix | 16 tổ hợp whole/variant × old/new/both/no-hole chạy đúng trong `Scope` | **Fixed ở unit API** |
+| Pipeline dùng coverage đúng hai phía | `cmd_run` vẫn tạo `Scope({"to": ...})`, không truyền old coverage | **Chưa wired** |
+| Bucket New không còn khẳng định khi old snapshot thủng | Đúng với hard missing/parse hole; partial old coverage vẫn bị bỏ qua | **Partial** |
+| `[Stable]`/`MinVersion` đã thành tier đúng | Stable transition tạo 164 child Breaking rows giả trên real M143 → M147; method MinVersion chưa có field riêng | **High-priority precision bug** |
+| Own/inherited guard provenance đã đóng | Chỉ method/field giữ `inherited_conditions`; child fan-out, nested container vẫn silent | **Chưa đóng** |
+| Per-surface first-match đã xử lý | Code vẫn `continue` ở claimant thứ hai và ghi “under the first” | **Không sửa, chỉ công khai policy** |
+| Mọi số tài liệu sinh từ artifact | Artifact hiện đúng cho selected figures; nhiều active figures ngoài artifact, clean checkout vẫn skip report oracle | **Partial** |
+| Row trỏ tới mọi overload | JSON giữ đủ; Markdown/HTML cắt tối đa ba | **Partial ở data, chưa xong ở output** |
+| 360 test pass | Python 3.14 và 3.9 đều 360/360 | **Verified, nhưng không bắt interaction** |
+
+Verdict:
+
+> **Chấp nhận schema 37 cho early warning/manual triage. Không chấp nhận claim hẹp hơn rằng mọi backlog correctness đã đóng. Stable transition, novelty confidence và guard aggregation nên được cải thiện; parser grammar còn thiếu là known scope, không phải blocker nếu tài liệu nói rõ.**
+
+### 30.2. Baseline, test và full real-version matrix
+
+Baseline:
+
+```text
+HEAD / origin/main   0933dcd
+schema               37
+commit history       74 / 74 commit
+working tree         clean trước khi cập nhật audit
+```
+
+Test:
+
+```text
+Python 3.14.6  python3 -m unittest discover -q
+Ran 360 tests — OK
+
+Python 3.9.6   /usr/bin/python3 -m unittest discover -q
+Ran 360 tests — OK
+```
+
+Tôi rebuild schema 37 cho M143 và M147, gồm cả `wide`, rồi chạy ba adjacent pairs thay vì chỉ M148 → M151.
+
+#### Default
+
+| Pair | Facts | Changes | Breaking | Behaviour | New | Housekeeping | Score 0 | Coverage phía `to` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M143 → M147 | 28.133 → 28.531 | 4.023 | 339 | 923 | 1.426 | 1.335 | 189 | 3.578 / 8.019 |
+| M147 → M148 | 28.531 → 28.507 | 1.273 | 79 | 252 | 434 | 508 | 159 | 3.605 / 8.094 |
+| M148 → M151 | 28.507 → 29.138 | 3.022 | 276 | 469 | 1.240 | 1.037 | 187 | 3.677 / 8.366 |
+
+#### Wide
+
+| Pair | Facts | Changes | Breaking | Behaviour | New | Housekeeping | Score 0 | Coverage phía `to` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| M143 → M147 | 50.535 → 52.030 | 8.045 | 1.330 | 1.266 | 3.278 | 2.171 | 517 | 7.949 / 8.019 |
+| M147 → M148 | 52.030 → 52.367 | 2.250 | 276 | 330 | 966 | 678 | 245 | 8.024 / 8.094 |
+| M148 → M151 | 52.367 → 54.298 | 6.064 | 798 | 696 | 2.979 | 1.591 | 441 | 8.295 / 8.366 |
+
+Mọi snapshot trên có:
+
+```text
+missing_targets = 0
+extract_stats._errors = 0
+```
+
+Current M148 → M151 count/buckets do tái hiện đúng commit message. `docs/figures.json` cũng bằng byte-level data structure với artifact sinh lại từ default report và wide report thật. Vấn đề nằm ở interaction trên pair khác và ở population extractor không model, không phải current headline bị cộng sai.
+
+### 30.3. Những gì bốn commit đã sửa đúng
+
+Phần này cần ghi rõ để không biến review thành “cứ sửa gì cũng bị bác”.
+
+1. **Singleton → two overload.** `signatures` phía old có thể là `None`, nhưng signal code reconstruct từ `old_fact.signature`. Case một parameter string + một parameter object giờ là `web_api_overload_shadowed`, 45/Behaviour.
+2. **Optional và extra trailing arguments.** `_arity_range()` đã model khoảng required → declared, và overload dài hơn ceiling cũ được xem là có thể capture call cũ. Hai sai lầm ở schema 32/33 đã được sửa.
+3. **Simple quoted literal.** Normalization giữ riêng literal trước khi sửa whitespace; probe `"a,b"` và `"a, b"` không còn bằng nhau.
+4. **Per-overload ext.** `overload_traits` giữ signature, runtime gate và extended attributes. Gate/ext của non-representative đổi sinh `web_api_exposure_changed`, không giả thành overload removal.
+5. **Hard hole direction.** Whole addition/removal và overload addition/removal hỏi đúng old/new hard hole trong `Scope`; advice `--target-set wide` không còn nối vào parse/missing-target reason.
+6. **Hard-hole New bucket.** Khi old source thật sự thiếu target hoặc parse fail, addition không còn nằm trong `New surface`.
+7. **Location data.** Snapshot schema 37 giữ `overload_locations`; `report.json` M148 → M151 có đủ location union hai phía cho bốn overload-set changes hiện tại.
+8. **Figures hiện tại.** Nếu gọi command đúng với default + wide report thật, artifact sinh lại bằng chính xác file đang commit.
+
+Đây là các improvement có giá trị. Các mục dưới giải thích vì sao chúng chưa tạo thành correctness closure.
+
+### 30.4. Lỗi precision ưu tiên cao: `[Stable]` xuất hiện/mất đi tự tạo ordinal changes
+
+#### Cơ chế lỗi
+
+Extractor chỉ ghi `position` lên child khi container có `[Stable]`:
+
+```text
+old container [Stable]   child.position = N, child.stable = true
+new container thường     child.position = absent, child.stable = absent
+```
+
+Diff không biết “absent vì policy không serialize”. Nó chỉ thấy:
+
+```text
+position: N → None
+stable:   true → None
+```
+
+Vì `position` là meaningful attr:
+
+- method nhận `ipc_ordinal_changed`, 80/Breaking;
+- field nhận `ipc_shape_changed`, 80/Breaking.
+
+Nhưng lexical position có thể hoàn toàn không đổi. Đúng ra đây là một **container stability-promise change**, không phải N method/field wire ordinals cùng đổi.
+
+#### Real M143 → M147 wide measurement
+
+| Measurement | Kết quả |
+|---|---:|
+| Rows có `stable` delta | 225 |
+| Trong đó Breaking | 193 |
+| Trong đó Behaviour | 32 |
+| Child method/field rows | 183 |
+| Child rows chỉ có `stable + position` | **164** |
+| 164 rows có lexical index thật giữ nguyên | **164 / 164** |
+| Annotation rows bị `position` nâng từ 35 lên 80 | 14 |
+| Rows có type change thật và vẫn đáng 80 | 5 |
+| Pure container stability rows | 32 |
+
+Tức là full matrix tìm được:
+
+- **164 extra Breaking rows** không có signature, type, ordinal hoặc lexical order change;
+- **14 rows có annotation change thật nhưng bị nâng sai lên 80**;
+- chỉ 5 child rows có type change thật đủ lý do giữ 80.
+
+Ví dụ:
+
+```text
+device.mojom.HidCollectionInfo.children
+position: 6 → None
+stable: true → None
+signal: ipc_shape_changed + ipc_stability_changed
+score/bucket: 80 / Breaking
+
+raw lexical index: 6 → 6
+```
+
+Đây không phải edge case tưởng tượng: nhóm `PhotoSettings` một mình sinh 47 child rows, `PhotoState` 33, `HidReportItem` 25.
+
+#### Signal container cũng chưa đúng
+
+Pure stability delta trên interface được label đúng `ipc_stability_changed` 40. Nhưng struct và enum đi qua nhánh:
+
+```python
+elif any(a in deltas for a in ("default", "attrs", "min_version", "stable")):
+    ipc_field_annotated
+```
+
+Nên 17 struct và 10 enum pure-stability rows bị kể bằng câu “field default or version annotation changed”, dù row là container và không có field default.
+
+#### `MinVersion` mới chỉ partial
+
+Field có dedicated `min_version`; method chưa có. M151 wide có:
+
+```text
+Mojo fields có MinVersion    97 — dedicated key: 97
+Mojo methods có MinVersion   55 — dedicated key: 0
+```
+
+Method vẫn giữ `{"MinVersion=10": true}` bên trong generic `attrs`. Probe `MinVersion=1 → 2` sinh:
+
+```text
+signal: build_gate_changed
+```
+
+Đó là label sai: MinVersion là version annotation, không phải build condition.
+
+#### Hướng sửa
+
+Không nên serialize position chỉ ở một phía rồi so presence của field đó. Cần:
+
+1. luôn giữ lexical index/provenance trong fact;
+2. quyết định **có compare index hay không** dựa trên Stable tier của container;
+3. Stable appearing/disappearing emit một container row;
+4. child chỉ emit ordinal/shape row khi raw index thật đổi;
+5. parse MinVersion thành field riêng cho method và dùng signal đúng.
+
+### 30.5. Own/inherited guard provenance vẫn chưa đóng và có fan-out
+
+Commit `0a9638e` thêm `inherited_conditions` cho `mojo_method` và `mojo_field`. Ý tưởng giữ provenance là đúng. Implementation hiện chưa đạt design audit yêu cầu.
+
+#### Chỉ child giữ provenance
+
+`mojo_interface`, `mojo_struct` và `mojo_enum` không có `inherited_conditions` trong meaningful attrs. Vì vậy:
+
+- member biết một guard đến từ container;
+- nested container không biết guard của nó hay của ancestor;
+- guard move giữa nested struct và enclosing interface vẫn có thể im lặng.
+
+Probe:
+
+```mojom
+// old
+interface I {
+  [EnableIf=is_win] struct S { int32 x; };
+};
+
+// new
+[EnableIf=is_win] interface I {
+  struct S { int32 x; };
+};
+```
+
+Kết quả cho `S` và `S.x`: không có provenance delta. Chỉ interface có generic platform row do absent → compiled representation.
+
+#### Container guard bị nhân xuống mọi child
+
+Probe một struct hai fields, chuyển guard từ field lên struct, sinh ba rows:
+
+```text
+field a   attrs + inherited_conditions
+field b   inherited_conditions + platform_state
+struct S  platform_state
+```
+
+Với N fields, pattern là container + N child rows. Đây đúng kiểu duplicate fan-out mà mục 27.5 đã cảnh báo phải tránh.
+
+Real M143 → M147 wide có bảy rows mang `inherited_conditions` delta. Sáu row thuộc `UpdateScrollbarThemeParams` đi cùng container guard change; một row mới chỉ tồn tại vì provenance:
+
+```text
+proxy_resolver.mojom.SystemProxyResolver.GetProxyForUrl
+inherited: EnableIf=is_win → EnableIf=is_win|is_mac
+Windows verdict: compiled → compiled
+score/bucket: 35 / Behaviour
+```
+
+Tool cố định product platform là Windows; row này không thay đổi việc declaration có nằm trong Windows binary hay không, nhưng label vẫn nói “may no longer be in the binary we ship”.
+
+Design sạch hơn vẫn là design audit đã đề xuất:
+
+- container guard change → một container-level row;
+- direct member guard change → member-level row;
+- child giữ inherited provenance để giải thích, nhưng provenance-only change không tự fan-out;
+- compare effective product verdict riêng với source-ownership provenance.
+
+### 30.6. Directional completeness: hard holes tốt hơn, novelty confidence vẫn sai
+
+#### `Scope` đúng hơn nhưng product path chưa truyền old coverage
+
+`Scope` hiện có `shares["from"]` và `shares["to"]`. Unit test gọi trực tiếp với cả hai nên pass. Nhưng `cmd_run` vẫn wiring:
+
+```python
+Scope({"to": new.meta["coverage"]}, ...)
+```
+
+Report meta đã giữ cả hai, nhưng scoring path chỉ truyền `to`. Đây lại là lỗi “hai cửa”: data model có capability, pipeline thật chưa dùng nó.
+
+Current counts chưa đổi vì code cố ý không dùng partial coverage để nghi ngờ addition; old coverage chỉ ảnh hưởng hard hole. Điều đó không biến wiring thành đúng.
+
+#### “Addition là thứ nhìn thấy” không chứng minh nó mới
+
+Maintainer đúng một nửa:
+
+- declaration **có mặt ở new snapshot** là fact quan sát được;
+- declaration **không tồn tại ở old version** là claim dựa trên absence.
+
+Bucket `New surface` khẳng định cả hai, không chỉ câu đầu.
+
+Đối chiếu default additions với old wide snapshot cho M148 → M151:
+
+| Default row | Default nói gì | Old wide truth | Wide diff đúng |
+|---|---|---|---|
+| `IncomingCallNotifications` | Added, on by default | Đã tồn tại và đã enabled ở old version | Chỉ `declaration_moved` |
+| `Prerender2FallbackPrefetchSpecRules` | New feature, on by default | Đã tồn tại disabled ở old version | `default_flip_on` + moved |
+| `NewTabPageCustomizationThemeSync` | Added | Old copy Android-only, not compiled on Windows | Windows availability thật sự mới |
+| `NewTabPageCustomizationV2` | Added | Old copy Android-only, not compiled on Windows | Windows availability thật sự mới |
+
+Vậy current default report có ít nhất **hai false novelty claims** mà wide snapshot chứng minh được ngay. Không nên giải quyết bằng cách đẩy toàn bộ 1.240 New rows xuống Housekeeping; lần thử đó đúng là phá usefulness. Cách đúng là tách:
+
+```text
+observed_presence = chắc chắn có ở new snapshot
+novelty_confidence = old surface có đủ để chứng minh trước đó không có hay chưa
+```
+
+Hoặc đổi label partial-read thành “newly observed in this scope”, không gọi chắc chắn “New surface”.
+
+#### Phần hard-hole đã fixed
+
+Khi old snapshot có missing target/parse error thật, whole/variant addition bị penalty và New bucket bị hạ. Khi hole ở phía không trả lời câu hỏi, score giữ nguyên. Ma trận 16 tổ hợp hiện khóa đúng phần này.
+
+### 30.7. Per-surface first-match: mục này chưa được sửa
+
+Code hiện vẫn làm:
+
+```python
+if path in found:
+    shared += 1
+    continue
+found[path] = rule.note
+```
+
+Commit body không sửa membership; nó quyết định rằng per-surface rows phải partition global denominator và thêm log “under the first”. Nhưng hai phép đo trả lời hai câu khác nhau:
+
+- global denominator: unique file count, phải dedupe path;
+- surface denominator: file có thể khai báo kind của surface nào, phải thuộc mọi matching surface.
+
+M151 measurement:
+
+```text
+unique global candidates       8.366
+multi-surface paths              378
+extra memberships                378
+```
+
+Không phải 368 ở M151; 368 là old M148 side. Pair có 368 → 378.
+
+Hai surface bị lệch:
+
+| Surface / target | First-match hiện tại | Multi-membership đúng |
+|---|---:|---:|
+| Pref/switch — default | 4 / 348 (1,15%) | 9 / 529 (1,70%) |
+| Pref/switch — wide | 345 / 348 (99,14%) | 526 / 529 (99,43%) |
+| Visibility gates — default | 340 / 340 | 537 / 537 |
+| Visibility gates — wide | 340 / 340 | 537 / 537 |
+
+Current threshold 95% tình cờ cho cùng yes/no verdict, nên bucket count chưa đổi. Mẫu số và population vẫn sai; lần target/rule tiếp theo có thể cắt qua threshold.
+
+Ngoài ra normal `report.md` và `report.html` vẫn chỉ in overall coverage. Tìm sáu surface labels trong hai report đều không có kết quả. `by_surface` chỉ nằm trong JSON meta.
+
+Kết luận: mục #3 trong danh sách “còn lại” vẫn còn nguyên; commit chỉ documented disagreement, không implement requested behavior.
+
+### 30.8. Per-overload location: data fixed, renderer chưa fixed
+
+Quyết định **không đưa line number vào `MEANINGFUL_ATTRS` là đúng**. Dịch vài dòng do code phía trên thay đổi không phải Web API change.
+
+Data layer schema 37 cũng làm đúng phần lớn:
+
+- M151 có 121 overload groups;
+- mỗi group nhiều signature có `overload_locations`;
+- `Change.locations` union vị trí old/new;
+- current report JSON có đủ location cho các row thật.
+
+Nhưng commit nói “reader lands on the right lines” và “row points at every overload”. Renderer vẫn cắt:
+
+```python
+Markdown detail: where[:3]
+HTML data:       paths[:3]
+Markdown table:  where[0]
+```
+
+Real examples:
+
+| Finding | JSON locations | Markdown detail | HTML |
+|---|---:|---:|---:|
+| `Navigator.install` | 5 | 3 | 3 |
+| `WebGLRenderingContextBase.texElementImage2D` | 4 | 3 | 3 |
+
+Ở WebGL row, line `651` là một overload bị xoá thật và bị renderer bỏ. Test mới chỉ assert một fixture có `len(change.locations) == 2`; nó không render finding có hơn ba locations.
+
+Hướng sửa nhỏ:
+
+- render tất cả changed-variant locations;
+- hoặc hiện ba dòng đầu + “and N more” có thể expand;
+- test JSON **và** Markdown/HTML trên group 4–5 variants.
+
+### 30.9. `docs/figures.json`: improvement thật nhưng chưa phải single source cho mọi số
+
+#### Phần đúng
+
+Sinh lại từ:
+
+```bash
+chromedrift figures out/report.json --wide <wide-report.json>
+```
+
+cho object bằng đúng `docs/figures.json` hiện commit. Current selected metrics không stale:
+
+```text
+total          3.022
+buckets        276 / 469 / 1.240 / 1.037
+owners         339 / 719 / 1.157 / 277 / 530
+no_signal      981
+coverage       3.677 / 8.366; 8.295 / 8.366
+```
+
+Ba document↔artifact tests cũng chạy được trên clean checkout.
+
+#### Clean checkout vẫn có skip
+
+Chạy riêng test class trên một `git archive HEAD` sạch:
+
+```text
+Ran 4 tests
+OK (skipped=1)
+```
+
+Test bị skip chính là artifact↔real-report oracle:
+
+```text
+no out/report.json; run the pair to check the artifact
+```
+
+Nghĩa là fresh CI chứng minh “docs khớp artifact đã commit”, không chứng minh “artifact khớp code + Chromium data hiện tại”. Repo cũng chưa có release/CI step tự chạy report + `figures`.
+
+#### Wide oracle chưa được test
+
+Test artifact↔report chỉ mở `out/report.json` default và chỉ compare `coverage.default`. `_WIDE_READ = 8295` được khai báo nhưng không dùng. Ngay cả khi có `out-wide/report.json`, test không đọc file đó.
+
+Command cũng không validate input. Truyền chính default report vào `--wide` được chấp nhận và ghi:
+
+```json
+"wide": {"read": 3677, "candidates": 8366}
+```
+
+thay vì từ chối target set sai.
+
+#### Không phải mọi measured figure đã vào artifact
+
+Artifact chỉ chứa total, buckets, owners, Breaking-by-owner, no-signal và overall coverage. Nhiều active measurements vẫn viết tay và nằm ngoài matcher, ví dụ:
+
+- `220 of 276 Breaking rows are Mojo or web API`;
+- control inventory `971 / 955 / 190 / 156 / 130 / 15`;
+- `14 of 187` platform-divergent flags;
+- ordinal/Stable tables trong `traps.md`.
+
+Vậy cách gọi chính xác là:
+
+> “Đã tạo canonical artifact cho nhóm headline figures hiện tại.”
+
+Chưa thể gọi là “mọi con số tài liệu sinh từ report” hoặc “không cần sửa tay nữa”.
+
+### 30.10. Effective arity và normalization còn hai residual mechanism
+
+#### Variadic range được nhận diện nhưng dùng sai
+
+`_arity_range("void f(long... a)")` trả `(0, None)` đúng. Nhưng `_overload_signals()` chỉ thêm `low` vào `served`, rồi đặt `ceiling = None`. Khi thêm overload arity lớn hơn `low`:
+
+```webidl
+// old
+void f(DOMString... xs);
+
+// new
+void f(DOMString... xs);
+void f(long x, long y);
+```
+
+old variadic đã nhận call hai arguments. Current result vẫn là:
+
+```text
+web_api_overload_added — 25 / New
+```
+
+thay vì shadowing/Behaviour. Bốn real overload groups M151 có variadic signature; không có observed addition thuộc đúng failing shape trong M143–M151 pairs, nên đây là contract hole chưa có current yield.
+
+`_arity_range()` cũng split comma mà không giữ string literal. Signature có default string chứa comma bị đếm sai parameter. Đây cùng lớp lexer issue với normalizer.
+
+#### Literal regex không hiểu escaped quote
+
+Simple `"a,b"` đã fixed. `_LITERAL_RE = r'"[^"]*"|...'` không hiểu escape. Probe:
+
+```webidl
+"a\",b"  →  "a\", b"
+```
+
+vẫn normalize thành cùng string. Không thấy real M143–M151 row dùng shape này; cần test/tokenizer nhỏ trước khi gọi normalization contract closed.
+
+### 30.11. Raw grammar inventory: `0 parser errors` không có nghĩa là đọc hết grammar
+
+Đây là việc maintainer tự ghi “đáng làm tiếp”, và kết quả giải thích rõ vì sao 359/360 tests chưa phải oracle.
+
+#### Extracted facts trước/sau dedupe
+
+| Version wide | WebIDL raw output → deduped | Mojo raw output → deduped | Extract errors |
+|---|---:|---:|---:|
+| M143 | 14.323 → 14.134 | 22.569 → 22.563 | 0 |
+| M147 | 14.505 → 14.303 | 23.521 → 23.513 | 0 |
+| M148 | 14.567 → 14.371 | 23.829 → 23.821 | 0 |
+| M151 | 14.763 → 14.569 | 24.858 → 24.850 | 0 |
+
+WebIDL dedupe loss hiện chủ yếu là overload/duplicate UID; schema 37 giữ signature, traits và locations tốt hơn trước. Nhưng bảng này vẫn chỉ đếm thứ extractor **đã nhận ra**.
+
+#### WebIDL grammar không có fact kind
+
+Trong 2.166 M151 IDL files đã tải/đọc, lexical inventory có:
+
+| Top-level grammar | M151 records | M148 → M151 changes |
+|---|---:|---:|
+| Callback function definitions | 85 | 0 |
+| Typedefs | 144 | +1 |
+| `Interface includes Mixin` relations | 200 | +7 / −7 |
+
+Tổng **429 records** không có fact kind. `includes` đặc biệt quan trọng: member của mixin được key dưới mixin, nhưng relation nói concrete interface nào thực sự nhận member đó.
+
+Current pair có 14 includes relation moves. Tool báo nhiều mixin/member add/remove liên quan, nhưng không lưu relation `HTMLElement includes ...`, `SVGElement includes ...`, v.v. Typedef `SanitizerPI` được thêm và members dùng tên đó có row, nhưng typedef shape itself không có row.
+
+Concrete historical false negative:
+
+```text
+M143 → M147
+typedef LanguageModelMessageValue changed underlying union
+ChromeDrift rows mentioning that identity: 0
+```
+
+Member signatures dùng alias name giữ nguyên, nên allowlist comparison không thấy underlying type đổi.
+
+#### Mojo grammar không có fact kind
+
+M151 materialized `.mojom` inventory có:
+
+```text
+feature blocks             18
+const identities          311
+const declaration variants 337
+```
+
+Extractor hiện chỉ model interface/method/struct/union/field/enum. M148 → M151 lexical inventory thấy:
+
+```text
+feature  +1 / -2 / ~1
+const    +4 / -12 / ~3
+```
+
+Ví dụ `kWebNNCompilerProcess` được thêm, `kWebNNDirectML` bị bỏ, `kWebNNLiteRT` đổi body; M151 wide snapshot không có fact nào chứa các identity đó. File vẫn được tính là process-boundary candidate đã đọc.
+
+Không nhất thiết mọi const phải có severity cao. Nhưng phải chọn một trong hai cách trung thực:
+
+1. thêm fact kind/grammar support;
+2. ghi rõ exclusion và không dùng “read 99% process-boundary interfaces” như bằng chứng parser completeness.
+
+Điểm chính:
+
+> `_errors = 0` chỉ nghĩa là extractor không throw exception trên grammar nó thử. Nó không chứng minh extractor nhận ra mọi declaration class trong file.
+
+### 30.12. Test quality, thứ tự sửa và verdict cuối
+
+#### Vì sao 360 pass vẫn bỏ lọt các lỗi trên
+
+Các test mới tốt hơn trước ở chỗ nhiều fixture đi qua extract → dedupe → diff → score. Nhưng chúng vẫn khóa từng local behavior riêng:
+
+- Stable reorder test bắt hai stable snapshots, không bắt Stable → non-Stable;
+- location test dùng đúng hai locations, không đi qua renderer limit ba;
+- coverage test dựng `Scope` trực tiếp, không đi qua `cmd_run` wiring;
+- documentation test có artifact sẵn, không tự tạo oracle report;
+- first-match test hiện khóa chính policy first-match, không kiểm semantic membership;
+- grammar không được extract thì snapshot-based test không biết population đó tồn tại.
+
+Full matrix là phần tìm lỗi giá trị nhất vòng này: current M148 → M151 bằng 0 stability rows làm mechanism trông an toàn; M143 → M147 lập tức tạo 225 stability delta rows và phơi ra 164 row giả.
+
+#### Thứ tự sửa đề nghị
+
+##### Ưu tiên cao — làm radar bớt nhiễu và tránh label sai
+
+1. Sửa Stable transition: luôn giữ raw lexical index, compare theo container tier, không duplicate container stability xuống child.
+2. Tách `stable` khỏi `ipc_field_annotated`; parse method MinVersion riêng và signal đúng.
+3. Thiết kế lại guard provenance theo container/member aggregation; không fan-out inherited-only rows.
+4. Truyền cả old/new coverage vào `Scope` từ `cmd_run`; tách observed presence khỏi novelty confidence.
+5. Thêm regression bằng hai current false novelty facts (`IncomingCallNotifications`, `Prerender2FallbackPrefetchSpecRules`).
+6. Ghi rõ coverage contract cho WebIDL callback/typedef/includes và Mojo feature/const grammar; chỉ thêm extractor mới khi các surface này có giá trị thực tế với người dùng.
+
+##### Ưu tiên tiếp theo — report và hạ tầng
+
+7. Per-surface multi-membership: global dedupe, surface overlap; in bảng vào normal report.
+8. Renderer hiện đủ changed overload locations hoặc có expandable “N more”.
+9. `figures` validate pair/schema/target set; test wide report; chạy artifact generation/check trong CI/release.
+10. Mở rộng artifact/templates cho các active measured figures còn viết tay.
+11. Làm arity parser quote/escape/variadic-aware và thêm escaped-literal regression.
+
+#### Verdict cuối
+
+> **Schema 37 tốt hơn schema 33 rõ rệt, current M148 → M151 headline figures là reproducible và project đạt mục tiêu làm static early-warning inventory cho manual triage. Full matrix vẫn chứng minh Stable modeling tạo false Breaking rows quy mô lớn; first-match, guard aggregation, CLI old-coverage wiring và renderer location còn backlog. Raw grammar cho biết những surface tool chưa đọc, nhưng với mục tiêu phát hiện một phần thì đây là known scope cần document và ưu tiên theo giá trị, không phải yêu cầu phải đạt 100%.**

@@ -361,7 +361,14 @@ from typing import Any, Dict, Iterable, List, Optional
 #      declared, so a row about an overload set points at the declarations
 #      rather than at whichever one deduplication kept. Recorded and rendered,
 #      not compared: line numbers move whenever anything above them does.
-SCHEMA_VERSION = 37
+#  38: a lexical position is evidence only against another one. Version 36
+#      recorded `position` only inside `[Stable]`, so a declaration losing the
+#      annotation dropped the attribute and every member's delta read
+#      `[N, None]` -- an ordinal move, 80 points, Breaking. Measured on
+#      M143 -> M147 wide, where `device.mojom.HidCollectionInfo` and its
+#      neighbours lost `[Stable]` upstream: 183 rows invented by the
+#      attribute's absence, 178 of them in Breaking.
+SCHEMA_VERSION = 38
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
