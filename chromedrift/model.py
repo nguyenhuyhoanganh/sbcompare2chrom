@@ -331,7 +331,22 @@ from typing import Any, Dict, Iterable, List, Optional
 #      moving on one overload of a member was visible only if deduplication
 #      happened to keep that declaration. 12 of the 121 overload groups at
 #      M151 have overloads that disagree about their gate.
-SCHEMA_VERSION = 33
+#  34: five corrections a second review found in schema 33, and one scope.
+#      The completeness latch tested both snapshots for every change, so a
+#      removal was discounted for a fault on the side its evidence does not
+#      come from. Overload safety counted declared parameters, which is not
+#      the effective overload set -- `optional` and variadic serve several
+#      counts each, and a call longer than every overload is served by the
+#      longest, so a longer new overload captures it. A member going from one
+#      declaration to two had no old `signatures` to compare against. The
+#      signature normaliser rewrote string literals, so a default of "a,b"
+#      compared equal to "a, b". `overload_gates` held the runtime flag and
+#      not the extended attributes, and is now `overload_traits`.
+#      And `position` is recorded inside `[Stable]` declarations, where mojom
+#      assigns the wire id from lexical order and promises it will not move:
+#      1,110 members shifted position at M148 -> M151 and 0 of them were in a
+#      stable declaration.
+SCHEMA_VERSION = 34
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -886,25 +901,30 @@ def dedupe_facts(facts: Iterable[Fact]) -> List[Fact]:
         if f.kind in _OVERLOADED_KINDS:
             signature = f.attrs.get("signature")
             if signature:
+                ext = f.attrs.get("ext") or {}
                 overloads.setdefault(f.uid, set()).add(
-                    (signature, f.attrs.get("runtime_enabled", "")))
+                    (signature, f.attrs.get("runtime_enabled", ""),
+                     tuple(sorted(f"{k}={v}" if v is not True else k
+                                  for k, v in ext.items()))))
         current = best.get(f.uid)
         if current is None or (f.path, f.line) < (current.path, current.line):
             best[f.uid] = f
     for uid, entries in overloads.items():
-        signatures = {sig for sig, _ in entries}
+        signatures = {sig for sig, _, _ in entries}
         if len(signatures) > 1:
             # Recorded only when there is more than one, so an ordinary member
             # compares exactly as it always did.
             best[uid].attrs["signatures"] = sorted(signatures)
-        # And the gate per overload, but only where the overloads disagree
-        # about it -- 12 of the 121 groups at M151. Kept as its own attribute
-        # rather than folded into the signature string: a gate moving is an
-        # overload changing who can reach it, and encoding it into the
-        # identity would report the same event as one overload disappearing
-        # and another arriving.
-        gates = {gate for _, gate in entries}
-        if len(gates) > 1:
-            best[uid].attrs["overload_gates"] = sorted(
-                f"{sig} [{gate or 'ungated'}]" for sig, gate in entries)
+        # And what gates each overload, but only where the overloads disagree
+        # about it -- the runtime flag on 12 of the 121 groups at M151, the
+        # extended attributes on 42. Kept as its own attribute rather than
+        # folded into the signature string: a gate moving is an overload
+        # changing who can reach it, and putting it in the identity would
+        # report that as one overload disappearing and another arriving.
+        traits = {(gate, ext) for _, gate, ext in entries}
+        if len(traits) > 1:
+            best[uid].attrs["overload_traits"] = sorted(
+                f"{sig} [{gate or 'ungated'}"
+                + (f"; {', '.join(ext)}" if ext else "") + "]"
+                for sig, gate, ext in entries)
     return sorted(best.values(), key=lambda f: (f.kind, f.key))

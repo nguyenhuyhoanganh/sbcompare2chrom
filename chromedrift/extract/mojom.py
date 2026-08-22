@@ -53,6 +53,27 @@ _DATA_RE = re.compile(
     r"(?P<kw>struct|union|enum)\s+(?P<name>\w+)\s*\{")
 
 
+def _is_stable(attr_text: Optional[str]) -> bool:
+    """`[Stable]` — the declaration Mojo promises stays wire-compatible.
+
+    Ordinals are assigned by lexical position unless written, so moving a
+    member changes the wire id of everything after it. Chromium does that
+    freely and it costs nothing, because both ends of an unstable interface
+    are always rebuilt together: measured M148 -> M151, 1,110 members shifted
+    position across the tree. Inside `[Stable]`, the mojom documentation says
+    existing ordinals must not move, and Chromium honours it -- 0 of those
+    1,110 are in a stable declaration.
+
+    So position is recorded here and nowhere else. Reporting all 1,110 would
+    report file layout as an ABI event; reporting none leaves the one case
+    where it is an ABI event invisible.
+    """
+    if not attr_text:
+        return False
+    return any(part.strip() == "Stable"
+               for part in split_top_level(attr_text))
+
+
 def _conditions(attr_text: Optional[str]) -> List[str]:
     """The build conditions in an attribute block, ignoring everything else.
 
@@ -204,6 +225,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         qualified = f"{module}.{iface}" if module else iface
         body = masked[open_idx + 1 : close_idx]
         iface_conditions = _conditions(m.group("attrs"))
+        iface_stable = _is_stable(m.group("attrs"))
 
         methods = []
         for offset, decl in split_top_level_offsets(body, ";"):
@@ -235,6 +257,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                        if "ordinal" in parsed else {}),
                     **_platform_attrs(iface_conditions
                                       + _conditions(",".join(parsed["attrs"]))),
+                    **({"position": len(methods) - 1} if iface_stable else {}),
                 },
             ))
 
@@ -279,6 +302,7 @@ def _spans(masked: str) -> List[dict]:
             out.append({"kw": m.group("kw"), "name": m.group("name"),
                         "decl": m.start("kw"), "open": open_idx,
                         "close": close_idx,
+                        "stable": _is_stable(m.group("attrs")),
                         "conditions": _conditions(m.group("attrs"))})
     out.sort(key=lambda s: s["open"])
     return out
@@ -366,6 +390,10 @@ def _field_facts(span, spans, masked, module, rel_path, qualified):
         if field_attrs:
             attrs["attrs"] = collapse_ws(field_attrs)
         attrs.update(_platform_attrs(outer + _conditions(field_attrs)))
+        if span.get("stable"):
+            # Only here: see `_is_stable`. Outside a stable declaration this
+            # number moves whenever Chromium tidies a file and means nothing.
+            attrs["position"] = len(names) - 1
         facts.append(Fact(
             kind=KIND_MOJO_FIELD,
             key=f"{qualified}.{name}",

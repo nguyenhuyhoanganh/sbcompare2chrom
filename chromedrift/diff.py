@@ -87,7 +87,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
         "is_protected_feature",
     ),
     KIND_IDL_INTERFACE: ("idl_kind", "inherits", "ext", "values"),
-    KIND_IDL_MEMBER: ("signature", "signatures", "overload_gates",
+    KIND_IDL_MEMBER: ("signature", "signatures", "overload_traits",
                       "member_type", "ext", "runtime_enabled"),
     # Empty, and deliberately. "methods" and "method_count" do change -- 107
     # times across M130 -> M151 -- but every one of those is already a
@@ -104,7 +104,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # not compared -- the two halves of this pipeline are separate doors, and
     # opening the first is not opening the second.
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal",
-                       "platform_state"),
+                       "position", "platform_state"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
@@ -112,7 +112,8 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_MOJO_STRUCT: ("mojo_kind", "platform_state"),
     # The type and the ordinal are the wire format. The default and the
     # `[MinVersion]` annotation are not, and they are labelled separately.
-    KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "platform_state"),
+    KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "position",
+                      "platform_state"),
     # One list rather than a fact per member: members are 17,061 of the tree's
     # declarations at M151, and adding one is Mojo's ordinary way of extending
     # a type.
@@ -911,50 +912,95 @@ def owner_of(change: Change) -> str:
     return KIND_OWNERS.get(change.kind, OWNER_NATIVE)
 
 
-def _arity(signature: str) -> int:
-    """How many arguments the overload takes, ignoring nested commas."""
+def _arity_range(signature: str):
+    """The argument counts this overload can actually be called with.
+
+    Not the declared parameter count. Web IDL builds an *effective* overload
+    set: an `optional` argument contributes one entry per count from the
+    required number upward, and a variadic one contributes every count from
+    its fixed number up. So `f(optional long a)` answers a call with none and
+    a call with one, and the declared number 1 describes neither end.
+
+    Returns `(minimum, maximum)`, with `None` for a variadic maximum.
+    """
     open_at = signature.find("(")
     if open_at == -1:
-        return -1
+        return (0, 0)
     inner = signature[open_at + 1:signature.rfind(")")].strip()
     if not inner:
-        return 0
-    depth = count = 1
+        return (0, 0)
+    parts, depth, current = [], 0, ""
     for ch in inner:
         if ch in "(<[":
             depth += 1
         elif ch in ")>]":
             depth -= 1
-        elif ch == "," and depth == 1:
-            count += 1
-    return count
+        if ch == "," and depth == 0:
+            parts.append(current)
+            current = ""
+        else:
+            current += ch
+    parts.append(current)
+    required = 0
+    variadic = False
+    for part in parts:
+        text = part.strip()
+        if "..." in text:
+            variadic = True
+            continue
+        if not text.startswith("optional "):
+            required += 1
+    return (required, None if variadic else len(parts))
 
 
 def _overload_signals(before, after) -> List[str]:
-    """What changing an overload set does, by direction and by arity.
+    """What changing an overload set does, by direction and by reachability.
 
-    Losing one is a callable shape disappearing: a site passing that argument
-    list stops matching.
+    Losing an entry is a callable shape disappearing: a site passing that
+    argument list stops matching.
 
-    Gaining one is usually harmless -- but not always, and the first version
-    of this said "breaks nothing" flatly, which is wrong. Web IDL resolves an
-    overload by argument count first and by type second, so a new overload
-    with an argument count an existing one already has can capture a call that
-    used to reach the other. That is exactly `Navigator.install`: M151 adds
-    `install(InstallParams)` beside `install(USVString install_url)`, both
-    taking one argument, so `navigator.install(someObject)` no longer
-    stringifies. A new argument count cannot take a call from anyone.
+    Gaining one is not automatically harmless, and two earlier versions of
+    this said it was. Resolution counts arguments first, so a new entry
+    answering a count something already answered can take a call from it --
+    `Navigator.install(InstallParams)` beside `install(USVString)`, both at
+    one argument. And a call with *more* arguments than any overload declares
+    is served by the longest one with the extras dropped, so adding a longer
+    overload also captures calls that were landing on the old longest.
+
+    Safe therefore means: every count this entry serves was unreachable
+    before, and it does not raise the ceiling that over-long calls fall back
+    to.
     """
     before, after = set(before or ()), set(after or ())
     out: List[str] = []
     if before - after:
         out.append("web_api_overload_removed")
     added = after - before
-    if added:
-        arities = {_arity(sig) for sig in before}
-        out.append("web_api_overload_shadowed"
-                   if any(_arity(sig) in arities for sig in added)
-                   else "web_api_overload_added")
+    if not added:
+        return out
+
+    served = set()
+    ceiling = 0
+    for sig in before:
+        low, high = _arity_range(sig)
+        if high is None:
+            ceiling = None
+        elif ceiling is not None:
+            ceiling = max(ceiling, high)
+        served.update(range(low, (high if high is not None else low) + 1))
+
+    shadows = False
+    for sig in added:
+        low, high = _arity_range(sig)
+        top = high if high is not None else low
+        if served & set(range(low, top + 1)):
+            shadows = True
+        elif ceiling is not None and (high is None or high > ceiling):
+            # An over-long call used to be clamped onto the previous longest
+            # overload. It now has somewhere exact to land.
+            shadows = True
+    out.append("web_api_overload_shadowed" if shadows
+               else "web_api_overload_added")
     return out
 
 
@@ -988,8 +1034,15 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             # `member_type` is what a member *is* -- an attribute becoming an
             # operation is a different call at every call site -- so it belongs
             # with the signature rather than in a category of its own.
-            if any(a in change.deltas
-                   for a in ("signature", "idl_kind", "member_type")):
+            # When the overload set moved, the surviving declaration's own
+            # signature moving with it is a fact about which copy
+            # deduplication kept, not independent evidence -- the overload
+            # signals below say the same event more precisely. Reporting both
+            # put a 50-point "signature changed" above a 25-point overload
+            # addition for a member that gained one and lost nothing.
+            if ("signatures" not in change.deltas
+                    and any(a in change.deltas
+                            for a in ("signature", "idl_kind", "member_type"))):
                 signals.append("web_api_signature_change")
             # The overload set, which the member's own signature cannot show:
             # deduplication keeps one declaration, so a sibling overload
@@ -1001,13 +1054,23 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             # declaration order. Both statements are emitted and
             # `leading_signal` picks; the answer no longer depends on the file.
             if "signatures" in change.deltas:
-                signals += _overload_signals(*change.deltas["signatures"])
+                # A member going from one declaration to two has no
+                # `signatures` on the old side -- the list is only written
+                # when there is more than one -- so the old set has to come
+                # from its single `signature`, or every first overload reads
+                # as reaching an argument count nothing had.
+                was, now = change.deltas["signatures"]
+                if not was and old_fact is not None:
+                    was = [old_fact.attrs.get("signature", "")]
+                if not now and new_fact is not None:
+                    now = [new_fact.attrs.get("signature", "")]
+                signals += _overload_signals(was, now)
             # One overload's gate moving while the argument lists stay put.
             # Deduplication keeps one declaration, so unless the copy it kept
             # was the one that moved, this said nothing. It is the same event
             # `web_api_exposure_changed` names for a member with a single
             # declaration, so it carries that name rather than a new one.
-            if ("overload_gates" in change.deltas
+            if ("overload_traits" in change.deltas
                     and "web_api_exposure_changed" not in signals):
                 signals.append("web_api_exposure_changed")
             # `inherits` moves the prototype chain, `values` adds or drops an
@@ -1027,7 +1090,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
                 signals.append("ipc_enum_changed")
             # Type, ordinal and struct-versus-union are the wire format; a
             # default or a `[MinVersion]` is what an older peer sees.
-            if any(a in change.deltas for a in ("type", "ordinal", "mojo_kind")):
+            if any(a in change.deltas
+                   for a in ("type", "ordinal", "position", "mojo_kind")):
                 signals.append("ipc_shape_changed")
             elif "default" in change.deltas or "attrs" in change.deltas:
                 signals.append("ipc_field_annotated")
@@ -1038,7 +1102,9 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             if ("signature" in change.deltas or "params" in change.deltas
                     or "response" in change.deltas):
                 signals.append("ipc_signature_change")
-            elif "ordinal" in change.deltas:
+            elif "ordinal" in change.deltas or "position" in change.deltas:
+                # `position` is only recorded inside `[Stable]`, where mojom
+                # assigns the wire id from it and promises it will not move.
                 signals.append("ipc_ordinal_changed")
             elif "attrs" in change.deltas:
                 # The mojom attributes on a method, which is where the build

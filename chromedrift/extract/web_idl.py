@@ -58,6 +58,9 @@ _MEMBER_KEYWORDS = ("iterable", "maplike", "setlike", "stringifier",
 BLINK_IDL_DIR = "third_party/blink/renderer/"
 
 
+_LITERAL_RE = re.compile(r'"[^"]*"|\'[^\']*\'')
+
+
 def _normalize_signature(decl: str) -> str:
     """A signature keyed on what it declares, not on how it was typed.
 
@@ -65,14 +68,33 @@ def _normalize_signature(decl: str) -> str:
     parenthesis when it wraps a long argument list, so
     `deriveBits( AlgorithmIdentifier ...` compared unequal to
     `deriveBits(AlgorithmIdentifier ...` and seven SubtleCrypto members were
-    reported as changed signatures at 50 points, Breaking, on M148 -> M151.
-    Nothing about the API had moved; the file had been reformatted.
+    reported as changed signatures at 50 points with nothing moved.
+
+    String literals are held out of it. A default value of `"a,b"` is not the
+    same value as `"a, b"`, and the first version of this rewrote one into the
+    other -- trading seven false positives for a false negative, which is the
+    worse of the two for this tool.
     """
     text = collapse_ws(decl)
-    for pair in ("(", ")", ",", "<", ">"):
-        text = text.replace(f" {pair}", pair) if pair in ")>,;" \
-            else text.replace(f"{pair} ", pair)
-    return text.replace(",", ", ").replace(",  ", ", ")
+    holes = []
+
+    def stash(match):
+        holes.append(match.group(0))
+        return f"\x00{len(holes) - 1}\x00"
+
+    text = _LITERAL_RE.sub(stash, text)
+    # Inside the brackets only. Stripping after `>` as well would run the
+    # return type into the name: `Promise<X>deriveBits(...)`.
+    for token in "(<":
+        text = text.replace(f"{token} ", token)
+    for token in ")>,":
+        text = text.replace(f" {token}", token)
+    text = text.replace(",", ", ")
+    while "  " in text:
+        text = text.replace("  ", " ")
+    for index, literal in enumerate(holes):
+        text = text.replace(f"\x00{index}\x00", literal)
+    return text.strip()
 
 
 def applies_to(path: str) -> bool:

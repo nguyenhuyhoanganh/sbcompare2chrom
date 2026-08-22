@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,448 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,602 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -135,7 +135,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151
 ```
 
-About three and a half minutes on a cold cache. Measured per version: 97 seconds, of which 69 are fetching and 25 are the fourteen directory listings, leaving about 3 for extraction — so two versions plus enrichment. A second run over the same pair of tags is a cache hit, measured at **0.3 seconds** for the whole pipeline: both snapshots read, 3,027 changes compared and ranked, and all three report files written. A released tag's content never changes, so the cache is kept forever, and network speed is the only reason your cold number will differ.
+About three and a half minutes on a cold cache. Measured per version: 97 seconds, of which 69 are fetching and 25 are the fourteen directory listings, leaving about 3 for extraction — so two versions plus enrichment. A second run over the same pair of tags is a cache hit, measured at **0.3 seconds** for the whole pipeline: both snapshots read, 3,022 changes compared and ranked, and all three report files written. A released tag's content never changes, so the cache is kept forever, and network speed is the only reason your cold number will differ.
 
 Results land in `out/M148_to_M151/`:
 
@@ -331,7 +331,7 @@ Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unev
 
 **What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight surfaces the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
-An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 910, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
+An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 930, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
 **Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
@@ -427,7 +427,7 @@ So on every run the tool asks that version's own tree what exists, and measures 
 The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 
 ```
-coverage: reads 3669 of 8349 files in this tree that could declare (43% of files)
+coverage: reads 3677 of 8366 files in this tree that could declare (43% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
   to read these too, run `--target-set wide`: about 337 MB per version instead of 40
 ```
@@ -439,8 +439,8 @@ coverage: reads 3669 of 8349 files in this tree that could declare (43% of files
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
 | `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | 3,669 / 8,349 (43%) | Day-to-day work |
-| `wide` | ~337 MB | ~110 MB | **8,276 / 8,349 (99%)** | The widest read available |
+| `default` | ~40 MB | ~38 MB | 3,677 / 8,366 (43%) | Day-to-day work |
+| `wide` | ~337 MB | ~110 MB | **8,295 / 8,366 (99%)** | The widest read available |
 
 5% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
@@ -469,7 +469,7 @@ What was wrong was the **denominator**. It was built from the fourteen directory
 Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
 ```
-coverage: reads 8276 of 8349 files in this tree that could declare (99% of files)
+coverage: reads 8295 of 8366 files in this tree that could declare (99% of files)
   largest gaps: chrome/services/ (24 files), chrome/credential_provider/ (15 files)
 ```
 
@@ -603,10 +603,10 @@ The leading signal also decides **whose desk a finding lands on**, which is the 
 | Owner | What it holds | M148 → M151 | of which Breaking |
 |---|---|---:|---:|
 | Process boundaries | Mojo interfaces, methods, structs, fields, enums | 339 | **126** |
-| Web platform | Blink IDL and the runtime flags gating it | 724 | 100 |
-| Browser C++ | feature flags, prefs, switches, chrome://flags entries | **1,386** | **2** |
+| Web platform | Blink IDL and the runtime flags gating it | 719 | 94 |
+| Browser C++ | feature flags, prefs, switches, chrome://flags entries | **1,157** | **2** |
 | WebUI front-end | routes, templates, the booleans gating them | 277 | 1 |
-| Outside the repository | Finch configs, launch scripts, automation, policy | 301 | 53 |
+| Outside the repository | Finch configs, launch scripts, automation, policy | 530 | 53 |
 
 The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 276 Breaking rows and the second shortest carries 126.
 
@@ -973,7 +973,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**340 tests, running in about three seconds, with no network.**
+**343 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1022,12 +1022,12 @@ chromedrift/
   acquire.py      566 lines  fetch source over Gitiles or from a local checkout
   targets.py      759        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     188        combines fetch + extract into one cached snapshot
-  extract/      2,818        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,460        semantic comparison, labelling, severity, bucketing, ownership
+  extract/      2,868        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py       1,526        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        309        the two run-dependent adjustments, and the reasons
+  score.py        327        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        910        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        930        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
   report/       1,721        markdown + self-contained HTML dashboard;

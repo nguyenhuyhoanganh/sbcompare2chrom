@@ -804,7 +804,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
         <tr><td>Web platform</td><td>Blink IDL and the runtime flags gating it</td>
             <td class="n">724</td><td class="n">100</td></tr>
         <tr><td>Browser C++</td><td>feature flags, prefs, switches, chrome://flags entries</td>
-            <td class="n"><b>1,386</b></td><td class="n"><b>2</b></td></tr>
+            <td class="n"><b>1,157</b></td><td class="n"><b>2</b></td></tr>
         <tr><td>WebUI front-end</td><td>routes, templates, the booleans gating them</td>
             <td class="n">277</td><td class="n">1</td></tr>
         <tr><td>Outside the repository</td><td>Finch configs, launch scripts, automation, policy</td>
@@ -1723,7 +1723,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </div>
     <p style="margin-top:14px">
       Coverage depends on the target set, and every run prints the number it measured.
-      At M151, <code>default</code> reads 3,669 of the 8,349 files that could declare
+      At M151, <code>default</code> reads 3,677 of the 8,366 files that could declare
       something (43%) but still captures more than half the <code>base::Feature</code>
       declarations, because the hand-picked files are the largest ones.
       <code>--target-set wide</code> reads 8,276 of them, 99%. That figure has been

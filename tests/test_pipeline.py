@@ -2819,7 +2819,8 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     _SAMPLE = {
         "default_state": ("disabled", "enabled"),
         "signatures": (["void f()"], ["void f()", "void f(long a)"]),
-        "overload_gates": (["void f() [A]"], ["void f() [B]"]),
+        "overload_traits": (["void f() [A]"], ["void f() [B]"]),
+        "position": (0, 1),
         "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
         "platform_status": ({"windows": "test"}, {"windows": "stable"}),
         "windows_status": ("test", "stable"),
@@ -3883,14 +3884,49 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         self.assertEqual(finding.score, 60)
         self.assertEqual(finding.bucket, "breaking")
 
-    def test_gaining_a_new_argument_count_is_new_surface(self):
-        """No existing call can reach it, because resolution counts first."""
+    def test_filling_a_gap_below_the_existing_counts_is_new_surface(self):
+        """A call at that count used to throw, so no call changes target."""
+        narrow = "Promise<R> install(USVString u);"
+        change = [c for c in diff_snapshots(
+            self._snap("148.0.0.0", narrow),
+            self._snap("151.0.0.0", "Promise<R> install(); " + narrow))
+            if c.kind == "idl_member"][0]
+        self.assertEqual(change.signals, ["web_api_overload_added"])
+        self.assertEqual(score_change(change).bucket, "new")
+
+    def test_a_longer_overload_captures_calls_that_were_being_clamped(self):
+        """A second version of the same wrong claim, caught the same way.
+
+        Web IDL serves a call with more arguments than any overload declares
+        by using the longest one and dropping the extras. Adding an overload
+        longer than every existing one therefore takes those calls, without
+        removing anything and without touching the call site.
+        """
         wider = self.ONE + " Promise<R> install(USVString u, USVString v);"
         change = [c for c in diff_snapshots(self._snap("148.0.0.0", self.ONE),
                                             self._snap("151.0.0.0", wider))
                   if c.kind == "idl_member"][0]
-        self.assertEqual(change.signals, ["web_api_overload_added"])
-        self.assertEqual(score_change(change).bucket, "new")
+        self.assertEqual(change.signals, ["web_api_overload_shadowed"])
+
+    def test_an_optional_argument_serves_more_than_one_count(self):
+        """Declared parameter count is not the effective overload set."""
+        from chromedrift.diff import _arity_range
+        self.assertEqual(_arity_range("void f(optional long a)"), (0, 1))
+        self.assertEqual(_arity_range("void f(long... a)"), (0, None))
+        self.assertEqual(_arity_range("void f(long a, optional long b)"), (1, 2))
+
+    def test_a_first_second_overload_is_still_judged_against_the_first(self):
+        """The old side has no `signatures` list; it has one `signature`.
+
+        Without falling back to it, every member growing from one declaration
+        to two read as reaching an argument count nothing had, and scored 25
+        even when the new overload took the same count as the old one.
+        """
+        change = [c for c in diff_snapshots(
+            self._snap("148.0.0.0", "void f(DOMString s);"),
+            self._snap("151.0.0.0", "void f(DOMString s); void f(Params p);"))
+            if c.kind == "idl_member"][0]
+        self.assertEqual(change.signals, ["web_api_overload_shadowed"])
 
     def test_gaining_an_overload_at_an_existing_arity_can_take_a_call(self):
         """The first version of this claimed adding one breaks nothing.
@@ -3925,7 +3961,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         change = [c for c in diff_snapshots(self._snap("148.0.0.0", before),
                                             self._snap("151.0.0.0", after))
                   if c.kind == "idl_member"][0]
-        self.assertIn("overload_gates", change.deltas)
+        self.assertIn("overload_traits", change.deltas)
         # The same event the single-declaration case already names, so it
         # carries that name rather than a signal of its own.
         self.assertEqual(change.signals, ["web_api_exposure_changed"])
@@ -3947,7 +3983,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         """Recorded only where it discriminates: 12 groups of the 121."""
         facts = {f.key: f for f in
                  self._snap("151.0.0.0", "void f(long a); void f(double b);").facts}
-        self.assertNotIn("overload_gates", facts["N.f"].attrs)
+        self.assertNotIn("overload_traits", facts["N.f"].attrs)
         self.assertIn("signatures", facts["N.f"].attrs)
 
     def test_the_verdict_does_not_depend_on_which_copy_survived(self):
@@ -4042,6 +4078,12 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
         self.assertEqual(len(rules), len(REGISTRY))
         for rule, (_, applies, _fn) in zip(rules, REGISTRY):
             self.assertIs(rule.applies, applies)
+
+
+# The `wide` read of the same tree, which the documents quote beside the
+# default one. Not derivable from a default report, so it is named here and
+# the coverage check accepts either.
+_WIDE_READ = 8295
 
 
 class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
@@ -4151,12 +4193,40 @@ class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
             "New surface": report["summary"]["by_bucket"]["new"],
             "Housekeeping": report["summary"]["by_bucket"]["housekeeping"],
         }
+        # The owner table and the coverage line live outside every sentence
+        # pattern above, and stayed at a previous run's numbers through two
+        # schema bumps while this test passed. A figure with a stable name
+        # gets checked by that name.
+        from chromedrift.model import OWNER_LABELS
+        owners = report["summary"]["by_owner"]
+        for owner, total in owners.items():
+            labels[OWNER_LABELS[owner]] = total
+        coverage = (report.get("meta") or {}).get("coverage") or {}
+        for side in ("to",):
+            row = coverage.get(side) or {}
+            if row.get("candidates"):
+                for name, text in self._docs().items():
+                    for m in re.finditer(r"([\d,]{3,7})\s*/\s*([\d,]{3,7})\s*"
+                                         r"(?:files|\(\d+%\))", text):
+                        got = tuple(int(g.replace(",", "")) for g in m.groups())
+                        if got[1] not in (row["candidates"],):
+                            continue
+                        self.assertIn(
+                            got[0], (row["read"], _WIDE_READ),
+                            f"{name}: coverage {m.group(0)!r} matches neither "
+                            f"the run's {row['read']} nor the wide figure")
+
         for name, text in self._docs().items():
             for label, want in labels.items():
                 # A count beside the label, in a table cell or a code block.
-                for m in re.finditer(
-                        rf"{re.escape(label)}\**\s*(?:\||)\s*([\d,]{{3,7}})(?=\s|\||<|$)",
-                        text):
+                # The label, then the number: straight after it in a code
+                # block, or after one description cell in a table row. The
+                # first form alone missed every owner row, which is how three
+                # of them stayed at a previous run's numbers.
+                pattern = (rf"{re.escape(label)}\**\s*"
+                           rf"(?:\|[^|\n]*)?\|?\s*"
+                           rf"(?:<[^>]*>)?\**\s*([\d,]{{3,7}})")
+                for m in re.finditer(pattern, text):
                     value = int(m.group(1).replace(",", ""))
                     # Only figures in the plausible range are this pair's
                     # counts; a year or a line number is not.

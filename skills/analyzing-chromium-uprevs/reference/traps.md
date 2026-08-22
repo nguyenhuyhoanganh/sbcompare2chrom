@@ -317,34 +317,44 @@ a `wide` run and not on a `default` one, so run `wide` before concluding a key
 was dropped without a migration. And read trap 2 first: on a `default` run,
 100 of 141 vanished keys at M148 → M151 had simply moved.
 
-## 13. A Mojo method's implicit ordinal is not compared, on purpose
+## 13. A Mojo member's implicit ordinal, and where it is compared
 
-**Symptom:** none. This is a hazard the tool decides not to report, recorded
-so the decision is not re-made by accident.
+**Symptom:** a member changed position in a `.mojom` file and the report says
+nothing — unless the declaration is `[Stable]`.
 
-**Reality:** mojom assigns a method its ordinal by declaration position unless
-one is written explicitly. So inserting a method in the middle of an interface
-shifts the ordinal of every method after it, and that is a wire change for
-anyone holding the older interface, exactly like `Foo@0` becoming `Foo@1`.
+**Reality:** mojom assigns a member's ordinal from its lexical position unless
+one is written. So inserting a method or a field above another shifts the wire
+id of everything below it, for methods and for struct and union fields alike.
 
-Measured M148 → M151 across 1,460 interfaces present in both:
+Measured M148 → M151, from the snapshots the report is built from:
 
 | | Count |
 |---|---:|
 | Methods carrying an explicit `@N` at M151 | 196 of 6,012 |
-| Interfaces whose methods were **reordered** | **0** |
-| Interfaces where a method's **position shifted** (something inserted above) | **50** |
-| Explicit ordinals that changed value | **0** |
+| Fields carrying an explicit ordinal | 121 of 13,015 |
+| Interfaces present in both versions, with methods | 1,357 |
+| Methods whose lexical index moved | **503**, across 48 interfaces |
+| Fields whose lexical index moved | **607**, across 72 containers |
+| Members reordered relative to each other | 0 |
+| Explicit ordinals that changed value | 0 |
+| **Position shifts inside a `[Stable]` declaration** | **0** |
 
-**Why it is not a signal.** Chromium writes an ordinal exactly when it intends
-the wire order to be managed, and across three milestones not one of those 196
-moved. The 50 shifted positions are the other 97% of methods, where Chromium
-reorders and inserts freely — because both ends of the interface are built from
-the same tree, which is trap 10. Reporting those 50 would be reporting
-Chromium's file layout as an ABI event, at Mojo severity, every uprev.
+**What the tool compares, and why that line.** Position is recorded and
+compared **only inside `[Stable]`** — 113 of the 4,546 interface, struct and
+union declarations at M151. That is where the mojom documentation says
+existing ordinals must not move, and Chromium honours it exactly: not one of
+the 1,110 shifts is in a stable declaration.
+
+Outside `[Stable]`, Chromium reorders and inserts freely because both ends of
+the interface are rebuilt together. Reporting those 1,110 would report file
+layout as an ABI event at Mojo severity, every uprev; recording position only
+where compatibility is promised costs 0 rows today and catches the first one
+that is real.
 
 **Check:** if you are in the case trap 10 describes — something ships
 separately, an install can be part-updated, or there is out-of-tree code
-implementing the interface — then a method inserted above yours is a real
-break and this tool will not tell you. Diff the `.mojom` file itself for the
-interfaces you implement. There are 1,460 of them and you implement a handful.
+implementing the interface — then a member inserted above yours in a
+**non-stable** declaration is a real break and this tool will not tell you.
+Diff the `.mojom` file for the interfaces you implement. Mojo's own answer to
+this is `[Stable]` with explicit ordinals; an interface that has neither is
+one Chromium has not promised to keep compatible.

@@ -141,7 +141,20 @@ class Scope:
             return self.by_surface[surface]
         return self.to_share
 
-    def confirms_absence(self, kind: str = "") -> bool:
+    def gap_for(self, change_type: str) -> str:
+        """The hole that matters for evidence in *this* direction.
+
+        A removal is "not in the new snapshot", so a hole in the new snapshot
+        is what could have invented it; a hole in the old one could not. An
+        addition is the mirror. The first version tested both at once, which
+        discounted a removal for a fault on the side its evidence does not
+        come from -- and did the same to additions.
+        """
+        if change_type == ADDED:
+            return self.from_incomplete
+        return self.incomplete
+
+    def confirms_absence(self, kind: str = "", change_type: str = "") -> bool:
         """Was this kind's surface read completely enough to believe absence?
 
         Per kind, not per run. The overall figure is an average over surfaces
@@ -149,7 +162,9 @@ class Scope:
         seen against a near-complete read -- exactly as hard as a preference
         removal seen against almost none.
         """
-        if self.incomplete or self.from_incomplete:
+        if change_type and self.gap_for(change_type):
+            return False
+        if not change_type and (self.incomplete or self.from_incomplete):
             return False
         share = self.share_for(kind)
         return share is None or share >= CONFIRMING_COVERAGE
@@ -230,12 +245,15 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     # short of targets invents New surface exactly as readily as a short new
     # one invents removals. An overload disappearing is a MODIFIED change and
     # was slipping past this for the same reason.
-    rests_on_absence = (change.change_type == REMOVED
-                        or "signatures" in change.deltas
-                        or (change.change_type == ADDED and scope.from_incomplete))
-    if rests_on_absence and not scope.confirms_absence(change.kind):
+    # An overload disappearing is a MODIFIED change whose evidence is an
+    # absence from the new side, so it is judged as a removal is.
+    direction = (REMOVED if "signatures" in change.deltas
+                 else change.change_type)
+    rests_on_absence = (direction == REMOVED
+                        or (direction == ADDED and scope.from_incomplete))
+    if rests_on_absence and not scope.confirms_absence(change.kind, direction):
         score -= UNCONFIRMED_PENALTY
-        gap = scope.incomplete or scope.from_incomplete
+        gap = scope.gap_for(direction)
         if gap:
             why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {gap}, so this "
                    f"comparison has a hole shaped exactly like the change it "
@@ -257,7 +275,7 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # `wide` widens what is fetched. It cannot conjure a target the
         # source does not have or make a file parse, so the advice is only
         # offered when reading more would actually settle the question.
-        if scope.incomplete or scope.from_incomplete:
+        if gap:
             reasons.append(why)
         else:
             reasons.append(why + " — --target-set wide settles it")
