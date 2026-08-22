@@ -377,7 +377,13 @@ from typing import Any, Dict, Iterable, List, Optional
 #      an unguarded declaration against a guard resolving to "yes", so a guard
 #      moving between a field and its struct arrived as "may no longer be in
 #      the binary we ship" with the verdict unchanged.
-SCHEMA_VERSION = 39
+#  40: a lexical position is compared only against another one, and a
+#      member no longer restates its container's stability. Version 39 stopped
+#      inventing Breaking rows when `[Stable]` was withdrawn and still emitted
+#      one Behaviour row per member: three files at M143 -> M147 produced 32
+#      container rows and 164 members repeating them, 11% of that bucket for
+#      one upstream annotation edit.
+SCHEMA_VERSION = 40
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

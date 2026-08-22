@@ -104,7 +104,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # not compared -- the two halves of this pipeline are separate doors, and
     # opening the first is not opening the second.
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal",
-                       "position", "stable", "platform_state"),
+                       "position", "platform_state"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
@@ -113,7 +113,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # The type and the ordinal are the wire format. The default and the
     # `[MinVersion]` annotation are not, and they are labelled separately.
     KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "position",
-                      "min_version", "stable", "platform_state"),
+                      "min_version", "platform_state"),
     # One list rather than a fact per member: members are 17,061 of the tree's
     # declarations at M151, and adding one is Mojo's ordinary way of extending
     # a type.
@@ -544,6 +544,18 @@ NO_SIGNAL_BUCKET = {
 # ---------------------------------------------------------------------------
 
 
+# Attributes that are evidence only against their counterpart. A lexical
+# position exists only inside `[Stable]`, so when the promise is withdrawn the
+# attribute disappears and a naive comparison reports `[6, None]` -- once per
+# member. Measured M143 -> M147 wide: three files dropped `[Stable]` and
+# produced 32 correct container rows and 164 members restating them, 11% of
+# the Behaviour bucket for one upstream annotation edit.
+#
+# The container says it. A member says it only when its own position moved
+# against another position.
+PAIRED_ATTRS = frozenset({"position"})
+
+
 def meaningful_attrs(fact: Fact) -> dict:
     """The attributes of a fact that a comparison treats as carrying meaning.
 
@@ -698,8 +710,11 @@ def diff_snapshots(old: Snapshot, new: Snapshot, platform: str = PLATFORM,
         after = _meaningful(new_fact)
         deltas: Dict[str, List] = {}
         for key in sorted(set(before) | set(after)):
-            if before.get(key) != after.get(key):
-                deltas[key] = [before.get(key), after.get(key)]
+            if before.get(key) == after.get(key):
+                continue
+            if key in PAIRED_ATTRS and not (key in before and key in after):
+                continue
+            deltas[key] = [before.get(key), after.get(key)]
         if old_fact.path and new_fact.path and old_fact.path != new_fact.path:
             deltas["path"] = [old_fact.path, new_fact.path]
         if not deltas:

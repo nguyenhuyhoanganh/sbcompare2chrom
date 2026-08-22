@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,879 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,900 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -331,7 +331,7 @@ Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unev
 
 **What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight surfaces the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
-An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 971, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
+An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
 **Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
@@ -787,6 +787,22 @@ The window is counted back from the version being adopted, and the list is order
 
 Stated plainly, so nobody reads a clean report as a clean upgrade.
 
+### Five classes of declaration it does not read, inside files it reads completely
+
+The extractors turn sixteen kinds of declaration into facts. These five are in files the tool downloads and parses without error, and it makes nothing of them — measured at M151:
+
+| Not turned into facts | Count |
+|---|---:|
+| Web IDL `callback` definitions | 85 |
+| Web IDL `typedef`s | 144 |
+| Web IDL `Interface includes Mixin` relations | 200 |
+| Mojo `feature` blocks | 18 |
+| Mojo constants | 311 |
+
+Two real changes that therefore produced no row at all: `typedef LanguageModelMessageValue` changed its underlying union at M143 → M147, and the Mojo constant `kWebNNDirectML` disappeared at M151.
+
+**The coverage figure counts files, not grammar.** A file can be read completely and still hold a declaration class nothing here understands, and nothing is raised when that happens — `extract_stats._errors = 0` means no extractor threw, not that every declaration was recognised. `includes` is the most valuable of the five to add, because it says which concrete interface actually receives a mixin's members.
+
 ### The tool reads declarations, not logic
 
 Every WebUI page has two parallel files:
@@ -981,7 +997,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**362 tests, running in about three seconds, with no network.**
+**366 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1031,11 +1047,11 @@ chromedrift/
   targets.py      783        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     188        combines fetch + extract into one cached snapshot
   extract/      2,890        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,589        semantic comparison, labelling, severity, bucketing, ownership
+  diff.py       1,604        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
   score.py        369        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        971        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        977        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
   report/       1,733        markdown + self-contained HTML dashboard;

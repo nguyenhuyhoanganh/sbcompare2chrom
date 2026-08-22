@@ -243,6 +243,13 @@ State these in every report. A clean report does not imply a clean uprev.
   finding cites is the step that answers "does this affect us".
 - **Implementation-only changes.** It reads declarations. Behaviour changed
   inside a function body is invisible.
+- **Five classes of declaration it does not turn into facts**, in files it
+  otherwise reads completely. Measured at M151: 85 Web IDL `callback`
+  definitions, 144 `typedef`s, 200 `Interface includes Mixin` relations, 18
+  Mojo `feature` blocks and 311 Mojo constants. Real examples that produced no
+  row: `typedef LanguageModelMessageValue` changing its underlying union at
+  M143 → M147, and the Mojo constant `kWebNNDirectML` disappearing at M151.
+  **"Reads 99% of the files" is a statement about files, not about grammar.**
 - **Anything outside the repository** — Finch configs, launch scripts, test
   automation, enterprise policy, store metadata.
 - **Chrome Extensions IDL and MIDL.** Only Blink's own `.idl` is read.

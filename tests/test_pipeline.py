@@ -3847,13 +3847,13 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
 
         changes = diff_snapshots(snap_of("148.0.0.0", "[Stable]\n"),
                                  snap_of("151.0.0.0", ""))
-        fields = [c for c in changes if c.kind == "mojo_field"]
-        self.assertEqual(len(fields), 2)
-        for change in fields:
-            self.assertIn("position", change.deltas)
-            # The promise was withdrawn; nothing moved.
-            self.assertEqual(change.signals, ["ipc_stability_changed"])
-            self.assertEqual(score_change(change).bucket, "behaviour")
+        # Not one row per member either. The promise belongs to the container
+        # and the container says it: three files withdrawing `[Stable]` at
+        # M143 -> M147 produced 32 container rows and 164 members restating
+        # them, 11% of the Behaviour bucket for one upstream annotation edit.
+        self.assertEqual([c.kind for c in changes], ["mojo_struct"])
+        self.assertEqual(changes[0].signals, ["ipc_stability_changed"])
+        self.assertEqual(score_change(changes[0]).bucket, "behaviour")
 
     def test_the_same_move_outside_a_stable_struct_is_not_reported(self):
         """1,110 of them at M148 -> M151. Chromium reorders freely there."""
@@ -3930,6 +3930,95 @@ class TestASurfaceCountsEveryFileThatReadsIt(unittest.TestCase):
             sum(row["candidates"] for row in coverage["by_surface"].values()),
             coverage["candidates"],
             "surfaces should overlap; only the global count deduplicates")
+
+
+class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
+    """Four joins where a capability existed and the caller did not use it.
+
+    Three times in this project the data model learned something and the
+    pipeline kept doing without it: the Mojo ordinal, `platform_state`, and
+    the two-sided coverage. Boundary tests are worth more here than more
+    tests of the parts.
+    """
+
+    def _mojom_snapshot(self, ref, body, meta=None):
+        from chromedrift.extract import mojom
+        return Snapshot(ref=ref, facts=mojom.extract(body, "t.mojom"),
+                        meta=meta or {"target_set": "default"})
+
+    def test_the_run_hands_the_scorer_both_sides_of_the_coverage(self):
+        """`Scope` held two sides while `cmd_run` passed one."""
+        import inspect
+        from chromedrift import cli
+        source = inspect.getsource(cli.cmd_run)
+        call = source[source.index("Scope("):]
+        self.assertIn('"from"', call)
+        self.assertIn('"to"', call)
+        # And the object built from both answers each direction separately.
+        scope = Scope({"from": {"candidates": 100, "read": 1},
+                       "to": {"candidates": 100, "read": 100}}, to_ref="r")
+        self.assertEqual(scope.read_percent("switch", REMOVED), "100%")
+        self.assertEqual(scope.read_percent("switch", ADDED), "1%")
+
+    def test_an_unguarded_declaration_equals_one_guarded_onto_windows(self):
+        """Same answer, one representation each; comparing the form said
+        "may no longer be in the binary we ship" when nothing moved."""
+        plain = "module t;\nstruct S { int32 a; };\n"
+        guarded = "module t;\n[EnableIf=is_win]\nstruct S { int32 a; };\n"
+        self.assertEqual(
+            [c.key for c in diff_snapshots(self._mojom_snapshot("1", plain),
+                                           self._mojom_snapshot("2", guarded))],
+            [])
+        # ...and a guard that does exclude us is still a change.
+        android = "module t;\n[EnableIf=is_android]\nstruct S { int32 a; };\n"
+        self.assertTrue(diff_snapshots(self._mojom_snapshot("1", plain),
+                                       self._mojom_snapshot("2", android)))
+
+    def test_a_container_edit_produces_one_row_not_one_per_member(self):
+        """Moving a guard off a struct produced three rows for one edit, and
+        withdrawing `[Stable]` produced 164 across three files."""
+        moved_before = ("module t;\nstruct S {\n  [EnableIf=is_win] int32 a;\n"
+                        "  int32 b;\n};\n")
+        moved_after = ("module t;\n[EnableIf=is_win]\nstruct S {\n"
+                       "  int32 a;\n  int32 b;\n};\n")
+        rows = diff_snapshots(self._mojom_snapshot("1", moved_before),
+                              self._mojom_snapshot("2", moved_after))
+        self.assertEqual([c.kind for c in rows], ["mojo_field"],
+                         "only the field whose own attribute moved")
+
+        stable_before = "module t;\n[Stable]\nstruct S { int32 a; int32 b; };\n"
+        stable_after = "module t;\nstruct S { int32 a; int32 b; };\n"
+        rows = diff_snapshots(self._mojom_snapshot("1", stable_before),
+                              self._mojom_snapshot("2", stable_after))
+        self.assertEqual([c.kind for c in rows], ["mojo_struct"])
+        self.assertEqual(rows[0].signals, ["ipc_stability_changed"])
+
+    def test_both_renderers_show_every_location_of_a_five_way_overload(self):
+        """`report.json` carried all of them and the renderers cut at three,
+        which dropped the line an overload had been removed from."""
+        from chromedrift.extract import web_idl
+        from chromedrift.model import Report, dedupe_facts
+        from chromedrift.report import html as html_report
+        from chromedrift.report import markdown as md_report
+
+        def side(body):
+            return dedupe_facts(web_idl.extract(
+                "interface N {\n  %s\n};" % body,
+                "third_party/blink/renderer/x.idl"))
+        wide = "\n  ".join(f"void f({'long a, ' * n}long z);" for n in range(5))
+        changes = diff_snapshots(
+            Snapshot(ref="1", facts=side(wide), meta={"target_set": "default"}),
+            Snapshot(ref="2", facts=side(wide.split("\n  ", 1)[1]),
+                     meta={"target_set": "default"}))
+        findings = score_all([c for c in changes if c.kind == "idl_member"])
+        self.assertGreaterEqual(len(findings[0].change.locations), 4)
+        report = Report(from_ref="1", to_ref="2", findings=findings,
+                        summary=summarize_findings(findings))
+        rendered = md_report.render(report)
+        payload = html_report.render(report)
+        for where in findings[0].change.locations[:4]:
+            self.assertIn(where, rendered, f"markdown dropped {where}")
+            self.assertIn(where, payload, f"html dropped {where}")
 
 
 class TestTheCompletenessMatrix(unittest.TestCase):

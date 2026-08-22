@@ -2,11 +2,11 @@
 
 > Ngày đánh giá ban đầu: 21-08-2026
 > Follow-up review: 22-08-2026
-> Baseline mới nhất được review: commit `0933dcd` — schema `37`
-> Lịch sử đến baseline đã được đọc: đủ 74/74 commit, từ `d9fca08` đến `0933dcd`, gồm subject, body và diff của các quyết định quan trọng.
+> Baseline mới nhất được review: commit `bee9e7d` — schema `39`
+> Lịch sử đến baseline đã được đọc: đủ 76/76 commit, từ `d9fca08` đến `bee9e7d`, gồm subject, body và diff của các quyết định quan trọng.
 > Phạm vi: toàn bộ source Python, extractor, target, cache, snapshot, diff, scoring, report, test và dữ liệu cache M130/M136/M139/M143/M147/M148/M151 có sẵn trong project.
 
-> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28, `5edc91e`/`a88f5fc` ở mục 29; review mới nhất của `cd1ee05` → `0933dcd` nằm ở **mục 30** và có quyền thay thế các con số/verdict cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
+> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28, `5edc91e`/`a88f5fc` ở mục 29, `cd1ee05` → `0933dcd` ở mục 30; review mới nhất của `843dd96` và `bee9e7d` nằm ở **mục 31** và có quyền thay thế các con số/verdict cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
 
 ## 1. Đọc phần này trước nếu bạn không rành kỹ thuật
 
@@ -36,15 +36,15 @@ Sau khi đọc toàn bộ commit history, đánh giá về engineering quality t
 - Determinism, scope guard, reference closure và score ceiling đều có rationale rõ và test đi kèm.
 - Function body, TypeScript behavior, `.grd` và GN config schema là documented exclusions, không phải phần tác giả quên làm.
 
-Chuỗi `cd1ee05` → `0933dcd` tiếp tục sửa đúng nhiều lỗi: singleton → overload set đã reconstruct old signature; optional/extra-argument behavior được xét tốt hơn; string literal đơn giản không còn bị normalization viết lại; per-overload extended attributes và vị trí declaration đã được giữ; hard extraction hole được hỏi đúng direction; current M148 → M151 figures đã được đưa vào `docs/figures.json`. Bare `unittest discover` chạy đủ **360 test** trên cả Python 3.14 và 3.9.
+Hai commit `843dd96` và `bee9e7d` sửa đúng những lỗi ảnh hưởng trực tiếp tới chất lượng radar: không còn biến việc rút `[Stable]` thành hàng trăm Breaking rows; `cmd_run` truyền coverage cả hai phía; guard được so theo Windows verdict thay vì khác nhau về cách viết; per-surface coverage cho một file thuộc mọi extractor thật sự đọc nó; và các overload locations của current pair không còn bị renderer giấu. Bare `unittest discover` chạy đủ **362 test** trên cả Python 3.14 và 3.9.
 
-Với mục tiêu early detection, các hạn chế còn lại **không phủ nhận tính hữu dụng của project**. Chúng là backlog nâng chất lượng tín hiệu. Full matrix tìm ra một regression nên sửa sớm: ở wide M143 → M147, việc `[Stable]` biến mất làm **164 child rows chỉ có `stable/position`** xuất hiện như Breaking 80 dù ordinal không đổi, và thêm 14 annotation rows bị nâng sai lên 80. Guard provenance vẫn fan-out xuống child và vẫn bỏ sót provenance của nested container. `cmd_run` vẫn chỉ truyền coverage phía `to`; default M148 → M151 hiện có ít nhất hai row bị gọi là “new” dù old wide snapshot chứng minh chúng đã tồn tại. Per-surface vẫn first-match; per-overload locations có đủ trong JSON nhưng Markdown/HTML cắt còn ba. Artifact tài liệu hiện đúng cho selected figures, nhưng clean checkout vẫn skip oracle report và nhiều active measurements vẫn nằm ngoài artifact.
+Với mục tiêu early detection, baseline hiện tại **đủ tốt để dùng ngay**. Full matrix sáu tổ hợp không còn Breaking row dựa trên một `position` biến mất mà không có type/ordinal evidence. Không còn first-match bias trong số per-surface, và current M148 → M151 overload findings có tối đa năm locations nên cả Markdown/HTML hiện đủ. Backlog đáng sửa nhất còn lại là duplication: M143 → M147 wide vẫn tạo 164 child `ipc_stability_changed` rows cho 32 container-level stability events. Đây là nhiễu mức Behaviour, không còn là báo động Breaking giả. Các grammar chưa model và parser edge case chưa có current yield nên chỉ cần công khai known scope, không phải tiếp tục đuổi coverage 100%.
 
 Nói dễ hiểu hơn:
 
 - Nếu ChromeDrift báo một thay đổi nguy hiểm, ta nên mở source ra kiểm tra lại. Báo cáo có thể đúng, nhưng cũng có thể là cảnh báo nhầm.
 - Nếu ChromeDrift không báo gì nguy hiểm, ta vẫn chưa thể nói bản nâng cấp an toàn. Công cụ có thể chưa tải file đó, parser có thể không hiểu cú pháp đó, hoặc hai declaration khác nhau đã bị gộp làm một.
-- Coverage M151 hiện là `8.295 / 8.366 (99%)` cho `wide`, còn thiếu 71 file. Đây là cải tiến lớn, nhưng vẫn là file-scope coverage, chưa phải parser completeness hoặc product completeness. Raw inventory M151 còn 85 callback definitions, 144 typedefs, 200 `includes` relations, 18 Mojo `feature` blocks và hàng trăm Mojo constants không có fact kind. Các row `by_surface` đã dùng để score, nhưng vẫn first-match biased khi một file thuộc nhiều extractor và chưa được in trong report thường.
+- Coverage M151 hiện là `8.295 / 8.366 (99%)` cho `wide`, còn thiếu 71 file. Đây là file-scope coverage, không phải parser/product completeness. Raw inventory M151 còn 85 callback definitions, 144 typedefs, 200 `includes` relations, 18 Mojo `feature` blocks và hàng trăm Mojo constants không có fact kind. Với mục tiêu hiện tại, chỉ cần ghi rõ đây là known scope; không cần viết ngay mọi extractor.
 - Điểm `75` không có nghĩa là “75% khả năng xảy ra lỗi”. Nó chỉ là một trọng số do người viết công cụ đặt bằng tay để sắp xếp kết quả.
 
 Đây không phải là đánh giá rằng project “tệ”. Ngược lại, project có nhiều ý tưởng đúng, test khá nhiều và code có tính kỷ luật. Điều cần giữ là tài liệu mô tả đúng đây là early-warning inventory và không biến một lần “không thấy” thành bằng chứng “không có”.
@@ -60,21 +60,21 @@ Bạn có thể đọc theo lộ trình này:
 - Muốn hiểu fact và score: đọc mục 9, 10 và 11.
 - Muốn biết commit history đã quyết định gì: đọc mục 17 và 18.
 - Muốn biết lỗi nào cần sửa trước: đọc mục 19, 20 và 21.
-- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 30.1, 30.11 và 30.12.
+- Muốn có kết luận mới nhất và biết nên dừng ở đâu: đọc mục 31.
 
 ### Bảng trả lời nhanh
 
 | Câu hỏi | Trả lời ngắn nhất |
 |---|---|
 | Target `default` đủ chưa? | **Đủ cho lượt scan nhanh**, vì mục tiêu của nó là lấy mẫu có chủ đích; không phải exhaustive scan. |
-| Target `wide` đủ chưa? | **Đủ cho lượt scan rộng theo rule hiện có**: 8.295 / 8.366 candidate file. Nó không đồng nghĩa parser/product coverage 100%; per-surface denominator còn first-match bias trên 378 file. |
-| Đã extract hết source đã tải chưa? | Chưa, và mục tiêu hiện tại không bắt buộc phải lấy hết. Overload signature/gate/ext/location đã được giữ tốt hơn; WebIDL callback/typedef/includes và Mojo feature/constant là known scope chưa model. Stable transition và enclosing guard là các lỗi signal nên sửa. |
+| Target `wide` đủ chưa? | **Đủ cho lượt scan rộng theo rule hiện có**: 8.295 / 8.366 candidate file. Nó không đồng nghĩa parser/product coverage 100%; 378 multi-surface files hiện đã được tính đúng vào từng surface. |
+| Đã extract hết source đã tải chưa? | Chưa, và mục tiêu hiện tại không bắt buộc phải lấy hết. Overload signature/gate/ext/location đã được giữ tốt hơn; WebIDL callback/typedef/includes và Mojo feature/constant là known scope chưa model. |
 | Hai version được nối với nhau thế nào? | Bằng `kind:key`, rồi so một allowlist thuộc tính. |
-| Conflict trong cùng version xử lý thế nào? | Phần lớn giữ bản có path/line nhỏ nhất. WebIDL overload hiện gộp signature, gate, ext và location của variants; location không tham gia diff là đúng, nhưng renderer chỉ hiện tối đa ba vị trí. |
+| Conflict trong cùng version xử lý thế nào? | Phần lớn giữ bản có path/line nhỏ nhất. WebIDL overload hiện gộp signature, gate, ext và location của variants; location không tham gia diff là đúng. Current changed groups có tối đa năm vị trí và đều được render. |
 | Fact đủ làm release verdict chưa? | Chưa; đủ cho inventory và manual triage. |
 | Có đạt mục tiêu cảnh báo sớm một phần không? | **Có.** Tool bắt được hàng nghìn thay đổi trên version thật, có evidence và thứ tự ưu tiên để con người triage. |
 | Score có phải xác suất lỗi không? | Không; đó là trọng số heuristic để xếp thứ tự đọc. |
-| 360 test pass có chứng minh đầy đủ không? | Không. Full real-version matrix tìm ra 164 Stable-derived Breaking rows dù 360 test đều xanh; CLI coverage wiring, renderer truncation và raw grammar classes không đi qua những unit fixture hiện tại. |
+| 362 test pass có chứng minh đầy đủ không? | Không, nhưng cùng full six-pair matrix nó là evidence đủ tốt cho early detection. Vẫn cần giữ test ở đúng pipeline boundary vì commit `bee9e7d` thay năm behavior nhưng chỉ thêm một test mới. |
 | Có nên dùng project không? | **Có**, để phát hiện sớm và manual triage. Nên ưu tiên sửa các lỗi làm nhiễu hoặc gắn nhãn sai finding. |
 
 ## 2. Một ví dụ đời thường để hiểu toàn bộ hệ thống
@@ -4111,3 +4111,182 @@ Full matrix là phần tìm lỗi giá trị nhất vòng này: current M148 →
 #### Verdict cuối
 
 > **Schema 37 tốt hơn schema 33 rõ rệt, current M148 → M151 headline figures là reproducible và project đạt mục tiêu làm static early-warning inventory cho manual triage. Full matrix vẫn chứng minh Stable modeling tạo false Breaking rows quy mô lớn; first-match, guard aggregation, CLI old-coverage wiring và renderer location còn backlog. Raw grammar cho biết những surface tool chưa đọc, nhưng với mục tiêu phát hiện một phần thì đây là known scope cần document và ưu tiên theo giá trị, không phải yêu cầu phải đạt 100%.**
+
+## 31. Review `843dd96` và `bee9e7d` — xác định thế nào là “đủ tốt” cho early detection
+
+### 31.1. Kết luận dễ hiểu
+
+Mục tiêu đã được chốt lại là:
+
+> Không cần tìm 100% thay đổi. Cần bắt sớm một phần đủ hữu ích, ít báo động giả nghiêm trọng, chỉ đúng chỗ để con người kiểm tra và nói rõ phần mình không đọc.
+
+Theo mục tiêu đó:
+
+> **Schema 39 đủ tốt để dùng ngay. Không phát hiện lỗi nào ở mức phải dừng sử dụng.**
+
+Hai commit mới đóng đúng các lỗi nặng mà audit trước tìm ra. Full matrix hiện không còn row nào bị đưa vào Breaking chỉ vì `position` biến mất theo `[Stable]`; current overload findings cũng không còn bị giấu mất declaration location. Những thứ còn lại chia thành ba loại rất khác nhau:
+
+1. một duplication bug nên sửa sớm để radar bớt nhiễu;
+2. vài known scope/edge case chỉ cần ghi rõ và chờ real yield;
+3. hạ tầng có thể cải thiện sau, không ảnh hưởng việc dùng tool hôm nay.
+
+### 31.2. Kiểm chứng độc lập hai commit
+
+Baseline:
+
+```text
+HEAD / origin/main   bee9e7d
+schema               39
+history              76 / 76 commit
+Python 3.14           362 / 362 test pass
+Python 3.9            362 / 362 test pass
+```
+
+#### `843dd96`: sửa đúng false Breaking
+
+Cơ chế sửa là đúng: `position` chỉ được coi là ordinal evidence khi cả hai phía đều có một vị trí để so. Delta `[6, None]` không còn tự biến thành `ipc_shape_changed`/`ipc_ordinal_changed` 80 điểm.
+
+Kết quả chạy lại schema 39:
+
+| Pair | Default Breaking | Wide Breaking | Breaking chỉ dựa vào `position → None` |
+|---|---:|---:|---:|
+| M143 → M147 | 339 | 1.152 | 0 / 0 |
+| M147 → M148 | 79 | 276 | 0 / 0 |
+| M148 → M151 | 276 | 798 | 0 / 0 |
+
+Năm M143 → M147 wide rows còn `position` trong Breaking đều có `type` delta độc lập; giữ 80 điểm là đúng.
+
+Đây là bản sửa quan trọng nhất vì radar báo Breaking giả hàng loạt sẽ nhanh chóng làm người dùng ngừng đọc radar.
+
+#### `bee9e7d`: năm hướng sửa chính đều hợp lý
+
+1. **Hai phía coverage đã vào pipeline thật.** `cmd_run` truyền cả `old.meta.coverage` và `new.meta.coverage` cho `Scope`; không còn tình trạng data model biết hai phía nhưng call site chỉ đưa phía `to`.
+2. **So Windows verdict thay vì cách viết guard.** `absent` và `{windows: compiled}` được normalize về cùng một trạng thái. Probe guard chuyển từ field lên struct không còn làm field không đổi trong Windows bị kể là “may no longer be in our binary”.
+3. **Inherited provenance không còn tự tạo child row.** `inherited_conditions` vẫn được lưu để giải thích nhưng ra khỏi comparison allowlist. Sáu real-version runs có `inherited_conditions` delta rows bằng 0.
+4. **Per-surface membership đúng câu hỏi.** Global vẫn đếm 8.366 unique files; một file được tính vào mọi surface có extractor đọc nó. M151 thực tế:
+
+```text
+pref/switch default     9 / 529
+pref/switch wide      526 / 529
+visibility gates      537 / 537
+multi-surface files          378
+```
+
+5. **Renderer đủ cho current findings.** `Navigator.install` có 5 locations và `WebGLRenderingContextBase.texElementImage2D` có 4; cả hai hiện đầy đủ. Markdown hiện sáu rồi ghi `and N more`. HTML giữ sáu.
+
+### 31.3. Một việc code còn đáng sửa sớm
+
+#### `[Stable]` đã hết báo Breaking giả, nhưng vẫn lặp 164 dòng Behaviour
+
+M143 → M147 wide hiện có:
+
+```text
+196 ipc_stability_changed findings
+ 32 container rows
+164 method/field rows chỉ có deltas = {stable, position}
+```
+
+164 child rows đều đến từ ba file và cùng kể lại việc container mất `[Stable]`:
+
+```text
+image_capture.mojom          74
+hid.mojom                    66
+video_capture_types.mojom    24
+```
+
+Nó không còn nguy hiểm như trước:
+
+- không nằm trong Breaking;
+- không tuyên bố ABI ordinal đã đổi;
+- chỉ chiếm khoảng 2% của report wide 8.044 rows.
+
+Nhưng trong riêng bucket Behaviour, 164 rows là hơn 11%. Một upstream annotation edit vẫn chiếm quá nhiều chỗ đọc. Vì mục tiêu là early-warning radar, đây là **việc code có yield rõ nhất nên làm tiếp**.
+
+Hướng đủ dùng, không cần thiết kế lớn:
+
+- container emit một `ipc_stability_changed` row;
+- child có `stable/position` thay đổi chỉ vì container mất/nhận `[Stable]` thì không emit riêng;
+- child vẫn emit nếu raw type, explicit ordinal hoặc lexical position thật sự đổi.
+
+Sửa mục này xong có thể dừng vòng correctness hiện tại.
+
+### 31.4. Test còn thiếu cho chính commit mới
+
+`bee9e7d` thay đổi năm behavior nhưng chỉ thêm một test mới, cho multi-surface membership. Các test cũ giúp suite pass nhưng chưa khóa trực tiếp bốn boundary còn lại.
+
+Nên thêm bốn regression nhỏ:
+
+1. một test đi qua `cmd_run` hoặc helper tạo `Scope`, assert coverage hai phía thật sự được truyền;
+2. guard `absent ↔ compiled` không sinh row, còn `compiled ↔ not_compiled` vẫn sinh;
+3. guard move không tạo inherited-only fan-out;
+4. Markdown và HTML cùng render một finding có 4–5 locations.
+
+Đây là việc rẻ nhưng đáng làm. History đã có ba lần “capability tồn tại ở cửa đầu, pipeline thật không dùng ở cửa sau”; khóa boundary quan trọng hơn tăng số test chung chung.
+
+### 31.5. Những thứ chỉ cần biết và ghi rõ, chưa nên viết thêm extractor
+
+#### Grammar chưa model
+
+M151 có các declaration class tool chưa biến thành fact:
+
+| Known scope | Số lượng |
+|---|---:|
+| WebIDL callback definitions | 85 |
+| WebIDL typedefs | 144 |
+| WebIDL `includes` relations | 200 |
+| Mojo `feature` blocks | 18 |
+| Mojo constants | 311 identities |
+
+Có missed example thật, như `LanguageModelMessageValue` đổi underlying union ở M143 → M147 và `kWebNNDirectML` biến mất ở M151. Nhưng mục tiêu hiện tại không yêu cầu parser completeness.
+
+Quyết định hợp lý bây giờ:
+
+1. thêm danh sách này vào phần “What the tool does not read” của README/report;
+2. đổi wording nào còn gợi ý input là “complete” thành “bounded and measured”;
+3. chỉ viết extractor khi real review chứng minh surface đó thường xuyên tạo actionable finding.
+
+Nếu sau này chỉ chọn một, `includes` hoặc `typedef` có yield rõ hơn callback. Không cần làm cả năm loại cùng lúc.
+
+#### Parser edge cases chưa có current yield
+
+- variadic overload có thể bị gọi là `added` thay vì `shadowed`;
+- parameter splitter chưa hiểu comma trong quoted default;
+- literal normalizer chưa hiểu escaped quote hoàn chỉnh.
+
+Bốn milestone thật chưa rơi vào failing shape. Ghi chúng vào backlog và thêm fixture khi sửa parser; không cần chặn việc dùng schema 39.
+
+### 31.6. Hạ tầng nào có thể để sau
+
+- `docs/figures.json` đã đủ cho headline numbers. Không cần chạy Chromium download trong mọi commit hook.
+- Artifact↔report oracle có thể là bước thủ công trước một lần publish tài liệu lớn.
+- HTML hiện tối đa sáu locations và không ghi `N more`; current changed group tối đa năm, nên đây chưa phải lỗi thực tế.
+- Không cần so line number như semantic data; giữ nó chỉ để dẫn người đọc là quyết định đúng.
+- Không cần theo đuổi coverage 100% hay automated release verdict.
+
+### 31.7. Default có hai “new” label chưa hoàn toàn chắc — nhưng không phải lỗi nặng
+
+`cmd_run` đã truyền old coverage, nhưng scoring cố ý không hạ toàn bộ additions chỉ vì default scan phía old đọc ít. Nếu làm vậy, `New surface` từng rơi từ 1.240 xuống 0 và report mất tác dụng.
+
+Hệ quả còn lại: default M148 → M151 gọi `IncomingCallNotifications` và `Prerender2FallbackPrefetchSpecRules` là added/new-on-by-default, trong khi wide scan thấy declaration cũ và phân loại chính xác là move/default flip.
+
+Với early detection, đây vẫn là signal hữu ích: có thay đổi thật và wide scan sửa lại câu chuyện. Không cần đổi score ngay. Nếu muốn wording chặt hơn, default report có thể dùng “newly observed in this scan” thay cho claim tuyệt đối “did not exist before”.
+
+### 31.8. Điểm dừng đề nghị
+
+Làm ba việc sau là đủ để khép vòng này:
+
+1. gộp/suppress 164 child stability-only rows;
+2. thêm bốn boundary regression tests cho `bee9e7d`;
+3. công khai năm grammar classes chưa đọc trong user-facing documentation.
+
+Sau đó **dừng mở rộng theo audit giả định**. Dùng tool trên các uprev thật, ghi lại:
+
+- top findings nào giúp phát hiện việc thật;
+- false positive nào làm người đọc mất thời gian;
+- thay đổi quan trọng nào con người tìm được nhưng tool bỏ sót.
+
+Chỉ mở extractor hoặc scoring rule mới khi có một ví dụ thật và expected action rõ. Đó là cách tối ưu một early-warning tool; không phải cố biến nó thành parser hoàn chỉnh.
+
+#### Verdict cuối schema 39
+
+> **Dùng được ngay. Không còn known false Breaking regression hay current overload location bị giấu. Việc code đáng sửa nhất là 164 stability child rows lặp; phần grammar chưa đọc cần document, không cần giải quyết hết. Sau một fix nhỏ, bốn boundary tests và một scope note, project đã “đủ tốt” cho mục tiêu cảnh báo sớm và nên chuyển từ audit-driven expansion sang học từ các uprev thật.**
