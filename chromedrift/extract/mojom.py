@@ -90,7 +90,7 @@ def _conditions(attr_text: Optional[str]) -> List[str]:
             if part.startswith("EnableIf")]
 
 
-def _platform_attrs(conditions: List[str]) -> dict:
+def _platform_attrs(conditions: List[str], inherited: int = 0) -> dict:
     """`conditions` and `platform_state`, or nothing when unconditional.
 
     Written in the shape `base_features` and `prefs` already use, because
@@ -102,7 +102,14 @@ def _platform_attrs(conditions: List[str]) -> dict:
     state = mojom_platform_state(conditions)
     if state is None:
         return {}
-    return {"conditions": conditions, "platform_state": {PLATFORM: state}}
+    out = {"conditions": conditions, "platform_state": {PLATFORM: state}}
+    if inherited:
+        # Which of them are the container's rather than this declaration's.
+        # A field losing its own `[EnableIf]` and a struct losing the one
+        # around it resolve to the same verdict and are not the same edit,
+        # and the verdict alone could not tell them apart.
+        out["inherited_conditions"] = conditions[:inherited]
+    return out
 
 # `[MinVersion=1] url.mojom.Url filesystem_url@0;` and `int32 count = 5;`.
 #
@@ -256,8 +263,10 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                     # one compares equal to how it always was.
                     **({"ordinal": parsed["ordinal"]}
                        if "ordinal" in parsed else {}),
-                    **_platform_attrs(iface_conditions
-                                      + _conditions(",".join(parsed["attrs"]))),
+                    **_platform_attrs(
+                        iface_conditions
+                        + _conditions(",".join(parsed["attrs"])),
+                        inherited=len(iface_conditions)),
                     **({"position": len(methods) - 1, "stable": True}
                        if iface_stable else {}),
                 },
@@ -398,7 +407,8 @@ def _field_facts(span, spans, masked, module, rel_path, qualified):
                 # can be read without parsing prose: `[MinVersion=N]` is how
                 # mojom says an older peer may not send this at all.
                 attrs["min_version"] = version.group(1)
-        attrs.update(_platform_attrs(outer + _conditions(field_attrs)))
+        attrs.update(_platform_attrs(outer + _conditions(field_attrs),
+                                     inherited=len(outer)))
         if span.get("stable"):
             attrs["stable"] = True
             # Only here: see `_is_stable`. Outside a stable declaration this

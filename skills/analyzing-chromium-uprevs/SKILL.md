@@ -107,7 +107,9 @@ surface, wrong as a release gate — Chromium is not organised by product, so a
 change affecting downloads can live in `content/` and match no partition.
 
 Also: `chromedrift report <report.json> --format both` re-renders without
-re-running; `chromedrift catalog <ref>` measures what the target set is missing.
+re-running; `chromedrift catalog <ref>` measures what the target set is
+missing; `chromedrift figures <report.json>` writes the measurements the
+project's own documents quote, which is how they stay true.
 
 ### Step 3: Read the report in order
 

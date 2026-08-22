@@ -353,7 +353,11 @@ from typing import Any, Dict, Iterable, List, Optional
 #      while docking the score for doubt about the very claim the label makes.
 #      Stability was readable only as "does this fact carry a position", which
 #      no report could tier on.
-SCHEMA_VERSION = 35
+#  36: a Mojo declaration records which of its build conditions are its own
+#      and which come from the container, so a field losing its `[EnableIf]`
+#      and a struct losing the one around it stop resolving to one
+#      indistinguishable verdict.
+SCHEMA_VERSION = 36
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

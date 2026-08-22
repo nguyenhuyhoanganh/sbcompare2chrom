@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,673 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,786 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -15,7 +15,7 @@ There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)*
 3. [What stands between the code and the user](#3-what-stands-between-the-code-and-the-user)
 4. [What the tool reads](#4-what-the-tool-reads)
 5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
-6. [Six commands](#6-six-commands)
+6. [Seven commands](#6-seven-commands)
 7. [How a change is ranked](#7-how-a-change-is-ranked)
 8. [Reading the report](#8-reading-the-report)
 9. [Limits](#9-limits)
@@ -331,7 +331,7 @@ Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unev
 
 **What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight surfaces the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
-An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 937, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
+An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 971 controls against 941, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
 **Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
@@ -525,7 +525,7 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 
 ---
 
-## 6. Six commands
+## 6. Seven commands
 
 ```bash
 python3 -m chromedrift check      # verify this machine can run the pipeline
@@ -534,9 +534,17 @@ python3 -m chromedrift diff       # semantic comparison between TWO versions
 python3 -m chromedrift run        # the whole pipeline: snapshot → diff → rank → report
 python3 -m chromedrift report     # re-render a saved report.json
 python3 -m chromedrift catalog    # measure which files the target set is missing
+python3 -m chromedrift figures    # write docs/figures.json from a report
 ```
 
 Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
+
+`figures` exists because every measurement in this README and in `pipeline.html` used to be maintained by hand, and six of them were corrected in a single working session — four having been written wrong by the same hand that corrected them. The numbers now live in `docs/figures.json`, written from a real run, and a test holds the prose to that file. It needs no report of your own to run, so it works on a fresh clone; when a report *is* present it also checks the file against it, so the file cannot become the thing that goes stale.
+
+```bash
+python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out
+python3 -m chromedrift figures out/report.json --wide out-wide/report.json
+```
 
 Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `check` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
@@ -973,7 +981,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**353 tests, running in about three seconds, with no network.**
+**359 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1020,20 +1028,20 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ```
 chromedrift/
   acquire.py      566 lines  fetch source over Gitiles or from a local checkout
-  targets.py      759        declares which files to fetch and why; partitions; coverage rules
+  targets.py      772        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     188        combines fetch + extract into one cached snapshot
-  extract/      2,880        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,542        semantic comparison, labelling, severity, bucketing, ownership
+  extract/      2,890        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py       1,550        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        363        the two run-dependent adjustments, and the reasons
+  score.py        369        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        937        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        941        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
   report/       1,721        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
   enrich/         194        context from chromestatus
-  cli.py          608        6 command-line commands
+  cli.py          680        6 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

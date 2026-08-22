@@ -260,14 +260,27 @@ def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
         listings[root] = source.list_recursive(root)
 
     found: Dict[str, str] = {}
+    shared = 0
     for rule in rules:
         hits = 0
         for root in rule.roots:
             for path in listings.get(root, ()):
-                if rule.matches(path):
-                    found.setdefault(path, rule.note)
-                    hits += 1
+                if not rule.matches(path):
+                    continue
+                hits += 1
+                if path in found:
+                    # Claimed by an earlier rule. Counted once in the
+                    # denominator, and attributed to the first claimant, so
+                    # the per-surface rows partition the total rather than
+                    # overlapping it -- `content_features.cc` is read by both
+                    # the feature and the constant extractors and is one file.
+                    shared += 1
+                    continue
+                found[path] = rule.note
         log(f"  {hits} file(s) in the tree could declare: {rule.note}")
+    if shared:
+        log(f"  {shared} of them are claimed by more than one extractor and "
+            f"counted once, under the first")
     return found
 
 

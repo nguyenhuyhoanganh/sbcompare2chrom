@@ -5,6 +5,7 @@ and how far up the list it goes -- because those are the parts that decide
 whether the output is worth reading.
 """
 
+import json
 import os
 import re
 import sys
@@ -2824,6 +2825,7 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         "position": (0, 1),
         "stable": (None, True),
         "min_version": (None, "2"),
+        "inherited_conditions": (["EnableIf=is_win"], []),
         "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
         "platform_status": ({"windows": "test"}, {"windows": "stable"}),
         "windows_status": ("test", "stable"),
@@ -3859,6 +3861,97 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         self.assertEqual(scores, {60})
 
 
+class TestTheCompletenessMatrix(unittest.TestCase):
+    """Every hole against every direction, rather than the four I checked.
+
+    A hole is a target the source did not have or a file that would not
+    parse, on either side. A change's evidence is an absence from exactly one
+    side, so sixteen combinations reduce to one rule -- and the first version
+    of this got it backwards in both directions at once, testing both sides
+    for every change.
+    """
+
+    FULL = {"from": {"candidates": 100, "read": 100},
+            "to": {"candidates": 100, "read": 100}}
+
+    def _scopes(self):
+        return {
+            "no hole": Scope(self.FULL, "r"),
+            "old hole": Scope(self.FULL, "r", from_incomplete="2 missing"),
+            "new hole": Scope(self.FULL, "r", incomplete="2 missing"),
+            "both": Scope(self.FULL, "r", from_incomplete="2 missing",
+                          incomplete="2 missing"),
+        }
+
+    def _whole(self, direction):
+        fact = Fact(kind="switch", key="s", name="s", path="switches.cc",
+                    attrs={"var": "kS"})
+        sides = ([], [fact]) if direction == ADDED else ([fact], [])
+        return diff_snapshots(snap("148.0.0.0", sides[0]),
+                              snap("151.0.0.0", sides[1]))[0]
+
+    def _variant(self, direction):
+        from chromedrift.extract import web_idl
+        from chromedrift.model import dedupe_facts
+
+        def side(body):
+            return dedupe_facts(web_idl.extract(
+                "interface N { %s };" % body,
+                "third_party/blink/renderer/x.idl"))
+        one = "void f(); void f(long a);"
+        two = one + " void f(long a, long b);"
+        before, after = (one, two) if direction == ADDED else (two, one)
+        return [c for c in diff_snapshots(
+            Snapshot(ref="148.0.0.0", facts=side(before),
+                     meta={"target_set": "default"}),
+            Snapshot(ref="151.0.0.0", facts=side(after),
+                     meta={"target_set": "default"}))
+            if c.kind == "idl_member"][0]
+
+    # Which side each kind of evidence rests on. A variant removal is an
+    # absence from the new side even though the change itself is MODIFIED.
+    EXPECTED_HOLE = {
+        "whole added": "old hole",
+        "whole removed": "new hole",
+        "variant added": "old hole",
+        "variant removed": "new hole",
+    }
+
+    def test_each_evidence_shape_is_discounted_by_exactly_one_hole(self):
+        cases = {
+            "whole added": self._whole(ADDED),
+            "whole removed": self._whole(REMOVED),
+            "variant added": self._variant(ADDED),
+            "variant removed": self._variant(REMOVED),
+        }
+        for name, change in cases.items():
+            clean = score_change(change, self._scopes()["no hole"]).score
+            for hole, scope in self._scopes().items():
+                score = score_change(change, scope).score
+                discounted = score < clean
+                should = hole in ("both", self.EXPECTED_HOLE[name])
+                self.assertEqual(
+                    discounted, should,
+                    f"{name} under {hole}: score {score} against {clean}")
+
+    def test_a_variant_addition_is_not_discounted_by_a_new_side_hole(self):
+        """Its evidence is that the old side did not have it.
+
+        The narrow case worth naming on its own: an overload appearing was
+        being judged by a fault in the snapshot it appears *in*.
+        """
+        change = self._variant(ADDED)
+        clean = score_change(change, self._scopes()["no hole"]).score
+        self.assertEqual(
+            score_change(change, self._scopes()["new hole"]).score, clean)
+
+    def test_a_removal_survives_a_hole_in_the_side_it_was_present_on(self):
+        change = self._whole(REMOVED)
+        clean = score_change(change, self._scopes()["no hole"]).score
+        self.assertEqual(
+            score_change(change, self._scopes()["old hole"]).score, clean)
+
+
 class TestTheReportIsSafeToOpen(unittest.TestCase):
     """A report is a file people forward to each other and open in a browser.
 
@@ -4256,157 +4349,138 @@ _WIDE_READ = 8295
 
 
 class TestTheDocumentedM148FiguresAreStillTrue(unittest.TestCase):
-    """The headline numbers the documents quote, checked against a real run.
+    """Every measurement the shipped documents quote, against one artifact.
 
-    These go stale silently and they are the numbers a reader trusts most: the
-    documents said "90 flags removed, splitting exactly 45 and 45" for four
-    commits after widening the target set made it 154, and "261 of the 315
-    Breaking rows" for one commit after the web API gates dropped Breaking to
-    282. Both survived every other test in this file, because nothing here
-    reads prose.
+    The documents state numbers, and every one of them was maintained by
+    hand. Six were corrected in a single working session -- the retired-flag
+    split, the Breaking share, the score-zero count, the no-signal ratio, the
+    owner table, the coverage pair -- and four had been written wrong by the
+    same hand that then corrected them. Matching a few sentences was not
+    enough either: the owner table sat outside every pattern and stayed at a
+    previous run's numbers through two schema bumps while this passed.
 
-    Checked against `out/report.json` when one exists, which is the same
-    bargain the M151 fact table strikes: anyone who has run the tool
-    re-verifies the documents for free, and a bare checkout does not fail.
+    So `docs/figures.json` is the canonical measurement, `chromedrift figures`
+    writes it from a real report, and this holds two things:
+
+      * the documents against the artifact, which needs nothing but a
+        checkout, so it runs on a fresh clone rather than skipping;
+      * the artifact against `out/report.json` when one is there, so the
+        artifact cannot go stale in its turn.
     """
 
-    REPORT = "out/report.json"
-    PAIR = ("148.0.7778.217", "151.0.7922.138")
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    def _report(self):
-        import json
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        path = os.path.join(here, self.REPORT)
-        if not os.path.exists(path):
-            self.skipTest(f"no {self.REPORT}; run the pair to check the docs")
+    def _figures(self):
+        path = os.path.join(self.ROOT, "docs", "figures.json")
         with open(path, encoding="utf-8") as fh:
-            report = json.load(fh)
-        meta = report.get("meta") or {}
-        if not all(v in f"{meta.get('from_ref', '')}{report.get('from_ref','')}"
-                   f"{report.get('to_ref','')}" for v in self.PAIR):
-            self.skipTest("out/report.json is a different pair")
-        if (meta.get("target_set") or "default") != "default":
-            self.skipTest("out/report.json is not the default target set")
-        return report
+            return json.load(fh)
 
     def _docs(self):
         import glob
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         names = ["README.md", "docs/pipeline.html"]
-        names += [os.path.relpath(p, here) for p in
-                  glob.glob(os.path.join(here, "skills", "**", "*.md"),
+        names += [os.path.relpath(p, self.ROOT) for p in
+                  glob.glob(os.path.join(self.ROOT, "skills", "**", "*.md"),
                             recursive=True)]
         out = {}
         for name in names:
-            with open(os.path.join(here, name), encoding="utf-8") as fh:
+            with open(os.path.join(self.ROOT, name), encoding="utf-8") as fh:
                 out[name] = fh.read()
         return out
 
-    def _leading(self, finding):
-        from chromedrift.diff import SIGNAL_SEVERITY
-        signals = finding["change"].get("signals") or []
-        return max(signals, key=lambda s: (SIGNAL_SEVERITY.get(s, 0), s)) \
-            if signals else ""
+    def _labelled(self, figures):
+        """Figure name as the documents write it -> the number it must be."""
+        from chromedrift.model import BUCKET_LABELS, OWNER_LABELS
+        labels = {BUCKET_LABELS[bucket]: count
+                  for bucket, count in figures["buckets"].items()}
+        for owner, count in figures["owners"].items():
+            labels[OWNER_LABELS[owner]] = count
+        return labels
 
-    def test_the_quoted_figures_match_the_run(self):
-        import re
-        from collections import Counter
-        from chromedrift.diff import SIGNAL_OWNERS
-        from chromedrift.model import KIND_OWNERS, OWNER_NATIVE
-
-        report = self._report()
-        findings = report["findings"]
-        counts = Counter(self._leading(f) for f in findings)
-        breaking = [f for f in findings if f["bucket"] == "breaking"]
-
-        def owner(finding):
-            lead = self._leading(finding)
-            return SIGNAL_OWNERS.get(lead) or KIND_OWNERS.get(
-                finding["change"]["kind"], OWNER_NATIVE)
-
-        contract = sum(1 for f in breaking
-                       if owner(f) in ("ipc", "webplatform"))
-        retired = counts["flag_retired_on"] + counts["flag_retired_off"]
-
-        # Phrase as written -> the number it has to be. The pattern is the
-        # sentence, not just the digits, so a figure that moves into a
-        # different sentence is not silently satisfied by the old one.
-        expected = [
-            (r"(\d+) of the (\d+) Breaking rows",
-             (contract, len(breaking))),
-            (r"(\d+) of ([\d,]+) findings at M148 . M151 are in that state",
-             (report["summary"]["not_in_build"], report["summary"]["total"])),
-            (r"(\d+) that had shipped(?:,| and) (\d+)",
-             (counts["flag_retired_on"], counts["flag_retired_off"])),
-        ]
-        seen = 0
-        for name, text in self._docs().items():
-            for pattern, want in expected:
-                for m in re.finditer(pattern, text):
-                    seen += 1
-                    got = tuple(int(g.replace(",", "")) for g in m.groups())
-                    self.assertEqual(
-                        got, want,
-                        f"{name}: {m.group(0)!r} but the run says {want}")
-        self.assertGreaterEqual(seen, 6, "the documented sentences moved")
-
-        # A named figure may not have two current values across the documents.
-        # Matching three sentences was not enough: the bucket counts appeared
-        # in four more places and stayed at a previous run's numbers while
-        # every test passed, because no test was looking at those places.
-        labels = {
-            "Breaking": len(breaking),
-            "Behaviour change": report["summary"]["by_bucket"]["behaviour"],
-            "New surface": report["summary"]["by_bucket"]["new"],
-            "Housekeeping": report["summary"]["by_bucket"]["housekeeping"],
-        }
-        # The owner table and the coverage line live outside every sentence
-        # pattern above, and stayed at a previous run's numbers through two
-        # schema bumps while this test passed. A figure with a stable name
-        # gets checked by that name.
-        from chromedrift.model import OWNER_LABELS
-        owners = report["summary"]["by_owner"]
-        for owner, total in owners.items():
-            labels[OWNER_LABELS[owner]] = total
-        coverage = (report.get("meta") or {}).get("coverage") or {}
-        for side in ("to",):
-            row = coverage.get(side) or {}
-            if row.get("candidates"):
-                for name, text in self._docs().items():
-                    for m in re.finditer(r"([\d,]{3,7})\s*/\s*([\d,]{3,7})\s*"
-                                         r"(?:files|\(\d+%\))", text):
-                        got = tuple(int(g.replace(",", "")) for g in m.groups())
-                        if got[1] not in (row["candidates"],):
-                            continue
-                        self.assertIn(
-                            got[0], (row["read"], _WIDE_READ),
-                            f"{name}: coverage {m.group(0)!r} matches neither "
-                            f"the run's {row['read']} nor the wide figure")
-
+    def test_every_labelled_figure_matches_the_artifact(self):
+        figures = self._figures()
+        labels = self._labelled(figures)
         for name, text in self._docs().items():
             for label, want in labels.items():
-                # A count beside the label, in a table cell or a code block.
                 # The label, then the number: straight after it in a code
                 # block, or after one description cell in a table row. The
-                # first form alone missed every owner row, which is how three
-                # of them stayed at a previous run's numbers.
+                # first form alone missed every owner row.
                 pattern = (rf"{re.escape(label)}\**\s*"
                            rf"(?:\|[^|\n]*)?\|?\s*"
                            rf"(?:<[^>]*>)?\**\s*([\d,]{{3,7}})")
                 for m in re.finditer(pattern, text):
                     value = int(m.group(1).replace(",", ""))
-                    # Only figures in the plausible range are this pair's
-                    # counts; a year or a line number is not.
                     if not (100 <= value <= 9999):
                         continue
                     self.assertEqual(
                         value, want,
-                        f"{name}: {label} appears as {value}, the run says {want}")
-        # And the total the retired-flag sentences describe.
-        self.assertEqual(retired, 132,
-                         "the retired-flag total moved; update the documents")
+                        f"{name}: {label} appears as {value}, "
+                        f"docs/figures.json says {want}")
+
+    def test_every_quoted_ratio_matches_the_artifact(self):
+        figures = self._figures()
+        totals = {figures["total"]}
+        ratios = {
+            r"(\d+) of ([\d,]+) findings at M148 . M151 are in that state":
+                (figures["not_in_build"], figures["total"]),
+            r"does: ([\d,]+) of ([\d,]+) findings at M148":
+                (figures["no_signal"], figures["total"]),
+        }
+        seen = 0
+        for name, text in self._docs().items():
+            for pattern, want in ratios.items():
+                for m in re.finditer(pattern, text):
+                    seen += 1
+                    got = tuple(int(g.replace(",", "")) for g in m.groups())
+                    self.assertEqual(got, want, f"{name}: {m.group(0)!r}")
+            # Any "N changes" sentence has to be the run's total.
+            for m in re.finditer(r"([\d,]{4,7}) (?:semantic )?changes", text):
+                value = int(m.group(1).replace(",", ""))
+                if 1000 <= value <= 9999:
+                    self.assertIn(value, totals, f"{name}: {m.group(0)!r}")
+        self.assertGreaterEqual(seen, 2, "the documented sentences moved")
+
+    def test_every_quoted_coverage_pair_matches_the_artifact(self):
+        figures = self._figures()
+        pairs = {(row["read"], row["candidates"])
+                 for row in figures["coverage"].values() if row}
+        candidates = {c for _, c in pairs}
+        for name, text in self._docs().items():
+            for m in re.finditer(r"([\d,]{3,7})\s*/\s*([\d,]{3,7})", text):
+                got = tuple(int(g.replace(",", "")) for g in m.groups())
+                if got[1] not in candidates:
+                    continue
+                self.assertIn(
+                    got, pairs,
+                    f"{name}: coverage {m.group(0)!r} is not a measured pair")
+
+    def test_the_artifact_matches_a_real_run_when_one_is_present(self):
+        """Otherwise the artifact becomes the thing that goes stale.
+
+        Skipped on a bare checkout, exactly as the fact-count table is: anyone
+        who has run the tool re-verifies it for free.
+        """
+        from chromedrift.cli import measured_figures
+        from chromedrift.model import Report
+
+        path = os.path.join(self.ROOT, "out", "report.json")
+        if not os.path.exists(path):
+            self.skipTest("no out/report.json; run the pair to check the artifact")
+        with open(path, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        report = Report.from_dict(payload)
+        figures = self._figures()
+        if list(figures["pair"]) != [report.from_ref, report.to_ref]:
+            self.skipTest("out/report.json is a different pair")
+        if ((report.meta or {}).get("target_set") or "default") != "default":
+            self.skipTest("out/report.json is not the default target set")
+        fresh = measured_figures(report)
+        for key in ("total", "not_in_build", "no_signal", "buckets", "owners",
+                    "breaking_by_owner"):
+            self.assertEqual(figures[key], fresh[key],
+                             f"docs/figures.json {key} is stale; "
+                             f"re-run `chromedrift figures`")
+        self.assertEqual(figures["coverage"]["default"],
+                         fresh["coverage"]["default"])
 
 
 class TestTheThreeStageRuleIsNeverTaughtAsUniversal(unittest.TestCase):

@@ -263,10 +263,16 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     # short of targets invents New surface exactly as readily as a short new
     # one invents removals. An overload disappearing is a MODIFIED change and
     # was slipping past this for the same reason.
-    # An overload disappearing is a MODIFIED change whose evidence is an
-    # absence from the new side, so it is judged as a removal is.
-    direction = (REMOVED if "signatures" in change.deltas
-                 else change.change_type)
+    # An overload set moving is a MODIFIED change resting on an absence, and
+    # which side depends on which way it moved: an entry gone is an absence
+    # from the new snapshot, an entry gained is an absence from the old one.
+    # Treating every `signatures` delta as a removal asked the wrong side of
+    # every overload addition -- found by testing all four evidence shapes
+    # against all four holes rather than the four combinations I had picked.
+    direction = change.change_type
+    if "signatures" in change.deltas:
+        was, now = change.deltas["signatures"]
+        direction = REMOVED if set(was or ()) - set(now or ()) else ADDED
     rests_on_absence = (direction == REMOVED
                         or (direction == ADDED and scope.from_incomplete))
     if rests_on_absence and not scope.confirms_absence(change.kind, direction):

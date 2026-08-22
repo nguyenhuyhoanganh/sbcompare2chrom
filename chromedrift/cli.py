@@ -29,7 +29,7 @@ from . import catalog, cluster
 from .diff import diff_snapshots, summarize
 from .enrich import chromestatus
 from .model import (BUCKET_HOUSEKEEPING, BUCKET_LABELS, BUCKET_ORDER,
-                    Report, read_json, write_json)
+                    SCHEMA_VERSION, Report, read_json, write_json)
 from .report import html as html_report
 from .report import markdown as md_report
 from .score import Scope, score_all, summarize_findings
@@ -386,6 +386,71 @@ def cmd_catalog(args: argparse.Namespace) -> int:
     return 0
 
 
+FIGURES_PATH = "docs/figures.json"
+
+
+def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
+    """Every number the shipped documents quote, taken from a real run.
+
+    The documents state measurements -- bucket counts, owner totals, coverage,
+    the share of findings with no signal -- and every one of them was being
+    kept up to date by hand. Six times in one working session a figure was
+    corrected only because a test happened to look at it, and four of the
+    wrong ones had been written by the same hand that was correcting them.
+
+    So the figures become an artifact. `chromedrift figures` writes it from a
+    report, the documents quote it, and a test holds the documents to it
+    without needing anyone to have run the tool.
+    """
+    from .diff import SIGNAL_OWNERS, SIGNAL_SEVERITY, leading_signal
+    from .model import KIND_OWNERS, OWNER_NATIVE
+
+    def owner_of_finding(finding):
+        lead = leading_signal(finding.change)
+        return (SIGNAL_OWNERS.get(lead)
+                or KIND_OWNERS.get(finding.change.kind, OWNER_NATIVE))
+
+    breaking_by_owner: dict = {}
+    for finding in report.findings:
+        if finding.bucket == "breaking":
+            owner = owner_of_finding(finding)
+            breaking_by_owner[owner] = breaking_by_owner.get(owner, 0) + 1
+
+    summary = report.summary or {}
+    coverage = (report.meta or {}).get("coverage") or {}
+    out = {
+        "pair": [report.from_ref, report.to_ref],
+        "schema": SCHEMA_VERSION,
+        "total": summary.get("total"),
+        "not_in_build": summary.get("not_in_build"),
+        "buckets": summary.get("by_bucket") or {},
+        "owners": summary.get("by_owner") or {},
+        "breaking_by_owner": breaking_by_owner,
+        "no_signal": sum(1 for f in report.findings
+                         if not f.change.signals),
+        "coverage": {"default": {k: v for k, v in (coverage.get("to") or {}).items()
+                                 if k in ("read", "candidates")}},
+    }
+    if wide is not None:
+        wide_cov = ((wide.meta or {}).get("coverage") or {}).get("to") or {}
+        out["coverage"]["wide"] = {k: v for k, v in wide_cov.items()
+                                   if k in ("read", "candidates")}
+    return out
+
+
+def cmd_figures(args: argparse.Namespace) -> int:
+    report = Report.from_dict(read_json(args.report))
+    wide = Report.from_dict(read_json(args.wide)) if args.wide else None
+    figures = measured_figures(report, wide)
+    write_json(args.out, figures)
+    print(f"  figures -> {args.out}")
+    for key in ("total", "not_in_build", "no_signal"):
+        print(f"    {key}: {figures[key]}")
+    print(f"    buckets: {figures['buckets']}")
+    print(f"    owners: {figures['owners']}")
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     report = Report.from_dict(read_json(args.report))
     platform = report.meta.get("platform", PLATFORM)
@@ -557,6 +622,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="reuse or keep the blobless clone in this directory")
     p.add_argument("--out", help="write the report JSON here")
     p.set_defaults(func=cmd_catalog)
+
+    p = sub.add_parser("figures",
+                       help="write the measurements the documents quote")
+    p.add_argument("report", help="path to a default-target-set report.json")
+    p.add_argument("--wide", help="path to a wide report.json, for its coverage")
+    p.add_argument("--out", default=FIGURES_PATH)
+    p.set_defaults(func=cmd_figures)
 
     p = sub.add_parser("report",
                        help="re-render a saved report.json")

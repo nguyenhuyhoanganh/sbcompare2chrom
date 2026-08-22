@@ -1,0 +1,40 @@
+{
+ "pair": [
+  "refs/tags/148.0.7778.217",
+  "refs/tags/151.0.7922.138"
+ ],
+ "schema": 36,
+ "total": 3022,
+ "not_in_build": 187,
+ "buckets": {
+  "breaking": 276,
+  "behaviour": 469,
+  "new": 1240,
+  "housekeeping": 1037
+ },
+ "owners": {
+  "ipc": 339,
+  "webplatform": 719,
+  "native": 1157,
+  "webui": 277,
+  "config": 530
+ },
+ "breaking_by_owner": {
+  "ipc": 126,
+  "webplatform": 94,
+  "native": 2,
+  "webui": 1,
+  "config": 53
+ },
+ "no_signal": 981,
+ "coverage": {
+  "default": {
+   "candidates": 8366,
+   "read": 3677
+  },
+  "wide": {
+   "candidates": 8366,
+   "read": 8295
+  }
+ }
+}
