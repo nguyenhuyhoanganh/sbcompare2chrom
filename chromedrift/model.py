@@ -368,7 +368,16 @@ from typing import Any, Dict, Iterable, List, Optional
 #      M143 -> M147 wide, where `device.mojom.HidCollectionInfo` and its
 #      neighbours lost `[Stable]` upstream: 183 rows invented by the
 #      attribute's absence, 178 of them in Breaking.
-SCHEMA_VERSION = 38
+#  39: a surface counts every file that reads it, and a guard belongs to the
+#      declaration that carries it. Version 38 attributed a shared file to
+#      whichever rule claimed it first -- 378 files at M151 -- so the pref and
+#      switch surface reported 4 of 348 where it reads 9 of 529; and it
+#      compared `inherited_conditions` on every member, turning one container
+#      edit into one row per member. It also compared the *representation* of
+#      an unguarded declaration against a guard resolving to "yes", so a guard
+#      moving between a field and its struct arrived as "may no longer be in
+#      the binary we ship" with the verdict unchanged.
+SCHEMA_VERSION = 39
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

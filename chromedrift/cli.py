@@ -144,12 +144,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     _log(f"  {len(changes)} semantic changes")
 
     _log("[4/5] rank")
-    # The scoring stage is told how much of the NEW tree this run read,
-    # because that is what decides whether a fact's absence from it means
-    # "removed" or means "in a file we never opened". Passing the same
-    # measurement the coverage line prints keeps the two from drifting into
-    # separate answers.
-    scope = Scope({"to": (new.meta or {}).get("coverage") or {}},
+    # Both trees. A removal is an absence from the new one and an addition is
+    # an absence from the old one, so each direction is judged by the read of
+    # the side its evidence comes from. `Scope` learned to hold both and this
+    # call kept passing one, which is the same two-door mistake as the Mojo
+    # ordinal: the capability existed and the pipeline did not use it.
+    scope = Scope({"from": (old.meta or {}).get("coverage") or {},
+                   "to": (new.meta or {}).get("coverage") or {}},
                   to_ref=new.ref, incomplete=_incomplete_reason(new),
                   from_incomplete=_incomplete_reason(old))
     findings = score_all(changes, scope)

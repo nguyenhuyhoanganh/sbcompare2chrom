@@ -96,7 +96,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
     # not change what is fetched, only whether the gap is visible.
     coverage: dict = {}
     if target_set != "minimal":
-        candidates = discover_candidates(source, log=log)
+        candidates, memberships = discover_candidates(source, log=log)
         if partitions:
             # A partitioned run is the one most likely to miss something, so
             # leaving it unmeasured would put the number where it is least
@@ -106,7 +106,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
             prefixes = _partition_prefixes(partitions)
             candidates = {p: v for p, v in candidates.items()
                           if p.startswith(prefixes)}
-        coverage = coverage_against(candidates, targets)
+        coverage = coverage_against(candidates, targets, memberships)
         pct = coverage["read"] * 100 // max(1, coverage["candidates"])
         log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "
             f"files in this tree that could declare ({pct}% of files)")

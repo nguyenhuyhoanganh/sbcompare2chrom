@@ -104,8 +104,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # not compared -- the two halves of this pipeline are separate doors, and
     # opening the first is not opening the second.
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal",
-                       "position", "stable", "platform_state",
-                       "inherited_conditions"),
+                       "position", "stable", "platform_state"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
@@ -114,8 +113,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # The type and the ordinal are the wire format. The default and the
     # `[MinVersion]` annotation are not, and they are labelled separately.
     KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "position",
-                      "min_version", "stable", "platform_state",
-                      "inherited_conditions"),
+                      "min_version", "stable", "platform_state"),
     # One list rather than a fact per member: members are 17,061 of the tree's
     # declarations at M151, and adding one is Mojo's ordinary way of extending
     # a type.
@@ -558,7 +556,18 @@ def meaningful_attrs(fact: Fact) -> dict:
     keys = MEANINGFUL_ATTRS.get(fact.kind)
     if keys is None:
         return dict(fact.attrs)
-    return {k: fact.attrs[k] for k in keys if k in fact.attrs}
+    out = {k: fact.attrs[k] for k in keys if k in fact.attrs}
+    if "platform_state" in keys:
+        # A declaration with no guard at all and one whose guard resolves to
+        # "yes, on Windows" are the same answer, and only one of them carries
+        # the attribute. Comparing the representation instead of the verdict
+        # made a guard *moving* between a field and its container -- with the
+        # field in our build before and after -- arrive as
+        # "may no longer be in the binary we ship".
+        state = out.get("platform_state") or {}
+        if state.get(PLATFORM, "compiled") == "compiled":
+            out.pop("platform_state", None)
+    return out
 
 
 _meaningful = meaningful_attrs
@@ -1229,11 +1238,11 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     if "stable" in change.deltas and not signals:
         signals.append("ipc_stability_changed")
 
-    # The guard moved between the declaration and the container around it,
-    # without the Windows verdict moving. Nothing changes for this build and
-    # the next edit to either one now lands differently.
-    if "inherited_conditions" in change.deltas and not signals:
-        signals.append("build_gate_changed")
+    # `inherited_conditions` is recorded and rendered, and deliberately not
+    # compared. A container's guard belongs to the container, and comparing it
+    # on every member turned one edit into one row per member: moving a guard
+    # off a two-field struct produced three rows for one change. The container
+    # has its own row; the members carry the provenance to explain it.
 
     return signals
 

@@ -460,7 +460,10 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # holds 2 of the 315 Breaking rows and the second shortest holds
             # 126, so length and urgency point opposite ways.
             "owner": owner_of(change),
-            "paths": (change.locations or change.paths)[:3],
+            # Six rather than three: an overloaded member is declared several
+            # times, and the row is about the set. Three cut off the very
+            # declaration an overload had been removed from.
+            "paths": (change.locations or change.paths)[:6],
             "deltas": deltas[:6],
             "reasons": finding.reasons,
             "chromestatus": status.get("summary", ""),

@@ -238,7 +238,14 @@ def could_declare(path: str,
     return None
 
 
-def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
+def discover_candidates(source, log=lambda m: None):
+    """Returns `(candidates, memberships)`.
+
+    `candidates` maps a path to one surface, for the global denominator, which
+    counts files. `memberships` maps it to every surface that reads it, for
+    the per-surface denominators, which count what could declare that kind.
+    They are different questions and used to share one answer.
+    """
     """Every file in *this* version's tree that a rule says could declare.
 
     Discovery answers "what exists", not "what to fetch". Those turned out to
@@ -260,7 +267,7 @@ def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
         listings[root] = source.list_recursive(root)
 
     found: Dict[str, str] = {}
-    shared = 0
+    memberships: Dict[str, List[str]] = {}
     for rule in rules:
         hits = 0
         for root in rule.roots:
@@ -268,20 +275,21 @@ def discover_candidates(source, log=lambda m: None) -> Dict[str, str]:
                 if not rule.matches(path):
                     continue
                 hits += 1
-                if path in found:
-                    # Claimed by an earlier rule. Counted once in the
-                    # denominator, and attributed to the first claimant, so
-                    # the per-surface rows partition the total rather than
-                    # overlapping it -- `content_features.cc` is read by both
-                    # the feature and the constant extractors and is one file.
-                    shared += 1
-                    continue
-                found[path] = rule.note
+                # Two different questions, and one answer was being used for
+                # both. The global denominator counts files, so a file claimed
+                # twice counts once. A surface's denominator asks which files
+                # could declare *that* kind, so the same file belongs to every
+                # surface that reads it -- 378 of them at M151, and attributing
+                # each to its first claimant left the pref and switch surface
+                # reporting 4 of 348 where it reads 9 of 529.
+                memberships.setdefault(path, []).append(rule.note)
+                found.setdefault(path, rule.note)
         log(f"  {hits} file(s) in the tree could declare: {rule.note}")
-    if shared:
-        log(f"  {shared} of them are claimed by more than one extractor and "
-            f"counted once, under the first")
-    return found
+    multi = sum(1 for notes in memberships.values() if len(notes) > 1)
+    if multi:
+        log(f"  {multi} of them are read by more than one extractor and count "
+            f"once in the total, once per surface")
+    return found, memberships
 
 
 def scope_of(targets: Sequence[FetchTarget]) -> tuple:
@@ -315,7 +323,9 @@ def reaches(path: str, files, trees) -> bool:
 
 
 def coverage_against(candidates: Dict[str, str],
-                     targets: Sequence[FetchTarget]) -> Dict[str, object]:
+                     targets: Sequence[FetchTarget],
+                     memberships: Optional[Dict[str, List[str]]] = None
+                     ) -> Dict[str, object]:
     """How much of what exists this target set actually reads."""
     files, trees = scope_of(targets)
     missed = sorted(p for p in candidates if not reaches(p, files, trees))
@@ -332,10 +342,11 @@ def coverage_against(candidates: Dict[str, str],
     missed_set = set(missed)
     per_note: Dict[str, Dict[str, int]] = {}
     for path, note in candidates.items():
-        row = per_note.setdefault(note, {"candidates": 0, "read": 0})
-        row["candidates"] += 1
-        if path not in missed_set:
-            row["read"] += 1
+        for surface in (memberships or {}).get(path) or [note]:
+            row = per_note.setdefault(surface, {"candidates": 0, "read": 0})
+            row["candidates"] += 1
+            if path not in missed_set:
+                row["read"] += 1
     return {
         "candidates": len(candidates),
         "read": len(candidates) - len(missed),

@@ -411,7 +411,16 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
         # 900-line .mojom cited the file and left the reader to find it.
         where = change.locations or change.paths
         if where:
-            out.append(f"- Declared in: `{'`, `'.join(where[:3])}`")
+            # Every one of them. An overloaded member is declared several
+            # times and the row is about the set, so cutting the list at three
+            # dropped the line an overload was actually removed from --
+            # `WebGLRenderingContextBase.texElementImage2D` lost the
+            # declaration at line 651 and the report pointed at three others.
+            shown = where if len(where) <= 6 else where[:6]
+            line = f"- Declared in: `{'`, `'.join(shown)}`"
+            if len(where) > len(shown):
+                line += f" and {len(where) - len(shown)} more"
+            out.append(line)
         for key, delta in sorted(change.deltas.items()):
             if not (isinstance(delta, list) and len(delta) == 2):
                 continue

@@ -1614,7 +1614,7 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
 
     def _found(self, paths):
         from chromedrift.targets import discover_candidates
-        return set(discover_candidates(self._Tree(paths)))
+        return set(discover_candidates(self._Tree(paths))[0])
 
     def test_both_pref_naming_conventions_are_found(self):
         got = self._found([
@@ -3886,6 +3886,50 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
             self.assertIn("web_api_overload_removed", change.signals)
             scores.add(score_change(change).score)
         self.assertEqual(scores, {60})
+
+
+class TestASurfaceCountsEveryFileThatReadsIt(unittest.TestCase):
+    """The global denominator and a surface's denominator ask different things.
+
+    One counts files, so a file two extractors read counts once. The other
+    asks which files could declare that kind, so the same file belongs to
+    both surfaces. Sharing one answer attributed each file to whichever rule
+    claimed it first, and the pref and switch surface reported 4 of 348 where
+    it reads 9 of 529 -- 378 files at M151 belong to more than one surface.
+    """
+
+    class _Tree:
+        def __init__(self, paths):
+            self.paths = paths
+
+        def list_recursive(self, root):
+            return [p for p in self.paths if p.startswith(root)]
+
+    PATHS = [
+        # Read by the feature extractor and by the constant extractor: it
+        # declares switches and the flags that gate them.
+        "base/base_switches.cc",
+        "third_party/blink/renderer/core/dom/element.idl",
+    ]
+
+    def test_a_shared_file_counts_once_globally_and_once_per_surface(self):
+        from chromedrift.targets import coverage_against, discover_candidates
+        candidates, memberships = discover_candidates(self._Tree(self.PATHS))
+        shared = "base/base_switches.cc"
+        self.assertIn(shared, candidates)
+        self.assertGreater(len(memberships[shared]), 1,
+                           "expected more than one extractor to read it")
+        coverage = coverage_against(candidates, [], memberships)
+        # Global: one file, one candidate.
+        self.assertEqual(coverage["candidates"], len(candidates))
+        # Per surface: it appears under each surface that reads it.
+        appearances = sum(1 for row in coverage["by_surface"].values()
+                          if row["candidates"])
+        self.assertGreaterEqual(appearances, len(memberships[shared]))
+        self.assertGreater(
+            sum(row["candidates"] for row in coverage["by_surface"].values()),
+            coverage["candidates"],
+            "surfaces should overlap; only the global count deduplicates")
 
 
 class TestTheCompletenessMatrix(unittest.TestCase):
