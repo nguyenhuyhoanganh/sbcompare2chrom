@@ -33,6 +33,7 @@ from typing import Dict, List, Optional, Sequence
 
 from .diff import bucket_of, leading_signal, owner_of, SIGNAL_LABELS
 from .model import (
+    ADDED,
     BUCKET_HOUSEKEEPING,
     BUCKET_ORDER,
     KIND_LABELS,
@@ -111,10 +112,13 @@ class Scope:
     deletions.
     """
 
-    __slots__ = ("to_ref", "to_share", "by_surface", "incomplete")
+    __slots__ = ("to_ref", "to_share", "by_surface", "incomplete",
+                 "from_incomplete")
 
     def __init__(self, coverage: Optional[dict] = None,
-                 to_ref: str = "", incomplete: str = "") -> None:
+                 to_ref: str = "", incomplete: str = "",
+                 from_incomplete: str = "") -> None:
+        self.from_incomplete = from_incomplete
         self.to_ref = to_ref
         to = (coverage or {}).get("to")
         self.to_share = _share(to)
@@ -145,7 +149,7 @@ class Scope:
         seen against a near-complete read -- exactly as hard as a preference
         removal seen against almost none.
         """
-        if self.incomplete:
+        if self.incomplete or self.from_incomplete:
             return False
         share = self.share_for(kind)
         return share is None or share >= CONFIRMING_COVERAGE
@@ -221,12 +225,21 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     score = change.severity
     bucket = bucket_of(change)
 
-    if change.change_type == REMOVED and not scope.confirms_absence(change.kind):
+    # Both directions rest on an absence. A removal is "not in the new side";
+    # an addition is "not in the old side", and a run whose *old* snapshot was
+    # short of targets invents New surface exactly as readily as a short new
+    # one invents removals. An overload disappearing is a MODIFIED change and
+    # was slipping past this for the same reason.
+    rests_on_absence = (change.change_type == REMOVED
+                        or "signatures" in change.deltas
+                        or (change.change_type == ADDED and scope.from_incomplete))
+    if rests_on_absence and not scope.confirms_absence(change.kind):
         score -= UNCONFIRMED_PENALTY
-        if scope.incomplete:
-            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {scope.incomplete} at "
-                   f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
-                   f"\"in something this run could not read\"")
+        gap = scope.incomplete or scope.from_incomplete
+        if gap:
+            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {gap}, so this "
+                   f"comparison has a hole shaped exactly like the change it "
+                   f"is reporting")
         else:
             why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
                    f"{scope.read_percent(change.kind)} of that surface at "
@@ -241,7 +254,13 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         if leading_signal(change) in UNCONFIRMED_SIGNALS:
             bucket = BUCKET_HOUSEKEEPING
             why += "; filed as housekeeping rather than breaking"
-        reasons.append(why + " — --target-set wide settles it")
+        # `wide` widens what is fetched. It cannot conjure a target the
+        # source does not have or make a file parse, so the advice is only
+        # offered when reading more would actually settle the question.
+        if scope.incomplete or scope.from_incomplete:
+            reasons.append(why)
+        else:
+            reasons.append(why + " — --target-set wide settles it")
 
     finding.score = max(0, min(100, score))
     finding.bucket = bucket

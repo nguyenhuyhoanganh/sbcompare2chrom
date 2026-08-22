@@ -317,7 +317,16 @@ from typing import Any, Dict, Iterable, List, Optional
 #      more than one signature, 56 had that set change, and 2 were silent --
 #      one of them `Document.parseHTMLUnsafe` losing an argument list, which
 #      is a web API disappearing.
-SCHEMA_VERSION = 31
+#  32: three more places where a fact was recorded and not compared, and one
+#      normalisation. `platform_state` reached the diff on three of the
+#      sixteen kinds, so a Mojo method or a settings control leaving the
+#      Windows build produced no row. An IDL signature kept the space
+#      Chromium puts after an opening parenthesis when it wraps a long
+#      argument list, so seven SubtleCrypto members read as changed
+#      signatures at 50 points on M148 -> M151 with nothing moved. And an
+#      overload set gaining an entry at an argument count something already
+#      had can take a call from it, which version 31 called harmless.
+SCHEMA_VERSION = 32
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.

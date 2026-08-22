@@ -3882,13 +3882,48 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         self.assertEqual(finding.score, 60)
         self.assertEqual(finding.bucket, "breaking")
 
-    def test_gaining_one_is_new_surface_not_breakage(self):
-        """Every existing call still matches the overload it always did."""
+    def test_gaining_a_new_argument_count_is_new_surface(self):
+        """No existing call can reach it, because resolution counts first."""
+        wider = self.ONE + " Promise<R> install(USVString u, USVString v);"
         change = [c for c in diff_snapshots(self._snap("148.0.0.0", self.ONE),
-                                            self._snap("151.0.0.0", self.TWO))
+                                            self._snap("151.0.0.0", wider))
                   if c.kind == "idl_member"][0]
         self.assertEqual(change.signals, ["web_api_overload_added"])
         self.assertEqual(score_change(change).bucket, "new")
+
+    def test_gaining_an_overload_at_an_existing_arity_can_take_a_call(self):
+        """The first version of this claimed adding one breaks nothing.
+
+        Web IDL resolves by argument count first and type second, so a new
+        overload at a count something already had can capture a call that used
+        to reach the other one. `Navigator.install` is exactly that: M151 adds
+        `install(InstallParams)` beside `install(USVString install_url)`, both
+        taking one argument, so `navigator.install(someObject)` stops
+        stringifying. The site is unedited and nothing was removed.
+        """
+        change = [c for c in diff_snapshots(self._snap("148.0.0.0", self.ONE),
+                                            self._snap("151.0.0.0", self.TWO))
+                  if c.kind == "idl_member"][0]
+        self.assertEqual(change.signals, ["web_api_overload_shadowed"])
+        self.assertEqual(score_change(change).bucket, "behaviour")
+
+    def test_the_verdict_does_not_depend_on_which_copy_survived(self):
+        """One event, one score, whatever deduplication happened to keep.
+
+        Hanging the overload signal on an `elif` made the same removal score
+        60 when the surviving declaration was unchanged and 50 when it was
+        not -- a fact about declaration order, not about the API.
+        """
+        kept_same = diff_snapshots(
+            self._snap("148.0.0.0", "void f(); void f(long a);"),
+            self._snap("151.0.0.0", "void f();"))
+        kept_moved = diff_snapshots(
+            self._snap("148.0.0.0", "void f(long a); void f(double b);"),
+            self._snap("151.0.0.0", "void f(short a);"))
+        for changes in (kept_same, kept_moved):
+            change = [c for c in changes if c.kind == "idl_member"][0]
+            self.assertIn("web_api_overload_removed", change.signals)
+            self.assertEqual(score_change(change).score, 60)
 
 
 class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):

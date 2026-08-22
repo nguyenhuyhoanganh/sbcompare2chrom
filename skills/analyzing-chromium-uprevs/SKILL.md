@@ -31,7 +31,7 @@ version is adopted, silently: both ends of a Mojo interface are generated from
 the same file so a changed signature never breaks the build, and Chromium
 ignores an unrecognised command-line switch without a word.
 
-At M148 → M151, 227 of the 283 Breaking rows are half two. Applying half one's
+At M148 → M151, 220 of the 276 Breaking rows are half two. Applying half one's
 questions to them is the failure this skill prevents.
 
 ## Workflow

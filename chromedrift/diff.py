@@ -68,7 +68,7 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # without comparing "var" the change produces no finding at all.
     # Measured M130 -> M151: 4 such renames, including kDIPS -> kBtm.
     KIND_BASE_FEATURE: ("default_state", "platform_state", "conditions", "var"),
-    KIND_FEATURE_PARAM: ("default", "type", "feature", "var"),
+    KIND_FEATURE_PARAM: ("default", "type", "feature", "var", "platform_state"),
     KIND_BLINK_RUNTIME: (
         "status", "platform_status", "windows_status", "base_feature",
         "base_feature_status", "origin_trial_feature_name", "depends_on",
@@ -97,25 +97,26 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # than empty: it is part of the key, so it can never differ, and it read as
     # an attribute that could move and produce a row nothing explains. An
     # interface's identity moving *is* an add plus a remove.
-    KIND_MOJO_INTERFACE: (),
+    KIND_MOJO_INTERFACE: ("platform_state",),
     # `ordinal` is wire order. `Foo@0` and `Foo@1` are the same declaration to
     # every other field here and a different message on the wire, so leaving it
     # out made an ABI change produce no row at all. It was extracted and then
     # not compared -- the two halves of this pipeline are separate doors, and
     # opening the first is not opening the second.
-    KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal"),
+    KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal",
+                       "platform_state"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
     # wire format under the same name.
-    KIND_MOJO_STRUCT: ("mojo_kind",),
+    KIND_MOJO_STRUCT: ("mojo_kind", "platform_state"),
     # The type and the ordinal are the wire format. The default and the
     # `[MinVersion]` annotation are not, and they are labelled separately.
-    KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs"),
+    KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "platform_state"),
     # One list rather than a fact per member: members are 17,061 of the tree's
     # declarations at M151, and adding one is Mojo's ordinary way of extending
     # a type.
-    KIND_MOJO_ENUM: ("values",),
+    KIND_MOJO_ENUM: ("values", "platform_state"),
     # "platform_state" is the guard resolved for Windows, not the guard text:
     # a key entering or leaving our binary is the change, while Chromium
     # tidying `!IS_ANDROID` off one is not. The raw `conditions` stay on the
@@ -124,7 +125,8 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     KIND_PREF: ("var", "platform_state"),
     KIND_FLAG_ENTRY: ("expiry_milestone",),
     KIND_WEBUI_ROUTE: ("route", "parent", "guards"),
-    KIND_WEBUI_CONTROL: ("control", "pref", "label", "build_conditions"),
+    KIND_WEBUI_CONTROL: ("control", "pref", "label", "build_conditions",
+                         "platform_state"),
     KIND_WEBUI_GATE: ("expression", "features", "enabled_checks"),
 }
 
@@ -224,6 +226,11 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     # Gaining one breaks nothing -- every existing call still matches the
     # overload it always did -- so it is new surface, not a contract move.
     "web_api_overload_added": 25,
+    # A new overload taking an argument count an existing one already takes.
+    # Resolution picks by count first, so a call that used to reach the older
+    # one can now reach this instead -- no removal, no signature change, and
+    # the site is unedited.
+    "web_api_overload_shadowed": 45,
     "ipc_signature_change": 80,
     "ipc_removed": 75,
     # The data half of the same break. A field changing type or ordinal means
@@ -341,7 +348,12 @@ SIGNAL_LABELS: Dict[str, str] = {
                                 "still there, but one of the argument lists "
                                 "it accepted is gone",
     "web_api_overload_added": "Web API gained an overload — a new argument "
-                              "list on a member that already existed",
+                              "list on a member that already existed, taking "
+                              "an argument count nothing else took",
+    "web_api_overload_shadowed": "Web API gained an overload with an argument "
+                                 "count another already had — resolution picks "
+                                 "by count first, so an existing call can now "
+                                 "reach a different one",
     "ipc_signature_change": "Mojo method signature changed (ABI)",
     "ipc_removed": "Mojo interface/method removed",
     "ipc_ordinal_changed": "Mojo method ordinal changed (ABI) — the other "
@@ -436,6 +448,7 @@ SIGNAL_BUCKET: Dict[str, str] = {
     "web_api_signature_change": BUCKET_BREAKING,
     "web_api_overload_removed": BUCKET_BREAKING,
     "web_api_overload_added": BUCKET_NEW,
+    "web_api_overload_shadowed": BUCKET_BEHAVIOUR,
     "pref_renamed": BUCKET_BREAKING,
     "pref_symbol_renamed": BUCKET_BREAKING,
     "switch_renamed": BUCKET_BREAKING,
@@ -898,6 +911,53 @@ def owner_of(change: Change) -> str:
     return KIND_OWNERS.get(change.kind, OWNER_NATIVE)
 
 
+def _arity(signature: str) -> int:
+    """How many arguments the overload takes, ignoring nested commas."""
+    open_at = signature.find("(")
+    if open_at == -1:
+        return -1
+    inner = signature[open_at + 1:signature.rfind(")")].strip()
+    if not inner:
+        return 0
+    depth = count = 1
+    for ch in inner:
+        if ch in "(<[":
+            depth += 1
+        elif ch in ")>]":
+            depth -= 1
+        elif ch == "," and depth == 1:
+            count += 1
+    return count
+
+
+def _overload_signals(before, after) -> List[str]:
+    """What changing an overload set does, by direction and by arity.
+
+    Losing one is a callable shape disappearing: a site passing that argument
+    list stops matching.
+
+    Gaining one is usually harmless -- but not always, and the first version
+    of this said "breaks nothing" flatly, which is wrong. Web IDL resolves an
+    overload by argument count first and by type second, so a new overload
+    with an argument count an existing one already has can capture a call that
+    used to reach the other. That is exactly `Navigator.install`: M151 adds
+    `install(InstallParams)` beside `install(USVString install_url)`, both
+    taking one argument, so `navigator.install(someObject)` no longer
+    stringifies. A new argument count cannot take a call from anyone.
+    """
+    before, after = set(before or ()), set(after or ())
+    out: List[str] = []
+    if before - after:
+        out.append("web_api_overload_removed")
+    added = after - before
+    if added:
+        arities = {_arity(sig) for sig in before}
+        out.append("web_api_overload_shadowed"
+                   if any(_arity(sig) in arities for sig in added)
+                   else "web_api_overload_added")
+    return out
+
+
 def _signals_for(change: Change, old_fact: Optional[Fact],
                  new_fact: Optional[Fact], platform: str,
                  target_milestone: Optional[int],
@@ -933,12 +993,15 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
                 signals.append("web_api_signature_change")
             # The overload set, which the member's own signature cannot show:
             # deduplication keeps one declaration, so a sibling overload
-            # appearing or disappearing moved nothing this branch could see.
-            elif "signatures" in change.deltas:
-                before, after = change.deltas["signatures"]
-                gone = set(before or ()) - set(after or ())
-                signals.append("web_api_overload_removed" if gone
-                               else "web_api_overload_added")
+            # appearing or disappearing moved nothing that branch could see.
+            #
+            # Not an `elif`. Whether the surviving declaration also changed is
+            # a fact about which copy deduplication kept, and hanging the
+            # signal on it made one event score 60 or 50 depending on
+            # declaration order. Both statements are emitted and
+            # `leading_signal` picks; the answer no longer depends on the file.
+            if "signatures" in change.deltas:
+                signals += _overload_signals(*change.deltas["signatures"])
             # `inherits` moves the prototype chain, `values` adds or drops an
             # enum member -- both change what a site can write, and both were
             # compared without ever producing a row anyone could read.
@@ -1032,6 +1095,17 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
 
     if "path" in change.deltas:
         signals.append("declaration_moved")
+
+    # A declaration entering or leaving the Windows build, on any kind that
+    # can say so. `score._not_in_build` has always known that this is the
+    # change rather than a reason to discount one -- "a declaration entering
+    # or leaving our binary is the change" -- but `platform_state` was
+    # compared on three of the sixteen kinds, so a Mojo method or a settings
+    # control becoming Android-only produced no row at all. The same two-door
+    # mistake as the Mojo ordinal: recorded on the fact, invisible to the
+    # diff.
+    if "platform_state" in change.deltas and not signals:
+        signals.append("build_gate_changed")
 
     return signals
 
@@ -1220,6 +1294,7 @@ def _blink_signals(change: Change, old_fact: Optional[Fact],
     # exists and had nothing to say for itself.
     if "status" in change.deltas and not signals:
         signals.append("runtime_flag_rewired")
+
     return signals
 
 

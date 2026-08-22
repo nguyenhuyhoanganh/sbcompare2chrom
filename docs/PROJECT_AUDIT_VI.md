@@ -2,11 +2,11 @@
 
 > Ngày đánh giá ban đầu: 21-08-2026
 > Follow-up review: 22-08-2026
-> Commit hiện tại được đọc: `8ced148` — schema `30`
-> Lịch sử được đọc: đủ 67/67 commit, từ `d9fca08` đến `8ced148`, gồm subject, body và diff của các quyết định quan trọng.
+> Baseline mới nhất được review: commit `b844108` — schema `31`
+> Lịch sử đến baseline đã được đọc: đủ 68/68 commit, từ `d9fca08` đến `b844108`, gồm subject, body và diff của các quyết định quan trọng.
 > Phạm vi: toàn bộ source Python, extractor, target, cache, snapshot, diff, scoring, report, test và dữ liệu cache M143/M147/M148/M151 có sẵn trong project.
 
-> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Trạng thái mới nhất sau commit `8ced148` nằm ở **mục 27** và có quyền thay thế các con số cũ. Các mục 1–26 là lịch sử lập luận và số đo ở những commit trước.
+> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27; review mới nhất của `b844108` nằm ở **mục 28** và có quyền thay thế các con số cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
 
 ## 1. Đọc phần này trước nếu bạn không rành kỹ thuật
 
@@ -27,9 +27,9 @@ Sau khi đọc toàn bộ commit history, release-gate verdict ở trên **khôn
 - Determinism, scope guard, reference closure và score ceiling đều có rationale rõ và test đi kèm.
 - Function body, TypeScript behavior, `.grd` và GN config schema là documented exclusions, không phải phần tác giả quên làm.
 
-Commit `8ced148` sửa đúng lỗi ordinal tường minh mà review trước bắt được: `Foo@0 → Foo@1` giờ đi xuyên suốt extract → diff → score và thành `ipc_ordinal_changed`, 80 điểm, bucket Breaking. Commit cũng làm bare `unittest discover` chạy đủ test, dùng coverage theo surface khi xác nhận removal, tập trung eligibility vào một module, chặn non-HTTP spec URL và hợp nhất cache sanitizer.
+Commit `b844108` đã làm hai false negative WebIDL cụ thể xuất hiện: `Document.parseHTMLUnsafe` thành overload removal 60/Breaking và `Navigator.install` thành overload addition 25/New. Nó cũng làm whole-fact removal mất confidence khi snapshot mới có missing target hoặc extractor error. Bare `unittest discover` chạy đủ 335 test trên cả Python 3.14 và 3.9.
 
-Tuy nhiên release-gate verdict vẫn chưa đổi. Review sâu hơn cho thấy ordinal tường minh mới chỉ là phần dễ thấy: method/field không viết `@N` vẫn có ordinal ngầm theo vị trí, và ChromeDrift không lưu hoặc compare vị trí này. Ngoài ra, build guard bao quanh interface/struct Mojo đã được extract vào `platform_state` nhưng cũng chưa nằm trong `MEANINGFUL_ATTRS`. Đây chính là cùng kiểu lỗi “mở cửa extraction nhưng chưa mở cửa comparison” vừa xảy ra với ordinal.
+Tuy nhiên release-gate verdict vẫn chưa đổi. Overload set mới chỉ lưu chuỗi signature, không giữ attribute/gate/location của từng variant; dedicated signal còn phụ thuộc overload bị xoá đứng đầu hay đứng cuối. Latch completeness chỉ áp dụng cho whole-fact removal ở snapshot mới, nên overload removal dạng `modified` và false addition từ snapshot cũ vẫn lọt. Các blocker implicit Mojo ordinal và enclosing Mojo guard của mục 27 cũng chưa được sửa.
 
 Nói dễ hiểu hơn:
 
@@ -51,7 +51,7 @@ Bạn có thể đọc theo lộ trình này:
 - Muốn hiểu fact và score: đọc mục 9, 10 và 11.
 - Muốn biết commit history đã quyết định gì: đọc mục 17 và 18.
 - Muốn biết lỗi nào cần sửa trước: đọc mục 19, 20 và 21.
-- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 27.1, 27.14 và 27.15.
+- Muốn có kết luận mới nhất và thứ tự sửa: đọc mục 28.1, 28.11 và 28.12.
 
 ### Bảng trả lời nhanh
 
@@ -59,12 +59,12 @@ Bạn có thể đọc theo lộ trình này:
 |---|---|
 | Target `default` đủ chưa? | Không; nó cố ý chỉ lấy mẫu để chạy nhanh. |
 | Target `wide` đủ chưa? | Chưa hoàn toàn; nó đạt 8.295 / 8.366 candidate file, còn 71 file. Per-surface denominator cũng đang gán mỗi file cho surface đầu tiên match, dù 378 file match nhiều surface. |
-| Đã extract hết source đã tải chưa? | Chưa; explicit Mojo ordinal đã được diff, nhưng implicit ordinal và enclosing Mojo guard vẫn có false negative. WebIDL overload vẫn bị collapse và parser error vẫn có thể bị nuốt. |
+| Đã extract hết source đã tải chưa? | Chưa. Hai WebIDL false negative đã được đóng, nhưng variant attributes/location chưa được giữ; implicit Mojo ordinal, enclosing guard và silent parser skip vẫn còn. |
 | Hai version được nối với nhau thế nào? | Bằng `kind:key`, rồi so một allowlist thuộc tính. |
 | Conflict trong cùng version xử lý thế nào? | Hiện giữ bản có path/line nhỏ nhất; ổn định nhưng có thể sai semantics. |
 | Fact đủ làm release verdict chưa? | Chưa; đủ cho inventory và manual triage. |
 | Score có phải xác suất lỗi không? | Không; đó là trọng số heuristic để xếp thứ tự đọc. |
-| 327 test pass có chứng minh đầy đủ không? | Không. Bare discovery giờ thật sự chạy đủ 327 test và ordinal test mới là end-to-end; nhưng docs test vẫn bỏ lọt nhiều số cũ, implicit ordinal và enclosing guard vẫn chưa có contract test. |
+| 335 test pass có chứng minh đầy đủ không? | Không. Bare discovery chạy thật, nhưng overload test chỉ xoá overload không phải representative; completeness test chỉ thử whole removal phía mới. Các case ngược lại đều đang sai mà suite vẫn xanh. |
 | Có nên bỏ project không? | Không; nền tảng tốt, nhưng cần sửa comparison completeness, variants, confidence và provenance. |
 
 ## 2. Một ví dụ đời thường để hiểu toàn bộ hệ thống
@@ -1999,7 +1999,7 @@ schema           30
 commit history   67 commit
 ```
 
-Trong lúc hoàn thiện file audit, một process khác trong cùng workspace bắt đầu tạo các thay đổi chưa commit cho WebIDL overload và absence completeness. Tôi giữ nguyên chúng, không đưa chúng vào số đo hay verdict của mục này. Mục 27 review đúng commit đã được yêu cầu là `8ced148`, không review trạng thái dirty xuất hiện sau đó.
+Trong lúc hoàn thiện file audit, một process khác trong cùng workspace tạo thay đổi cho WebIDL overload và absence completeness, rồi commit/push thành `b844108`. Tôi không tạo, sửa hoặc push commit đó. Các thay đổi này xuất hiện sau khi số đo đã hoàn tất, nên mục 27 vẫn review đúng baseline được yêu cầu là `8ced148`; hai mục được đánh dấu Open bên dưới không phải là đánh giá lại implementation ở `b844108`.
 
 Hai cách discover test đều chạy thật:
 
@@ -2585,3 +2585,474 @@ Vì vậy đánh giá công bằng nhất là:
 > **Commit `8ced148` đóng tốt explicit ordinal, bare discovery và spec-link security; đóng phần scoring decision của per-surface coverage; nhưng chưa đóng process-boundary comparison completeness, coverage membership completeness, documentation correctness contract hay release gate.**
 
 Project vẫn rất đáng tiếp tục. Điểm mạnh nhất của maintainer là chịu đo, ghi rationale trong commit message và chấp nhận rút claim sai. Bước tiếp theo nên dùng chính kỷ luật đó cho implicit ordinal và enclosing guard: fixture nhỏ chứng minh cơ chế, real-version measurement để biết quy mô, rồi mới chọn signal/score.
+
+## 28. Follow-up review commit `b844108` — schema 31
+
+### 28.1. Kết luận ngắn nhất
+
+Hai thay đổi của commit đều có giá trị, nhưng mức độ đóng khác nhau:
+
+| Claim | Kết quả review độc lập | Trạng thái |
+|---|---|---|
+| Hai WebIDL false negative cụ thể đã xuất hiện | Đúng: `Document.parseHTMLUnsafe` 60/Breaking, `Navigator.install` 25/New | **Fixed ở hai case** |
+| Fact giữ “whole overload set” | Có giữ tập signature; chưa giữ attribute, runtime gate, path và line theo từng overload | **Partial** |
+| Signal tách đúng theo direction | Chỉ đúng khi representative signature không đổi; xoá overload đứng đầu và đứng cuối cho score khác nhau | **Partial / order-dependent** |
+| Thêm overload không thể phá call site cũ | Không đúng tổng quát theo WebIDL overload resolution | **Rationale quá mạnh** |
+| Missing target / parse error chặn confirmed absence | Đúng cho whole-fact `REMOVED` ở snapshot mới | **Fixed phần hẹp** |
+| Mọi absence-shaped change đều bị chặn | Overload removal là `MODIFIED` nên bypass; snapshot cũ thủng vẫn sinh false addition | **Chưa fixed** |
+| Fix làm thay đổi report hiện tại | Overload thêm 2 findings; completeness latch không đổi gì vì mọi error count hiện bằng 0 | **Đúng** |
+| 335 test | Chạy đủ trên Python 3.14 và 3.9 | **Verified** |
+
+Verdict release gate vẫn là **chưa đạt**. Commit này đóng hai false negative WebIDL đã biết, nhưng chưa đóng overload contract. Missing-target latch là một safety improvement tốt, song hiện mới che một chiều và một loại change.
+
+### 28.2. Những con số đã được kiểm lại
+
+Baseline:
+
+```text
+HEAD             b844108
+origin/main      b844108
+schema           31
+commit history   68 commit
+```
+
+Test:
+
+```text
+python3 -m unittest discover -q
+Ran 335 tests
+OK
+
+python3 -m unittest discover -s tests -q
+Ran 335 tests
+OK
+
+/usr/bin/python3 -m unittest discover -q   # Python 3.9.6
+Ran 335 tests
+OK
+```
+
+Snapshot schema 31 và report thật:
+
+| Target | Facts M148 → M151 | Changes | Breaking | Behaviour | New | Housekeeping | Score 0 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `default` | 28.507 → 29.138 | 3.029 | 283 | 468 | 1.241 | 1.037 | 187 |
+| `wide` | 52.367 → 54.298 | 6.071 | 805 | 695 | 2.980 | 1.591 | 441 |
+
+M143, M147, M148 và M151 snapshots có trong cache đều có `missing_targets = 0` và `extract_stats._errors = 0` ở những target đã đo. Vì vậy maintainer nói latch không đổi score hôm nay là đúng.
+
+Đếm WebIDL sau eligibility filter:
+
+```text
+M148: 122 member có nhiều hơn một signature
+M151: 121 member có nhiều hơn một signature
+```
+
+Nếu so full signature set của các member tồn tại ở cả hai phía, 56 member đổi set. Trong đó 54 đã có representative `signature` đổi nên code cũ vốn đã tạo row; hai member có representative giữ nguyên chính là hai false negative đã nêu. Cách diễn đạt này chính xác hơn câu dễ bị hiểu thành “56 trong 121 overload group đều thay đổi”.
+
+Sau schema 31, real diff có bốn row mang delta `signatures`:
+
+- hai row vẫn được gắn `web_api_signature_change` vì representative cũng đổi;
+- một `web_api_overload_removed` là `Document.parseHTMLUnsafe`;
+- một `web_api_overload_added` là `Navigator.install`.
+
+### 28.3. Phần WebIDL đã sửa đúng điều gì?
+
+Giữ một stable member identity rồi đặt variant set bên trong là hướng đúng hơn việc thêm signature vào UID:
+
+```text
+idl_member:Navigator.install
+    signatures:
+      - install()
+      - install(USVString)
+      - install(InstallParams)
+```
+
+Ưu điểm:
+
+- signature mới không bị biến thành một member mới hoàn toàn;
+- mất một overload không bị biến thành xóa cả member;
+- partial declarations ở nhiều file vẫn có thể gộp vào cùng member;
+- fact count không nổ;
+- schema bump 31 là đúng vì serialized Fact đã đổi.
+
+Hai regression test mới chạy qua extract → dedupe → diff → score, nên tốt hơn kiểu test chỉ soi key trên Fact. Hai row thật cũng xuất hiện đúng:
+
+```text
+Document.parseHTMLUnsafe  web_api_overload_removed  60  Breaking
+Navigator.install        web_api_overload_added    25  New surface
+```
+
+Nói gọn: **hai false negative cũ đã được đóng thật**. Các finding bên dưới là về contract rộng hơn, không phủ nhận kết quả này.
+
+### 28.4. Lỗi mới quan trọng nhất: score phụ thuộc overload bị xoá đứng đầu hay đứng cuối
+
+Code hiện kiểm theo thứ tự:
+
+```python
+if "signature" in change.deltas:
+    web_api_signature_change
+elif "signatures" in change.deltas:
+    web_api_overload_removed / added
+```
+
+`signature` là declaration có `(path, line)` nhỏ nhất. Vì vậy khi overload đầu tiên bị xóa, representative đổi và nhánh generic chạy trước. Khi overload cuối bị xóa, representative giữ nguyên và nhánh overload chạy.
+
+Probe cùng một semantics:
+
+| Case | Old | New | Signal | Score |
+|---|---|---|---|---:|
+| Xóa overload đứng đầu | `f(long); f(DOMString)` | `f(DOMString)` | `web_api_signature_change` | 50 |
+| Xóa overload đứng cuối | `f(long); f(DOMString)` | `f(long)` | `web_api_overload_removed` | 60 |
+
+Trong cả hai case, member mất đúng một argument list. Vị trí source khác nhau không nên quyết định severity hoặc wording.
+
+Real M148 → M151 đã có hai row cùng hình dạng bị giữ ở signal generic 50:
+
+- `GPUQueue.copyElementImageToTexture`: ba overload cũ bị thay bằng một form mới;
+- `WebGLRenderingContextBase.texElementImage2D`: bốn overload cũ bị thay bằng một form mới.
+
+Hai row này có cả delta `signature` và `signatures`, nhưng dedicated removal signal không chạy vì `elif`. Vậy implementation mới không thật sự “tách theo direction” cho toàn bộ overload change; nó chỉ gắn signal mới cho case mà representative tình cờ không đổi.
+
+Cách sửa ngắn:
+
+```text
+if signatures delta:
+    nếu old - new khác rỗng: append overload_removed
+    nếu new - old khác rỗng: append overload_added
+
+nếu chỉ signature delta và không có variant-set delta:
+    append web_api_signature_change
+```
+
+Khi vừa mất vừa thêm, giữ cả hai signal; `leading_signal` tự chọn removal 60 làm headline, addition 25 vẫn còn làm evidence. Cần test permutation: đổi thứ tự declaration không được đổi signal/score.
+
+### 28.5. `signatures: [string]` chưa phải whole variant set
+
+Mỗi overload không chỉ có signature. Nó còn có extended attributes, runtime gate, nơi khai báo và line riêng.
+
+Đo raw M151 trên đúng population sau eligibility:
+
+| Trong 121 overload group | Số group |
+|---|---:|
+| Các overload có `ext` khác nhau | 42 |
+| Các overload có `runtime_enabled` khác nhau | 12 |
+| Các overload nằm ở nhiều file | 1 |
+
+Fact sống sót hiện giữ:
+
+```text
+signatures = toàn bộ chuỗi signature
+ext/runtime_enabled/path/line = chỉ của representative thấp nhất
+```
+
+Điều này tạo ba vấn đề.
+
+#### 1. Gate của overload bị mất
+
+Ở M148, hai variant của `Document.parseHTMLUnsafe` là:
+
+```text
+line 88  parseHTMLUnsafe(html)
+         runtime gate: none
+
+line 92  parseHTMLUnsafe(html, SetHTMLUnsafeOptions)
+         runtime gate: SanitizerAPI
+```
+
+Variant bị xóa là line 92 có gate riêng. Fact chỉ giữ attrs của line 88, nên scorer không biết gate của thứ vừa mất. Trong pair này `SanitizerAPI` đang stable, vì vậy Breaking vẫn là kết luận hợp lý. Nhưng data model không đủ để đưa ra kết luận đó; nó tình cờ đúng nhờ trạng thái thật của gate bị bỏ mất.
+
+M151 thêm hai variant ở line 92 và 93; một variant phụ thuộc `TrustedTypesCreateParserOptions`, hiện experimental. Row chỉ nói member được modified và không thể phân biệt overload live với overload experimental.
+
+#### 2. Location trỏ vào declaration không đổi
+
+Change `Document.parseHTMLUnsafe` hiện cite:
+
+```text
+third_party/blink/renderer/core/dom/document.idl:88
+```
+
+Nhưng line 88 là overload không đổi. Thứ bị xóa ở old line 92; hai thứ thêm ở new line 92/93. Người đọc click đúng file nhưng sai declaration.
+
+#### 3. Ví dụ cross-file tự chứng minh cần provenance theo variant
+
+`URL.createObjectURL` trải hai file như commit message nói. Hai overload còn có `Exposed` khác nhau. Gộp ở `dedupe_facts` là đúng nơi, nhưng giữ path/ext của một representative lại làm mất chính thông tin khiến cross-file aggregation cần thiết.
+
+Fact nên mang variant records, không chỉ string set:
+
+```json
+"variants": [
+  {
+    "signature": "...",
+    "ext": {"RuntimeEnabled": "..."},
+    "runtime_enabled": "...",
+    "path": "...",
+    "line": 92
+  }
+]
+```
+
+Identity vẫn là một member; snapshot chỉ tăng rất ít vì M151 có 121 group. Diff có thể lấy đúng removed/added variants, đúng gate và đúng line.
+
+### 28.6. “Thêm overload không phá call site nào” là một khẳng định quá mạnh
+
+WebIDL không chọn overload chỉ bằng tên. Nó xây một effective overload set rồi chọn callable dựa trên số lượng và type của JavaScript arguments. Đây là cơ chế trong [Web IDL overload resolution algorithm](https://webidl.spec.whatwg.org/#dfn-overload-resolution-algorithm).
+
+Ví dụ tối giản:
+
+```webidl
+// old
+undefined f(DOMString value);
+
+// new
+undefined f(DOMString value);
+undefined f(Node value);
+```
+
+Trước đây, một object có thể đi qua conversion sang string và vào overload cũ. Sau khi thêm overload `Node`, một Node object có thể được dispatch sang callable mới. Call site vẫn chạy nhưng không nhất thiết “match overload nó luôn match”.
+
+Đối với `Navigator.install`, variant mới nhận `InstallParams` dictionary bên cạnh các `USVString` variants. Một call cũ truyền object có thể được overload resolver xử lý khác sau khi dictionary variant xuất hiện. Đây là inference từ thuật toán của spec, không phải khẳng định rằng Chromium M151 chắc chắn phá một site cụ thể.
+
+Vì vậy bucket New surface có thể vẫn là policy chấp nhận được, nhưng label/reason nên trung thực hơn:
+
+> “A new argument shape is available; existing calls with values distinguishable as that shape may resolve differently.”
+
+Không nên dùng câu tuyệt đối “every existing call still matches the overload it always did”. Nếu muốn giữ score 25, tài liệu phải nói đây là heuristic, không phải proof of non-breakage.
+
+### 28.7. Signature normalization vẫn tạo false positive
+
+`collapse_ws()` chỉ gom nhiều whitespace thành một; nó không canonicalize khoảng trắng quanh punctuation. M148 → M151 `wide` có **7 WebIDL rows** mà old/new signature chỉ khác whitespace, nhưng mỗi row nhận:
+
+```text
+web_api_signature_change
+score 50
+Breaking
+```
+
+Ví dụ:
+
+```text
+SubtleCrypto.importKey(
+→ SubtleCrypto.importKey(␠
+```
+
+Sau khi bỏ whitespace, hai chuỗi giống hệt. Các row khác gồm `deriveBits`, `unwrapKey`, `decapsulateBits`, `decapsulateKey`, `encapsulateBits` và `encapsulateKey`.
+
+Đây là pre-existing parser normalization issue, không phải regression do `b844108`. Nhưng schema 31 dùng chính signature string làm set element, nên vấn đề này giờ ảnh hưởng cả representative comparison lẫn variant-set comparison. Cần canonical token serialization của WebIDL; không nên đơn giản xóa mọi space vì `unsigned long` và identifier boundary vẫn cần được phân biệt.
+
+### 28.8. Absence latch: phần tốt và bốn lỗ còn lại
+
+#### Phần tốt
+
+`cmd_run` giờ lấy `missing_targets` và `extract_stats._errors` của snapshot mới, chuyển thành reason rồi đưa vào `Scope`. Với whole-fact removal:
+
+```text
+new snapshot incomplete
+        ↓
+confirms_absence(kind) = false
+        ↓
+-15 và reason nói target missing hay file parse failed
+```
+
+Đây là fail-closed behavior hợp lý. Test mới chứng minh helper build đúng reason và whole pref removal bị hạ confidence.
+
+#### Lỗ 1 — overload removal là `MODIFIED`, nên bypass hoàn toàn
+
+Điều kiện score hiện là:
+
+```python
+if change.change_type == REMOVED and not scope.confirms_absence(...):
+```
+
+Mất một overload không xóa member, nên change type là `modified`. Probe:
+
+```text
+old: f(long); f(DOMString)
+new: f(long)
+snapshot mới: 1 file would not parse
+
+result:
+  change_type = modified
+  signal      = web_api_overload_removed
+  score       = 60
+  bucket      = Breaking
+  unconfirmed reason = none
+```
+
+Đây là đúng interaction giữa hai feature mới: variant absence vừa được thêm nhưng safety latch không áp dụng cho nó. Với overload trải nhiều file như `URL.createObjectURL`, mất một partial file có thể tạo đúng hình dạng này.
+
+Confidence phải dựa vào **removal-like semantic delta**, không chỉ top-level `change_type`. Ít nhất `web_api_overload_removed` phải đi qua absence guard. Về lâu dài, enum member/variant-set removal cũng cần cùng abstraction.
+
+#### Lỗ 2 — snapshot cũ thủng vẫn sinh “New surface” chắc chắn
+
+`cmd_run` chỉ gọi:
+
+```text
+incomplete = _incomplete_reason(new)
+```
+
+Probe:
+
+```text
+old snapshot: missing target chứa N.install, nên không có Fact
+new snapshot: complete, có N.install
+
+result:
+  change_type = added
+  signal      = web_api_added_live
+  score       = 35
+  bucket      = New
+  confidence warning = none
+```
+
+Presence ở version mới là chắc. Nhưng claim “được thêm giữa hai version” không chắc; nó có thể đã tồn tại trong file old run không đọc. Chính comment cũ trong `snapshot.py` cũng nói missing target là khác biệt giữa “feature was added” và “we never fetched the file declaring it”.
+
+Scope cần hai phía:
+
+```text
+REMOVED / removed variant  → hỏi completeness phía new
+ADDED / added variant      → hỏi completeness phía old cho claim novelty
+MODIFIED value             → hai fact đều có, thường không cần absence check
+```
+
+Nếu project cố ý chỉ quan tâm “present in adopted version”, label phải là “observed in new snapshot”, không phải “New surface”.
+
+#### Lỗ 3 — reason đưa advice sai
+
+Dù nguyên nhân là parse error hay target missing, code vẫn nối:
+
+```text
+— --target-set wide settles it
+```
+
+Probe thật cho ra:
+
+```text
+-15 unconfirmed: 1 file(s) that would not parse ...
+— --target-set wide settles it
+```
+
+Chạy `wide` không sửa parser, không làm target xuất hiện và có thể chính run hiện tại đã là `wide`. Test mới chỉ assert có chữ `would not parse` và không có `of that surface`; nó không assert advice cuối câu. Đây lại là một case comment đúng hơn assertion.
+
+Advice nên phụ thuộc reason:
+
+- coverage gap + target hiện chưa wide: đề nghị wide;
+- parse error: in file/extractor bị lỗi và yêu cầu fix parser;
+- missing target: xác minh tree listing/path migration;
+- đã wide: không đề nghị chạy lại đúng command.
+
+#### Lỗ 4 — `_errors = 0` chưa có nghĩa là parse complete
+
+WebIDL extractor tự mô tả rằng nó bỏ qua syntax không hiểu thay vì fail file. Những silent skips đó không tăng `_errors`. Ngoài ra `_errors` đang là global count: một WebUI extractor exception sẽ làm mọi WebIDL/Mojo removal mất confirmation, dù per-surface coverage vừa được xây để tránh đúng kiểu trộn surface đó.
+
+Một release-grade completeness model cần ít nhất:
+
+```text
+from/to side
+surface hoặc extractor
+missing target paths
+fetch failures
+extractor exceptions
+parser warnings / unmatched candidate declarations
+variant/identity collisions
+```
+
+Nếu muốn fail closed toàn report khi bất kỳ lỗi nào xảy ra, nên đặt một banner `comparison incomplete` ở đầu report. Trừ 15 âm thầm trên từng whole removal không thay thế được release validity status.
+
+### 28.9. Documentation lại chứng minh test chưa quét “mọi con số”
+
+Commit sửa đúng bucket headline 282 → 283, New 1.240 → 1.241 và test count 327 → 335. Nhưng 335 test vẫn pass khi các active số khác mâu thuẫn:
+
+| Nơi | Đang ghi | Schema 31 thực tế |
+|---|---:|---:|
+| README cold/warm run story | 3.027 changes | 3.029 |
+| README owner table — Web platform | 724 | 726 |
+| Tổng owner table README | 3.027 | 3.029 |
+| `reference/signals.md` denominator | 3.027 | 3.029 |
+| README/pipeline/skill coverage | vẫn dùng 3.669/8.349 và 8.276/8.349 | 3.677/8.366 và 8.295/8.366 |
+
+`out/report.json` schema 31 có `by_owner.webplatform = 726`, nên đây không phải chênh do cách nhóm. Hai overload findings đều thuộc Web platform; table chỉ chưa được cập nhật.
+
+Nguyên nhân vẫn như mục 27.9:
+
+- docs test chỉ match ba sentence pattern và bốn bucket labels;
+- `out/report.json` bị ignore và test có thể skip trên fresh checkout;
+- owner/fact/coverage/performance totals không nằm trong contract.
+
+Commit này tự tạo thêm ví dụ đúng cho nhận xét “suite chứng minh phần matcher biết nhìn, không chứng minh toàn tài liệu đúng”. Canonical generated figures vẫn là fix cần thiết.
+
+### 28.10. Các blocker cũ thay đổi ra sao?
+
+| Finding trước | Sau `b844108` |
+|---|---|
+| Hai WebIDL silent cases | **Đóng** |
+| WebIDL variant contract đầy đủ | **Chưa**: order, attrs, gate, location và overload-resolution semantics |
+| Missing target / extractor error không ảnh hưởng confidence | **Đóng một phần** cho whole removal phía new |
+| Implicit Mojo method ordinal | Không đổi: 503 position changes, 485 không có row |
+| Implicit Mojo field ordinal | Không đổi: 607 position changes, 602 không có row |
+| Enclosing Mojo build guard | Không đổi: synthetic `not_compiled → compiled` vẫn diff rỗng |
+| Per-surface candidate first-match | Không đổi: 378 multi-surface paths |
+| Per-surface coverage không in trong normal report | Không đổi |
+| Mojo semantic attrs / `AllowedContext` mislabel | Không đổi |
+| 17 obvious test-only Mojo facts | Không đổi |
+| Cache key `.` / collision / Windows reserved names | Không đổi |
+
+Vì vậy `b844108` giảm WebIDL false-negative risk, nhưng process-boundary comparison completeness vẫn là blocker lớn nhất.
+
+### 28.11. Thứ tự sửa sau schema 31
+
+#### P0 — đóng đúng overload contract
+
+1. Đổi `signatures` thành variant records có signature, ext, runtime gate, path và line.
+2. Tính added/removed variant độc lập với representative; giữ cả hai signal khi set vừa mất vừa thêm.
+3. Thêm permutation test: xoá overload đầu/cuối phải cho cùng signal và score.
+4. Test gated overload và cross-file overload; report phải cite đúng declaration line.
+5. Đổi wording overload addition để không hứa existing dispatch không đổi.
+
+#### P0 — làm completeness directional và semantic
+
+6. Scope giữ `from` và `to` completeness.
+7. Áp dụng confidence cho removal-like deltas như `web_api_overload_removed`, không chỉ `change_type == removed`.
+8. Old-side hole phải hạ confidence của claim `added/new` hoặc đổi label thành “newly observed”.
+9. Bỏ advice `wide settles it` khi nguyên nhân là parse/missing target hoặc run đã wide.
+10. Lưu errors theo extractor/surface; thêm parser anomaly counters.
+
+#### P0 còn lại từ vòng trước
+
+11. Model implicit Mojo ordinal và `[Stable]`/GN evidence.
+12. Compare enclosing Mojo guard với own/inherited provenance.
+
+#### P1
+
+13. Canonicalize WebIDL tokens để loại 7 whitespace-only Breaking rows.
+14. Sửa multi-surface coverage membership và expose bảng trong report.
+15. Generate docs figures từ một canonical artifact chạy trong CI.
+
+### 28.12. Phản biện trực tiếp nhận định của maintainer
+
+#### “Overload là lỗi thật nhưng không phải blocker”
+
+Nếu câu này chỉ nói hai silent rows của M148 → M151 thì tôi đồng ý về blast radius: commit đã thêm đúng 2 / 3.029 findings, trong đó một Breaking.
+
+Nếu câu này nói overload model đã đủ an toàn thì chưa. Hai probe mới chứng minh:
+
+- cùng một overload removal có thể được 50 hoặc 60 tùy source order;
+- 42 / 121 overload groups có variant attrs khác nhau, nhưng fact không giữ mapping;
+- incomplete snapshot không hạ confidence của overload removal vì nó là `modified`;
+- addition có thể đổi overload dispatch của một existing call.
+
+Do đó overload không phải blocker lớn nhất của toàn project, nhưng implementation schema 31 vẫn là **partial correctness fix**, chưa phải closed contract.
+
+#### “missing_targets chưa từng là lỗi, chỉ là chốt”
+
+Đồng ý về dữ liệu hiện tại: mọi measured run đều bằng 0, nên không có current finding nào đổi vì latch.
+
+Không đồng ý rằng chốt đã đóng đủ. Nó chỉ nhìn snapshot mới, chỉ chạy cho whole removal và còn đưa advice sai. Cách gọi chính xác là:
+
+> “Đã thêm fail-closed latch cho whole-fact removals khi new snapshot báo hard extraction incompleteness.”
+
+Đó là improvement tốt, nhưng hẹp hơn “absence needs more than coverage” nói chung.
+
+#### Verdict
+
+> **`b844108` sửa thật hai WebIDL false negatives và thêm một new-side whole-removal safety latch. Nó chưa đóng overload variant semantics hoặc bidirectional/semantic absence confidence. Release-gate verdict vẫn là chưa đạt.**

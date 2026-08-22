@@ -150,7 +150,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     # measurement the coverage line prints keeps the two from drifting into
     # separate answers.
     scope = Scope({"to": (new.meta or {}).get("coverage") or {}},
-                  to_ref=new.ref, incomplete=_incomplete_reason(new))
+                  to_ref=new.ref, incomplete=_incomplete_reason(new),
+                  from_incomplete=_incomplete_reason(old))
     findings = score_all(changes, scope)
     # Group related findings before anything reads them. One Chromium change
     # arrives as fragments across several surfaces; ungrouped they contradict

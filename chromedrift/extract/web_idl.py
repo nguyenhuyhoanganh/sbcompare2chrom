@@ -58,6 +58,23 @@ _MEMBER_KEYWORDS = ("iterable", "maplike", "setlike", "stringifier",
 BLINK_IDL_DIR = "third_party/blink/renderer/"
 
 
+def _normalize_signature(decl: str) -> str:
+    """A signature keyed on what it declares, not on how it was typed.
+
+    `collapse_ws` alone leaves the space Chromium puts after an opening
+    parenthesis when it wraps a long argument list, so
+    `deriveBits( AlgorithmIdentifier ...` compared unequal to
+    `deriveBits(AlgorithmIdentifier ...` and seven SubtleCrypto members were
+    reported as changed signatures at 50 points, Breaking, on M148 -> M151.
+    Nothing about the API had moved; the file had been reformatted.
+    """
+    text = collapse_ws(decl)
+    for pair in ("(", ")", ",", "<", ">"):
+        text = text.replace(f" {pair}", pair) if pair in ")>,;" \
+            else text.replace(f"{pair} ", pair)
+    return text.replace(",", ", ").replace(",  ", ", ")
+
+
 def applies_to(path: str) -> bool:
     return path.endswith(".idl") and path.startswith(BLINK_IDL_DIR)
 
@@ -254,7 +271,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                 attrs={
                     "interface": name,
                     "member_type": member_type,
-                    "signature": collapse_ws(decl),
+                    "signature": _normalize_signature(decl),
                     "ext": member_ext,
                     "runtime_enabled": member_ext.get("RuntimeEnabled", ""),
                     "from_partial": is_partial,

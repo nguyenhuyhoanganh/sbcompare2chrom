@@ -17,10 +17,11 @@ it was handled. Expect them; check for them before reporting any removal.
 - 10. A Mojo ABI break has to break it for somebody
 - 11. A new web API can be unreachable
 - 12. A removed switch fails silently; a removed pref may orphan data
+- 13. A Mojo method's implicit ordinal is not compared, on purpose
 
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
 7 and 8 about running the tool. Traps 9 to 12 are the other surfaces, which
-carry the highest severities the tool reports: at M148 → M151, 227 of the 283
+carry the highest severities the tool reports: at M148 → M151, 220 of the 276
 Breaking rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature
@@ -315,3 +316,35 @@ string — the tool cannot see either. For a pref, `browser_prefs.cc` is read on
 a `wide` run and not on a `default` one, so run `wide` before concluding a key
 was dropped without a migration. And read trap 2 first: on a `default` run,
 100 of 141 vanished keys at M148 → M151 had simply moved.
+
+## 13. A Mojo method's implicit ordinal is not compared, on purpose
+
+**Symptom:** none. This is a hazard the tool decides not to report, recorded
+so the decision is not re-made by accident.
+
+**Reality:** mojom assigns a method its ordinal by declaration position unless
+one is written explicitly. So inserting a method in the middle of an interface
+shifts the ordinal of every method after it, and that is a wire change for
+anyone holding the older interface, exactly like `Foo@0` becoming `Foo@1`.
+
+Measured M148 → M151 across 1,460 interfaces present in both:
+
+| | Count |
+|---|---:|
+| Methods carrying an explicit `@N` at M151 | 196 of 6,012 |
+| Interfaces whose methods were **reordered** | **0** |
+| Interfaces where a method's **position shifted** (something inserted above) | **50** |
+| Explicit ordinals that changed value | **0** |
+
+**Why it is not a signal.** Chromium writes an ordinal exactly when it intends
+the wire order to be managed, and across three milestones not one of those 196
+moved. The 50 shifted positions are the other 97% of methods, where Chromium
+reorders and inserts freely — because both ends of the interface are built from
+the same tree, which is trap 10. Reporting those 50 would be reporting
+Chromium's file layout as an ABI event, at Mojo severity, every uprev.
+
+**Check:** if you are in the case trap 10 describes — something ships
+separately, an install can be part-updated, or there is out-of-tree code
+implementing the interface — then a method inserted above yours is a real
+break and this tool will not tell you. Diff the `.mojom` file itself for the
+interfaces you implement. There are 1,460 of them and you implement a handful.
