@@ -3947,18 +3947,28 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
                         meta=meta or {"target_set": "default"})
 
     def test_the_run_hands_the_scorer_both_sides_of_the_coverage(self):
-        """`Scope` held two sides while `cmd_run` passed one."""
-        import inspect
-        from chromedrift import cli
-        source = inspect.getsource(cli.cmd_run)
-        call = source[source.index("Scope("):]
-        self.assertIn('"from"', call)
-        self.assertIn('"to"', call)
-        # And the object built from both answers each direction separately.
-        scope = Scope({"from": {"candidates": 100, "read": 1},
-                       "to": {"candidates": 100, "read": 100}}, to_ref="r")
+        """`Scope` held two sides while the run passed one.
+
+        The first version of this read `cmd_run`'s source for the strings
+        `"from"` and `"to"`, which appear in it for other reasons -- so
+        dropping the old side from the call left the test green. It drives
+        the function now: two snapshots in, and the object it returns has to
+        answer the two directions differently.
+        """
+        from chromedrift.cli import scope_for
+
+        thin = Snapshot(ref="148.0.0.0", facts=[], meta={
+            "coverage": {"candidates": 100, "read": 1}})
+        full = Snapshot(ref="151.0.0.0", facts=[], meta={
+            "coverage": {"candidates": 100, "read": 100}})
+        scope = scope_for(thin, full)
         self.assertEqual(scope.read_percent("switch", REMOVED), "100%")
         self.assertEqual(scope.read_percent("switch", ADDED), "1%")
+        self.assertEqual(scope.to_ref, "151.0.0.0")
+        # And the mirror, so neither side is hard-coded.
+        mirrored = scope_for(full, thin)
+        self.assertEqual(mirrored.read_percent("switch", REMOVED), "1%")
+        self.assertEqual(mirrored.read_percent("switch", ADDED), "100%")
 
     def test_an_unguarded_declaration_equals_one_guarded_onto_windows(self):
         """Same answer, one representation each; comparing the form said
@@ -4011,14 +4021,51 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
             Snapshot(ref="2", facts=side(wide.split("\n  ", 1)[1]),
                      meta={"target_set": "default"}))
         findings = score_all([c for c in changes if c.kind == "idl_member"])
-        self.assertGreaterEqual(len(findings[0].change.locations), 4)
+        locations = findings[0].change.locations
+        # The name says five. Checking the first four was the same fault the
+        # renderers had: stopping before the one that mattered.
+        self.assertEqual(len(locations), 5)
         report = Report(from_ref="1", to_ref="2", findings=findings,
                         summary=summarize_findings(findings))
         rendered = md_report.render(report)
         payload = html_report.render(report)
-        for where in findings[0].change.locations[:4]:
+        for where in locations:
             self.assertIn(where, rendered, f"markdown dropped {where}")
             self.assertIn(where, payload, f"html dropped {where}")
+
+
+class TestPairedAttributesStayScoped(unittest.TestCase):
+    """`PAIRED_ATTRS` is a rule in the generic diff, so its reach is checked.
+
+    `position` means "lexical index inside a `[Stable]` mojom declaration".
+    Skipping its delta when one side lacks it is right for that meaning and
+    would silently hide a signal for any other kind that later records an
+    attribute under the same name.
+    """
+
+    def test_only_the_kinds_that_mean_it_compare_a_position(self):
+        from chromedrift.diff import MEANINGFUL_ATTRS, PAIRED_ATTRS
+        for attr in PAIRED_ATTRS:
+            owners = {kind for kind, attrs in MEANINGFUL_ATTRS.items()
+                      if attr in attrs}
+            self.assertEqual(
+                owners, {"mojo_method", "mojo_field"},
+                f"{attr!r} is skipped when one side lacks it; a new kind "
+                f"comparing it under a different meaning would lose rows")
+
+    def test_a_paired_attribute_still_speaks_when_both_sides_have_it(self):
+        from chromedrift.extract import mojom
+
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=mojom.extract(
+                f"module t;\n[Stable]\nstruct S {{ {body} }};\n", "t.mojom"),
+                meta={"target_set": "default"})
+        changes = [c for c in diff_snapshots(snap_of("1", "int32 a; int32 b;"),
+                                             snap_of("2", "int32 b; int32 a;"))
+                   if c.kind == "mojo_field"]
+        self.assertEqual(len(changes), 2)
+        for change in changes:
+            self.assertIn("position", change.deltas)
 
 
 class TestTheCompletenessMatrix(unittest.TestCase):
