@@ -93,6 +93,7 @@ discover late, because nothing warns you.
 | `param_removed` | A feature parameter is gone. Anything still setting it — a Finch config most often — silently stops having an effect |
 | `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
 | `ui_control_repointed` | The control now writes a different preference; the old one is orphaned, exactly as in a rename |
+| `ipc_stability_changed` | A Mojo declaration gained or lost `[Stable]`. Mojo promises wire compatibility for a stable declaration and nothing for the rest, so this is the promise moving rather than the bytes |
 | `ipc_field_annotated` | A Mojo field's default value or its `[MinVersion]` annotation moved. Every byte on the wire is still read as the thing it is, but what an **older** peer sees changes — which is why this is a behaviour change rather than a break |
 
 Always check these against things the tool cannot see: Finch configs, launch

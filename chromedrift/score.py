@@ -35,6 +35,7 @@ from .diff import bucket_of, leading_signal, owner_of, SIGNAL_LABELS
 from .model import (
     ADDED,
     BUCKET_HOUSEKEEPING,
+    BUCKET_NEW,
     BUCKET_ORDER,
     KIND_LABELS,
     OWNER_ORDER,
@@ -112,7 +113,7 @@ class Scope:
     deletions.
     """
 
-    __slots__ = ("to_ref", "to_share", "by_surface", "incomplete",
+    __slots__ = ("to_ref", "shares", "surfaces", "incomplete",
                  "from_incomplete")
 
     def __init__(self, coverage: Optional[dict] = None,
@@ -120,11 +121,18 @@ class Scope:
                  from_incomplete: str = "") -> None:
         self.from_incomplete = from_incomplete
         self.to_ref = to_ref
-        to = (coverage or {}).get("to")
-        self.to_share = _share(to)
-        rows = (to or {}).get("by_surface") if isinstance(to, dict) else None
-        self.by_surface = {k: _share(v) for k, v in rows.items()} \
-            if isinstance(rows, dict) else {}
+        # Both sides. A removal is an absence from the new snapshot and an
+        # addition is an absence from the old one, so they are answered by
+        # different measurements -- and reading only the new side judged every
+        # addition by how well the run read the version it was added *to*.
+        self.shares = {}
+        self.surfaces = {}
+        for side in ("from", "to"):
+            row = (coverage or {}).get(side)
+            self.shares[side] = _share(row)
+            rows = (row or {}).get("by_surface") if isinstance(row, dict) else None
+            self.surfaces[side] = {k: _share(v) for k, v in rows.items()} \
+                if isinstance(rows, dict) else {}
         # Why this run cannot confirm an absence at all, whatever it read.
         # Coverage answers "how much of the tree was in scope"; it says
         # nothing about a file that was in scope and was not there, or one
@@ -134,12 +142,22 @@ class Scope:
         # it now rather than after the first run where they are not.
         self.incomplete = incomplete
 
-    def share_for(self, kind: str) -> Optional[float]:
-        """The read of the surface this kind came from, or the whole tree."""
+    @staticmethod
+    def _side(change_type: str) -> str:
+        """Which snapshot has to be complete for this evidence to hold."""
+        return "from" if change_type == ADDED else "to"
+
+    def share_for(self, kind: str, change_type: str = "") -> Optional[float]:
+        """The read of the surface, on the side the evidence comes from."""
+        side = self._side(change_type)
         surface = KIND_SURFACE.get(kind)
-        if surface and surface in self.by_surface:
-            return self.by_surface[surface]
-        return self.to_share
+        rows = self.surfaces.get(side) or {}
+        if surface and surface in rows:
+            return rows[surface]
+        share = self.shares.get(side)
+        # An older run recorded only the new side; fall back rather than
+        # treat a missing measurement as a missing surface.
+        return share if share is not None else self.shares.get("to")
 
     def gap_for(self, change_type: str) -> str:
         """The hole that matters for evidence in *this* direction.
@@ -166,11 +184,11 @@ class Scope:
             return False
         if not change_type and (self.incomplete or self.from_incomplete):
             return False
-        share = self.share_for(kind)
+        share = self.share_for(kind, change_type)
         return share is None or share >= CONFIRMING_COVERAGE
 
-    def read_percent(self, kind: str = "") -> str:
-        share = self.share_for(kind)
+    def read_percent(self, kind: str = "", change_type: str = "") -> str:
+        share = self.share_for(kind, change_type)
         return "?" if share is None else f"{share * 100:.0f}%"
 
 
@@ -260,7 +278,8 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
                    f"is reporting")
         else:
             why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
-                   f"{scope.read_percent(change.kind)} of that surface at "
+                   f"{scope.read_percent(change.kind, direction)} of that surface "
+               f"at "
                    f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
                    f"\"moved into a file we never opened\"")
         # For the two signals that are *only* an absence inference, the doubt
@@ -279,6 +298,23 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
             reasons.append(why)
         else:
             reasons.append(why + " — --target-set wide settles it")
+
+    if (direction == ADDED and bucket == BUCKET_NEW
+            and scope.from_incomplete):
+        # "New surface" asserts the thing was not there before, and docking
+        # the score for doubt about that while keeping the label said two
+        # different things on one row.
+        #
+        # Only for a hole -- a target the old side did not have, a file that
+        # would not parse -- and never for partial coverage. An addition is a
+        # thing *seen*, and "it may have existed in a file we did not open"
+        # does not make it any less present in the version being adopted;
+        # applying coverage doubt here emptied the bucket entirely, which is
+        # the failure this scoring was rebuilt to remove.
+        bucket = BUCKET_HOUSEKEEPING
+        reasons.append(
+            "filed as housekeeping rather than new surface: this run cannot "
+            "show it was absent before")
 
     finding.score = max(0, min(100, score))
     finding.bucket = bucket

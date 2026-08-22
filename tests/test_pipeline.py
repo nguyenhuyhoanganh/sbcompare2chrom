@@ -14,7 +14,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromedrift.diff import diff_snapshots
 from chromedrift.extract import mojom
-from chromedrift.model import BUCKET_HOUSEKEEPING, Fact, Report, Snapshot
+from chromedrift.model import (ADDED, BUCKET_HOUSEKEEPING, Fact, REMOVED,
+                               Report, Snapshot)
 from chromedrift.score import (Scope, score_all, score_change,
                                summarize_findings)
 
@@ -2821,6 +2822,8 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         "signatures": (["void f()"], ["void f()", "void f(long a)"]),
         "overload_traits": (["void f() [A]"], ["void f() [B]"]),
         "position": (0, 1),
+        "stable": (None, True),
+        "min_version": (None, "2"),
         "platform_state": ({"windows": "disabled"}, {"windows": "enabled"}),
         "platform_status": ({"windows": "test"}, {"windows": "stable"}),
         "windows_status": ("test", "stable"),
@@ -3688,6 +3691,172 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
             [c for c in diff_snapshots(self._snap("148.0.0.0", "Foo(int32 a);"),
                                        self._snap("151.0.0.0", "Foo(int32 a);"))
              if c.kind == "mojo_method"], [])
+
+
+class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
+    """Six behaviours that were corrected and then not held by anything.
+
+    Each one shipped in a commit whose message described it, which is the
+    exact form of evidence this suite exists to replace. They are grouped so
+    the gap is visible rather than spread across the classes they belong to.
+    """
+
+    # --- the whitespace normaliser, and the false negative it first traded for
+    def test_a_reformatted_signature_is_not_a_change(self):
+        from chromedrift.extract.web_idl import _normalize_signature as norm
+        wrapped = ("Promise<ArrayBuffer> deriveBits( AlgorithmIdentifier a, "
+                   "CryptoKey b, optional long? length = null)")
+        inline = ("Promise<ArrayBuffer> deriveBits(AlgorithmIdentifier a, "
+                  "CryptoKey b, optional long? length = null)")
+        self.assertEqual(norm(wrapped), norm(inline))
+        # And the return type keeps the space that separates it from the name.
+        self.assertIn("> deriveBits(", norm(inline))
+
+    def test_a_string_literal_is_left_exactly_as_written(self):
+        """`"a,b"` is not `"a, b"`, and the first normaliser made them equal."""
+        from chromedrift.extract.web_idl import _normalize_signature as norm
+        self.assertNotEqual(norm('void f(optional DOMString s = "a,b")'),
+                            norm('void f(optional DOMString s = "a, b")'))
+        self.assertIn('"a,b"', norm('void f(optional DOMString s = "a,b")'))
+
+    # --- the completeness latch, in both directions
+    def _switch_change(self, direction):
+        old = Fact(kind="switch", key="s", name="s", path="switches.cc",
+                   attrs={"var": "kS"})
+        if direction == "added":
+            return diff_snapshots(snap("148.0.0.0", []),
+                                  snap("151.0.0.0", [old]))[0]
+        return diff_snapshots(snap("148.0.0.0", [old]),
+                              snap("151.0.0.0", []))[0]
+
+    FULL = {"from": {"candidates": 100, "read": 100},
+            "to": {"candidates": 100, "read": 100}}
+
+    def test_the_latch_asks_the_side_the_evidence_comes_from(self):
+        """A removal is an absence from the new side; an addition from the old.
+
+        Testing both at once discounted each for a fault on the side its
+        evidence does not come from.
+        """
+        old_hole = Scope(self.FULL, "r", from_incomplete="2 targets missing")
+        new_hole = Scope(self.FULL, "r", incomplete="2 targets missing")
+        removed = self._switch_change("removed")
+        added = self._switch_change("added")
+        # A hole in the old side cannot have invented a removal.
+        self.assertTrue(old_hole.confirms_absence("switch", REMOVED))
+        self.assertFalse(new_hole.confirms_absence("switch", REMOVED))
+        # ...and the mirror for an addition.
+        self.assertFalse(old_hole.confirms_absence("switch", ADDED))
+        self.assertTrue(new_hole.confirms_absence("switch", ADDED))
+        self.assertEqual(score_change(removed, old_hole).score,
+                         score_change(removed, Scope(self.FULL, "r")).score)
+        self.assertEqual(score_change(added, new_hole).bucket, "new")
+
+    def test_an_unconfirmed_addition_is_not_called_new_surface(self):
+        """The label asserts it was not there before. That is the doubt."""
+        scope = Scope(self.FULL, "r", from_incomplete="2 targets missing")
+        finding = score_change(self._switch_change("added"), scope)
+        self.assertEqual(finding.bucket, "housekeeping")
+        self.assertIn("cannot show it was absent before",
+                      " ".join(finding.reasons))
+
+    def test_coverage_is_read_from_the_side_that_answers(self):
+        """`share_for` looked only at the new side, whatever the direction."""
+        lopsided = Scope({
+            "from": {"candidates": 1000, "read": 10,
+                     "by_surface": {"preference keys and switches":
+                                    {"candidates": 100, "read": 1}}},
+            "to": {"candidates": 1000, "read": 1000,
+                   "by_surface": {"preference keys and switches":
+                                  {"candidates": 100, "read": 100}}}},
+            to_ref="r")
+        self.assertEqual(lopsided.read_percent("switch", REMOVED), "100%")
+        self.assertEqual(lopsided.read_percent("switch", ADDED), "1%")
+
+    # --- platform_state, on a kind that only started comparing it
+    def test_a_mojo_method_leaving_the_windows_build_is_a_change(self):
+        """Compared on three of sixteen kinds, so this produced no row."""
+        from chromedrift.extract import mojom
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=mojom.extract(
+                f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
+                meta={"target_set": "default"})
+        changes = [c for c in diff_snapshots(
+            snap_of("148.0.0.0", "Foo(int32 a);"),
+            snap_of("151.0.0.0", "[EnableIf=is_android] Foo(int32 a);"))
+            if c.kind == "mojo_method"]
+        self.assertEqual(len(changes), 1)
+        self.assertIn("platform_state", changes[0].deltas)
+        self.assertTrue(changes[0].signals)
+
+    # --- per-overload extended attributes, not just the runtime flag
+    def test_an_extended_attribute_moving_on_one_overload_is_visible(self):
+        from chromedrift.extract import web_idl
+        from chromedrift.model import dedupe_facts
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
+                "interface N { %s };" % body,
+                "third_party/blink/renderer/x.idl")),
+                meta={"target_set": "default"})
+        before = "[SecureContext] void f(long a); void f(double b);"
+        after = "void f(long a); [SecureContext] void f(double b);"
+        change = [c for c in diff_snapshots(snap_of("148.0.0.0", before),
+                                            snap_of("151.0.0.0", after))
+                  if c.kind == "idl_member"][0]
+        self.assertIn("overload_traits", change.deltas)
+
+    # --- the implicit ordinal, for fields as well as methods
+    def test_a_field_moving_inside_a_stable_struct_is_a_wire_change(self):
+        """607 fields shifted at M148 -> M151 and 0 were in a stable struct.
+
+        The method case was tested and the field case was not, which is the
+        half the review had to point out twice.
+        """
+        from chromedrift.extract import mojom
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=mojom.extract(
+                f"module t;\n[Stable]\nstruct S {{ {body} }};\n", "t.mojom"),
+                meta={"target_set": "default"})
+        changes = [c for c in diff_snapshots(
+            snap_of("148.0.0.0", "int32 a; int32 b;"),
+            snap_of("151.0.0.0", "int32 b; int32 a;"))
+            if c.kind == "mojo_field"]
+        self.assertEqual(len(changes), 2)
+        for change in changes:
+            self.assertIn("position", change.deltas)
+            self.assertIn("ipc_shape_changed", change.signals)
+
+    def test_the_same_move_outside_a_stable_struct_is_not_reported(self):
+        """1,110 of them at M148 -> M151. Chromium reorders freely there."""
+        from chromedrift.extract import mojom
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=mojom.extract(
+                f"module t;\nstruct S {{ {body} }};\n", "t.mojom"),
+                meta={"target_set": "default"})
+        self.assertEqual(
+            [c for c in diff_snapshots(snap_of("148.0.0.0", "int32 a; int32 b;"),
+                                       snap_of("151.0.0.0", "int32 b; int32 a;"))
+             if c.kind == "mojo_field"], [])
+
+    # --- and the permutation the earlier test claimed to be
+    def test_one_event_scores_the_same_under_either_declaration_order(self):
+        """The previous version compared two different events and called it a
+        permutation test."""
+        from chromedrift.extract import web_idl
+        from chromedrift.model import dedupe_facts
+        def snap_of(ref, body):
+            return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
+                "interface N { %s };" % body,
+                "third_party/blink/renderer/x.idl")),
+                meta={"target_set": "default"})
+        scores = set()
+        for order in ("void f(); void f(long a);", "void f(long a); void f();"):
+            change = [c for c in diff_snapshots(snap_of("148.0.0.0", order),
+                                                snap_of("151.0.0.0", "void f();"))
+                      if c.kind == "idl_member"][0]
+            self.assertIn("web_api_overload_removed", change.signals)
+            scores.add(score_change(change).score)
+        self.assertEqual(scores, {60})
 
 
 class TestTheReportIsSafeToOpen(unittest.TestCase):

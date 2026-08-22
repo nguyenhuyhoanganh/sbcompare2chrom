@@ -97,27 +97,27 @@ MEANINGFUL_ATTRS: Dict[str, Tuple[str, ...]] = {
     # than empty: it is part of the key, so it can never differ, and it read as
     # an attribute that could move and produce a row nothing explains. An
     # interface's identity moving *is* an add plus a remove.
-    KIND_MOJO_INTERFACE: ("platform_state",),
+    KIND_MOJO_INTERFACE: ("stable", "platform_state"),
     # `ordinal` is wire order. `Foo@0` and `Foo@1` are the same declaration to
     # every other field here and a different message on the wire, so leaving it
     # out made an ABI change produce no row at all. It was extracted and then
     # not compared -- the two halves of this pipeline are separate doors, and
     # opening the first is not opening the second.
     KIND_MOJO_METHOD: ("signature", "params", "response", "attrs", "ordinal",
-                       "position", "platform_state"),
+                       "position", "stable", "platform_state"),
     # `fields` is left out for the reason `methods` is left out above: every
     # field is a fact of its own, so comparing the list reports one ABI change
     # twice. `mojo_kind` can move -- a struct becoming a union is a different
     # wire format under the same name.
-    KIND_MOJO_STRUCT: ("mojo_kind", "platform_state"),
+    KIND_MOJO_STRUCT: ("mojo_kind", "stable", "platform_state"),
     # The type and the ordinal are the wire format. The default and the
     # `[MinVersion]` annotation are not, and they are labelled separately.
     KIND_MOJO_FIELD: ("type", "ordinal", "default", "attrs", "position",
-                      "platform_state"),
+                      "min_version", "stable", "platform_state"),
     # One list rather than a fact per member: members are 17,061 of the tree's
     # declarations at M151, and adding one is Mojo's ordinary way of extending
     # a type.
-    KIND_MOJO_ENUM: ("values", "platform_state"),
+    KIND_MOJO_ENUM: ("values", "stable", "platform_state"),
     # "platform_state" is the guard resolved for Windows, not the guard text:
     # a key entering or leaving our binary is the change, while Chromium
     # tidying `!IS_ANDROID` off one is not. The raw `conditions` stay on the
@@ -250,6 +250,10 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     # The default value or the `[MinVersion]` annotation moved. Neither changes
     # how the bytes are read; both change what an older peer sees.
     "ipc_field_annotated": 35,
+    # `[Stable]` appearing means Chromium has begun promising this shape;
+    # disappearing means it has stopped. Neither moves a byte today, and both
+    # decide whether every later move is a break.
+    "ipc_stability_changed": 40,
     "pref_renamed": 70,
     "switch_renamed": 60,
     # A pref or switch that simply stops appearing is *not* evidence that
@@ -364,6 +368,9 @@ SIGNAL_LABELS: Dict[str, str] = {
                          "reads these bytes as something else",
     "ipc_enum_changed": "Mojo enum members changed — a peer that does not know "
                         "a value rejects the message rather than misreading it",
+    "ipc_stability_changed": "Mojo stability promise changed — `[Stable]` "
+                             "appeared or went away, which decides whether a "
+                             "later reorder breaks a peer",
     "ipc_field_annotated": "Mojo field's default or version annotation changed",
     "pref_renamed": "Preference key renamed (stored values orphaned)",
     "switch_renamed": "Command-line switch renamed",
@@ -444,6 +451,7 @@ SIGNAL_BUCKET: Dict[str, str] = {
     # Not breaking: what an older peer sees changes, but every byte on the
     # wire is still read as the thing it is.
     "ipc_field_annotated": BUCKET_BEHAVIOUR,
+    "ipc_stability_changed": BUCKET_BEHAVIOUR,
     "web_api_removed": BUCKET_BREAKING,
     "web_api_unshipped": BUCKET_BREAKING,
     "web_api_signature_change": BUCKET_BREAKING,
@@ -1093,7 +1101,8 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
             if any(a in change.deltas
                    for a in ("type", "ordinal", "position", "mojo_kind")):
                 signals.append("ipc_shape_changed")
-            elif "default" in change.deltas or "attrs" in change.deltas:
+            elif any(a in change.deltas
+                     for a in ("default", "attrs", "min_version", "stable")):
                 signals.append("ipc_field_annotated")
     elif kind in (KIND_MOJO_METHOD, KIND_MOJO_INTERFACE):
         if change.change_type == REMOVED:
@@ -1180,6 +1189,13 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
     # diff.
     if "platform_state" in change.deltas and not signals:
         signals.append("build_gate_changed")
+
+    # A declaration gaining or losing `[Stable]`. Mojo promises wire
+    # compatibility for a stable one and nothing for the rest, so this is the
+    # promise itself moving -- on any of the five Mojo kinds, and above the
+    # annotation signal that already covers a field's own attributes.
+    if "stable" in change.deltas and "ipc_field_annotated" not in signals:
+        signals.append("ipc_stability_changed")
 
     return signals
 

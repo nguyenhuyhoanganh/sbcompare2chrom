@@ -33,6 +33,7 @@ from ._cpp import (PLATFORM, collapse_ws, line_of, mask_comments,
                    split_top_level_offsets)
 
 _MODULE_RE = re.compile(r"^\s*module\s+([\w.]+)\s*;", re.MULTILINE)
+_MIN_VERSION_RE = re.compile(r"\bMinVersion\s*=\s*(\d+)")
 # The keyword is a named group because the line number comes from *its*
 # position, not the match's. `\s*` after the newline crosses blank lines and
 # comments -- which masking has turned into spaces -- so `m.start()` landed on
@@ -257,7 +258,8 @@ def extract(text: str, rel_path: str) -> List[Fact]:
                        if "ordinal" in parsed else {}),
                     **_platform_attrs(iface_conditions
                                       + _conditions(",".join(parsed["attrs"]))),
-                    **({"position": len(methods) - 1} if iface_stable else {}),
+                    **({"position": len(methods) - 1, "stable": True}
+                       if iface_stable else {}),
                 },
             ))
 
@@ -269,6 +271,7 @@ def extract(text: str, rel_path: str) -> List[Fact]:
             line=line_of(masked, m.start("kw")),
             attrs={"module": module, "method_count": len(methods),
                    "methods": sorted(methods),
+                   **({"stable": True} if iface_stable else {}),
                    **_platform_attrs(iface_conditions)},
         ))
 
@@ -389,8 +392,15 @@ def _field_facts(span, spans, masked, module, rel_path, qualified):
             attrs["default"] = collapse_ws(default)
         if field_attrs:
             attrs["attrs"] = collapse_ws(field_attrs)
+            version = _MIN_VERSION_RE.search(field_attrs)
+            if version:
+                # Its own key rather than a substring of `attrs`, so a tier
+                # can be read without parsing prose: `[MinVersion=N]` is how
+                # mojom says an older peer may not send this at all.
+                attrs["min_version"] = version.group(1)
         attrs.update(_platform_attrs(outer + _conditions(field_attrs)))
         if span.get("stable"):
+            attrs["stable"] = True
             # Only here: see `_is_stable`. Outside a stable declaration this
             # number moves whenever Chromium tidies a file and means nothing.
             attrs["position"] = len(names) - 1
@@ -443,6 +453,7 @@ def extract_data_types(masked: str, rel_path: str, module: str) -> List[Fact]:
                 path=rel_path, line=line,
                 attrs={"module": module,
                        "values": _enum_values(span, spans, masked),
+                       **({"stable": True} if span.get("stable") else {}),
                        **_platform_attrs(_enclosing_conditions(span, spans))},
             ))
             continue
@@ -459,6 +470,7 @@ def extract_data_types(masked: str, rel_path: str, module: str) -> List[Fact]:
             # a different wire format under the same name.
             attrs={"module": module, "mojo_kind": span["kw"],
                    "field_count": len(names), "fields": sorted(names),
+                   **({"stable": True} if span.get("stable") else {}),
                    **_platform_attrs(_enclosing_conditions(span, spans))},
         ))
     return facts

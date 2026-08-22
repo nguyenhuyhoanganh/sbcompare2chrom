@@ -346,7 +346,14 @@ from typing import Any, Dict, Iterable, List, Optional
 #      assigns the wire id from lexical order and promises it will not move:
 #      1,110 members shifted position at M148 -> M151 and 0 of them were in a
 #      stable declaration.
-SCHEMA_VERSION = 34
+#  35: coverage and completeness are asked of the side the evidence comes
+#      from, and `[Stable]` / `MinVersion` are data rather than an inference.
+#      Version 34 judged an addition -- an absence from the *old* snapshot --
+#      by how well the run read the new one, and kept the label "New surface"
+#      while docking the score for doubt about the very claim the label makes.
+#      Stability was readable only as "does this fact carry a position", which
+#      no report could tier on.
+SCHEMA_VERSION = 35
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
