@@ -2,11 +2,11 @@
 
 > Ngày đánh giá ban đầu: 21-08-2026
 > Follow-up review: 22-08-2026
-> Baseline mới nhất được review: commit `f56bafa` — schema `40`
-> Lịch sử đến baseline đã được đọc: đủ 77/77 commit, từ `d9fca08` đến `f56bafa`, gồm subject, body và diff của các quyết định quan trọng.
+> Baseline mới nhất được review: commit `a4f13ec` — schema `40`
+> Lịch sử đến baseline đã được đọc: đủ 78/78 commit, từ `d9fca08` đến `a4f13ec`, gồm subject, body và diff của các quyết định quan trọng.
 > Phạm vi: toàn bộ source Python, extractor, target, cache, snapshot, diff, scoring, report, test và dữ liệu cache M130/M136/M139/M143/M147/M148/M151 có sẵn trong project.
 
-> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28, `5edc91e`/`a88f5fc` ở mục 29, `cd1ee05` → `0933dcd` ở mục 30, `843dd96`/`bee9e7d` ở mục 31; review mới nhất của `f56bafa` nằm ở **mục 32** và có quyền thay thế các con số/verdict cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
+> **Cách đọc phiên bản report này:** phần phân tích ban đầu được giữ lại để thấy lỗi xuất phát từ đâu. Review của `8ced148` nằm ở mục 27, `b844108` ở mục 28, `5edc91e`/`a88f5fc` ở mục 29, `cd1ee05` → `0933dcd` ở mục 30, `843dd96`/`bee9e7d` ở mục 31, `f56bafa` ở mục 32; closure review của `a4f13ec` nằm ở **mục 33** và có quyền thay thế các verdict cũ. Các mục trước đó là lịch sử lập luận ở từng baseline.
 
 ## 1. Đọc phần này trước nếu bạn không rành kỹ thuật
 
@@ -36,9 +36,9 @@ Sau khi đọc toàn bộ commit history, đánh giá về engineering quality t
 - Determinism, scope guard, reference closure và score ceiling đều có rationale rõ và test đi kèm.
 - Function body, TypeScript behavior, `.grd` và GN config schema là documented exclusions, không phải phần tác giả quên làm.
 
-Commit `f56bafa` đóng nốt duplication có yield thật: M143 → M147 wide từ 196 stability findings xuống đúng 32 container rows; 164 method/field rows lặp về 0. Nó cũng thêm boundary tests và công khai năm grammar classes chưa model trong README/SKILL. Bare `unittest discover` chạy đủ **366 test** trên cả Python 3.14 và 3.9.
+Commit `f56bafa` đóng nốt duplication có yield thật: M143 → M147 wide từ 196 stability findings xuống đúng 32 container rows; 164 method/field rows lặp về 0. Commit `a4f13ec` thay hai assertion yếu bằng behavioral seam/test thật và rào phạm vi `PAIRED_ATTRS`. Bare `unittest discover` chạy đủ **368 test** trên cả Python 3.14 và 3.9.
 
-Với mục tiêu early detection, baseline hiện tại **đủ tốt để dùng ngay và vòng code-correctness này có thể đóng**. Full matrix sáu tổ hợp không còn Breaking row dựa trên một `position` biến mất mà không có type/ordinal evidence, cũng không còn member-level stability duplication. Không còn first-match bias trong số per-surface, và current M148 → M151 overload findings có tối đa năm locations nên cả Markdown/HTML hiện đủ. Grammar chưa model đã được công khai; parser edge case chưa có current yield không cần làm tiếp. Chỉ còn hai assertion trong boundary tests yếu hơn tên test, nên siết lại để tránh regression sau này; chúng không phải runtime defect của schema 40.
+Với mục tiêu early detection, baseline hiện tại **đủ tốt để dùng ngay và vòng audit này đã đóng**. Full matrix sáu tổ hợp không còn Breaking row dựa trên một `position` biến mất mà không có type/ordinal evidence, cũng không còn member-level stability duplication. Không còn first-match bias trong số per-surface, current overload locations đều được render, hai phía coverage được khóa bằng behavioral test và `position` pairing được rào đúng hai Mojo kinds. Grammar chưa model đã được công khai; parser edge case chưa có current yield không cần làm tiếp.
 
 Nói dễ hiểu hơn:
 
@@ -74,7 +74,7 @@ Bạn có thể đọc theo lộ trình này:
 | Fact đủ làm release verdict chưa? | Chưa; đủ cho inventory và manual triage. |
 | Có đạt mục tiêu cảnh báo sớm một phần không? | **Có.** Tool bắt được hàng nghìn thay đổi trên version thật, có evidence và thứ tự ưu tiên để con người triage. |
 | Score có phải xác suất lỗi không? | Không; đó là trọng số heuristic để xếp thứ tự đọc. |
-| 366 test pass có chứng minh đầy đủ không? | Không, nhưng cùng full six-pair matrix nó là evidence đủ tốt cho early detection. Hai test mới còn cần siết assertion: coverage test chưa thật sự gọi pipeline, location test chỉ kiểm 4/5 vị trí. |
+| 368 test pass có chứng minh đầy đủ không? | Không có test suite nào chứng minh 100%, nhưng behavioral boundary tests + full six-pair matrix là evidence đủ tốt cho mục tiêu early detection. |
 | Có nên dùng project không? | **Có**, để phát hiện sớm và manual triage. Nên ưu tiên sửa các lỗi làm nhiễu hoặc gắn nhãn sai finding. |
 
 ## 2. Một ví dụ đời thường để hiểu toàn bộ hệ thống
@@ -4401,3 +4401,61 @@ Sau khi siết hai test trên:
 Không cần làm ngay variadic lexer, escaped quote, năm grammar extractors, full Chromium fetch trong CI hoặc coverage 100%.
 
 > **Kết luận cuối: code schema 40 đã đạt điểm “biết đủ”. Việc còn lại là sửa hai test phòng ngừa, không phải tiếp tục mở rộng product scope.**
+
+## 33. Closure review `a4f13ec` — đóng audit
+
+### Kết quả
+
+Hai test yếu ở mục 32 đã được sửa đúng, và cảnh báo về phạm vi `PAIRED_ATTRS` đã được rào. Commit không đổi runtime semantics; nó tách seam để behavior hiện có được test trực tiếp.
+
+```text
+HEAD / origin/main   a4f13ec
+schema               40
+history              78 / 78 commit
+Python 3.14           368 / 368 test pass
+Python 3.9            368 / 368 test pass
+```
+
+#### Coverage boundary
+
+`scope_for(old, new)` nhận hai snapshots thật. Test không còn đọc source text; nó kiểm cả hai chiều:
+
+```text
+old 1%, new 100%   removal 100% / addition 1%
+old 100%, new 1%   removal   1% / addition 100%
+```
+
+Nếu bỏ phía `from`, test không còn lấy được kết quả mirror này và sẽ fail. Đây là behavioral seam đúng cho lỗi “data model biết nhưng pipeline không truyền”.
+
+#### Renderer boundary
+
+Fixture tạo đúng năm overload locations, assert count bằng 5 và kiểm từng location ở cả Markdown lẫn HTML. Location thứ năm không còn nằm ngoài assertion.
+
+#### `PAIRED_ATTRS` scope
+
+Test giữ owner set của `position` đúng bằng:
+
+```text
+mojo_method
+mojo_field
+```
+
+Đồng thời test vẫn chứng minh position thay đổi được báo khi cả hai phía có evidence. Nếu một kind mới tái sử dụng tên `position` với nghĩa khác, suite sẽ buộc người sửa quyết định policy thay vì âm thầm áp dụng Mojo rule.
+
+### Verdict cuối cùng
+
+Không còn finding cần sửa trong vòng audit hiện tại.
+
+- Schema 40 dùng được cho early detection/manual triage.
+- Known scope đã được công khai.
+- Full real-version matrix đã chạy.
+- Boundary tests hiện chứng minh behavior thay vì kiểm hình dạng source.
+- Không cần mở rộng parser chỉ để theo đuổi completeness.
+
+Từ đây, chỉ mở lại audit khi uprev thật đưa ra một trong ba evidence:
+
+1. top finding là false positive làm người đọc mất thời gian;
+2. một thay đổi quan trọng thật bị tool bỏ sót;
+3. output/evidence không đủ để người triage kiểm source.
+
+> **Audit closed tại `a4f13ec`, schema 40. Bước tiếp theo là dùng tool, không tiếp tục sửa theo hypothetical completeness.**
