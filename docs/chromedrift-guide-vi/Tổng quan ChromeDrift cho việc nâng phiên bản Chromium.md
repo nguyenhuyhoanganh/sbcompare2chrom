@@ -1,5 +1,14 @@
 # ChromeDrift: bản trình bày kỹ thuật cho kế hoạch nâng phiên bản Chromium nền của Samsung Browser trên Windows
 
+Các phần cần tra cứu riêng đã được tách thành một bộ ngắn hơn:
+
+- [Thuật ngữ dùng trong ChromeDrift](<01 - Thuật ngữ ChromeDrift.md>)
+- [Cách lấy source tree, thư mục và file](<02 - Cách lấy source Chromium.md>)
+- [9 nhóm declaration source và bộ lọc](<03 - Chín nhóm file và bộ lọc.md>)
+- [Fact và ví dụ input → JSON cho đủ 16 kind](<04 - Fact và cách trích xuất.md>)
+- [So sánh, chấm điểm, bucket và owner](<05 - Cách so sánh, chấm điểm và phân loại.md>)
+- [Skill, agent và nội dung dành cho từng team](<06 - Skill và cách hỗ trợ từng nhóm.md>)
+
 ## 1. Bài toán cần giải quyết
 
 Samsung Browser được phát triển từ mã nguồn Chromium. Mỗi lần chuyển sang một phiên bản Chromium mới, team không chỉ phải merge một lượng code lớn mà còn phải trả lời sớm các câu hỏi khó hơn:
@@ -478,7 +487,7 @@ Nếu chỉ đọc template mà không đọc handler, report biết một page 
 
 ### 7.11. Cách tự kiểm tra một loại file có được cover đúng không
 
-Khi tech lead hoặc owner nghi ngờ một finding bị thiếu, có thể kiểm theo năm câu hỏi:
+Khi reviewer hoặc owner nghi ngờ một finding bị thiếu, có thể kiểm theo năm câu hỏi:
 
 1. File đó có chứa loại khai báo mà một trong chín extractor hỗ trợ không?
 2. `applies_to(path)` của extractor có nhận đúng đường dẫn và tên file không?
@@ -1534,7 +1543,7 @@ So sánh coverage của `default` và `wide`, nêu 368 test và mở vị trí s
 - “Score chỉ xếp thứ tự điều tra; nơi Samsung đang sử dụng mới quyết định ảnh hưởng thật.”
 - “Chúng ta có thể đo trường hợp báo thừa/bỏ sót qua lần thử và cải thiện bằng dữ liệu nâng phiên bản thật.”
 
-## 28. Bộ câu hỏi tech lead có thể hỏi
+## 28. Bộ câu hỏi thường gặp khi review
 
 ### “Khác gì `git diff` hoặc release notes?”
 
@@ -1778,7 +1787,7 @@ Nếu lần thử cho thấy tool tìm được công việc liên quan C++ symb
 - Report wording/Markdown/HTML: `chromedrift/report/`
 - Human/agent playbook: `skills/analyzing-chromium-uprevs/`
 - Tests: `tests/test_extract.py`, `tests/test_pipeline.py`, `tests/js/report_dom.js`
-- Deep technical audit/history: `docs/PROJECT_AUDIT_VI.md`
+- Deep technical audit/history: `docs/ChromeDrift Project Audit.md`
 
 ## Phụ lục: thuật ngữ riêng của Chromium
 
