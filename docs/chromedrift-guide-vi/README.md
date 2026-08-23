@@ -1,20 +1,45 @@
 # Bộ tài liệu giải thích ChromeDrift
 
-Sáu tài liệu dưới đây trả lời sáu nhóm câu hỏi độc lập. Có thể gửi riêng từng phần mà người đọc không cần đọc toàn bộ tài liệu lớn trước đó.
+## ChromeDrift là gì, trong ba câu
 
-1. [Thuật ngữ dùng trong ChromeDrift](<01 - Thuật ngữ ChromeDrift.md>)
-2. [ChromeDrift lấy source tree, thư mục và file như thế nào](<02 - Cách lấy source Chromium.md>)
-3. [Vì sao có 9 nhóm file và bộ lọc hoạt động ra sao](<03 - Chín nhóm file và bộ lọc.md>)
-4. [Fact là gì và từng extractor tạo Fact như thế nào](<04 - Fact và cách trích xuất.md>)
-5. [Cơ chế so sánh, chấm điểm, bucket và owner](<05 - Cách so sánh, chấm điểm và phân loại.md>)
-6. [Skill và agent hỗ trợ từng team như thế nào](<06 - Skill và cách hỗ trợ từng nhóm.md>)
+Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một lần, team phải chuyển nền Chromium sang một version mới hơn — đây là việc mà tài liệu này gọi là `uprev`. ChromeDrift là một công cụ đọc mã nguồn Chromium ở hai version, tìm ra những **khai báo** đã thay đổi (feature flag, Web API, IPC contract, preference key, trang `chrome://`...), rồi xếp chúng thành một danh sách có thứ tự ưu tiên, có lý do và có vị trí `file:dòng` để người đọc mở source kiểm tra lại.
 
-Nếu chỉ có thời gian cho một vòng đọc ngắn:
+Điều quan trọng cần nhớ ngay từ đầu: ChromeDrift **chỉ đọc Chromium gốc**. Nó không đọc mã nguồn Samsung, nên nó không thể nói "Samsung sẽ bị lỗi ở đâu". Nó chỉ nói "Chromium đã đổi những gì, và team nào nên kiểm tra trước".
 
-- Tech lead: đọc phần 2, 3, 5 và 6.
-- Người phát triển extractor: đọc phần 3, 4 và 5.
-- WebUI: đọc phần 3 ở các mục WebUI, rồi phần 6.
-- Browser C++/native: đọc phần 4 ở `base_feature`, `feature_param`, `pref`, `switch`, rồi phần 5 và 6.
-- IPC/Mojo hoặc Web Platform: đọc đúng nhóm Fact tương ứng trong phần 4, sau đó xem signal và owner trong phần 5.
+## Bộ tài liệu này gồm những gì
 
-Tài liệu tổng quan: [ChromeDrift và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromeDrift cho việc nâng phiên bản Chromium.md>).
+Sáu tài liệu dưới đây trả lời sáu nhóm câu hỏi độc lập với nhau. Có thể gửi riêng từng phần cho một người mà không bắt họ đọc toàn bộ tài liệu lớn trước đó.
+
+| # | Tài liệu | Trả lời câu hỏi |
+|---|---|---|
+| 1 | [Thuật ngữ dùng trong ChromeDrift](<01 - Thuật ngữ ChromeDrift.md>) | Những từ trong báo cáo có nghĩa là gì? |
+| 2 | [ChromeDrift lấy source Chromium như thế nào](<02 - Cách lấy source Chromium.md>) | Công cụ tải code từ đâu, tải bao nhiêu, và làm sao biết đã tải đúng? |
+| 3 | [Chín nhóm file và bộ lọc](<03 - Chín nhóm file và bộ lọc.md>) | Vì sao chỉ đọc 9 nhóm file, và một file phải qua bao nhiêu lớp lọc? |
+| 4 | [Fact và cách trích xuất](<04 - Fact và cách trích xuất.md>) | Một khai báo trong source biến thành dữ liệu so sánh được bằng cách nào? |
+| 5 | [So sánh, chấm điểm và phân loại](<05 - Cách so sánh, chấm điểm và phân loại.md>) | Vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm? |
+| 6 | [Skill và cách hỗ trợ từng nhóm](<06 - Skill và cách hỗ trợ từng nhóm.md>) | Một AI agent có thể tạo báo cáo riêng cho từng team không, và tới mức nào? |
+
+Ngoài ra còn một tài liệu tổng quan dài hơn, dùng khi cần trình bày toàn bộ project trong một buổi họp: [ChromeDrift và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromeDrift cho việc nâng phiên bản Chromium.md>). Nội dung của nó bao trùm sáu phần trên, nhưng đi kèm số liệu chạy thật, kịch bản demo và phần hỏi đáp.
+
+## Nên đọc phần nào
+
+Nếu chỉ có thời gian cho một vòng đọc ngắn, đây là lộ trình theo vai trò:
+
+| Vai trò | Đọc theo thứ tự | Vì sao |
+|---|---|---|
+| Người mới, chưa biết gì về project | 1 → 2 → 5 | Có từ vựng, biết dữ liệu từ đâu ra, biết đọc điểm số |
+| Tech lead | 2 → 3 → 5 → 6 | Đủ để đánh giá công cụ đáng tin tới đâu và đưa vào quy trình thế nào |
+| Người viết thêm extractor cho công cụ | 3 → 4 → 5 | Biết bộ lọc, biết cấu trúc dữ liệu, biết thay đổi nào tạo ra tín hiệu gì |
+| Team WebUI | Mục WebUI trong phần 3 → phần 6 | Biết công cụ đọc được gì trong `chrome://settings` và cần kiểm tra gì |
+| Team Browser C++ / native | Các mục `base_feature`, `feature_param`, `pref`, `switch` trong phần 4 → phần 5 → phần 6 | Biết feature flag và pref key được theo dõi ra sao |
+| Team IPC/Mojo hoặc Web Platform | Nhóm Fact tương ứng trong phần 4 → phần signal và owner trong phần 5 | Biết contract nào được theo dõi và thay đổi nào bị coi là nguy hiểm |
+
+## Quy ước dùng trong cả bộ tài liệu
+
+Nhiều thuật ngữ trong project không có từ tiếng Việt tương đương chính xác. Ép dịch chúng sẽ làm người đọc mất liên hệ với những gì hiện trên màn hình báo cáo và trong mã nguồn. Vì vậy quy ước là:
+
+- **Giữ nguyên từ tiếng Anh** khi đó là tên một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — ví dụ `Fact`, `signal`, `bucket`, `coverage`, `target set`.
+- **Kèm giải thích ngắn trong ngoặc ở lần dùng đầu tiên** của mỗi tài liệu.
+- **Dịch sang tiếng Việt** khi từ tiếng Anh không phải tên riêng của khái niệm — ví dụ "khai báo" thay cho "declaration", "phiên bản" thay cho "version" trong văn xuôi thông thường.
+
+Toàn bộ định nghĩa được gom trong [phần 1](<01 - Thuật ngữ ChromeDrift.md>); khi gặp một từ lạ, tra ở đó trước.

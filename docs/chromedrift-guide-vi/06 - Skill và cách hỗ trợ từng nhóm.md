@@ -1,418 +1,432 @@
 # 6. Skill và agent hỗ trợ từng team như thế nào
 
-## Câu trả lời trực tiếp
+Câu hỏi mà tài liệu này trả lời: **có thể giao cho một AI agent đọc báo cáo ChromeDrift rồi tự tạo ra danh sách việc riêng cho từng team không?**
 
-Có. Khi gắn skill `analyzing-chromium-uprevs` vào một agent, agent có thể tạo report riêng cho WebUI và Browser C++/WebNative, đọc đúng signal, theo chain gate và giải thích việc cần kiểm tra.
+## Trả lời trực tiếp
 
-Nhưng có hai mức câu trả lời khác nhau:
+Có. Khi gắn skill `analyzing-chromium-uprevs` vào một agent, agent có thể tạo báo cáo riêng cho WebUI và cho Browser C++/WebNative, đọc đúng ý nghĩa của từng signal, lần theo chuỗi gate, và giải thích những việc cần kiểm tra.
 
-1. Chỉ có hai Chromium version và ChromeDrift report: agent trả lời được **upstream đã đổi gì, vì sao đáng chú ý và team nào nên xem**.
-2. Có thêm Samsung source, build config, patch và config/rollout bên ngoài: agent mới trả lời được **Samsung đang phụ thuộc chỗ nào, file nào cần sửa và test nào cần chạy**.
+Nhưng câu trả lời có **hai mức**, và trộn hai mức này lại là sai lầm nguy hiểm nhất khi dùng agent:
 
-Không có Samsung source/config mà nói “Samsung chắc chắn bị ảnh hưởng” là vượt quá bằng chứng.
+| Có trong tay | Agent trả lời được tới đâu |
+|---|---|
+| Chỉ có hai version Chromium và báo cáo ChromeDrift | **Upstream đã đổi gì, vì sao đáng chú ý, và team nào nên xem** |
+| Có thêm source Samsung, build config, patch và cấu hình/rollout bên ngoài | **Samsung đang phụ thuộc ở chỗ nào, file nào cần sửa, test nào cần chạy** |
+
+Không có source và config của Samsung mà vẫn nói "Samsung chắc chắn bị ảnh hưởng" là **vượt quá bằng chứng đang có**.
 
 ## Tool, skill và agent là ba lớp khác nhau
 
+Ba từ này hay bị dùng lẫn lộn. Chúng là ba lớp xếp chồng, mỗi lớp làm một việc:
+
 ```text
 ChromeDrift tool
-  lấy source → trích Fact → diff → signal → score → report
+  lấy source → trích Fact → so sánh → sinh signal → chấm điểm → xuất báo cáo
         │
         ▼
 Skill analyzing-chromium-uprevs
-  quy định cách đọc report, tránh bẫy và hỏi đúng câu theo owner
+  quy định cách đọc báo cáo, các bẫy cần tránh, và câu hỏi đúng cho từng owner
         │
         ▼
 Agent
-  chạy tool, mở finding, search Samsung source/config, nối evidence,
-  viết kết luận cho từng team
+  chạy tool, mở từng finding, tìm trong source/config Samsung,
+  nối bằng chứng lại, viết kết luận cho từng team
         │
         ▼
 Owner + tech lead + QA/config owner
-  xác nhận product intent, effort, test plan và quyết định nhận việc
+  xác nhận ý đồ sản phẩm, công sức, kế hoạch test, và quyết định nhận việc
 ```
 
 ### Tool làm gì
 
-Tool tạo evidence deterministic:
+Tool tạo ra bằng chứng cố định — chạy lại lần nào cũng ra như vậy:
 
-- exact upstream refs;
-- coverage và acquisition status;
-- before/after Facts;
-- Change, signal, severity, score, bucket;
-- location `path:line`;
+- ref chính xác của hai bản upstream;
+- coverage và trạng thái của bước lấy source;
+- `Fact` trước và sau;
+- `Change`, signal, severity, score, bucket;
+- vị trí `path:line`;
 - owner routing ban đầu.
 
-Tool không dùng agent để quyết định Fact hay score.
+Điểm cần nhấn mạnh: tool **không** dùng agent để quyết định một `Fact` là gì hay một score là bao nhiêu.
 
 ### Skill làm gì
 
-Skill là playbook cho agent. Nó buộc agent:
+Skill là playbook cho agent. Nó buộc agent tuân theo chín quy tắc:
 
-- dùng exact full version, không dùng milestone mơ hồ cho kết luận chính thức;
-- dùng Windows state thay vì global/default state;
-- chọn `wide` cho release-level question;
-- đọc report theo owner và signal thay vì nhìn raw row count;
-- phân biệt feature code landed, feature actually turned on và flag later retired;
-- không áp dụng lifecycle của flag cho Mojo/pref/switch, vì các contract này không có gate;
-- kiểm tra coverage trước khi gọi một declaration là removed;
-- theo route guard → `loadTimeData` gate → backing feature cho WebUI;
-- báo rõ những nguồn tool không nhìn thấy.
+- dùng full version chính xác, không dùng milestone mơ hồ cho kết luận chính thức;
+- dùng trạng thái trên Windows, không dùng trạng thái global hay default;
+- chọn `wide` khi câu hỏi ở mức release;
+- đọc báo cáo theo owner và theo signal, thay vì nhìn tổng số dòng;
+- phân biệt ba việc rất khác nhau: code của feature đã được đưa vào, feature thật sự đã được bật, và flag sau đó bị dọn đi;
+- không áp dụng vòng đời của flag cho Mojo, pref hay switch, vì các contract đó không có gate;
+- kiểm tra coverage trước khi gọi một khai báo là đã bị xoá;
+- với WebUI, lần theo chuỗi guard của route → gate `loadTimeData` → feature đứng sau;
+- nói rõ những nguồn mà tool không nhìn thấy được.
 
-Skill không thêm dữ liệu. Nó giúp agent dùng dữ liệu đúng cách.
+Skill **không** thêm dữ liệu nào. Nó chỉ giúp agent dùng dữ liệu sẵn có cho đúng.
 
 ### Agent làm gì
 
 Agent có thể:
 
-- chạy ChromeDrift và đọc JSON/HTML/Markdown;
-- nhóm finding theo team, signal, screen hoặc feature chain;
-- mở upstream `path:line` và đọc code xung quanh;
-- search identifier/string/pref/route trong Samsung tree;
-- tìm custom patch đang chạm cùng file hoặc symbol;
-- theo caller/implementation của Mojo;
-- đề xuất test matrix và task candidate;
-- phân biệt “đã xác nhận usage” với “chưa thấy trong phạm vi search”.
+- chạy ChromeDrift và đọc cả ba dạng JSON/HTML/Markdown;
+- nhóm finding theo team, theo signal, theo màn hình hoặc theo chuỗi feature;
+- mở đúng `path:line` phía upstream và đọc code xung quanh;
+- tìm identifier, chuỗi, pref, route trong cây source Samsung;
+- tìm bản vá riêng đang chạm vào cùng file hoặc cùng symbol;
+- lần theo phía gọi và phía hiện thực của một Mojo interface;
+- đề xuất ma trận test và các đầu việc ứng viên;
+- phân biệt "đã xác nhận có dùng" với "chưa thấy trong phạm vi đã tìm".
 
-Agent không thể tự truy cập repository/config chưa được cấp và không được biến “search không thấy” thành bằng chứng tuyệt đối rằng Samsung không dùng.
+Hai điều agent **không** được làm: tự truy cập repository hoặc config chưa được cấp quyền, và biến kết quả "tìm không thấy" thành bằng chứng tuyệt đối rằng Samsung không dùng.
 
-## Input tối thiểu để agent làm việc đáng tin
+## Đầu vào tối thiểu để agent làm việc đáng tin
 
 ```json
 {
   "from_version": "full version cũ",
   "to_version": "full version mới",
   "platform": "Windows",
-  "target_set": "wide cho release review",
-  "samsung_src": "path hoặc repository được cấp quyền",
+  "target_set": "wide cho việc review ở mức release",
+  "samsung_src": "đường dẫn hoặc repository đã được cấp quyền",
   "samsung_build_config": "nếu tách khỏi source",
   "external_config_sources": [
-    "rollout/feature config",
-    "launch scripts",
+    "cấu hình rollout/feature",
+    "script khởi động",
     "automation",
-    "enterprise policy mapping"
+    "ánh xạ policy cho doanh nghiệp"
   ],
   "team_scope": "WebUI | WebNative | IPC | Web Platform | all"
 }
 ```
 
-Nếu chỉ có report, ba field source/config có thể bỏ nhưng output phải dùng từ “cần kiểm tra”, không dùng “cần sửa”.
+Nếu chỉ có báo cáo mà không có ba trường về source và config, vẫn chạy được — nhưng đầu ra bắt buộc phải dùng từ **"cần kiểm tra"**, không được dùng từ **"cần sửa"**.
 
-## Agent cần đọc report theo thứ tự nào
+## Agent nên đọc báo cáo theo thứ tự nào
 
 1. Xác nhận `from_ref`, `to_ref`, platform và target set.
-2. Đọc coverage theo surface, missing targets và extraction errors.
-3. Xem owner counts để biết team nào có danh sách việc.
-4. Trong mỗi owner: Breaking → Behaviour change → New surface.
-5. Housekeeping chỉ đọc kỹ các signal liên quan config/lịch như `flag_expiring`, retirement và rename.
-6. Mở từng finding có khả năng liên quan Samsung, đọc `locations`, `deltas`, `signals`, `reasons`.
-7. Search Samsung source/config rồi mới gắn nhãn impact.
+2. Đọc coverage theo từng surface, danh sách missing target và lỗi trích xuất.
+3. Xem số lượng finding theo owner, để biết team nào có việc.
+4. Trong mỗi owner, đi theo thứ tự: Breaking → Behaviour change → New surface.
+5. Với Housekeeping, chỉ đọc kỹ các signal liên quan tới cấu hình và lịch trình — `flag_expiring`, các flag bị dọn, và các trường hợp đổi tên.
+6. Mở từng finding có khả năng liên quan tới Samsung, đọc `locations`, `deltas`, `signals`, `reasons`.
+7. Tìm trong source và config của Samsung, **rồi mới** gắn nhãn mức độ ảnh hưởng.
 
-## Mức kết luận agent nên dùng
+## Sáu mức kết luận agent nên dùng
 
-| Mức | Bằng chứng | Cách viết |
+Đây là thang đo để agent không nói quá bằng chứng đang có. Mỗi mức có một cách diễn đạt riêng:
+
+| Mức | Bằng chứng đang có | Cách viết |
 |---|---|---|
-| Upstream fact | Chỉ có ChromeDrift + source Chromium | “Upstream đã đổi…” |
-| Samsung reference found | Tìm thấy exact symbol/string/path ở Samsung | “Samsung đang reference tại…” |
-| Likely affected | Reference nằm trên flow build/runtime phù hợp nhưng chưa test | “Có khả năng phải sửa/kiểm thử…” |
-| Confirmed affected | Build/test/reproduction xác nhận | “Đã xác nhận ảnh hưởng…” |
-| No reference found in scope | Search không thấy trong nguồn được cấp | “Chưa thấy reference trong phạm vi đã search…” |
-| External check required | Source không chứa config cần xác minh | “Cần owner config kiểm tra…” |
+| Upstream fact | Chỉ có ChromeDrift và source Chromium | "Upstream đã đổi…" |
+| Đã tìm thấy tham chiếu ở Samsung | Tìm thấy đúng symbol, chuỗi hoặc đường dẫn trong source Samsung | "Samsung đang tham chiếu tại…" |
+| Có khả năng bị ảnh hưởng | Tham chiếu nằm trên luồng build/runtime phù hợp, nhưng chưa test | "Có khả năng phải sửa hoặc kiểm thử…" |
+| Đã xác nhận bị ảnh hưởng | Build, test hoặc tái hiện đã xác nhận | "Đã xác nhận ảnh hưởng…" |
+| Chưa thấy tham chiếu trong phạm vi tìm | Tìm không ra trong nguồn được cấp | "Chưa thấy tham chiếu trong phạm vi đã tìm…" |
+| Cần kiểm tra bên ngoài | Source không chứa cấu hình cần xác minh | "Cần owner của config kiểm tra…" |
 
-Không nên dùng “safe” chỉ vì search exact string không thấy. Wrapper, generated code, renamed fork symbol hoặc config ở hệ thống khác vẫn có thể giữ dependency.
+Một cảnh báo cụ thể: **không được kết luận "an toàn" chỉ vì tìm chuỗi chính xác không ra.** Wrapper, code do máy sinh, symbol đã bị đổi tên trong fork, hoặc cấu hình nằm ở một hệ thống khác — tất cả đều có thể vẫn đang giữ dependency đó.
 
 ## Đội WebUI cần biết gì ở mỗi đợt uprev
 
-### 1. Page và navigation nào thay đổi
+### 1. Trang và điều hướng nào thay đổi
 
-Từ `webui_route`:
+Từ `webui_route`, agent lấy ra năm thứ:
 
-- route nào add/remove;
-- URL/path đổi;
-- parent route đổi;
-- guard list đổi;
-- page cũ và page mới có phải hai nửa của một migration không.
+- route nào được thêm, route nào bị bỏ;
+- URL hoặc path nào đổi;
+- route cha nào đổi;
+- danh sách guard nào đổi;
+- một trang cũ và một trang mới có phải hai nửa của cùng một đợt migration không.
 
-Action của agent:
+**Việc agent cần làm:**
 
-1. Filter owner `WebUI front-end` và kind `webui_route`.
-2. Group theo `surface` và page.
-3. Theo guard sang `webui_gate`.
-4. Xem backing `base_feature` đang ON/OFF trên Windows ở hai version.
-5. Search route constant/path trong Samsung WebUI code và navigation tests.
+1. Lọc owner `WebUI front-end` và kind `webui_route`.
+2. Gom theo `surface` và theo trang.
+3. Lần theo guard sang `webui_gate`.
+4. Xem `base_feature` đứng sau đang BẬT hay TẮT trên Windows, ở cả hai version.
+5. Tìm hằng route và path trong code WebUI của Samsung và trong các test điều hướng.
 
-Output nên nói rõ **thời điểm user-visible change**. Route bị xoá ở M151 nhưng flag thay thế đã ON từ M148 thường là cleanup của migration, không phải UI vừa đổi ở M151.
+Đầu ra phải nói rõ **thời điểm người dùng nhìn thấy thay đổi**. Ví dụ: một route bị xoá ở M151, nhưng flag thay thế nó đã BẬT từ M148 — đây thường là bước dọn dẹp cuối của một đợt migration, chứ không phải giao diện vừa đổi ở M151.
 
 ### 2. Control nào thay đổi
 
 Từ `webui_control`:
 
-- control mới hoặc bị remove;
-- toggle/dropdown/radio/input đổi type;
-- `id` hoặc i18n label key liên quan;
-- pref binding giữ nguyên hay chuyển key;
-- GRIT/build condition có đưa control vào/ra Windows không;
-- Polymer `.html` sang Lit `.html.ts` có giữ cùng semantic control không.
+- control nào mới, control nào bị bỏ;
+- toggle/dropdown/radio/input nào đổi loại;
+- `id` hoặc khoá nhãn i18n nào liên quan;
+- pref binding giữ nguyên hay chuyển sang khoá khác;
+- điều kiện GRIT/build có đưa control ra hoặc vào bản Windows không;
+- việc chuyển Polymer `.html` sang Lit `.html.ts` có giữ nguyên ngữ nghĩa của control không.
 
-`ui_control_repointed` phải được xem trước `ui_control_removed/added`, vì nó nói control vẫn ở đó nhưng bắt đầu ghi sang pref khác. Đây có thể làm setting cũ của user bị bỏ lại.
+Trong nhóm này, `ui_control_repointed` phải được xem **trước** `ui_control_removed` và `ui_control_added`. Lý do: nó cho biết control vẫn còn nguyên đó nhưng đã bắt đầu ghi sang một pref khác — và hậu quả là setting cũ của người dùng bị bỏ lại.
 
-Agent cần search:
+**Agent cần tìm những gì:**
 
-- Samsung template override/custom component;
-- event listener hoặc query theo element `id`;
-- route navigation;
-- pref read/write phía TypeScript và C++;
-- i18n resources nếu label key đổi;
-- WebUI test fixture/screenshot test hiện có.
+- template override hoặc component tuỳ biến của Samsung;
+- event listener hoặc truy vấn theo element `id`;
+- phần điều hướng route;
+- chỗ đọc/ghi pref ở cả phía TypeScript lẫn phía C++;
+- resource i18n, nếu khoá nhãn đã đổi;
+- các test fixture và screenshot test hiện có của WebUI.
 
-### 3. Visibility gate nào thay đổi
+### 3. Điều kiện hiển thị nào thay đổi
 
 Từ `webui_gate`:
 
-- `loadTimeData` key add/remove;
-- expression C++ đổi;
-- backing feature list đổi;
-- `IsEnabled()` đổi hoặc thêm điều kiện profile/policy.
+- khoá `loadTimeData` nào được thêm hoặc bị bỏ;
+- biểu thức C++ nào đổi;
+- danh sách feature đứng sau nào đổi;
+- `IsEnabled()` đổi, hoặc có thêm điều kiện về profile/policy.
 
-Agent phải dựng chain:
+Agent phải dựng đủ chuỗi liên kết này:
 
 ```text
-WebUI page/control
-    → guard data key
-    → C++ AddBoolean/Add* expression
-    → base::Feature / pref / policy condition
-    → Windows state
+trang hoặc control WebUI
+    → khoá data của guard
+    → biểu thức AddBoolean/Add* phía C++
+    → base::Feature / pref / điều kiện policy
+    → trạng thái trên Windows
 ```
 
-Chỉ đọc route/control mà không theo chain này rất dễ gọi một phần tử “removed” khi nó chỉ đổi cách gate.
+Nếu chỉ đọc route và control mà không lần theo chuỗi trên, rất dễ gọi một phần tử là "đã bị xoá" trong khi nó chỉ đổi cách gate.
 
-### 4. Pref nào ảnh hưởng UI
+### 4. Pref nào ảnh hưởng tới giao diện
 
-WebUI team không chỉ xem owner `webui`. Các finding `pref_renamed`, `pref_symbol_renamed`, `build_gate_changed` thuộc Browser C++ có thể trực tiếp ảnh hưởng setting control.
+Team WebUI không nên chỉ xem owner `webui`. Các finding `pref_renamed`, `pref_symbol_renamed` và `build_gate_changed` thuộc về Browser C++ nhưng có thể ảnh hưởng trực tiếp tới control trong Settings.
 
-Agent nên join theo `webui_control.attrs.pref` và tìm:
+Agent nên ghép theo `webui_control.attrs.pref`, rồi tìm năm thứ:
 
-- pref registration/default;
-- sync/policy ownership;
-- migration code cho key cũ;
-- Samsung override của default;
-- control nào cùng bind pref.
+- chỗ đăng ký pref và giá trị mặc định của nó;
+- quyền sở hữu từ phía sync hoặc policy;
+- code migration cho khoá cũ;
+- override mặc định của Samsung;
+- những control nào khác cùng bind vào pref đó.
 
-### 5. Test plan WebUI nên nhận
+### 5. Kế hoạch test mà WebUI nên nhận
 
-Cho mỗi screen bị ảnh hưởng:
+Với mỗi màn hình bị ảnh hưởng:
 
-- route/deep link mở được;
-- control visible đúng với Windows build và feature state;
-- initial value đúng từ pref cũ/mới;
-- thay control có ghi đúng pref;
-- restart/profile persistence;
-- policy/managed state nếu có;
-- accessibility/name/keyboard interaction khi control type đổi;
-- visual/layout test cho shortlist đã xác định.
+- route và deep link có mở được không;
+- control có hiển thị đúng với bản build Windows và đúng trạng thái feature không;
+- giá trị ban đầu có đọc đúng từ pref cũ hoặc pref mới không;
+- thay đổi control có ghi đúng pref không;
+- giá trị có tồn tại qua restart và qua profile không;
+- trạng thái policy/managed, nếu có;
+- accessibility, tên và tương tác bàn phím, khi loại control thay đổi;
+- test về visual và layout cho danh sách rút gọn đã xác định.
 
-ChromeDrift không render UI, nên screenshot dùng để **xác nhận shortlist**, không dùng để tự khám phá toàn bộ thay đổi.
+Một giới hạn cần nhắc lại ở đây: ChromeDrift không render giao diện. Vì vậy ảnh chụp màn hình dùng để **xác nhận danh sách rút gọn**, chứ không dùng để tự khám phá ra toàn bộ thay đổi.
 
-### Mẫu output riêng cho WebUI
+### Mẫu đầu ra dành riêng cho WebUI
 
 ```markdown
 ## WebUI verdict
-[Số screen có thay đổi visible; screen nào chỉ cleanup/migration.]
+[Số màn hình có thay đổi người dùng thấy được; màn hình nào chỉ là dọn dẹp/migration.]
 
 ## Cần sửa hoặc xác minh
 ### settings › downloads_page
-- Upstream change: ...
-- Gate/feature state trên Windows: ...
-- Samsung reference: file:số dòng hoặc chưa thấy trong phạm vi search
+- Upstream đổi gì: ...
+- Trạng thái gate/feature trên Windows: ...
+- Tham chiếu phía Samsung: file:số dòng, hoặc "chưa thấy trong phạm vi đã tìm"
 - Tác động dự kiến: ...
 - Test cần chạy: ...
 
-## New surface để cân nhắc
-[Page/control mới đang live hoặc còn gated.]
+## Bề mặt mới cần cân nhắc
+[Trang hoặc control mới, đang live hay còn bị gate.]
 
-## Config/pref cần phối hợp Browser C++
-[Pref rename, default, registration, policy.]
+## Config/pref cần phối hợp với Browser C++
+[Pref đổi tên, giá trị mặc định, đăng ký, policy.]
 
-## Chưa phủ
-[TypeScript behaviour, CSS/layout, external strings/config.]
+## Chưa phủ được
+[Hành vi TypeScript, CSS/layout, chuỗi và cấu hình bên ngoài.]
 ```
 
-## Đội WebNative/Browser C++ cần biết gì
+## Đội WebNative / Browser C++ cần biết gì
 
-Tên `WebNative` không phải owner chuẩn trong ChromeDrift. Trong phần này, nó được hiểu là team làm C++ backend/native integration của browser, bao gồm feature wiring, pref/switch và phần C++ đứng sau WebUI. Nếu nội bộ Samsung dùng “WebNative” cho phạm vi khác, cần map lại owner trước khi chạy agent.
+Trước hết, một lưu ý về tên gọi: **`WebNative` không phải một owner chuẩn trong ChromeDrift.** Trong phần này, nó được hiểu là team làm phần C++ backend và native integration của browser — bao gồm việc đấu nối feature, pref/switch, và phần C++ đứng sau WebUI.
+
+Nếu nội bộ Samsung dùng từ "WebNative" cho một phạm vi khác, cần ánh xạ lại owner trước khi cho agent chạy.
 
 ### 1. Feature nào thực sự đổi hành vi trên Windows
 
 Từ `base_feature` và `feature_param`:
 
-- `disabled → enabled` hoặc `enabled → disabled` trên Windows;
-- feature mới ON by default;
-- feature ra/vào Windows build;
-- FeatureParam default/type/owner đổi;
+- `disabled → enabled` hoặc ngược lại, trên Windows;
+- feature mới BẬT ngay theo mặc định;
+- feature ra hoặc vào bản build Windows;
+- FeatureParam đổi giá trị mặc định, đổi kiểu, hoặc đổi feature sở hữu;
 - C++ symbol đổi;
-- feature string đổi và cần phối hợp config owner.
+- feature string đổi — trường hợp này cần phối hợp với owner của config.
 
-Agent cần search:
+**Agent cần tìm:**
 
-- `features::k...` reference trong Samsung code;
+- các tham chiếu `features::k...` trong code Samsung;
 - `FeatureList::IsEnabled` và `GetFieldTrialParam...`;
-- Samsung default override/buildflag;
-- test parameterization;
-- config/rollout dùng feature string hoặc param name.
+- override mặc định hoặc buildflag riêng của Samsung;
+- việc tham số hoá trong test;
+- cấu hình rollout đang dùng feature string hoặc tên param.
 
-Flag bị remove phải đọc prior state:
+**Khi một flag bị xoá, bắt buộc phải đọc trạng thái trước đó của nó.** Ba signal, ba kết luận khác hẳn nhau:
 
-- `flag_retired_on`: behaviour đã ON từ trước, release này dọn khả năng tắt;
-- `flag_retired_off`: experiment bị bỏ, không phải feature vừa tắt trong release;
-- `feature_deleted`: state không rõ, cần đọc implementation/history sâu hơn.
+| Signal | Nghĩa thật |
+|---|---|
+| `flag_retired_on` | Hành vi đã BẬT từ trước; release này chỉ dọn đi khả năng tắt |
+| `flag_retired_off` | Thí nghiệm bị bỏ; đây **không** phải feature vừa bị tắt trong release này |
+| `feature_deleted` | Trạng thái trước đó không rõ; cần đọc implementation và lịch sử sâu hơn |
 
-### 2. Pref nào đổi contract với profile
+### 2. Pref nào đổi contract với profile người dùng
 
-Agent cần tách rõ:
+Agent cần tách rõ sáu tình huống:
 
-- pref key rename: stored data có thể orphan, cần migration/read fallback;
-- C++ pref symbol rename: data an toàn, code reference cần sửa;
-- pref disappearance chưa confirmed: chạy `wide` hoặc search full Chromium tree;
-- registration/default/platform guard đổi;
-- WebUI control nào đang bind key;
-- policy hoặc sync layer nào liên quan.
+- **pref key đổi tên**: dữ liệu đang lưu có thể bị bỏ rơi; cần migration hoặc đọc fallback;
+- **C++ symbol của pref đổi tên**: dữ liệu an toàn, nhưng tham chiếu trong code phải sửa;
+- **pref biến mất nhưng chưa xác nhận**: chạy `wide`, hoặc tìm trong toàn bộ cây Chromium;
+- **đăng ký, giá trị mặc định hoặc điều kiện platform đổi**;
+- **control WebUI nào đang bind vào khoá đó**;
+- **lớp policy hoặc sync nào có liên quan**.
 
-Work item có thể gồm schema migration, copy value từ old key sang new key, cleanup old key sau grace period, test profile upgrade và managed pref.
+Đầu việc sinh ra từ nhóm này có thể gồm: migration schema, copy giá trị từ khoá cũ sang khoá mới, dọn khoá cũ sau một khoảng ân hạn, test nâng cấp profile, và test pref ở chế độ managed.
 
-### 3. Command-line switch nào ảnh hưởng integration
+### 3. Command-line switch nào ảnh hưởng tới tích hợp
 
-Agent search cả:
+Agent phải tìm ở cả năm nơi:
 
-- Samsung launcher/updater/shortcut;
-- automated test command line;
-- CI scripts;
-- enterprise deployment;
-- C++ code append switch.
+- launcher, updater và shortcut của Samsung;
+- dòng lệnh trong test tự động;
+- script CI;
+- deployment cho doanh nghiệp;
+- code C++ tự thêm switch vào dòng lệnh.
 
-String rename thuộc external config/launch side; symbol rename thuộc C++ side. Unknown switch thường bị Chromium bỏ qua im lặng nên build/test không đảm bảo bắt được.
+Quy tắc phân chia: **đổi tên chuỗi** thuộc phía cấu hình và script bên ngoài; **đổi tên symbol** thuộc phía C++.
 
-### 4. Mojo nào chạm Samsung custom code
+Điều làm switch nguy hiểm: một switch không được nhận ra thường bị Chromium bỏ qua **im lặng**. Nghĩa là build và test không bảo đảm sẽ bắt được lỗi này.
 
-Mojo được route owner `Process boundaries`, nhưng WebNative thường phải tham gia nếu Samsung có caller/implementation native.
+### 4. Mojo nào chạm vào code riêng của Samsung
 
-Agent cần:
+Mojo được route về owner `Process boundaries`, nhưng WebNative thường vẫn phải tham gia nếu Samsung có phía gọi hoặc phía hiện thực bằng native code.
 
-1. Search qualified interface/method/type trong Samsung tree.
-2. Xác định Samsung nằm ở caller, receiver hay cả hai.
-3. Kiểm tra hai đầu có luôn regenerate/build từ cùng mojom không.
-4. Xem signature, ordinal, struct field type, enum values và `[MinVersion]` delta.
-5. Kiểm tra Windows platform state.
-6. Đề xuất compile target và integration test đi qua đúng process boundary.
+Sáu bước agent cần làm:
 
-Nếu cả hai đầu luôn build từ cùng source và không có out-of-tree adapter, nhiều thay đổi sẽ thành compile work. Nếu Samsung có peer versioned, component tách rời hoặc custom serialization, runtime compatibility quan trọng hơn.
+1. Tìm tên đầy đủ của interface, method hoặc type trong cây source Samsung.
+2. Xác định Samsung đang ở phía gọi, phía nhận, hay cả hai.
+3. Kiểm tra hai đầu có luôn được sinh lại và build từ cùng một file mojom không.
+4. Xem delta của signature, ordinal, kiểu của field trong struct, giá trị enum và `[MinVersion]`.
+5. Kiểm tra trạng thái trên platform Windows.
+6. Đề xuất build target và integration test đi qua đúng ranh giới process đó.
 
-### 5. Native backend của WebUI
+Kết luận phụ thuộc vào bước 3. Nếu cả hai đầu luôn được build từ cùng một nguồn và không có adapter nào nằm ngoài cây source, phần lớn thay đổi sẽ chỉ là công việc sửa cho compile được. Ngược lại, nếu Samsung có peer được đánh version riêng, có component tách rời, hoặc có serialization tuỳ biến, thì tương thích lúc chạy mới là vấn đề chính.
 
-WebNative cần nhận các `webui_gate` và pref finding liên quan screen Samsung customize:
+### 5. Phần native đứng sau WebUI
 
-- `AddBoolean/Add*` key đổi;
-- feature expression đổi;
-- pref registration/default đổi;
-- policy handler/data source đổi;
-- route/control cần data key mới.
+WebNative cần nhận các finding `webui_gate` và pref liên quan tới những màn hình mà Samsung có tuỳ biến:
 
-Đây là vùng giao nhau giữa WebUI front-end và Browser C++; report nên chỉ định một owner chính và một owner phối hợp, không đẩy cùng task sang hai backlog mà không có boundary.
+- khoá `AddBoolean`/`Add*` đổi;
+- biểu thức feature đổi;
+- đăng ký hoặc giá trị mặc định của pref đổi;
+- policy handler hoặc data source đổi;
+- route/control cần một data key mới.
 
-### 6. Test plan Browser C++/WebNative
+Đây là vùng giao nhau giữa WebUI front-end và Browser C++. Cách xử lý đúng: báo cáo chỉ định **một owner chính và một owner phối hợp**, chứ không đẩy cùng một task vào hai backlog mà không phân định ranh giới.
 
-- build target chứa exact changed symbol;
-- unit test feature ON và OFF nếu flag còn tồn tại;
-- param boundary/default tests;
-- profile upgrade test cho pref rename;
-- launcher/automation test cho switch;
-- browser test cho Windows build gate;
-- Mojo integration test qua đúng process;
-- WebUI browser test cho C++ data source/gate;
-- rollout fallback/kill-switch procedure nếu feature trở thành permanent.
+### 6. Kế hoạch test cho Browser C++ / WebNative
 
-### Mẫu output riêng cho WebNative
+- build target chứa đúng symbol đã thay đổi;
+- unit test cho cả trạng thái BẬT và TẮT, nếu flag vẫn còn tồn tại;
+- test biên và test giá trị mặc định cho param;
+- test nâng cấp profile cho trường hợp pref đổi tên;
+- test launcher và automation cho switch;
+- browser test cho điều kiện build trên Windows;
+- integration test Mojo đi qua đúng process;
+- browser test WebUI cho data source và gate phía C++;
+- quy trình fallback hoặc kill-switch cho rollout, nếu feature trở thành vĩnh viễn.
+
+### Mẫu đầu ra dành riêng cho WebNative
 
 ```markdown
 ## Browser C++ / WebNative verdict
-[Feature flips, contract changes và config risks chính.]
+[Các feature đổi trạng thái, các contract thay đổi, và rủi ro chính về config.]
 
-## Build work đã tìm thấy reference
-- Finding + upstream location
-- Samsung locations
-- Sửa dự kiến
-- Target/test
+## Việc build đã tìm thấy tham chiếu
+- Finding + vị trí phía upstream
+- Vị trí phía Samsung
+- Dự kiến sửa gì
+- Build target / test
 
-## Runtime behaviour cần regression test
-- Windows state trước → sau
-- Flow Samsung bị chạm
-- Feature ON/OFF hoặc pref migration matrix
+## Hành vi runtime cần regression test
+- Trạng thái Windows trước → sau
+- Luồng nào của Samsung bị chạm
+- Ma trận feature BẬT/TẮT hoặc ma trận migration pref
 
 ## IPC cần phối hợp
-- Caller / receiver / versioning model
-- Signature/data delta
-- Test qua boundary
+- Phía gọi / phía nhận / mô hình versioning
+- Delta của signature và dữ liệu
+- Test đi qua ranh giới process
 
-## External config cần owner xác minh
-- Feature strings, params, switches, retired/expiring flags
+## Config bên ngoài cần owner xác minh
+- Feature string, param, switch, các flag đã bị dọn hoặc sắp hết hạn
 
-## Chưa kết luận
-- Finding chỉ có upstream evidence hoặc coverage chưa đủ
+## Chưa kết luận được
+- Finding chỉ có bằng chứng upstream, hoặc coverage chưa đủ
 ```
 
-## Web Platform là một queue riêng
+## Web Platform là một hàng đợi riêng
 
-Nếu “WebNative” trong tổ chức không sở hữu compatibility với website, đừng gộp `Web platform` vào Browser C++. Queue này cần biết:
+Nếu trong tổ chức, "WebNative" không phải nơi sở hữu việc tương thích với website, thì **đừng gộp `Web platform` vào Browser C++.** Đây là một hàng đợi độc lập, cần biết sáu thứ:
 
-- API nào stable trên Windows;
-- interface/member nào remove hoặc đổi signature;
-- API mới live hay còn gated;
-- Origin Trial/exposure context nào đổi;
-- Samsung có Blink patch, compatibility shim hoặc web-facing test nào chạm API;
-- site regression suite nào cần chạy.
+- API nào đang stable trên Windows;
+- interface hoặc member nào bị xoá hoặc đổi signature;
+- API mới đang live hay còn bị gate;
+- Origin Trial hoặc ngữ cảnh expose nào đã đổi;
+- Samsung có bản vá Blink, shim tương thích, hoặc test hướng web nào chạm tới API đó không;
+- bộ test regression trên site thật nào cần chạy.
 
-Agent có thể tạo queue này từ `blink_runtime_feature`, `idl_interface` và `idl_member` mà không ảnh hưởng cách route WebUI/native.
+Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_interface` và `idl_member`, mà không ảnh hưởng gì tới cách route của WebUI và native.
 
 ## Ai tham gia ở bước nào
 
 | Bước | Tool | Agent | Con người cần xác nhận |
 |---|---|---|---|
-| Resolve version, fetch, extract, diff, score | Chính | Chạy và kiểm tra lỗi | Release owner xác nhận exact versions |
-| Giải thích signal/upstream source | Cung cấp evidence | Chính | Domain owner review case khó |
-| Tìm Samsung reference | Không | Chính nếu được cấp source | Code owner xác nhận dependency thực |
-| Tìm Finch/rollout/script/policy | Không | Chỉ khi được cấp nguồn | Config/infra/enterprise owner |
-| Ước lượng effort và ưu tiên sprint | Không | Đề xuất | Tech lead/team owner quyết định |
-| Xác nhận build/runtime/UI | Không | Có thể chạy test được cấp | QA/domain owner sign-off |
+| Xác định version, tải, trích xuất, so sánh, chấm điểm | Làm chính | Chạy và kiểm tra lỗi | Release owner xác nhận đúng hai full version |
+| Giải thích signal và source upstream | Cung cấp bằng chứng | Làm chính | Domain owner review các ca khó |
+| Tìm nơi Samsung đang dùng | Không làm | Làm chính, nếu được cấp source | Code owner xác nhận dependency thật |
+| Tìm Finch/rollout/script/policy | Không làm | Chỉ khi được cấp nguồn | Owner của config/infra/enterprise |
+| Ước lượng công sức và ưu tiên sprint | Không làm | Đề xuất | Tech lead hoặc team owner quyết định |
+| Xác nhận build/runtime/giao diện | Không làm | Có thể chạy những test được cấp quyền | QA hoặc domain owner ký duyệt |
 
 ## Câu hỏi agent trả lời được và chưa trả lời được
 
-### Trả lời được chỉ từ ChromeDrift report
+### Trả lời được chỉ từ báo cáo ChromeDrift
 
-- Upstream feature nào đổi default trên Windows?
-- Web API/Mojo/pref/switch/WebUI declaration nào đổi?
-- Loại hậu quả và technical owner nào phù hợp?
-- Finding nào có bằng chứng removal yếu do coverage?
-- Route/control nào liên quan cùng gate hoặc pref?
-- Flag nào retired/expiring cần config owner xem?
+- Feature upstream nào đổi mặc định trên Windows?
+- Khai báo Web API, Mojo, pref, switch hoặc WebUI nào đã đổi?
+- Loại hậu quả là gì, và owner kỹ thuật nào phù hợp?
+- Finding nào có bằng chứng "đã bị xoá" còn yếu vì coverage?
+- Route và control nào cùng liên quan tới một gate hoặc một pref?
+- Flag nào đã bị dọn hoặc sắp hết hạn, cần owner của config xem?
 
-### Cần Samsung source
+### Cần có source Samsung mới trả lời được
 
-- Samsung có reference symbol/key/interface đó không?
-- Custom patch có conflict với declaration/file mới không?
-- Caller/receiver nào của Mojo thuộc Samsung?
-- WebUI screen nào đã fork/override?
-- Pref rename cần migration ở module nào?
+- Samsung có tham chiếu tới symbol, khoá hoặc interface đó không?
+- Bản vá riêng có xung đột với khai báo hoặc file mới không?
+- Phía gọi hoặc phía nhận nào của Mojo thuộc về Samsung?
+- Màn hình WebUI nào đã bị fork hoặc override?
+- Việc đổi tên pref cần migration ở module nào?
 
-### Cần config ngoài repository
+### Cần cấu hình bên ngoài repository mới trả lời được
 
-- Feature string/FeatureParam có đang được rollout không?
-- Launch/automation còn truyền switch cũ không?
-- Policy backend/store metadata có dùng key cũ không?
+- Feature string hoặc FeatureParam đó có đang được rollout không?
+- Script khởi động hoặc automation còn truyền switch cũ không?
+- Backend policy hoặc metadata của store có dùng khoá cũ không?
 
-### Cần build/test/runtime verification
+### Cần build/test/runtime mới trả lời được
 
-- Finding có thực sự gây build failure?
-- Behaviour change có đi qua Samsung flow không?
-- UI có visual/layout regression không?
-- Mojo peer có tương thích trong deployment model thật không?
+- Finding này có thật sự gây lỗi build không?
+- Thay đổi hành vi có đi qua luồng nào của Samsung không?
+- Giao diện có bị lỗi visual hoặc layout không?
+- Peer Mojo có tương thích trong mô hình triển khai thật không?
 
 ## Prompt mẫu để gắn cho agent
 
@@ -427,7 +441,7 @@ nói upstream đổi gì, Windows user có thấy khác không, Samsung source c
 removed là user-visible change trước khi kiểm tra guard và backing feature.
 ```
 
-### Browser C++/WebNative
+### Browser C++ / WebNative
 
 ```text
 Phân tích uprev Chromium <from_full_version> → <to_full_version> trên Windows.
@@ -438,14 +452,14 @@ Flag retired phải đọc prior Windows state. Mọi kết luận Samsung bị 
 phải kèm Samsung path:line; nếu chỉ có upstream evidence, ghi là cần kiểm tra.
 ```
 
-## Điều kiện để tin report do agent tạo
+## Năm điều kiện để tin một báo cáo do agent tạo
 
-Trước khi nhận kết luận, tech lead chỉ cần kiểm tra năm điểm:
+Trước khi nhận kết luận của agent, tech lead chỉ cần kiểm tra năm điểm:
 
-1. Exact full versions và Windows được ghi ở đầu.
-2. Release verdict dùng `wide`, hoặc giới hạn của target set khác được nói rõ.
-3. Mọi câu “Samsung dùng” có Samsung `path:line` hoặc nguồn config cụ thể.
-4. Mọi removal đều đã đọc coverage/reason, không suy từ absence mù quáng.
-5. Report tách upstream fact, product impact, action và test; không trộn chúng thành một câu chắc chắn quá mức.
+1. **Version và platform** — full version chính xác của cả hai bên, cùng chữ "Windows", được ghi ngay ở đầu báo cáo.
+2. **Phạm vi** — kết luận ở mức release phải dùng `wide`; nếu dùng target set khác, giới hạn của nó phải được nói rõ.
+3. **Bằng chứng cho mọi câu về Samsung** — mọi câu "Samsung dùng…" phải kèm `path:line` phía Samsung, hoặc một nguồn config cụ thể.
+4. **Bằng chứng cho mọi kết luận đã bị xoá** — phải đã đọc coverage và lý do, không suy từ sự vắng mặt một cách mù quáng.
+5. **Tách bạch bốn lớp** — báo cáo phải tách rõ: fact phía upstream, tác động lên sản phẩm, hành động, và test. Không trộn cả bốn vào một câu chắc chắn quá mức.
 
-Skill làm agent nhất quán hơn, không làm agent toàn tri. Giá trị lớn nhất là biến report hàng nghìn row thành queue có bằng chứng cho từng team và giữ cho kết luận không đi xa hơn dữ liệu được cấp.
+Skill làm cho agent nhất quán hơn, chứ không làm cho agent toàn tri. Giá trị lớn nhất của nó là biến một báo cáo hàng nghìn dòng thành một hàng đợi có bằng chứng cho từng team, đồng thời giữ cho kết luận không đi xa hơn dữ liệu thực sự được cấp.

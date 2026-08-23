@@ -1,59 +1,70 @@
 # 3. Vì sao có 9 nhóm file và bộ lọc hoạt động ra sao
 
-## “9 loại file” là cách gọi chưa hoàn toàn chính xác
+Tài liệu này trả lời hai câu hỏi: **công cụ đọc những loại file nào**, và **một file phải qua bao nhiêu lớp lọc trước khi thật sự được phân tích**.
 
-ChromeDrift có **9 extractor**, tức 9 bộ đọc cho 9 source of truth. Một extractor có thể đọc nhiều filename và tạo nhiều loại Fact. Ngược lại, một file C++ có thể được hơn một extractor đọc.
+## Trước hết, sửa một cách gọi chưa chính xác
 
-Ví dụ:
+Người ta hay nói "ChromeDrift đọc 9 loại file". Cách gọi đó gây hiểu nhầm.
 
-- `base_features` tạo cả `base_feature` và `feature_param`;
-- `mojom` tạo 5 loại Fact: interface, method, struct/union, field và enum;
-- `constants` đọc cùng `.cc/.h` nhưng tạo `pref` hoặc `switch` theo filename;
-- `.cc` có thể khớp cả `base_features` lẫn `constants` nếu basename cho thấy file chứa cả feature và switch.
+Chính xác thì ChromeDrift có **9 extractor** — tức 9 bộ đọc, mỗi bộ phụ trách một nguồn sự thật. Quan hệ giữa extractor và file không phải một-một:
 
-Vì vậy nên trình bày là:
+- một extractor có thể đọc nhiều dạng tên file, và tạo ra nhiều loại `Fact`;
+- ngược lại, một file C++ có thể được hơn một extractor cùng đọc.
 
-> Tool theo dõi 9 nhóm declaration source, qua đó tạo 16 loại Fact.
+Bốn ví dụ cụ thể:
 
-## Năm lớp lọc từ cây Chromium đến Fact
+- `base_features` tạo ra hai loại `Fact`: `base_feature` và `feature_param`;
+- `mojom` tạo ra năm loại: interface, method, struct/union, field và enum;
+- `constants` đọc cùng một loại file `.cc/.h`, nhưng tạo ra `pref` hay `switch` tuỳ theo tên file;
+- một file `.cc` có thể khớp cả `base_features` lẫn `constants`, nếu tên file cho thấy nó chứa cả feature lẫn switch.
+
+Vì vậy cách nói đúng là:
+
+> Công cụ theo dõi 9 nhóm nguồn khai báo, và qua đó tạo ra 16 loại `Fact`.
+
+## Năm lớp lọc, từ cây Chromium xuống tới một `Fact`
+
+Một file phải vượt qua đủ năm lớp mới sinh ra dữ liệu:
 
 ```text
-Toàn bộ file trong Chromium tag
+Toàn bộ file trong một Chromium tag
         │
         ▼
 1. Product scope
-   bỏ test/generated/vendored/binary khác/platform không build
+   bỏ file test, file do máy sinh, thư viện vendor, binary khác, platform không build
         │
         ▼
 2. Target scope
    default / minimal / wide / partition / complete
         │
         ▼
-3. Archive include filter
-   khi tải một tree, chỉ giữ basename khớp suffix
+3. Bộ lọc include khi giải nén archive
+   khi tải cả một thư mục, chỉ giữ file có tên khớp đuôi đã khai báo
         │
         ▼
-4. Extractor applies_to(path)
-   kiểm tra path/dialect chính xác hơn suffix
+4. applies_to(path) của extractor
+   kiểm tra đường dẫn và dialect, chặt hơn nhiều so với chỉ nhìn đuôi file
         │
         ▼
-5. Parser grammar
-   chỉ declaration đúng syntax tool hiểu mới tạo Fact
+5. Grammar của parser
+   chỉ khai báo viết đúng cú pháp mà công cụ hiểu mới tạo ra Fact
 ```
 
-Mỗi lớp trả lời một câu khác nhau:
+Năm lớp này không trùng nhau, vì mỗi lớp trả lời một câu hỏi khác nhau:
 
-- Product scope: file có thuộc browser product trên Windows không?
-- Target scope: lần chạy này có cam kết đọc vùng đó không?
-- Include filter: file có đáng materialize từ archive lớn không?
-- `applies_to`: extractor này có hiểu đúng dialect/path không?
-- Parser grammar: nội dung có declaration cụ thể cần theo dõi không?
+| Lớp | Câu hỏi nó trả lời |
+|---|---|
+| Product scope | File này có thuộc sản phẩm browser trên Windows không? |
+| Target scope | Lần chạy này có cam kết đọc vùng đó không? |
+| Include filter | File này có đáng lấy ra từ một archive lớn không? |
+| `applies_to` | Extractor này có hiểu đúng dialect và đường dẫn đó không? |
+| Grammar | Nội dung có chứa khai báo cụ thể cần theo dõi không? |
 
-File vượt qua suffix filter chưa chắc tạo Fact. Ví dụ một `features.cc` không có `BASE_FEATURE` hợp lệ vẫn được đọc nhưng tạo 0 Fact. Coverage đo file đã đọc, còn extract stats đo declaration thực tế trích xuất được.
+Một hệ quả cần nhớ: **file vượt qua bộ lọc đuôi chưa chắc tạo ra `Fact`**. Ví dụ, một file `features.cc` không chứa `BASE_FEATURE` hợp lệ nào vẫn được đọc, nhưng tạo ra 0 `Fact`. Đó là lý do báo cáo có hai con số riêng: **coverage** đếm số file đã đọc, còn **extract stats** đếm số khai báo thực sự trích xuất được.
 
-## Bộ lọc filename dùng khi tải archive
+## Bộ lọc tên file dùng khi giải nén archive
 
-`READABLE_SUFFIXES` hiện chứa các spelling sau:
+Hằng số `READABLE_SUFFIXES` hiện chứa các cách viết sau:
 
 ```text
 features.cc       features.h
@@ -71,29 +82,35 @@ route.ts          routes.ts
 flag-metadata.json
 ```
 
-Đây là suffix match trên basename, không phải 27 loại semantic khác nhau. Suffix `features.cc` khớp cả `features.cc`, `chrome_features.cc` và `download_features.cc`.
+Hai điều cần hiểu đúng về danh sách này.
 
-Filter này cố tình rộng hơn `applies_to()` của một extractor. Bước tải archive chỉ loại file chắc chắn không extractor nào dùng; quyết định dialect chính xác nằm ở registry phía sau.
+**Thứ nhất, đây là so khớp phần đuôi của tên file, không phải 27 loại ngữ nghĩa khác nhau.** Chuỗi `features.cc` khớp đồng thời với `features.cc`, `chrome_features.cc` và `download_features.cc`.
+
+**Thứ hai, bộ lọc này cố tình rộng hơn `applies_to()` của từng extractor.** Ở bước giải nén, công cụ chỉ loại những file chắc chắn không extractor nào dùng tới. Quyết định chính xác về dialect được để lại cho registry ở lớp sau. Làm chặt quá sớm sẽ khiến một file hợp lệ bị loại mà không ai biết.
 
 ## Tổng quan 9 extractor
 
-| Extractor | File/path chính | Fact tạo ra | Câu hỏi uprev nó trả lời |
+Bảng này là bản đồ của cả tài liệu. Cột cuối cùng cho biết mỗi extractor tồn tại để trả lời câu hỏi gì trong một đợt uprev.
+
+| Extractor | File / đường dẫn chính | `Fact` tạo ra | Câu hỏi uprev nó trả lời |
 |---|---|---|---|
-| `base_features` | C++ feature files | `base_feature`, `feature_param` | Feature/param nào đổi default, C++ symbol hoặc build gate? |
-| `blink_runtime` | `runtime_enabled_features.json5` | `blink_runtime_feature` | Web Platform feature nào stable/experimental/test trên Windows và wiring nào đổi? |
-| `web_idl` | Blink `.idl` | `idl_interface`, `idl_member` | Website nhìn thấy API shape nào được thêm, bỏ hoặc đổi signature/exposure? |
-| `mojom` | `.mojom` | 5 Mojo kinds | IPC method/data contract nào đổi qua process boundary? |
-| `constants` | switch/pref `.cc/.h` | `switch`, `pref` | Launch argument hoặc profile key nào đổi? |
-| `flags_metadata` | `flag-metadata.json` | `flag_entry` | Flag nào sắp hết hạn hoặc lịch xoá thay đổi? |
-| `webui_routes` | `route.ts`, `routes.ts` | `webui_route` | Page/subpage `chrome://` nào thêm, bỏ, move hoặc đổi guard? |
-| `webui_controls` | `.html`, `.html.ts` | `webui_control` | Control nào đổi type, pref binding, label hoặc build condition? |
-| `webui_gates` | WebUI C++ `.cc` | `webui_gate` | `loadTimeData` key nào nối page với feature/config nào? |
+| `base_features` | Các file feature C++ | `base_feature`, `feature_param` | Feature hoặc param nào đổi mặc định, đổi C++ symbol, hoặc đổi điều kiện build? |
+| `blink_runtime` | `runtime_enabled_features.json5` | `blink_runtime_feature` | Feature Web Platform nào đang stable/experimental/test trên Windows, và cách đấu nối nào đã đổi? |
+| `web_idl` | File `.idl` của Blink | `idl_interface`, `idl_member` | Website nhìn thấy API nào được thêm, bị bỏ, hoặc đổi signature/phạm vi expose? |
+| `mojom` | File `.mojom` | 5 loại `Fact` Mojo | Contract IPC nào — method hay dữ liệu — đã đổi khi đi qua ranh giới process? |
+| `constants` | File `.cc/.h` chứa switch và pref | `switch`, `pref` | Tham số khởi động hoặc khoá lưu trong profile nào đã đổi? |
+| `flags_metadata` | `flag-metadata.json` | `flag_entry` | Flag nào sắp hết hạn, hoặc lịch xoá nào vừa thay đổi? |
+| `webui_routes` | `route.ts`, `routes.ts` | `webui_route` | Trang `chrome://` nào được thêm, bị bỏ, đổi vị trí, hoặc đổi điều kiện hiển thị? |
+| `webui_controls` | `.html`, `.html.ts` | `webui_control` | Control nào đổi kiểu, đổi pref, đổi nhãn, hoặc đổi điều kiện build? |
+| `webui_gates` | File `.cc` của WebUI | `webui_gate` | Khoá `loadTimeData` nào đang nối một trang với feature hoặc cấu hình nào? |
 
-## 1. `base_features`: C++ feature flag và FeatureParam
+Chín mục dưới đây đi vào chi tiết từng extractor, theo cùng một khuôn: **đọc file nào** → **khai báo nào tạo `Fact`** → **vì sao cần theo dõi** → **ví dụ**.
 
-### File nào được đọc
+## 1. `base_features` — feature flag và FeatureParam trong C++
 
-Path phải kết thúc bằng `.cc` hoặc `.h`; basename chứa một trong các shape:
+### Đọc file nào
+
+Đường dẫn phải kết thúc bằng `.cc` hoặc `.h`, và tên file phải chứa một trong các dạng sau:
 
 ```text
 features       switches       feature_list
@@ -101,24 +118,28 @@ field_trial    fieldtrial     flags
 _util          _handler       _manager
 ```
 
-Các basename chứa `_unittest.`, `_browsertest.`, `_test.`, `_testing.`, `test_util.`, `_test_util.` hoặc `_test_helper.` bị bỏ.
+Những tên chứa `_unittest.`, `_browsertest.`, `_test.`, `_testing.`, `test_util.`, `_test_util.` hoặc `_test_helper.` bị loại.
 
-Không chỉ đọc `*_features.cc`. Chromium đặt real feature trong `*_fieldtrial.cc`, `*_util.cc`, `*_handler.cc` và nhiều convention khác. Chỉ bám một suffix hẹp từng bỏ phần lớn feature trong `chrome/browser/ui/webui`.
+Ở đây có một quyết định thiết kế đáng chú ý: **không chỉ đọc `*_features.cc`**. Chromium đặt feature thật trong `*_fieldtrial.cc`, `*_util.cc`, `*_handler.cc` và nhiều quy ước khác. Việc chỉ bám vào một hậu tố hẹp đã từng khiến công cụ bỏ sót phần lớn feature nằm trong `chrome/browser/ui/webui`.
 
-### Declaration nào tạo Fact
+### Khai báo nào tạo `Fact`
 
-- `BASE_FEATURE(...)` dạng 2 hoặc 3 argument;
-- legacy `const base::Feature kFoo{...}`;
+- `BASE_FEATURE(...)` ở cả dạng 2 và 3 tham số;
+- dạng cũ `const base::Feature kFoo{...}`;
 - `base::FeatureParam<T> kParam{...}`;
 - `BASE_FEATURE_PARAM(...)`.
 
 ### Vì sao cần theo dõi
 
-- Feature default flip là tín hiệu trực tiếp rằng Windows build đổi hành vi.
-- C++ symbol đổi tên báo trước build break ở Samsung code.
-- Feature string đổi tên làm Finch/`--enable-features` cũ mất tác dụng mà build vẫn qua.
-- Param default đổi có thể làm timeout/threshold/mode khác dù feature vẫn giữ state.
-- Build guard đổi có thể đưa feature vào hoặc ra khỏi Windows binary.
+Năm kiểu hậu quả khác nhau, xếp theo mức độ dễ phát hiện giảm dần:
+
+- **Feature đổi mặc định** là tín hiệu trực tiếp cho biết bản build Windows sẽ hành xử khác.
+- **C++ symbol đổi tên** báo trước một lỗi build sẽ xảy ra ở phía Samsung.
+- **Feature string đổi tên** làm cấu hình Finch và `--enable-features` cũ mất tác dụng, trong khi build vẫn qua bình thường — đây là kiểu khó phát hiện nhất.
+- **Param đổi mặc định** có thể làm timeout, ngưỡng hoặc chế độ khác đi, dù trạng thái feature vẫn giữ nguyên.
+- **Điều kiện build đổi** có thể đưa feature vào hoặc ra khỏi binary Windows.
+
+### Ví dụ
 
 ```cpp
 BASE_FEATURE(kBackForwardCache,
@@ -126,23 +147,32 @@ BASE_FEATURE(kBackForwardCache,
              base::FEATURE_ENABLED_BY_DEFAULT);
 ```
 
-Tool bỏ qua whitespace và sự khác nhau giữa macro form. Nó theo dõi `BackForwardCache`, `kBackForwardCache`, default state và Windows platform state. Nó không đọc mọi logic `IsEnabled()` trong implementation và không chứng minh Samsung đang dùng feature.
+Công cụ bỏ qua khoảng trắng và bỏ qua khác biệt giữa các dạng macro. Nó theo dõi bốn thứ: chuỗi `BackForwardCache`, symbol `kBackForwardCache`, trạng thái mặc định, và trạng thái trên platform Windows.
 
-## 2. `blink_runtime`: trạng thái runtime feature của Blink
+Nó **không** đọc mọi logic `IsEnabled()` nằm trong phần implementation, và không chứng minh được Samsung có đang dùng feature này hay không.
 
-### File nào được đọc
+## 2. `blink_runtime` — trạng thái runtime của feature Blink
 
-Basename phải chính xác là `runtime_enabled_features.json5`.
+### Đọc file nào
 
-### Declaration nào tạo Fact
+Tên file phải chính xác là `runtime_enabled_features.json5`.
 
-Mỗi entry trong `data` có `name` tạo một `blink_runtime_feature` Fact. Status được chuẩn hoá cho Windows và default.
+### Khai báo nào tạo `Fact`
+
+Mỗi entry trong mảng `data` có trường `name` sẽ tạo ra một `Fact` loại `blink_runtime_feature`. Trạng thái được chuẩn hoá riêng cho Windows và cho giá trị mặc định.
 
 ### Vì sao cần theo dõi
 
-Web IDL nói API code tồn tại; runtime manifest nói API có được expose hay không. Một API chuyển `experimental → stable` mới là tín hiệu page thật có thể bắt đầu dùng rộng rãi. Stable bị rút lại có thể làm site break.
+Web IDL và runtime manifest trả lời hai câu hỏi khác nhau, và cần cả hai mới đủ:
 
-Manifest còn cho biết base feature đứng sau runtime flag, dependency/implied feature, public/internal access, Origin Trial wiring và browser process có quyền read/write hay không.
+- **Web IDL** nói: code của API này có tồn tại không.
+- **Runtime manifest** nói: API đó có thật sự được expose ra ngoài không.
+
+Vì vậy, chỉ khi một API chuyển từ `experimental` sang `stable` thì mới có tín hiệu rằng các trang web thật có thể bắt đầu dùng nó rộng rãi. Ngược lại, một API bị rút khỏi stable có thể làm site đang chạy bị hỏng.
+
+Manifest còn cho biết thêm bốn thứ: base feature nào đứng sau runtime flag, feature này phụ thuộc hoặc được ngụ ý bởi feature nào, có cho truy cập public hay chỉ internal, cách đấu nối Origin Trial, và browser process có quyền đọc/ghi nó hay không.
+
+### Ví dụ
 
 ```json5
 {
@@ -152,37 +182,41 @@ Manifest còn cho biết base feature đứng sau runtime flag, dependency/impli
 }
 ```
 
-Trên Windows, feature này được xem là `stable`; không dùng giá trị global để suy diễn ngược. Manifest nói gate/status, còn shape method/attribute JavaScript đến từ Web IDL.
+Trên Windows, feature này được coi là `stable`. Không được lấy giá trị `default` để suy ngược ra trạng thái Windows — đây chính là loại nhầm lẫn mà việc tách riêng trạng thái theo platform sinh ra để phòng.
 
-## 3. `web_idl`: Web API mà website gọi được
+Manifest nói về gate và trạng thái; còn hình dạng cụ thể của method và attribute mà JavaScript nhìn thấy thì đến từ Web IDL.
 
-### File nào được đọc
+## 3. `web_idl` — Web API mà website gọi được
 
-Hai điều kiện đồng thời:
+### Đọc file nào
+
+Phải thoả **đồng thời** hai điều kiện:
 
 ```text
-path kết thúc bằng .idl
-path bắt đầu bằng third_party/blink/renderer/
+đường dẫn kết thúc bằng .idl
+đường dẫn bắt đầu bằng third_party/blink/renderer/
 ```
 
-`.idl` còn được dùng cho Chrome Extensions IDL và Windows MIDL; parse chúng như Web IDL sẽ tạo finding “site-visible API changed” sai.
+Điều kiện thứ hai không thừa. Đuôi `.idl` còn được dùng cho Chrome Extensions IDL và cho Windows MIDL. Nếu đem parse chúng như Web IDL, báo cáo sẽ sinh ra những finding kiểu "API mà site nhìn thấy đã thay đổi" hoàn toàn sai.
 
-### Declaration nào tạo Fact
+### Khai báo nào tạo `Fact`
 
 - interface, callback interface, interface mixin;
 - dictionary, namespace, enum;
-- operation, attribute, field, constructor, const, iterable/maplike/setlike;
-- extended attributes như `[RuntimeEnabled=Foo]`, `[Exposed=Window]`.
+- operation, attribute, field, constructor, const, và các dạng iterable/maplike/setlike;
+- extended attribute như `[RuntimeEnabled=Foo]`, `[Exposed=Window]`.
 
-Partial interface không tạo interface Fact mới nhưng member của partial vẫn được gắn vào interface gốc.
+Riêng `partial interface` không tạo ra một `Fact` interface mới, nhưng các member khai báo bên trong nó vẫn được gắn vào interface gốc.
 
 ### Vì sao cần theo dõi
 
-- Removed interface/member: live website có thể không còn chạy.
-- Signature đổi: call site cũ có thể không match.
-- Overload thêm có thể đổi resolution nếu trùng arity.
-- `Exposed`/`RuntimeEnabled` đổi: API vẫn còn nhưng context hoặc gate truy cập thay đổi.
-- Inheritance/enum values đổi: shape JavaScript quan sát được thay đổi.
+- **Interface hoặc member bị bỏ**: website đang chạy có thể lỗi.
+- **Signature đổi**: chỗ gọi cũ có thể không còn khớp.
+- **Thêm overload**: nếu trùng số lượng tham số với overload cũ, cách gọi có thể được phân giải sang một hàm khác.
+- **`Exposed` hoặc `RuntimeEnabled` đổi**: API vẫn còn đó, nhưng ngữ cảnh hoặc điều kiện truy cập đã khác.
+- **Quan hệ kế thừa hoặc giá trị enum đổi**: hình dạng mà JavaScript quan sát được thay đổi.
+
+### Ví dụ
 
 ```webidl
 [Exposed=Window]
@@ -191,26 +225,32 @@ interface Example {
 };
 ```
 
-Tool tạo một Fact cho `Example` và một Fact cho `Example.connect`, rồi nối `RuntimeEnabled=Foo` với runtime feature status để biết member đang live hay gated. Parser là pragmatic lexer cho dialect Blink thường dùng, không phải Web IDL parser hoàn chỉnh.
+Công cụ tạo hai `Fact`: một cho `Example`, một cho `Example.connect`. Sau đó nó nối `RuntimeEnabled=Foo` với trạng thái của runtime feature `Foo`, để biết member này đang thật sự dùng được hay còn bị chặn sau gate.
 
-## 4. `mojom`: IPC contract giữa các process
+Giới hạn cần biết: parser ở đây là một lexer thực dụng, viết cho dialect mà Blink thường dùng. Nó không phải một parser Web IDL đầy đủ theo chuẩn.
 
-### File nào được đọc
+## 4. `mojom` — contract IPC giữa các process
 
-Mọi path kết thúc `.mojom` trong product scope của target set.
+### Đọc file nào
 
-### Declaration nào tạo Fact
+Mọi đường dẫn kết thúc bằng `.mojom` nằm trong phạm vi sản phẩm của target set đang chạy.
 
-- `interface` và request/response method;
+### Khai báo nào tạo `Fact`
+
+- `interface`, cùng các method dạng request và request/response;
 - `struct` và `union`;
-- field;
-- enum cùng danh sách values.
+- từng field;
+- enum, kèm danh sách giá trị.
 
-Module, qualified name, ordinal, type, response, `[Stable]`, `[MinVersion]` và `[EnableIf...]` được giữ khi có ý nghĩa.
+Những thông tin sau được giữ lại khi chúng có ý nghĩa: module, tên đầy đủ, ordinal, kiểu dữ liệu, phần response, `[Stable]`, `[MinVersion]` và `[EnableIf...]`.
 
 ### Vì sao cần theo dõi
 
-Samsung code có thể implement hoặc call một Mojo interface khác phía với upstream code. Method đổi parameter/response, ordinal đổi, field đổi type, struct thành union, enum có value mới hoặc stable declaration bị reorder đều có thể tạo IPC incompatibility. Custom boundary có thể chỉ lộ lỗi khi chạy.
+Đây là nhóm nguy hiểm nhất, vì lý do sau: code của Samsung có thể đang hiện thực hoặc đang gọi **một đầu** của một Mojo interface, còn đầu kia là code upstream.
+
+Khi đó, mọi thay đổi sau đều có thể tạo ra bất tương thích IPC: method đổi tham số hoặc response, ordinal đổi, field đổi kiểu, struct chuyển thành union, enum có thêm giá trị mới, hoặc khai báo `[Stable]` bị đảo thứ tự. Và với một ranh giới do Samsung tự dựng, lỗi có thể chỉ lộ ra lúc chạy.
+
+### Ví dụ
 
 ```mojom
 module network.mojom;
@@ -220,48 +260,60 @@ module network.mojom;
 };
 ```
 
-Identity method là `network.mojom.Probe.Start`; signature và ordinal là attribute so sánh. Tool chưa tìm mọi call site/implementation trong Samsung code; nó chỉ chỉ ra contract upstream đã đổi.
+Identity của method này là `network.mojom.Probe.Start`; còn signature và ordinal là các thuộc tính được đem đi so sánh.
 
-## 5. `constants`: pref key và command-line switch
+Công cụ chưa tìm mọi chỗ gọi và mọi phần hiện thực trong code Samsung. Nó chỉ chỉ ra rằng contract phía upstream đã đổi.
 
-### File nào được đọc
+## 5. `constants` — pref key và command-line switch
 
-Path phải là `.cc` hoặc `.h`. Basename có `switches.` hoặc khớp một pref convention: `pref_names.`, `pref_names_`, `_pref_names.`, `_prefs.` hay `prefs.`.
+### Đọc file nào
 
-Hai syntax string constant được hỗ trợ:
+Đường dẫn phải kết thúc bằng `.cc` hoặc `.h`. Tên file phải chứa `switches.`, hoặc khớp một trong các quy ước đặt tên pref: `pref_names.`, `pref_names_`, `_pref_names.`, `_prefs.`, `prefs.`.
+
+Hai cú pháp khai báo hằng chuỗi được hỗ trợ:
 
 ```cpp
 const char kFoo[] = "foo";
 inline constexpr std::string_view kFoo = "foo";
 ```
 
-Nếu basename khớp pref convention, Fact kind là `pref`; còn lại là `switch`. Identity là string value, không phải C++ variable.
+Nếu tên file khớp quy ước pref, `Fact` sinh ra có `kind` là `pref`; còn lại là `switch`. Điểm quan trọng: **identity là giá trị chuỗi, không phải tên biến C++.**
 
 ### Vì sao cần theo dõi
 
-- Pref string đổi: profile cũ vẫn giữ key cũ, setting có thể reset về default.
-- Pref C++ symbol đổi nhưng string giữ: stored value an toàn, Samsung build có thể fail.
-- Switch string đổi: launch script/automation cũ im lặng không còn hiệu lực.
-- Switch C++ symbol đổi: code compile fail nhưng external script vẫn an toàn.
-- Platform guard đổi: key có thể ra/vào Windows build.
+Năm trường hợp, và hậu quả của chúng khác hẳn nhau — đây là lý do phải tách bạch chuỗi với symbol:
+
+| Thay đổi | Hậu quả |
+|---|---|
+| Chuỗi pref đổi | Profile cũ vẫn giữ khoá cũ; setting của người dùng có thể quay về mặc định |
+| C++ symbol của pref đổi, chuỗi giữ nguyên | Dữ liệu người dùng an toàn, nhưng build của Samsung có thể fail |
+| Chuỗi switch đổi | Script khởi động và automation cũ **im lặng** mất tác dụng |
+| C++ symbol của switch đổi | Code không compile được, nhưng script bên ngoài vẫn an toàn |
+| Điều kiện platform đổi | Khoá có thể ra hoặc vào bản build Windows |
+
+### Ví dụ
 
 ```cpp
 const char kPromptForDownload[] = "download.prompt_for_download";
 ```
 
-Fact được key bằng `download.prompt_for_download`. Nhờ vậy đổi C++ symbol là modified; đổi string được rename detector ghép bằng symbol ổn định. Chỉ filename convention đã được kiểm chứng được đọc để tránh biến string thường thành external contract.
+`Fact` được đánh khoá bằng `download.prompt_for_download`. Cách chọn khoá này cho hai kết quả có ích: nếu chỉ C++ symbol đổi thì đây là `modified`; còn nếu chuỗi đổi thì bộ phát hiện đổi tên vẫn ghép lại được nhờ symbol không đổi.
 
-## 6. `flags_metadata`: lịch vòng đời `chrome://flags`
+Chỉ những quy ước đặt tên đã được kiểm chứng mới được đọc, để tránh biến một hằng chuỗi bình thường thành một contract với bên ngoài.
 
-### File nào được đọc
+## 6. `flags_metadata` — vòng đời của entry trong `chrome://flags`
 
-Basename chính xác là `flag-metadata.json`.
+### Đọc file nào
 
-Mỗi object có `name` tạo một `flag_entry`; tool giữ `expiry_milestone` và `owners`.
+Tên file chính xác là `flag-metadata.json`. Mỗi object có trường `name` tạo ra một `flag_entry`; công cụ giữ lại `expiry_milestone` và `owners`.
 
 ### Vì sao cần theo dõi
 
-Đây là source nói trực tiếp về tương lai. Nếu flag Samsung đang override sẽ hết hạn trong target milestone hoặc hai milestone tiếp theo, team có thể tạo backlog trước khi upstream xoá declaration/wiring.
+Đây là nguồn duy nhất trong cả 9 nhóm nói trực tiếp về **tương lai**.
+
+Nếu một flag mà Samsung đang override sắp hết hạn trong milestone đích hoặc trong hai milestone kế tiếp, team có thể lập backlog ngay từ bây giờ, trước khi upstream xoá cả khai báo lẫn phần đấu nối.
+
+### Ví dụ
 
 ```json
 {
@@ -271,28 +323,32 @@ Mỗi object có `name` tạo một `flag_entry`; tool giữ `expiry_milestone` 
 }
 ```
 
-`owners` trong Fact là upstream contact của metadata, khác với owner routing trong report. File này không chứng minh Samsung có dùng flag.
+Trường `owners` ở đây là người liên hệ phía upstream của metadata này; nó **khác** với owner routing trong báo cáo. Và file này cũng không chứng minh được Samsung có dùng flag hay không.
 
-## 7. `webui_routes`: inventory page/subpage
+## 7. `webui_routes` — danh mục trang và trang con
 
-### File nào được đọc
+### Đọc file nào
 
-Path bắt đầu bằng `chrome/browser/resources/` và basename là `route.ts` hoặc `routes.ts`.
+Đường dẫn bắt đầu bằng `chrome/browser/resources/`, và tên file là `route.ts` hoặc `routes.ts`.
 
-### Declaration nào tạo Fact
+### Khai báo nào tạo `Fact`
 
-Các assignment theo pattern:
+Các phép gán theo hai mẫu sau:
 
 ```ts
 r.NAME = r.PARENT.createChild('path');
 r.NAME = r.PARENT.createSection('path', 'section');
 ```
 
-Extractor theo dõi stack của `if (loadTimeData.getBoolean('key'))` bao quanh route.
+Extractor đồng thời theo dõi ngăn xếp các câu `if (loadTimeData.getBoolean('key'))` bao quanh route đó.
 
 ### Vì sao cần theo dõi
 
-Một page bị xoá khỏi route table có thể thật sự biến mất, đổi URL/parent, được thay bằng page mới hoặc vốn đã hidden vì guard. Không giữ guard sẽ làm report kết luận sai thời điểm user-visible change.
+Khi một trang biến mất khỏi bảng route, có tới bốn khả năng khác nhau: nó thật sự biến mất, nó đổi URL hoặc đổi route cha, nó được thay bằng một trang mới, hoặc nó vốn đã bị ẩn từ trước bởi một guard.
+
+Nếu không giữ lại guard, báo cáo sẽ kết luận sai về **thời điểm** người dùng nhìn thấy thay đổi — báo một trang "vừa bị xoá ở M151" trong khi thực tế người dùng đã không thấy nó từ nhiều milestone trước.
+
+### Ví dụ
 
 ```ts
 if (loadTimeData.getBoolean('enableFooSetting')) {
@@ -300,25 +356,27 @@ if (loadTimeData.getBoolean('enableFooSetting')) {
 }
 ```
 
-Fact giữ route `foo`, parent `PRIVACY` và guard `enableFooSetting`. Navigation dựng hoàn toàn động bằng syntax khác chưa nằm trong coverage của extractor.
+`Fact` giữ ba thứ: route `foo`, route cha `PRIVACY`, và guard `enableFooSetting`.
 
-## 8. `webui_controls`: control trong Polymer/Lit template
+Giới hạn: những phần điều hướng được dựng hoàn toàn động bằng cú pháp khác chưa nằm trong phạm vi extractor này.
 
-### File nào được đọc
+## 8. `webui_controls` — control trong template Polymer/Lit
 
-Path dưới `chrome/browser/resources/` và kết thúc `.html` hoặc `.html.ts`.
+### Đọc file nào
 
-### Control được nhận ra bằng rule nào
+Đường dẫn nằm dưới `chrome/browser/resources/` và kết thúc bằng `.html` hoặc `.html.ts`.
 
-Mọi custom element có dấu `-` được xét. Nó thành control nếu thỏa ít nhất một:
+### Nhận ra một control bằng rule nào
 
-1. Có pref binding.
-2. Là structural tag đã biết như `settings-subpage`, `settings-section`, `downloads-item`.
-3. Tag có segment tương tác như `button`, `toggle`, `checkbox`, `radio`, `input`, `select`, `slider`, `menu`, `row`… và có identity ổn định bằng `id` hoặc label.
+Mọi custom element (tag có dấu `-` trong tên) đều được xét. Nó được coi là control nếu thoả **ít nhất một** trong ba điều kiện:
 
-Rule dựa trên shape thay danh sách tag đóng dễ cũ. Element không pref, không id và không label thường bị bỏ vì chỉ nhận diện được bằng vị trí, rất dễ churn khi template reorder.
+1. Có binding tới một pref.
+2. Là một tag cấu trúc đã biết, ví dụ `settings-subpage`, `settings-section`, `downloads-item`.
+3. Tag chứa một đoạn mang tính tương tác — `button`, `toggle`, `checkbox`, `radio`, `input`, `select`, `slider`, `menu`, `row`... — **và** có identity ổn định nhờ `id` hoặc nhãn.
 
-Pref binding được hiểu ở cả Polymer và Lit:
+Rule này dựa trên **hình dạng** thay vì một danh sách tag đóng, vì danh sách đóng rất nhanh lỗi thời. Những element không có pref, không có id và không có nhãn thường bị bỏ qua, vì cách duy nhất để nhận diện chúng là theo vị trí — mà vị trí thì đổi liên tục mỗi khi template được sắp xếp lại.
+
+Binding tới pref được hiểu ở cả Polymer lẫn Lit:
 
 ```html
 pref="{{prefs.download.prompt_for_download}}"
@@ -327,14 +385,16 @@ pref="[[prefs.download.prompt_for_download]]"
 pref-key="download.prompt_for_download"
 ```
 
-Prefix `prefs.` là bắt buộc để không nhầm component property thường thành pref.
+Tiền tố `prefs.` là bắt buộc, để không nhầm một property thông thường của component thành một pref.
 
 ### Vì sao cần theo dõi
 
-- Toggle thành dropdown là interaction/semantics change.
-- Control chuyển pref làm giá trị cũ bị bỏ lại và pref mới bắt đầu từ default.
-- Control bị remove/add cho biết Settings surface đổi.
-- GRIT condition đổi cho biết control ra/vào Windows build.
+- **Toggle đổi thành dropdown** là thay đổi về cách tương tác và về ngữ nghĩa.
+- **Control chuyển sang pref khác** khiến giá trị cũ bị bỏ lại và pref mới bắt đầu từ mặc định — người dùng mất setting mà không có thông báo.
+- **Control bị thêm hoặc bị bỏ** cho biết bề mặt Settings đã đổi.
+- **Điều kiện GRIT đổi** cho biết control ra hoặc vào bản build Windows.
+
+### Ví dụ
 
 ```html
 <settings-toggle-button
@@ -344,17 +404,17 @@ Prefix `prefs.` là bắt buộc để không nhầm component property thườn
 </settings-toggle-button>
 ```
 
-Tool không render UI, không đọc CSS/layout, không kiểm tra event handler và không đọc display string trong `.grd`. Label Fact là i18n key.
+Bốn thứ công cụ **không** làm ở đây: nó không render giao diện, không đọc CSS hay layout, không kiểm tra event handler, và không đọc chuỗi hiển thị thật trong file `.grd`. Nhãn được lưu trong `Fact` là khoá i18n, không phải câu chữ người dùng đọc thấy.
 
-## 9. `webui_gates`: cầu nối từ WebUI sang C++ feature/config
+## 9. `webui_gates` — cầu nối từ WebUI sang feature/config phía C++
 
-### File nào được đọc
+### Đọc file nào
 
-Path bắt đầu bằng `chrome/browser/ui/webui/` và kết thúc `.cc`.
+Đường dẫn bắt đầu bằng `chrome/browser/ui/webui/` và kết thúc bằng `.cc`.
 
-### Declaration nào tạo Fact
+### Khai báo nào tạo `Fact`
 
-Các call dạng `AddBoolean`, `AddInteger`, `AddString` hoặc `AddDouble` với argument đầu là literal key. Tool giữ expression đã chuẩn hoá, danh sách `features::k...` được tham chiếu và feature nằm trong `IsEnabled()`.
+Các lời gọi dạng `AddBoolean`, `AddInteger`, `AddString` hoặc `AddDouble`, với tham số đầu tiên là một chuỗi literal đóng vai trò khoá. Công cụ giữ lại biểu thức đã được chuẩn hoá, danh sách các `features::k...` được tham chiếu, và feature nằm bên trong `IsEnabled()`.
 
 ```cpp
 html_source->AddBoolean(
@@ -364,41 +424,51 @@ html_source->AddBoolean(
 
 ### Vì sao cần theo dõi
 
-Route/template chỉ biết `loadTimeData` key. Gate Fact tạo hop tới feature phía C++:
+Bản thân route và template chỉ biết tới một khoá `loadTimeData`, chứ không biết phía sau khoá đó là gì. `webui_gate` chính là mắt xích bổ sung để nối tiếp sang phía C++:
 
 ```text
-route guard: enableFooSetting
-        ↓ join bằng data_key
+guard của route: enableFooSetting
+        ↓ ghép bằng data_key
 WebUI gate: IsEnabled(features::kFoo)
-        ↓ join bằng feature symbol/name
-base_feature: default + Windows state
+        ↓ ghép bằng symbol/tên của feature
+base_feature: trạng thái mặc định + trạng thái trên Windows
 ```
 
-Nhờ chain này, agent có thể phân biệt “page bị xoá nhưng đã hidden từ trước” với “page đang visible rồi mất trong lần uprev”. Gate dựa hoàn toàn vào policy/profile vẫn tạo Fact nhưng không join tới `base_feature`.
+Nhờ chuỗi liên kết này, một agent phân biệt được hai tình huống rất khác nhau: *"trang bị xoá, nhưng nó đã bị ẩn từ trước"* và *"trang đang hiển thị bình thường rồi biến mất trong đợt uprev này"*.
 
-## Vì sao đúng 9 nhóm này
+Trường hợp riêng: một gate phụ thuộc hoàn toàn vào policy hoặc profile vẫn tạo ra `Fact`, nhưng sẽ không nối được sang `base_feature` nào.
 
-Chín nhóm phủ ba loại rủi ro khó thấy qua compile/test thông thường:
+## Vì sao lại là đúng 9 nhóm này
 
-1. **Behaviour switches**: feature/default/runtime status đổi làm browser hành xử khác.
-2. **External contracts**: pref, switch, Web API và Mojo đổi làm dữ liệu/script/site/process khác không còn tương thích.
-3. **UI and scheduling**: page/control/gate đổi hoặc flag sắp bị xoá.
+Chín nhóm được chọn để phủ ba loại rủi ro mà việc compile và test thông thường khó phát hiện:
 
-Mỗi nhóm có source of truth đủ ổn định để tạo semantic key. Implementation `.cc/.ts` vẫn quan trọng nhưng raw diff của nó có nhiều refactor noise và thường không có identity ổn định.
+1. **Công tắc hành vi** — feature, giá trị mặc định, trạng thái runtime đổi, làm browser hành xử khác đi.
+2. **Contract với bên ngoài** — pref, switch, Web API và Mojo đổi, làm dữ liệu, script, website hoặc process khác không còn tương thích.
+3. **Giao diện và lịch trình** — trang, control, gate đổi, hoặc flag sắp bị xoá.
 
-Muốn thêm nhóm thứ mười, cần trả lời được:
+Điểm chung của cả chín: mỗi nhóm có một nguồn sự thật đủ ổn định để đặt được một khoá ngữ nghĩa. Phần implementation trong `.cc` và `.ts` vẫn rất quan trọng, nhưng diff thô của chúng chứa quá nhiều nhiễu từ refactor và thường không có identity ổn định để ghép giữa hai version.
 
-- Source of truth nào chứa declaration?
-- Key nào ổn định giữa version dù syntax/refactor đổi?
-- Attribute nào thật sự thay đổi hành vi hoặc contract?
-- Grammar gap và coverage có đo được không?
-- Finding tạo ra dẫn tới hành động review nào?
+### Nếu muốn thêm nhóm thứ mười
 
-## Cách kiểm tra bộ lọc có đáng tin không
+Cần trả lời được cả năm câu hỏi sau. Thiếu một câu là nhóm đó chưa sẵn sàng:
 
-1. Unit test `applies_to()` với path đúng, path gần giống nhưng sai dialect, test file và platform path.
-2. Unit test input source → Fact cho mọi syntax hỗ trợ.
-3. Catalog/coverage trên version thật để tìm filename convention bị bỏ sót.
-4. Diff hai version thật để tìm false positive do refactor, move, overload hoặc platform guard.
+- Nguồn sự thật nào chứa khai báo này?
+- Khoá nào ổn định giữa hai version, kể cả khi cú pháp bị refactor?
+- Thuộc tính nào thật sự làm thay đổi hành vi hoặc contract?
+- Có đo được khoảng trống về grammar và về coverage không?
+- Finding sinh ra sẽ dẫn tới hành động review cụ thể nào?
 
-Coverage 100% chỉ nói đã đọc mọi file mà rule hiện tại gọi là candidate. Nó không chứng minh parser hiểu 100% grammar trong file, và cũng không chứng minh rule không quên convention mới. Catalog audit và parser tests vẫn cần tồn tại song song.
+## Kiểm tra bộ lọc có đáng tin không
+
+Bốn cách, xếp từ rẻ tới đắt:
+
+1. Viết unit test cho `applies_to()`, với bốn nhóm đầu vào: đường dẫn đúng, đường dẫn gần giống nhưng sai dialect, file test, và đường dẫn của platform khác.
+2. Viết unit test theo cặp "source đầu vào → `Fact` mong đợi" cho mọi cú pháp được hỗ trợ.
+3. Chạy catalog và coverage trên một version thật, để tìm ra quy ước đặt tên bị bỏ sót.
+4. Diff hai version thật, để tìm những finding sai do refactor, do chuyển file, do overload hoặc do điều kiện platform.
+
+### Một cảnh báo về con số coverage
+
+Coverage 100% chỉ nói lên đúng một điều: **đã đọc mọi file mà rule hiện tại gọi là candidate.**
+
+Nó không chứng minh parser hiểu 100% grammar bên trong những file đó, và cũng không chứng minh rule không bỏ quên một quy ước đặt tên mới xuất hiện. Vì vậy hai thứ phải tồn tại song song: kiểm tra catalog để canh rule, và test parser để canh grammar.

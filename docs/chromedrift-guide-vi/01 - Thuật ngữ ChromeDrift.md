@@ -1,377 +1,535 @@
 # 1. Thuật ngữ dùng trong ChromeDrift
 
-## Nhóm phiên bản và source code
+Tài liệu này là từ điển tra cứu. Không cần đọc hết một lượt — khi gặp một từ lạ trong báo cáo hoặc trong các phần khác của bộ tài liệu, quay lại đây tìm.
+
+Mỗi mục được viết theo cùng một khuôn: **từ đó nghĩa là gì**, **ví dụ cụ thể**, và khi cần thì thêm **vì sao ChromeDrift quan tâm**.
+
+## Mười từ nên biết trước
+
+Nếu chỉ đọc được mười dòng, hãy đọc mười dòng này. Chúng là bộ khung của toàn bộ công cụ.
+
+| Từ | Hiểu nhanh |
+|---|---|
+| `uprev` | Một đợt nâng nền Chromium của Samsung Browser từ version cũ lên version mới |
+| `upstream` | Chromium gốc do Google phát triển; đối lập với `downstream` là Samsung Browser |
+| Khai báo (declaration) | Một dòng source định nghĩa ra một thứ có tên: một feature flag, một Web API, một preference key... |
+| `Fact` | Một khai báo đã được ChromeDrift rút gọn thành object JSON nhỏ để so sánh được giữa hai version |
+| `Snapshot` | Toàn bộ `Fact` đọc được ở **một** version Chromium |
+| `Change` | Kết quả so sánh một `Fact` giữa hai snapshot: được thêm, bị bỏ, hay bị sửa |
+| `signal` | Nhãn mô tả chính xác chuyện gì đã xảy ra, ví dụ `pref_renamed` (preference key đã bị đổi tên) |
+| `score` | Điểm ưu tiên từ 0 đến 100 để biết nên xem thay đổi nào trước — **không phải** xác suất có bug |
+| `bucket` | Bốn nhóm hậu quả: Breaking / Behaviour change / New surface / Housekeeping |
+| `owner` | Team kỹ thuật nên kiểm tra thay đổi này đầu tiên |
+
+Luồng chạy nối các từ trên lại thành một chuỗi:
+
+```text
+Chromium version cũ  ──┐
+                       ├──► Fact ──► Snapshot ──┐
+Chromium version mới ──┘                        ├──► Change ──► signal ──► score + bucket + owner ──► báo cáo
+                                                ┘
+```
+
+## Nhóm 1 — Phiên bản và mã nguồn
 
 ### Chromium
 
-Project mã nguồn mở làm nền cho Chrome và nhiều browser khác. Trong tài liệu này, “Chromium” luôn chỉ source upstream mà Samsung Browser lấy về để tích hợp.
+Project mã nguồn mở làm nền cho Chrome và nhiều browser khác. Trong toàn bộ tài liệu này, khi nói "Chromium" là nói tới mã nguồn `upstream` mà Samsung Browser lấy về để tích hợp.
 
-### Chrome và Chromium
+### Chromium khác Chrome ở chỗ nào
 
-Chromium là codebase mở. Chrome là sản phẩm của Google được build từ Chromium cùng với branding, service và config riêng. ChromeDrift đọc Chromium source và dữ liệu release của Chromium/Chrome để xác định version; nó không so sánh binary Chrome với Samsung Browser.
+Chromium là codebase mở, ai cũng tải được. Chrome là sản phẩm của Google, được build từ Chromium rồi cộng thêm branding, các service riêng và cấu hình riêng.
+
+ChromeDrift đọc **mã nguồn Chromium**, và đọc thêm **dữ liệu release của Chromium/Chrome** chỉ để xác định một số version là bản nào. Công cụ không mở file binary của Chrome và không so binary Chrome với binary Samsung Browser.
 
 ### Upstream, downstream và fork
 
-- `upstream`: Chromium gốc.
-- `downstream`: sản phẩm lấy Chromium làm nền và có phần sửa riêng, ở đây là Samsung Browser.
-- `fork`: nhánh code phát triển từ Chromium. Fork không có nghĩa là tách hẳn; Samsung vẫn định kỳ nhận code mới từ upstream.
+Ba từ này mô tả quan hệ giữa Chromium và Samsung Browser:
+
+- `upstream`: Chromium gốc — nguồn mà code chảy xuống từ đó.
+- `downstream`: sản phẩm lấy Chromium làm nền và có phần sửa riêng. Ở đây là Samsung Browser.
+- `fork`: nhánh code phát triển ra từ Chromium.
+
+Cần lưu ý: `fork` **không** có nghĩa là tách hẳn và không quay lại. Samsung vẫn định kỳ nhận code mới từ upstream, và chính việc nhận code định kỳ đó tạo ra bài toán mà ChromeDrift muốn giải.
 
 ### Uprev
 
-`uprev` là nâng phiên bản nền của một dependency lên bản mới hơn. Với Samsung Browser, đây là việc chuyển nền Chromium từ version cũ sang version mới, merge thay đổi upstream, sửa conflict, sửa code không còn tương thích và kiểm tra hành vi mới.
+`uprev` là việc nâng phiên bản nền của một dependency lên bản mới hơn. Với Samsung Browser, một đợt uprev nghĩa là: chuyển nền Chromium từ version cũ sang version mới, merge các thay đổi upstream, xử lý conflict, sửa những chỗ code riêng không còn tương thích, rồi kiểm tra những hành vi mới xuất hiện.
 
-Nên nói “đợt uprev Chromium” hoặc “nâng version Chromium”, không cần dịch thành một cụm tiếng Việt dài.
+Trong tài liệu và trong ticket, nên viết "đợt uprev Chromium" hoặc "nâng version Chromium". Không cần cố dịch `uprev` thành một cụm tiếng Việt dài dòng.
 
 ### Milestone
 
-Số major của Chromium, ví dụ `M151`. Một milestone có thể có nhiều bản vá stable như `151.0.x.y`.
+Số major của Chromium, ví dụ `M151`. Một milestone không phải một bản build duy nhất — nó có nhiều bản vá stable lần lượt ra đời, dạng `151.0.x.y`.
 
 ### Full version
 
-Version đủ bốn phần, ví dụ `151.0.7922.138`. Đây là version xác định chính xác một release, tốt hơn chỉ ghi `151` khi cần kết quả có thể chạy lại.
+Version đủ bốn phần, ví dụ `151.0.7922.138`.
+
+Đây là thứ xác định **chính xác một bản release**. Khi cần một kết quả mà người khác chạy lại cũng ra y hệt, phải dùng full version chứ không dùng mỗi số `151`.
 
 ### Ref, tag và commit SHA
 
-- `ref`: tên chung mà Git dùng để chỉ một trạng thái source, có thể là branch, tag hoặc SHA.
-- `tag`: tên cố định gắn với một release, ví dụ `refs/tags/151.0.7922.138`.
-- `commit SHA`: mã định danh của một commit.
+Ba cách chỉ tới một trạng thái mã nguồn trong Git:
 
-ChromeDrift chuẩn hoá version đầy đủ thành tag. Nếu nhập milestone, tool tìm bản Windows Stable mới nhất của milestone đó rồi mới tạo tag.
+- `ref`: từ chung mà Git dùng để chỉ một trạng thái source. Nó có thể là một branch, một tag, hoặc một SHA.
+- `tag`: một cái tên cố định gắn với một bản release, ví dụ `refs/tags/151.0.7922.138`. Tag đã tạo thì không đổi nữa.
+- `commit SHA`: mã định danh của một commit cụ thể.
+
+ChromeDrift luôn quy full version về dạng tag. Nếu người dùng chỉ nhập milestone, công cụ đi tìm bản Windows Stable mới nhất của milestone đó trước, rồi mới tạo tag từ full version tìm được.
 
 ### ChromiumDash
 
-API cung cấp thông tin release Chromium/Chrome. ChromeDrift dùng nó khi đầu vào chỉ là milestone, nhằm tìm full version Windows Stable tương ứng. ChromiumDash không cung cấp source code cho bước trích xuất.
+Một API công khai cung cấp thông tin về các bản release của Chromium/Chrome. ChromeDrift chỉ gọi tới nó trong đúng một tình huống: đầu vào chỉ có milestone, và công cụ cần biết full version Windows Stable tương ứng là bản nào.
+
+ChromiumDash **không** cung cấp mã nguồn. Bước lấy source dùng nguồn khác.
 
 ### Gitiles
 
-Web service để đọc Git repository của Chromium qua HTTP. ChromeDrift dùng Gitiles để:
+Một web service cho phép đọc Git repository của Chromium qua HTTP, không cần clone toàn bộ repository về máy. ChromeDrift dùng Gitiles để làm ba việc:
 
-- xem danh sách file trong một thư mục của đúng tag;
-- tải một file đơn lẻ;
-- tải một thư mục dưới dạng archive `.tar.gz`.
+- xem danh sách file trong một thư mục, tại đúng tag cần đọc;
+- tải về một file đơn lẻ;
+- tải về cả một thư mục dưới dạng archive nén `.tar.gz`.
 
-### Checkout và `src/`
+### Checkout và thư mục `src/`
 
-`checkout` là bản source đã được lấy về máy. Trong checkout Chromium chuẩn, `src/` là root chứa các thư mục như `chrome/`, `content/`, `components/` và `third_party/`.
+`checkout` là bản mã nguồn đã được lấy về máy. Trong một checkout Chromium chuẩn, `src/` là thư mục gốc, bên trong chứa `chrome/`, `content/`, `components/`, `third_party/` và nhiều thư mục khác.
 
-Khi dùng `--local-src`, phải truyền đúng thư mục `src/`, không phải parent của nó và không phải một thư mục con bị cắt nhỏ.
+Khi chạy ChromeDrift với option `--local-src` (đọc source có sẵn trên máy thay vì tải qua mạng), phải truyền đúng đường dẫn tới thư mục `src/` — không phải thư mục cha của nó, và cũng không phải một thư mục con đã bị cắt bớt.
 
-### `depot_tools`, `gclient sync`
+### `depot_tools` và `gclient sync`
 
-Bộ công cụ và lệnh phổ biến để tạo một checkout Chromium đầy đủ, lấy dependency, generated files và các repository liên quan. ChromeDrift không cần chạy `gclient sync` khi dùng Gitiles vì nó chỉ đọc một số declaration sources. Nếu dùng local checkout thì việc checkout đó đầy đủ và đúng version là trách nhiệm của người chuẩn bị source.
+`depot_tools` là bộ công cụ chuẩn của Chromium; `gclient sync` là lệnh dùng để tạo ra một checkout Chromium đầy đủ — kéo về dependency, generated file và các repository liên quan. Đây là quy trình bình thường khi muốn build Chromium.
+
+ChromeDrift **không cần** chạy `gclient sync` khi dùng Gitiles, vì nó chỉ đọc một số file khai báo chứ không build gì cả. Nhưng nếu chọn dùng checkout có sẵn trên máy, thì việc checkout đó đầy đủ và đúng version là trách nhiệm của người chuẩn bị source, công cụ không tự kiểm tra hộ.
 
 ### Source tree, directory tree và relative path
 
-- `source tree`: toàn bộ cấu trúc thư mục/file của source ở một version.
-- `directory tree`: một nhánh con, ví dụ `chrome/browser/resources/settings/`.
-- `relative path`: đường dẫn tính từ Chromium `src/`, ví dụ `content/common/features.cc`.
+Ba mức phạm vi khác nhau khi nói về cấu trúc thư mục:
 
-ChromeDrift giữ nguyên relative path để extractor nhận ra đúng loại file và report trỏ lại đúng `path:line`.
+- `source tree`: toàn bộ cấu trúc thư mục và file của mã nguồn ở một version.
+- `directory tree`: một nhánh con trong đó, ví dụ `chrome/browser/resources/settings/`.
+- `relative path`: đường dẫn tính từ thư mục `src/` của Chromium, ví dụ `content/common/features.cc`.
+
+ChromeDrift luôn giữ nguyên relative path khi lưu file về máy. Có hai lý do: bộ đọc nhận ra đúng loại file nhờ đường dẫn, và báo cáo trỏ được về đúng `path:dòng` để người đọc mở source kiểm tra.
 
 ### Archive
 
-Gói nén của một thư mục tại đúng Git ref. Gitiles trả về archive cho một subtree. ChromeDrift giải nén có kiểm tra path traversal và chỉ ghi các file khớp suffix filter.
+Gói nén của một thư mục tại đúng một Git ref. Gitiles có thể trả về archive cho cả một nhánh con.
+
+Khi giải nén, ChromeDrift kiểm tra từng đường dẫn bên trong để archive không thể ghi file ra ngoài thư mục đích, và chỉ ghi ra những file khớp bộ lọc đuôi file đã khai báo.
 
 ### Cache
 
-Dữ liệu lưu lại để lần chạy sau không tải và trích xuất lại phần không đổi. Cache gồm:
+Dữ liệu được lưu lại để lần chạy sau không phải tải và xử lý lại phần không đổi. Cache của ChromeDrift gồm bốn thứ:
 
-- listing cây file theo ref;
-- cây source đã materialize;
-- marker cho biết target đã tải thành công hay thực sự không tồn tại;
-- snapshot đã trích xuất.
+- danh sách cây file theo từng ref;
+- cây source đã tải về;
+- marker đánh dấu một target đã tải thành công, hay thực sự không tồn tại;
+- snapshot đã trích xuất xong.
 
-Tag release là bất biến nên cache có thể tái sử dụng an toàn. Khi schema hoặc filter đổi, cache key/schema đổi để tránh đọc nhầm dữ liệu cũ.
+Tag release là bất biến, nên cache theo tag có thể tái sử dụng an toàn. Khi schema hoặc bộ lọc của công cụ thay đổi, khoá cache cũng đổi theo, để không bao giờ đọc nhầm dữ liệu cũ với logic mới.
 
-## Nhóm phạm vi đọc source
+## Nhóm 2 — Phạm vi đọc mã nguồn
+
+Nhóm từ này trả lời câu hỏi: một lần chạy ChromeDrift **cam kết đọc những gì**, và đọc được bao nhiêu phần trăm so với những gì đáng lẽ nên đọc.
 
 ### Target
 
-Một chỉ dẫn tải source, có hai dạng:
+Một chỉ dẫn tải source. Có hai dạng:
 
 - `file`: tải đúng một file;
-- `tree`: tải archive của một thư mục và chỉ giữ filename khớp `include` filter.
+- `tree`: tải archive của cả một thư mục, nhưng chỉ giữ lại những file có tên khớp bộ lọc `include`.
 
-Target có `path`, `kind`, `include` và `note`.
+Mỗi target có bốn thuộc tính: `path` (tải ở đâu), `kind` (file hay tree), `include` (giữ lại những đuôi file nào) và `note` (ghi chú để người đọc biết target này phục vụ gì).
 
 ### Target set
 
-Một tập target phục vụ mức độ quét khác nhau:
+Một tập hợp target, tương ứng với một mức độ quét. ChromeDrift có ba target set:
 
-- `minimal`: nhanh, chỉ giữ phần cốt lõi để thử luồng;
-- `default`: mức dùng hằng ngày, khoảng 40 MB mỗi version theo ghi chú hiện tại của project;
-- `wide`: phủ toàn bộ filename shape mà extractor hiểu trong các Chromium root được chọn, lớn hơn đáng kể.
+| Target set | Dùng khi nào | Đặc điểm |
+|---|---|---|
+| `minimal` | Thử xem công cụ có chạy được không | Rất nhanh, chỉ giữ phần lõi, không đủ để kết luận gì |
+| `default` | Chạy hằng ngày | Khoảng 40 MB mỗi version theo ghi chú hiện tại của project |
+| `wide` | Phân tích cho một đợt release thật | Phủ toàn bộ dạng tên file mà bộ đọc hiểu, trong những thư mục gốc đã chọn; lớn hơn đáng kể |
 
 ### Partition
 
-Giới hạn lần chạy vào một khu vực như `settings`, `downloads`, `network` hoặc `webplatform`. Partition phù hợp để điều tra nhanh một area; không phù hợp làm release gate cuối vì thay đổi liên quan có thể nằm ở subsystem khác.
+Giới hạn một lần chạy vào một khu vực chức năng, ví dụ `settings`, `downloads`, `network` hoặc `webplatform`.
+
+Partition rất tiện khi cần điều tra nhanh một area. Nhưng nó **không phù hợp** làm cửa kiểm tra cuối trước khi release, vì một thay đổi ảnh hưởng Settings hoàn toàn có thể nằm ở một subsystem khác, ngoài partition đang chọn.
 
 ### `--complete`
 
-Với một số partition có root đủ nhỏ, option này tải mọi file mà extractor có thể đọc bên trong root đó. Nó không có nghĩa là “toàn bộ Chromium”. Các partition quá lớn như `webplatform` không cho dùng `--complete` vì Gitiles chỉ có thể gửi cả thư mục và chi phí quá lớn.
+Một option áp dụng cho một số partition có thư mục gốc đủ nhỏ. Khi bật, công cụ tải mọi file mà bộ đọc có thể hiểu bên trong thư mục gốc đó.
+
+Từ "complete" ở đây dễ gây hiểu nhầm, nên nói rõ: nó **không** có nghĩa là "toàn bộ Chromium". Những partition quá lớn như `webplatform` không được phép dùng `--complete`, vì Gitiles chỉ có thể gửi nguyên cả thư mục và chi phí sẽ quá lớn.
 
 ### Discovery
 
-Bước hỏi source tree xem file nào đang tồn tại và file nào có hình dạng mà một extractor có thể đọc. Discovery dùng để đo coverage, không tự quyết định tải toàn bộ các file tìm thấy.
+Bước hỏi cây source: file nào đang tồn tại ở version này, và trong số đó file nào có hình dạng mà một bộ đọc có thể hiểu được.
+
+Discovery dùng để **đo** phạm vi, chứ không tự quyết định tải hết mọi file tìm thấy. Việc tải gì do target set quyết định.
 
 ### Candidate file
 
-File có path/name khớp ít nhất một `applies_to()` của extractor và không thuộc test, generated output, platform khác hoặc binary khác đã bị loại. “Candidate” nghĩa là file có khả năng chứa declaration, không đảm bảo file đó thật sự tạo ra Fact.
+File có đường dẫn hoặc tên khớp ít nhất một điều kiện `applies_to()` của một extractor, và không thuộc các nhóm đã bị loại (file test, output do máy sinh ra, code của platform khác, hoặc binary khác không phải browser).
+
+Từ "candidate" (ứng viên) được chọn có chủ ý: file đó **có khả năng** chứa khai báo, chứ không bảo đảm nó thật sự tạo ra `Fact` nào.
 
 ### Coverage
 
-Tỷ lệ candidate file mà target set thực sự đọc:
+Tỷ lệ candidate file mà target set thực sự đọc tới:
 
 ```text
-coverage = số candidate file được target chạm tới / tổng candidate file nhìn thấy
+coverage = số candidate file mà target chạm tới / tổng số candidate file nhìn thấy được
 ```
 
-Coverage được tính cả tổng thể và theo từng surface. Coverage theo surface quan trọng hơn khi đánh giá một kết luận “đã biến mất”: default có thể đọc gần hết Web IDL nhưng chỉ đọc một phần nhỏ pref/switch files.
+Coverage được tính cả ở mức tổng thể và ở mức từng nhóm (từng surface). Coverage theo từng nhóm mới là con số quan trọng khi đánh giá một kết luận dạng "khai báo này đã biến mất": target set `default` có thể đọc gần hết file Web IDL, nhưng chỉ đọc được một phần rất nhỏ file chứa pref và switch.
 
 ### Missing target
 
-Target được yêu cầu nhưng không tồn tại ở version đó. Đây có thể là điều bình thường với version cũ. Tuy nhiên nó phải xuất hiện trong metadata/report, vì “file chưa tồn tại” và “khai báo đã bị xoá” không được phép bị trộn lẫn.
+Một target được yêu cầu nhưng không tồn tại ở version đó.
+
+Với version cũ, đây có thể là chuyện hoàn toàn bình thường — file chưa được tạo ra. Nhưng nó bắt buộc phải xuất hiện trong metadata và trong báo cáo, vì "file này chưa tồn tại" và "khai báo này đã bị xoá" là hai kết luận khác hẳn nhau, không được phép lẫn lộn.
 
 ### Incomplete acquisition
 
-Lần lấy source có lỗi hoặc lỗ hổng khiến một file đáng lẽ phải đọc lại không có dữ liệu. Trường hợp này làm bằng chứng về removal yếu đi vì “không thấy” có thể do tải lỗi.
+Một lần lấy source bị lỗi hoặc bị thủng, khiến một file đáng lẽ phải đọc lại không có dữ liệu.
 
-## Nhóm kiến trúc browser
+Hậu quả: mọi bằng chứng về việc "đã bị xoá" trong lần chạy đó đều yếu đi, vì "không thấy" lúc này có thể chỉ là do tải hỏng.
+
+## Nhóm 3 — Kiến trúc của browser
+
+Nhóm từ này giải thích các bộ phận bên trong Chromium mà ChromeDrift theo dõi.
 
 ### Browser process, renderer process và process boundary
 
-Chromium tách browser thành nhiều process. Browser process quản lý tab, profile, setting và quyền; renderer chạy nội dung web; các service khác xử lý network, GPU, media… `process boundary` là ranh giới giữa hai process. Dữ liệu đi qua ranh giới này phải theo một contract chung.
+Chromium không chạy trong một process duy nhất. Nó tách browser thành nhiều process:
+
+- **browser process** quản lý tab, profile, setting và quyền;
+- **renderer process** chạy nội dung web của từng trang;
+- các process khác lo network, GPU, media...
+
+`process boundary` là ranh giới giữa hai process. Dữ liệu muốn đi qua ranh giới này phải tuân theo một contract chung mà cả hai bên cùng hiểu — và đó chính là chỗ dễ hỏng khi một bên đổi mà bên kia không đổi.
 
 ### IPC
 
-`Inter-Process Communication`: cơ chế các process trao đổi message. Trong Chromium, Mojo là hệ thống IPC chính. Một thay đổi IPC có thể không làm phần code Samsung đang sửa báo lỗi compile nhưng vẫn gây lỗi khi hai đầu hiểu message khác nhau.
+`Inter-Process Communication` (giao tiếp giữa các process): cơ chế để các process trao đổi message với nhau. Trong Chromium, hệ thống IPC chính là Mojo.
+
+Điều làm IPC nguy hiểm khi uprev: một thay đổi IPC có thể **không** làm phần code Samsung đang sửa báo lỗi lúc compile, nhưng vẫn gây lỗi lúc chạy, vì hai đầu hiểu message theo hai cách khác nhau.
 
 ### Mojo
 
-Framework và ngôn ngữ khai báo IPC của Chromium. File `.mojom` mô tả:
+Framework IPC của Chromium, kèm theo một ngôn ngữ riêng để khai báo contract. File `.mojom` mô tả:
 
-- `interface`: nhóm method có thể gọi qua process;
-- `method`: message request/response;
-- `struct`/`union`: data truyền qua wire;
-- `field`: trường của data;
-- `enum`: tập giá trị truyền qua wire;
-- `ordinal`: số dùng để nhận diện method/field trên wire;
-- `[Stable]`, `[MinVersion]`: cam kết compatibility/versioning.
+| Thành phần | Nghĩa |
+|---|---|
+| `interface` | Nhóm method có thể gọi xuyên qua ranh giới process |
+| `method` | Một message request, có thể kèm response |
+| `struct` / `union` | Cấu trúc dữ liệu được truyền qua đường truyền (wire) |
+| `field` | Một trường bên trong cấu trúc dữ liệu đó |
+| `enum` | Tập giá trị được truyền qua wire |
+| `ordinal` | Con số dùng để nhận diện method hoặc field trên wire |
+| `[Stable]`, `[MinVersion]` | Cam kết về tương thích và đánh version |
 
 ### ABI
 
-Contract ở mức binary/wire. Trong report, “Mojo ABI changed” nghĩa là hình dạng message hoặc data qua IPC đã đổi. Nó không đồng nghĩa với C/C++ ABI của toàn bộ browser.
+Contract ở mức binary hoặc mức đường truyền.
+
+Trong báo cáo, khi thấy câu "Mojo ABI changed", nghĩa là hình dạng của message hoặc của dữ liệu đi qua IPC đã đổi. Nó **không** đồng nghĩa với ABI của C/C++ trên toàn bộ browser.
 
 ### Blink
 
-Rendering engine và phần hiện thực Web Platform trong Chromium. Blink quyết định page có thể gọi Web API nào và feature đó đang ở trạng thái test, experimental hay stable.
+Rendering engine của Chromium, đồng thời là nơi hiện thực phần Web Platform. Blink quyết định một trang web có thể gọi được những Web API nào, và mỗi feature đang ở trạng thái nào: đang test, đang thử nghiệm (experimental), hay đã ổn định (stable).
 
 ### Web Platform và Web API
 
-Các API mà website gọi được, ví dụ DOM, CSS, media, storage hoặc networking APIs. Đây là surface dành cho web content, khác với WebUI nội bộ của browser.
+Các API mà website gọi được — DOM, CSS, media, storage, networking...
+
+Cần phân biệt rõ với WebUI: Web Platform là bề mặt dành cho **nội dung web bên ngoài**, còn WebUI là các trang nội bộ của chính browser.
 
 ### Web IDL
 
-Ngôn ngữ khai báo shape của Web API. File `.idl` cho biết interface, method, attribute, argument, kiểu trả về, inheritance và extended attributes. ChromeDrift chỉ coi `.idl` dưới `third_party/blink/renderer/` là Web IDL của Blink; `.idl` ở extension API hoặc MIDL là dialect khác.
+Ngôn ngữ dùng để khai báo hình dạng của một Web API. Một file `.idl` cho biết interface có những gì: method, attribute, tham số, kiểu trả về, quan hệ kế thừa và các extended attribute.
+
+Một quy tắc quan trọng của ChromeDrift: chỉ những file `.idl` nằm dưới `third_party/blink/renderer/` mới được coi là Web IDL của Blink. Các file `.idl` ở chỗ khác — của extension API, hoặc của Windows MIDL — là những dialect hoàn toàn khác, đọc nhầm sẽ tạo ra kết luận sai.
 
 ### Interface
 
-Trong tài liệu, giữ nguyên từ `interface` vì nó chính xác hơn “giao diện”. Tuỳ ngữ cảnh:
+Trong bộ tài liệu này, từ `interface` được giữ nguyên tiếng Anh, vì dịch thành "giao diện" sẽ mất nghĩa. Tuỳ ngữ cảnh, nó là một trong ba thứ khác nhau:
 
-- Web IDL interface: contract mà JavaScript trên website nhìn thấy;
-- Mojo interface: contract gọi qua IPC;
-- UI/WebUI: màn hình hoặc phần tương tác người dùng.
+| Ngữ cảnh | `interface` nghĩa là |
+|---|---|
+| Web IDL | Contract mà JavaScript trên website nhìn thấy |
+| Mojo | Contract để gọi xuyên qua IPC |
+| UI / WebUI | Màn hình hoặc phần người dùng tương tác |
 
-Ba nghĩa này không được trộn với nhau.
+Ba nghĩa này tuyệt đối không được trộn với nhau. Khi đọc báo cáo, hãy nhìn `kind` của `Fact` để biết đang nói về nghĩa nào.
 
 ### Runtime-enabled feature
 
-Entry trong `runtime_enabled_features.json5` dùng để điều khiển khả năng expose một Web API của Blink. Trạng thái có thể khác theo platform.
+Một entry trong file `runtime_enabled_features.json5`, dùng để điều khiển việc Blink có expose một Web API ra ngoài hay không. Trạng thái của cùng một feature có thể khác nhau giữa các platform.
 
 ### Origin Trial
 
-Cơ chế cho phép website được cấp token để dùng thử một Web Platform feature chưa mở rộng rãi. Các thuộc tính như tên trial, OS cho phép, cho third party hay insecure context quyết định ai có thể truy cập feature.
+Cơ chế cho phép một website được cấp token để dùng thử một feature Web Platform chưa mở rộng rãi. Các thuộc tính của trial — tên, hệ điều hành nào được phép, có cho bên thứ ba dùng không, có cho phép trong ngữ cảnh không bảo mật không — quyết định ai thật sự tiếp cận được feature.
 
 ### WebUI
 
-Các trang nội bộ của browser được viết bằng web technology, thường có URL `chrome://...`, ví dụ Settings, History, Downloads, Bookmarks và Extensions. WebUI không phải website thông thường và cũng không phải toàn bộ UI native.
+Các trang nội bộ của browser, được viết bằng công nghệ web và thường có URL dạng `chrome://...` — ví dụ Settings, History, Downloads, Bookmarks, Extensions.
+
+WebUI không phải website thông thường, và cũng không phải toàn bộ giao diện native của browser.
 
 ### Route
 
-Định nghĩa một page/subpage và quan hệ điều hướng trong một WebUI surface. Route có tên, path, parent và có thể được bảo vệ bằng một `loadTimeData` guard.
+Định nghĩa một trang hoặc trang con, cùng quan hệ điều hướng giữa chúng, trong một surface WebUI. Một route có tên, có path, có route cha, và có thể được bảo vệ bằng một điều kiện `loadTimeData`.
 
 ### Control
 
-Thành phần người dùng tương tác trong WebUI template, ví dụ toggle, dropdown, radio group, input hoặc button. ChromeDrift theo dõi tag, `id`, label key, pref binding và build condition.
+Thành phần mà người dùng tương tác trong template WebUI: toggle, dropdown, radio group, ô nhập, nút bấm...
+
+ChromeDrift theo dõi bốn thứ ở mỗi control: tag của element, thuộc tính `id`, khoá label dùng cho đa ngôn ngữ, pref mà nó ghi vào, và điều kiện build.
 
 ### `loadTimeData`
 
-Cầu nối đưa dữ liệu/config từ C++ handler sang TypeScript/HTML của WebUI. Một route hoặc control có thể gọi `loadTimeData.getBoolean('key')`; C++ dùng `AddBoolean("key", expression)` để đặt giá trị.
+Cầu nối đưa dữ liệu và cấu hình từ phía C++ sang phía TypeScript/HTML của WebUI.
+
+Một route hoặc control ở phía giao diện gọi `loadTimeData.getBoolean('key')` để hỏi giá trị; phía C++ dùng `AddBoolean("key", biểu_thức)` để đặt giá trị đó. Nếu một trong hai đầu đổi mà đầu kia không đổi, trang có thể biến mất hoặc hiện ra không đúng lúc.
 
 ### Gate và guard
 
-Điều kiện quyết định một declaration/page/control có tồn tại hoặc được nhìn thấy hay không.
+Điều kiện quyết định một khai báo, một trang hoặc một control có tồn tại — hoặc có được nhìn thấy — hay không. Chromium có nhiều loại:
 
-- C++ guard: `#if BUILDFLAG(...)`;
-- Mojo guard: `[EnableIf=...]`;
-- GRIT guard: `<if expr="...">`;
-- WebUI runtime guard: `loadTimeData.getBoolean(...)`;
-- Blink gate: `[RuntimeEnabled=...]`.
+| Loại | Cú pháp |
+|---|---|
+| C++ guard | `#if BUILDFLAG(...)` |
+| Mojo guard | `[EnableIf=...]` |
+| GRIT guard | `<if expr="...">` |
+| WebUI runtime guard | `loadTimeData.getBoolean(...)` |
+| Blink gate | `[RuntimeEnabled=...]` |
 
 ### GRIT
 
-Hệ thống resource/build của Chromium. Trong phần tool đang đọc, GRIT `<if expr>` quyết định template/control có được đưa vào build cho Windows hay không.
+Hệ thống quản lý resource và build của Chromium. Trong phạm vi những file mà ChromeDrift đọc, điều kiện GRIT `<if expr>` quyết định một template hoặc một control có được đưa vào bản build cho Windows hay không.
 
 ### Polymer và Lit
 
-Hai cách Chromium viết WebUI template. Polymer thường dùng `.html` và binding `{{prefs.x}}`; Lit thường dùng `.html.ts` và template literal. ChromeDrift hỗ trợ cả hai vì các WebUI surface đang migrate không đồng đều.
+Hai cách Chromium viết template WebUI. Polymer thường dùng file `.html` với binding kiểu `{{prefs.x}}`; Lit thường dùng file `.html.ts` với template literal.
 
-## Nhóm feature và config
+ChromeDrift hỗ trợ cả hai, vì các surface WebUI đang chuyển từ Polymer sang Lit với tốc độ không đồng đều — cùng một lúc trong Chromium sẽ có cả hai kiểu.
+
+## Nhóm 4 — Feature và cấu hình
 
 ### `base::Feature`
 
-Feature flag phía C++ của Chromium. Declaration chứa tên C++ như `kFoo`, feature string như `"Foo"`, default state và có thể có build guard theo platform.
+Feature flag ở phía C++ của Chromium. Mỗi khai báo chứa: tên C++ dạng `kFoo`, chuỗi tên feature dạng `"Foo"`, trạng thái mặc định, và có thể có thêm điều kiện build theo platform.
 
-### Feature string và C++ symbol
+### Feature string và C++ symbol — hai tên của cùng một feature
 
-Hai tên khác nhau của cùng feature:
+Đây là một trong những chỗ dễ nhầm nhất, nên tách riêng ra:
 
-- C++ symbol: `features::kFoo`, code gọi trực tiếp; đổi tên thường làm build fail.
-- feature string: `"Foo"`, Finch và `--enable-features` dùng; đổi tên có thể khiến config cũ im lặng mất tác dụng.
+| | C++ symbol | Feature string |
+|---|---|---|
+| Trông như thế nào | `features::kFoo` | `"Foo"` |
+| Ai dùng | Code C++ gọi trực tiếp | Finch và `--enable-features` |
+| Nếu bị đổi tên | Build thường fail ngay — dễ phát hiện | Cấu hình cũ **im lặng** mất tác dụng — rất khó phát hiện |
+
+Chính sự bất đối xứng này là lý do ChromeDrift theo dõi cả hai tên riêng biệt.
 
 ### `FeatureParam`
 
-Tham số của một feature, ví dụ timeout, threshold hoặc mode. Finch có thể đặt giá trị khác default cho param. Đổi default làm hành vi mặc định thay đổi; xoá/đổi tên param khiến config cũ không còn hiệu lực.
+Tham số đi kèm một feature — ví dụ một timeout, một ngưỡng, hoặc một chế độ. Finch có thể đặt cho param một giá trị khác với mặc định.
+
+Hai kiểu thay đổi cần phân biệt: đổi giá trị mặc định thì hành vi mặc định thay đổi; còn xoá hoặc đổi tên param thì cấu hình cũ không còn hiệu lực nữa.
 
 ### Feature flag
 
-Tên chung cho cơ chế bật/tắt một feature. Cần nhìn ngữ cảnh để biết đó là `base::Feature`, Blink runtime feature, `chrome://flags` entry hay một config khác.
+Tên gọi chung cho cơ chế bật/tắt một feature. Từ này mơ hồ, nên khi đọc phải nhìn ngữ cảnh để biết đang nói về `base::Feature`, về Blink runtime feature, về một entry trong `chrome://flags`, hay về một cấu hình khác.
 
 ### Finch
 
-Hệ thống server-side của Chrome dùng để rollout thử nghiệm và thay đổi config cho từng nhóm người dùng mà không cần phát hành binary mới. Finch thường đặt:
+Hệ thống phía server của Chrome, dùng để triển khai thử nghiệm và thay đổi cấu hình cho từng nhóm người dùng mà không cần phát hành bản binary mới. Finch thường quyết định ba thứ:
 
-- một `base::Feature` bật hay tắt;
-- giá trị cho `FeatureParam`;
-- rule chọn nhóm người dùng/device.
+- một `base::Feature` được bật hay tắt;
+- giá trị cụ thể cho một `FeatureParam`;
+- rule chọn nhóm người dùng hoặc nhóm thiết bị nào nhận cấu hình đó.
 
-ChromeDrift chỉ thấy tên và wiring được khai báo trong Chromium source. Nó không thấy Samsung có hệ thống rollout nào tương đương, đang dùng feature name nào hoặc đang set param gì nếu không được cấp nguồn config đó.
+Giới hạn cần nói rõ: ChromeDrift chỉ nhìn thấy **tên và cách đấu nối được khai báo trong mã nguồn Chromium**. Nó không biết Samsung có hệ thống rollout tương đương hay không, đang dùng tên feature nào, hay đang đặt param bằng bao nhiêu — trừ khi được cấp riêng nguồn cấu hình đó.
 
 ### Kill switch
 
-Flag cho phép tắt nhanh một feature đã ship nếu có sự cố. Khi Chromium xoá kill switch sau khi feature ổn định, hành vi thường đã trở thành cố định; điều cần kiểm tra là config bên ngoài còn cố override flag đó hay không.
+Một flag cho phép tắt nhanh một feature đã ship, phòng khi có sự cố.
+
+Khi Chromium xoá kill switch sau lúc feature đã ổn định, thường thì hành vi đã trở thành cố định từ trước rồi. Việc cần kiểm tra lúc này không phải "hành vi vừa đổi", mà là "còn cấu hình bên ngoài nào vẫn cố override flag đó không".
 
 ### Command-line switch
 
-Tham số truyền khi khởi động process, ví dụ `--enable-foo`. Script, automation hoặc test harness có thể phụ thuộc vào string này. Nó khác với Finch: switch nằm trên command line của process, Finch là config/rollout từ server.
+Tham số truyền vào khi khởi động process, ví dụ `--enable-foo`. Script, automation hoặc test harness có thể đang phụ thuộc vào đúng chuỗi này.
 
-### Preference hoặc pref
+Khác với Finch ở chỗ: switch nằm trên dòng lệnh của chính process, còn Finch là cấu hình gửi từ server xuống.
 
-Key lưu setting trong profile/local state, ví dụ `download.prompt_for_download`. Đổi pref key có thể khiến dữ liệu cũ vẫn nằm trên disk nhưng code mới không đọc nó nữa. C++ symbol của pref và string key cũng là hai thứ khác nhau.
+### Preference, gọi tắt là pref
 
-### `chrome://flags` entry
+Khoá dùng để lưu một setting trong profile người dùng hoặc trong local state, ví dụ `download.prompt_for_download`.
 
-Mục người dùng hoặc developer nhìn thấy ở trang `chrome://flags`. `flag-metadata.json` chủ yếu cho ChromeDrift biết owner và milestone dự kiến xoá entry; nó không phải declaration đầy đủ của feature phía C++.
+Hậu quả khi đổi pref key rất đặc thù: dữ liệu cũ vẫn nằm nguyên trên ổ đĩa, nhưng code mới không đọc nó bằng khoá cũ nữa, nên setting của người dùng có thể quay về mặc định mà không có cảnh báo nào. Cũng như với feature, C++ symbol của pref và chuỗi key là hai thứ khác nhau.
 
-### Config ngoài repository
+### Entry trong `chrome://flags`
 
-Những thứ ảnh hưởng browser nhưng không nằm trong Chromium source đang quét, ví dụ Finch/rollout config, launch script, automation, enterprise deployment và policy backend. Owner `config` trong report được hiển thị là `Outside the repository` để nhắc rằng việc xác minh phải diễn ra ở nguồn khác.
+Mục mà người dùng hoặc developer nhìn thấy trên trang `chrome://flags`.
 
-## Nhóm dữ liệu của ChromeDrift
+File `flag-metadata.json` chủ yếu cho ChromeDrift biết ai là owner upstream và milestone dự kiến xoá entry. Nó **không** phải khai báo đầy đủ của feature phía C++.
+
+### Cấu hình nằm ngoài repository
+
+Những thứ ảnh hưởng tới browser nhưng không nằm trong mã nguồn Chromium đang được quét: cấu hình Finch/rollout, script khởi động, automation, deployment cho doanh nghiệp, và backend chứa policy.
+
+Trong báo cáo, owner `config` được hiển thị bằng nhãn `Outside the repository`, để nhắc người đọc rằng việc xác minh phải diễn ra ở một nguồn khác, không tìm trong Chromium được.
+
+## Nhóm 5 — Dữ liệu bên trong ChromeDrift
+
+Đây là nhóm từ riêng của công cụ. Hiểu nhóm này là hiểu cách đọc báo cáo.
 
 ### Extractor
 
-Bộ đọc chuyên cho một dạng source. Mỗi extractor có hai phần:
+Một bộ đọc chuyên trách cho một dạng source. Mỗi extractor gồm đúng hai phần:
 
-- `applies_to(path)`: file này có đúng dialect/path mà extractor hiểu không;
-- `extract(text, path)`: đọc nội dung và tạo danh sách Fact.
+- `applies_to(path)`: trả lời câu hỏi "file này có đúng dialect và đúng đường dẫn mà tôi hiểu không?";
+- `extract(text, path)`: đọc nội dung file và tạo ra danh sách `Fact`.
 
 ### Fact
 
-Một declaration đã được chuẩn hoá thành object có identity ổn định. Fact không phải toàn bộ file và không phải nhận xét do AI tạo ra. Nó là dữ liệu có cấu trúc được parser lấy từ source.
+Một khai báo đã được chuẩn hoá thành object có identity ổn định.
+
+Ba điều `Fact` **không** phải: nó không phải toàn bộ nội dung file, không phải một đoạn AST đầy đủ, và không phải nhận xét do AI sinh ra. Nó là dữ liệu có cấu trúc, do một parser lấy trực tiếp từ source.
 
 ### `kind`, `key`, `name`, `path`, `line`, `attrs`
 
-- `kind`: loại Fact, ví dụ `mojo_method`.
-- `key`: identity ổn định trong cùng kind.
-- `name`: tên để hiển thị.
-- `path`, `line`: bằng chứng nằm ở đâu.
-- `attrs`: những thuộc tính cần dùng để hiểu và so sánh declaration.
+Sáu trường của một `Fact`:
+
+| Trường | Dùng để làm gì |
+|---|---|
+| `kind` | Loại `Fact`, ví dụ `mojo_method` |
+| `key` | Identity ổn định trong cùng một `kind` |
+| `name` | Tên dùng để hiển thị cho người đọc |
+| `path`, `line` | Bằng chứng nằm ở đâu trong source |
+| `attrs` | Những thuộc tính cần để hiểu và so sánh khai báo |
 
 ### UID
 
-Identity dùng để ghép hai version: `kind:key`. Ví dụ `pref:download.prompt_for_download`. Hai Fact cùng UID được xem là cùng một declaration qua hai version.
+Identity dùng để ghép một khai báo giữa hai version, ghép bằng cách nối `kind` với `key`:
 
-### Normalization
+```text
+uid = kind + ":" + key
+```
 
-Đưa nhiều cách viết source có cùng ý nghĩa về một biểu diễn chung. Ví dụ macro `BASE_FEATURE` hai tham số và ba tham số đều được chuẩn hoá về cùng feature name, state và platform state. Mục đích là bỏ qua thay đổi cú pháp nhưng vẫn giữ thay đổi hành vi.
+Ví dụ `pref:download.prompt_for_download`. Hai `Fact` có cùng UID được coi là cùng một khai báo, quan sát ở hai version khác nhau.
 
-### Deduplication
+### Normalization (chuẩn hoá)
 
-Gộp các Fact trùng UID theo rule ổn định. ChromeDrift chọn declaration có `(path, line)` nhỏ nhất, đồng thời tổng hợp overload metadata khi cần. Việc này tránh kết quả phụ thuộc thứ tự filesystem.
+Đưa nhiều cách viết source khác nhau nhưng cùng ý nghĩa về một biểu diễn chung.
+
+Ví dụ: macro `BASE_FEATURE` có dạng hai tham số và dạng ba tham số; cả hai đều được chuẩn hoá về cùng một feature name, cùng trạng thái, cùng trạng thái theo platform. Mục đích là bỏ qua thay đổi thuần cú pháp, nhưng vẫn giữ lại thay đổi thật về hành vi.
+
+### Deduplication (loại bản ghi trùng)
+
+Gộp các `Fact` trùng UID theo một quy tắc cố định. ChromeDrift chọn khai báo có `(path, line)` nhỏ nhất, đồng thời tổng hợp thêm metadata của các overload khi cần.
+
+Lý do phải cố định: nếu không, kết quả sẽ phụ thuộc vào thứ tự file mà hệ điều hành trả về, và hai lần chạy trên cùng một cây source có thể ra hai kết quả khác nhau.
 
 ### Snapshot
 
-Tập Fact của một Chromium ref, kèm milestone, target set, coverage, fetch stats và lỗi/missing target. Snapshot là đầu ra của acquisition + extraction và đầu vào của semantic diff.
+Toàn bộ `Fact` của một Chromium ref, kèm theo milestone, target set, coverage, thống kê tải file, và danh sách lỗi hoặc target bị thiếu.
 
-### Semantic diff
+Snapshot là **đầu ra** của hai bước lấy source và trích xuất, đồng thời là **đầu vào** của bước so sánh.
 
-So sánh theo ý nghĩa thay vì so text. ChromeDrift ghép Fact theo UID rồi chỉ so các attribute được xem là có hậu quả. Ví dụ `declared_form` đổi do Chromium thay macro không tạo finding; `default_state` đổi thì có.
+### Semantic diff (so sánh theo ý nghĩa)
+
+So sánh dựa trên ý nghĩa thay vì so từng dòng text. ChromeDrift ghép các `Fact` theo UID, rồi chỉ so những thuộc tính được coi là có hậu quả.
+
+Ví dụ cụ thể: `declared_form` đổi vì Chromium thay macro thì **không** tạo ra finding nào; còn `default_state` đổi thì có.
 
 ### Change
 
-Kết quả khác nhau của một Fact giữa hai snapshot. `change_type` là `added`, `removed` hoặc `modified`; `deltas` giữ `[giá trị cũ, giá trị mới]`; `signals` giải thích bản chất thay đổi; `severity` là mức cơ sở.
+Kết quả cho thấy một `Fact` khác nhau giữa hai snapshot. Một `Change` gồm:
+
+- `change_type`: `added` (chỉ có ở bản mới), `removed` (chỉ có ở bản cũ) hoặc `modified` (có ở cả hai nhưng khác nhau);
+- `deltas`: giữ cặp `[giá trị cũ, giá trị mới]`;
+- `signals`: giải thích bản chất của thay đổi;
+- `severity`: mức nghiêm trọng cơ sở.
 
 ### Signal và leading signal
 
-`signal` là nhãn có ngữ nghĩa, ví dụ `ipc_signature_change` hoặc `pref_renamed`. Một Change có thể có nhiều signal. `leading signal` là signal có severity cao nhất; nếu bằng điểm thì chọn theo tên để kết quả deterministic. Leading signal quyết định severity, bucket và đôi khi override owner.
+`signal` là một nhãn có ngữ nghĩa rõ ràng, ví dụ `ipc_signature_change` hoặc `pref_renamed`. Một `Change` có thể mang nhiều signal cùng lúc.
+
+`leading signal` là signal có severity cao nhất trong số đó. Nếu có hai signal bằng điểm, công cụ chọn theo thứ tự tên, để kết quả luôn giống nhau ở mọi lần chạy.
+
+Leading signal quan trọng vì nó quyết định ba thứ: severity, bucket, và đôi khi cả việc chuyển finding sang owner khác.
 
 ### Severity và score
 
-- `severity`: mức quan trọng cơ sở của loại thay đổi, lấy từ leading signal hoặc bảng mặc định theo kind + direction.
-- `score`: điểm cuối sau khi xét Windows build và độ tin cậy của bằng chứng absence.
+Hai con số khác nhau, rất hay bị nhầm:
 
-Score không phải xác suất Samsung bị lỗi, cũng không phải ước lượng số ngày công.
+- `severity` là mức quan trọng **cơ sở** của loại thay đổi, lấy từ leading signal, hoặc từ bảng mặc định theo `kind` + hướng thay đổi nếu không có signal nào.
+- `score` là điểm **cuối cùng**, sau khi đã xét thêm hai yếu tố: khai báo có nằm trong bản build Windows không, và bằng chứng cho kết luận "đã biến mất" có đáng tin không.
+
+Cần nói rõ điều `score` không phải: nó không phải xác suất Samsung bị lỗi, và cũng không phải ước lượng số ngày công.
 
 ### Bucket
 
-Cách phân loại bản chất finding:
+Cách phân loại bản chất của một finding. Có đúng bốn nhóm:
 
-- `Breaking`: contract bên ngoài binary có thể ngừng hoạt động mà không có cảnh báo rõ.
-- `Behaviour change`: Windows build sẽ có hành vi khác.
-- `New surface`: API/page/control mới xuất hiện nhưng không tự bật một hành vi chỉ vì declaration tồn tại.
-- `Housekeeping`: dọn flag, đổi lịch xoá, move declaration hoặc bằng chứng chưa đủ để kết luận breaking.
+| Bucket | Nghĩa |
+|---|---|
+| `Breaking` | Một contract bên ngoài binary có thể ngừng hoạt động mà không có cảnh báo rõ ràng nào |
+| `Behaviour change` | Bản build Windows sẽ hành xử khác đi |
+| `New surface` | Có API, trang hoặc control mới xuất hiện — nhưng sự tồn tại của khai báo không tự động bật một hành vi nào |
+| `Housekeeping` | Dọn flag, đổi lịch xoá, chuyển khai báo sang file khác, hoặc bằng chứng chưa đủ để kết luận là breaking |
 
 ### Owner
 
-Khu vực nên nhận finding đầu tiên: `Process boundaries`, `Web platform`, `Browser C++`, `WebUI front-end` hoặc `Outside the repository`. Đây là routing theo technical surface/fix location, không phải tên cá nhân hay CODEOWNERS của Chromium.
+Khu vực nên nhận finding đầu tiên. Có năm giá trị: `Process boundaries`, `Web platform`, `Browser C++`, `WebUI front-end` và `Outside the repository`.
+
+Lưu ý: đây là routing theo **bề mặt kỹ thuật và nơi cần sửa**, không phải tên một cá nhân, và cũng không phải file CODEOWNERS của Chromium.
 
 ### Finding
 
-Một Change sau khi được chấm điểm và xếp bucket, kèm `reasons` giải thích từng bước. Finding là đơn vị chính người đọc thấy trong report.
+Một `Change` sau khi đã được chấm điểm và xếp bucket, kèm theo trường `reasons` giải thích từng bước tính điểm.
+
+`Finding` là đơn vị chính mà người đọc nhìn thấy trong báo cáo.
 
 ### Enrichment và cluster
 
-- `enrichment`: ngữ cảnh bổ sung, ví dụ metadata từ ChromeStatus khi bật.
-- `cluster`: gom các finding có liên quan để người đọc thấy một migration dưới dạng một câu chuyện thay vì nhiều dòng rời rạc.
+Hai bước bổ sung ngữ cảnh, không ảnh hưởng tới điểm số:
 
-### Report JSON, Markdown và HTML
+- `enrichment`: thêm ngữ cảnh từ nguồn ngoài, ví dụ metadata từ ChromeStatus khi được bật.
+- `cluster`: gom các finding có liên quan lại, để người đọc thấy một đợt migration như một câu chuyện liền mạch, thay vì mấy dòng rời rạc không hiểu vì sao lại xuất hiện cùng lúc.
 
-- JSON: dữ liệu đầy đủ cho automation/agent.
-- Markdown: phù hợp review, lưu artifact hoặc comment.
-- HTML: phù hợp duyệt/filter tương tác theo bucket, owner, kind, score và từ khoá.
+### Báo cáo dạng JSON, Markdown và HTML
+
+Cùng một dữ liệu, ba định dạng cho ba mục đích:
+
+| Định dạng | Dùng khi |
+|---|---|
+| JSON | Cần dữ liệu đầy đủ cho automation hoặc cho agent xử lý |
+| Markdown | Cần review, lưu lại làm artifact, hoặc dán vào ticket |
+| HTML | Cần duyệt và lọc tương tác theo bucket, owner, kind, điểm số và từ khoá |
 
 ## Những cặp khái niệm dễ hiểu nhầm
 
-| Không nên hiểu là | Cách hiểu đúng |
+Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bày công cụ. Cột trái là câu người ta hay nói; cột phải là cách hiểu đúng.
+
+| Câu dễ nói nhầm | Cách hiểu đúng |
 |---|---|
-| `interface` luôn là giao diện người dùng | Có thể là Web IDL contract, Mojo IPC contract hoặc UI; phải đọc theo kind |
-| Feature được declaration là feature đã bật | Declaration chỉ nói code/flag tồn tại; phải xem default, platform state, runtime status và gate |
-| File đã tải là file đã được parser đọc | File còn phải qua target scope, skip rule và `applies_to()` |
-| `removed` luôn là upstream xoá | Với partial coverage, có thể declaration chuyển sang file chưa đọc |
-| `Breaking` nghĩa là Samsung chắc chắn hỏng | Đây là loại contract change cần đối chiếu Samsung usage |
-| Score 80 nghĩa là 80% có bug | Score là thứ tự ưu tiên theo rule, không phải probability |
-| Owner là người sửa chắc chắn | Owner là hàng đợi kiểm tra đầu tiên; usage thực tế có thể chuyển việc sang team khác |
-| `wide` là toàn bộ Chromium implementation | `wide` là toàn bộ filename shape trong các root mà tool thiết kế để đọc |
-| Finch là command-line switch | Finch là server-side rollout/config; switch là tham số lúc khởi động process |
-| `chrome://flags` là toàn bộ hệ thống feature flag | Nó chỉ là UI/metadata cho một phần flag; `base::Feature` và Blink runtime flag là các lớp khác |
+| "`interface` là giao diện người dùng" | Có thể là contract Web IDL, contract Mojo IPC, hoặc giao diện — phải xem `kind` mới biết |
+| "Feature đã được khai báo nghĩa là đã bật" | Khai báo chỉ nói code và flag có tồn tại; còn bật hay không phải xem mặc định, trạng thái theo platform, trạng thái runtime và gate |
+| "File đã tải nghĩa là file đã được đọc" | File còn phải qua phạm vi target, qua rule loại trừ, rồi qua `applies_to()` mới thật sự được parse |
+| "`removed` nghĩa là upstream đã xoá" | Khi coverage chưa đủ, rất có thể khai báo chỉ chuyển sang một file chưa được đọc |
+| "`Breaking` nghĩa là Samsung chắc chắn hỏng" | Nó nói đây là **loại** contract change cần đối chiếu với cách Samsung đang dùng |
+| "Score 80 nghĩa là 80% có bug" | Score là thứ tự ưu tiên tính theo rule, không phải xác suất |
+| "Owner là người chắc chắn sẽ sửa" | Owner là hàng đợi kiểm tra đầu tiên; sau khi tra cứu thực tế, việc có thể chuyển sang team khác |
+| "`wide` nghĩa là toàn bộ implementation của Chromium" | `wide` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
+| "Finch chính là command-line switch" | Finch là cấu hình/rollout từ phía server; switch là tham số truyền vào lúc khởi động process |
+| "`chrome://flags` là toàn bộ hệ thống feature flag" | Nó chỉ là giao diện và metadata cho một phần flag; `base::Feature` và Blink runtime flag là các lớp khác |

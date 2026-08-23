@@ -1,53 +1,63 @@
 # 2. ChromeDrift lấy source tree, thư mục và file như thế nào
 
-## Câu trả lời ngắn
+Tài liệu này trả lời một câu hỏi duy nhất: **công cụ lấy mã nguồn Chromium từ đâu, lấy bao nhiêu, và làm sao biết là đã lấy đúng.** Nếu không tin bước này, mọi kết luận phía sau đều không đáng tin.
 
-ChromeDrift làm việc với hai trạng thái source độc lập: version cũ và version mới. Với mỗi bên, tool xác định một Git ref cụ thể, hỏi cây file của chính ref đó để đo phạm vi, rồi materialize một cây source cục bộ chỉ chứa các target cần đọc.
+## Trả lời ngắn
 
-Có hai nguồn:
+ChromeDrift làm việc với hai trạng thái source hoàn toàn độc lập: một bên là version cũ, một bên là version mới. Với mỗi bên, công cụ lần lượt làm ba việc:
 
-- Gitiles: tải trực tiếp file hoặc archive của subtree tại đúng tag;
-- local checkout: copy đúng các target từ một Chromium `src/` đã có sẵn.
+1. xác định một Git ref cụ thể (một điểm cố định trong lịch sử Chromium);
+2. hỏi cây file của **chính ref đó** để đo xem phạm vi đọc được là bao nhiêu;
+3. dựng một cây source cục bộ trên máy, chỉ chứa những file thật sự cần đọc.
 
-Cây local mà ChromeDrift tạo là partial tree nhưng relative path vẫn giống upstream. Ví dụ file upstream `chrome/browser/resources/settings/route.ts` vẫn nằm đúng path đó dưới cache; nó không bị gom vào một thư mục “routes”.
+Có hai nguồn để lấy mã nguồn:
 
-## Luồng dữ liệu
+- **Gitiles** — tải trực tiếp từng file, hoặc tải cả một thư mục con, tại đúng tag cần đọc;
+- **local checkout** — sao chép đúng những file cần thiết từ một thư mục Chromium `src/` đã có sẵn trên máy.
+
+Cây source mà ChromeDrift dựng ra là một cây **không đầy đủ** (partial tree), nhưng đường dẫn tương đối của mỗi file vẫn giữ nguyên như trên upstream. Ví dụ file `chrome/browser/resources/settings/route.ts` của Chromium vẫn nằm đúng ở đường dẫn đó trong cache; nó không bị gom vào một thư mục phẳng kiểu "routes". Phần "Bước 6" giải thích vì sao chi tiết này lại quan trọng đến vậy.
+
+## Toàn bộ luồng, nhìn từ trên xuống
 
 ```text
-from_ref / to_ref
+from_ref / to_ref  (hai version cần so)
        │
        ▼
-resolve_ref()
-milestone → Windows Stable full version → refs/tags/x.y.z.w
-full version → refs/tags/x.y.z.w
-raw ref/SHA → giữ nguyên
+resolve_ref()   — quy mọi kiểu đầu vào về một ref cụ thể
+   milestone     → tìm bản Windows Stable mới nhất → refs/tags/x.y.z.w
+   full version  → refs/tags/x.y.z.w
+   ref/SHA thô   → giữ nguyên
        │
        ▼
-chọn target set / partition / complete
+chọn target set / partition / complete   — quyết định "sẽ đọc vùng nào"
        │
-       ├── list_recursive(): nhìn cây của đúng ref để đo coverage
+       ├── list_recursive()  — nhìn cây file của đúng ref, để đo coverage
        │
-       └── materialize(): tải/copy các target vào cache tree
+       └── materialize()     — tải hoặc copy các target vào cache
                     │
                     ▼
-cache/trees/<safe-ref>/
-  chrome/...
-  components/...
-  content/...
-  third_party/blink/...
+        cache/trees/<safe-ref>/
+          chrome/...
+          components/...
+          content/...
+          third_party/blink/...
                     │
                     ▼
-extractor walk cây này nhưng vẫn bị giới hạn bởi scope của target set
+        extractor duyệt cây này, nhưng vẫn bị giới hạn trong phạm vi target set
                     │
                     ▼
-Snapshot(ref, facts, coverage, fetch_stats, missing_targets)
+        Snapshot(ref, facts, coverage, fetch_stats, missing_targets)
 ```
 
-## Bước 1: version được lấy từ đâu
+Chín mục dưới đây đi qua từng bước trong sơ đồ trên.
 
-### Nhập full version
+## Bước 1 — Version đến từ đâu
 
-Với đầu vào như `151.0.7922.138`, tool tạo:
+Người chạy có thể nhập ba kiểu đầu vào khác nhau, và công cụ xử lý mỗi kiểu một cách.
+
+### Nhập full version — cách nên dùng
+
+Với đầu vào như `151.0.7922.138`, công cụ tạo ra:
 
 ```json
 {
@@ -57,21 +67,21 @@ Với đầu vào như `151.0.7922.138`, tool tạo:
 }
 ```
 
-Đây là cách nên dùng cho report chính thức vì hai người chạy lại sẽ đọc đúng cùng một source state.
+Đây là cách nên dùng cho mọi báo cáo chính thức, vì hai người chạy lại ở hai thời điểm khác nhau vẫn đọc đúng cùng một trạng thái mã nguồn.
 
-### Nhập milestone
+### Nhập milestone — tiện nhưng có tính thời điểm
 
-Với đầu vào `151`, tool gọi ChromiumDash, hỏi channel Stable và platform Windows, lấy full version stable cao nhất thuộc M151, sau đó chuyển thành tag.
+Với đầu vào chỉ là `151`, công cụ gọi ChromiumDash, hỏi channel Stable trên platform Windows, lấy full version stable cao nhất thuộc M151, rồi mới chuyển thành tag.
 
-Milestone tiện cho chạy nhanh nhưng có tính thời điểm: nếu milestone còn nhận patch release, lần chạy sau có thể resolve sang full version mới hơn. Report nên luôn hiển thị `resolved_ref` để người đọc biết source thực tế là bản nào.
+Cách này tiện khi cần chạy nhanh, nhưng kết quả phụ thuộc **thời điểm chạy**: nếu milestone đó còn tiếp tục nhận bản vá, lần chạy sau có thể resolve sang một full version mới hơn và cho kết quả khác. Vì vậy báo cáo phải luôn hiển thị `resolved_ref`, để người đọc biết source thực tế là bản nào.
 
-### Nhập raw ref hoặc SHA
+### Nhập ref hoặc SHA thô
 
-Nếu input không phải milestone và không có dạng version bốn phần, tool giữ nguyên. Trường hợp này hữu ích khi so branch/SHA nội bộ nhưng người chạy phải tự đảm bảo ref có trên source server.
+Nếu đầu vào không phải milestone và cũng không có dạng version bốn phần, công cụ giữ nguyên không xử lý gì. Cách này hữu ích khi cần so hai branch hoặc hai SHA nội bộ, nhưng người chạy phải tự bảo đảm ref đó thật sự tồn tại trên source server.
 
-## Bước 2: target set quyết định “sẽ lấy vùng nào”
+## Bước 2 — Target set quyết định "sẽ lấy vùng nào"
 
-Một `FetchTarget` có dạng khái niệm:
+Một `FetchTarget` (một mục trong danh sách cần tải) về mặt khái niệm có dạng như sau. Đây là target kiểu thư mục:
 
 ```json
 {
@@ -82,7 +92,7 @@ Một `FetchTarget` có dạng khái niệm:
 }
 ```
 
-Hoặc file đơn:
+Và đây là target kiểu file đơn:
 
 ```json
 {
@@ -93,62 +103,68 @@ Hoặc file đơn:
 }
 ```
 
-`kind=file` tải đúng path. `kind=tree` tải archive của cả thư mục nhưng chỉ materialize các member có basename khớp suffix trong `include`.
+Khác biệt giữa hai kiểu: `kind=file` tải đúng một đường dẫn. `kind=tree` tải archive của cả thư mục, nhưng khi giải nén chỉ ghi ra đĩa những file có tên khớp một trong các đuôi liệt kê ở `include`.
 
-Ba target set có mục đích khác nhau:
+Ba target set phục vụ ba mục đích khác nhau:
 
 | Target set | Dùng khi | Điều cần nhớ |
 |---|---|---|
-| `minimal` | Smoke test, kiểm tra tool và cache | Không đủ làm kết luận release |
-| `default` | Báo cáo hằng ngày, giữ chi phí khoảng 40 MB/version theo thiết kế hiện tại | Curated theo các surface giá trị cao; coverage report phải được đọc cùng kết quả |
-| `wide` | Release-level analysis hoặc xác minh removal | Đọc mọi filename shape tool hiểu trong các root được chọn; lớn hơn nhiều nhưng giảm false removal |
+| `minimal` | Smoke test — kiểm tra công cụ và cache còn chạy đúng không | Không bao giờ đủ để kết luận cho một release |
+| `default` | Báo cáo hằng ngày, giữ chi phí ở khoảng 40 MB mỗi version theo thiết kế hiện tại | Được chọn lọc theo các surface có giá trị cao; bắt buộc phải đọc báo cáo coverage kèm theo kết quả |
+| `wide` | Phân tích ở mức release, hoặc cần xác minh một khai báo có thật sự bị xoá không | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; lớn hơn nhiều nhưng giảm hẳn số kết luận "đã bị xoá" sai |
 
-Partition tiếp tục lọc target list theo area. Ví dụ `--partition settings` giữ core files và target có prefix liên quan Settings. Vì code ảnh hưởng Settings có thể nằm ở `content/`, Mojo hoặc Blink, partition không thay thế full run cuối.
+Ngoài target set, `partition` còn lọc tiếp danh sách target theo khu vực chức năng. Ví dụ `--partition settings` chỉ giữ lại các file lõi cùng những target có tiền tố liên quan tới Settings.
 
-## Bước 3: discovery lấy “cây” như thế nào
+Nhưng partition không thay thế được một lần chạy đầy đủ ở cuối, vì code ảnh hưởng tới Settings hoàn toàn có thể nằm ở `content/`, ở một file Mojo, hoặc ở Blink — tức là ngoài partition đang chọn.
 
-Với Gitiles, tool gọi listing recursive cho từng discovery root, chẳng hạn:
+## Bước 3 — Discovery lấy "cây file" như thế nào
+
+Với Gitiles, công cụ gọi lệnh liệt kê đệ quy cho từng thư mục gốc cần khảo sát, chẳng hạn:
 
 - `chrome/`
 - `components/`
 - `content/`
 - `services/`
 - `third_party/blink/`
-- `base/`, `device/`, `cc/`, `sandbox/`, `storage/`…
+- `base/`, `device/`, `cc/`, `sandbox/`, `storage/`...
 
-Kết quả là danh sách path của mọi blob bên dưới root tại đúng ref. Listing được cache theo ref và root.
+Kết quả trả về là danh sách đường dẫn của mọi file nằm dưới thư mục gốc đó, tại đúng ref đang xét. Danh sách này được cache lại theo cặp (ref, thư mục gốc).
 
-Sau đó tool hỏi registry của 9 extractor: với mỗi path, có extractor nào trả lời `applies_to(path) == true` không? Nếu có và file vẫn nằm trong product scope thì file là candidate.
+Sau đó công cụ hỏi registry của 9 extractor một câu cho từng đường dẫn: *có extractor nào trả lời `applies_to(path) == true` không?* Nếu có, và file đó vẫn nằm trong phạm vi sản phẩm browser, thì file được đánh dấu là **candidate**.
 
-Quan trọng: discovery không đồng nghĩa với fetch.
+### Điểm dễ nhầm nhất trong cả bước này
+
+**Discovery không đồng nghĩa với tải về.** Ba con số dưới đây là ba thứ khác nhau:
 
 ```text
-discovery candidates = những file có thể khai báo dữ liệu tool hiểu
-target reach          = những candidate target set thực sự chạm tới
-coverage              = target reach / discovery candidates
+discovery candidates = những file CÓ THỂ chứa loại khai báo mà công cụ hiểu
+target reach         = những candidate mà target set THỰC SỰ chạm tới
+coverage             = target reach / discovery candidates
 ```
 
-Tách hai khái niệm này giúp phát hiện target list đã cũ. Nếu Chromium thêm một `*_prefs.cc` mới ngoài default targets, candidate count tăng và coverage giảm, thay vì file biến mất khỏi cả tử số lẫn mẫu số.
+Tách bạch hai khái niệm này có một lợi ích rất cụ thể: nó giúp phát hiện danh sách target đã cũ. Giả sử Chromium thêm một file `*_prefs.cc` mới nằm ngoài danh sách target mặc định. Khi đó số candidate tăng lên và coverage giảm xuống — thay vì file đó lặng lẽ biến mất khỏi cả tử số lẫn mẫu số và không ai biết là mình đang bỏ sót.
 
-## Bước 4: Gitiles tải file và thư mục ra sao
+## Bước 4 — Gitiles tải file và thư mục ra sao
 
-### File đơn
+### Tải một file đơn
 
-Tool gọi endpoint `?format=TEXT` tại ref cụ thể. Gitiles trả nội dung base64; tool decode rồi ghi vào đúng relative path trong cache tree.
+Công cụ gọi endpoint `?format=TEXT` tại đúng ref. Gitiles trả về nội dung đã mã hoá base64; công cụ giải mã rồi ghi vào đúng đường dẫn tương đối trong cache.
 
-Kết quả có ba trạng thái đáng chú ý:
+Kết quả rơi vào một trong ba trạng thái, và cả ba đều được ghi lại:
 
-- tải được: `file <size>B`;
-- ref thực sự không có file: `missing`;
-- đã có cache hợp lệ: `cached`.
+| Trạng thái | Nghĩa |
+|---|---|
+| `file <size>B` | Tải được, kèm kích thước |
+| `missing` | Ref này thực sự không có file đó |
+| `cached` | Đã có sẵn bản cache hợp lệ, không cần tải lại |
 
-HTTP 404 được xem là `missing`, không lập tức làm run fail, vì một file có thể chưa tồn tại ở milestone cũ. Nhưng nếu mọi target đều missing, tool dừng vì ref/proxy có khả năng sai.
+HTTP 404 được ghi là `missing` và **không** làm cả lần chạy thất bại ngay, vì một file hoàn toàn có thể chưa tồn tại ở milestone cũ. Nhưng nếu **mọi** target đều missing, công cụ dừng lại — vì tình huống đó gần như chắc chắn là ref sai hoặc proxy sai, chứ không phải Chromium bỗng dưng rỗng.
 
-### Thư mục
+### Tải một thư mục
 
-Tool tải archive `.tar.gz` của subtree. Trong lúc giải nén, mỗi file phải qua `include` filter. Chỉ regular file được giữ; path bị kiểm tra để archive không thể ghi ra ngoài destination.
+Công cụ tải archive `.tar.gz` của cả nhánh con. Trong lúc giải nén, mỗi file phải qua bộ lọc `include`. Chỉ file thường được giữ lại, và mọi đường dẫn đều bị kiểm tra để archive không thể ghi ra ngoài thư mục đích.
 
-Ví dụ archive `chrome/browser/resources/settings/` có nhiều `.ts`, image, CSS và test file. Với WebUI template target, partial tree chỉ giữ:
+Một ví dụ cho thấy bộ lọc mạnh tới mức nào: archive của `chrome/browser/resources/settings/` chứa rất nhiều file `.ts`, ảnh, CSS và file test. Với target dành cho template WebUI, cây cục bộ chỉ giữ lại:
 
 ```text
 *.html
@@ -157,50 +173,54 @@ route.ts
 routes.ts
 ```
 
-Đây không phải kết luận rằng các file khác vô dụng với browser. Nó chỉ nói extractor hiện tại không đọc implementation TypeScript, CSS hay image nên tải chúng không làm snapshot có thêm Fact.
+Cần đọc điều này cho đúng. Nó **không** có nghĩa là các file còn lại vô dụng với browser. Nó chỉ có nghĩa là extractor hiện tại không đọc phần implementation viết bằng TypeScript, không đọc CSS và không đọc ảnh — nên tải chúng về cũng không làm snapshot có thêm được `Fact` nào, chỉ tốn dung lượng.
 
-### Song song và retry
+### Chạy song song và thử lại
 
-- Tree archive lớn được xử lý lần lượt.
-- File đơn được tải song song với tối đa 8 worker.
-- HTTP có timeout, retry và exponential backoff.
-- Body rỗng được retry để phân biệt file thật sự rỗng với response bị cắt.
-- Nếu một file gặp lỗi tải không thể xác định, acquisition fail thay vì ghi nó là missing. Nếu không, report có thể bịa ra removal.
+Năm quy tắc bảo vệ ở bước tải:
 
-## Bước 5: local checkout được dùng ra sao
+- Archive thư mục có kích thước lớn nên được xử lý lần lượt, không song song.
+- File đơn được tải song song, tối đa 8 luồng.
+- Mọi request HTTP đều có timeout, có thử lại, và khoảng chờ giữa các lần thử tăng dần.
+- Response rỗng luôn được thử lại, để phân biệt một file thật sự rỗng với một response bị cắt giữa chừng.
+- Nếu một file gặp lỗi tải không xác định được nguyên nhân, cả bước lấy source thất bại, thay vì lặng lẽ ghi file đó là `missing`. Nếu làm ngược lại, báo cáo sẽ tự bịa ra một khai báo "đã bị xoá" trong khi thực tế chỉ là mạng lỗi.
 
-Khi truyền `--local-src`, tool không đọc tuỳ ý toàn bộ checkout. Nó vẫn dùng cùng target set:
+## Bước 5 — Dùng source có sẵn trên máy thì khác gì
 
-- target file: copy file đó;
-- target tree: walk subtree và copy file khớp `include` filter;
-- vẫn giữ relative path;
-- bỏ `.git`, `out` và `__pycache__`.
+Khi truyền `--local-src`, công cụ **không** đọc tuỳ ý toàn bộ checkout. Nó vẫn dùng đúng target set như khi tải qua mạng:
 
-Do đó remote và local khác ở nguồn byte, không khác ở semantics của phạm vi.
+- với target kiểu file: copy đúng file đó;
+- với target kiểu tree: duyệt nhánh con và copy những file khớp bộ lọc `include`;
+- vẫn giữ nguyên đường dẫn tương đối;
+- bỏ qua `.git`, `out` và `__pycache__`.
 
-Điểm cần kiểm tra trước khi tin local run:
+Nói cách khác: nguồn từ xa và nguồn cục bộ khác nhau ở chỗ **byte đến từ đâu**, chứ không khác nhau ở **phạm vi được đọc**.
 
-1. Path phải là Chromium `src/` chứa `chrome/`, `content/`, `components/`, `third_party/`.
-2. Checkout phải đúng ref được gắn nhãn trong lần chạy.
-3. Không dùng sparse/truncated checkout mà vẫn coi là full source.
-4. Không để generated hoặc local patch vô tình đại diện cho upstream nếu mục tiêu là so hai release gốc.
+### Bốn thứ phải kiểm tra trước khi tin một lần chạy local
 
-Diff có guard chống hai snapshot lệch quá lớn: nếu một bên có ít hơn 50% số Fact của bên kia và số Fact đủ lớn để là real run, tool từ chối so sánh.
+1. Đường dẫn phải là thư mục `src/` của Chromium, tức là bên trong có `chrome/`, `content/`, `components/`, `third_party/`.
+2. Checkout phải đang ở đúng ref được ghi nhãn trong lần chạy đó.
+3. Không được dùng sparse checkout hoặc checkout đã bị cắt bớt rồi coi như source đầy đủ.
+4. Nếu mục tiêu là so hai bản release gốc, không được để generated file hoặc bản vá cục bộ vô tình đại diện cho upstream.
 
-## Bước 6: vì sao cây partial vẫn chính xác cho parser
+Có một lớp bảo vệ tự động cho tình huống tệ nhất: bước so sánh sẽ từ chối chạy nếu một bên có ít hơn 50% số `Fact` so với bên kia, trong khi tổng số `Fact` vẫn đủ lớn để đây là một lần chạy thật. Trường hợp này gần như luôn là lỗi chuẩn bị source, không phải Chromium thay đổi.
 
-Extractor quyết định dialect bằng relative path và basename. Ví dụ:
+## Bước 6 — Vì sao cây thư mục không đầy đủ vẫn cho kết quả đúng
 
-- `.idl` chỉ được xem là Blink Web IDL nếu path bắt đầu bằng `third_party/blink/renderer/`;
+Extractor xác định dialect của một file bằng **đường dẫn tương đối và tên file**, chứ không phải bằng nội dung. Bốn ví dụ:
+
+- một file `.idl` chỉ được coi là Blink Web IDL nếu đường dẫn bắt đầu bằng `third_party/blink/renderer/`;
 - `route.ts` chỉ được đọc nếu nằm dưới `chrome/browser/resources/`;
-- `.cc` chỉ thành WebUI gate source nếu nằm dưới `chrome/browser/ui/webui/`;
-- `pref_names.cc` và `switches.cc` dùng basename để chọn `pref` hay `switch`.
+- một file `.cc` chỉ trở thành nguồn WebUI gate nếu nằm dưới `chrome/browser/ui/webui/`;
+- `pref_names.cc` và `switches.cc` dựa vào tên file để quyết định tạo `Fact` loại `pref` hay loại `switch`.
 
-Nếu flatten file về một thư mục, những rule này mất context và có thể parse sai dialect. Giữ nguyên tree path là một phần của correctness, không chỉ để report đẹp.
+Hệ quả: nếu gom hết file về một thư mục phẳng, toàn bộ các rule trên mất ngữ cảnh và công cụ sẽ parse nhầm dialect. Giữ nguyên cấu trúc thư mục vì thế là một phần của **tính đúng đắn**, không phải để báo cáo nhìn cho đẹp.
 
-## Bước 7: extraction bị khoá lại theo target scope
+## Bước 7 — Phạm vi trích xuất bị khoá lại theo target set
 
-Cache tree được dùng chung theo ref. Một lần `wide` có thể để nhiều file hơn trong cache so với `minimal`. Vì vậy, trước khi walk tree, snapshot builder truyền hai tập:
+Cache dùng chung một cây thư mục cho mỗi ref. Điều đó tạo ra một rủi ro: một lần chạy `wide` để lại rất nhiều file trong cache; nếu sau đó chạy `minimal` trên cùng ref, extractor có thể vô tình đọc phải những file còn sót và tạo ra một snapshot mang nhãn `minimal` nhưng chứa dữ liệu của `wide`.
+
+Để chặn tình huống này, trước khi duyệt cây, bộ dựng snapshot truyền vào hai tập hợp giới hạn:
 
 ```json
 {
@@ -211,23 +231,27 @@ Cache tree được dùng chung theo ref. Một lần `wide` có thể để nhi
 }
 ```
 
-Extractor chỉ được đọc file mà scope hiện tại chạm tới. Điều này ngăn lần chạy hẹp vô tình đọc file còn sót từ lần chạy rộng rồi tạo snapshot sai nhãn.
+Extractor chỉ được phép đọc những file mà phạm vi hiện tại chạm tới. Nhờ đó nhãn của snapshot luôn đúng với dữ liệu bên trong nó.
 
-## Bước 8: skip rule loại nhiễu nào
+## Bước 8 — Những file bị loại vì không thuộc sản phẩm
 
-Sau target scope, file còn qua product-scope rule:
+Sau khi qua phạm vi target, file còn phải qua một lớp lọc nữa, gọi là product scope. Các nhóm bị loại:
 
-- bỏ test, browser test, fuzzer, mock và web tests;
-- bỏ generated output và `.git`;
-- bỏ binary không phải browser product như `content_shell`, headless shell, updater, remote desktop và Windows services độc lập;
-- bỏ vendored third-party ngoài Blink;
-- bỏ source chỉ dành cho ChromeOS/Ash/iOS/Fuchsia đối với đa số extractor.
+- file test, browser test, fuzzer, mock và web test;
+- output do máy sinh ra, và thư mục `.git`;
+- các binary không phải sản phẩm browser: `content_shell`, headless shell, updater, remote desktop, các Windows service độc lập;
+- thư viện third-party được vendor sẵn, trừ phần Blink;
+- với đa số extractor, cả source chỉ dành riêng cho ChromeOS/Ash/iOS/Fuchsia.
 
-Ngoại lệ là constants extractor vẫn đọc pref/switch strings trong platform tree khác. Lý do: một pref key chuyển từ file chung vào ChromeOS file phải được nhận ra là “move”, không bị hiểu nhầm là “deleted”. Sau đó platform state và scoring vẫn ngăn thay đổi không thuộc Windows tranh thứ tự với finding thật.
+### Một ngoại lệ có chủ ý
 
-## Bước 9: output nào chứng minh acquisition đáng tin
+Extractor `constants` vẫn đọc các chuỗi pref và switch nằm trong cây source của platform khác. Lý do rất cụ thể: nếu một pref key được chuyển từ file dùng chung sang một file riêng của ChromeOS, việc đó phải được nhận ra là **move** (chuyển chỗ), chứ không được hiểu nhầm thành **deleted** (đã xoá).
 
-Snapshot metadata nên được đọc trước finding:
+Ngoại lệ này không làm nhiễu kết quả, vì sau đó trạng thái theo platform và bước chấm điểm vẫn ngăn những thay đổi không thuộc Windows tranh thứ tự ưu tiên với các finding thật.
+
+## Bước 9 — Đọc gì để biết bước lấy source có đáng tin không
+
+Phần metadata của snapshot nên được đọc **trước** khi đọc bất kỳ finding nào. Cấu trúc của nó như sau — các con số ở đây chỉ để minh hoạ hình dạng, không phải số liệu của một release cụ thể:
 
 ```json
 {
@@ -249,21 +273,23 @@ Snapshot metadata nên được đọc trước finding:
 }
 ```
 
-Các con số trên chỉ là shape minh hoạ, không phải số của một release cụ thể. Khi review report thật, cần hỏi:
+Khi review một báo cáo thật, đây là sáu câu cần tự hỏi:
 
-- `ref` hai bên có đúng full version cần uprev không?
-- `target_set`, `partitions`, `complete` có giống nhau không?
-- `missing_targets` có gì bất thường không?
-- `_errors` trong extraction có bằng 0 không?
-- coverage của surface đang kết luận removal có đạt ngưỡng xác nhận 95% không?
-- tổng Fact hai bên có cùng order of magnitude không?
+1. `ref` của cả hai bên có đúng là hai full version cần uprev không?
+2. `target_set`, `partitions` và `complete` của hai bên có giống nhau không?
+3. `missing_targets` có mục nào bất thường không?
+4. `_errors` trong phần trích xuất có bằng 0 không?
+5. Với surface đang được dùng để kết luận "đã bị xoá", coverage có đạt ngưỡng xác nhận 95% không?
+6. Tổng số `Fact` của hai bên có cùng bậc độ lớn không?
 
-## Vì sao không dùng một Git diff của toàn checkout
+## Vì sao không dùng thẳng một Git diff của cả checkout
 
-Git diff toàn tree trả lời “dòng text nào đổi”, trong khi ChromeDrift cần “declaration contract nào đổi”. Tải vừa đủ declaration sources mang lại ba lợi ích:
+Một Git diff trên toàn bộ cây trả lời câu hỏi *"dòng text nào đã đổi"*. Nhưng câu hỏi ChromeDrift cần trả lời là *"contract nào trong các khai báo đã đổi"*. Đó là hai câu hỏi khác nhau.
 
-- chạy được trước khi Samsung bắt đầu merge;
-- snapshot/cache nhỏ, có thể lặp lại diff và scoring nhanh;
-- parser tập trung vào source of truth thay vì bị implementation churn lấn át.
+Việc chỉ tải vừa đủ các file chứa khai báo mang lại ba lợi ích cụ thể:
 
-Đổi lại, tool không phát hiện mọi implementation change. Vì vậy kết luận đúng là “phủ các declaration surface đã nêu và đo rõ phần chưa phủ”, không phải “phủ toàn bộ thay đổi Chromium”.
+- chạy được **trước khi** Samsung bắt đầu merge, không cần chờ có cây code đã merge;
+- snapshot và cache nhỏ, nên có thể sửa logic so sánh hoặc chấm điểm rồi chạy lại rất nhanh mà không tải lại source;
+- parser tập trung vào nguồn sự thật của từng contract, thay vì bị chôn vùi trong hàng nghìn dòng refactor.
+
+Đổi lại, công cụ không phát hiện được mọi thay đổi ở phần implementation. Vì vậy cách mô tả đúng về phạm vi là: *"phủ các surface khai báo đã liệt kê, và đo rõ phần chưa phủ"* — chứ không phải *"phủ toàn bộ thay đổi của Chromium"*.
