@@ -21,6 +21,8 @@ Sáu tài liệu dưới đây trả lời sáu nhóm câu hỏi độc lập v�
 
 Ngoài ra còn một tài liệu tổng quan dài hơn, dùng khi cần trình bày toàn bộ project trong một buổi họp: [ChromeDrift và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromeDrift cho việc nâng phiên bản Chromium.md>). Nội dung của nó bao trùm sáu phần trên, nhưng đi kèm số liệu chạy thật, kịch bản demo và phần hỏi đáp.
 
+Kèm theo bộ tài liệu là một sơ đồ luồng: [Luồng xử lý của ChromeDrift](flow.html) — mở thẳng trong trình duyệt, không cần mạng. Nó gom cả năm chặng của công cụ vào một hình, dùng khi cần định vị nhanh chặng đang nói tới nằm ở đâu.
+
 ## Nên đọc phần nào
 
 Nếu chỉ có thời gian cho một vòng đọc ngắn, đây là lộ trình theo vai trò:

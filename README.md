@@ -539,7 +539,7 @@ python3 -m chromedrift figures    # write docs/figures.json from a report
 
 Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
 
-`figures` exists because every measurement in this README and in `pipeline.html` used to be maintained by hand, and six of them were corrected in a single working session — four having been written wrong by the same hand that corrected them. The numbers now live in `docs/figures.json`, written from a real run, and a test holds the prose to that file. It needs no report of your own to run, so it works on a fresh clone; when a report *is* present it also checks the file against it, so the file cannot become the thing that goes stale.
+`figures` exists because every measurement in this README and in `pipeline.html` used to be maintained by hand, and six of them were corrected in a single working session — four having been written wrong by the same hand that corrected them. The numbers now live in `docs/figures.json`, written from a real run, so a document quotes one file rather than each carrying its own copy of the measurement.
 
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out
@@ -997,7 +997,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**368 tests, running in about three seconds, with no network.**
+**363 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1019,7 +1019,7 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - The source map in §12 must name every module, not only get their sizes right. A map that quietly stops listing a file is the same defect as one with a wrong number, and harder to see.
 - Nothing shipped may carry Vietnamese. These documents were translated, and the translation was reported complete twice while `pipeline.html` still held six strings — a CSS comment and five inside an interactive widget, which a proof-reader sees rendered rather than in the prose.
 - Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
-- Every measured number written into a document must match the snapshot on disk, and the source map in §12 must match the source.
+- The source map in §12 must match the source.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
 - No command may accept a flag and then ignore it.
 - The coverage denominator is the tree, not the roots the fetch list happens to live under. A rule that admits a file and a measurement that cannot see it is how a percentage learns to flatter itself.

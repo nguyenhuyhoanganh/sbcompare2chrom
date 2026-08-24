@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Luồng xử lý của ChromeDrift</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+img,svg{max-width:100%}
+</style>
+</head>
+<body>
+<style>
+:root{
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+
+  --ground:#EDF0F5;
+  --surface:#FFFFFF;
+  --surface-2:#F6F8FB;
+  --ink:#13171E;
+  --muted:#565F6C;
+  --faint:#87909E;
+  --line:#D1D8E1;
+  --line-soft:#E3E8EF;
+  --accent:#2A55C8;
+  --accent-soft:#E5EAF9;
+  --stop:#A3303B;
+  --shadow:0 1px 2px rgba(19,23,30,.06),0 10px 30px -14px rgba(19,23,30,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#0E1218;
+    --surface:#161B23;
+    --surface-2:#1C222C;
+    --ink:#E3E8EF;
+    --muted:#98A2B2;
+    --faint:#6B7585;
+    --line:#2B323E;
+    --line-soft:#212832;
+    --accent:#7E9CF6;
+    --accent-soft:#1A2440;
+    --stop:#E2727C;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.7);
+  }
+}
+
+body{
+  background:var(--ground);color:var(--ink);
+  font-family:var(--sans);font-size:16px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:48px 24px 72px}
+
+.back{
+  font-family:var(--mono);font-size:12px;color:var(--muted);
+  text-decoration:none;border-bottom:1px solid var(--line);
+}
+.back:hover{color:var(--ink);border-bottom-color:var(--accent)}
+.back:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+.eyebrow{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--faint);margin:28px 0 14px;
+}
+h1{
+  font-weight:600;font-size:clamp(31px,5vw,48px);line-height:1.06;
+  letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance;
+}
+.lede{font-size:18px;line-height:1.6;color:var(--muted);max-width:62ch;margin:0}
+.lede strong{color:var(--ink);font-weight:600}
+
+h2{font-weight:600;font-size:24px;letter-spacing:-.01em;margin:56px 0 6px}
+.use{color:var(--muted);max-width:70ch;margin:0;font-size:15.5px}
+.use b{color:var(--ink);font-weight:600}
+
+figure{
+  margin:36px 0 0;background:var(--surface);border:1px solid var(--line);
+  border-radius:4px;box-shadow:var(--shadow);overflow:hidden;
+}
+.figbody{padding:26px 22px 10px;overflow-x:auto}
+figure svg{display:block;width:100%;min-width:620px;height:auto;color:var(--ink)}
+figcaption{
+  padding:16px 22px 18px;border-top:1px solid var(--line-soft);
+  background:var(--surface-2);font-size:13.5px;line-height:1.6;color:var(--muted);
+}
+figcaption b{
+  font-family:var(--mono);font-size:11px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--accent);font-weight:600;margin-right:9px;
+}
+figcaption code,footer code{
+  font-family:var(--mono);font-size:.9em;background:var(--surface);
+  border:1px solid var(--line-soft);padding:1px 5px;border-radius:3px;
+  white-space:nowrap;
+}
+
+.t{font-family:var(--sans);font-size:13px;fill:currentColor}
+.tm{font-family:var(--mono);font-size:11px;fill:currentColor}
+.tb{font-family:var(--sans);font-size:14.5px;font-weight:600;fill:currentColor}
+.tl{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase}
+.ts{font-family:var(--mono);font-size:10px;fill:currentColor}
+.tbig{font-family:var(--sans);font-size:15px;font-weight:600;fill:currentColor}
+.tnum{font-family:var(--mono);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;fill:currentColor}
+.dim{opacity:.6}
+.box{fill:var(--surface-2);stroke:var(--line);stroke-width:1}
+.boxA{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.boxD{fill:var(--surface-2);stroke:var(--line);stroke-width:1;stroke-dasharray:5 4}
+.ln{stroke:currentColor;stroke-width:1.5;fill:none;opacity:.55}
+.lnA{stroke:var(--accent);stroke-width:1.9;fill:none}
+.dash{stroke:currentColor;stroke-width:1.2;stroke-dasharray:5 5;opacity:.3;fill:none}
+
+footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
+</style>
+
+<div class="wrap">
+
+<a class="back" href="README.md">← Bộ tài liệu giải thích ChromeDrift</a>
+
+<p class="eyebrow">ChromeDrift · luồng xử lý</p>
+<h1>Từ hai phiên bản Chromium đến một danh sách đã xếp hạng</h1>
+<p class="lede">Năm cách vẽ cùng một luồng, xếp theo mức chi tiết tăng dần. Hình đầu để <strong>định vị</strong>, hình cuối để trả lời <strong>công cụ này làm gì cho tôi</strong>. Không cần đọc hết — chọn hình hợp với câu hỏi đang có.</p>
+
+<h2>1 · Định vị nhanh</h2>
+<p class="use">Sáu chặng, một hàng. Dùng cho slide, hoặc cho người chưa biết gì về công cụ.</p>
+
+<figure>
+  <div class="figbody w620">
+    <svg viewBox="0 0 900 152" role="img" aria-label="Luồng tối giản gồm sáu chặng nối tiếp: hai phiên bản, tải file, trích fact, so sánh, xếp hạng, báo cáo.">
+        <defs><marker id="v1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/></marker></defs>
+
+        <rect class="box"  x="12"  y="42" width="128" height="60" rx="3"/>
+        <rect class="box"  x="160" y="42" width="128" height="60" rx="3"/>
+        <rect class="box"  x="308" y="42" width="128" height="60" rx="3"/>
+        <rect class="boxA" x="456" y="42" width="128" height="60" rx="3"/>
+        <rect class="box"  x="604" y="42" width="128" height="60" rx="3"/>
+        <rect class="box"  x="752" y="42" width="128" height="60" rx="3"/>
+
+        <text class="tbig" x="76"  y="78" text-anchor="middle">hai phiên bản</text>
+        <text class="tbig" x="224" y="78" text-anchor="middle">tải file</text>
+        <text class="tbig" x="372" y="78" text-anchor="middle">trích fact</text>
+        <text class="tbig" x="520" y="78" text-anchor="middle">so sánh</text>
+        <text class="tbig" x="668" y="78" text-anchor="middle">xếp hạng</text>
+        <text class="tbig" x="816" y="78" text-anchor="middle">báo cáo</text>
+
+        <line class="ln" x1="140" y1="72" x2="156" y2="72" marker-end="url(#v1a)"/>
+        <line class="ln" x1="288" y1="72" x2="304" y2="72" marker-end="url(#v1a)"/>
+        <line class="ln" x1="436" y1="72" x2="452" y2="72" marker-end="url(#v1a)"/>
+        <line class="ln" x1="584" y1="72" x2="600" y2="72" marker-end="url(#v1a)"/>
+        <line class="ln" x1="732" y1="72" x2="748" y2="72" marker-end="url(#v1a)"/>
+
+        <text class="ts dim" x="76"  y="124" text-anchor="middle">ref</text>
+        <text class="ts dim" x="224" y="124" text-anchor="middle">file khai báo</text>
+        <text class="ts dim" x="372" y="124" text-anchor="middle">Fact</text>
+        <text class="ts dim" x="520" y="124" text-anchor="middle">Change</text>
+        <text class="ts dim" x="668" y="124" text-anchor="middle">Finding</text>
+        <text class="ts dim" x="816" y="124" text-anchor="middle">3 file</text>
+
+      </svg>
+  </div>
+  <figcaption><b>Hình 1</b>Hàng dưới ghi thứ <em>đi ra</em> khỏi mỗi chặng, nên hình vẫn nói được nhiều hơn sáu cái tên. Cái nó giấu: mỗi phiên bản đi riêng qua ba chặng đầu, và ranh giới cache nằm giữa chặng 3 và 4.</figcaption>
+</figure>
+
+<h2>2 · Mỗi chặng làm gì</h2>
+<p class="use">Vẫn sáu chặng đó làm xương sống, nhưng mỗi chặng nối sang phải một hình nhỏ trả lời “chặng này thật ra làm gì”.</p>
+
+<figure>
+  <div class="figbody w720">
+    <svg viewBox="0 0 900 1042" role="img" aria-label="Xương sống sáu khối theo chiều dọc, mỗi khối kèm một diagram phụ bên phải: ghim phiên bản, hai nguồn lấy source, chín extractor gộp thành ba nhóm, hai nửa có cổng và không có cổng, thang điểm chỉ trừ, và ba trục phân loại.">
+        <defs>
+          <marker id="v5a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/></marker>
+          <marker id="v5b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/></marker>
+          <marker id="v5r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,1 L9,5 L0,9 z" fill="var(--stop)"/></marker>
+        </defs>
+
+        <text class="tl dim" x="24" y="26">xương sống</text>
+        <text class="tl dim" x="250" y="26">diagram phụ — cơ chế của khối bên trái</text>
+        <line class="dash" x1="220" y1="36" x2="220" y2="1030"/>
+
+        <!-- ============ spine ============ -->
+        <rect class="boxA" x="24" y="96"  width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="127" text-anchor="middle">hai phiên bản</text>
+        <rect class="boxA" x="24" y="261" width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="292" text-anchor="middle">tải file</text>
+        <rect class="boxA" x="24" y="426" width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="457" text-anchor="middle">trích fact</text>
+        <rect class="boxA" x="24" y="591" width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="622" text-anchor="middle">so sánh</text>
+        <rect class="boxA" x="24" y="756" width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="787" text-anchor="middle">xếp hạng</text>
+        <rect class="boxA" x="24" y="921" width="166" height="52" rx="3"/>
+        <text class="tb" x="107" y="952" text-anchor="middle">báo cáo</text>
+
+        <line class="lnA" x1="107" y1="148" x2="107" y2="257" marker-end="url(#v5b)"/>
+        <line class="lnA" x1="107" y1="313" x2="107" y2="422" marker-end="url(#v5b)"/>
+        <line class="lnA" x1="107" y1="478" x2="107" y2="587" marker-end="url(#v5b)"/>
+        <line class="lnA" x1="107" y1="643" x2="107" y2="752" marker-end="url(#v5b)"/>
+        <line class="lnA" x1="107" y1="808" x2="107" y2="917" marker-end="url(#v5b)"/>
+
+        <text class="ts dim" x="118" y="207">ref</text>
+        <text class="ts dim" x="118" y="372">file khai báo</text>
+        <text class="ts dim" x="118" y="537">Fact</text>
+        <text class="ts dim" x="118" y="702">Change</text>
+        <text class="ts dim" x="118" y="867">Finding</text>
+
+        <!-- leaders -->
+        <line class="ln" x1="190" y1="122" x2="248" y2="122"/>
+        <line class="ln" x1="190" y1="287" x2="248" y2="287"/>
+        <line class="ln" x1="190" y1="452" x2="248" y2="452"/>
+        <line class="ln" x1="190" y1="617" x2="248" y2="617"/>
+        <line class="ln" x1="190" y1="782" x2="248" y2="782"/>
+        <line class="ln" x1="190" y1="947" x2="248" y2="947"/>
+
+        <!-- ======= S1: ghim phiên bản ======= -->
+        <text class="tl dim" x="256" y="62">một số milestone không đủ để chỉ ra một bản build</text>
+        <rect class="box" x="256" y="102" width="86" height="40" rx="3"/>
+        <text class="t" x="299" y="127" text-anchor="middle">M143</text>
+        <path class="ln" d="M342,122 L364,122 L364,84 L386,84" marker-end="url(#v5a)"/>
+        <path class="ln" d="M342,122 L364,122 L364,160 L386,160" marker-end="url(#v5a)"/>
+        <rect class="box" x="392" y="64" width="240" height="40" rx="3"/>
+        <text class="tm" x="404" y="80">143.0.7499.40</text>
+        <text class="tm" x="404" y="95" fill="var(--accent)">ServiceWorkerAutoPreload: ENABLED</text>
+        <rect class="box" x="392" y="140" width="240" height="40" rx="3"/>
+        <text class="tm" x="404" y="156">143.0.7499.194</text>
+        <text class="tm" x="404" y="171" fill="var(--stop)">ServiceWorkerAutoPreload: DISABLED</text>
+        <text class="ts dim" x="646" y="112">cùng một milestone,</text>
+        <text class="ts dim" x="646" y="126">hai kết quả ngược nhau</text>
+        <text class="ts dim" x="646" y="146">→ luôn ghi phiên bản đầy đủ</text>
+
+        <!-- ======= S2: hai nguồn ======= -->
+        <text class="tl dim" x="256" y="230">lấy vài nghìn file khai báo, không lấy cả cây</text>
+        <rect class="box" x="256" y="244" width="128" height="36" rx="3"/>
+        <text class="t" x="320" y="267" text-anchor="middle">Gitiles</text>
+        <rect class="box" x="256" y="296" width="128" height="36" rx="3"/>
+        <text class="t" x="320" y="319" text-anchor="middle">LocalSource</text>
+        <path class="ln" d="M384,262 L410,262 L410,290 L436,290" marker-end="url(#v5a)"/>
+        <path class="ln" d="M384,314 L410,314 L410,290"/>
+        <rect class="boxA" x="442" y="270" width="184" height="40" rx="3"/>
+        <text class="t" x="534" y="295" text-anchor="middle">cây file trên đĩa</text>
+        <text class="ts dim" x="392" y="256">tarball theo thư mục</text>
+        <text class="ts dim" x="392" y="336">đã có checkout sẵn</text>
+        <text class="ts dim" x="640" y="278">~35–40 MB mỗi phiên bản</text>
+        <text class="ts dim" x="640" y="298">checkout đầy đủ ≈ 100 GB</text>
+        <text class="ts dim" x="640" y="318">→ vài phút thay vì vài giờ</text>
+
+        <!-- ======= S3: 9 extractor → 3 nhóm ======= -->
+        <text class="tl dim" x="256" y="396">9 extractor · 16 loại fact · 3 nhóm ý nghĩa</text>
+        <text class="tm" x="256" y="424">base_features · blink_runtime</text>
+        <line class="ln" x1="596" y1="420" x2="618" y2="420" marker-end="url(#v5a)"/>
+        <rect x="624" y="406" width="246" height="28" rx="3" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.4"/>
+        <text class="t" x="638" y="425" fill="var(--accent)">công tắc — tự nó đổi hành vi</text>
+
+        <text class="tm" x="256" y="462">web_idl · mojom · constants</text>
+        <line class="ln" x1="596" y1="458" x2="618" y2="458" marker-end="url(#v5a)"/>
+        <rect x="624" y="444" width="246" height="28" rx="3" fill="var(--surface-2)" stroke="var(--stop)" stroke-width="1.4"/>
+        <text class="t" x="638" y="463" fill="var(--stop)">hợp đồng — hỏng thứ bên ngoài</text>
+
+        <text class="tm" x="256" y="500">flags_metadata · webui_routes</text>
+        <text class="tm" x="256" y="514">webui_controls · webui_gates</text>
+        <line class="ln" x1="596" y1="500" x2="618" y2="500" marker-end="url(#v5a)"/>
+        <rect x="624" y="486" width="246" height="28" rx="3" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.4"/>
+        <text class="t" x="638" y="505">bề mặt — thấy hay không thấy</text>
+
+        <!-- ======= S4: hai nửa ======= -->
+        <text class="tl dim" x="256" y="561">một câu hỏi chia đôi mọi thứ: có cổng nào giữa khai báo và người dùng không</text>
+        <rect class="box" x="256" y="576" width="76" height="34" rx="3"/>
+        <text class="ts" x="294" y="597" text-anchor="middle">khai báo</text>
+        <rect class="boxA" x="352" y="574" width="54" height="38" rx="3"/>
+        <text class="ts" x="379" y="597" text-anchor="middle" fill="var(--accent)">cổng</text>
+        <rect class="box" x="426" y="576" width="86" height="34" rx="3"/>
+        <text class="ts" x="469" y="597" text-anchor="middle">người dùng</text>
+        <line class="ln" x1="332" y1="593" x2="348" y2="593" marker-end="url(#v5a)"/>
+        <line class="ln" x1="406" y1="593" x2="422" y2="593" marker-end="url(#v5a)"/>
+        <text class="ts dim" x="256" y="630">base::Feature · Blink runtime · chrome://</text>
+        <text class="ts" x="256" y="650" fill="var(--accent)">hỏng bằng cách trông như thay đổi</text>
+        <text class="ts" x="256" y="664" fill="var(--accent)">nhưng thật ra không phải</text>
+        <text class="ts dim" x="256" y="684">diff chỉ bắt lúc code vào và lúc cờ bị xoá</text>
+
+        <line class="dash" x1="534" y1="566" x2="534" y2="692"/>
+
+        <rect class="box" x="556" y="576" width="86" height="34" rx="3"/>
+        <text class="ts" x="599" y="597" text-anchor="middle">khai báo</text>
+        <rect class="box" x="736" y="576" width="96" height="34" rx="3"/>
+        <text class="ts" x="784" y="597" text-anchor="middle">người dùng</text>
+        <line x1="642" y1="593" x2="730" y2="593" stroke="var(--stop)" stroke-width="1.8" marker-end="url(#v5r)"/>
+        <text class="ts" x="686" y="586" text-anchor="middle" fill="var(--stop)">không gì chặn</text>
+        <text class="ts dim" x="556" y="630">Mojo · preference · command-line switch</text>
+        <text class="ts" x="556" y="650" fill="var(--stop)">hỏng bằng cách trông như không có gì</text>
+        <text class="ts" x="556" y="664" fill="var(--stop)">nhưng thật ra là break</text>
+        <text class="ts dim" x="556" y="684">build vẫn xanh, trình duyệt vẫn khởi động</text>
+
+        <!-- ======= S5: thang điểm ======= -->
+        <text class="tl dim" x="256" y="726">severity là trần · không có bước nào cộng điểm</text>
+        <line x1="300" y1="746" x2="860" y2="746" stroke="currentColor" stroke-width="1.1" opacity=".3"/>
+        <line class="ln" x1="300" y1="741" x2="300" y2="751" opacity=".3"/>
+        <line class="ln" x1="580" y1="741" x2="580" y2="751" opacity=".3"/>
+        <line class="ln" x1="860" y1="741" x2="860" y2="751" opacity=".3"/>
+        <text class="ts dim" x="300" y="738" text-anchor="middle">0</text>
+        <text class="ts dim" x="580" y="738" text-anchor="middle">50</text>
+        <text class="ts dim" x="860" y="738" text-anchor="middle">100</text>
+
+        <text class="ts" x="292" y="774" text-anchor="end">trần</text>
+        <rect x="300" y="758" width="420" height="22" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+        <text class="ts" x="312" y="774" fill="var(--accent)">severity của loại thay đổi này</text>
+
+        <text class="ts" x="292" y="806" text-anchor="end">−15</text>
+        <rect x="300" y="790" width="336" height="22" rx="2" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.1"/>
+        <rect x="636" y="790" width="84" height="22" rx="2" fill="none" stroke="var(--stop)" stroke-width="1.3" stroke-dasharray="4 3"/>
+        <text class="ts" x="728" y="806" fill="var(--stop)">vắng mặt chưa xác nhận</text>
+
+        <text class="ts" x="292" y="838" text-anchor="end">0</text>
+        <rect x="300" y="822" width="5" height="22" rx="2" fill="var(--line)"/>
+        <text class="ts dim" x="316" y="838">không compile vào bản Windows ở cả hai phía</text>
+
+        <!-- ======= S6: ba trục + dừng ======= -->
+        <text class="tl dim" x="256" y="892">mỗi dòng mang ba nhãn trực giao</text>
+        <text class="ts" x="256" y="914" fill="var(--accent)">bucket — tệ đến mức nào</text>
+        <text class="ts dim" x="256" y="932">Breaking</text>
+        <text class="ts dim" x="256" y="946">Behaviour change</text>
+        <text class="ts dim" x="256" y="960">New surface</text>
+        <text class="ts dim" x="256" y="974">Housekeeping</text>
+
+        <text class="ts" x="462" y="914" fill="var(--accent)">group — loại hậu quả</text>
+        <text class="ts dim" x="462" y="932">công tắc</text>
+        <text class="ts dim" x="462" y="946">hợp đồng</text>
+        <text class="ts dim" x="462" y="960">bề mặt</text>
+
+        <text class="ts" x="662" y="914" fill="var(--accent)">owner — bàn của ai</text>
+        <text class="ts dim" x="662" y="932">Process boundaries · Web platform</text>
+        <text class="ts dim" x="662" y="946">Browser C++ · WebUI front-end</text>
+        <text class="ts dim" x="662" y="960">Outside the repository</text>
+        <text class="ts dim" x="662" y="974">chỉ trục này trả lời “việc của tôi?”</text>
+
+        <line x1="256" y1="996" x2="870" y2="996" stroke="var(--stop)" stroke-width="1.5"/>
+        <text class="ts" x="563" y="1014" text-anchor="middle" fill="var(--stop)">dừng ở bằng chứng — không kết luận “điều này có nghĩa gì với sản phẩm”</text>
+      </svg>
+  </div>
+  <figcaption><b>Hình 2</b>Cột trái đọc một mình vẫn là hình 1. Sáu hình bên phải là thứ hình 1 buộc phải giấu: vì sao một số milestone không chỉ ra được một bản build, vì sao không cần checkout 100 GB, chín extractor gộp lại thành ba nhóm hậu quả nào, câu hỏi chia đôi mọi thay đổi, thang điểm chỉ trừ chứ không cộng, và ba nhãn trực giao mà mỗi dòng mang theo.</figcaption>
+</figure>
+
+<h2>3 · Hình dạng lúc chạy</h2>
+<p class="use">Hai hình trên bỏ qua một điều: hai phiên bản <b>đi riêng</b> qua ba chặng đầu rồi mới gặp nhau, và ranh giới cache nằm đúng chỗ chúng gặp.</p>
+
+<figure>
+  <div class="figbody w620">
+    <svg viewBox="0 0 900 812" role="img" aria-label="Luồng ChromeDrift: hai ref Chromium mỗi bên đi qua acquire và extract để thành Snapshot được cache; sau ranh giới cache, hai Snapshot vào diff sinh Change, rồi score sinh Finding có điểm, rồi cluster gom mảnh, rồi chromestatus bổ sung ngữ cảnh, cuối cùng sinh ba file báo cáo và dừng ở bằng chứng.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/>
+        </marker>
+        <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <text class="tl" x="95" y="18" fill="currentColor" opacity=".5">phiên bản đang dùng</text>
+      <text class="tl" x="545" y="18" fill="currentColor" opacity=".5">phiên bản định lên</text>
+
+      <rect class="box" x="95" y="30" width="260" height="50" rx="3"/>
+      <text class="tb" x="113" y="52">refs/tags/148.0.7778.217</text>
+      <text class="tm dim" x="113" y="70">ghi phiên bản đầy đủ</text>
+
+      <rect class="box" x="545" y="30" width="260" height="50" rx="3"/>
+      <text class="tb" x="563" y="52">refs/tags/151.0.7922.138</text>
+      <text class="tm dim" x="563" y="70">không dùng số milestone trần</text>
+
+      <line class="ln" x1="225" y1="80" x2="225" y2="100" marker-end="url(#ar)"/>
+      <line class="ln" x1="675" y1="80" x2="675" y2="100" marker-end="url(#ar)"/>
+      <text class="tm dim" x="236" y="96">resolve_ref</text>
+      <text class="tm dim" x="686" y="96">resolve_ref</text>
+
+      <rect class="box" x="95" y="106" width="260" height="56" rx="3"/>
+      <text class="tb" x="113" y="128">acquire</text>
+      <text class="tm dim" x="113" y="146">tarball theo thư mục từ Gitiles,</text>
+      <text class="tm dim" x="113" y="158">hoặc LocalSource nếu đã có checkout</text>
+
+      <rect class="box" x="545" y="106" width="260" height="56" rx="3"/>
+      <text class="tb" x="563" y="128">acquire</text>
+      <text class="tm dim" x="563" y="146">~35–40 MB mỗi phiên bản,</text>
+      <text class="tm dim" x="563" y="158">thay vì checkout ~100 GB</text>
+
+      <line class="ln" x1="225" y1="162" x2="225" y2="182" marker-end="url(#ar)"/>
+      <line class="ln" x1="675" y1="162" x2="675" y2="182" marker-end="url(#ar)"/>
+      <text class="tm dim" x="236" y="178">file khai báo</text>
+      <text class="tm dim" x="686" y="178">file khai báo</text>
+
+      <rect class="box" x="95" y="188" width="260" height="56" rx="3"/>
+      <text class="tb" x="113" y="210">extract</text>
+      <text class="tm dim" x="113" y="228">9 extractor thuần hàm, lọc qua</text>
+      <text class="tm dim" x="113" y="240">eligibility · lexing chứ không parse</text>
+
+      <rect class="box" x="545" y="188" width="260" height="56" rx="3"/>
+      <text class="tb" x="563" y="210">extract</text>
+      <text class="tm dim" x="563" y="228">cùng registry, cùng bộ lọc,</text>
+      <text class="tm dim" x="563" y="240">nên hai bên so được với nhau</text>
+
+      <line class="ln" x1="225" y1="244" x2="225" y2="264" marker-end="url(#ar)"/>
+      <line class="ln" x1="675" y1="244" x2="675" y2="264" marker-end="url(#ar)"/>
+      <text class="tm dim" x="236" y="260">Fact · 16 loại</text>
+      <text class="tm dim" x="686" y="260">Fact · 16 loại</text>
+
+      <rect class="boxA" x="95" y="270" width="260" height="56" rx="3"/>
+      <text class="tb" x="113" y="292">Snapshot</text>
+      <text class="tm dim" x="113" y="310">danh sách Fact + coverage đo được</text>
+
+      <rect class="boxA" x="545" y="270" width="260" height="56" rx="3"/>
+      <text class="tb" x="563" y="292">Snapshot</text>
+      <text class="tm dim" x="563" y="310">danh sách Fact + coverage đo được</text>
+
+      <line class="dash" x1="30" y1="352" x2="870" y2="352"/>
+      <text class="tm" x="30" y="346" opacity=".55">tốn kém · phụ thuộc mạng</text>
+      <text class="tm" x="30" y="370" opacity=".55">rẻ · chạy lại tức thì</text>
+
+      <polyline class="lnA" points="225,326 225,392 450,392"/>
+      <polyline class="lnA" points="675,326 675,392 450,392"/>
+      <line class="lnA" x1="450" y1="392" x2="450" y2="406" marker-end="url(#arA)"/>
+
+      <rect class="box" x="150" y="412" width="600" height="56" rx="3"/>
+      <text class="tb" x="170" y="434">diff_snapshots</text>
+      <text class="tm dim" x="170" y="452">so theo nghĩa chứ không so text · phát hiện đổi tên · verdict tính riêng cho Windows</text>
+
+      <line class="ln" x1="450" y1="468" x2="450" y2="492" marker-end="url(#ar)"/>
+      <text class="tm" x="462" y="486" fill="var(--accent)">Change</text>
+
+      <rect class="box" x="150" y="498" width="600" height="56" rx="3"/>
+      <text class="tb" x="170" y="520">score_all</text>
+      <text class="tm dim" x="170" y="538">severity là trần · chỉ trừ, không có gì cộng · mỗi điểm chênh đều kèm một câu lý do</text>
+
+      <line class="ln" x1="450" y1="554" x2="450" y2="578" marker-end="url(#ar)"/>
+      <text class="tm" x="462" y="572" fill="var(--accent)">Finding — đã xếp hạng</text>
+
+      <rect class="box" x="150" y="584" width="600" height="50" rx="3"/>
+      <text class="tb" x="170" y="606">cluster.annotate</text>
+      <text class="tm dim" x="170" y="623">gom các mảnh rải rác của cùng một thay đổi về một câu chuyện</text>
+
+      <line class="ln" x1="450" y1="634" x2="450" y2="658" marker-end="url(#ar)"/>
+
+      <rect class="boxD" x="150" y="664" width="600" height="50" rx="3"/>
+      <text class="tb" x="170" y="686">chromestatus</text>
+      <text class="tm dim" x="170" y="703">bổ sung ngữ cảnh do người viết · best-effort, chạy offline thì bỏ qua</text>
+      <text class="tm dim" x="734" y="694" text-anchor="end">tuỳ chọn</text>
+
+      <line class="ln" x1="450" y1="714" x2="450" y2="738" marker-end="url(#ar)"/>
+      <text class="tm" x="462" y="732" fill="var(--accent)">Report</text>
+
+      <rect class="box" x="150" y="744" width="186" height="32" rx="3"/>
+      <text class="tm" x="168" y="764">report.json</text>
+      <rect class="box" x="357" y="744" width="186" height="32" rx="3"/>
+      <text class="tm" x="375" y="764">report.md</text>
+      <rect class="box" x="564" y="744" width="186" height="32" rx="3"/>
+      <text class="tm" x="582" y="764">report.html</text>
+
+      <line x1="150" y1="794" x2="750" y2="794" stroke="var(--stop)" stroke-width="1.6"/>
+      <text class="tm" x="450" y="810" text-anchor="middle" fill="var(--stop)">dừng ở bằng chứng — không kết luận “điều này có nghĩa gì với sản phẩm”</text>
+    </svg>
+  </div>
+  <figcaption><b>Hình 3</b>Ranh giới đứt nét là điều làm công cụ này dùng được. Snapshot của một tag đã phát hành không bao giờ đổi nội dung, nên nó được cache vĩnh viễn trên đĩa; mọi chặng bên dưới chạy lại trong vài giây. Cả bảy lệnh của <code>cli.py</code> đều là một lát cắt của luồng này — <code>run</code> chạy trọn, <code>snapshot</code> dừng ở hàng thứ tư, <code>report</code> chỉ render lại từ <code>report.json</code>.</figcaption>
+</figure>
+
+<h2>4 · Cho người sửa công cụ</h2>
+<p class="use">Bỏ hai lane đi vì hai bên giống hệt nhau, lấy chỗ cho thứ ba hình trên không có: bộ lọc, các bước kiểm tra trước khi so, và điều kiện chấm điểm.</p>
+
+<figure>
+  <div class="figbody w720">
+    <svg viewBox="0 0 900 1012" role="img" aria-label="Luồng chi tiết mười hai chặng: đầu vào, resolve_ref, acquire, eligibility, extract, Snapshot, các bước kiểm tra trước khi so, diff, score, cluster, chromestatus, và ba file báo cáo.">
+        <defs><marker id="v3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/></marker></defs>
+
+        <!-- brackets -->
+        <path class="brk" d="M186,30 L178,30 L178,472 L186,472"/>
+        <text class="ts dim" x="22" y="238">chạy hai lần —</text>
+        <text class="ts dim" x="22" y="252">mỗi phiên bản</text>
+        <text class="ts dim" x="22" y="266">một lần</text>
+
+        <path class="brk" d="M186,516 L178,516 L178,956 L186,956"/>
+        <text class="ts dim" x="22" y="729">chạy một lần</text>
+        <text class="ts dim" x="22" y="743">cho cả cặp</text>
+
+        <!-- 1 -->
+        <text class="ts dim" x="192" y="62" text-anchor="end">1</text>
+        <rect class="box" x="200" y="30" width="600" height="56" rx="3"/>
+        <text class="tb" x="218" y="52">Đầu vào</text>
+        <text class="tm dim" x="218" y="70">hai ref · target set (default / minimal / wide) · partitions · --local-src</text>
+        <line class="ln" x1="500" y1="86" x2="500" y2="104" marker-end="url(#v3a)"/>
+
+        <!-- 2 -->
+        <text class="ts dim" x="192" y="136" text-anchor="end">2</text>
+        <rect class="box" x="200" y="108" width="600" height="48" rx="3"/>
+        <text class="tb" x="218" y="130">resolve_ref</text>
+        <text class="tm dim" x="218" y="147">tag → commit + milestone. Số milestone trần trụi trỏ vào bản khác nhau theo ngày.</text>
+        <line class="ln" x1="500" y1="156" x2="500" y2="174" marker-end="url(#v3a)"/>
+
+        <!-- 3 -->
+        <text class="ts dim" x="192" y="210" text-anchor="end">3</text>
+        <rect class="box" x="200" y="178" width="600" height="56" rx="3"/>
+        <text class="tb" x="218" y="200">acquire</text>
+        <text class="tm dim" x="218" y="218">tarball theo thư mục từ Gitiles → .chromedrift-cache/trees/,</text>
+        <text class="tm dim" x="218" y="230">hoặc đọc thẳng từ LocalSource</text>
+        <line class="ln" x1="500" y1="234" x2="500" y2="252" marker-end="url(#v3a)"/>
+
+        <!-- 4 -->
+        <text class="ts dim" x="192" y="284" text-anchor="end">4</text>
+        <rect class="box" x="200" y="256" width="600" height="48" rx="3"/>
+        <text class="tb" x="218" y="278">eligibility.in_scope</text>
+        <text class="tm dim" x="218" y="295">một định nghĩa cho cả discovery lẫn extraction · loại test và nền tảng khác</text>
+        <line class="ln" x1="500" y1="304" x2="500" y2="322" marker-end="url(#v3a)"/>
+
+        <!-- 5 -->
+        <text class="ts dim" x="192" y="358" text-anchor="end">5</text>
+        <rect class="box" x="200" y="326" width="600" height="68" rx="3"/>
+        <text class="tb" x="218" y="348">extract · 9 extractor</text>
+        <text class="tm dim" x="218" y="366">base_features · blink_runtime · web_idl · mojom · constants</text>
+        <text class="tm dim" x="218" y="380">flags_metadata · webui_routes · webui_controls · webui_gates</text>
+        <line class="ln" x1="500" y1="394" x2="500" y2="412" marker-end="url(#v3a)"/>
+
+        <!-- 6 -->
+        <text class="ts dim" x="192" y="448" text-anchor="end">6</text>
+        <rect class="boxA" x="200" y="416" width="600" height="56" rx="3"/>
+        <text class="tb" x="218" y="438">Snapshot</text>
+        <text class="tm dim" x="218" y="456">Fact + coverage + missing_targets · cache theo (ref, target set, partition)</text>
+
+        <line class="dash" x1="30" y1="496" x2="870" y2="496"/>
+        <text class="tm" x="30" y="490" opacity=".55">tốn kém</text>
+        <text class="tm" x="30" y="514" opacity=".55">rẻ</text>
+        <line class="ln" x1="500" y1="472" x2="500" y2="512" marker-end="url(#v3a)"/>
+
+        <!-- 7 -->
+        <text class="ts dim" x="192" y="548" text-anchor="end">7</text>
+        <rect class="box" x="200" y="516" width="600" height="68" rx="3"/>
+        <text class="tb" x="218" y="538" fill="var(--stop)">Kiểm tra trước khi so</text>
+        <text class="tm dim" x="218" y="556">catalog.unresolved_references · catalog.scope_violations</text>
+        <text class="tm dim" x="218" y="570">từ chối nếu hai bên đọc lệch nhau — cache cũ trông y hệt một vụ xoá hàng loạt</text>
+        <line class="ln" x1="500" y1="584" x2="500" y2="602" marker-end="url(#v3a)"/>
+
+        <!-- 8 -->
+        <text class="ts dim" x="192" y="638" text-anchor="end">8</text>
+        <rect class="box" x="200" y="606" width="600" height="64" rx="3"/>
+        <text class="tb" x="218" y="628">diff_snapshots</text>
+        <text class="tm dim" x="218" y="646">chỉ so thuộc tính có nghĩa · verdict đọc platform_state.windows</text>
+        <text class="tm dim" x="218" y="660">hậu kỳ dò đổi tên cho pref và switch — danh tính của chúng chính là chuỗi</text>
+        <line class="ln" x1="500" y1="670" x2="500" y2="688" marker-end="url(#v3a)"/>
+
+        <!-- 9 -->
+        <text class="ts dim" x="192" y="724" text-anchor="end">9</text>
+        <rect class="box" x="200" y="692" width="600" height="68" rx="3"/>
+        <text class="tb" x="218" y="714">score_all(Scope)</text>
+        <text class="tm dim" x="218" y="732">0 nếu không compile vào Windows ở cả hai phía</text>
+        <text class="tm dim" x="218" y="746">−15 nếu vắng mặt chưa xác nhận được · nghi ngờ đủ lớn thì đổi luôn bucket</text>
+        <line class="ln" x1="500" y1="760" x2="500" y2="778" marker-end="url(#v3a)"/>
+
+        <!-- 10 -->
+        <text class="ts dim" x="192" y="810" text-anchor="end">10</text>
+        <rect class="box" x="200" y="782" width="600" height="48" rx="3"/>
+        <text class="tb" x="218" y="804">cluster.annotate</text>
+        <text class="tm dim" x="218" y="821">gom mảnh rải rác của cùng một thay đổi trước khi bất cứ ai đọc</text>
+        <line class="ln" x1="500" y1="830" x2="500" y2="848" marker-end="url(#v3a)"/>
+
+        <!-- 11 -->
+        <text class="ts dim" x="192" y="880" text-anchor="end">11</text>
+        <rect class="boxD" x="200" y="852" width="600" height="48" rx="3"/>
+        <text class="tb" x="218" y="874">chromestatus</text>
+        <text class="tm dim" x="218" y="891">tuỳ chọn · best-effort · có cache · chạy offline thì bỏ qua</text>
+        <line class="ln" x1="500" y1="900" x2="500" y2="918" marker-end="url(#v3a)"/>
+
+        <!-- 12 -->
+        <text class="ts dim" x="192" y="944" text-anchor="end">12</text>
+        <rect class="box" x="200" y="922" width="190" height="34" rx="3"/>
+        <text class="tm" x="216" y="943">report.json</text>
+        <rect class="box" x="405" y="922" width="190" height="34" rx="3"/>
+        <text class="tm" x="421" y="943">report.md</text>
+        <rect class="box" x="610" y="922" width="190" height="34" rx="3"/>
+        <text class="tm" x="626" y="943">report.html</text>
+
+        <line x1="200" y1="982" x2="800" y2="982" stroke="var(--stop)" stroke-width="1.6"/>
+        <text class="tm" x="500" y="998" text-anchor="middle" fill="var(--stop)">dừng ở bằng chứng</text>
+      </svg>
+  </div>
+  <figcaption><b>Hình 4</b>Lệnh nào phủ chặng nào: <code>snapshot</code> = 1–6 · <code>diff</code> = 1–8 · <code>run</code> = 1–12 · <code>report</code> = chỉ 12 · <code>catalog</code> = chỉ 4, đo bằng blobless clone. Chặng 7 là thứ ba hình trên không có, và nó bắt đúng loại lỗi im lặng nhất: cache cũ để sót file ở một bên, hiện ra thành một vụ xoá hàng loạt ở bên kia.</figcaption>
+</figure>
+
+<h2>5 · Công cụ làm gì cho bạn</h2>
+<p class="use">Không vẽ thứ tự chạy mà vẽ <b>khối lượng bị thu hẹp</b>: từ cả cây Chromium xuống còn một trăm hai sáu dòng cần người xem.</p>
+
+<figure>
+  <div class="figbody w620">
+    <svg viewBox="0 0 900 476" role="img" aria-label="Phễu thu hẹp: 498082 file trong cây Chromium, còn 8366 file ứng viên, 3677 file đọc thật, 3022 thay đổi ngữ nghĩa, 276 dòng Breaking, 126 dòng thuộc process boundaries.">
+        <text class="tl dim" x="20" y="22">số lượng</text>
+        <text class="tl dim" x="250" y="22">còn lại sau mỗi bước thu hẹp</text>
+
+        <text class="tnum" x="234" y="66" text-anchor="end">498 082</text>
+        <rect class="box" x="250" y="40" width="560" height="42" rx="3"/>
+        <text class="t" x="266" y="66">file trong cây Chromium tại M151</text>
+        <text class="ts dim" x="262" y="99">eligibility — file nào thuộc sản phẩm</text>
+
+        <text class="tnum" data-figure="coverage.default.candidates" x="234" y="136" text-anchor="end">8 366</text>
+        <rect class="box" x="250" y="110" width="430" height="42" rx="3"/>
+        <text class="t" x="266" y="136">file ứng viên</text>
+        <text class="ts dim" x="262" y="169">target set — danh sách file thật sự tải về</text>
+
+        <text class="tnum" data-figure="coverage.default.read" x="234" y="206" text-anchor="end">3 677</text>
+        <rect class="boxA" x="250" y="180" width="340" height="42" rx="3"/>
+        <text class="t" x="266" y="206">file đọc thật · default</text>
+        <text class="ts dim" x="602" y="206" data-figure="coverage.wide.read">wide đọc 8 295</text>
+        <text class="ts dim" x="262" y="239">extract → Fact, rồi diff hai Snapshot</text>
+
+        <text class="tnum" data-figure="total" x="234" y="276" text-anchor="end">3 022</text>
+        <rect class="box" x="250" y="250" width="280" height="42" rx="3"/>
+        <text class="t" x="266" y="276">thay đổi ngữ nghĩa</text>
+        <text class="ts dim" x="262" y="309">bucket — cái nào làm hỏng thứ bên ngoài binary</text>
+
+        <text class="tnum" data-figure="buckets.breaking" x="234" y="346" text-anchor="end">276</text>
+        <rect x="250" y="320" width="180" height="42" rx="3" fill="var(--surface-2)" stroke="var(--stop)" stroke-width="1.5"/>
+        <text class="t" x="266" y="346" fill="var(--stop)">Breaking</text>
+        <text class="ts dim" x="262" y="379">owner — việc này nằm trên bàn ai</text>
+
+        <text class="tnum" data-figure="breaking_by_owner.ipc" x="234" y="416" text-anchor="end">126</text>
+        <rect x="250" y="390" width="110" height="42" rx="3" fill="var(--surface-2)" stroke="var(--stop)" stroke-width="1.5"/>
+        <text class="t" x="266" y="416" fill="var(--stop)">IPC</text>
+        <text class="ts dim" x="374" y="416" data-figure="breaking_by_owner.webplatform+config+native+webui">94 web platform · 53 ngoài repo · 2 native · 1 WebUI</text>
+
+        <line class="dash" x1="20" y1="450" x2="880" y2="450"/>
+        <text class="ts dim" x="20" y="470">Chiều rộng thanh không vẽ theo tỉ lệ — khoảng cách giữa 498 082 và 126 là bốn bậc, vẽ đúng tỉ lệ thì bốn thanh cuối biến mất.</text>
+      </svg>
+  </div>
+  <figcaption><b>Hình 5</b>Hình duy nhất mang số đo chạy thật, đo trên cặp <code>148.0.7778.217 → 151.0.7922.138</code>. Mỗi con số gắn <code>data-figure</code> ghi rõ nó lấy từ khoá nào trong <code>docs/figures.json</code>, trừ số file của cả cây do <code>chromedrift catalog</code> đo. Đây là số duy trì bằng tay: chạy lại trên cặp phiên bản khác thì phải sửa lại hình.</figcaption>
+</figure>
+
+<footer>
+  Bốn hình đầu chỉ mô tả cấu trúc nên không có gì để trôi. Hình thứ năm mang số đo duy trì bằng tay. Chi tiết từng chặng nằm ở phần 2 đến phần 5 của bộ tài liệu.
+</footer>
+
+</div>
+</body>
+</html>
