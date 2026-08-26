@@ -46,24 +46,33 @@ from .model import (
 )
 from .extract._cpp import PLATFORM
 
-# How much of a version's tree a run has to have read before a disappearance
-# from it counts as a disappearance rather than as scope. `wide` reads all of
-# it; `default` reads about a twentieth.
+# How much of a surface a run has to have read before a disappearance from it
+# counts as a disappearance rather than as scope. Per surface, not per run:
+# measured at M151, `wide` reaches 99.2% of the candidate files and `default`
+# 44.0%, but that average hides the spread this threshold actually meets --
+# 99.8% of the web API definitions against 1.7% of the pref and switch files.
 CONFIRMING_COVERAGE = 0.95
 
-# What an unconfirmed removal loses. Flat rather than scaled by the coverage
-# share, and this is deliberate: coverage is measured in *files*, and the whole
-# reason the default set is worth running is that file count is not declaration
-# count -- it reads 5% of the files and more than half of the base::Feature
-# declarations. Treating 5% as a probability would say a default run knows
-# almost nothing, which is false and would flatten two thirds of the report
-# into a band six points wide. A fixed step keeps the order inside the group
-# and moves the group.
+# What an unconfirmed removal loses. A fixed step rather than a share of the
+# severity, because coverage counts *files* and file count is not declaration
+# count: at M151 the default set reads 44.0% of the candidate files while
+# finding 2,069 of the 4,243 base::Feature declarations `wide` finds, and it
+# reads 1.7% of the pref and switch files. No single proportional scalar is
+# right for surfaces that far apart, which is why `Scope` measures coverage
+# per surface and why this stays a step.
 #
-# Sized against the severity table, whose own steps are 5 and whose meaningful
-# gaps are 10 to 15: enough to sort an unconfirmed removal below a
-# modification of the same weight -- the modification was seen on both sides --
-# and not enough to bury a Mojo removal in ordinary churn.
+# The size of the step is a plateau, not a derivation. Re-scored against the
+# real M148 -> M151 default run at 0, 5, 10, 15, 20, 25, 30 and 45: every
+# value from 10 up produces the same top 276 rows, the same 69 swaps against
+# no penalty at all. The two bounds hold across that whole range rather than
+# picking a point in it -- a modification is never penalised, so any step
+# sorts an unconfirmed removal below one of the same weight, and all 67
+# unconfirmed Mojo removals stay in the top half at every value up to 30.
+#
+# What 15 does that 10 does not is drop severity-30 removals to 15, below the
+# 455-row block sitting at 20. That is an effect of where scores bunch on this
+# pair, not a reason. Anything from 10 to 30 behaves the same, and changing it
+# moves every score in the report while settling nothing.
 UNCONFIRMED_PENALTY = 15
 
 # Signals that are *only* an inference from absence, and say so in their own

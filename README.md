@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,907 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,916 lines, 30 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -1049,7 +1049,7 @@ chromedrift/
   extract/      2,890        9 extractors + the C++/GRIT/mojom condition scanner
   diff.py       1,604        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
-  score.py        369        the two run-dependent adjustments, and the reasons
+  score.py        378        the two run-dependent adjustments, and the reasons
   catalog.py      362        measure what the target set is missing; check reference closure
   model.py        977        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
