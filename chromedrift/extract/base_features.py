@@ -104,6 +104,24 @@ def feature_name_from_var(var: str) -> str:
     return var
 
 
+def var_from_feature_name(name: str) -> str:
+    """BackForwardCache -> kBackForwardCache, the inverse of the above.
+
+    It lives here because it is the same correspondence read backwards, and a
+    copy of it elsewhere would drift the way the four copies of the forward
+    rule nearly did. `enrich.gerrit` needs it: a feature's declaration line is
+    written as the C++ identifier since the macro dropped its string argument,
+    so a diff searched for the feature string alone misses every declaration
+    written the new way.
+
+    A name that already looks like an identifier is returned unchanged, so
+    applying it twice is the same as applying it once.
+    """
+    if feature_name_from_var(name) != name:
+        return name
+    return "k" + name if name else name
+
+
 def _normalize_state(token: str) -> str:
     m = STATE_RE.search(token)
     if not m:

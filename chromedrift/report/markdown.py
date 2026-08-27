@@ -438,11 +438,64 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
             out.append(f"- Chromestatus: {status['summary']}")
         if status.get("spec"):
             out.append(f"- Spec: {status['spec']}")
+        out.extend(_provenance_lines(finding))
         out.append(f"- Score reasoning: {'; '.join(finding.reasons)}")
         out.append("")
     out.append("</details>")
     out.append("")
     return "\n".join(out)
+
+
+GERRIT_CL = "https://chromium-review.googlesource.com/c/chromium/src/+/"
+ISSUE_URL = "https://issues.chromium.org/issues/"
+
+
+def _provenance_lines(finding) -> List[str]:
+    """The review that made the change, as lines a ticket can hold.
+
+    The pool the CL was chosen from is part of the citation, not decoration:
+    "1 of 62 merged CLs touched this file" is the difference between a
+    reference and a coincidence. `nearby` is printed as `nearby` because it is
+    a lead -- the CL edited something next to this identifier -- and a reader
+    pasting it into a ticket has to be able to tell the two apart.
+    """
+    block = (finding.enrichment or {}).get("gerrit") or {}
+    changes = block.get("changes") or []
+    out: List[str] = []
+    if changes:
+        pool = block.get("candidates") or 0
+        files = len({c["file"] for c in changes if c.get("file")}) or 1
+        where = f"these {files} files" if files > 1 else "this file"
+        head = f"- Why it changed ({len(changes)} of {pool} merged CLs " \
+               f"touched {where}):" if pool else "- Why it changed:"
+        out.append(head)
+        for cl in changes:
+            bugs = "".join(
+                f" [{'fixes' if b.get('closes') else 'issue'} {b['id']}"
+                f"{' (restricted)' if b.get('restricted') else ''}]"
+                f"({ISSUE_URL}{b['id']})"
+                for b in cl.get("bugs") or [])
+            chain = ""
+            if cl.get("reverts"):
+                chain += f" (reverts CL {cl['reverts']})"
+            if cl.get("cherry_pick_of"):
+                chain += f" (cherry-pick of CL {cl['cherry_pick_of']})"
+            if cl.get("file"):
+                chain += f" in `{cl['file']}`"
+            out.append(f"  - [CL {cl['number']}]({GERRIT_CL}{cl['number']}) "
+                       f"{cl.get('date', '')} *{cl.get('match', '')}* — "
+                       f"{cl.get('subject', '')}{chain}{bugs}")
+    for issue in (block.get("issues") or [])[:3]:
+        if not issue.get("changes"):
+            continue
+        total = issue.get("total") or len(issue["changes"])
+        out.append(f"- [Issue {issue['id']}]({ISSUE_URL}{issue['id']})"
+                   f"{' (access-restricted)' if issue.get('restricted') else ''}"
+                   f" is cited by {total} CL{'' if total == 1 else 's'}:")
+        for cl in issue["changes"]:
+            out.append(f"  - [CL {cl['number']}]({GERRIT_CL}{cl['number']}) "
+                       f"{cl.get('date', '')} — {cl.get('subject', '')}")
+    return out
 
 
 def _tree_coverage_lines(report: Report) -> List[str]:

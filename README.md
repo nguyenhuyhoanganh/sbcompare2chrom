@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (10,916 lines, 30 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (11,748 lines, 31 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -15,7 +15,7 @@ There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)*
 3. [What stands between the code and the user](#3-what-stands-between-the-code-and-the-user)
 4. [What the tool reads](#4-what-the-tool-reads)
 5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
-6. [Seven commands](#6-seven-commands)
+6. [Eight commands](#6-eight-commands)
 7. [How a change is ranked](#7-how-a-change-is-ranked)
 8. [Reading the report](#8-reading-the-report)
 9. [Limits](#9-limits)
@@ -74,7 +74,7 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 | Python | 3.9 or newer. No 3.10+ syntax. Tested on 3.14.6 |
 | Third-party libraries | None. Standard library only |
 | Free disk | ~150 MB for two versions with the default target set |
-| Network | Three HTTPS hosts, see the table below. All skippable with an internal checkout |
+| Network | Four HTTPS hosts, see the table below. Only the first is ever required |
 | Chromium checkout | Not needed |
 
 | Host | Used for | Required |
@@ -82,6 +82,7 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 | `chromium.googlesource.com` | Fetching source by tag | Yes |
 | `chromiumdash.appspot.com` | Resolving `151` to `151.0.7922.138` | No, if you always write the full version |
 | `chromestatus.com` | Feature summaries and spec links | No, skip with `--no-enrich` |
+| `chromium-review.googlesource.com` | The CL and issue behind a change | No, only `serve` uses it |
 
 ### Installing
 
@@ -525,7 +526,7 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 
 ---
 
-## 6. Seven commands
+## 6. Eight commands
 
 ```bash
 python3 -m chromedrift check      # verify this machine can run the pipeline
@@ -535,6 +536,7 @@ python3 -m chromedrift run        # the whole pipeline: snapshot → diff → ra
 python3 -m chromedrift report     # re-render a saved report.json
 python3 -m chromedrift catalog    # measure which files the target set is missing
 python3 -m chromedrift figures    # write docs/figures.json from a report
+python3 -m chromedrift serve      # serve a report where opening a row looks its CL up
 ```
 
 Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
@@ -545,6 +547,8 @@ Splitting them up is not decoration. The expensive stage (fetching) and the stag
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out
 python3 -m chromedrift figures out/report.json --wide out-wide/report.json
 ```
+
+`serve` is the only stage that asks a question the two trees cannot answer between them: *who changed this, and what were they fixing.* It is separate from `run` because it needs the network and because a report is worth reading without it. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
 
 Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `check` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
@@ -783,6 +787,120 @@ The section is placed before *What happened* on purpose. It is the first questio
 The window is counted back from the version being adopted, and the list is ordered newest milestone first. Both used to be the other way round, and the result was that a 143 → 151 report carried 200 entries covering M144 to M150 and **nothing at all from M151** — the milestone actually being adopted. Truncation now happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` really does hold the rest.
 ---
 
+### Why it changed: the CL and the issue
+
+The two trees say a feature flipped from `disabled` to `enabled`. They cannot say who did it or what they were fixing. `chromedrift serve` answers that from Chromium's own review server, one row at a time, and without ever asserting anything the diff does not show.
+
+The chain is four lookups, and none of them is a guess:
+
+```
+fact  →  the file that declares it
+      →  every merged CL that touched that file between the two versions
+      →  the CLs whose diff of that file mentions this identifier
+      →  the Bug: footer, and every other CL citing the same issue
+```
+
+The middle step is what makes it worth anything. A declaration file is shared: **500 merged CLs touched `chrome/browser/about_flags.cc` between the M148 and M151 branch points**, 337 touched `runtime_enabled_features.json5`, and 62 touched `content_features.cc`. Handing a reader 500 CLs for one flag is worse than handing them none. Filtering those 62 by whether the CL's own diff of that file mentions `AndroidCaptureKeyEvents` leaves exactly one — CL 7885356, *"android: Enable AndroidCaptureKeyEvents by default"* — which is the finding in the author's own words.
+
+The panel prints the denominator with the CL, because `1 of 62` is what makes the one mean something.
+
+**Four strengths of evidence, and they are never merged into a score.**
+
+| Badge | What it means | What it costs |
+|---|---|---|
+| `exact` | that CL edited a line carrying this identifier | one request per CL |
+| `moved` | that CL renamed the file the identifier is declared in | nothing extra |
+| `described` | the CL's own title or description names it | nothing |
+| `nearby` | that CL edited something within 25 lines of one | one request per CL |
+
+`described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. Of the top 150 findings on a real M148 → M151 run, **65 are found only by the diff and 17 only by the description**, the latter because a CL can delete the declaration it is named after and leave the identifier in no surviving line.
+
+`moved` exists because a pure rename changes no line and is still the whole cause. CL 7810461 renamed `html_or_foreign_element.idl`, so every member of that interface reads as removed at the old path with nothing in any diff to say so — six findings that came back empty until the rename itself was treated as the evidence.
+
+`nearby` exists because a Mojo method whose parameter list changed has its name line untouched several lines above the edit. It is also how noise gets in — on a file of nothing but declarations, every edit is near every declaration — so a finding that draws more than two `nearby` CLs and no stronger one is reported as **unattributed** rather than given three confident wrong answers.
+
+### Why this needs a server, and why nothing else would do
+
+The report is one self-contained file, which is why it can be mailed and why it works air-gapped. It is also why it cannot ask Chromium anything on its own.
+
+The JavaScript in it runs perfectly well from a disk — the filtering, the sorting, the expanding all do. What the browser refuses is to let that JavaScript *read* a response from another site unless that site says it may, with an `Access-Control-Allow-Origin` header. chromium-review does not send one. Every way around it was tried and closed:
+
+| Attempt | Result |
+|---|---|
+| `Origin: null` (a `file://` page) | no `Access-Control-Allow-Origin` |
+| A real `https://` origin | no header either |
+| `OPTIONS` preflight | HTTP 400 |
+| JSONP (`?callback=`) | ignored; the XSSI-prefixed JSON comes back unchanged |
+| gitiles instead of Gerrit | no header, and its path-scoped `+log` and `+blame` answer 401 |
+
+Serving the page over `http://127.0.0.1` does not defeat that rule either — the same page served over HTTP is blocked identically. What it changes is *who asks*:
+
+```
+before:  browser ──✗──→ chromium-review
+
+serve:   browser ──✓──→ 127.0.0.1   (same origin; the rule does not apply)
+                            │
+                            └──✓──→ chromium-review   (Python, not a browser)
+```
+
+The browser only ever talks to this process. Python does the asking, and the same-origin rule exists inside browsers to protect your cookies — `curl` and `urllib` were never subject to it.
+
+### What it costs
+
+One request per (CL, file) pair, so the bill is set by how *busy* the declaration files are and not by how many findings exist. Because it is a click that asks, you pay for the rows you open and nothing else: a report of 3,022 findings costs nothing until you expand one, and then costs that one file's diffs. Measured on a cold cache, a row at score 45 answered in **5.7 seconds**; the median file in a real top-300 has 13 candidate CLs, and the two busiest in the whole tree have 500 and 510.
+
+Everything is cached forever — a merged CL never changes — so the second row in the same file is instant, and so is the same row tomorrow.
+
+What a session resolves is written back to `report.json`, atomically, through a temporary file in the same directory. The page is rendered from the report this process holds rather than read off the disk, so a reload shows what the clicks have found and a restart still does. An hour of triage is not lost to a closed terminal. `--no-save` opts out.
+
+Matching is not the bottleneck it was: proving a token *absent* was 83 seconds of the 500-row case, and one search over the joined text settles it before any line is touched. The same work now takes **5.0 seconds** for an identical answer.
+
+### Four ways this quietly lied, and what each cost
+
+Every one of these produced a confident wrong answer rather than an error, which is the only kind of defect that matters here. All four were found by taking a finding that resolved to nothing and hunting its CL by hand.
+
+- **A renamed file answered with no evidence at all.** Gerrit replies to a diff request for the *old* path with `change_type: MODIFIED` and the whole file as one `{"skip": N}` block — no 404, no rename marker. The parser did not handle `skip` and so saw an empty file. Six removed IDL members read as unattributed when one CL plainly explains all of them.
+- **A reformat counted as an edit.** A block marked `{"a": [...], "b": [...], "common": true}` is Gerrit saying these lines are the same content differing only inside the line — a reindent. Counted as changed, a CL that reformats a file becomes an `exact` match for every declaration in it. 49 such blocks in a 2,329-diff sample.
+- **A file the budget declined looked identical to a file that was scanned.** `diffs_read` was recorded only on rows that already had a CL, so a row nobody looked at came out looking exactly like one that was scanned and genuinely matched nothing. It is now set on every row that was asked about, and the panel says which.
+- **A row whose declaration moved between files printed "3 of 2 merged CLs".** The denominator counted one path while the hits came from both. 60 of 3,022 findings are declared in two files; both are searched, both contribute, and each CL now says which file it was found in.
+
+**The window is taken from the tags, not estimated.** A release tag records where it left main (`Cr-Branched-From:`), so the search starts at the *from* tag's branch point — 2026-04-06 for M148, seven weeks before the tag itself is dated — and ends at the *to* tag's own date, because merge-backs keep landing on a release branch for weeks after it is cut. Widening it only adds candidates, and every candidate still has to survive the diff.
+
+**Gerrit stops at 500 rows for an anonymous query and does not say so** — `start=500` returns an empty page that looks exactly like reaching the end. A window that comes back at the cap is therefore split and asked again until the count is established. Where `--gerrit-max-cls` still trims the result, the panel prints both numbers: *"510 merged CLs touched this file · 500 of them read"*.
+
+**A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and turning a network hiccup into a confident "no CL found" is the one thing this tool is not allowed to do.
+
+**Three in ten issue links do not open.** Of the 236 distinct issues a real M148 → M151 run linked, **70 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a closed door, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may be exactly the person who can open it.
+
+`Fixed:` and `Bug:` are shown apart, because closing an issue and referencing one are different claims — Chromium writes 575 of the latter to 34 of the former. `revert_of` and `cherry_pick_of_change` come free in the same response and are printed too: 23 of 534 CLs in a real sample are reverts, and they are what makes a flag's launch–revert–reland history readable without diffing subjects by eye.
+
+### The payload stops repeating itself
+
+Every interaction on the page was already under 5 ms — filtering 3,022 rows and repainting is 4 ms, expanding the heaviest row is 0.1 ms — so the only thing a reader could feel was the download and the JSON parse. A quarter of that was repetition: `reasons` was 319 KB of text drawn from **66** distinct strings, `signals` 127 KB from 63, and `group` 58 KB from **three**. Stored once and referenced by index, the page falls from 2.29 MB to 1.75 MB.
+
+`what` and `paths` are deliberately left alone — they are near-unique per row, so a table of them is the same bytes plus an index. The page puts the five pooled fields back in one pass on load, so nothing downstream knows it happened, and the payload has one reader — `html.payload_of` — rather than a regex in each place that wants it.
+
+### Telling the rows apart
+
+A row that carries a CL and a row that does not look identical in the table. So the table gains an **All evidence** filter with four states — and they are four, not two, because collapsing them is the mistake the whole stage exists to avoid:
+
+| | |
+|---|---|
+| **Has a CL** | something was found |
+| **Exact evidence only** | every CL shown edited a line carrying the identifier |
+| **Scanned, nothing found** | the diffs were read and none matched |
+| **Not looked up** | nobody looked |
+
+A 3px edge on the score cell says the same thing while you scroll. The control starts hidden on a report nothing has been looked up in, and the page unhides it the moment a server answers or the first lookup lands.
+
+Each row shows **every issue its CLs cite**, busiest first, not the first one that happened to sort highest — a flag that launched, reverted and relanded routinely cites three, and picking one made the answer depend on the sort order.
+
+```bash
+python3 -m chromedrift serve out/M148_to_M151      # then open http://127.0.0.1:8787/
+```
+
+---
+
 ## 9. Limits
 
 Stated plainly, so nobody reads a clean report as a clean upgrade.
@@ -856,6 +974,7 @@ The `route → guard → flag` chain covers the most important part — **page**
 - **Extension APIs.** The `.idl` extension serves three different languages in the Chromium tree: Blink's Web IDL, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`) and MIDL (`ichromeaccessible.idl`). The extractor understands only the first, so it reads only under `third_party/blink/renderer/`. It used to read all three and produced 1,081 wrong facts at M151 — 96 of them with an entire nested declaration inside their own signature, the rest labelled "Web API" when no website can call `chrome.fileManagerPrivate`. Reading a dialect wrongly is worse than not reading it; covering the extension surface needs its own extractor and its own fact kind.
 - **Everything outside the repository:** server-side Finch configs, launch scripts, test automation.
 - **Rendered UI** — no screenshots, no layout, no visual regressions.
+- **A CL naming a change is not proof it caused it.** `serve` establishes that a CL edited a line carrying the identifier inside the window — not that this edit is the one the finding is about. A file touched by a rename, a reformat and the real change reports all three as `exact`. The reader still opens the CL.
 
 ### What can still be extended
 
@@ -997,7 +1116,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**363 tests, running in about three seconds, with no network.**
+**378 tests, running in about three seconds, with no network.**
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1046,7 +1165,7 @@ chromedrift/
   acquire.py      566 lines  fetch source over Gitiles or from a local checkout
   targets.py      783        declares which files to fetch and why; partitions; coverage rules
   snapshot.py     188        combines fetch + extract into one cached snapshot
-  extract/      2,890        9 extractors + the C++/GRIT/mojom condition scanner
+  extract/      2,908        9 extractors + the C++/GRIT/mojom condition scanner
   diff.py       1,604        semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      214        assemble scattered fragments into one story
   score.py        378        the two run-dependent adjustments, and the reasons
@@ -1054,10 +1173,11 @@ chromedrift/
   model.py        977        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,733        markdown + self-contained HTML dashboard;
+  report/       1,861        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
-  enrich/         194        context from chromestatus
-  cli.py          688        6 command-line commands
+  enrich/         805        context from chromestatus; the CL and issue behind a change
+  serve.py        200        localhost server that resolves a row's CL on demand
+  cli.py          763        8 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

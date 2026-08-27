@@ -27,7 +27,8 @@ from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .extract._cpp import PLATFORM
 from . import catalog, cluster
 from .diff import diff_snapshots, summarize
-from .enrich import chromestatus
+from . import serve as serve_mod
+from .enrich import chromestatus, gerrit
 from .model import (BUCKET_HOUSEKEEPING, BUCKET_LABELS, BUCKET_ORDER,
                     SCHEMA_VERSION, Report, read_json, write_json)
 from .report import html as html_report
@@ -245,6 +246,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  {md_path}")
     print(f"  {html_path}")
     print(f"  {json_path}")
+    print()
+    print(f"  why each row changed:  python3 -m chromedrift serve {out_dir}")
     return 0
 
 
@@ -340,6 +343,11 @@ def cmd_check(args: argparse.Namespace) -> int:
          f"{CHROMIUMDASH}/fetch_milestones?mstone=143"),
         ("chromestatus (enrichment, optional)",
          "https://chromestatus.com/api/v0/features?milestone=143"),
+        # `why` only. Named here because it is the one host a run can need
+        # that neither `run` nor `snapshot` ever touches, so a machine that
+        # passes `check` and then fails at `why` would have had no warning.
+        ("chromium-review (provenance, optional)",
+         f"{gerrit.GERRIT}/changes/?q=status:merged&n=1"),
     ):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
@@ -348,8 +356,9 @@ def cmd_check(args: argparse.Namespace) -> int:
             report(label, size > 0, f"HTTP 200")
         except Exception as exc:
             optional = "optional" in label
-            report(label, optional, f"{exc}" + (" (skippable with --no-enrich)"
-                                                if optional else ""))
+            skip = " (skippable with --no-enrich)" if "enrichment" in label else (
+                " (only `why` needs it)" if optional else "")
+            report(label, optional, f"{exc}{skip}")
 
     for var in ("HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"):
         if os.environ.get(var):
@@ -470,6 +479,25 @@ def cmd_report(args: argparse.Namespace) -> int:
         text = html_report.render(report, platform=platform)
         _emit(text, args.out, ".html")
     return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Serve a report so it can resolve a row's CL when that row is opened.
+
+    The complement of `why`, not a replacement: `why` bakes the top findings in
+    so the file can be mailed, and this pays per row so nothing is spent on the
+    3,000 nobody opens.
+    """
+    directory = args.report
+    if os.path.isfile(directory):
+        directory = os.path.dirname(os.path.abspath(directory))
+    if not os.path.exists(os.path.join(directory, "report.json")):
+        print(f"no report.json in {directory} -- run `run` first",
+              file=sys.stderr)
+        return 1
+    return serve_mod.serve(directory, args.cache, port=args.port,
+                           budget=args.click_budget, issues=args.issues,
+                           save=not args.no_save, log=print)
 
 
 def _emit(text: str, out: Optional[str], suffix: str) -> None:
@@ -604,7 +632,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="write changes JSON here")
     p.set_defaults(func=cmd_diff)
 
-    p = sub.add_parser("run", parents=[cache, which_files, two_checkouts],
+    p = sub.add_parser("run",
+                       parents=[cache, which_files, two_checkouts],
                        help="full pipeline: snapshot, diff, rank, report")
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
@@ -637,6 +666,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--wide", help="path to a wide report.json, for its coverage")
     p.add_argument("--out", default=FIGURES_PATH)
     p.set_defaults(func=cmd_figures)
+
+    p = sub.add_parser("serve",
+                       help="serve a report on localhost, where opening a row "
+                            "looks its CL up on demand")
+    p.add_argument("report", help="report directory, or a report.json in one")
+    # Its own --cache rather than the shared pair: a server has nothing to
+    # refresh, since a lookup either hits the cache or was never made.
+    p.add_argument("--cache", default=DEFAULT_CACHE)
+    p.add_argument("--port", type=int, default=8787)
+    p.add_argument("--no-save", action="store_true",
+                   help="do not write what was looked up back to report.json")
+    p.add_argument("--click-budget", type=int,
+                   default=serve_mod.CLICK_BUDGET, metavar="N",
+                   help=f"read at most N diffs per row opened "
+                        f"(default: {serve_mod.CLICK_BUDGET}, 0 for no "
+                        f"ceiling). Only the busiest two declaration files in "
+                        f"the tree come near it")
+    p.add_argument("--issues", type=int, default=6, metavar="N",
+                   help="look up at most N distinct issues per row opened "
+                        "(default: 6)")
+    p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("report",
                        help="re-render a saved report.json")

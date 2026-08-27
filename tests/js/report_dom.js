@@ -128,8 +128,13 @@ out.rowsAfterFilter = els.tb.trCount;
 out.paintsAfterDebounce = els.tb.paints;
 
 // Expand one row: the detail markup must be built now, not earlier.
+// `closest` honours the selector, because the page asks it two different
+// questions on the same click -- "is this the lookup button" and "is this a
+// row" -- and a stub that answers `row` to both makes a click on empty table
+// space look like a click on the button.
 const row = new El('tr'); row.className = 'row'; row.dataset.i = '1';
-els.tb.listeners['click'].forEach(f => f({ target: { closest: () => row } }));
+const clickOn = sel => ({ target: { closest: q => (q === sel ? row : null) } });
+els.tb.listeners['click'].forEach(f => f(clickOn('tr.row-t')));
 out.detailsAfterClick = detailRows.length;
 out.detailHasEvidence = detailRows.length > 0 &&
   detailRows[0].innerHTML.includes('flag_retired_on') &&
@@ -137,7 +142,7 @@ out.detailHasEvidence = detailRows.length > 0 &&
 
 // Collapse.
 row.nextElementSibling = detailRows[0];
-els.tb.listeners['click'].forEach(f => f({ target: { closest: () => row } }));
+els.tb.listeners['click'].forEach(f => f(clickOn('tr.row-t')));
 out.detailRemovedOnSecondClick = detailRows[0].removed === true;
 
 // Paging.

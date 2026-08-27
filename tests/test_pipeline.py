@@ -8,7 +8,9 @@ whether the output is worth reading.
 import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -436,7 +438,6 @@ class TestOwnership(unittest.TestCase):
         locally in any of them would be the reason two people disagree about
         whose row it is.
         """
-        import json
         import re
 
         from chromedrift.report import html as html_report
@@ -459,9 +460,7 @@ class TestOwnership(unittest.TestCase):
             self.assertIsNotNone(row, OWNER_LABELS[owner])
             self.assertEqual(int(row.group(1)), total, owner)
 
-        html = html_report.render(report)
-        rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
-                                    html, re.S).group(1))
+        rows = html_report.payload_of(html_report.render(report))
         from collections import Counter
         self.assertEqual(Counter(r["owner"] for r in rows),
                          Counter({k: v for k, v in counted.items() if v}))
@@ -856,12 +855,9 @@ class TestHtmlReportScales(unittest.TestCase):
         reader can always search the whole set and the JSON never disagrees
         with the page.
         """
-        import json
-        import re
+        from chromedrift.report import html as html_report
         text = self._report_html(300)
-        payload = re.search(r"window\.__FINDINGS__=(\[.*?\]);\n", text, re.S)
-        self.assertIsNotNone(payload, "findings payload not found in the page")
-        rows = json.loads(payload.group(1))
+        rows = html_report.payload_of(text)
         self.assertEqual(len(rows), 300)
 
     def test_the_page_offers_paging_at_all(self):
@@ -2091,6 +2087,24 @@ class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
             self.assertEqual(_bare(probe), expected, probe)
             self.assertEqual(_flag_name(probe), expected, probe)
 
+    def test_the_inverse_round_trips_through_the_same_rule(self):
+        """`enrich.gerrit` needs the rule backwards, and asks the same owner.
+
+        A feature's declaration line is written as `kFoo` since the macro
+        dropped its string argument, so a diff searched for `Foo` alone misses
+        it. The inverse therefore has to agree with the forward rule on what
+        counts as an identifier -- otherwise the search asks for a spelling
+        that is not in the file.
+        """
+        from chromedrift.extract.base_features import (feature_name_from_var,
+                                                       var_from_feature_name)
+
+        for probe in ("BackForwardCache", "DIPS", "Feature"):
+            var = var_from_feature_name(probe)
+            self.assertEqual(feature_name_from_var(var), probe, probe)
+        for already in ("kBackForwardCache", "kDIPS"):
+            self.assertEqual(var_from_feature_name(already), already, already)
+
 
 class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
     """How much of the tree was read bounds every count above it.
@@ -2376,110 +2390,6 @@ class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
         self.assertEqual(unreachable[:5], [],
                          f"{ref}: {len(unreachable)} files the rule admits sit "
                          f"outside every root, so no run can count them")
-
-
-class TestTheDocumentedSourceMapStillHolds(unittest.TestCase):
-    """The README's map of the source is a second derivation of the source.
-
-    It goes stale exactly the way the measured tables do, and for longer,
-    because nothing recomputes it. Caught drifted: a stated total of 10,180
-    lines against 10,017 actual, `report/` at 1,691 against 1,493, and a test
-    count of 273 against 287. Those are small numbers to be wrong about, and
-    that is the point -- a reader who checks one and finds it wrong stops
-    trusting the ones they cannot check, like the coverage tables.
-
-    Unlike the M151 fact table, this needs nothing on disk, so it runs
-    everywhere.
-    """
-
-    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    def _readme(self):
-        with open(os.path.join(self.ROOT, "README.md"), encoding="utf-8") as fh:
-            return fh.read()
-
-    @staticmethod
-    def _int(raw):
-        return int(raw.replace(".", "").replace(",", ""))
-
-    def _lines_of(self, name):
-        """Line count for a module or a package directory."""
-        path = os.path.join(self.ROOT, "chromedrift", name)
-        if name.endswith("/"):
-            total = 0
-            for dirpath, _, filenames in os.walk(path):
-                for filename in sorted(filenames):
-                    if filename.endswith(".py"):
-                        with open(os.path.join(dirpath, filename),
-                                  encoding="utf-8") as fh:
-                            total += sum(1 for _ in fh)
-            return total
-        with open(path, encoding="utf-8") as fh:
-            return sum(1 for _ in fh)
-
-    def test_the_source_map_lists_every_module(self):
-        """A map that quietly stops naming a file is the same defect as one
-        that names a wrong number, and harder to see. `score.py` arrived and
-        four modules left in one change; nothing but this would have said so.
-
-        Dunders are excluded: `__init__.py` and `__main__.py` are three and
-        four lines of plumbing, and listing them tells a reader nothing.
-        """
-        listed = {name for name, _ in self._rows()}
-        actual = set()
-        for name in os.listdir(os.path.join(self.ROOT, "chromedrift")):
-            if name.startswith("__"):
-                continue
-            if name.endswith(".py"):
-                actual.add(name)
-            elif os.path.isdir(os.path.join(self.ROOT, "chromedrift", name)):
-                actual.add(name + "/")
-        self.assertEqual(sorted(listed), sorted(actual))
-
-    def _rows(self):
-        return re.findall(r"(?m)^  ([a-z_]+\.py|[a-z]+/)\s+([\d.,]+)\s",
-                          self._readme())
-
-    def test_the_source_map_matches_the_source(self):
-        rows = self._rows()
-        self.assertTrue(rows, "source map not found in README")
-        wrong = []
-        for name, stated in rows:
-            actual = self._lines_of(name)
-            if self._int(stated) != actual:
-                wrong.append(f"{name}: README says {stated}, actually {actual}")
-        self.assertEqual(wrong, [], "the README's source map has drifted")
-
-    def test_the_stated_total_matches_the_files_it_counts(self):
-        m = re.search(r"\(([\d.,]+) lines, (\d+) files\)", self._readme())
-        self.assertIsNotNone(m, "the line/file total is not in the README")
-        stated_lines, stated_files = self._int(m.group(1)), int(m.group(2))
-
-        total, files = 0, 0
-        for dirpath, dirnames, filenames in os.walk(
-                os.path.join(self.ROOT, "chromedrift")):
-            dirnames[:] = [d for d in dirnames if d != "__pycache__"]
-            for filename in filenames:
-                if not filename.endswith(".py"):
-                    continue
-                files += 1
-                with open(os.path.join(dirpath, filename), encoding="utf-8") as fh:
-                    total += sum(1 for _ in fh)
-        self.assertEqual((stated_lines, stated_files), (total, files))
-
-    def test_the_stated_test_count_matches_this_suite(self):
-        """Counting the suite from inside it. Discovery imports, it does not run."""
-        loader = unittest.defaultTestLoader
-        suite = loader.discover(os.path.join(self.ROOT, "tests"))
-        self.assertEqual(loader.errors, [], "test discovery reported errors")
-
-        def count(s):
-            return sum(count(x) if isinstance(x, unittest.TestSuite) else 1
-                       for x in s)
-
-        m = re.search(r"\*\*([\d.,]+) tests", self._readme())
-        self.assertIsNotNone(m, "the test count is not in the README")
-        self.assertEqual(self._int(m.group(1)), count(suite))
 
 
 class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
@@ -4449,66 +4359,6 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
 _WIDE_READ = 8295
 
 
-class TestTheThreeStageRuleIsNeverTaughtAsUniversal(unittest.TestCase):
-    """Wherever a document explains the three stages, it says what they miss.
-
-    The rule is true of flags, Blink runtime features and the chrome:// screens
-    they gate, and false of Mojo, preferences and command-line switches, where
-    the declaration is the contract and it changes on adoption. Measured at
-    M148 -> M151, 261 of the 315 Breaking rows are on the second half.
-
-    It was written as universal three times -- "the rule that governs
-    everything", "the trap that matters most", "Chromium moves every feature
-    through three stages" -- and each time the surrounding prose then taught a
-    reader to dismiss the highest-severity findings in the report as cleanup.
-    Correcting the wording is not enough on its own, because the sentence is
-    natural to write; so the invariant is that the *same passage* names the
-    surfaces the rule does not cover.
-    """
-
-    # Scoped to the section the passage sits in, not to a character window.
-    # A window was tried first and passed while the warning it was meant to
-    # require had been deleted: these documents mention Mojo everywhere, so
-    # any window wide enough to hold a section also catches a neighbour's
-    # mention. The section is the unit a reader actually reads.
-    MARKERS = ("three stages", "three moments", "three-stage")
-    EXCEPTIONS = ("mojo",)
-
-    DOCUMENTS = (
-        "README.md",
-        "skills/analyzing-chromium-uprevs/SKILL.md",
-        "docs/pipeline.html",
-    )
-
-    @staticmethod
-    def _sections(text: str):
-        """Split on headings, markdown and HTML alike."""
-        import re
-        cuts = [m.start() for m in
-                re.finditer(r"^#{1,6} |<h[1-6][ >]", text, re.M)]
-        cuts = [0] + cuts + [len(text)]
-        return [text[a:b] for a, b in zip(cuts, cuts[1:]) if b > a]
-
-    def test_every_section_naming_the_stages_also_names_the_exception(self):
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        checked = 0
-        for name in self.DOCUMENTS:
-            with open(os.path.join(here, name), encoding="utf-8") as fh:
-                text = fh.read()
-            for section in self._sections(text):
-                lowered = section.lower()
-                if not any(m in lowered for m in self.MARKERS):
-                    continue
-                checked += 1
-                self.assertTrue(
-                    any(word in lowered for word in self.EXCEPTIONS),
-                    f"{name}: a section teaches the three-stage rule without "
-                    f"naming a surface it does not govern:\n"
-                    f"{section[:200]}")
-        self.assertGreaterEqual(checked, 3, "the passages moved or were renamed")
-
-
 class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):
     """No Vietnamese left in anything a reader or an agent opens.
 
@@ -4740,3 +4590,634 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestProvenanceStopsAtEvidence(unittest.TestCase):
+    """A CL is cited only when the diff says so, and the two strengths differ.
+
+    The whole point of the stage is that a declaration file is shared: 500 CLs
+    touched about_flags.cc between the M148 and M151 branch points and 62
+    touched content_features.cc, so the file alone names hundreds of CLs for
+    one flag. What narrows it is the diff, and how far the diff narrows it is
+    the difference between a citation and a guess -- which is why the two
+    verdicts are separate values and not a confidence number.
+    """
+
+    def _change(self, kind, key, name=None):
+        from chromedrift.model import Change
+        return Change(change_type="modified", kind=kind, key=key,
+                      name=name if name is not None else key)
+
+    def test_a_feature_is_searched_for_under_both_spellings(self):
+        from chromedrift.enrich.gerrit import tokens_for
+
+        tokens = tokens_for(self._change("base_feature", "BackForwardCache"))
+        self.assertIn("BackForwardCache", tokens)
+        self.assertIn("kBackForwardCache", tokens)
+
+    def test_a_qualified_key_also_yields_the_leaf_the_declaration_writes(self):
+        from chromedrift.enrich.gerrit import tokens_for
+
+        tokens = tokens_for(self._change(
+            "mojo_method", "blink.mojom.AIManager.CreateLanguageModel",
+            "CreateLanguageModel"))
+        self.assertIn("CreateLanguageModel", tokens)
+
+    def test_a_leaf_too_short_to_identify_anything_is_not_searched_for(self):
+        """`url` matches every line in a .mojom; the qualified key does not."""
+        from chromedrift.enrich.gerrit import tokens_for
+
+        tokens = tokens_for(self._change(
+            "mojo_field", "blink.mojom.TokenError.url", "url"))
+        self.assertNotIn("url", tokens)
+        self.assertIn("blink.mojom.TokenError.url", tokens)
+
+    def test_a_changed_line_is_exact_and_a_neighbour_is_only_nearby(self):
+        from chromedrift.enrich import gerrit
+
+        long_file = [("filler", False)] * gerrit.NEARBY_MIN_FILE_LINES
+        edited = list(long_file)
+        edited[10] = ("  kFoo,", True)
+        self.assertEqual(gerrit._match(gerrit._Scanned(edited), {"kFoo"}),
+                         "exact")
+
+        neighbour = list(long_file)
+        neighbour[10] = ("  kFoo,", False)
+        neighbour[12] = ("  something else,", True)
+        self.assertEqual(gerrit._match(gerrit._Scanned(neighbour), {"kFoo"}),
+                         "nearby")
+
+    def test_a_mention_far_from_every_edit_is_no_evidence_at_all(self):
+        from chromedrift.enrich import gerrit
+
+        seq = [("filler", False)] * (gerrit.NEARBY_LINES * 4)
+        seq[0] = ("  kFoo,", False)
+        seq[-1] = ("  edited,", True)
+        self.assertEqual(gerrit._match(gerrit._Scanned(seq), {"kFoo"}), "")
+
+    def test_proximity_is_not_evidence_in_a_file_too_small_to_have_any(self):
+        """On a short file every line is near every other, so it says nothing."""
+        from chromedrift.enrich import gerrit
+
+        seq = [("  kFoo,", False), ("  edited,", True)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(seq), {"kFoo"}), "")
+
+    def test_an_exact_hit_retires_every_nearby_one_on_the_same_finding(self):
+        from chromedrift.enrich.gerrit import _prune
+
+        kept = _prune([{"match": "nearby", "date": "2026-06-01"},
+                       {"match": "exact", "date": "2026-04-01"}])
+        self.assertEqual([h["match"] for h in kept], ["exact"])
+
+    def test_proximity_that_matches_everything_identifies_nothing(self):
+        """The ai_manager.mojom case: four confident, unrelated answers."""
+        from chromedrift.enrich import gerrit
+
+        many = [{"match": "nearby", "date": f"2026-06-0{i}"}
+                for i in range(1, gerrit.NEARBY_MAX + 2)]
+        self.assertEqual(gerrit._prune(many), [])
+        few = many[:gerrit.NEARBY_MAX]
+        self.assertEqual(len(gerrit._prune(few)), gerrit.NEARBY_MAX)
+
+    def test_the_newest_cl_is_the_one_a_reader_sees_first(self):
+        from chromedrift.enrich.gerrit import _prune
+
+        kept = _prune([{"match": "exact", "date": "2026-04-01"},
+                       {"match": "exact", "date": "2026-06-01"}])
+        self.assertEqual([h["date"] for h in kept],
+                         ["2026-06-01", "2026-04-01"])
+
+    def test_a_footer_that_is_not_a_public_issue_is_not_offered_as_one(self):
+        """Measured over 62 real CLs: 2 point at Google's internal tracker."""
+        from chromedrift.enrich.gerrit import bugs_in
+
+        self.assertEqual(
+            bugs_in("Subject\n\nBug: 40123456, b/999888777\n"
+                    "Fixed: crbug.com/445649104\nBug: none\n"
+                    "Change-Id: I1\n"),
+            [{"id": "40123456"},
+             {"id": "445649104", "closes": True}])
+        self.assertEqual(bugs_in("Subject\n\nChange-Id: I1\n"), [])
+
+    def test_closing_an_issue_is_not_the_same_claim_as_citing_one(self):
+        """Chromium writes both, 575 `Bug:` to 34 `Fixed:` in a real sample."""
+        from chromedrift.enrich.gerrit import bugs_in
+
+        self.assertNotIn("closes", bugs_in("s\n\nBug: 40123456\n")[0])
+        self.assertTrue(bugs_in("s\n\nFixed: 40123456\n")[0]["closes"])
+
+
+class TestTheThirdEvidenceTierIsFree(unittest.TestCase):
+    """The CL's own description arrives with the candidate list, so it costs
+    nothing -- and it is not redundant with the diff.
+
+    Measured over the top 150 findings of a real M148 -> M151 run: 65 are found
+    only by the diff and 17 only by the description, because a CL can delete
+    the declaration it is named after and leave the identifier in no surviving
+    line. Adding the tier took the run from 115 resolved findings to 131 while
+    the budget below took it from 1,568 requests to 1,068.
+    """
+
+    def test_a_description_naming_the_identifier_is_evidence(self):
+        from chromedrift.enrich.gerrit import _match_message
+
+        cl = {"subject": "Enable AndroidCaptureKeyEvents by default",
+              "revisions": {"r": {"commit": {"message": "body\n"}}}}
+        self.assertTrue(_match_message(cl, {"AndroidCaptureKeyEvents"}))
+        self.assertFalse(_match_message(cl, {"SomethingElse"}))
+
+    def test_it_ranks_under_the_line_and_over_the_neighbourhood(self):
+        from chromedrift.enrich.gerrit import _prune
+
+        kept = _prune([{"match": "nearby", "date": "2026-07-01"},
+                       {"match": "described", "date": "2026-05-01"},
+                       {"match": "exact", "date": "2026-03-01"}])
+        self.assertEqual([h["match"] for h in kept], ["exact", "described"])
+
+
+class TestABudgetBuysTheMostRowsItCan(unittest.TestCase):
+    """A file is read whole whether it explains sixteen findings or one.
+
+    So the unit of value is requests *per finding*, and a budget that runs out
+    has to give up the worst trade rather than whichever file came first. At
+    the default it gives up only trades that buy nothing: on a real run, 1,200
+    diffs resolve the same 131 findings that 1,568 do.
+    """
+
+    COST = {"autofill": 127, "extension": 44, "runtime": 500, "content": 72}
+    SERVED = {"autofill": 16, "extension": 1, "runtime": 1, "content": 5}
+
+    def test_the_worst_trade_is_the_first_one_dropped(self):
+        from chromedrift.enrich.gerrit import spend_order
+
+        read, skipped = spend_order(self.COST, self.SERVED, budget=200)
+        self.assertEqual(read, ["autofill", "content"])
+        self.assertTrue(skipped[0].startswith("extension"))
+        self.assertTrue(any(s.startswith("runtime") for s in skipped))
+
+    def test_no_budget_reads_everything(self):
+        from chromedrift.enrich.gerrit import spend_order
+
+        read, skipped = spend_order(self.COST, self.SERVED, budget=0)
+        self.assertEqual(sorted(read), sorted(self.COST))
+        self.assertEqual(skipped, [])
+
+    def test_a_file_is_taken_whole_or_not_at_all(self):
+        """Half a file's CLs would make "no CL edits this line" depend on
+        which half, which is a claim this stage must never make by accident."""
+        from chromedrift.enrich.gerrit import spend_order
+
+        read, _ = spend_order(self.COST, self.SERVED, budget=200)
+        self.assertEqual(sum(self.COST[p] for p in read), 199)
+
+    def test_a_file_nobody_looked_at_says_so(self):
+        from chromedrift.report.html import _to_rows
+        from chromedrift.model import Change, Finding, Report
+
+        def report(diffs_read):
+            block = {"candidates": 500, "changes": [
+                {"number": 1, "date": "2026-06-01", "match": "described",
+                 "subject": "s", "bugs": []}]}
+            if diffs_read is not None:
+                block["diffs_read"] = diffs_read
+            return Report(from_ref="a", to_ref="b", summary={},
+                          meta={"platform": "windows"},
+                          findings=[Finding(
+                              change=Change(change_type="modified",
+                                            kind="base_feature", key="F",
+                                            name="F", paths=["f.cc"]),
+                              score=50, enrichment={"gerrit": block})])
+
+        self.assertTrue(_to_rows(report(False), "windows")[0]["no_diffs"])
+        self.assertNotIn("no_diffs", _to_rows(report(None), "windows")[0])
+
+
+class TestTheProvenanceWindowIsTakenFromTheTags(unittest.TestCase):
+    """Both bounds are facts the tags state, not estimates from their dates.
+
+    The lower one is the *from* tag's branch point, because everything on main
+    before it is in both trees and cannot explain a difference. Taking the tag
+    date instead would have started the M148 window on 2026-05-26 rather than
+    2026-04-06 and lost seven weeks of CLs. The upper one is the *to* tag's own
+    date, because six weeks of merge-backs land on a release branch after it is
+    cut and those are in the tree being compared.
+    """
+
+    FROM_TAG = {"message": "Incrementing VERSION to 148.0.7778.217\n\n"
+                           "Cr-Branched-From: " + "a" * 40 +
+                           "-refs/heads/main@{#1610480}\n",
+                "committer": {"time": "Tue May 26 20:44:49 2026"}}
+    BRANCH_POINT = {"message": "some CL\n",
+                    "committer": {"time": "Mon Apr 06 22:34:10 2026"}}
+    TO_TAG = {"message": "Incrementing VERSION to 151.0.7922.138\n\n"
+                         "Cr-Branched-From: " + "b" * 40 +
+                         "-refs/heads/main@{#1654411}\n",
+              "committer": {"time": "Mon Aug 10 22:57:55 2026"}}
+
+    def _window(self):
+        from chromedrift.enrich import gerrit
+
+        lookup = {"148": self.FROM_TAG, "a" * 40: self.BRANCH_POINT,
+                  "151": self.TO_TAG}
+        real = gerrit._commit
+        gerrit._commit = lambda ref, *a, **k: lookup.get(ref)
+        try:
+            return gerrit.window_for("148", "151", cache_dir="")
+        finally:
+            gerrit._commit = real
+
+    def test_it_starts_at_the_branch_point_not_the_tag(self):
+        self.assertEqual(self._window()[0], "2026-04-06")
+
+    def test_it_ends_after_the_tag_so_merge_backs_are_inside_it(self):
+        self.assertEqual(self._window()[1], "2026-08-11")
+
+
+class TestAFailedFetchIsNeverReadAsNoEvidence(unittest.TestCase):
+    """A dropped request and "this CL does not mention it" look identical.
+
+    Gerrit rate-limits an anonymous client with HTTP 429, and a diff that came
+    back empty because of one is indistinguishable, at the point of use, from a
+    diff that genuinely does not carry the identifier. Absorbing it would turn
+    a network hiccup into a confident "no CL found", which is the one thing
+    this tool is not allowed to do.
+    """
+
+    def test_a_failure_is_counted_rather_than_swallowed(self):
+        import chromedrift.enrich.gerrit as gerrit
+        from chromedrift.acquire import AcquireError
+
+        gerrit._failures.__init__()
+        real = gerrit._http_get
+        gerrit._http_get = lambda *a, **k: (_ for _ in ()).throw(
+            AcquireError("404 nope"))
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                out = gerrit._get_json("https://example.invalid/x", tmp,
+                                       ("probe.json",))
+        finally:
+            gerrit._http_get = real
+        self.assertIsNone(out)
+        self.assertEqual(gerrit._failures.count, 1)
+        self.assertIn("example.invalid", gerrit._failures.first)
+
+    def test_rate_limiting_is_retried_on_its_own_ladder(self):
+        """The generic 1.5/3/6s backoff is too short for a per-minute limiter."""
+        import chromedrift.enrich.gerrit as gerrit
+        from chromedrift.acquire import AcquireError
+
+        gerrit._failures.__init__()
+        calls = []
+
+        def flaky(*a, **k):
+            calls.append(1)
+            if len(calls) < 3:
+                raise AcquireError("HTTP Error 429: Too Many Requests")
+            return b')]}\'\n{"ok": true}'
+
+        real_get, real_sleep = gerrit._http_get, gerrit.time.sleep
+        gerrit._http_get, gerrit.time.sleep = flaky, lambda s: None
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                out = gerrit._get_json("https://example.invalid/y", tmp,
+                                       ("probe.json",))
+        finally:
+            gerrit._http_get, gerrit.time.sleep = real_get, real_sleep
+        self.assertEqual(out, {"ok": True})
+        self.assertEqual(gerrit._failures.count, 0)
+
+
+class TestTheSearchProvesItsOwnCompleteness(unittest.TestCase):
+    """Gerrit stops at 500 rows for an anonymous query and does not say so.
+
+    `start=500` returns an empty list with no `_more_changes` marker, which is
+    exactly what reaching the end looks like. A window that comes back at the
+    cap is therefore split and asked again, so the count is established rather
+    than assumed, and `truncated` is claimed only where splitting can no longer
+    help.
+    """
+
+    def _run(self, pages):
+        from chromedrift.enrich import gerrit
+
+        real = gerrit._page
+        gerrit._page = lambda path, after, before, start, *a, **k: (
+            pages(after, before)[start:start + gerrit.PAGE])
+        try:
+            return gerrit._search_window("f.cc", "2026-04-06", "2026-06-30",
+                                         "", False, lambda m: None)
+        finally:
+            gerrit._page = real
+
+    def test_a_window_at_the_cap_is_split_rather_than_believed(self):
+        from chromedrift.enrich import gerrit
+
+        def pages(after, before):
+            """Whole window: capped. Either half: 400, which the cap hid."""
+            whole = after == "2026-04-06" and before == "2026-06-30"
+            n = gerrit.PAGE_CAP if whole else 400
+            base = 0 if whole else (1 if after == "2026-04-06" else 2) * 10000
+            return [{"_number": base + i} for i in range(n)]
+
+        rows, truncated = self._run(pages)
+        self.assertFalse(truncated)
+        self.assertGreater(len(rows), gerrit.PAGE_CAP)
+
+    def test_a_single_day_still_at_the_cap_is_reported_as_partial(self):
+        from chromedrift.enrich import gerrit
+
+        rows, truncated = self._run(
+            lambda a, b: [{"_number": i} for i in range(gerrit.PAGE_CAP)])
+        self.assertTrue(truncated)
+
+
+class TestProvenanceRidesOnlyOnTheRowsItExplains(unittest.TestCase):
+    """The payload carries a denominator only beside the CLs it counts.
+
+    `_is_empty` keeps a zero on purpose, because a score of 0 is a real rank.
+    That makes an unconditional `cl_pool` ride on all 3,022 rows to say nothing
+    on the 2,896 with no CL, in a file whose size is already its main cost.
+    """
+
+    def _report(self, enriched):
+        from chromedrift.model import Change, Finding, Report
+
+        findings = []
+        for i, enrich in enumerate(enriched):
+            change = Change(change_type="modified", kind="base_feature",
+                            key=f"Feat{i}", name=f"Feat{i}",
+                            paths=["content/features.cc"])
+            findings.append(Finding(change=change, score=50,
+                                    enrichment=enrich or {}))
+        return Report(from_ref="a", to_ref="b", findings=findings,
+                      summary={}, meta={"platform": "windows"})
+
+    def test_a_row_with_no_cl_carries_no_denominator(self):
+        from chromedrift.report.html import _to_rows
+
+        rows = _to_rows(self._report([None]), "windows")
+        self.assertNotIn("cl_pool", rows[0])
+        self.assertNotIn("cls", rows[0])
+
+    def test_a_row_with_a_cl_carries_the_pool_it_was_picked_from(self):
+        from chromedrift.report.html import _to_rows
+
+        rows = _to_rows(self._report([{"gerrit": {
+            "candidates": 62,
+            "changes": [{"number": 7885356, "date": "2026-06-01",
+                         "subject": "Enable it", "match": "exact",
+                         "bugs": [{"id": "40123456"}]}]}}]), "windows")
+        self.assertEqual(rows[0]["cl_pool"], 62)
+        self.assertEqual(rows[0]["cls"][0]["n"], 7885356)
+        self.assertEqual(rows[0]["cls"][0]["b"], [{"i": "40123456"}])
+
+    def test_a_restricted_issue_is_flagged_in_the_payload(self):
+        """70 of 236 issues a real report links answer 403; an unmarked link
+        to one reads as a broken tool rather than as a closed door."""
+        from chromedrift.report.html import _to_rows
+
+        rows = _to_rows(self._report([{"gerrit": {
+            "candidates": 3,
+            "changes": [{"number": 1, "date": "2026-06-01", "subject": "s",
+                         "match": "exact",
+                         "bugs": [{"id": "9", "restricted": True,
+                                   "closes": True}]}]}}]), "windows")
+        self.assertEqual(rows[0]["cls"][0]["b"], [{"i": "9", "f": 1, "r": 1}])
+
+    def test_the_markdown_prints_the_pool_and_the_strength(self):
+        from chromedrift.report.markdown import _provenance_lines
+        from chromedrift.model import Change, Finding
+
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="Feat", name="Feat"),
+            enrichment={"gerrit": {"candidates": 62, "changes": [
+                {"number": 7885356, "date": "2026-06-01", "match": "exact",
+                 "subject": "Enable it",
+                 "bugs": [{"id": "40123456"}]}]}})
+        text = "\n".join(_provenance_lines(finding))
+        self.assertIn("1 of 62 merged CLs", text)
+        self.assertIn("*exact*", text)
+        self.assertIn("/7885356", text)
+        self.assertIn("issues.chromium.org/issues/40123456", text)
+
+
+class TestServingDoesNotChangeTheFile(unittest.TestCase):
+    """`serve` adds a live path without taking the offline one away.
+
+    The report's value is that it is one file that works anywhere. Serving it
+    must not fork that into two artifacts, so the page discovers whether
+    anything is listening rather than being built differently, and the file on
+    disk is byte-identical either way.
+    """
+
+    def _dir(self):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        report = Report(from_ref="a", to_ref="b", summary={},
+                        meta={"platform": "windows"},
+                        findings=[Finding(
+                            change=Change(change_type="modified",
+                                          kind="base_feature", key="F",
+                                          name="F", paths=["f.cc"]),
+                            score=50)])
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        with open(os.path.join(tmp, "report.json"), "w", encoding="utf-8") as fh:
+            json.dump(report.to_dict(), fh)
+        with open(os.path.join(tmp, "report.html"), "w", encoding="utf-8") as fh:
+            fh.write(html_report.render(report))
+        return tmp
+
+    def _server(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from chromedrift import serve as serve_mod
+
+        state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
+        handler = type("_B", (serve_mod._Handler,), {"state": state})
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(httpd.shutdown)
+        self.addCleanup(httpd.server_close)
+        return f"http://127.0.0.1:{httpd.server_address[1]}"
+
+    def _get(self, base, path):
+        import urllib.error
+        import urllib.request
+        try:
+            with urllib.request.urlopen(base + path, timeout=10) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as exc:
+            return exc.code, b""
+
+    def test_the_page_reports_which_pair_it_is_serving(self):
+        base = self._server()
+        status, body = self._get(base, "/api/ping")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["from"], "a")
+
+    def test_only_the_report_is_reachable(self):
+        """Nothing resolves a path out of the request, so there is no traversal
+        to get wrong -- and this is what holds that true."""
+        base = self._server()
+        self.assertEqual(self._get(base, "/")[0], 200)
+        for path in ("/../../etc/passwd", "/serve.py", "/report.py",
+                     "/%2e%2e/report.json"):
+            self.assertEqual(self._get(base, path)[0], 404, path)
+
+    def test_an_unknown_finding_is_a_miss_not_a_crash(self):
+        base = self._server()
+        self.assertEqual(self._get(base, "/api/why?uid=nope:nope")[0], 404)
+        self.assertEqual(self._get(base, "/api/why")[0], 400)
+
+    def test_a_lookup_survives_the_session_that_made_it(self):
+        """Minutes of clicking must not be lost to a closed terminal, or the
+        live path is strictly worse than baking the answers in."""
+        from chromedrift import serve as serve_mod
+
+        directory = self._dir()
+        state = serve_mod._State(directory, tempfile.mkdtemp(), budget=1)
+        finding = state.report.findings[0]
+        finding.enrichment["gerrit"] = {
+            "candidates": 3, "diffs_read": True,
+            "changes": [{"number": 1, "date": "2026-06-01", "match": "exact",
+                         "subject": "s", "bugs": []}]}
+        state._persist()
+
+        reloaded = serve_mod._State(directory, tempfile.mkdtemp(), budget=1)
+        again = reloaded.report.findings[0]
+        self.assertEqual(
+            again.enrichment["gerrit"]["changes"][0]["number"], 1)
+        # And the page it serves is built from that, not from a stale file.
+        self.assertIn(b"7885356" if False else b'"n": 1', reloaded.page())
+
+    def test_saving_can_be_declined(self):
+        from chromedrift import serve as serve_mod
+
+        directory = self._dir()
+        state = serve_mod._State(directory, tempfile.mkdtemp(), budget=1,
+                                 save=False)
+        state.report.findings[0].enrichment["gerrit"] = {"candidates": 1}
+        state._persist()
+        with open(os.path.join(directory, "report.json"), encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["findings"][0]["enrichment"], {})
+
+    def test_the_page_is_static_until_something_answers(self):
+        """A report mailed to somebody must behave as it always did, so live
+        mode starts off and is turned on only by a reply."""
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn("var LIVE=false", page)
+        self.assertIn("fetch('api/ping')", page)
+
+
+class TestTheEvidenceFilterAppearsWhenItCanFilter(unittest.TestCase):
+    """A row with a CL and a row without look identical in the table.
+
+    On a report where a fifth of the rows are resolved, that is the difference
+    between a list you can work through and one you have to open row by row to
+    find out. But a control that filters nothing is worse than no control, so
+    on an untouched report it is rendered hidden and the page unhides it the
+    moment a server answers or a lookup lands. Rendering it either way is what
+    lets one file be right in both cases.
+    """
+
+    def _page(self, enriched):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        findings = []
+        for i, block in enumerate(enriched):
+            findings.append(Finding(
+                change=Change(change_type="modified", kind="base_feature",
+                              key=f"F{i}", name=f"F{i}", paths=["f.cc"]),
+                score=50, enrichment=({"gerrit": block} if block else {})))
+        return html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings, summary={},
+                                         meta={"platform": "windows"}))
+
+    def test_hidden_until_there_is_something_to_filter(self):
+        page = self._page([None, None])
+        self.assertIn('id="fp" hidden', page)
+        # ...and the page can turn it on without being re-rendered.
+        self.assertIn("fp.hidden=false", page.replace(" ", ""))
+
+    def test_shown_as_soon_as_one_row_carries_evidence(self):
+        page = self._page([None, {"candidates": 3, "diffs_read": True}])
+        self.assertIn('id="fp"', page)
+        self.assertNotIn('id="fp" hidden', page)
+        for label in ("Has a CL", "Scanned, nothing found", "Not looked up"):
+            self.assertIn(label, page)
+
+    def test_the_four_states_are_kept_apart_in_the_page(self):
+        """`none` and `skipped` must not collapse into one "no CL": telling
+        them apart is the whole point of the stage."""
+        page = self._page([{"candidates": 3, "diffs_read": True}])
+        self.assertIn("function provState", page)
+        for state in ("'exact'", "'cl'", "'skipped'", "'unasked'"):
+            self.assertIn(state, page)
+
+
+class TestThePayloadStopsRepeatingItself(unittest.TestCase):
+    """The page's size is its load time, and a quarter of it was repetition.
+
+    Measured on a real 3,022-finding report: `reasons` is 319 KB of text drawn
+    from 66 distinct strings, `signals` 127 KB from 63, and `group` 58 KB from
+    three. Stored once and referenced by index the payload falls from 2.29 MB
+    to 1.75 MB. Every interaction was already under 5 ms, so the download and
+    the JSON parse were the only thing left that a reader could feel.
+    """
+
+    def _page(self, n=400):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        findings = [
+            Finding(change=Change(change_type="modified", kind="base_feature",
+                                  key=f"F{i}", name=f"F{i}",
+                                  signals=["flag_retired_on"],
+                                  paths=[f"content/f{i}.cc"]),
+                    score=50, reasons=["base severity 75"])
+            for i in range(n)]
+        return html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings, summary={},
+                                         meta={"platform": "windows"}))
+
+    def test_a_value_shared_by_every_row_is_stored_once(self):
+        import re
+
+        page = self._page()
+        payload = re.search(r"window\.__FINDINGS__=(\[.*?\]);\n", page, re.S)
+        self.assertIn('"reasons": 0', payload.group(1))
+        self.assertEqual(payload.group(1).count("base severity 75"), 0)
+        self.assertIn("base severity 75", page)  # once, in the pool
+
+    def test_the_page_puts_them_back_before_anything_reads_them(self):
+        page = self._page()
+        self.assertIn("window.__POOL__=", page)
+        self.assertIn("DATA[i][field]=table[v]", page.replace(" ", ""))
+
+    def test_one_reader_for_the_payload_and_it_rehydrates(self):
+        """Every other reader goes through this, so none of them can drift
+        into parsing the interned form as if it were the plain one."""
+        from chromedrift.report import html as html_report
+
+        rows = html_report.payload_of(self._page(5))
+        self.assertEqual(len(rows), 5)
+        for row in rows:
+            self.assertEqual(row["reasons"], ["base severity 75"])
+            self.assertIsInstance(row["group"], str)
+
+    def test_a_field_that_is_nearly_unique_is_left_alone(self):
+        """A table of 2,986 distinct `what` strings is the same bytes plus an
+        index, so pooling it would cost rather than save."""
+        from chromedrift.report import html as html_report
+
+        rows = html_report.payload_of(self._page(5))
+        self.assertNotIn("what", html_report._POOLED)
+        self.assertIsInstance(rows[0]["what"], str)

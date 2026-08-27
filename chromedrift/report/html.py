@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from typing import List
 
 from ..diff import SIGNAL_LABELS, owner_of
@@ -242,6 +243,68 @@ font-variant-numeric:tabular-nums}
 .brief .ship{color:var(--faint);font-size:.75rem;margin-left:6px}
 .brief .fsum{color:var(--muted);font-size:.83rem;line-height:1.55;margin-top:5px}
 .brief a{color:var(--accent)}
+
+/* Provenance. Sunk rather than boxed: it sits inside a row that is already an
+   inset panel, and a second border there reads as a second table. */
+.prov{margin:12px 0 2px;padding-top:10px;border-top:1px solid var(--line)}
+.prov h4{margin:0 0 7px;font-size:.78rem;font-weight:650;letter-spacing:.03em;
+text-transform:uppercase;color:var(--muted)}
+/* Which rows carry evidence, without spending a column on it. A 3px edge is
+   visible while scanning and invisible while reading. */
+tr.row-t td:first-child{position:relative}
+tr.p-exact td:first-child::before,tr.p-cl td:first-child::before{
+content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
+border-radius:2px;background:var(--new-b)}
+tr.p-cl td:first-child::before{background:var(--accent)}
+tr.p-skipped td:first-child::before{content:"";position:absolute;left:0;
+top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--line2)}
+button.lookup{margin-top:7px;font:inherit;font-size:.85rem;font-weight:550;
+color:var(--accent);background:var(--accent-soft);border:1px solid transparent;
+border-radius:var(--r1);padding:5px 11px;cursor:pointer}
+button.lookup:hover:not(:disabled){border-color:var(--accent)}
+button.lookup:disabled{color:var(--muted);background:var(--sunk);cursor:default}
+.prov .moreiss{margin-top:8px}
+.prov .none{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
+.prov .none code{font-size:.85em}
+.prov .pool{margin-left:9px;font-weight:400;letter-spacing:0;text-transform:none;
+color:var(--faint);font-size:.75rem}
+ul.cls{margin:0;padding:0;list-style:none}
+ul.cls li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;
+padding:3px 0;font-size:.88rem;line-height:1.5}
+a.cl{color:var(--accent);text-decoration:none;font-weight:600;
+font-variant-numeric:tabular-nums;white-space:nowrap}
+a.cl:hover{text-decoration:underline}
+.cls .when{color:var(--faint);font-size:.78rem;font-variant-numeric:tabular-nums;
+white-space:nowrap}
+/* Left-packed: a growing subject pushed the issue link to the far edge of
+   a 1,320px row, where it read as a separate column. */
+.cls .subj{flex:0 1 auto;min-width:0;color:var(--fg)}
+.cls a.bug{color:var(--muted);font-size:.78rem;white-space:nowrap;
+text-decoration:none;border-bottom:1px dotted var(--line2)}
+.cls a.bug:hover{color:var(--accent)}
+.cls .chain,.cls .in{font-size:.72rem;color:var(--muted);white-space:nowrap;
+background:var(--sunk);border:1px solid var(--line);border-radius:999px;
+padding:0 6px}
+.cls .in{border-style:dashed;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* Restricted: still a link, visibly not a promise. */
+.cls a.bug-x,a.cl.bug-x{color:var(--faint);border-bottom-style:dashed}
+.cls a.bug-x:hover,a.cl.bug-x:hover{color:var(--beh)}
+/* A word, not a glyph: U+26BF rendered as a tofu box in the report's own
+   font stack, which reads as a rendering fault rather than as a warning. */
+.locked{margin-left:5px;font-size:.68rem;font-weight:650;letter-spacing:.04em;
+text-transform:uppercase;color:var(--beh);
+background:color-mix(in srgb,var(--beh) 14%,transparent);
+padding:1px 5px;border-radius:999px;white-space:nowrap}
+/* The evidence badge is the one place the two strengths must not blur. */
+.ev{font-size:.68rem;font-weight:650;letter-spacing:.04em;text-transform:uppercase;
+padding:1px 6px;border-radius:999px;white-space:nowrap}
+.ev-exact{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 13%,transparent)}
+/* A pure rename changes no line, so it gets its own badge rather than
+   borrowing one that claims a line was edited. */
+.ev-moved{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 10%,transparent)}
+/* Between the two: the author's own words, but not the declaring line. */
+.ev-described{color:var(--accent);background:var(--accent-soft)}
+.ev-nearby{color:var(--beh);background:color-mix(in srgb,var(--beh) 15%,transparent)}
 """
 
 _JS = """
@@ -256,18 +319,41 @@ const DATA=window.__FINDINGS__||[];
    about forty story sentences stored once each instead of once per finding. */
 const KINDS=window.__KINDS__||{},BUCKETS=window.__BUCKETS__||{},
 STORIES=window.__STORIES__||{};
+/* Five fields arrive as indices into a table because their values repeat
+   across thousands of rows -- `group` has three distinct values and was
+   costing 58 KB of the download. Put back in one pass here so that every
+   reader below sees ordinary strings and none of them has to know. */
+(function(){const P=window.__POOL__||{};
+for(const field in P){const table=P[field];
+  for(let i=0;i<DATA.length;i++){const v=DATA[i][field];
+    if(typeof v==='number')DATA[i][field]=table[v];}}})();
 const kindLabel=f=>KINDS[f.kind]||f.kind, bucketLabel=f=>BUCKETS[f.bucket]||f.bucket,
 whyLabel=f=>STORIES[f.why]||f.why||'';
 /* Sized for the weakest machine that has to open this, not the fastest. */
 const PAGE=100;
 const q=document.getElementById('q'),fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
-fo=document.getElementById('fo'),
+fo=document.getElementById('fo'),fp=document.getElementById('fp'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+/* Four states, and they are not degrees of the same thing: `exact` and `cl`
+   say a CL was found, `none` says the scan ran and matched nothing, `skipped`
+   says nobody looked. Collapsing the last two into "no CL" is the mistake the
+   whole stage exists to avoid. */
+function provState(f){
+  if(f.cls&&f.cls.length)
+    return f.cls.every(function(c){return c.m==='exact';})?'exact':'cl';
+  if(f.cl_pool===undefined)return 'unasked';
+  return f.no_diffs?'skipped':'none';
+}
 function match(f,t){
+  if(fp&&fp.value){
+    var st=provState(f);
+    if(fp.value==='cl'){ if(st!=='cl'&&st!=='exact')return false; }
+    else if(st!==fp.value)return false;
+  }
   if(fb.value&&f.bucket!==fb.value)return false;
   if(fk.value&&f.kind!==fk.value)return false;
   if(fg.value&&f.group!==fg.value)return false;
@@ -287,7 +373,105 @@ function details(f){
   (f.deltas||[]).forEach(d=>L.push('<li><b>'+esc(d[0])+':</b> <code>'+esc(d[1])+'</code> \\u2192 <code>'+esc(d[2])+'</code></li>'));
   if(f.chromestatus)L.push('<li><b>Chromestatus:</b> '+esc(f.chromestatus)+'</li>');
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
-  return '<ul class="tight">'+L.join('')+'</ul>';
+  return '<ul class="tight">'+L.join('')+'</ul>'+provenance(f);
+}
+/* The review behind the row. Two strengths of evidence and they are never
+   levelled: `exact` means that CL edited a line carrying this identifier,
+   `nearby` means it edited something next to one, which is a lead and not a
+   citation. The pool it was picked from is printed with it, because "1 of 62
+   CLs that touched this file" is what makes the one CL mean anything. */
+function clRow(c,strong){
+  var u='https://chromium-review.googlesource.com/c/chromium/src/+/'+c.n;
+  /* A restricted issue keeps its link -- the reader may well be the one
+     person who can open it -- but says so first. Three in ten of the issues a
+     real report links answer 403, and a dead link with no warning reads as a
+     broken tool. `Fixed:` is shown apart from `Bug:` because closing an issue
+     and referencing one are different claims. */
+  var b=(c.b||[]).map(function(g){
+    return '<a class="bug'+(g.r?' bug-x':'')+'" href="'+
+      'https://issues.chromium.org/issues/'+g.i+'" target="_blank"'+
+      ' rel="noreferrer" title="'+(g.r?'access-restricted: opens only with '+
+      'Google credentials':'public issue')+'">'+(g.f?'fixes ':'issue ')+
+      esc(g.i)+'</a>'+(g.r?'<span class="locked">restricted</span>':'');
+    }).join(' ');
+  return '<li><a class="cl" href="'+u+'" target="_blank" rel="noreferrer">CL '+
+    c.n+'</a><span class="when">'+esc(c.d)+'</span>'+
+    (strong&&c.m?'<span class="ev ev-'+c.m+'">'+esc(c.m)+'</span>':'')+
+    '<span class="subj">'+esc(c.s)+'</span>'+(b?' '+b:'')+'</li>';
+}
+/* Gerrit's own record of a revert or a cherry-pick. Free in the search
+   response, and the one thing that makes a flag's launch/revert/reland
+   history readable without reading every subject twice. */
+function chain(c){
+  var out='';
+  if(c.rv)out+='<span class="chain">reverts '+c.rv+'</span>';
+  if(c.cp)out+='<span class="chain">cherry-pick of '+c.cp+'</span>';
+  if(c.f)out+='<span class="in">in '+esc(c.f.split('/').pop())+'</span>';
+  return out;
+}
+/* Live mode is discovered, never baked in. The same file opened from a disk
+   fails this fetch and stays exactly as static as it was; served by
+   `chromedrift serve` it answers, and rows gain a lookup button. */
+var LIVE=false;
+try{fetch('api/ping').then(function(r){return r.ok?r.json():null;})
+  .then(function(d){if(d&&d.ok){LIVE=true;
+    if(fp)fp.hidden=false;
+    document.querySelectorAll('tr.det').forEach(function(tr){
+      var f=view[+tr.previousElementSibling.dataset.i];
+      if(f)tr.firstChild.innerHTML=details(f);});}})
+  .catch(function(){});}catch(e){}
+
+function lookupBtn(f){
+  return '<button class="lookup" data-uid="'+esc(f.id)+'">Look up the CL '+
+    'for this row</button>';
+}
+function provenance(f){
+  var out='';
+  if(!f.cls||!f.cls.length){
+    /* Asked and unanswered is a result, and a different one depending on
+       whether the diffs were read. Silence would read as "not asked". */
+    if(f.cl_pool===undefined)
+      return LIVE?'<div class="prov"><h4>Why it changed</h4><p class="none">'+
+        'Not looked up yet.</p>'+lookupBtn(f)+'</div>':'';
+    return '<div class="prov"><h4>Why it changed</h4><p class="none">'+
+      (f.no_diffs
+        ? 'Not looked up \u2014 '+f.cl_pool+' CLs touched this file, more than '+
+          'the run\u2019s diff budget would read.'+
+          (LIVE?'':' Re-run <code>why</code> with a higher '+
+                   '<code>--gerrit-budget</code>.')
+        : 'No CL among the '+(f.cl_read||f.cl_pool)+' read of the '+f.cl_pool+' that touched '+
+          (f.cl_files>1?'either file':'this file')+
+          ' edits a line carrying this identifier.')+'</p>'+
+      (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
+  }
+  if(f.cls&&f.cls.length){
+    out+='<div class="prov"><h4>Why it changed'+
+      (f.cl_pool?'<span class="pool">'+f.cls.length+' of '+f.cl_pool+
+        ' merged CLs touched '+(f.cl_files>1?'these '+f.cl_files+' files':'this file')+
+        (f.cl_read?' \u00b7 '+f.cl_read+' of them read':'')+
+        (f.no_diffs?' \u00b7 diffs not read, descriptions only':'')+
+        '</span>':'')+'</h4><ul class="cls">'+
+      f.cls.map(function(c){return clRow(c,true);}).join('')+'</ul></div>';
+  }
+  /* Every issue the row's CLs cite, busiest first. A flag that launched,
+     reverted and relanded often cites two or three, and showing one made the
+     answer depend on which CL happened to sort first. */
+  (f.issues||[]).forEach(function(i){
+    if(!i||!i.cls||!i.cls.length)return;
+    out+='<div class="prov"><h4><a class="cl'+(i.restricted?' bug-x':'')+
+      '" href="https://issues.chromium.org/issues/'+
+      i.id+'" target="_blank" rel="noreferrer">Issue '+esc(i.id)+'</a>'+
+      (i.restricted?'<span class="locked">restricted</span>':'')+
+      '<span class="pool">'+
+      i.total+' CL'+(i.total===1?'':'s')+
+      ' cite it'+(i.total>i.cls.length?', newest '+i.cls.length+' shown':'')+
+      '</span></h4><ul class="cls">'+
+      i.cls.map(function(c){return clRow(c,false);}).join('')+'</ul></div>';
+  });
+  if(f.issues_more)
+    out+='<p class="none moreiss">'+f.issues_more+' further issue'+
+      (f.issues_more===1?'':'s')+' cited by these CLs, in report.json.</p>';
+  return out;
 }
 var MARK={added:'+',removed:'\u2212',modified:'~'};
 function whatCell(f){
@@ -304,7 +488,8 @@ function surfaceCell(f){
 }
 function rowHtml(f,i){
   var sb=f.score>=70?' s-hi':(f.score>=45?' s-mid':'');
-  return '<tr class="row-t" data-i="'+i+'"><td class="score'+sb+'">'+f.score+'</td>'+
+  return '<tr class="row-t p-'+provState(f)+'" data-i="'+i+'">'+
+    '<td class="score'+sb+'">'+f.score+'</td>'+
     '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
@@ -343,6 +528,20 @@ function apply(){
 }
 /* One listener for the whole table instead of one per row. */
 tb.addEventListener('click',e=>{
+  const btn=e.target.closest('button.lookup');
+  if(btn){
+    e.stopPropagation();
+    const cell=btn.closest('td'), row=btn.closest('tr.det');
+    const f=view[+row.previousElementSibling.dataset.i];
+    btn.disabled=true; btn.textContent='Looking\u2026';
+    fetch('api/why?uid='+encodeURIComponent(btn.dataset.uid))
+      .then(r=>r.ok?r.json():Promise.reject(r.status))
+      .then(d=>{Object.assign(f,d); f._hay=undefined; cell.innerHTML=details(f);
+        if(fp)fp.hidden=false;})
+      .catch(err=>{btn.disabled=false;
+        btn.textContent='Lookup failed ('+err+') \u2014 try again';});
+    return;
+  }
   const tr=e.target.closest('tr.row-t'); if(!tr)return;
   const next=tr.nextElementSibling;
   if(next&&next.classList.contains('det')){next.remove();return;}
@@ -362,13 +561,13 @@ document.querySelectorAll('[data-set]').forEach(function(el){
   el.addEventListener('click',function(){
     var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg,fo:fo}[p[0]];
     if(!sel)return;
-    fb.value='';fk.value='';fg.value='';fo.value='';
+    fb.value='';fk.value='';fg.value='';fo.value='';if(fp)fp.value='';
     sel.value=p.slice(1).join(':');
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
 let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);});
-[fb,fk,fg,fo].forEach(el=>el&&el.addEventListener('change',apply));
+[fb,fk,fg,fo,fp].forEach(el=>el&&el.addEventListener('change',apply));
 apply();
 """
 
@@ -436,6 +635,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             else:
                 deltas.append([key, _trim(delta[0]), _trim(delta[1])])
         status = (finding.enrichment or {}).get("chromestatus") or {}
+        provenance = (finding.enrichment or {}).get("gerrit") or {}
         row = {
             "id": finding.uid,
             "name": display_name(change),
@@ -467,7 +667,44 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "deltas": deltas[:6],
             "reasons": finding.reasons,
             "chromestatus": status.get("summary", ""),
+            # The review that made the change, and the issue it cites. Carried
+            # as a compact list because the page holds one of these per
+            # enriched row and the payload is already the largest thing in the
+            # file; `number` is enough to rebuild both URLs in the browser.
+            "cls": [
+                {"n": c.get("number"), "d": c.get("date", ""),
+                 "s": c.get("subject", ""), "m": c.get("match", ""),
+                 "b": [{"i": b["id"],
+                        **({"f": 1} if b.get("closes") else {}),
+                        **({"r": 1} if b.get("restricted") else {})}
+                       for b in c.get("bugs") or []],
+                 **({"rv": c["reverts"]} if c.get("reverts") else {}),
+                 **({"cp": c["cherry_pick_of"]} if c.get("cherry_pick_of")
+                    else {}),
+                 **({"f": c["file"]} if c.get("file") else {})}
+                for c in (provenance.get("changes") or [])
+            ],
+            "issues": [_issue_payload(i)
+                       for i in provenance.get("issues") or []][:3],
         }
+        # Only alongside the CLs it is the denominator for. `_is_empty` keeps a
+        # zero on purpose -- a score of 0 is a real rank -- so an unconditional
+        # `cl_pool` would ride on all 3,022 rows to say nothing on 2,896 of
+        # them.
+        if provenance:
+            row["cl_pool"] = provenance.get("candidates") or 0
+            # Same trap `cl_pool` fell into: `_is_empty` keeps a zero, so an
+            # unconditional count rides on every row to say nothing on almost
+            # all of them.
+            extra = len(provenance.get("issues") or []) - 3
+            if extra > 0:
+                row["issues_more"] = extra
+            row["cl_files"] = len([p for p in (change.paths or [])[:2]])
+            # "no CL edits this line" and "nobody looked" are different
+            # answers, and only the run knows which one this is. A row that
+            # was never asked about carries neither, and says nothing.
+            if provenance.get("diffs_read") is False:
+                row["no_diffs"] = True
         # `what` already says "off -> on for Windows" for the kinds that have
         # a platform state, and "array<uint8> -> BigBuffer" for a Mojo field,
         # so repeating it under the prose prints the same arrow twice in one
@@ -486,6 +723,82 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         # single row -- 3,120 of them on a real report.
         rows.append({k: v for k, v in row.items() if not _is_empty(v)})
     return rows
+
+
+def _issue_payload(issue) -> dict:
+    if not isinstance(issue, dict) or not issue.get("changes"):
+        return {}
+    return {
+        "id": issue.get("id"),
+        "restricted": bool(issue.get("restricted")),
+        "total": issue.get("total") or len(issue["changes"]),
+        "cls": [{"n": c.get("number"), "d": c.get("date", ""),
+                 "s": c.get("subject", "")} for c in issue["changes"][:8]],
+    }
+
+
+# Fields whose values repeat across thousands of rows. Measured on a real
+# 3,022-finding report: `reasons` is 319 KB of text drawn from 66 distinct
+# strings, `signals` 127 KB from 63, and `group` 58 KB from *three*. Stored
+# once each and referenced by index they cost 534 KB less -- a quarter of the
+# whole payload, which is the file's load time, since parsing 2.2 MB of inline
+# JSON is the one thing on this page that is not instant.
+#
+# `what` and `paths` are deliberately absent: they are near-unique per row, so
+# a table of them is the same bytes plus an index.
+_POOLED = ("reasons", "signals", "where", "group", "owner")
+
+
+_PAYLOAD_RE = None  # compiled on first use by `payload_of`
+
+
+def payload_of(page: str) -> List[dict]:
+    """The rows a rendered page carries, with pooled values put back.
+
+    The page interns five repeated fields to cut a quarter off its own size,
+    and rehydrates them on load. Anything else reading the payload -- a test,
+    a script -- has to do the same, so it is done here once rather than
+    reimplemented at each reader, which is how the two would come to disagree.
+    """
+    global _PAYLOAD_RE
+    if _PAYLOAD_RE is None:
+        # The last embedded line ends `;</script>` rather than `;\n`, and a pattern
+        # that only knows the second one runs past it into the script below.
+        _PAYLOAD_RE = re.compile(
+            r"window\.__(FINDINGS|POOL)__=(.*?);(?=\n|</script>)", re.S)
+    found = {name: json.loads(body)
+             for name, body in _PAYLOAD_RE.findall(page)}
+    rows = found.get("FINDINGS") or []
+    for field, table in (found.get("POOL") or {}).items():
+        for row in rows:
+            if isinstance(row.get(field), int):
+                row[field] = table[row[field]]
+    return rows
+
+
+def _intern(rows: List[dict]) -> dict:
+    """Replace repeated values with indices into a table, in place.
+
+    The page rehydrates in one pass on load, so nothing downstream of it knows
+    this happened -- which is the point. A payload format that every reader has
+    to remember is a payload format somebody forgets.
+    """
+    pool: dict = {}
+    for field in _POOLED:
+        seen: dict = {}
+        values: list = []
+        for row in rows:
+            if field not in row:
+                continue
+            token = json.dumps(row[field], ensure_ascii=False, sort_keys=True)
+            index = seen.get(token)
+            if index is None:
+                index = seen[token] = len(values)
+                values.append(row[field])
+            row[field] = index
+        if values:
+            pool[field] = values
+    return pool
 
 
 def _is_empty(value) -> bool:
@@ -595,6 +908,32 @@ def _brief_html(summary: dict, limit: int = 200) -> str:
                 f'<code>report.json</code> under '
                 f'<code>summary.milestone_brief</code>.</div>')
 
+def _provenance_filter(rows: List[dict]) -> str:
+    """Present when there is provenance to filter by, hidden until there is.
+
+    A row that carries a CL and a row that does not look identical in the
+    table, and on a report where a fifth of the rows are resolved that is the
+    difference between a list you can work through and one you have to open
+    row by row to find out.
+
+    A control that filters nothing is worse than no control, so on a report
+    nobody has looked anything up in it starts hidden -- and the page unhides
+    it the moment either becomes true: a server answered, or a lookup landed.
+    Rendering it always, rather than deciding here, is what lets the same file
+    be right in both cases.
+    """
+    hidden = "" if any("cl_pool" in row for row in rows) else " hidden"
+    options = [("", "All evidence"),
+               ("cl", "Has a CL"),
+               ("exact", "Exact evidence only"),
+               ("none", "Scanned, nothing found"),
+               ("skipped", "Not looked up")]
+    return (f'<select id="fp"{hidden}>'
+            + "".join(f'<option value="{v}">{_esc(label)}</option>'
+                      for v, label in options)
+            + "</select>")
+
+
     return (f'<details class="brief"><summary>What Chromium says shipped in '
             f'this window — {count} features{scope}</summary>'
             f'<div class="body">'
@@ -636,6 +975,10 @@ def _embed(value) -> str:
 
 def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
+    provenance_filter = _provenance_filter(rows)
+    # After the filter is built, because that reads `cl_pool`, and before the
+    # payload is embedded, because that is what shrinks.
+    pool = _intern(rows)
     meta = report.meta or {}
     summary = report.summary or {}
 
@@ -709,6 +1052,7 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 {''.join(option(g) for g in groups)}</select>
 <select id="fo"><option value="">All owners</option>
 {''.join(option(o, OWNER_LABELS[o]) for o in OWNER_ORDER)}</select>
+{provenance_filter}
 <span class="muted" id="cnt"></span>
 </div>
 <div class="tablewrap"><table class="find">
@@ -729,6 +1073,7 @@ its declaring line, and the reasoning behind its score.</p>
 <script>window.__FINDINGS__={_embed(rows)};
 window.__KINDS__={_embed(KIND_LABELS)};
 window.__BUCKETS__={_embed(BUCKET_LABELS)};
-window.__STORIES__={_embed(stories)};</script>
+window.__STORIES__={_embed(stories)};
+window.__POOL__={_embed(pool)};</script>
 <script>{_JS}</script>
 """
