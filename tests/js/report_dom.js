@@ -236,7 +236,9 @@ els.tb.listeners['click'].forEach(
 const budgetHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.budgetRowSaysNothingWasRead = budgetHtml.includes('Nothing here was read');
 out.budgetRowNamesThePool = /147 CLs touched/.test(budgetHtml);
-out.budgetRowOffersTheRemedy = /--gerrit-budget/.test(budgetHtml);
+// Named as the flag that exists. `--gerrit-budget` belonged to a `why`
+// command that was removed, and the page went on telling readers to re-run it.
+out.budgetRowOffersTheRemedy = /--click-budget/.test(budgetHtml);
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';

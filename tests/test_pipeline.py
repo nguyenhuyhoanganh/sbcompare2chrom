@@ -4599,11 +4599,29 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         self.assertEqual(gerrit._match(gerrit._Scanned(after),
                                        {"TokenError"}), "")
 
-    def test_an_exact_hit_retires_every_nearby_one_on_the_same_finding(self):
+    def test_a_declares_hit_survives_beside_an_exact_one(self):
+        """It used to be dropped as a weaker copy of the same answer, and it
+        is not one: a CL that edited the declaration's body without touching
+        the line naming it is a different CL doing different work. On a real
+        top 150 the rule threw away 40 CLs across 18 findings, all of them on
+        rows that had more than one contributor.
+
+        It still ranks below, so it can never be read as the citation.
+        """
         from chromedrift.enrich.gerrit import _prune
 
         kept = _prune([{"match": "declares", "date": "2026-06-01"},
                        {"match": "exact", "date": "2026-04-01"}])
+        self.assertEqual({h["match"] for h in kept}, {"exact", "declares"})
+
+    def test_a_crowd_of_declarations_is_still_dropped_beside_a_strong_hit(self):
+        """The scarcity test is what makes `declares` mean anything, and it
+        does not stop applying because a strong hit turned up."""
+        from chromedrift.enrich import gerrit
+
+        crowd = [{"match": "declares", "date": f"2026-06-{i + 1:02d}"}
+                 for i in range(gerrit.DECL_MAX + 1)]
+        kept = gerrit._prune(crowd + [{"match": "exact", "date": "2026-04-01"}])
         self.assertEqual([h["match"] for h in kept], ["exact"])
 
     def test_a_crowd_of_declarations_is_demoted_and_not_dropped(self):
@@ -4638,13 +4656,31 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         hits.append({"match": "exact", "date": "2026-04-01"})
         self.assertEqual([h["match"] for h in gerrit._prune(hits)], ["exact"])
 
-    def test_the_newest_cl_is_the_one_a_reader_sees_first(self):
+    def test_a_row_with_several_cls_reads_forward(self):
+        """One CL is a citation and has no order. Several are a sequence, and
+        a flag that launched, was reverted, relanded, reverted and relanded
+        again is a story -- read newest-first it is not one. 28 of a real top
+        150 keep more than one CL, so this is where those rows live.
+
+        The cap still takes the newest, because that is what a cap should
+        keep; only the surviving order changes.
+        """
         from chromedrift.enrich.gerrit import _prune
 
-        kept = _prune([{"match": "exact", "date": "2026-04-01"},
-                       {"match": "exact", "date": "2026-06-01"}])
+        kept = _prune([{"match": "exact", "date": "2026-06-01"},
+                       {"match": "exact", "date": "2026-04-01"}])
         self.assertEqual([h["date"] for h in kept],
-                         ["2026-06-01", "2026-04-01"])
+                         ["2026-04-01", "2026-06-01"])
+
+    def test_the_cap_keeps_the_newest_of_a_long_chain(self):
+        from chromedrift.enrich import gerrit
+
+        chain = [{"match": "exact", "date": f"2026-06-{i + 1:02d}"}
+                 for i in range(gerrit.KEEP_MAX + 4)]
+        kept = gerrit._prune(chain)
+        self.assertEqual(len(kept), gerrit.KEEP_MAX)
+        self.assertEqual(kept[-1]["date"], chain[-1]["date"])
+        self.assertNotIn(chain[0]["date"], [h["date"] for h in kept])
 
     def test_a_footer_that_is_not_a_public_issue_is_not_offered_as_one(self):
         """Measured over 62 real CLs: 2 point at Google's internal tracker."""
@@ -4691,7 +4727,11 @@ class TestTheThirdEvidenceTierIsFree(unittest.TestCase):
         kept = _prune([{"match": "declares", "date": "2026-07-01"},
                        {"match": "described", "date": "2026-05-01"},
                        {"match": "exact", "date": "2026-03-01"}])
-        self.assertEqual([h["match"] for h in kept], ["exact", "described"])
+        # All three are contributors and all three are kept; the ladder shows
+        # in which of them the cap would drop first, not in the print order,
+        # which is chronological once a row holds more than one.
+        self.assertEqual([h["date"] for h in kept],
+                         ["2026-03-01", "2026-05-01", "2026-07-01"])
 
 
 class TestABudgetBuysTheMostRowsItCan(unittest.TestCase):
@@ -5193,6 +5233,237 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
         rows = html_report.payload_of(self._page(5))
         self.assertNotIn("what", html_report._POOLED)
         self.assertIsInstance(rows[0]["what"], str)
+
+
+class TestARowCountsWhatItActuallyDid(unittest.TestCase):
+    """Three numbers, three questions, and the row was answering one of them
+    three times.
+
+    How many CLs touched the file, how many of those a diff tied to this fact,
+    and how many of those are printed. `1 of 510 merged CLs touched this file`
+    was said about a file whose newest 500 were read; `8 of 19` was said about
+    a row where 15 matched and 7 were cut with nothing to say so. The issue
+    block one panel down had this right the whole time -- "11 CLs cite it,
+    newest 8 shown".
+    """
+
+    def _finding(self, block):
+        from chromedrift.model import Change, Finding
+
+        return Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]),
+            score=90, enrichment={"gerrit": block})
+
+    BLOCK = {"candidates": 510, "candidates_read": 500, "matched": 15,
+             "diffs_read": True,
+             "changes": [{"number": 700 + i, "date": f"2026-06-{i + 1:02d}",
+                          "match": "exact", "subject": "s", "bugs": []}
+                         for i in range(12)]}
+
+    def test_the_number_opened_reaches_the_row(self):
+        """Set by the enricher under `candidates_read` and never mapped, so
+        the panel's own guard on it could not fire on any row ever built."""
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        row = html_report._to_rows(
+            Report(from_ref="a", to_ref="b",
+                   findings=[self._finding(self.BLOCK)]), "windows")[0]
+        self.assertEqual(row["cl_pool"], 510)
+        self.assertEqual(row["cl_read"], 500)
+        self.assertEqual(row["cl_match"], 15)
+
+    def test_a_list_that_was_cut_says_so_in_both_reports(self):
+        from chromedrift.model import Report
+        from chromedrift.report import markdown as md_report
+
+        line = [l for l in md_report._provenance_lines(self._finding(self.BLOCK))
+                if "merged CLs" in l][0]
+        self.assertIn("15 of 510", line)
+        self.assertIn("500 of them read", line)
+        self.assertIn("newest 12 shown", line)
+
+    def test_the_enricher_records_the_cut_it_made(self):
+        """Asserted through `enrich`, because the block above is hand-built
+        and a hand-built block cannot notice the line that fills it."""
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding
+
+        n = gerrit.KEEP_MAX + 4
+        cls = [{"_number": 100 + i, "subject": f"CL {i}",
+                "submitted": f"2026-05-{i + 1:02d} 00:00:00.000000000"}
+               for i in range(n)]
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
+        gerrit._diff = lambda *a, **k: [("  kFoo,", gerrit.ADDED)]
+        try:
+            gerrit.enrich([finding], "148", "151", cache_dir="",
+                          with_history=0, log=lambda m: None)
+        finally:
+            (gerrit.window_for, gerrit._search_window, gerrit._diff) = saved
+        block = finding.enrichment["gerrit"]
+        self.assertEqual(len(block["changes"]), gerrit.KEEP_MAX)
+        self.assertEqual(block["matched"], n,
+                         "the row prints this as its numerator; without it "
+                         "the count of what fitted passes for the count of "
+                         "what matched")
+
+    def test_a_list_that_was_not_cut_claims_no_cut(self):
+        from chromedrift.report import markdown as md_report
+
+        whole = dict(self.BLOCK, matched=None, candidates_read=None,
+                     changes=self.BLOCK["changes"][:2])
+        line = [l for l in md_report._provenance_lines(self._finding(whole))
+                if "merged CLs" in l][0]
+        self.assertIn("2 of 510", line)
+        self.assertNotIn("shown", line)
+        self.assertNotIn("read", line)
+
+
+class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
+    """The four block shapes, and the rename that carries a fact out of a file.
+
+    `_blocks` is where three of the four "confident wrong answers" this stage
+    was built to stop actually get stopped, and nothing in the suite had ever
+    called it: every mutation below left the suite green. They are cheap to
+    hold because the shapes are Gerrit's, small, and documented.
+    """
+
+    def _blocks(self, content):
+        from chromedrift.enrich.gerrit import _blocks
+
+        return _blocks({"content": content})
+
+    def test_context_is_not_a_change(self):
+        from chromedrift.enrich.gerrit import CONTEXT
+
+        self.assertEqual(self._blocks([{"ab": ["  int a;", "  int b;"]}]),
+                         [("  int a;", CONTEXT), ("  int b;", CONTEXT)])
+
+    def test_a_removed_line_and_an_added_one_are_told_apart(self):
+        """The whole of `introduced` rests on this. Flattened into one
+        "changed" flag, the direction an edit went is gone, and a CL that took
+        the new value *out* reads exactly like the one that put it in."""
+        from chromedrift.enrich.gerrit import ADDED, REMOVED
+
+        self.assertEqual(
+            self._blocks([{"a": ["  Vector2d x;"], "b": ["  Vector2dF x;"]}]),
+            [("  Vector2d x;", REMOVED), ("  Vector2dF x;", ADDED)])
+
+    def test_a_reindent_is_not_an_edit(self):
+        """`{"a": [...], "b": [...], "common": true}` is Gerrit saying these
+        lines are the same content differing only inside the line. Read as
+        changed, a CL that reformats a file becomes an `exact` match for every
+        declaration in it -- 49 such blocks in one real sample."""
+        from chromedrift.enrich.gerrit import CONTEXT
+
+        seq = self._blocks([{"a": ["  int kFoo;"], "b": ["    int kFoo;"],
+                             "common": True}])
+        self.assertEqual({state for _, state in seq}, {CONTEXT})
+
+    def test_a_skip_stands_for_the_lines_it_hides(self):
+        """`{"skip": N}` is N unchanged lines Gerrit did not send. Dropped,
+        the file silently shortens and every line after it moves -- which
+        moves what counts as inside a declaration."""
+        from chromedrift.enrich.gerrit import CONTEXT
+
+        seq = self._blocks([{"ab": ["  a"]}, {"skip": 40}, {"ab": ["  b"]}])
+        self.assertEqual(len(seq), 42)
+        self.assertEqual(seq[41], ("  b", CONTEXT))
+        self.assertEqual({state for _, state in seq}, {CONTEXT})
+
+    def test_a_skip_that_is_not_a_number_does_not_stop_the_scan(self):
+        self.assertEqual(len(self._blocks([{"skip": None}, {"ab": ["  a"]}])), 1)
+
+    def test_a_cl_gerrit_dated_nowhere_does_not_lead_the_list(self):
+        """`_neg_date` inverts digits so an ascending sort reads newest
+        first, and the empty string sorts before every inverted date -- so a
+        CL Gerrit returned without `submitted` or `updated` led every list it
+        appeared in, on the strength of knowing nothing about it."""
+        from chromedrift.enrich.gerrit import _neg_date
+
+        dates = ["2026-04-01", "", "2026-06-01"]
+        self.assertEqual(sorted(dates, key=_neg_date),
+                         ["2026-06-01", "2026-04-01", ""])
+
+    def test_refresh_fetches_each_diff_once(self):
+        """The diffs are warmed in a thread pool and then read back in order.
+        Passing `refresh` to both passes fetched every diff twice, so the flag
+        cost double and met the rate limiter at half the work.
+
+        Counted at the network boundary rather than at `_get_json`: the two
+        passes call that once each by design, and what the fix saves is the
+        fetch behind it. So the cache directory is real, and only the HTTP
+        call is replaced.
+        """
+        import json
+        import shutil
+        import tempfile
+
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding
+
+        urls = []
+        cls = [{"_number": 100 + i, "subject": "s", "id": f"i{i}",
+                "current_revision": "r",
+                "submitted": f"2026-05-{i + 1:02d} 00:00:00.000000000"}
+               for i in range(3)]
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
+        gerrit._http_get = lambda url, **k: (
+            urls.append(url)
+            or json.dumps({"content": [{"b": ["  kFoo,"]}]}).encode())
+        cache = tempfile.mkdtemp()
+        try:
+            gerrit.enrich([finding], "148", "151", cache_dir=cache,
+                          refresh=True, with_history=0, workers=1,
+                          log=lambda m: None)
+        finally:
+            (gerrit.window_for, gerrit._search_window,
+             gerrit._http_get) = saved
+            shutil.rmtree(cache, ignore_errors=True)
+        diffs = [u for u in urls if "/diff" in u]
+        self.assertEqual(len(diffs), len(cls))
+        self.assertEqual(len(diffs), len(set(diffs)),
+                         f"a diff was fetched twice: {len(diffs)} requests "
+                         f"for {len(set(diffs))} files")
+
+    def test_a_fact_is_followed_into_the_file_it_was_renamed_into(self):
+        """A pure rename changes no line, so no diff of the old path carries
+        the evidence -- CL 7810461 renamed `html_or_foreign_element.idl` and
+        every member of that interface read as removed at the old path with
+        nothing to say so. `moved` exists for exactly that, and it is reached
+        only if the rename is followed."""
+        from chromedrift.enrich import gerrit
+
+        old, new = "a/old.idl", "a/new.idl"
+        docs = {old: {"content": [{"ab": ["interface Foo {};"]}]},
+                new: {"content": [{"a": ["interface Foo {};"],
+                                   "b": ["interface Foo { attribute x; };"]}]}}
+        import urllib.parse
+
+        saved = (gerrit._get_json, gerrit._renamed_to)
+        gerrit._get_json = lambda url, *a, **k: next(
+            (d for p, d in docs.items()
+             if urllib.parse.quote(p, safe="") in url), None)
+        gerrit._renamed_to = lambda *a, **k: new
+        try:
+            seq = gerrit._diff({"_number": 1, "id": "x", "current_revision": "r"},
+                               old, "", False, lambda m: None)
+        finally:
+            (gerrit._get_json, gerrit._renamed_to) = saved
+        self.assertTrue(any(state for _, state in seq),
+                        "the rename was not followed, so `moved` can never "
+                        "be reached and the fact reads as deleted")
 
 
 class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):

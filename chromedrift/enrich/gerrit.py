@@ -83,6 +83,7 @@ network anyway.  Everything is resolved during the run and embedded.
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 import json
 import os
 import re
@@ -177,6 +178,13 @@ def strength(match: str) -> int:
     """
     return _STRENGTH.get(match, len(_STRENGTH))
 
+# How many CLs one row prints before the list is cut. Twelve rather than
+# eight, matched to the cap the issue block already uses, because a revert and
+# reland chain runs longer than a citation does and the eight were being taken
+# off the newest end -- which on a chain is the end that holds the origin.
+# Whatever is cut is now said out loud rather than folded into the pool count.
+KEEP_MAX = 12
+
 # How many CLs a `touched` fallback offers. Three, because it is reached
 # exactly when nothing distinguishes them, and a longer list of undistinguished
 # CLs is the 500-row problem this whole stage exists to avoid.
@@ -257,9 +265,19 @@ def _cache_path(cache_dir: str, *parts: str) -> str:
 
 
 def _slug(text: str) -> str:
-    """A filename that survives every filesystem and stays readable."""
+    """A filename that survives every filesystem, and every process.
+
+    The long form used `hash()`, which Python salts per process: the same path
+    produced a different file on every run, so a cache entry could never be
+    read back by anything but the run that wrote it. Unreached on the paths
+    this project actually holds -- none of 338 real ones is long enough -- and
+    silent when reached, which is the combination worth removing.
+    """
     safe = re.sub(r"[^A-Za-z0-9._-]", "_", text)
-    return safe[:120] if len(safe) <= 120 else safe[:100] + "_" + str(abs(hash(text)) % 10 ** 8)
+    if len(safe) <= 120:
+        return safe
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+    return safe[:100] + "_" + digest
 
 
 def _get_json(url: str, cache_dir: str, key: Sequence[str],
@@ -1092,10 +1110,20 @@ def _prune(hits: List[dict]) -> List[dict]:
     """
     strong = [h for h in hits
               if h["match"] in ("introduced", "exact", "moved", "described")]
+    declares = [h for h in hits if h["match"] == "declares"]
     if strong:
-        kept = strong
+        # A `declares` CL edited the body of the declaration without touching
+        # the line that names it. Beside an `exact` hit that was read as a
+        # weaker copy of the same answer and dropped, and it is not one -- it
+        # is a different CL doing different work on the same declaration. On a
+        # real top 150 the rule threw away 40 CLs across 18 findings, every one
+        # of them a genuine contributor to a row that had more than one.
+        #
+        # The scarcity test still applies, because it is what `declares` needs
+        # to mean anything: a crowd of them singles nothing out whether or not
+        # a strong hit is present.
+        kept = strong + (declares if len(declares) <= DECL_MAX else [])
     else:
-        declares = [h for h in hits if h["match"] == "declares"]
         if len(declares) > DECL_MAX:
             # A crowd of CLs that all edited this declaration is not noise to
             # be thrown away, and it is not a citation either. It is the
@@ -1107,14 +1135,34 @@ def _prune(hits: List[dict]) -> List[dict]:
             # because a citation is the last word on a line; a history read
             # backwards is not a history.
             declares.sort(key=lambda h: _neg_date(h["date"]))
-            return [dict(h, match="crowded") for h in reversed(declares[:8])]
+            return [dict(h, match="crowded")
+                    for h in reversed(declares[:KEEP_MAX])]
         kept = declares
+    # Selected strongest-then-newest, because that is what a cap should keep:
+    # the current state of the line, not the start of its history.
     kept.sort(key=lambda h: (strength(h["match"]), _neg_date(h["date"])))
-    return kept[:8]
+    kept = kept[:KEEP_MAX]
+    # Then read forward, once there is more than one. A single CL is a
+    # citation and has no order; several are a sequence, and the reason the
+    # `crowded` branch already reverses itself applies here just as well --
+    # a flag that launched, was reverted, relanded, reverted and relanded
+    # again is a story, and a story read backwards is not one. This is where
+    # those rows actually live: 28 of a real top 150 keep more than one CL.
+    if len(kept) > 1:
+        kept.sort(key=lambda h: h["date"] or "")
+    return kept
 
 
 def _neg_date(date: str) -> str:
-    """Sort dates descending inside an ascending sort. ISO dates only."""
+    """Sort dates descending inside an ascending sort. ISO dates only.
+
+    An empty date sorted first, which in a descending sort means *newest* --
+    so a CL Gerrit returned without `submitted` or `updated` led every list it
+    was in, and led it on the strength of knowing nothing about it. Unknown
+    sorts last instead: `~` is above every digit this produces.
+    """
+    if not date:
+        return "~"
     return "".join(chr(ord("9") - int(ch)) if ch.isdigit() else ch
                    for ch in date)
 
@@ -1335,7 +1383,10 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         pool.map(lambda job: _diff(job[0], job[1], cache_dir, refresh, log), plan)
 
     for path in read:
-        diffs = [(cl, _Scanned(_diff(cl, path, cache_dir, refresh, log)))
+        # Read from what the pass above just wrote. Passing `refresh` again
+        # here re-fetched every diff a second time, so `--refresh` cost twice
+        # what it had to and hit the rate limiter at half the work.
+        diffs = [(cl, _Scanned(_diff(cl, path, cache_dir, False, log)))
                  for cl in found[path]]
         moved_here = {cl["_number"] for cl, _ in diffs
                       if (cl["_number"], path) in _followed}
@@ -1371,7 +1422,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
             prior = best.get(hit["number"])
             if prior is None or _STRENGTH[hit["match"]] < _STRENGTH[prior["match"]]:
                 best[hit["number"]] = hit
-        kept = _prune(list(best.values()))
+        matched = list(best.values())
+        kept = _prune(matched)
         # Every path the finding was searched under, not just the first. A
         # declaration that moved between files is searched in both, and
         # counting one of them printed "3 of 2 merged CLs touched this file".
@@ -1383,6 +1435,14 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         read_count = sum(len(found[p]) for p in searched)
         if read_count != block["candidates"]:
             block["candidates_read"] = read_count
+        # How many of the candidates the diff actually tied to this fact, as
+        # opposed to how many of those survived the cap. The row printed the
+        # second as though it were the first -- "8 of 19 merged CLs touched
+        # this file" on a finding where 15 matched and 7 were cut -- and said
+        # nothing about the cut. The issue block one panel down had this right
+        # from the start: "11 CLs cite it, newest 8 shown".
+        if len(matched) > len(kept):
+            block["matched"] = len(matched)
         block["window"] = [after, before]
         # Set on every finding that was asked about, not only the ones that
         # answered. "No CL edits this line" and "nobody looked" are different
@@ -1523,7 +1583,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         log(f"  ! gerrit: --gerrit-issues stopped at {with_history}, so "
             f"{dropped_issues} issue(s) were not looked up")
     if skipped:
-        log(f"  ! gerrit: --gerrit-budget stopped at {budget} diffs, so "
+        log(f"  ! gerrit: the diff budget stopped at {budget}, so "
             f"{len(skipped)} file(s) were answered from descriptions only: "
             f"{skipped[0]}" + (" ..." if len(skipped) > 1 else ""))
     if truncated:

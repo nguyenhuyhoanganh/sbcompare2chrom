@@ -2,11 +2,12 @@
 
 > Initial assessment: August 21, 2026  
 > Follow-up review: August 22, 2026  
-> Latest reviewed baseline: commit `a4f13ec` — schema `40`  
-> History reviewed through that baseline: all 78 of 78 commits, from `d9fca08` through `a4f13ec`, including subjects, bodies, and the diffs behind the major decisions.  
+> Provenance-stage review: August 28, 2026  
+> Latest reviewed baseline: commit `25745ed` — schema `40`  
+> History reviewed through that baseline: all 89 of 89 commits, from `d9fca08` through `25745ed`, including subjects, bodies, and the diffs behind the major decisions.  
 > Scope: all Python source, extractors, targets, caching, snapshots, diffing, scoring, reports, tests, and the cached M130/M136/M139/M143/M147/M148/M151 data available in the project.
 
-> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in **Section 33** and supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
+> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in **Section 34**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
 
 ## 1. Start here if you are not deeply technical
 
@@ -60,7 +61,8 @@ Use this reading path:
 - To understand facts and scoring: Sections 9, 10, and 11.
 - To understand decisions recorded in commit history: Sections 17 and 18.
 - To see which issues originally required the earliest attention: Sections 19, 20, and 21.
-- To see the latest conclusion and recommended stopping point: Section 31.
+- To see the latest conclusion and recommended stopping point: Section 34.
+- To understand the CL-and-issue provenance stage and what it can be trusted for: Section 34.
 
 ### Quick answers
 
@@ -4426,3 +4428,218 @@ From here, reopen the audit only when a real uprev produces one of three kinds o
 3. the output or evidence is not enough for a triager to check the source.
 
 > **Audit closed at `a4f13ec`, schema 40. The next step is to use the tool, not to keep fixing against hypothetical completeness.**
+
+## 34. Review of `bc472be` … `25745ed` — the provenance stage
+
+> Reviewed: August 28, 2026
+> Baseline: commit `25745ed`, schema `40`, 89 of 89 commits
+> New since the closure at `a4f13ec`: 11 commits, of which 6 are the provenance stage
+> Verified on: Python 3.14.6, 458 of 458 tests pass; real `M148 → M151 default` data throughout
+
+The audit was closed at `a4f13ec` on the understanding that it would reopen when a real uprev produced evidence. It is reopened here for a different reason: a substantial new stage was added, and it is the first stage in the tool that fetches from a third party and asserts a causal claim.
+
+`chromedrift/enrich/gerrit.py` (1,559 lines) and `chromedrift/serve.py` (255 lines) answer a question the two trees cannot: *who made this change, and what were they fixing.* This section reviews that stage and nothing else; the earlier verdicts on extraction, diffing and scoring are unchanged.
+
+### 34.1. What the stage does, and why the design is sound
+
+The chain is four lookups, each of which narrows the previous one:
+
+```
+fact  ->  the file that declares it
+      ->  every merged CL that touched that file between the two versions
+      ->  the CLs whose diff of that file names, or introduces, this identifier
+      ->  the Bug: footer, and every other CL citing the same issue
+```
+
+Three design decisions are worth recording because they are the difference between a useful answer and a plausible one.
+
+**The file is a candidate generator, not an answer.** 510 merged CLs touched `runtime_enabled_features.json5` in the M148 → M151 window. Handing a reader 510 CLs is worse than handing them none, so the file only produces candidates and the candidates are filtered by what their diffs actually contain.
+
+**Six verdicts, ranked, never summed into a score.** `introduced` > `exact` > `moved` > `declares` > `described` > `crowded` > `touched`, with the last two fenced below `CITES` and printed under a sentence saying they are leads. This is the same discipline the rest of the tool follows — stop at the evidence, label its strength, do not average it into a number that hides which kind it was.
+
+**`introduced` is the strongest idea in the stage.** Every other verdict asks whether a CL *touched* the declaration, which any CL that reformatted the file satisfies. `introduced` asks whether the CL's added lines carry the value the fact ended up with. The report already held both states of every changed declaration and had never spent them. That is a genuine observation, not a heuristic bolted on.
+
+The stage is also correctly scoped. It never runs during `run`, so a report is complete and readable without the network; the page probes `/api/ping` once and stays static if nothing answers; and nothing about `report.html` on a disk changed.
+
+### 34.2. The claims reproduce on real data
+
+Every headline number in README §8 was re-measured against the cached M148 → M151 `default` run. They hold.
+
+| Claim | Reproduced |
+|---|---|
+| The top 150 findings touch 56 distinct files | 56 |
+| `AndroidCaptureKeyEvents` resolves to CL 7885356 | yes, live through the server |
+| `TokenError.url` resolves to CL 7982397 `introduced` | yes, `1 of 13` |
+| `border_offset` Vector2d → Vector2dF resolves to CL 7757059 | yes |
+| The `_enclosing_span` rule picks 1 of 510 on `runtime_enabled_features.json5` | yes, CL 7895296 |
+| A row always answers | 60 of 60 enriched rows carry a CL, 0 leads-only |
+
+Verdict distribution over those 60 rows: 37 `introduced`, 24 `exact`, 11 `declares`, 2 `described`. **52 of 60 rows resolve to exactly one CL.**
+
+Spot-checking `introduced` against the delta it was derived from is the sharpest available test of whether the verdict means anything, and it survives it:
+
+```
+type ["gfx.mojom.Vector2d" -> "gfx.mojom.Vector2dF"]
+  CL 7757059  VT: Avoid transform rounding in style tracker; instead do it in cc.
+
+response ["DeviceAttributeResult result" -> ""]   (five methods)
+  CL 7957318  Refactor Device APIService to use mojom result<T, E>
+
+params gained pending_remote<...DownloadObserver>
+  CL 7896445  [3/3] Pass download progress observers dynamically in WebPlatform APIs
+```
+
+Five `DeviceAPIService` methods resolving to one refactor CL is the correct answer, not five coincidences. The stage does what it says.
+
+### 34.3. The one layer that no test touches
+
+Seven mutations were applied to the module, each reverting a decision the commit messages or README present as deliberate. The suite was run from a cleared `__pycache__` each time.
+
+| Mutation | Suite |
+|---|---|
+| Count a `{"a":…,"b":…,"common":true}` reindent block as a real edit | **458 pass** |
+| Ignore `{"skip": N}` blocks | **458 pass** |
+| Never follow a rename, so `moved` can never be reached | **458 pass** |
+| Let the container token earn `exact` | 2 failures |
+| Take the window from the tag date instead of `Cr-Branched-From` | 1 failure |
+| Believe a 500-row page instead of splitting the window | 2 failures |
+| Sort citations oldest-first | 2 failures |
+
+The boundary is exact. Everything above the wire format — matching, windowing, paging, ranking, the leads/citation separation — is locked. **`_blocks`, the function that turns Gerrit's diff JSON into lines, is never called by any test**, and neither is the rename follow in `_diff`. No fixture anywhere in `tests/` contains a `common` or a `skip` block.
+
+That matters because README §8 lists four "confident wrong answers" as found and fixed, and three of them live in exactly that unguarded function:
+
+- a reindent counted as an edit, which made a reformatting CL an `exact` match for every declaration in the file — 49 such blocks in a 2,329-diff sample;
+- `{"skip": N}` ignored, which silently shortened the file and made a renamed file answer with no evidence;
+- the rename follow itself, which is the whole of the `moved` verdict.
+
+Each is a one-line condition. Each can be reverted today with the suite green. This is the project's own recurring failure mode, and the earlier rounds of this audit named it: the fix lands, the reasoning is written down well, and the invariant is not locked. A `_blocks` fixture with one `ab`, one `a`/`b`, one `common:true` and one `skip` block, asserted against the expected `(line, state)` sequence, closes all three at once and costs about twenty lines.
+
+### 34.4. The batch path described everywhere does not exist
+
+`gerrit.enrich()` has exactly one production caller: `serve._State.resolve`, which passes `top=1`, silences the log with `log=lambda m: None`, and discards the return value. `cmd_run` never calls it.
+
+The consequence is that the module's run-level disclosure is computed and thrown away. `enrich()` returns `failed_fetches`, `incomplete_files`, `capped_files`, `issues_restricted`, `findings_leads_only`, `files_left_to_descriptions` — none of these names appears anywhere else in `chromedrift/`. The ten `log()` lines that report them, including
+
+```
+! gerrit: N fetch(es) failed and were read as no evidence; a finding may
+  have a CL this run did not see.
+```
+
+reach no one. That line exists because the module docstring says turning a network fault into a confident "no CL found" is the one thing the stage is not allowed to do. In the shipped path, a rate-limited fetch does exactly that, silently.
+
+The missing caller has a name. `why` is referenced five times — in `serve.py`'s module docstring, in `cmd_serve`'s own docstring ("The complement of `why`, not a replacement"), in `cmd_check`'s user-visible failure text (`" (only \`why\` needs it)"`), and in the report page's own JavaScript, which tells a reader of a static report to *"Re-run `why` with a higher `--gerrit-budget`."* Neither the command nor the flag exists; `git log -S` shows `add_parser("why"` was never added. The three flags named in `enrich()`'s log strings — `--gerrit-budget`, `--gerrit-max-cls`, `--gerrit-issues` — do not exist either. The real ones are `--click-budget` and `--issues` on `serve`, and `max_cls_per_file` is not exposed at all.
+
+This is a design that was fully thought through and then only half wired. The markdown renderer already prints provenance; the summary dict is already shaped for `report.meta`; the budget ordering in `spend_order` is written for a many-file batch and is nearly pointless for a one-row click. Either add the command, or delete the batch scaffolding and the five references to it. The current state tells a reader to run something that will not run.
+
+### 34.5. `cl_read`: the denominator disclosure that never reaches the page
+
+`gerrit.py` sets `block["candidates_read"]` when `--gerrit-max-cls` trims a file's CL list. `html.py::_to_rows` never maps it to `row["cl_read"]`. The key is in `PROVENANCE_KEYS` and the page's JavaScript reads `f.cl_read` in two places; it is always `undefined`. `git log -S 'row["cl_read"]'` returns nothing — the consumer was written for a producer that was never wired up.
+
+Measured on the real run, for the one finding declared in `runtime_enabled_features.json5`:
+
+```
+block: candidates 510, candidates_read 500
+report.html:  "1 of 510 merged CLs touched this file"
+report.md:    "(1 of 510 merged CLs touched this file)"
+```
+
+510 CLs were found; 500 were read; the ten oldest were never fetched. Both artifacts state the larger number as the search's denominator and omit the trim. README §8 promises the opposite in as many words: *"the panel prints both numbers: 510 merged CLs touched this file · 500 of them read."*
+
+The code comment beside `total_found` names this defect class itself — *"which is the one kind of rounding this stage is not allowed to do"* — and fixes the half that was noticed. The other half remained: a reader is now told 510 were searched when 500 were. The fix is one line in `_to_rows`.
+
+### 34.6. One finding, several CLs: the list is right, its ceiling is not disclosed
+
+A change is often not one CL. A flag that flips `disabled -> enabled` may have been launched, reverted, relanded, reverted again and relanded, and the diff between two tags shows only the endpoints. The stage handles this correctly in principle: `_prune` keeps every hit that names the fact, not the best one, and `_compact` carries Gerrit's own `revert_of` and `cherry_pick_of_change` so the chain is legible rather than a list of similar subjects.
+
+Measured over the top 150 of the M148 -> M151 `default` run: **28 of 150 findings carry more than one CL**, and the reconstruction is correct where it matters. `NtpComposebox` returns the whole arc:
+
+```
+2026-06-29  CL 7791453  [next] Launch Omnibox and NTP Next features
+2026-06-30  CL 8017587  Revert "..."                          [reverts 7791453]
+2026-07-09  CL 8027107  Reland "..."                          [reverts 8017587]
+2026-07-10  CL 8071179  Revert "Reland ..."                   [reverts 8027107]
+2026-07-29  CL 8092074  Reland "Reland ..."                   [reverts 8071179]
+```
+
+There is a second layer above it. The issue block lists every CL citing the same bug, which reaches past the window: for the same row it shows the `[M151]` and `[M152]` merge-backs and a later revert that the file search cannot see. That block is the right answer to "what is the whole story", and it **discloses its own ceiling**: *"11 CLs cite it, newest 8 shown · 2026-06-30 → 2026-08-05"*.
+
+The CL list directly above it has the identical ceiling and does not disclose it. `_prune` returns `kept[:8]`, and the panel header prints `f.cls.length` against the candidate pool:
+
+```
+NtpComposebox:  19 candidates, 15 matched, 8 shown
+report.html:    "8 of 19 merged CLs touched this file"
+report.md:      "(8 of 19 merged CLs touched this file)"
+```
+
+Both formats state the shown count against the candidate count, so 8-of-19 reads as "8 of the 19 candidates matched". Fifteen matched. Seven were discarded, and nothing on the row says a list was cut. The issue block one line below proves the project already knows how to word this.
+
+Two rules do the discarding, and they fail in opposite directions:
+
+**The cap drops the oldest.** `kept.sort(key=lambda h: (strength(h["match"]), _neg_date(h["date"])))` is newest-first, so the eight survivors are the eight most recent. For a citation that is right — the last CL to touch a line is usually the one wanted. For a revert/reland chain it is backwards: the origin is the oldest entry. `_prune` already contains this exact reasoning, but only in the `crowded` branch, where the comment says *"a history read backwards is not a history"* and reverses the order. The strong branch, which is where multi-CL chains actually live, never got it. Here the launch CL survived only because its date happened to fall inside the newest eight; `[ntp-composebox] Add feature flag to switch to ntp-composebox fork` (2026-05-13, `exact`) did not.
+
+**A stronger verdict deletes every weaker one.** When any `introduced`/`exact`/`moved`/`described` hit exists, all `declares` hits are dropped. Across the top 150 that removed every `declares` CL from **18 findings, 40 CLs in total**. As noise control on a single-cause row it is right — an `exact` does make a `declares` redundant. On a multi-CL row it is not, because a CL that edited the declaration's body is a contributor, not a weaker copy of a different CL.
+
+Both are cheap to fix and neither changes a verdict:
+
+- print the matched count, not the shown count — `"15 of 19 matched, newest 8 shown"`, the wording the issue block already uses;
+- when a row keeps more than one CL, order it oldest-first, as `crowded` already does, or keep the newest four and the oldest four rather than the newest eight;
+- keep `declares` hits on a row that already has several strong ones, ranked below them, instead of dropping them.
+
+**A related precision risk, measured and found small.** Matching is plain substring, so a token that is a prefix of a longer real identifier collects that identifier's CLs: `kNtpComposebox` matches a line declaring `kNtpComposeboxFork`, verified directly against `_match`. 17 of the 792 feature-flag findings in this run have a name that is a substring of another flag's name in the same run. The cost, however, is almost nothing: re-running the whole top 150 with a word-boundary test in place of substring containment changes **201 CLs to 200**, on one finding, with the same 150 of 150 resolved. It is worth hardening — the boundary test can run only on lines the existing substring prefilter already accepted, so it costs nothing measurable — but it is not what is losing CLs today. The cap and the `declares` rule are.
+
+### 34.7. Smaller findings
+
+**`_slug` uses `hash()`, so a cache filename is not reproducible.** A term longer than 120 characters falls to `safe[:100] + "_" + str(abs(hash(text)) % 10 ** 8)`, and `hash()` on a `str` is salted per process. Three runs, same input:
+
+```
+..._OR_message__OnScriptLoad_15578263
+..._OR_message__OnScriptLoad_24029225
+..._OR_message__OnScriptLoad_64166726
+```
+
+Reachable through `_by_message`, whose query expression exceeds 120 characters whenever its three longest tokens total about 80. The effect is that those entries never hit the cache and the directory grows one file per run. Declaration paths are safe today only by luck: the longest in the M151 `wide` snapshot is 117 characters. `hashlib.sha1(text.encode()).hexdigest()[:8]` fixes it and costs nothing.
+
+**A CL with no date sorts as the newest.** `_neg_date("")` returns `""`, which sorts first in the ascending sort that `_prune` and `_last_resort` use, and first means newest there. An undated CL therefore displaces genuinely newer ones at the head of the citation list. Rare, since Gerrit returns `submitted` for merged changes, but it is an inversion rather than a degradation.
+
+**`--refresh` fetches every diff twice.** `enrich()` prefetches the plan through a thread pool and then calls `_diff` again in the sequential scan; both pass `refresh`, and `_get_json` skips the cache when it is set. Latent only — no CLI path reaches `serve` with `refresh=True` — but it doubles the request count and the 429 exposure for anyone calling the API directly.
+
+**`_diff`'s docstring is inaccurate in a way that will mislead.** It says "the file as this CL left it", but `_blocks` emits the union of both diff sides: for a real edit block the `a` lines are appended, then the `b` lines. The brace-depth scan in `declaration_span` therefore walks an interleaved sequence. It happens to work — Gerrit emits complete replaced runs per side, and the 60-line cap bounds the damage — but a maintainer reasoning from that sentence will get line indices wrong.
+
+**`container_for`'s docstring is now stale.** It states the container "can only ever reach `declares` … and never `exact`". `_match` adds the container to `search`, which the `introduced` loop also uses, and `introduced` outranks `exact`. The behaviour is intended and produces the right answer on `TokenError.url`; the sentence describing it is no longer true.
+
+### 34.8. Documentation drift, and the tests that used to prevent it
+
+Six test classes were removed across the last four commits, on the stated ground that they check "how documents are written rather than whether what they say is true". For four of them that is correct: frontmatter character limits, body line counts and table-of-contents depth cannot fail in a way that means the tool is wrong, and removing them is right.
+
+Two were in the other category. `TestTheDocumentedSourceMapStillHolds` checked whether a stated number was true, and its own docstring made the argument: *"a reader who checks one and finds it wrong stops trusting the ones they cannot check, like the coverage tables."* It caught a real drift in `fdadffc`, the commit immediately before the series that removed it. `TestTheDocumentedFiguresStillHold` held README prose to `docs/figures.json`.
+
+The drift returned at once. README §12's source map, which §11 lists as an invariant — *"The source map in §12 must match the source"* — is now stale in 4 of its 15 rows:
+
+```
+report/    1,861 stated   2,469 actual   +608
+enrich/      805          1,753          +948
+serve.py     200            255           +55
+cli.py       763            738           -25
+```
+
+The header count of "11,748 lines" is short by about 1,800. Separately, the figure quoted three times as *"62 CLs touched `content_features.cc`"* measures 72 on the same window today.
+
+None of these numbers changes what the tool does. They are worth fixing for the reason the deleted test gave, and because the same commit series that removed the checks is the one that introduced `why`, `--gerrit-budget` and `--gerrit-max-cls` into user-visible strings for things that do not exist. That is not a coincidence; it is what the checks were for.
+
+### 34.9. Verdict
+
+The provenance stage is a real advance and it works. It resolves 60 of 60 top findings on live data, 52 of them to a single CL, and the `introduced` verdict earns its rank — it identifies the CL that made the change rather than one that stood near it. The evidence ladder never collapses a lead into a citation, the disclosure discipline in the code is the same one the rest of the tool follows, and the decision to keep it out of `run` is correct.
+
+What it needs before it can be relied on is smaller than what it already does:
+
+1. **Test `_blocks` and the rename follow.** Three of the four defects the README presents as fixed are currently revertible with a green suite. One fixture closes all three.
+2. **Say when a CL list was cut.** A row that matched 15 CLs and shows 8 prints "8 of 19", and the cut takes the oldest — the origin of a revert/reland chain. The issue block directly below it already words this correctly.
+3. **Decide what `why` is.** Either add the batch command the code, the help text and the report page all reference, or remove those references and the run-level summary that has no consumer. As it stands, a reader is told to run a command that does not exist, and a failed fetch is reported to nobody.
+4. **Wire `cl_read`.** One line, and it stops both report formats from stating a denominator the search did not cover.
+5. Replace `hash()` in `_slug` with a stable digest; treat an empty date as oldest, not newest.
+6. Refresh the source map and the `62` figure, and restore the two consistency tests that were checking truth rather than form.
+
+Items 1–4 are the ones that affect what a reader believes. None of them requires a schema bump, and none of them changes a verdict already produced.
+
+> **Reviewed at `25745ed`, schema 40. The stage is sound and measurably correct; its diff parser is unguarded, its batch half is unbuilt, and two of its lists state a count they did not cover.**

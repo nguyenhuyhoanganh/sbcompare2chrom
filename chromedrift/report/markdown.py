@@ -483,8 +483,20 @@ def _provenance_lines(finding) -> List[str]:
         what = ("- How it got here, oldest first" if history
                 else "- Leads only, no CL names this" if leads
                 else "- Why it changed")
-        head = (f"{what} ({len(changes)} of {pool} merged CLs "
-                f"touched {where}):" if pool else f"{what}:")
+        # The count that was tied to this fact, not the count that fitted.
+        # `report.md` is the copy that travels into a ticket, so a list cut
+        # without saying so travels as the whole answer.
+        matched = block.get("matched") or len(changes)
+        cut = (f", newest {len(changes)} shown"
+               if matched > len(changes) else "")
+        # Found and opened are different numbers, and the gap is where a
+        # missing CL would be. A file with 510 candidates whose newest 500
+        # were read said "1 of 510 merged CLs touched this file" in both
+        # reports; the line a reader pastes into a ticket has to carry it.
+        read = block.get("candidates_read")
+        seen = f", {read} of them read" if read else ""
+        head = (f"{what} ({matched} of {pool} merged CLs "
+                f"touched {where}{seen}{cut}):" if pool else f"{what}:")
         out.append(head)
         for cl in changes:
             bugs = "".join(

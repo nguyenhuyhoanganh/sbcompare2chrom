@@ -520,8 +520,8 @@ function provenance(f){
       (f.no_diffs
         ? 'Not looked up \u2014 '+f.cl_pool+' CLs touched this file, more than '+
           'the run\u2019s diff budget would read.'+
-          (LIVE?'':' Re-run <code>why</code> with a higher '+
-                   '<code>--gerrit-budget</code>.')
+          (LIVE?'':' Serve the directory and open the row, or raise '+
+                   '<code>--click-budget</code>.')
         /* Reached now only when the pool itself is empty, because a pool with
            anything in it falls back to `touched`. Kept for the reports of
            earlier runs, which are on disk and still open in this page. */
@@ -534,12 +534,19 @@ function provenance(f){
                something landed; what failed is this search. Naming what it
                asked is the only honest form of the answer, and it is also
                the one a reader can act on. */
-            : 'This lookup found nothing. Nothing touched '+
+            : (f.cl_failed
+              /* Never folded into the answer. A fetch that failed is not
+                 evidence of absence, and reporting it as one is the single
+                 thing this stage may not do. */
+              ? f.cl_failed+' request'+(f.cl_failed===1?'':'s')+' to Gerrit '+
+                'failed during this lookup, so this is not a finished search. '+
+                'Open the row again to retry.'
+              : 'This lookup found nothing. Nothing touched '+
               (f.cl_files>1?'either file':'this file')+
               ' on any branch in the window, and no commit message in it '+
               'names this identifier \u2014 so the CL that made this change '+
               'is recorded under something other than the name or the path '+
-              'held here.'))+'</p>'+
+              'held here.')))+'</p>'+
       (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
   }
   if(f.cls&&f.cls.length){
@@ -552,8 +559,16 @@ function provenance(f){
         ? '<span class="pool">found by commit message \u2014 nothing '+
           'touched '+(f.cl_files>1?'either file':'this file')+' in the '+
           'window</span>'
-        : (f.cl_pool?'<span class="pool">'+f.cls.length+' of '+f.cl_pool+
+        /* Three numbers, and they answer three different questions: how
+           many CLs touched the file, how many of those a diff tied to this
+           fact, and how many of those are printed below. Printing the third
+           against the first read as the second -- "8 of 19 merged CLs
+           touched this file" on a row where 15 matched and 7 were cut, with
+           nothing saying the list had been cut at all. */
+        : (f.cl_pool?'<span class="pool">'+(f.cl_match||f.cls.length)+' of '+
+        f.cl_pool+
         ' merged CLs touched '+(f.cl_files>1?'these '+f.cl_files+' files':'this file')+
+        (f.cl_match?' \u00b7 newest '+f.cls.length+' shown':'')+
         (f.cl_read?' \u00b7 '+f.cl_read+' of them read':'')+
         (f.no_diffs?' \u00b7 diffs not read, descriptions only':'')+
         '</span>':''))+'</h4>'+
@@ -584,8 +599,9 @@ function provenance(f){
          lookup can still turn into a citation. */
       (LIVE&&f.no_diffs&&allWeak(f)?lookupBtn(f)
         :(!LIVE&&f.no_diffs&&allWeak(f)
-          ?'<p class="none">Re-run with a higher <code>--gerrit-budget</code>, '+
-           'or open this row through <code>chromedrift serve</code>.</p>':''))+
+          ?'<p class="none">Open this row through '+
+           '<code>chromedrift serve</code>, or raise '+
+           '<code>--click-budget</code>.</p>':''))+
       '</div>';
   }
   /* Every issue the row's CLs cite, busiest first. A flag that launched,
@@ -927,6 +943,22 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             if extra > 0:
                 row["issues_more"] = extra
             row["cl_files"] = len([p for p in (change.paths or [])[:2]])
+            # Set by the enricher and never mapped, so the panel's
+            # `f.cl_read` was undefined on every row and the denominator it
+            # guards printed unqualified: a file with 510 candidates whose
+            # newest 500 were read said "1 of 510 merged CLs touched this
+            # file". The number found and the number opened are different
+            # claims and the row has room for both.
+            if provenance.get("candidates_read"):
+                row["cl_read"] = provenance["candidates_read"]
+            # How many were tied to this fact, when the list below was cut.
+            if provenance.get("matched"):
+                row["cl_match"] = provenance["matched"]
+            # What would make this row's answer less than sure. A lookup that
+            # lost a fetch and one that read every diff and matched nothing
+            # produce the same empty panel, and only the run knows which.
+            if provenance.get("failed_fetches"):
+                row["cl_failed"] = provenance["failed_fetches"]
             # "no CL edits this line" and "nobody looked" are different
             # answers, and only the run knows which one this is. A row that
             # was never asked about carries neither, and says nothing.
@@ -962,8 +994,9 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
 # the two drifted the first time a key was renamed: `issue` became `issues` in
 # the renderer and the server went on filtering for `issue`, so every lookup
 # answered with the CLs and silently dropped the issue history.
-PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "issues",
-                   "issues_more", "no_diffs", "cl_by_message")
+PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "cl_match",
+                   "cl_failed", "issues", "issues_more", "no_diffs",
+                   "cl_by_message")
 
 
 def _issue_payload(issue) -> dict:

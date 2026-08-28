@@ -343,9 +343,10 @@ def cmd_check(args: argparse.Namespace) -> int:
          f"{CHROMIUMDASH}/fetch_milestones?mstone=143"),
         ("chromestatus (enrichment, optional)",
          "https://chromestatus.com/api/v0/features?milestone=143"),
-        # `why` only. Named here because it is the one host a run can need
+        # `serve` only. Named here because it is the one host a lookup needs
         # that neither `run` nor `snapshot` ever touches, so a machine that
-        # passes `check` and then fails at `why` would have had no warning.
+        # passes `check` and then cannot answer a click would have had no
+        # warning.
         ("chromium-review (provenance, optional)",
          f"{gerrit.GERRIT}/changes/?q=status:merged&n=1"),
     ):

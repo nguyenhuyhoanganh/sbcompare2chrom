@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (11,748 lines, 31 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (13,666 lines, 32 files), no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -834,7 +834,14 @@ Measured over the 102 findings of a real M148 → M151 slice: **39 CLs earn `int
 
 So there is no radius. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 510 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
 
-Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 112 `exact`, 32 `declares`, 6 `moved` — where the first working version of this managed 115.
+Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 129 `exact`, 62 `declares`, 37 `introduced`, 6 `moved`, 3 `described` across 237 CLs — where the first working version of this managed 115.
+
+**A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one story. Two rules used to cut that list without saying so:
+
+- **A strong hit deleted every `declares` beside it**, on the reading that an `exact` match makes them redundant. It does not: a CL that edited the declaration's body without touching the line naming it is a different CL doing different work. The rule threw away 40 CLs across 18 findings. The scarcity test that gives `declares` its meaning still applies — a crowd of them singles nothing out whether or not a strong hit is present.
+- **The cap took the newest eight**, which is right for a citation and backwards for a chain, where the origin is the oldest. `NtpComposebox` lost *"[ntp-composebox] Add feature flag"* — the CL the story starts at — while keeping five reverts of it.
+
+So the cap is twelve, matched to the one the issue block already used; what it cuts is now printed (`15 of 19 merged CLs touched this file, newest 12 shown`) rather than folded into the pool count; and a row holding more than one CL reads oldest-first, which is what the `crowded` branch had already worked out for itself.
 
 #### The last two badges, and why a row always answers
 
@@ -1220,11 +1227,11 @@ chromedrift/
   model.py        977        shared data structures, the four buckets, the five owners, JSON read/write
   eligibility.py   73        one policy for what is product code, shared by discovery and extraction
   jsonc.py        259        hand-written JSON5 reader
-  report/       1,861        markdown + self-contained HTML dashboard;
+  report/       2,508        markdown + self-contained HTML dashboard;
                              groups findings by what happened and by screen
-  enrich/         805        context from chromestatus; the CL and issue behind a change
-  serve.py        200        localhost server that resolves a row's CL on demand
-  cli.py          763        8 command-line commands
+  enrich/       1,813        context from chromestatus; the CL and issue behind a change
+  serve.py        294        localhost server that resolves a row's CL on demand
+  cli.py          739        8 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:
