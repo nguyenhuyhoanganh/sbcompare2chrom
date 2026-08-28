@@ -78,6 +78,15 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
                  m: prov === 3 ? 'touched' : (prov === 4 ? 'exact' : 'declares'),
                  b: [] }];
   }
+  // Found by searching commit messages, because nothing touched the file.
+  // Its own owner so the harness can isolate it: the file's denominator is
+  // the thing being asserted, and it must not be printed for these.
+  if (prov === 6) {
+    row.cl_pool = 0; row.cl_files = 1; row.cl_by_message = 1;
+    row.owner = 'msg';
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
+                 m: 'described', b: [] }];
+  }
   if (i < 40) { row.we_patch = ['content/f' + i + '.cc']; row.ours = true;
                 row.chromestatus = 'x'.repeat(300); }
   return row;
@@ -202,5 +211,24 @@ const exactHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.exactDetailListsTheCl = /7700\d{3}/.test(exactHtml);
 out.exactDetailSaysLead = exactHtml.includes('Leads, not a citation');
 byEvidence('');
+
+// A CL reached by its commit message never entered the file search, so the
+// panel must not print "N of M merged CLs touched this file" over it. The
+// fixture gives those rows their own owner because that count is exactly what
+// is under test and it has to be isolated to be seen.
+els.fo.value = 'msg';
+els.fo.listeners['change'].forEach(f => f());
+out.messageRowCount = els.cnt.textContent;
+detailRows = [];
+const msgRow = new El('tr');
+msgRow.className = 'row'; msgRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? msgRow : null) } }));
+const msgHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.messageDetailSaysHow = msgHtml.includes('found by commit message');
+out.messageDetailHidesTheDenominator = !/merged CLs touched/.test(msgHtml);
+out.messageDetailListsTheCl = /7700\d{3}/.test(msgHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
 
 console.log(JSON.stringify(out));

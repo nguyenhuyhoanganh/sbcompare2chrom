@@ -469,20 +469,29 @@ function provenance(f){
               (f.cl_read?f.cl_read+' read of the '+f.cl_pool:f.cl_pool)+
               ' that touched '+(f.cl_files>1?'either file':'this file')+
               ' can be tied to this identifier.'
-            /* The one shape no amount of looking can cite: the fact differs
-               between the trees and yet nothing landed on the file declaring
-               it, so there is no CL to name. */
-            : 'No CL touched '+(f.cl_files>1?'either file':'this file')+
-              ' between the two versions, so there is nothing to cite.'))+'</p>'+
+            /* Never phrased as an absence. The two trees differ, so
+               something landed; what failed is this search. Naming what it
+               asked is the only honest form of the answer, and it is also
+               the one a reader can act on. */
+            : 'This lookup found nothing. Nothing touched '+
+              (f.cl_files>1?'either file':'this file')+
+              ' on any branch in the window, and no commit message in it '+
+              'names this identifier \u2014 so the CL that made this change '+
+              'is recorded under something other than the name or the path '+
+              'held here.'))+'</p>'+
       (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
   }
   if(f.cls&&f.cls.length){
     out+='<div class="prov"><h4>Why it changed'+
-      (f.cl_pool?'<span class="pool">'+f.cls.length+' of '+f.cl_pool+
+      (f.cl_by_message
+        ? '<span class="pool">found by commit message \u2014 nothing '+
+          'touched '+(f.cl_files>1?'either file':'this file')+' in the '+
+          'window</span>'
+        : (f.cl_pool?'<span class="pool">'+f.cls.length+' of '+f.cl_pool+
         ' merged CLs touched '+(f.cl_files>1?'these '+f.cl_files+' files':'this file')+
         (f.cl_read?' \u00b7 '+f.cl_read+' of them read':'')+
         (f.no_diffs?' \u00b7 diffs not read, descriptions only':'')+
-        '</span>':'')+'</h4>'+
+        '</span>':''))+'</h4>'+
       /* A badge saying `touched` is true and easy to skim past. The reader
          who opened this row is owed the disclaimer in words, above the list,
          before they read the first subject line as an explanation. */
@@ -749,6 +758,11 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # was never asked about carries neither, and says nothing.
             if provenance.get("diffs_read") is False:
                 row["no_diffs"] = True
+            # These CLs were not found by asking who touched the file, so the
+            # file's denominator does not count them and the panel must not
+            # print it as though it did.
+            if provenance.get("found_by") == "message":
+                row["cl_by_message"] = True
         # `what` already says "off -> on for Windows" for the kinds that have
         # a platform state, and "array<uint8> -> BigBuffer" for a Mojo field,
         # so repeating it under the prose prints the same arrow twice in one
@@ -775,7 +789,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
 # the renderer and the server went on filtering for `issue`, so every lookup
 # answered with the CLs and silently dropped the issue history.
 PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "issues",
-                   "issues_more", "no_diffs")
+                   "issues_more", "no_diffs", "cl_by_message")
 
 
 def _issue_payload(issue) -> dict:

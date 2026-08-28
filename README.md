@@ -833,9 +833,19 @@ Four of those five had the candidate CLs already in hand. Only the framing was m
 
 This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader who had asked a question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
 
-**So the guarantee is this: a finding is left without a CL only when no merged CL touched its declaring file inside the window** — or when there is no window, or no file to search, which is the same emptiness one step earlier. A budget that declined the file, a token too short to search for, a crowd of equally plausible CLs, a diff that matched nothing: none of them ends in silence any more.
+#### There is no such thing as a change without a CL
 
-The exception is real and cannot be closed. A fact can differ between two trees while nothing landed on the file declaring it — the change arrived through a generated file, a path Gerrit records under another name, or a third-party roll. There is no CL to name there, and inventing one is the only actual lie this stage has available to it. The panel says *no CL touched this file between the two versions, so there is nothing to cite*, and that is where it stops.
+The two trees differ, so something landed. An empty row is never a fact about Chromium — it is a fact about this search, and phrasing it as an absence invites a reader to conclude that a declaration changed on its own, which cannot happen. An earlier version of this section said *there is nothing to cite*. That was wrong, and the code said it too.
+
+So the question is asked three ways before the answer is no:
+
+1. **`file:` on main.** The question that works, and the one everything above is built on.
+2. **The same file, branch pin removed.** Six weeks of merge-backs land on the release branch after it is cut, and those commits are in the tree being compared. The window's upper bound already admitted their dates — `branch:main` was the only thing hiding them.
+3. **The commit messages of the whole window.** Reached only when nothing touched the file at all, because at that point the file question is the wrong question: a declaration can be generated from a template, recorded by Gerrit under another path, renamed in a CL indexed only under the new name, or rolled in from third-party code. What comes back is `described` — the CL names the identifier, and no diff was read to claim more.
+
+A row answered that way says *found by commit message — nothing touched this file in the window* instead of borrowing the file search's denominator, which did not count it.
+
+**What is left is a search that missed, and it says so.** The panel names the three questions it asked and states the conclusion a reader can act on: the CL is recorded under something other than the name or the path held here. The run reports the count (`findings_by_message`, `files_found_off_main`) so a pair of versions where this happens often is visible rather than silently absorbed.
 
 ### Why this needs a server, and why nothing else would do
 

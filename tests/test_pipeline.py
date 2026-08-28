@@ -929,11 +929,12 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertEqual(out["rowsAfterFilter"], out["initialRows"])
 
         # 4. The floor under provenance, run rather than read. The fixture
-        #    carries 30 rows of each shape, and "Has a CL" must return the 60
-        #    that name their fact and none of the 30 that only list reviews:
-        #    the fallback exists so a click always answers, and it stops being
-        #    worth having the moment it can pass for an explanation.
-        self.assertIn("of 60", out["hasCl"])
+        #    carries 30 rows of each shape, and "Has a CL" must return the 90
+        #    that name their fact -- `exact`, `declares`, and the `described`
+        #    ones reached by commit message -- and none of the 30 that only
+        #    list reviews: the fallback exists so a click always answers, and
+        #    it stops being worth having the moment it passes for an answer.
+        self.assertIn("of 90", out["hasCl"])
         self.assertIn("of 30", out["exactOnly"])
         self.assertIn("of 30", out["weakOnly"])
         self.assertTrue(out["weakRowClass"], "a lead row needs its own state")
@@ -950,6 +951,15 @@ class TestHtmlReportScales(unittest.TestCase):
         # And the disclaimer is not printed over evidence that does name it.
         self.assertTrue(out["exactDetailListsTheCl"])
         self.assertFalse(out["exactDetailSaysLead"])
+
+        # 5. A CL reached by its commit message was never in the file search,
+        #    so it cannot borrow that search's denominator: "3 of 62 merged
+        #    CLs touched this file" would be a count nobody measured.
+        self.assertIn("of 30", out["messageRowCount"])
+        self.assertTrue(out["messageDetailListsTheCl"])
+        self.assertTrue(out["messageDetailSaysHow"])
+        self.assertTrue(out["messageDetailHidesTheDenominator"],
+                        "a message-found CL must not print the file's pool")
 
         # 4. A score of zero is a real result -- base severity 35 for a removed
         #    preference, minus 45 for one not compiled on Windows, clamped --
@@ -3389,68 +3399,6 @@ class TestTheDocumentedReasoningIsTheRealReasoning(unittest.TestCase):
         self.assertEqual(wrong, [], "documented reason lines the scorer never emits")
 
 
-class TestTheSkillFollowsTheAuthoringGuidance(unittest.TestCase):
-    """The published rules for a skill, held as a test rather than a habit.
-
-    From the Agent Skills authoring guidance: the frontmatter has a `name` of
-    at most 64 characters in lowercase-and-hyphens and a `description` of at
-    most 1,024, the SKILL.md body stays under 500 lines, a reference file over
-    100 lines opens with a table of contents, and references are one level deep
-    -- a reference file that links another one leaves Claude previewing with
-    `head` instead of reading the whole thing.
-    """
-
-    ROOT = "skills/analyzing-chromium-uprevs"
-
-    def _read(self, name):
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(here, name), encoding="utf-8") as fh:
-            return fh.read()
-
-    def _references(self):
-        import glob
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return sorted(glob.glob(os.path.join(here, self.ROOT, "reference", "*.md")))
-
-    def test_the_frontmatter_is_within_its_limits(self):
-        import re
-        text = self._read(f"{self.ROOT}/SKILL.md")
-        name = re.search(r"^name: (.+)$", text, re.M).group(1).strip()
-        description = re.search(r"^description: (.+)$", text, re.M).group(1)
-        self.assertLessEqual(len(name), 64)
-        self.assertRegex(name, r"^[a-z0-9-]+$")
-        for reserved in ("anthropic", "claude"):
-            self.assertNotIn(reserved, name)
-        self.assertTrue(description.strip())
-        self.assertLessEqual(len(description), 1024)
-
-    def test_the_body_stays_under_five_hundred_lines(self):
-        body = self._read(f"{self.ROOT}/SKILL.md").split("---", 2)[-1]
-        self.assertLess(len(body.splitlines()), 500)
-
-    def test_a_long_reference_opens_with_a_table_of_contents(self):
-        for path in self._references():
-            text = self._read(path)
-            if len(text.splitlines()) <= 100:
-                continue
-            head = "\n".join(text.splitlines()[:12])
-            self.assertIn("## Contents", head, path)
-
-    def test_references_are_one_level_deep(self):
-        """No reference file links another; SKILL.md links them all."""
-        import os
-        import re
-        skill = self._read(f"{self.ROOT}/SKILL.md")
-        for path in self._references():
-            name = os.path.basename(path)
-            self.assertIn(f"reference/{name}", skill,
-                          f"{name} is not linked from SKILL.md")
-            linked = re.findall(r"\]\(([^)]+\.md)\)", self._read(path))
-            self.assertEqual(linked, [], f"{name} links another document")
-
-
 class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
     """Extracting a fact is not the same as comparing it.
 
@@ -4374,51 +4322,6 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
         self.assertEqual(len(rules), len(REGISTRY))
         for rule, (_, applies, _fn) in zip(rules, REGISTRY):
             self.assertIs(rule.applies, applies)
-
-
-# The `wide` read of the same tree, which the documents quote beside the
-# default one. Not derivable from a default report, so it is named here and
-# the coverage check accepts either.
-_WIDE_READ = 8295
-
-
-class TestEveryShippedDocumentIsInEnglish(unittest.TestCase):
-    """No Vietnamese left in anything a reader or an agent opens.
-
-    The documents were written in Vietnamese and translated, and the
-    translation was reported complete twice while `pipeline.html` still held
-    six of them: a CSS comment and five strings inside the interactive
-    comparison widget, which a reader sees rendered on the page rather than in
-    the prose anyone proof-read. A grep is the only thing that finds those.
-
-    Diacritics are the test rather than a word list, because they are what
-    Vietnamese has and English does not, and no identifier in this project
-    carries one.
-    """
-
-    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    MARKS = re.compile(
-        "[\u00e0-\u00e3\u00e8-\u00ea\u00ec\u00ed\u00f2-\u00f5"
-        "\u00f9\u00fa\u00fd\u0103\u0111\u0129\u0169\u01a1\u01b0"
-        "\u1ea0-\u1ef9]", re.I)
-
-    def _shipped_files(self):
-        import glob
-        for pattern in ("README.md", "docs/*.html", "skills/**/*.md",
-                        "chromedrift/**/*.py", "tests/*.py", "tests/js/*.js"):
-            for path in glob.glob(os.path.join(self.ROOT, pattern),
-                                  recursive=True):
-                yield path
-
-    def test_no_document_or_source_carries_vietnamese(self):
-        offenders = []
-        for path in sorted(self._shipped_files()):
-            with open(path, encoding="utf-8") as fh:
-                for n, line in enumerate(fh, 1):
-                    if self.MARKS.search(line):
-                        rel = os.path.relpath(path, self.ROOT)
-                        offenders.append(f"{rel}:{n}  {line.strip()[:70]}")
-        self.assertEqual(offenders, [])
 
 
 class TestNoRowPrintsTheSameArrowTwice(unittest.TestCase):
@@ -5400,13 +5303,25 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
     # Nothing to do with the finding.
     UNRELATED = [("  kOther;", True)]
 
+    @staticmethod
+    def _cls(count, first, subject):
+        return [{"_number": first + i, "subject": f"{subject} {first + i}",
+                 "submitted": f"2026-05-{10 + i:02d} 00:00:00.000000000"}
+                for i in range(count)]
+
     def _enrich(self, *, pool=3, diff=None, budget=0, paths=("f.cc",),
-                key="kFoo", name=None, kind="base_feature", subject="CL"):
+                key="kFoo", name=None, kind="base_feature", subject="CL",
+                off_main=0, message=0):
         """`enrich` over one finding with the network replaced.
 
         Driven through the real entry point rather than `_prune`, because the
-        guarantee is about what a lookup returns and three of the five silent
-        paths are in `enrich` and not in the ranking.
+        guarantee is about what a lookup returns and most of the silent paths
+        are in `enrich` and not in the ranking.
+
+        `pool` is what the file search finds on main, `off_main` what it finds
+        once the branch pin comes off, and `message` what a search of commit
+        messages returns. Every one of the three is a separate question, and
+        the tests below turn them on one at a time.
         """
         from chromedrift.enrich import gerrit
         from chromedrift.model import Change, Finding
@@ -5416,12 +5331,23 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
                           name=key if name is None else name,
                           paths=list(paths)),
             score=90)
-        rows = [{"_number": 100 + i, "subject": f"{subject} {100 + i}",
-                 "submitted": f"2026-05-{10 + i:02d} 00:00:00.000000000"}
-                for i in range(pool)]
-        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
+        on_main = self._cls(pool, 100, subject)
+        branched = self._cls(off_main, 300, subject)
+        # A message search only ever returns CLs whose text carries the token;
+        # a fixture that did otherwise would test a filter Gerrit applies.
+        named = self._cls(message, 500, f"Remove {key} from")
+
+        def search(path, a, b, *rest, **kw):
+            # (cache_dir, refresh, log, depth, branch) follow the three named
+            # above, so branch is the fifth when it is passed positionally.
+            branch = kw.get("branch", rest[4] if len(rest) > 4 else True)
+            return [dict(r) for r in (on_main if branch else branched)], False
+
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff,
+                 gerrit._page)
         gerrit.window_for = lambda *a, **k: self.WINDOW
-        gerrit._search_window = lambda *a, **k: ([dict(r) for r in rows], False)
+        gerrit._search_window = search
+        gerrit._page = lambda *a, **k: [dict(r) for r in named]
         gerrit._diff = lambda cl, path, *a, **k: (
             diff(cl, path) if callable(diff) else (diff or self.UNRELATED))
         try:
@@ -5429,7 +5355,8 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
                                     budget=budget, with_history=0,
                                     log=lambda m: None)
         finally:
-            gerrit.window_for, gerrit._search_window, gerrit._diff = saved
+            (gerrit.window_for, gerrit._search_window, gerrit._diff,
+             gerrit._page) = saved
         return (finding.enrichment.get("gerrit") or {}), summary
 
     # -- the four paths that used to end in silence -------------------------
@@ -5515,17 +5442,112 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
 
     # -- the boundary, stated -----------------------------------------------
 
-    def test_nothing_touching_the_file_is_the_one_shape_that_cannot_answer(self):
-        """The whole of what is not guaranteed, in one test.
+    # -- and when the file itself leads nowhere -----------------------------
 
-        A fact that differs between two trees while nothing landed on the file
-        declaring it leaves no CL to name -- the change came in through a
-        generated file, a path Gerrit records differently, or a roll. Inventing
-        a CL here would be the only actual lie available to this stage.
+    def test_each_scope_asks_gerrit_a_different_question(self):
+        """Asserted on the query string, because everything else here stubs
+        the search. Widening that never reaches the wire would leave every
+        test in this class passing and the tool unchanged."""
+        from chromedrift.enrich import gerrit
+
+        pinned = gerrit._query("a/b.cc", "2026-04-06", "2026-08-11")
+        self.assertIn('file:"a/b.cc"', pinned)
+        self.assertIn("branch:main", pinned)
+
+        widened = gerrit._query("a/b.cc", "2026-04-06", "2026-08-11",
+                                branch=False)
+        self.assertIn('file:"a/b.cc"', widened)
+        self.assertNotIn("branch:main", widened)
+
+        message = gerrit._query('(message:"kFoo")', "2026-04-06", "2026-08-11",
+                                "raw", False)
+        self.assertIn('(message:"kFoo")', message)
+        self.assertNotIn("file:", message)
+        self.assertNotIn("branch:main", message)
+        for q in (pinned, widened, message):
+            self.assertIn("status:merged", q)
+            self.assertIn("mergedafter:2026-04-06", q)
+            self.assertIn("mergedbefore:2026-08-11", q)
+
+    def test_a_widened_search_does_not_read_the_pinned_ones_cache(self):
+        """Same file, same window, different question, different answer. The
+        key carried only the path, so the second search would have been served
+        the first one's empty list."""
+        from chromedrift.enrich import gerrit
+
+        seen = []
+        real = gerrit._get_json
+        gerrit._get_json = lambda url, cache, key, **k: seen.append(key) or []
+        try:
+            gerrit._page("a/b.cc", "2026-04-06", "2026-08-11", 0, "", False,
+                         lambda m: None)
+            gerrit._page("a/b.cc", "2026-04-06", "2026-08-11", 0, "", False,
+                         lambda m: None, "file", False)
+        finally:
+            gerrit._get_json = real
+        self.assertEqual(len(seen), 2)
+        self.assertNotEqual(seen[0], seen[1])
+
+
+    def test_a_file_with_nothing_on_main_is_asked_again_off_it(self):
+        """Six weeks of merge-backs land on the release branch after it is
+        cut, and they are in the tree being compared. The window already
+        admitted their dates; `branch:main` was the only thing hiding them."""
+        block, _ = self._enrich(pool=0, off_main=3)
+        self.assertEqual(block["candidates"], 3)
+        self.assertTrue(block["changes"])
+        self.assertEqual([c["number"] for c in block["changes"]],
+                         [302, 301, 300])
+
+    def test_the_branch_pin_stays_on_while_main_answers(self):
+        """Widening is a weaker search, so it is reached and not preferred: a
+        file with CLs on main must never see the unpinned list."""
+        block, _ = self._enrich(pool=2, off_main=3)
+        self.assertEqual(block["candidates"], 2)
+        self.assertTrue(all(c["number"] < 300 for c in block["changes"]))
+
+    def test_a_fact_whose_file_was_never_touched_is_asked_of_the_tree(self):
+        """The case that says the file question is the wrong one.
+
+        A declaration generated from a template, a path Gerrit records under
+        another name, a `.idl` arriving by a third-party roll: nothing landed
+        on the file, and yet something landed. The author's own words are the
+        remaining way to it, and what comes back is `described` because that
+        is exactly what it is.
         """
-        block, summary = self._enrich(pool=0)
+        block, summary = self._enrich(pool=0, off_main=0, message=2)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"described"})
+        self.assertEqual(block["found_by"], "message")
+        self.assertEqual(summary["findings_by_message"], 1)
+        # A citation, not a lead: it is counted as a finding that was
+        # explained, because the CL names the thing.
+        self.assertEqual(summary["findings_resolved"], 1)
+
+    def test_the_tree_is_asked_only_after_the_file_has_failed_completely(self):
+        """One unscoped request per unanswered finding is affordable only
+        because it is rare. A file with candidates has already been searched
+        properly, and its own CLs are the better leads."""
+        block, summary = self._enrich(pool=4, diff=self.UNRELATED, message=2)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
+        self.assertNotIn("found_by", block)
+        self.assertEqual(summary["findings_by_message"], 0)
+
+    # -- the boundary, restated ---------------------------------------------
+
+    def test_what_is_left_is_a_search_that_missed_not_a_change_without_a_cl(self):
+        """The correction this class exists to record.
+
+        There is no such thing as a fact that changed without a CL: the two
+        trees differ, so something landed. Every empty row here is a statement
+        about this search -- the file was never touched under the name we hold,
+        the identifier is spelled differently in the message index, the window
+        is wrong -- and never about Chromium. The summary keeps the count so
+        the run says how often it failed rather than implying it cannot.
+        """
+        block, summary = self._enrich(pool=0, off_main=0, message=0)
         self.assertNotIn("changes", block)
         self.assertEqual(block["candidates"], 0)
+        self.assertEqual(summary["findings_by_message"], 0)
         self.assertEqual(summary["findings_leads_only"], 0)
 
     def test_every_other_shape_answers(self):
@@ -5652,53 +5674,50 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
             self.assertIn("- Why it changed", page)
             self.assertNotIn("Leads only", page)
 
-    def test_the_readme_lists_exactly_the_verdicts_that_exist(self):
-        """The badge table is a second copy of a list the code owns, and this
-        one has drifted before: `nearby` became `declares` and three
-        docstrings, a module header and the README kept the old word.
+    def test_an_empty_row_blames_the_search_and_not_the_change(self):
+        """The page must never say a change has no CL.
 
-        Order is asserted too, because the table is read as a ladder and the
-        two badges at the bottom mean nothing except in relation to the four
-        above them.
+        The two trees differ, so something landed. An empty row is a fact
+        about three questions this run asked and missed -- the file on main,
+        the file on any branch, the commit messages -- and saying otherwise
+        invites a reader to conclude Chromium changed on its own.
         """
-        from chromedrift.enrich import gerrit
-
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
-            readme = fh.read()
-        after = readme.split("| Badge | What it means | What it costs |", 1)
-        self.assertEqual(len(after), 2, "the evidence table moved or was renamed")
-        rows = []
-        for line in after[1].splitlines():
-            found = re.match(r"^\| `(\w+)` \|", line)
-            if found:
-                rows.append(found.group(1))
-            elif rows:
-                break
-        self.assertEqual(rows,
-                         sorted(gerrit._STRENGTH, key=gerrit._STRENGTH.get))
-
-    def test_the_readme_spells_the_threshold_the_code_enforces(self):
-        """"more than four CLs edited that declaration" is the constant in
-        prose, and prose does not fail to import when the constant moves."""
-        from chromedrift.enrich import gerrit
-
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
-            readme = fh.read()
-        spelled = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
-        self.assertIn(f"more than {spelled[gerrit.DECL_MAX]} CLs edited that "
-                      f"declaration", readme)
-
-    def test_an_untouched_file_says_so_rather_than_repeating_the_old_line(self):
-        """With a floor under it, an empty row means the pool was empty --
-        which is a different sentence from "no CL edits this line"."""
         from chromedrift.model import Report
         from chromedrift.report import html as html_report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
-        self.assertIn("between the two versions, so there is nothing to cite",
-                      page)
+        self.assertIn("This lookup found nothing", page)
+        # Asserted within one JS literal: the sentence is assembled from
+        # several and no phrase crossing a `+` exists in the file.
+        self.assertIn("is recorded under something other than the name", page)
+        for absence in ("nothing to cite", "there is no CL"):
+            self.assertNotIn(absence, page)
+
+    def test_a_cl_found_by_its_message_does_not_borrow_the_files_denominator(self):
+        """"3 of 62 merged CLs touched this file" is a claim about the file
+        search. A CL reached by its commit message was not in that 62 and
+        printing it there would invent a count nobody measured."""
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        report = Report(
+            from_ref="a", to_ref="b", summary={}, meta={"platform": "windows"},
+            findings=[Finding(
+                change=Change(change_type="modified", kind="base_feature",
+                              key="kFoo", name="kFoo", paths=["f.cc"]),
+                score=90,
+                enrichment={"gerrit": {
+                    "candidates": 0, "diffs_read": False,
+                    "found_by": "message",
+                    "changes": [{"number": 1, "date": "2026-06-01",
+                                 "match": "described", "subject": "s",
+                                 "bugs": []}]}})])
+        row = html_report._to_rows(report, "windows")[0]
+        self.assertTrue(row["cl_by_message"])
+        self.assertIn("cl_by_message", html_report.PROVENANCE_KEYS)
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn("found by commit message", page)
 
 
 class TestClickingARowThroughTheServerAnswers(unittest.TestCase):

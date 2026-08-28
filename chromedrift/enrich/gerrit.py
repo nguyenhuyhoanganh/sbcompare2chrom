@@ -46,11 +46,22 @@ and the panel prints them under a sentence saying they are not a citation --
 because the alternative, tried first, was to drop them and tell a reader who
 clicked the row that nothing was found about a declaration eleven CLs edited.
 
-That floor is what makes the guarantee: **a finding is left without a CL only
-when no CL touched its declaring file inside the window** -- or when there is
-no window or no file to search, which are the same emptiness one step earlier.
-Nothing else -- a diff budget that declined the file, a token too short to
-search for, a crowd of equally plausible CLs -- ends in silence any more.
+**There is no such thing as a change without a CL.**  The two trees differ,
+so something landed -- an empty row is never a fact about Chromium, only about
+this search.  Saying otherwise invites the reader to conclude a declaration
+changed on its own, which cannot happen.
+
+So the file is asked three ways before the answer is no.  ``file:`` on main,
+which is the question that works.  Then the same file with the branch pin
+removed, because six weeks of merge-backs land on the release branch after it
+is cut and those commits are in the tree being compared.  Then, when nothing
+touched the file under the name we hold, the commit messages of the whole
+window, because a declaration can be generated from a template, recorded by
+Gerrit under another path, renamed, or rolled in from third-party code -- and
+in every one of those the file question is simply the wrong question.
+
+An empty row therefore reports the search, and names the three questions it
+missed on, so a reader knows what to try rather than what to conclude.
 
 **What it costs, and the ceiling on it.**  One request per (CL, file) pair, so
 the bill is set by how *busy* the declaration files are and not by how many
@@ -340,23 +351,43 @@ def window_for(from_ref: str, to_ref: str, cache_dir: str,
 # Candidates: the CLs that touched one file inside the window
 # ---------------------------------------------------------------------------
 
-def _query(path: str, after: str, before: str) -> str:
-    return (f'project:{PROJECT} status:merged branch:main '
-            f'file:"{path}" mergedafter:{after} mergedbefore:{before}')
+def _query(term: str, after: str, before: str, kind: str = "file",
+           branch: bool = True) -> str:
+    """One Gerrit query, in the three scopes this stage asks in.
+
+    ``kind="file"`` wraps the term as a path; ``kind="raw"`` passes it through,
+    which is how the message search below asks for several tokens at once.
+
+    ``branch`` pins the search to main and is dropped when a file comes back
+    with nothing there. Six weeks of merge-backs land on a release branch
+    after it is cut, and those commits are in the tree being compared -- the
+    window's upper bound already admits their dates, so pinning the branch was
+    the only thing hiding them.
+    """
+    scope = f'file:"{term}"' if kind == "file" else term
+    return (f'project:{PROJECT} status:merged '
+            + ("branch:main " if branch else "")
+            + f'{scope} mergedafter:{after} mergedbefore:{before}')
 
 
-def _page(path: str, after: str, before: str, start: int, cache_dir: str,
-          refresh: bool, log) -> List[dict]:
-    q = urllib.parse.quote(_query(path, after, before))
+def _page(term: str, after: str, before: str, start: int, cache_dir: str,
+          refresh: bool, log, kind: str = "file",
+          branch: bool = True) -> List[dict]:
+    q = urllib.parse.quote(_query(term, after, before, kind, branch))
     url = (f"{GERRIT}/changes/?q={q}&n={PAGE}&start={start}"
            f"&o=CURRENT_REVISION&o=CURRENT_COMMIT")
-    key = ("search", _slug(path), f"{after}_{before}_{start}.json")
+    # The scope is part of the key. Two searches for the same file that differ
+    # only in whether the branch was pinned are different answers, and the
+    # second would have read the first's cache entry.
+    scope = f"{kind}{'' if branch else '_anybranch'}"
+    key = ("search", _slug(term), f"{scope}_{after}_{before}_{start}.json")
     doc = _get_json(url, cache_dir, key, refresh=refresh, log=log)
     return doc if isinstance(doc, list) else []
 
 
 def _search_window(path: str, after: str, before: str, cache_dir: str,
-                   refresh: bool, log, depth: int = 0) -> Tuple[List[dict], bool]:
+                   refresh: bool, log, depth: int = 0,
+                   branch: bool = True) -> Tuple[List[dict], bool]:
     """Every merged CL touching ``path`` in the window, and whether that is proven.
 
     Returns ``(changes, truncated)``. A window that comes back at exactly the
@@ -368,7 +399,8 @@ def _search_window(path: str, after: str, before: str, cache_dir: str,
     rows: List[dict] = []
     start = 0
     while len(rows) < PAGE_CAP:
-        page = _page(path, after, before, start, cache_dir, refresh, log)
+        page = _page(path, after, before, start, cache_dir, refresh, log,
+                     "file", branch)
         rows += page
         if len(page) < PAGE:
             break
@@ -381,8 +413,10 @@ def _search_window(path: str, after: str, before: str, cache_dir: str,
     if (hi - lo).days <= 1 or depth >= 6:
         return rows, True
     mid = (lo + (hi - lo) / 2).isoformat()
-    left, lt = _search_window(path, after, mid, cache_dir, refresh, log, depth + 1)
-    right, rt = _search_window(path, mid, before, cache_dir, refresh, log, depth + 1)
+    left, lt = _search_window(path, after, mid, cache_dir, refresh, log,
+                              depth + 1, branch)
+    right, rt = _search_window(path, mid, before, cache_dir, refresh, log,
+                               depth + 1, branch)
     merged: Dict[int, dict] = {}
     for cl in left + right:
         merged[cl["_number"]] = cl
@@ -955,6 +989,53 @@ def _compact(cl: dict, match: str, path: str = "") -> dict:
     return out
 
 
+# How many message-matched CLs a finding may carry. The search is unscoped by
+# file, so a token that reads as an English word can return hundreds; past a
+# handful they stop distinguishing and the newest are as good as the list gets.
+MESSAGE_MAX = 8
+
+
+def _by_message(tokens: Set[str], after: str, before: str, cache_dir: str,
+                refresh: bool, log) -> List[dict]:
+    """CLs whose own description names this identifier, anywhere in the tree.
+
+    Every other lookup here starts from the file the fact is declared in, and
+    asks who touched it. That question has shapes it cannot see: a declaration
+    generated from a template, a path Gerrit records under another name, a
+    `.idl` that arrives by a third-party roll rather than by an edit, a file
+    renamed in a CL recorded only under the new name.
+
+    A CL always exists. The two trees differ, so something landed -- "no CL"
+    is only ever a statement about this search, never about Chromium. So when
+    the file leads nowhere the author's own words are asked instead, unpinned
+    from both the file and the branch. What comes back is `described`, which
+    is what it is: the CL names the identifier, and nothing here has read a
+    diff to say it edited the declaration.
+
+    One request, not a windowed sweep: the point is to have asked, and a token
+    generic enough to fill several pages is a token whose pages say nothing.
+    """
+    if not tokens:
+        return []
+    # Longest first: `blink.mojom.TokenError.url` distinguishes where `url`
+    # cannot, and Gerrit ORs them so a key that is never written as a whole
+    # still reaches the tree through its leaf.
+    terms = sorted(tokens, key=len, reverse=True)[:3]
+    expr = "(" + " OR ".join(f'message:"{t}"' for t in terms) + ")"
+    rows = _page(expr, after, before, 0, cache_dir, refresh, log, "raw", False)
+    rows.sort(key=lambda c: (c.get("submitted") or ""), reverse=True)
+    out: List[dict] = []
+    for cl in rows:
+        # Gerrit's index tokenises; this is the same substring test the free
+        # description pass uses, so a row cannot enter the report on a looser
+        # rule than the one that would have found it beside its own file.
+        if _match_message(cl, tokens):
+            out.append(_compact(cl, "described"))
+        if len(out) >= MESSAGE_MAX:
+            break
+    return out
+
+
 def _last_resort(finding: Finding, searched: List[str],
                  found: Dict[str, List[dict]]) -> List[dict]:
     """The newest CLs that touched the declaring file, when nothing named it.
@@ -1023,6 +1104,11 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
 
     truncated: List[str] = []
     capped: List[str] = []
+    # Files whose CLs were found only once the branch pin came off, and
+    # findings answered only by the author's words. Both are reported, because
+    # a widened search is a weaker one and a reader is owed that.
+    off_main: List[str] = []
+    by_message: List[str] = []
     # What the search actually found, before --gerrit-max-cls trimmed it. The
     # row prints "N of M merged CLs touched this file", and M was the trimmed
     # number -- so a file with 510 candidates read as though it had 500, which
@@ -1031,6 +1117,15 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
 
     def candidates(path: str) -> List[dict]:
         rows, cut = _search_window(path, after, before, cache_dir, refresh, log)
+        if not rows:
+            # A file with nothing on main is not a file nothing landed on.
+            # Merge-backs land on the release branch after it is cut, and they
+            # are in the tree being compared -- the window already admits their
+            # dates, and `branch:main` was the only thing hiding them.
+            rows, cut = _search_window(path, after, before, cache_dir, refresh,
+                                       log, branch=False)
+            if rows:
+                off_main.append(path)
         if cut:
             truncated.append(path)
         rows.sort(key=lambda c: (c.get("submitted") or ""), reverse=True)
@@ -1133,6 +1228,15 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         if not kept:
             kept = _last_resort(finding, searched, found)
         if not kept:
+            # The file led nowhere at all -- not to a match, not even to a
+            # candidate. Ask the tree for CLs that name this thing instead,
+            # because something landed and only this search has failed.
+            kept = _by_message(tokens[finding.uid], after, before, cache_dir,
+                               refresh, log)
+            if kept:
+                block["found_by"] = "message"
+                by_message.append(finding.uid)
+        if not kept:
             continue
         block["changes"] = kept
         # A lead is not a resolution, and the summary counts them apart so a
@@ -1231,6 +1335,14 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         log(f"  gerrit: {leads_only} further finding(s) carry leads only -- "
             f"CLs that touched the declaring file or its declaration, but "
             f"none that names the fact")
+    if off_main:
+        log(f"  gerrit: {len(off_main)} file(s) had no CL on main and were "
+            f"found on a release branch instead: {off_main[0]}"
+            + (" ..." if len(off_main) > 1 else ""))
+    if by_message:
+        log(f"  gerrit: {len(by_message)} finding(s) had no CL touching their "
+            f"declaring file at all and were answered by searching commit "
+            f"messages for the identifier")
     if restricted:
         log(f"  ! gerrit: {len(restricted)} of {len(chosen)} linked issue(s) "
             f"are access-restricted and will not open without Google "
@@ -1260,6 +1372,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         "findings_asked": len(ranked),
         "findings_resolved": resolved,
         "findings_leads_only": leads_only,
+        "findings_by_message": len(by_message),
+        "files_found_off_main": off_main,
         "files_searched": len(wanted),
         "candidate_diffs": len(plan),
         "budget": budget,
