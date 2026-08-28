@@ -87,37 +87,44 @@ PROJECT = "chromium/src"
 PAGE_CAP = 500
 PAGE = 250
 
-# How far from a changed line an identifier still counts as `nearby`. A Mojo
-# method whose parameters changed has its name line untouched several lines
-# above the edit; 25 lines covers that. It is also why the rule below exists.
-NEARBY_LINES = 25
-
-# Below this many changed-plus-context lines, "near a change" is the whole
-# file and means nothing. Such a file's candidates are small enough to show
-# whole, so nearby matches are dropped there rather than dressed up as
-# evidence.
-NEARBY_MIN_FILE_LINES = 120
+# A declaration's body ends at its own closing delimiter, not N lines down, so
+# that is what is scanned: forward from the line naming the identifier to the
+# `;` that ends it, or to the `}` matching the `{` it opens.
+#
+# Two fixed radii were tried first and both were wrong in the same way, in
+# opposite directions. Symmetric and 25 wide, every edit on a file of nothing
+# but declarations is near every declaration: `AIManager.CreateLanguageModel`
+# drew 4 unrelated CLs, `DevToolsSession.DispatchProtocolCommand` 5. Forward
+# and 3 wide fixed those -- both fall to exactly one, and it is the right one --
+# but a long parameter list does not fit in three lines, so
+# `DedicatedWorkerHostFactoryClient.OnScriptLoadStarted` gaining a seventh
+# parameter matched nothing at all. Scanning to the delimiter keeps 1 of 11 on
+# the dense cases and finds both of the long ones.
+#
+# Capped so that a file the scanner does not understand cannot make this
+# quadratic; a declaration longer than this is not one we can attribute anyway.
+DECL_MAX_LINES = 60
 
 # Ranked strongest first. `moved` sits just under `exact` because a pure rename
 # changes no line at all and is still the whole cause: CL 7810461 renamed
 # `html_or_foreign_element.idl` and every member of that interface reads as
-# removed at the old path, with nothing in any diff to say so. `described` is
-# below both because naming a thing is weaker than touching it, and above
-# `nearby` because an author's own sentence beats an accident of line numbers.
-_STRENGTH = {"exact": 0, "moved": 1, "described": 2, "nearby": 3}
+# removed at the old path, with nothing in any diff to say so. `declares` is
+# next because editing a declaration's body is nearly as direct as editing the
+# line that names it, and the line that names it is exactly the line a
+# parameter change leaves alone. `described` is last: an author saying a name
+# is weaker than a diff touching it.
+_STRENGTH = {"exact": 0, "moved": 1, "declares": 2, "described": 3}
 
-# How many `nearby` CLs a finding may carry before they are all dropped.
+# How many `declares` CLs a finding may carry before they are all dropped.
 #
-# Proximity identifies a change only when it is scarce. A file of nothing but
-# declarations defeats it by being dense: every one of the 11 CLs touching
-# ai_manager.mojom edits something within 25 lines of some method, so
-# `AIManager.CreateLanguageModel` came back with four unrelated CLs about
-# AIClassifier, AISemanticEmbedder and download progress observers -- three
-# confident wrong answers where the honest output is none. When only one or
-# two CLs sit near an identifier that *is* information, and it is where the
-# real ones were found: `GetComputedStyleOutsideFlatTree` has exactly one,
-# "Return empty styles for getComputedStyle() outside flat tree".
-NEARBY_MAX = 2
+# Proximity identifies a change only when it is scarce, and the directional
+# rule is scarce where the symmetric one was not: on ai_manager.mojom it picks
+# 1 of 11 where the old one picked 4, and on devtools_agent.mojom 1 of 11 where
+# the old one picked 5. Four is therefore affordable -- and it has to be, since
+# a field is reached through its struct, and three CLs really did edit
+# `struct TokenError` in the window, one of them named "[FedCM] Modernize
+# TokenError::url from string to url.mojom.Url".
+DECL_MAX = 4
 
 
 # Gerrit rate-limits an anonymous client and says so with HTTP 429. Measured:
@@ -501,39 +508,102 @@ class _Scanned:
     match that straddles two of them.
     """
 
-    __slots__ = ("seq", "changed_blob", "all_blob", "near")
+    __slots__ = ("seq", "changed_blob", "all_blob", "changed")
 
     def __init__(self, seq: Sequence[Tuple[str, bool]]) -> None:
         self.seq = seq
         self.changed_blob = "\n".join(line for line, ch in seq if ch)
         self.all_blob = "\n".join(line for line, _ in seq)
-        # Indices within NEARBY_LINES of some change, swept once instead of
-        # asked per candidate line. On a file with hundreds of changed lines
-        # that inner `any(abs(i - j) <= N ...)` was itself the hot loop.
-        near: Set[int] = set()
-        if len(seq) >= NEARBY_MIN_FILE_LINES:
-            for i, (_, changed) in enumerate(seq):
-                if changed:
-                    near.update(range(max(0, i - NEARBY_LINES),
-                                      min(len(seq), i + NEARBY_LINES + 1)))
-        self.near = near
+        self.changed = {i for i, (_, ch) in enumerate(seq) if ch}
+
+    def declaration_edited(self, start: int) -> bool:
+        """Does a changed line fall inside the declaration naming this line?
+
+        Three shapes, tried in order, because the tree holds three:
+
+        1. The line opens a block -- `struct Bar {` -- so the region runs to
+           the matching `}`.
+        2. The line is or starts a statement, so the region runs to the `;`
+           that ends it: `Type name;` is one line, `Foo(` plus a parameter per
+           line is however many it takes.
+        3. Neither closed, which means the name is a *member* of a record
+           written in some other grammar. `runtime_enabled_features.json5`
+           spells a feature
+
+               {
+                 name: "GetComputedStyleOutsideFlatTree",
+                 status: "stable",
+               },
+
+           where the naming line ends in a comma and nothing after it ever ends
+           in a `;`. Scanning forward could only run to the cap, so the region
+           is instead the innermost block *enclosing* the name. Measured: that
+           picks 1 of the 510 CLs touching the file, and it is CL 7895296,
+           "Return empty styles for getComputedStyle() outside flat tree".
+        """
+        seq = self.seq
+        limit = min(len(seq), start + DECL_MAX_LINES)
+        if seq[start][0].rstrip().endswith("{"):
+            return self._block_edited(start, limit)
+        # A change only counts once the region is known to have closed here.
+        # Returning True on the way to finding out reported the *next* record's
+        # edit as this one's, on exactly the grammar that made the forward scan
+        # fail: json5 has no `;`, so the walk ran straight out of the feature
+        # it was reading and into the one below.
+        edited = False
+        for i in range(start, limit):
+            if i in self.changed:
+                edited = True
+            if seq[i][0].rstrip().endswith(";"):
+                return edited
+        return self._enclosing_edited(start)
+
+    def _block_edited(self, start: int, limit: int) -> bool:
+        depth = 0
+        for i in range(start, limit):
+            if i in self.changed:
+                return True
+            depth += self.seq[i][0].count("{") - self.seq[i][0].count("}")
+            if i > start and depth <= 0:
+                return False
+        return False
+
+    def _enclosing_edited(self, start: int) -> bool:
+        """The innermost block containing `start`, if one opens close above."""
+        opener = None
+        for i in range(start, max(-1, start - DECL_MAX_LINES), -1):
+            if self.seq[i][0].rstrip().endswith("{"):
+                opener = i
+                break
+        if opener is None:
+            return False
+        return self._block_edited(opener,
+                                  min(len(self.seq), opener + DECL_MAX_LINES))
 
 
-def _match(scan: "_Scanned", tokens: Set[str]) -> str:
-    """"exact", "nearby" or "" -- the strongest evidence this diff carries."""
+def _match(scan: "_Scanned", tokens: Set[str], container: str = "") -> str:
+    """"exact", "declares" or "" -- the strongest evidence this diff carries.
+
+    ``container`` is the weaker token, and it is kept apart rather than added
+    to ``tokens`` because it cannot support the stronger verdict: editing a
+    line that mentions the enclosing struct is not editing the line that
+    declares this member.
+    """
     if not scan.changed_blob:
         return ""
     for token in tokens:
         if token in scan.changed_blob:
             return "exact"
     # Absent from the file entirely is the common case, and one search over the
-    # whole text settles it before any line is touched.
-    if not scan.near or not any(t in scan.all_blob for t in tokens):
+    # whole text settles it before any line is walked.
+    search = set(tokens)
+    if container:
+        search.add(container)
+    if not any(token in scan.all_blob for token in search):
         return ""
-    for i in scan.near:
-        line = scan.seq[i][0]
-        if any(token in line for token in tokens):
-            return "nearby"
+    for i, (line, _) in enumerate(scan.seq):
+        if any(token in line for token in search) and scan.declaration_edited(i):
+            return "declares"
     return ""
 
 
@@ -561,9 +631,43 @@ def tokens_for(change: Change) -> Set[str]:
             out.update(parts)
     if change.kind in _K_PREFIXED and change.name:
         out.add(var_from_feature_name(change.name))
-    # A one- or two-character leaf ("url", "id") matches everything; the fact
-    # is then only reachable through its qualified key, which is correct.
     return {t for t in out if len(t) >= 4}
+
+
+def container_for(change: Change) -> str:
+    """The struct or interface to fall back on when the fact itself is unwritable.
+
+    A qualified key is our construction, not text: `.mojom` writes
+
+        struct TokenError {
+          url.mojom.Url? url;
+        };
+
+    and never the string `blink.mojom.TokenError.url`. When the leaf is also
+    too short to search for -- `url`, `id`, `name` -- the whole token set is
+    unfindable, and 13 diffs were read for a string that cannot occur in any of
+    them, then reported as "no CL edits a line carrying this identifier". True,
+    and deeply misleading.
+
+    Returned separately rather than mixed into `tokens_for` because it cannot
+    earn the same verdict. A changed line containing `TokenError` is not a
+    changed line declaring `TokenError.url`, so the container can only ever
+    reach `declares` -- "a CL edited the body of the declaration this belongs
+    to" -- and never `exact`. Mixed in, it claimed `exact` on two CLs that had
+    merely tidied the struct, and pushed the one that says "[FedCM] Modernize
+    TokenError::url from string to url.mojom.Url" out of the list.
+
+    Empty when the fact's own name is searchable: `AIManager` names twenty
+    methods, and falling back to it when the method itself can be found would
+    trade one answer for twenty.
+    """
+    parts = [p for p in _LEAF_SPLIT.split(change.key or "") if p]
+    if len(parts) < 2:
+        return ""
+    if tokens_for(change) - {change.key}:
+        return ""
+    container = parts[-2]
+    return container if len(container) >= 4 else ""
 
 
 # ---------------------------------------------------------------------------
@@ -604,40 +708,91 @@ def bugs_in(message: str) -> List[dict]:
     return out
 
 
-def _issue_is_public(issue: str, cache_dir: str, refresh: bool = False,
-                     log=lambda m: None) -> bool:
-    """Can a reader without Google credentials actually open this issue?
+def _title_in(doc, issue: str) -> str:
+    """The issue's summary line, dug out of a positional response.
 
-    Measured on a real M148 -> M151 top 300: **70 of the 236 issues the report
-    links answer HTTP 403**. Left unmarked, that is three dead links in ten,
-    and the reader cannot tell a restricted issue from a broken tool. A HEAD
-    costs no body at all -- 0 bytes either way -- so every linked issue is
-    checked once and the answer cached with the rest.
+    issues.chromium.org answers in Google's index-addressed JSON -- no field
+    names anywhere -- so this looks for the one landmark that is not an index:
+    the array whose second element is the issue number. Its third element is
+    the issue state, and the first string in that is the summary. Verified
+    against eight real issues, all eight correct.
+
+    Nothing else is taken. A component path is in there too and it did not
+    survive the same check: issue 381086791 yielded `Blink>AI` for a MacOS
+    memory regression, which means the walk was finding somebody else's field.
+    A title that is right eight times out of eight is worth showing; a
+    component that is wrong once in eight is worth less than nothing.
+    """
+    found: List[list] = []
+
+    def walk(node) -> None:
+        if not isinstance(node, list):
+            return
+        if len(node) > 2 and node[1] == int(issue) and isinstance(node[2], list):
+            found.append(node)
+        for child in node:
+            walk(child)
+
+    try:
+        walk(doc)
+    except (TypeError, ValueError):
+        return ""
+    for node in found:
+        for value in node[2]:
+            if isinstance(value, str) and value.strip():
+                return value.strip()[:160]
+    return ""
+
+
+def issue_meta(issue: str, cache_dir: str, refresh: bool = False,
+               log=lambda m: None) -> dict:
+    """Whether a reader can open this issue, and what it is called.
+
+    Both answers come from one request, which is why the accessibility check
+    is a GET and no longer a HEAD: the HEAD cost nothing and told us only that
+    the door was open, while the same request costs a body and also says what
+    is behind it. Measured on a real M148 -> M151 run, **70 of 236 linked
+    issues answer HTTP 403** -- three dead links in ten, and an unmarked one
+    reads as a broken tool rather than as a closed door.
+
+    An unknown answer is not a restricted one: a network fault must never turn
+    a working link into a warning, so anything that is not an explicit refusal
+    is reported as reachable and untitled.
     """
     path = _cache_path(cache_dir, "issue_access", f"{issue}.json")
     if os.path.exists(path) and not refresh:
         try:
             with open(path, encoding="utf-8") as fh:
-                return bool(json.load(fh).get("public"))
-        except (OSError, json.JSONDecodeError, AttributeError):
+                cached = json.load(fh)
+            if isinstance(cached, dict) and "title" in cached:
+                return cached
+        except (OSError, json.JSONDecodeError):
             pass
     url = f"https://issues.chromium.org/action/issues/{issue}"
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT},
-                                 method="HEAD")
-    public = True
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            public = resp.status == 200
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = resp.read()
     except urllib.error.HTTPError as exc:
-        public = exc.code not in (401, 403, 404)
+        if exc.code not in (401, 403, 404):
+            return {"public": True, "title": ""}
+        meta = {"public": False, "title": ""}
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh)
+        return meta
     except Exception:
-        # Unknown is not the same as restricted; a network fault must not turn
-        # a working link into a warning.
-        return True
+        return {"public": True, "title": ""}
+    title = ""
+    try:
+        title = _title_in(json.loads(_strip_xssi(body)), issue)
+    except (json.JSONDecodeError, ValueError):
+        pass
+    meta = {"public": True, "title": title}
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump({"public": public}, fh)
-    return public
+        json.dump(meta, fh)
+    return meta
 
 
 def issue_history(issue: str, cache_dir: str, limit: int = 25,
@@ -699,12 +854,13 @@ def _prune(hits: List[dict]) -> List[dict]:
     identified nothing. Strongest first, then newest, because the CL a reader
     wants is usually the last one to touch the line.
     """
-    strong = [h for h in hits if h["match"] in ("exact", "moved", "described")]
+    strong = [h for h in hits
+              if h["match"] in ("exact", "moved", "described")]
     if strong:
         kept = strong
     else:
-        nearby = [h for h in hits if h["match"] == "nearby"]
-        kept = nearby if len(nearby) <= NEARBY_MAX else []
+        declares = [h for h in hits if h["match"] == "declares"]
+        kept = declares if len(declares) <= DECL_MAX else []
     kept.sort(key=lambda h: (_STRENGTH.get(h["match"], 9),
                              _neg_date(h["date"])))
     return kept[:8]
@@ -807,6 +963,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         found = dict(zip(paths, pool.map(candidates, paths)))
 
     tokens = {f.uid: tokens_for(f.change) for f in ranked}
+    containers = {f.uid: container_for(f.change) for f in ranked}
     hits: Dict[str, List[dict]] = {f.uid: [] for f in ranked}
 
     # The free pass. Descriptions arrive with the candidate list, so every
@@ -844,7 +1001,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
             if not tokens[finding.uid]:
                 continue
             for cl, scan in diffs:
-                verdict = _match(scan, tokens[finding.uid])
+                verdict = _match(scan, tokens[finding.uid],
+                                 containers[finding.uid])
                 if not verdict and cl["_number"] in moved_here:
                     # The file this fact is declared in moved, and the fact is
                     # in it. Nothing was edited, so no line can carry the
@@ -927,8 +1085,9 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         fetched = dict(zip(chosen, pool.map(
             lambda i: issue_history(i, cache_dir, refresh=refresh, log=log),
             chosen)))
-        public = dict(zip(chosen, pool.map(
-            lambda i: _issue_is_public(i, cache_dir, refresh, log), chosen)))
+        meta = dict(zip(chosen, pool.map(
+            lambda i: issue_meta(i, cache_dir, refresh, log), chosen)))
+    public = {i: m.get("public", True) for i, m in meta.items()}
     restricted = sorted(i for i in chosen if not public.get(i, True))
 
     # Marked on the CL line itself, because that is where the link is and a
@@ -958,6 +1117,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
                 "id": issue,
                 "url": f"https://issues.chromium.org/issues/{issue}",
                 "restricted": not public.get(issue, True),
+                "title": (meta.get(issue) or {}).get("title", ""),
                 "changes": history[:12],
                 "total": len(history),
             })

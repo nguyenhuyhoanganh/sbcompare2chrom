@@ -263,6 +263,10 @@ color:var(--accent);background:var(--accent-soft);border:1px solid transparent;
 border-radius:var(--r1);padding:5px 11px;cursor:pointer}
 button.lookup:hover:not(:disabled){border-color:var(--accent)}
 button.lookup:disabled{color:var(--muted);background:var(--sunk);cursor:default}
+/* What the issue is actually about, in the reporter's words. Its own line:
+   the issue number and the CL count are metadata, this is the sentence. */
+.prov .isum{display:block;margin-top:4px;font-weight:400;letter-spacing:0;
+text-transform:none;color:var(--fg);font-size:.88rem;line-height:1.5}
 .prov .moreiss{margin-top:8px}
 .prov .none{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
 .prov .none code{font-size:.85em}
@@ -304,7 +308,7 @@ padding:1px 6px;border-radius:999px;white-space:nowrap}
 .ev-moved{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 10%,transparent)}
 /* Between the two: the author's own words, but not the declaring line. */
 .ev-described{color:var(--accent);background:var(--accent-soft)}
-.ev-nearby{color:var(--beh);background:color-mix(in srgb,var(--beh) 15%,transparent)}
+.ev-declares{color:var(--beh);background:color-mix(in srgb,var(--beh) 15%,transparent)}
 """
 
 _JS = """
@@ -439,7 +443,8 @@ function provenance(f){
           'the run\u2019s diff budget would read.'+
           (LIVE?'':' Re-run <code>why</code> with a higher '+
                    '<code>--gerrit-budget</code>.')
-        : 'No CL among the '+(f.cl_read||f.cl_pool)+' read of the '+f.cl_pool+' that touched '+
+        : 'No CL among the '+(f.cl_read?f.cl_read+' read of the '+f.cl_pool:f.cl_pool)+
+          ' that touched '+
           (f.cl_files>1?'either file':'this file')+
           ' edits a line carrying this identifier.')+'</p>'+
       (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
@@ -465,7 +470,8 @@ function provenance(f){
       '<span class="pool">'+
       i.total+' CL'+(i.total===1?'':'s')+
       ' cite it'+(i.total>i.cls.length?', newest '+i.cls.length+' shown':'')+
-      '</span></h4><ul class="cls">'+
+      '</span>'+(i.t?'<span class="isum">'+esc(i.t)+'</span>':'')+
+      '</h4><ul class="cls">'+
       i.cls.map(function(c){return clRow(c,false);}).join('')+'</ul></div>';
   });
   if(f.issues_more)
@@ -725,12 +731,22 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
     return rows
 
 
+# Every key `_to_rows` adds for provenance, named once. `serve` returns this
+# subset to the page after a lookup, and when it kept its own copy of the list
+# the two drifted the first time a key was renamed: `issue` became `issues` in
+# the renderer and the server went on filtering for `issue`, so every lookup
+# answered with the CLs and silently dropped the issue history.
+PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "issues",
+                   "issues_more", "no_diffs")
+
+
 def _issue_payload(issue) -> dict:
     if not isinstance(issue, dict) or not issue.get("changes"):
         return {}
     return {
         "id": issue.get("id"),
         "restricted": bool(issue.get("restricted")),
+        "t": issue.get("title") or "",
         "total": issue.get("total") or len(issue["changes"]),
         "cls": [{"n": c.get("number"), "d": c.get("date", ""),
                  "s": c.get("subject", "")} for c in issue["changes"][:8]],

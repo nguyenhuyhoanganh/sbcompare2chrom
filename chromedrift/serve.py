@@ -146,8 +146,7 @@ class _State:
                    findings=[finding], summary={}, meta=self.report.meta),
             self.report.meta.get("platform", "windows"))
         row = rows[0] if rows else {}
-        return {k: row[k] for k in ("cls", "cl_pool", "cl_files", "issue",
-                                    "no_diffs") if k in row}
+        return {k: row[k] for k in html_report.PROVENANCE_KEYS if k in row}
 
 
 class _Handler(BaseHTTPRequestHandler):

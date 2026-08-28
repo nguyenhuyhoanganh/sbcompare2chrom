@@ -4635,37 +4635,131 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_changed_line_is_exact_and_a_neighbour_is_only_nearby(self):
         from chromedrift.enrich import gerrit
 
-        long_file = [("filler", False)] * gerrit.NEARBY_MIN_FILE_LINES
-        edited = list(long_file)
-        edited[10] = ("  kFoo,", True)
+        edited = [("  kFoo,", True), ("  b);", False)]
         self.assertEqual(gerrit._match(gerrit._Scanned(edited), {"kFoo"}),
                          "exact")
 
-        neighbour = list(long_file)
-        neighbour[10] = ("  kFoo,", False)
-        neighbour[12] = ("  something else,", True)
-        self.assertEqual(gerrit._match(gerrit._Scanned(neighbour), {"kFoo"}),
-                         "nearby")
+        # The name line is untouched; a line inside its parameter list is not.
+        body = [("  kFoo(", False), ("    a,", True), ("    b);", False)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(body), {"kFoo"}),
+                         "declares")
+
+    def test_a_change_above_the_name_is_not_part_of_the_declaration(self):
+        """Directional on purpose. A declaration's body follows its name -- a
+        Mojo method's parameters, a field's type -- so an edit *above* the name
+        belongs to whatever was declared before it, not to this."""
+        from chromedrift.enrich import gerrit
+
+        above = [("  edited,", True), ("  Other();", False),
+                 ("  CreateWriter(", False), ("    a);", False)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(above),
+                                       {"CreateWriter"}), "")
+        below = [("  edited,", False), ("  Other();", False),
+                 ("  CreateWriter(", False), ("    a,", True), ("    b);", False)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(below),
+                                       {"CreateWriter"}), "declares")
+
+    def test_a_key_that_is_not_written_anywhere_falls_back_to_its_container(self):
+        """`blink.mojom.TokenError.url` is our construction, not text.
+
+        A .mojom writes `struct TokenError {` and `url.mojom.Url? url;` and
+        never the qualified name, and `url` is too short to search for -- so
+        the whole token set was unfindable and 13 diffs were read for a string
+        that cannot occur in any of them. Reported as "no CL edits a line
+        carrying this identifier", which was true and deeply misleading.
+        """
+        from chromedrift.enrich.gerrit import tokens_for
+
+        from chromedrift.enrich.gerrit import container_for
+
+        change = self._change("mojo_field", "blink.mojom.TokenError.url", "url")
+        self.assertNotIn("url", tokens_for(change))
+        self.assertEqual(container_for(change), "TokenError")
+
+    def test_the_container_can_never_reach_the_stronger_verdict(self):
+        """A changed line mentioning `TokenError` is not a changed line
+        declaring `TokenError.url`. Mixed into the token set it claimed `exact`
+        on two CLs that had merely tidied the struct."""
+        from chromedrift.enrich import gerrit
+
+        seq = [("struct TokenError {", True), ("  int32 a;", False),
+               ("};", False)]
+        self.assertEqual(
+            gerrit._match(gerrit._Scanned(seq),
+                          {"blink.mojom.TokenError.url"}, "TokenError"),
+            "declares")
+
+    def test_a_key_with_a_usable_leaf_does_not_widen_to_its_container(self):
+        """`AIManager` names twenty methods; falling back to it when the method
+        itself is searchable would trade one answer for twenty."""
+        from chromedrift.enrich.gerrit import tokens_for
+
+        from chromedrift.enrich.gerrit import container_for
+
+        change = self._change("mojo_method",
+                              "blink.mojom.AIManager.CreateLanguageModel",
+                              "CreateLanguageModel")
+        self.assertIn("CreateLanguageModel", tokens_for(change))
+        self.assertEqual(container_for(change), "")
 
     def test_a_mention_far_from_every_edit_is_no_evidence_at_all(self):
         from chromedrift.enrich import gerrit
 
-        seq = [("filler", False)] * (gerrit.NEARBY_LINES * 4)
-        seq[0] = ("  kFoo,", False)
-        seq[-1] = ("  edited,", True)
+        seq = [("  kFoo;", False), ("  Other();", False),
+               ("  edited,", True), ("  more);", False)]
         self.assertEqual(gerrit._match(gerrit._Scanned(seq), {"kFoo"}), "")
 
-    def test_proximity_is_not_evidence_in_a_file_too_small_to_have_any(self):
-        """On a short file every line is near every other, so it says nothing."""
+    def test_a_declaration_that_never_closes_is_not_attributed(self):
+        """A shape the scanner cannot close is one it cannot bound, and an
+        unbounded region would swallow the rest of the file."""
         from chromedrift.enrich import gerrit
 
-        seq = [("  kFoo,", False), ("  edited,", True)]
+        seq = [("  kFoo", False)] + [("filler", False)] * 80 + [("x", True)]
         self.assertEqual(gerrit._match(gerrit._Scanned(seq), {"kFoo"}), "")
+
+    def test_a_record_in_another_grammar_falls_back_to_its_enclosing_block(self):
+        """`runtime_enabled_features.json5` names a feature inside a `{...},`
+        record and nothing after it ever ends in `;`, so scanning forward could
+        only ever run to the cap."""
+        from chromedrift.enrich import gerrit
+
+        seq = [("  {", False),
+               ('    name: "GetComputedStyleOutsideFlatTree",', False),
+               ('    status: "stable",', True),
+               ("  },", False),
+               ("  {", False),
+               ('    name: "Other",', False),
+               ("  },", False)]
+        self.assertEqual(
+            gerrit._match(gerrit._Scanned(seq),
+                          {"GetComputedStyleOutsideFlatTree"}), "declares")
+
+        # ...and the record next door is not this one.
+        elsewhere = list(seq)
+        elsewhere[2] = ('    status: "stable",', False)
+        elsewhere[5] = ('    name: "Other",', True)
+        self.assertEqual(
+            gerrit._match(gerrit._Scanned(elsewhere),
+                          {"GetComputedStyleOutsideFlatTree"}), "")
+
+    def test_a_struct_body_runs_to_its_closing_brace(self):
+        """A field is reached through the struct that declares it, so the
+        region is the whole struct rather than the first line ending in `;`."""
+        from chromedrift.enrich import gerrit
+
+        seq = [("struct TokenError {", False), ("  string? a;", False),
+               ("  url.mojom.Url? url;", True), ("};", False)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(seq),
+                                       {"TokenError"}), "declares")
+        after = [("struct TokenError {", False), ("};", False),
+                 ("struct Other { int32 x; };", True)]
+        self.assertEqual(gerrit._match(gerrit._Scanned(after),
+                                       {"TokenError"}), "")
 
     def test_an_exact_hit_retires_every_nearby_one_on_the_same_finding(self):
         from chromedrift.enrich.gerrit import _prune
 
-        kept = _prune([{"match": "nearby", "date": "2026-06-01"},
+        kept = _prune([{"match": "declares", "date": "2026-06-01"},
                        {"match": "exact", "date": "2026-04-01"}])
         self.assertEqual([h["match"] for h in kept], ["exact"])
 
@@ -4673,11 +4767,11 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         """The ai_manager.mojom case: four confident, unrelated answers."""
         from chromedrift.enrich import gerrit
 
-        many = [{"match": "nearby", "date": f"2026-06-0{i}"}
-                for i in range(1, gerrit.NEARBY_MAX + 2)]
+        many = [{"match": "declares", "date": f"2026-06-0{i}"}
+                for i in range(1, gerrit.DECL_MAX + 2)]
         self.assertEqual(gerrit._prune(many), [])
-        few = many[:gerrit.NEARBY_MAX]
-        self.assertEqual(len(gerrit._prune(few)), gerrit.NEARBY_MAX)
+        few = many[:gerrit.DECL_MAX]
+        self.assertEqual(len(gerrit._prune(few)), gerrit.DECL_MAX)
 
     def test_the_newest_cl_is_the_one_a_reader_sees_first(self):
         from chromedrift.enrich.gerrit import _prune
@@ -4729,7 +4823,7 @@ class TestTheThirdEvidenceTierIsFree(unittest.TestCase):
     def test_it_ranks_under_the_line_and_over_the_neighbourhood(self):
         from chromedrift.enrich.gerrit import _prune
 
-        kept = _prune([{"match": "nearby", "date": "2026-07-01"},
+        kept = _prune([{"match": "declares", "date": "2026-07-01"},
                        {"match": "described", "date": "2026-05-01"},
                        {"match": "exact", "date": "2026-03-01"}])
         self.assertEqual([h["match"] for h in kept], ["exact", "described"])
@@ -5072,6 +5166,19 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         base = self._server()
         self.assertEqual(self._get(base, "/api/why?uid=nope:nope")[0], 404)
         self.assertEqual(self._get(base, "/api/why")[0], 400)
+
+    def test_the_server_returns_every_key_the_renderer_adds(self):
+        """One list, in the renderer. Two lists drifted the first time a key
+        was renamed -- `issue` became `issues` and the server went on filtering
+        for `issue`, so every lookup dropped the issue history in silence."""
+        from chromedrift.report import html as html_report
+        from chromedrift import serve as serve_mod
+        import inspect
+
+        source = inspect.getsource(serve_mod._State._payload)
+        self.assertIn("PROVENANCE_KEYS", source)
+        for key in ("cls", "issues", "no_diffs"):
+            self.assertIn(key, html_report.PROVENANCE_KEYS)
 
     def test_a_lookup_survives_the_session_that_made_it(self):
         """Minutes of clicking must not be lost to a closed terminal, or the

@@ -489,9 +489,11 @@ def _provenance_lines(finding) -> List[str]:
         if not issue.get("changes"):
             continue
         total = issue.get("total") or len(issue["changes"])
+        titled = f" — {issue['title']}" if issue.get("title") else ""
         out.append(f"- [Issue {issue['id']}]({ISSUE_URL}{issue['id']})"
                    f"{' (access-restricted)' if issue.get('restricted') else ''}"
-                   f" is cited by {total} CL{'' if total == 1 else 's'}:")
+                   f"{titled}, cited by {total} CL"
+                   f"{'' if total == 1 else 's'}:")
         for cl in issue["changes"]:
             out.append(f"  - [CL {cl['number']}]({GERRIT_CL}{cl['number']}) "
                        f"{cl.get('date', '')} — {cl.get('subject', '')}")
