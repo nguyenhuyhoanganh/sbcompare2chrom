@@ -90,6 +90,15 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
                  m: 'touched', b: [] }];
   }
+  // A lookup that lost requests and still produced a citation. The shape a
+  // partial failure most often makes, and the one the warning could not
+  // reach while it lived inside the empty panel's innermost branch.
+  if (prov === 8) {
+    row.cl_pool = 13; row.cl_files = 1; row.cl_failed = 2;
+    row.owner = 'flaky';
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
+                 m: 'exact', b: [] }];
+  }
   if (prov === 6) {
     row.cl_pool = 0; row.cl_files = 1; row.cl_by_message = 1;
     row.owner = 'msg';
@@ -239,6 +248,31 @@ out.budgetRowNamesThePool = /147 CLs touched/.test(budgetHtml);
 // Named as the flag that exists. `--gerrit-budget` belonged to a `why`
 // command that was removed, and the page went on telling readers to re-run it.
 out.budgetRowOffersTheRemedy = /--click-budget/.test(budgetHtml);
+
+// A row that lost requests says so whatever shape its answer took. The
+// warning used to live in one branch of the empty panel, which is the one
+// shape a partial failure cannot produce -- the floor hands any row with a
+// candidate a lead -- so every shape that actually happens was silent.
+// The evidence filter is still on `weak` from the block above, and these
+// rows are cited -- left in place it filters out the thing being asserted.
+els.fp.value = '';
+els.fp.listeners['change'].forEach(f => f());
+els.fo.value = 'flaky';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const flakyRow = new El('tr');
+flakyRow.className = 'row'; flakyRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? flakyRow : null) } }));
+const flakyHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.aCitedRowStillWarns = /class="warn"/.test(flakyHtml);
+out.theWarningNamesTheCount = /2 requests to Gerrit failed/.test(flakyHtml);
+// ...and it does not swallow the answer it qualifies.
+out.theCitationSurvivesTheWarning = /7700\d{3}/.test(flakyHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+els.fp.value = 'weak';
+els.fp.listeners['change'].forEach(f => f());
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';

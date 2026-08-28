@@ -109,14 +109,13 @@ class _State:
             return self._payload(finding)
         with _LOCK:
             # The lookup's own account of itself, kept rather than dropped.
-            # `enrich` counts a fetch that failed, a file whose candidate list
-            # was capped and a search that could not prove it was complete,
-            # and every one of those was computed and thrown away here: the
-            # summary was discarded and `log` swallowed. A dropped fetch then
-            # reaches the reader as "no CL edits this line", which is the one
-            # thing this stage is built never to say.
+            # `log` was swallowed here, so a fetch that failed reached the
+            # reader as "no CL edits this line" -- the one thing this stage is
+            # built never to say. What lands on the row is recorded by
+            # `enrich` itself, because it belongs to the answer rather than to
+            # whoever asked for it.
             notes: List[str] = []
-            summary = gerrit.enrich(
+            gerrit.enrich(
                 [finding], self.report.from_ref, self.report.to_ref,
                 self.cache_dir, top=1, budget=self.budget,
                 with_history=self.issues,
@@ -132,28 +131,10 @@ class _State:
                         sys.stdout.flush()
                     except (AttributeError, ValueError):
                         pass
-            self._warn(finding, summary)
             self.resolved += 1
             self._page = None
             self._persist()
         return self._payload(finding)
-
-    @staticmethod
-    def _warn(finding, summary: dict) -> None:
-        """Record on the row what would have made its answer less than sure.
-
-        A row that came back empty over a failed fetch and a row that came
-        back empty over a diff that matched nothing look identical, and only
-        the run knows which is which.
-        """
-        block = (finding.enrichment or {}).get("gerrit")
-        if not block:
-            return
-        failed = summary.get("failed_fetches") or 0
-        if failed:
-            block["failed_fetches"] = failed
-        if summary.get("incomplete_files"):
-            block["search_incomplete"] = True
 
     def _persist(self) -> None:
         """Write the report back, atomically.

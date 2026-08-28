@@ -867,13 +867,16 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertEqual(out["rowsAfterFilter"], out["initialRows"])
 
         # 4. The floor under provenance, run rather than read. The fixture
-        #    carries 30 rows of each shape, and "Has a CL" must return the 90
-        #    that name their fact -- `exact`, `declares`, and the `described`
-        #    ones reached by commit message -- and none of the 60 that only
-        #    list reviews: the fallback exists so a click always answers, and
-        #    it stops being worth having the moment it passes for an answer.
-        self.assertIn("of 90", out["hasCl"])
-        self.assertIn("of 30", out["exactOnly"])
+        #    carries 30 rows of each shape, and "Has a CL" must return the
+        #    120 that name their fact -- `exact`, `declares`, the `described`
+        #    ones reached by commit message, and the ones cited over a lookup
+        #    that lost requests -- and none of the 60 that only list reviews:
+        #    the fallback exists so a click always answers, and it stops being
+        #    worth having the moment it passes for an answer.
+        self.assertIn("of 120", out["hasCl"])
+        # 30 plain `exact` rows plus the 30 cited over a lookup that lost
+        # requests -- which are exact evidence, qualified, not lesser.
+        self.assertIn("of 60", out["exactOnly"])
         # 30 leads over diffs that were read, plus 30 over diffs the budget
         # declined. Both are leads; only the second can still be answered.
         self.assertIn("of 60", out["weakOnly"])
@@ -900,6 +903,15 @@ class TestHtmlReportScales(unittest.TestCase):
                         "three of 147 is the fact that makes the leads weak")
         self.assertTrue(out["budgetRowOffersTheRemedy"],
                         "the row that can still be answered must say how")
+
+        # A qualifier is a property of the lookup, not of how the lookup
+        # ended. Written into the empty panel's innermost branch it reached
+        # the one shape a partial failure cannot make, and missed the three
+        # it does.
+        self.assertTrue(out["aCitedRowStillWarns"],
+                        "a row that lost requests reads as a finished search")
+        self.assertTrue(out["theWarningNamesTheCount"])
+        self.assertTrue(out["theCitationSurvivesTheWarning"])
 
         # And the disclaimer is not printed over evidence that does name it.
         self.assertTrue(out["exactDetailListsTheCl"])
@@ -5379,6 +5391,139 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
 
     def test_a_skip_that_is_not_a_number_does_not_stop_the_scan(self):
         self.assertEqual(len(self._blocks([{"skip": None}, {"ab": ["  a"]}])), 1)
+
+    def test_a_row_served_from_a_stale_cache_says_it_is_short(self):
+        """`--refresh` promises to ignore the cache. When the warm pass loses
+        a fetch, the read pass finds the entry a previous run left and serves
+        it -- still the best available answer, and not a finished one.
+
+        The qualifier is recorded by `enrich` rather than by whoever called
+        it, so it travels with the answer whether the answer came from a click
+        or from a batch. Recorded by the caller it reached one of the two.
+        """
+        import json
+        import shutil
+        import tempfile
+
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        cls = [{"_number": 100, "subject": "s", "id": "i0",
+                "current_revision": "r",
+                "submitted": "2026-05-01 00:00:00.000000000"}]
+
+        def finding():
+            return Finding(
+                change=Change(change_type="modified", kind="base_feature",
+                              key="kFoo", name="kFoo", paths=["f.cc"]),
+                score=90)
+
+        def row_for(f):
+            return html_report._to_rows(
+                Report(from_ref="a", to_ref="b", findings=[f]), "windows")[0]
+
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
+        cache = tempfile.mkdtemp()
+        try:
+            gerrit._http_get = lambda url, **k: json.dumps(
+                {"content": [{"b": ["  kFoo,"]}]}).encode()
+            warm = finding()
+            gerrit.enrich([warm], "1", "2", cache_dir=cache, with_history=0,
+                          log=lambda m: None)
+            self.assertIsNone(row_for(warm).get("cl_failed"),
+                              "a run that lost nothing must not warn")
+
+            def boom(url, **k):
+                raise gerrit.AcquireError("HTTP 500")
+
+            gerrit._http_get = boom
+            stale = finding()
+            gerrit.enrich([stale], "1", "2", cache_dir=cache, refresh=True,
+                          with_history=0, log=lambda m: None)
+        finally:
+            (gerrit.window_for, gerrit._search_window,
+             gerrit._http_get) = saved
+            shutil.rmtree(cache, ignore_errors=True)
+        served = row_for(stale)
+        self.assertTrue(served.get("cls"), "the stale answer is still served")
+        self.assertEqual(served.get("cl_failed"), 1,
+                         "and it is served without saying it is short")
+
+    def test_a_search_that_could_not_prove_itself_complete_says_so(self):
+        """Set by the lookup and read by nobody: `search_incomplete` appeared
+        exactly once in the repository, at the line that assigned it. The same
+        shape as `candidates_read`, in the commit that fixed
+        `candidates_read`. `PROVENANCE_KEYS` is the thread meant to catch
+        that, and it only holds if a new key is put on it."""
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]), score=90,
+            enrichment={"gerrit": {"candidates": 500, "diffs_read": True,
+                                   "search_incomplete": True,
+                                   "changes": [{"number": 1, "date": "2026-06-01",
+                                                "match": "exact", "subject": "s",
+                                                "bugs": []}]}})
+        row = html_report._to_rows(
+            Report(from_ref="a", to_ref="b", findings=[finding]), "windows")[0]
+        self.assertTrue(row.get("cl_partial"))
+        self.assertIn("cl_partial", html_report.PROVENANCE_KEYS)
+
+    def test_the_lookup_records_the_search_it_could_not_finish(self):
+        """Asserted through `enrich`, because the block above is hand-built
+        and testing the mapping is not testing the thing that fills it -- the
+        same gap this key fell into in the first place."""
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding
+
+        cls = [{"_number": 100, "subject": "s",
+                "submitted": "2026-05-01 00:00:00.000000000"}]
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        # `True` is the search saying it came back at the page cap and cannot
+        # prove the window holds nothing more.
+        gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], True)
+        gerrit._diff = lambda *a, **k: [("  kFoo,", gerrit.ADDED)]
+        try:
+            gerrit.enrich([finding], "1", "2", cache_dir="", with_history=0,
+                          log=lambda m: None)
+        finally:
+            (gerrit.window_for, gerrit._search_window, gerrit._diff) = saved
+        self.assertTrue(
+            finding.enrichment["gerrit"].get("search_incomplete"),
+            "the row is served a list the search could not prove complete, "
+            "and says nothing about it")
+
+    def test_a_long_cache_key_is_the_same_key_in_the_next_process(self):
+        """`_slug` folded a long path with `hash()`, which Python salts per
+        process: the same path produced a different filename on every run, so
+        the entry could never be read back by anything but the run that wrote
+        it. A cache that silently never hits is a cache that is not there.
+
+        Asserted against a constant, which is the whole test: a salted hash
+        cannot produce one twice.
+        """
+        from chromedrift.enrich.gerrit import _slug
+
+        long = ("third_party/blink/renderer/modules/" + "x" * 100
+                + "/feature.idl")
+        self.assertGreater(len(long), 120, "the short branch is not the one "
+                                           "under test")
+        self.assertEqual(
+            _slug(long),
+            "third_party_blink_renderer_modules_" + "x" * 65
+            + "_ef2405159e66")
+        # And a short one is left readable rather than folded at all.
+        self.assertEqual(_slug("chrome/browser/about_flags.cc"),
+                         "chrome_browser_about_flags.cc")
 
     def test_a_cl_gerrit_dated_nowhere_does_not_lead_the_list(self):
         """`_neg_date` inverts digits so an ascending sort reads newest

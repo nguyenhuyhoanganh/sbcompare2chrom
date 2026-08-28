@@ -3,11 +3,11 @@
 > Initial assessment: August 21, 2026  
 > Follow-up review: August 22, 2026  
 > Provenance-stage review: August 28, 2026  
-> Latest reviewed baseline: commit `25745ed` — schema `40`  
-> History reviewed through that baseline: all 89 of 89 commits, from `d9fca08` through `25745ed`, including subjects, bodies, and the diffs behind the major decisions.  
+> Latest reviewed baseline: commit `71cba61` — schema `40`  
+> History reviewed through that baseline: all 90 of 90 commits, from `d9fca08` through `71cba61`, including subjects, bodies, and the diffs behind the major decisions.  
 > Scope: all Python source, extractors, targets, caching, snapshots, diffing, scoring, reports, tests, and the cached M130/M136/M139/M143/M147/M148/M151 data available in the project.
 
-> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in **Section 34**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
+> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in Section 34, and the review of the commit answering it, `71cba61`, is in **Section 35**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
 
 ## 1. Start here if you are not deeply technical
 
@@ -61,7 +61,7 @@ Use this reading path:
 - To understand facts and scoring: Sections 9, 10, and 11.
 - To understand decisions recorded in commit history: Sections 17 and 18.
 - To see which issues originally required the earliest attention: Sections 19, 20, and 21.
-- To see the latest conclusion and recommended stopping point: Section 34.
+- To see the latest conclusion and recommended stopping point: Section 35.
 - To understand the CL-and-issue provenance stage and what it can be trusted for: Section 34.
 
 ### Quick answers
@@ -4643,3 +4643,114 @@ What it needs before it can be relied on is smaller than what it already does:
 Items 1–4 are the ones that affect what a reader believes. None of them requires a schema bump, and none of them changes a verdict already produced.
 
 > **Reviewed at `25745ed`, schema 40. The stage is sound and measurably correct; its diff parser is unguarded, its batch half is unbuilt, and two of its lists state a count they did not cover.**
+
+## 35. Review of `71cba61` — the Section 34 fixes
+
+> Reviewed: August 28, 2026
+> Baseline: commit `71cba61`, schema `40`, 90 of 90 commits
+> Verified on: Python 3.14.6, 474 of 474 tests pass; the same real `M148 → M151 default` data as Section 34
+
+One commit answers Section 34. Each claim was re-measured rather than read, and each fix was reverted to see whether a test objects.
+
+### 35.1. What holds
+
+**The diff parser is guarded now.** All three mutations that were green in Section 34 fail:
+
+| Mutation | Section 34 | Now |
+|---|---|---|
+| Count a `common: true` reindent as a real edit | 458 pass | **1 failure** |
+| Ignore `{"skip": N}` blocks | 458 pass | **1 failure** |
+| Never follow a rename, so `moved` dies | 458 pass | **1 failure** |
+
+`TestGerritsDiffIsReadAsGerritMeansIt` holds all four block shapes and the rename, which is the fixture the section asked for.
+
+**Both counts reach both reports.** Re-rendered from the current code:
+
+```
+report.html   1 of 510 merged CLs touched this file · 500 of them read
+report.md    (1 of 510 merged CLs touched this file, 500 of them read)
+
+report.html   15 of 19 merged CLs touched this file · newest 12 shown
+report.md    (15 of 19 merged CLs touched this file, newest 12 shown)
+```
+
+The row now separates three claims that were one: how many touched the file, how many a diff tied to the fact, how many are printed.
+
+**The chains are whole.** `NtpComposebox` reads forward, and both CLs Section 34 identified as lost are back — CL 7843034, the flag's origin, cut by the old cap, and CL 7909551 `declares`, deleted by the strong-hit rule:
+
+```
+2026-05-13  exact     7843034  [ntp-composebox] Add feature flag to switch to fork
+2026-06-10  declares  7909551  [ntp-composebox] Enable NTP composebox fork by default
+2026-06-29  exact     7791453  [next] Launch Omnibox and NTP Next features
+2026-06-30  exact     8017587  Revert "…"                        [reverts 7791453]
+2026-07-09  exact     8027107  Reland "…"                        [reverts 8017587]
+2026-07-10  exact     8071179  Revert "Reland …"                 [reverts 8027107]
+2026-07-29  exact     8092074  Reland "Reland …"                 [reverts 8071179]
+2026-08-07  exact     8187722  Remove obsolete useNtpComposeboxFork
+```
+
+Rows holding more than one CL went from **28 of 150 to 39 of 150** at a diff budget of 1,600; the figure moves with the budget, so it is a measurement of this run rather than a constant.
+
+**The rest.** `_neg_date("")`, the `--refresh` double fetch, and the `why` / `--gerrit-budget` references all revert to a failing test or are gone from the source. The `--refresh` test is measured at the right boundary: it stubs `_http_get`, keeps a real cache directory, and asserts three diff requests for three CLs. The first version of it counted `_get_json`, which both passes call once by design — the self-correction in the commit is the right one.
+
+### 35.2. `search_incomplete` is written and read by nobody
+
+`serve._warn` records two things on the row. One of them is consumed:
+
+```python
+if failed:
+    block["failed_fetches"] = failed          # -> row["cl_failed"] -> the panel
+if summary.get("incomplete_files"):
+    block["search_incomplete"] = True         # -> nothing
+```
+
+`search_incomplete` appears exactly once in the tree, at `serve.py:156`. It is not in `_to_rows`, not in `PROVENANCE_KEYS`, and not in the page script. A lookup whose candidate list could not be proven complete — Gerrit's 500-row cap holding even split by day — records that fact and drops it.
+
+This is the same defect the commit fixed for `cl_read`, one commit later, in the code that fixed it. `cl_read` survived three commits because a producer and a consumer were written at different times and nothing tied them together; `PROVENANCE_KEYS` exists precisely to be that tie, and the new key was not added to it.
+
+### 35.3. A failed fetch is disclosed on one row shape out of four
+
+The commit's own statement of the problem is right: *"a dropped fetch then reaches the reader as 'no CL edits this line', which is the one thing this stage exists never to say."* The fix reaches only the case where the whole lookup collapsed.
+
+Rendering the real page script over four constructed rows, each carrying `cl_failed`:
+
+| Row | Panel says |
+|---|---|
+| pool 0, no CLs | **"2 requests to Gerrit failed … this is not a finished search"** |
+| pool 13, no CLs | "No CL among the 13 that touched this file can be tied to this identifier." |
+| pool 13, `touched` leads | "No CL mentions this identifier. These are the newest CLs that touched the declaring file." |
+| pool 13, an `exact` CL | *(nothing about the failure)* |
+
+Only the first warns, and it is the shape where the *search* request failed — so there were no diffs to lose in the first place. The three that stay silent are the shapes a partial failure actually produces: the search succeeded, some of its diff fetches did not, and the row then reads as a completed scan. The third is the most likely of all, because `_last_resort` guarantees that any row with candidates gets leads rather than an empty panel.
+
+The warning is a property of the lookup, not of how the lookup happened to end, so it belongs above the panel on every shape rather than inside the innermost branch of the empty one.
+
+### 35.4. `_slug` is the one fix with no test
+
+The commit closes with *"Mutation-checked: all ten revert to a failing test."* Ten do. `_slug` is an eleventh change, listed in the same commit under measured smaller fixes, and reverting it to `abs(hash(text))` leaves **474 of 474 green**. No test names `_slug`.
+
+It is a pure function of one string, so the test is a line: assert that a term over 120 characters produces a known digest, which a salted hash cannot. Worth adding for the same reason the fix was worth making — the failure is silent, and the claim in the commit currently covers it without having checked it.
+
+`KEEP_MAX = 12` is also untested; reverting it to 8 leaves the suite green. That one is acceptable and probably right: the invariant is that a cut list says it was cut, and that is locked by three tests. The cap value is a tuning choice, and pinning tuning choices is how a suite becomes a record of what the code says rather than of what it must do.
+
+### 35.5. One trade the fix introduced
+
+The read pass now takes the cache unconditionally:
+
+```python
+_Scanned(_diff(cl, path, cache_dir, False, log))
+```
+
+That removes the double fetch, which was the point. It also means that under `--refresh`, a warm-pass fetch that failed leaves no new cache entry, and the read pass then serves a stale one from an earlier run — under a flag whose contract is to ignore caches. Narrow, and better than fetching everything twice, but it is a second place where a failed fetch turns into data that looks fine.
+
+### 35.6. Verdict
+
+Section 34's three main findings are closed, and closed the way this project closes things: measured before and after, and locked by a test that fails when the fix is removed. The diff parser went from three silent reverts to none. The chain reconstruction is now the strongest part of the stage — it reads a launch, two reverts and two relands forward, with Gerrit's own revert links, and says what it left out.
+
+What is left is small and of one kind: a disclosure that is computed and not delivered.
+
+1. Map `search_incomplete` onto the row and into `PROVENANCE_KEYS`, or stop recording it.
+2. Show `cl_failed` on every row shape, not only on an empty panel with an empty pool.
+3. Give `_slug` its one-line test, and drop `_slug` out of the "all ten" claim until it has one.
+
+> **Reviewed at `71cba61`, schema 40. The fixes hold under mutation and on real data. Two new disclosures repeat the defect they were written to fix: one has no consumer, the other reaches one row shape in four.**

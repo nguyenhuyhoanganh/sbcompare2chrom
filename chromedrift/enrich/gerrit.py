@@ -225,18 +225,28 @@ class GerritError(Exception):
 
 
 class _Failures:
-    """How many fetches never came back, so the summary can say so."""
+    """Which fetches never came back, so the rows they touched can say so.
+
+    A count alone reaches the run summary and nothing else, and the summary is
+    read by whoever started the run rather than by whoever opens a row six
+    weeks later. What a reader needs is on the row: this answer is short some
+    requests. So the paths are kept as well as the count, and a finding
+    declared in one of them carries the qualifier.
+    """
 
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.count = 0
         self.first = ""
+        self.paths: Set[str] = set()
 
-    def record(self, url: str, detail: str) -> None:
+    def record(self, url: str, detail: str, path: str = "") -> None:
         with self.lock:
             self.count += 1
             if not self.first:
                 self.first = f"{url} ({detail})"
+            if path:
+                self.paths.add(path)
 
 
 _failures = _Failures()
@@ -281,7 +291,7 @@ def _slug(text: str) -> str:
 
 
 def _get_json(url: str, cache_dir: str, key: Sequence[str],
-              refresh: bool = False, log=lambda m: None):
+              refresh: bool = False, log=lambda m: None, owner: str = ""):
     """Fetch JSON, caching it forever.
 
     A merged CL and its diff never change again, so the cache has no expiry.
@@ -305,7 +315,7 @@ def _get_json(url: str, cache_dir: str, key: Sequence[str],
         except AcquireError as exc:
             detail = str(exc)
             if "429" not in detail or attempt == len(_RATE_LIMIT_BACKOFF):
-                _failures.record(url, detail)
+                _failures.record(url, detail, owner)
                 log(f"  gerrit unavailable: {exc}")
                 return None
     if raw is None:
@@ -423,7 +433,8 @@ def _page(term: str, after: str, before: str, start: int, cache_dir: str,
     # second would have read the first's cache entry.
     scope = f"{kind}{'' if branch else '_anybranch'}"
     key = ("search", _slug(term), f"{scope}_{after}_{before}_{start}.json")
-    doc = _get_json(url, cache_dir, key, refresh=refresh, log=log)
+    doc = _get_json(url, cache_dir, key, refresh=refresh, log=log,
+                    owner=term if kind == "file" else "")
     return doc if isinstance(doc, list) else []
 
 
@@ -579,7 +590,7 @@ def _diff(cl: dict, path: str, cache_dir: str, refresh: bool,
     fid = urllib.parse.quote(path, safe="")
     url = f"{GERRIT}/changes/{cl['id']}/revisions/{rev}/files/{fid}/diff"
     key = ("diffs", str(cl["_number"]), _slug(path) + ".json")
-    doc = _get_json(url, cache_dir, key, refresh=refresh, log=log)
+    doc = _get_json(url, cache_dir, key, refresh=refresh, log=log, owner=path)
     if not isinstance(doc, dict):
         return []
     seq = _blocks(doc)
@@ -1454,6 +1465,18 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         # True only when every path behind the row was read; a half-read row
         # cannot claim the scan was complete.
         block["diffs_read"] = bool(searched) and all(p in read for p in searched)
+        # Recorded here rather than by the caller, so it travels with the
+        # answer whether the answer came from a click or a batch. It matters
+        # most under `--refresh`: a warm-pass fetch that fails leaves the read
+        # pass on the entry from a previous run, and the row is then served
+        # older evidence under a flag whose whole contract is to ignore the
+        # cache. It is still the best available answer; it is not a finished
+        # one, and the row now says which.
+        hurt = sorted(p for p in searched if p in _failures.paths)
+        if hurt:
+            block["failed_fetches"] = _failures.count
+        if any(p in truncated for p in searched):
+            block["search_incomplete"] = True
         # The floor. Everything above named the fact; this names only the file,
         # and it is what makes a click on any row with a candidate CL answer
         # something instead of nothing.

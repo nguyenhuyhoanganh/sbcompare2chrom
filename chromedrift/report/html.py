@@ -302,6 +302,12 @@ text-transform:none;color:var(--fg);font-size:.88rem;line-height:1.5}
 /* A dead link with no reason reads as a broken report. The reason is the same
    every time and it is not about this reader, so it is stated once, plainly,
    inside the block it explains. */
+/* Above the answer and outside it, because it qualifies whatever the answer
+   turned out to be. Amber rather than red: the row is not wrong, it is
+   unfinished, and the reader can finish it by opening the row again. */
+.warn{margin:12px 0 0;padding:8px 11px;font-size:.82rem;line-height:1.5;
+color:var(--beh);background:color-mix(in srgb,var(--beh) 9%,transparent);
+border-left:2px solid var(--beh)}
 .prov .why403{margin:6px 0 0;color:var(--muted);font-size:.8rem;
 line-height:1.5}
 .prov .moreiss{margin-top:8px}
@@ -508,15 +514,35 @@ function lookupBtn(f){
   return '<button class="lookup" data-uid="'+esc(f.id)+'">Look up the CL '+
     'for this row</button>';
 }
+/* What would make this row's answer less than sure, printed above the answer
+   instead of inside one branch of it.
+   A lookup that lost requests ends in whichever shape the surviving evidence
+   produces -- an empty panel, a list of leads, or a citation -- and the
+   warning had been written into the innermost branch of the first of those,
+   which is the one shape that cannot happen after a partial failure: the
+   floor hands any row with a candidate a lead. So the three shapes a
+   half-failed lookup actually produces were the three that said nothing.
+   A qualifier is a property of the lookup, not of how the lookup ended. */
+function qualifier(f){
+  var w=[];
+  if(f.cl_failed)
+    w.push(f.cl_failed+' request'+(f.cl_failed===1?'':'s')+' to Gerrit failed '+
+      'during this lookup, so what follows is not a finished search \u2014 '+
+      'open the row again to retry.');
+  if(f.cl_partial)
+    w.push('Gerrit returned this file\u2019s candidate list at its page limit, '+
+      'so the window may hold CLs the list below does not.');
+  return w.length?'<p class="warn">'+w.join(' ')+'</p>':'';
+}
 function provenance(f){
-  var out='';
+  var out=qualifier(f);
   if(!f.cls||!f.cls.length){
     /* Asked and unanswered is a result, and a different one depending on
        whether the diffs were read. Silence would read as "not asked". */
     if(f.cl_pool===undefined)
-      return LIVE?'<div class="prov"><h4>Why it changed</h4><p class="none">'+
+      return LIVE?out+'<div class="prov"><h4>Why it changed</h4><p class="none">'+
         'Not looked up yet.</p>'+lookupBtn(f)+'</div>':'';
-    return '<div class="prov"><h4>Why it changed</h4><p class="none">'+
+    return out+'<div class="prov"><h4>Why it changed</h4><p class="none">'+
       (f.no_diffs
         ? 'Not looked up \u2014 '+f.cl_pool+' CLs touched this file, more than '+
           'the run\u2019s diff budget would read.'+
@@ -534,14 +560,7 @@ function provenance(f){
                something landed; what failed is this search. Naming what it
                asked is the only honest form of the answer, and it is also
                the one a reader can act on. */
-            : (f.cl_failed
-              /* Never folded into the answer. A fetch that failed is not
-                 evidence of absence, and reporting it as one is the single
-                 thing this stage may not do. */
-              ? f.cl_failed+' request'+(f.cl_failed===1?'':'s')+' to Gerrit '+
-                'failed during this lookup, so this is not a finished search. '+
-                'Open the row again to retry.'
-              : 'This lookup found nothing. Nothing touched '+
+            : ('This lookup found nothing. Nothing touched '+
               (f.cl_files>1?'either file':'this file')+
               ' on any branch in the window, and no commit message in it '+
               'names this identifier \u2014 so the CL that made this change '+
@@ -959,6 +978,13 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # produce the same empty panel, and only the run knows which.
             if provenance.get("failed_fetches"):
                 row["cl_failed"] = provenance["failed_fetches"]
+            # Written by the lookup and read by nobody: it appeared once in
+            # the whole repository, at the line that set it. The same shape as
+            # `candidates_read`, in the commit that fixed `candidates_read`.
+            # `PROVENANCE_KEYS` is the thread meant to stop that, and it only
+            # works if a new key is put on it.
+            if provenance.get("search_incomplete"):
+                row["cl_partial"] = True
             # "no CL edits this line" and "nobody looked" are different
             # answers, and only the run knows which one this is. A row that
             # was never asked about carries neither, and says nothing.
@@ -995,8 +1021,8 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
 # the renderer and the server went on filtering for `issue`, so every lookup
 # answered with the CLs and silently dropped the issue history.
 PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "cl_match",
-                   "cl_failed", "issues", "issues_more", "no_diffs",
-                   "cl_by_message")
+                   "cl_failed", "cl_partial", "issues", "issues_more",
+                   "no_diffs", "cl_by_message")
 
 
 def _issue_payload(issue) -> dict:
