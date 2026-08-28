@@ -81,6 +81,15 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   // Found by searching commit messages, because nothing touched the file.
   // Its own owner so the harness can isolate it: the file's denominator is
   // the thing being asserted, and it must not be printed for these.
+  // The floor reached over diffs nobody opened. Its own owner, because the
+  // assertion is that this row keeps a way out that the other weak rows do
+  // not need: nothing here was searched, so a lookup can still answer it.
+  if (prov === 7) {
+    row.cl_pool = 147; row.cl_files = 1; row.no_diffs = 1;
+    row.owner = 'budget';
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
+                 m: 'touched', b: [] }];
+  }
   if (prov === 6) {
     row.cl_pool = 0; row.cl_files = 1; row.cl_by_message = 1;
     row.owner = 'msg';
@@ -111,6 +120,18 @@ const out = { total: N, initialRows: els.tb.trCount, initialCount: els.cnt.textC
 // is allowed to omit, so a missing key has to print as empty, never as the
 // word JavaScript uses for it.
 out.undefinedInRows = /undefined/.test(els.tb.innerHTML);
+
+// Every row states its own values, whether or not the row above says the
+// same thing. This table sorts and filters, so "same as above" is a fact
+// about the current view rather than about the finding: a row has to stand on
+// its own -- searchable, copyable, and correct once the run is sorted apart.
+out.everyRowStatesItsCause =
+  (els.tb.innerHTML.match(/>Shipped, then flag retired</g) || []).length > 90;
+// The path carries <wbr> break points, so it is matched across one of them.
+out.everyRowStatesItsPath =
+  (els.tb.innerHTML.match(/public\/<wbr>common/g) || []).length > 90;
+// And no cell is dressed differently from the one holding the same value.
+out.noCellIsMarkedAsARepeat = !/\brep\b/.test(els.tb.innerHTML);
 
 // A zero score has to render as 0. Filtering to breaking puts all 40 of them
 // on one page, four of which score zero. The script is eval'd, so its own
@@ -199,6 +220,27 @@ const weakHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.weakDetailListsTheCl = /7700\d{3}/.test(weakHtml);
 out.weakDetailSaysLead = weakHtml.includes('Leads, not a citation');
 out.weakDetailBadge = /ev-touched/.test(weakHtml);
+
+// A row whose diffs the budget declined is not a row that was searched and
+// came back empty. Filling it with leads made it read as exhausted and took
+// its remedy with it, because both the sentence and the button lived in the
+// branch that runs only when there are no CLs at all.
+els.q.value = '';
+els.fo.value = 'budget';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const budgetRow = new El('tr');
+budgetRow.className = 'row'; budgetRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? budgetRow : null) } }));
+const budgetHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.budgetRowSaysNothingWasRead = budgetHtml.includes('Nothing here was read');
+out.budgetRowNamesThePool = /147 CLs touched/.test(budgetHtml);
+out.budgetRowOffersTheRemedy = /--gerrit-budget/.test(budgetHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+els.fp.value = 'weak';
+els.fp.listeners['change'].forEach(f => f());
 
 // ...and a row that is actually explained carries no such disclaimer.
 byEvidence('exact');

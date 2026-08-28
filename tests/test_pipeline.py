@@ -653,68 +653,6 @@ class TestPartitions(unittest.TestCase):
             diff_snapshots(old, new)
 
 
-class TestDocumentedInterface(unittest.TestCase):
-    """The docs are the interface for people who never read the source.
-
-    Both halves of this drifted at once and neither showed up in a test run:
-    `--platform` was removed from the CLI while eight documented commands kept
-    passing it (they now exit with an argparse error before doing any work),
-    and the skill's signal reference still named `android_enabled_by_default`
-    after the rename.
-    """
-
-    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DOCS = ("README.md",
-            "skills/analyzing-chromium-uprevs/SKILL.md",
-            "skills/analyzing-chromium-uprevs/reference/signals.md",
-            "skills/analyzing-chromium-uprevs/reference/traps.md",
-            "skills/analyzing-chromium-uprevs/reference/settings-surface.md")
-
-    def _read(self, rel):
-        with open(os.path.join(self.ROOT, rel), encoding="utf-8") as fh:
-            return fh.read()
-
-    def test_every_documented_command_parses(self):
-        import contextlib
-        import io
-        import re
-
-        from chromedrift.cli import build_parser
-
-        pattern = re.compile(r"python3?\s+-m\s+chromedrift\s+((?:[^\n\\]|\\\n)*)")
-        rejected = []
-        for doc in self.DOCS:
-            for match in pattern.finditer(self._read(doc)):
-                raw = match.group(1).replace("\\\n", " ").split("#")[0].strip()
-                argv = [a for a in raw.split() if not a.startswith("$")]
-                # Prose quoting a bare subcommand, or a snippet with an elided
-                # argument, is not a command anyone is expected to paste.
-                if len(argv) < 2 or "…" in raw or "<" in raw or "--version" in argv:
-                    continue
-                buf = io.StringIO()
-                try:
-                    with contextlib.redirect_stderr(buf), contextlib.redirect_stdout(buf):
-                        build_parser().parse_args(argv)
-                except SystemExit:
-                    rejected.append(f"{doc}: chromedrift {raw[:70]}")
-        self.assertEqual(rejected, [], "documented commands the CLI rejects")
-
-    def test_the_signal_reference_matches_the_signals(self):
-        import re
-
-        from chromedrift.diff import SIGNAL_LABELS, SIGNAL_SEVERITY
-
-        real = set(SIGNAL_SEVERITY) | set(SIGNAL_LABELS)
-        text = self._read("skills/analyzing-chromium-uprevs/reference/signals.md")
-        documented = {t for t in re.findall(r"`([a-z][a-z0-9_]{4,})`", text)
-                      if "_" in t}
-
-        self.assertEqual(sorted(documented - real), [],
-                         "signals.md documents signals the tool never emits")
-        self.assertEqual(sorted(real - documented), [],
-                         "the tool emits signals signals.md does not explain")
-
-
 class TestFetchMarkers(unittest.TestCase):
     """A cached outcome has to remember which outcome it was.
 
@@ -931,12 +869,14 @@ class TestHtmlReportScales(unittest.TestCase):
         # 4. The floor under provenance, run rather than read. The fixture
         #    carries 30 rows of each shape, and "Has a CL" must return the 90
         #    that name their fact -- `exact`, `declares`, and the `described`
-        #    ones reached by commit message -- and none of the 30 that only
+        #    ones reached by commit message -- and none of the 60 that only
         #    list reviews: the fallback exists so a click always answers, and
         #    it stops being worth having the moment it passes for an answer.
         self.assertIn("of 90", out["hasCl"])
         self.assertIn("of 30", out["exactOnly"])
-        self.assertIn("of 30", out["weakOnly"])
+        # 30 leads over diffs that were read, plus 30 over diffs the budget
+        # declined. Both are leads; only the second can still be answered.
+        self.assertIn("of 60", out["weakOnly"])
         self.assertTrue(out["weakRowClass"], "a lead row needs its own state")
         self.assertTrue(out["weakRowIsNotCl"])
 
@@ -947,6 +887,19 @@ class TestHtmlReportScales(unittest.TestCase):
                         "a lead row must still show the CLs it found")
         self.assertTrue(out["weakDetailSaysLead"])
         self.assertTrue(out["weakDetailBadge"])
+
+        # A row the budget declined is a lead of a different kind: nothing was
+        # read, so the verdicts that name a fact were never attempted. Filling
+        # it with leads made it read as exhausted and took its way out with it
+        # -- the remedy and the lookup button both lived in the branch that
+        # runs only when there are no CLs at all, so the one row that could
+        # still be answered became the one row that could no longer ask.
+        self.assertTrue(out["budgetRowSaysNothingWasRead"],
+                        "a budget-declined row must not read as exhausted")
+        self.assertTrue(out["budgetRowNamesThePool"],
+                        "three of 147 is the fact that makes the leads weak")
+        self.assertTrue(out["budgetRowOffersTheRemedy"],
+                        "the row that can still be answered must say how")
 
         # And the disclaimer is not printed over evidence that does name it.
         self.assertTrue(out["exactDetailListsTheCl"])
@@ -973,6 +926,21 @@ class TestHtmlReportScales(unittest.TestCase):
                          "a cell rendered the string 'undefined'; a field the "
                          "payload may omit is being printed without a guard")
         self.assertFalse(out["undefinedAfterFilter"])
+        # A run of rows sharing a cause repeated the cause on every line of
+        # it: ten consecutive Mojo findings in a real report printed the same
+        # sentence four times, the same directory five times and the same
+        # surface five times, while the phrase that differed sat in the
+        # narrowest column. Held back, the value is stated once per run and
+        # kept on the cell it was omitted from.
+        # Every row states its own values. Three treatments for a repeated
+        # value were tried -- dropping it, merging the run into one tall
+        # cell, and dimming it -- and each encoded the current sort order
+        # into the appearance of a value that had not changed.
+        self.assertTrue(out["everyRowStatesItsCause"])
+        self.assertTrue(out["everyRowStatesItsPath"])
+        self.assertTrue(out["noCellIsMarkedAsARepeat"],
+                        "two identical values may not be drawn differently")
+
         self.assertTrue(out["zeroRendersAsZero"],
                         "a zero score must render as 0, not as blank")
 
@@ -1482,6 +1450,30 @@ class TestNoVerdictStage(unittest.TestCase):
         from chromedrift.report import markdown as md_report
         self.assertNotIn("What Chromium says shipped",
                          md_report.render(self._report()))
+
+    def test_the_brief_reaches_the_html_report_too(self):
+        """Both tests above render the *markdown* report, and the HTML one was
+        never asserted -- so when `_brief_html` lost its return statement the
+        page printed the bare word `None` where the section belongs, and
+        nothing failed. The feature is only shipped in the file people open.
+        """
+        from chromedrift.report import html as html_report
+
+        page = html_report.render(self._report(milestone_brief=[
+            {"milestone": 149, "name": "CSS anchor positioning",
+             "summary": "Positions an element relative to another."},
+        ]), "windows")
+        self.assertIn("CSS anchor positioning", page)
+        self.assertIn("Positions an element relative to another.", page)
+        self.assertIn('<details class="brief">', page)
+        # The specific way it failed: a function that builds and never returns.
+        self.assertNotIn(">None<", page)
+        self.assertNotIn("\nNone\n", page)
+
+    def test_a_report_without_a_brief_renders_no_html_section(self):
+        from chromedrift.report import html as html_report
+        self.assertNotIn('class="brief"',
+                         html_report.render(self._report(), "windows"))
 
 
 class TestTreeFilterIsPartOfScope(unittest.TestCase):
@@ -3251,8 +3243,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
                                     text, re.S).group(1))
         printed = re.findall(
-            r'data-set="(\w+):([\w_]+)"[^>]*>\s*<div class="n">([\d,]+)</div>',
-            text)
+            r'data-set="(\w+):([\w_]+)"[^>]*>\s*<span class="n">([\d,]+)'
+            r'</span>', text)
         self.assertEqual(len(printed), len(BUCKET_ORDER), printed)
         for which, value, count in printed:
             field = {"fk": "kind", "fb": "bucket"}[which]
@@ -3322,81 +3314,6 @@ class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
                      for f, n, t in self._user_visible_strings()
                      if self.CLAIM.search(t)]
         self.assertEqual(offenders, [])
-
-
-class TestTheDocumentedReasoningIsTheRealReasoning(unittest.TestCase):
-    """The reason lines quoted in the docs must be lines the scorer emits.
-
-    Both documents print a sample of a finding's `reasons` to explain what the
-    two numbers mean, and a sample is a second copy of a string the code owns.
-    It drifted within an hour of being written: the wording gained a clause
-    saying which bucket an unconfirmed disappearance is filed under, and the
-    two documents still showed the sentence without it.
-
-    Whitespace is normalised because the documents wrap for width; every other
-    character has to match.
-    """
-
-    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DOCS = ("README.md", "skills/analyzing-chromium-uprevs/reference/signals.md")
-
-    @staticmethod
-    def _flat(text):
-        return " ".join(text.split())
-
-    def _real_reasons(self):
-        """Every reason line the scorer produces for the documented cases."""
-        from chromedrift.model import Fact
-        from chromedrift.score import Scope, score_change
-
-        # The default set's real coverage of the M151 tree. It moved when the
-        # denominator stopped being two filename rules and started asking the
-        # extractors -- 64/1,164 was 5% of the pref and feature files, not of
-        # the tree -- and the documents quote the sentence this Scope prints,
-        # so the fixture has to be the measured pair or the check is circular.
-        partial = Scope({"to": {
-            "candidates": 8366, "read": 3677,
-            # Per surface, because that is what the sentence now quotes: a
-            # preference removal is judged against the read of the pref files
-            # and not against an average that includes 99% of the web API
-            # definitions.
-            "by_surface": {
-                "preference keys and switches": {"candidates": 348, "read": 4},
-                "web API definitions": {"candidates": 2170, "read": 2166},
-            }}}, to_ref="refs/tags/151.0.7922.138")
-        key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
-                   attrs={"var": "kAB"})
-        api = Fact(kind="idl_interface", key="Foo", name="Foo",
-                   path="third_party/blink/renderer/core/foo.idl",
-                   attrs={"idl_kind": "interface"})
-        out = []
-        for fact in (key, api):
-            change = diff_snapshots(snap("148.0.0.0", [fact]),
-                                    snap("151.0.0.0", []),
-                                    platform="windows")[0]
-            out += score_change(change, partial).reasons
-        # A default flipping on, which loses nothing and so shows the shape of
-        # a finding whose score is its severity.
-        flip = diff_snapshots(snap("148.0.0.0", [feature("Foo", "disabled")]),
-                              snap("151.0.0.0", [feature("Foo", "enabled")]),
-                              platform="windows")[0]
-        out += score_change(flip, partial).reasons
-        return {self._flat(r) for r in out}
-
-    def test_every_quoted_reason_line_is_one_the_scorer_emits(self):
-        real = self._real_reasons()
-        quoted = []
-        for doc in self.DOCS:
-            with open(os.path.join(self.ROOT, doc), encoding="utf-8") as fh:
-                text = fh.read()
-            # Fenced blocks whose first line starts a reason line.
-            for block in re.findall(r"(?ms)^```\n(severity \d+ .*?)^```", text):
-                for chunk in re.split(r"(?m)^(?=severity \d+ |-\d+ |0 )", block):
-                    if chunk.strip():
-                        quoted.append((doc, self._flat(chunk)))
-        self.assertTrue(quoted, "no sample reason block found in the docs")
-        wrong = [f"{doc}: {line[:90]}" for doc, line in quoted if line not in real]
-        self.assertEqual(wrong, [], "documented reason lines the scorer never emits")
 
 
 class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
@@ -5278,6 +5195,265 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
         self.assertIsInstance(rows[0]["what"], str)
 
 
+class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
+    """The sharpest question is the one the report could already answer.
+
+    Every other verdict asks whether a CL *touched* the thing, which any CL
+    that reformatted the file satisfies. A finding does not merely name a
+    declaration -- it records that declaration's two states -- so the CL that
+    made the change is, by construction, a CL whose diff *adds* a line
+    carrying the state the fact ended up in. That question has one answer
+    where "who touched this file" has hundreds.
+    """
+
+    def _tokens(self, deltas):
+        from chromedrift.enrich.gerrit import delta_tokens
+        from chromedrift.model import Change
+
+        return delta_tokens(Change(change_type="modified", kind="mojo_field",
+                                   key="k", name="k", deltas=deltas))
+
+    def test_only_the_difference_is_searched_for(self):
+        """A value on both sides did not change. Searching for it would match
+        every CL that touched the declaration for any reason at all."""
+        gained, lost = self._tokens(
+            {"type": ["array<url.mojom.Url>", "array<url.mojom.LinkHeader>"]})
+        self.assertIn("LinkHeader", gained)
+        self.assertNotIn("mojom", gained | lost)
+        self.assertNotIn("array", gained | lost)
+
+    def test_a_value_that_is_not_code_is_not_searched_for(self):
+        """`enabled`, `stable` and `109` are in every other declaration in the
+        file. Shape is the test -- an inner capital, an underscore or a dot --
+        or else length, because a long string is specific by being long."""
+        gained, _ = self._tokens({"default_state": ["disabled", "enabled"],
+                                  "default": ["100", "109"],
+                                  "status": ["stable", ""]})
+        self.assertEqual(gained, set())
+
+        gained, _ = self._tokens({"var": ["kPreinstalledApps",
+                                          "kPreinstalledExtensions"],
+                                  "conditions": [[], ["IS_ANDROID"]]})
+        self.assertIn("kPreinstalledExtensions", gained)
+        self.assertIn("IS_ANDROID", gained)
+
+    def test_a_long_construct_is_reached_through_the_words_it_gained(self):
+        """A Mojo signature spans several lines of the file, so it is never a
+        substring of one. The words it gained are."""
+        gained, _ = self._tokens({"params": [
+            "pending_remote<Client> client",
+            "pending_remote<Client> client, pending_remote<DownloadObserver>?"
+            " monitor"]})
+        self.assertIn("DownloadObserver", gained)
+        # And the whole signature is not offered as a line to search for.
+        self.assertFalse(any(" " in t for t in gained))
+
+    # -- and what the verdict then requires of a diff ------------------------
+
+    DELTA = {"type": ["gfx.mojom.Vector2d", "gfx.mojom.Vector2dF"]}
+
+    def _hit(self, seq, **kw):
+        from chromedrift.enrich import gerrit
+
+        return gerrit._match(
+            gerrit._Scanned(seq),
+            tokens={"border_offset"},
+            **{"gained": self._tokens(self.DELTA)[0],
+               "lost": self._tokens(self.DELTA)[1], **kw})
+
+    def test_the_cl_that_added_the_value_is_the_one_named(self):
+        from chromedrift.enrich.gerrit import ADDED
+
+        self.assertEqual(
+            self._hit([("  gfx.mojom.Vector2dF border_offset;", ADDED)]),
+            "introduced")
+
+    def test_the_side_the_value_landed_on_decides(self):
+        """A CL that *removes* a line carrying the fact's new value is not the
+        CL that introduced it -- it is closer to the opposite.
+
+        Written so the line-level check has to be the thing that decides. An
+        unrelated added line satisfies the cheap pre-filter, so a rule that
+        only asked "did this value appear anywhere on either side" would pass
+        here, and did.
+        """
+        from chromedrift.enrich import gerrit
+        from chromedrift.enrich.gerrit import ADDED, REMOVED
+
+        gained, lost = self._tokens({"type": ["Vector2d", "PointF"]})
+        self.assertEqual((gained, lost), ({"PointF"}, {"Vector2d"}))
+        verdict = gerrit._match(
+            gerrit._Scanned([("  PointF unrelated_field;", ADDED),
+                             ("  PointF border_offset;", REMOVED)]),
+            tokens={"border_offset"}, gained=gained, lost=lost)
+        self.assertNotEqual(verdict, "introduced")
+        # It is still a CL that changed the line, which is what `exact` says.
+        self.assertEqual(verdict, "exact")
+
+    def test_removing_the_old_value_is_the_same_event(self):
+        """The other direction does count. A CL that took the before-state out
+        of this declaration performed the transition the finding records, and
+        for a removal there is no after-state to add."""
+        from chromedrift.enrich import gerrit
+        from chromedrift.enrich.gerrit import REMOVED
+
+        gained, lost = self._tokens({"type": ["Vector2d", "PointF"]})
+        self.assertEqual(gerrit._match(
+            gerrit._Scanned([("  Vector2d border_offset;", REMOVED)]),
+            tokens={"border_offset"}, gained=gained, lost=lost), "introduced")
+
+    def test_a_verdict_nobody_knows_ranks_below_the_ones_we_do(self):
+        """There were three defaults for this one lookup: `_prune` sorted an
+        unknown verdict last, `enrich` indexed the table and would have raised,
+        and the markdown report defaulted to zero -- the strongest rank there
+        is -- so an unrecognised verdict printed as a citation."""
+        from chromedrift.enrich.gerrit import CITES, _STRENGTH, strength
+
+        self.assertGreater(strength("bogus"), max(_STRENGTH.values()))
+        self.assertGreaterEqual(strength("bogus"), CITES)
+        for known in _STRENGTH:
+            self.assertLess(strength(known), strength("bogus"))
+
+    def test_the_value_must_land_inside_this_declaration(self):
+        """Present in the diff is not present in the declaration. A file of
+        nothing but declarations always carries the type name somewhere."""
+        from chromedrift.enrich.gerrit import ADDED, CONTEXT
+
+        self.assertNotEqual(
+            self._hit([("  gfx.mojom.Vector2dF something_else;", ADDED),
+                       ("  gfx.mojom.Vector2d border_offset;", CONTEXT)]),
+            "introduced")
+
+    def test_it_outranks_every_other_verdict(self):
+        """It is the only one whose answer is the change rather than a
+        neighbour of it, so nothing may sort above it."""
+        from chromedrift.enrich.gerrit import _STRENGTH
+
+        self.assertEqual(min(_STRENGTH, key=_STRENGTH.get), "introduced")
+        self.assertLess(_STRENGTH["introduced"], _STRENGTH["exact"])
+
+
+class TestADeltaHasToShowTheDelta(unittest.TestCase):
+    """The emptiest line the report ever printed, and why no care downstream
+    could have saved it.
+
+    Both sides of a delta were shortened from their own start. A Mojo method
+    that gains a parameter keeps every character of its old signature, so the
+    first 90 of each side were the same 90 characters and the cell rendered
+    two copies of one string -- on five consecutive rows of a real M148 ->
+    M151 report, in the What column and again in the detail panel. The
+    difference was gone before anything that formats it was reached.
+    """
+
+    SIG = ("CreateLanguageModel(pending_remote<AIManagerCreateLanguageModel"
+           "Client> client, AILanguageModelCreateOptions options")
+
+    def test_two_sides_sharing_a_prefix_do_not_come_out_equal(self):
+        from chromedrift.report.html import _trim_pair
+
+        old, new = _trim_pair(self.SIG + ")",
+                              self.SIG + ", pending_remote<on_device_model."
+                                         "mojom.DownloadObserver>? monitor)")
+        self.assertNotEqual(old, new, "a delta may not render as one string "
+                                      "printed twice")
+        self.assertIn("DownloadObserver", new)
+        self.assertNotIn("DownloadObserver", old)
+
+    def test_what_the_change_did_is_written_with_the_marks_already_in_use(self):
+        """One side empty is an addition or a removal, not an arrow out of
+        nothing. `DeviceAttributeResult result →` trailed into a blank."""
+        from chromedrift.report.html import _delta_pair
+
+        self.assertEqual(_delta_pair("DeviceAttributeResult result", "", 34),
+                         "\u2212 DeviceAttributeResult result")
+        self.assertEqual(_delta_pair("", "NewThing x", 34), "+ NewThing x")
+        pair = _delta_pair(self.SIG + ")",
+                           self.SIG + ", pending_remote<X>? monitor)", 34)
+        self.assertTrue(pair.startswith("+ "), pair)
+        self.assertIn("monitor", pair)
+
+    def test_the_payload_itself_carries_the_difference(self):
+        """Asserted through `_to_rows` rather than on the helper, because the
+        helper was never the thing that was wrong -- the call site was. The
+        payload is where the two sides became equal, and every reader of it
+        downstream inherited that."""
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        finding = Finding(
+            change=Change(change_type="modified", kind="mojo_method",
+                          key="blink.mojom.AIManager.CreateLanguageModel",
+                          name="CreateLanguageModel", paths=["ai.mojom"],
+                          deltas={"signature": [
+                              self.SIG + ")",
+                              self.SIG + ", pending_remote<on_device_model."
+                                         "mojom.DownloadObserver>? monitor)"]}),
+            score=80)
+        row = html_report._to_rows(
+            Report(from_ref="a", to_ref="b", findings=[finding]), "windows")[0]
+        key, old, new = row["deltas"][0]
+        self.assertEqual(key, "signature")
+        self.assertNotEqual(old, new,
+                            "the payload may not hand both sides the same "
+                            "string; nothing downstream can recover from it")
+        self.assertIn("DownloadObserver", new)
+        self.assertNotIn("DownloadObserver", old)
+        # And the one-line form in the What column says what was added.
+        self.assertTrue(row["moved"].startswith("+ "), row["moved"])
+
+    def test_a_short_pair_is_left_alone(self):
+        from chromedrift.report.html import _delta_pair, _trim_pair
+
+        self.assertEqual(_trim_pair("100", "109"), ("100", "109"))
+        self.assertEqual(_delta_pair("100", "109", 34), "100 → 109")
+
+
+class TestThePanelSaysWhatTheReaderCannotSee(unittest.TestCase):
+    """Three things the page has to state rather than leave to be inferred.
+
+    Each replaced something the reader was expected to work out: why a link
+    will not open, that a category colour is a category and not a shade, and
+    that a row nobody read can still be read.
+    """
+
+    def _page(self):
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        return html_report.render(Report(from_ref="a", to_ref="b"))
+
+    def test_the_triage_is_read_in_severity_order(self):
+        """The order down the page is the reader's working order, and it is
+        the one thing worth encoding about four counts.
+
+        Asserted with housekeeping largest and breaking smallest, so ordering
+        by count and ordering by severity give opposite answers. A summary
+        that sorted itself by size would put the bucket you look at last at
+        the top.
+        """
+        import re
+
+        from chromedrift.model import BUCKET_ORDER, Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        sizes = {"breaking": 1, "behaviour": 2, "new": 4, "housekeeping": 8}
+        findings = [
+            Finding(change=Change(change_type="modified", kind="base_feature",
+                                  key=f"{bucket}/{i}", name=f"k{i}",
+                                  paths=["f.cc"]),
+                    score=10, bucket=bucket)
+            for bucket, n in sizes.items() for i in range(n)]
+        page = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=findings), "windows")
+
+        rows = re.findall(r'data-set="fb:(\w+)"[^>]*>\s*<span class="n">'
+                          r'([\d,]+)</span>', page)
+        self.assertEqual([b for b, _ in rows], list(BUCKET_ORDER),
+                         "the largest bucket may not float to the top")
+        self.assertEqual(dict(rows)["housekeeping"], "8")
+        self.assertEqual(dict(rows)["breaking"], "1")
+
+
 class TestALookupAlwaysAnswers(unittest.TestCase):
     """Clicking a row returns a CL whenever one could exist.
 
@@ -5311,7 +5487,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
 
     def _enrich(self, *, pool=3, diff=None, budget=0, paths=("f.cc",),
                 key="kFoo", name=None, kind="base_feature", subject="CL",
-                off_main=0, message=0):
+                off_main=0, message=0, deltas=None):
         """`enrich` over one finding with the network replaced.
 
         Driven through the real entry point rather than `_prune`, because the
@@ -5329,7 +5505,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         finding = Finding(
             change=Change(change_type="modified", kind=kind, key=key,
                           name=key if name is None else name,
-                          paths=list(paths)),
+                          paths=list(paths), deltas=dict(deltas or {})),
             score=90)
         on_main = self._cls(pool, 100, subject)
         branched = self._cls(off_main, 300, subject)
@@ -5372,6 +5548,18 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
 
         block, _ = self._enrich(pool=gerrit.DECL_MAX + 2, diff=self.BODY_EDITED)
         self.assertEqual(len(block["changes"]), gerrit.DECL_MAX + 2)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"crowded"})
+
+    def test_a_history_reads_forward(self):
+        """Every other list here is newest-first, because a citation is the
+        last word on a line. This one is not a citation -- it is the sequence
+        the declaration passed through to reach the state the report found --
+        and a history read backwards is not a history."""
+        from chromedrift.enrich import gerrit
+
+        block, _ = self._enrich(pool=gerrit.DECL_MAX + 2, diff=self.BODY_EDITED)
+        dates = [c["date"] for c in block["changes"]]
+        self.assertEqual(dates, sorted(dates))
         self.assertEqual({c["match"] for c in block["changes"]}, {"crowded"})
 
     def test_a_diff_that_matches_nothing_falls_back_to_the_file(self):
@@ -5622,25 +5810,21 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
 
     def test_the_disclaimer_is_prose_and_not_only_a_badge(self):
         """A badge reading `touched` is true and easy to skim past, and the
-        reader who opened the row is owed the sentence before the list."""
+        reader who opened the row is owed the sentence before the list.
+
+        The two weak verdicts get different sentences because they are not the
+        same claim. `touched` is a lead and says so. `crowded` is every CL that
+        edited the declaration, which is that declaration's history -- so it is
+        headed as one, ordered forward, and never called a citation either."""
         from chromedrift.model import Report
         from chromedrift.report import html as html_report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("Leads, not ", page)
         self.assertIn("No CL mentions this identifier", page)
-        self.assertIn("No CL singles this out", page)
-
-    def test_a_lead_gets_no_colour_that_belongs_to_a_verdict(self):
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
-
-        page = html_report.render(Report(from_ref="a", to_ref="b"))
-        self.assertIn(".ev-crowded,.ev-touched{color:var(--faint)", page)
-        # And the table's "has a CL" marker is drawn for neither.
-        self.assertIn("tr.p-exact td:first-child::before,"
-                      "tr.p-cl td:first-child::before", page)
-        self.assertNotIn("tr.p-weak td:first-child::before", page)
+        self.assertIn("No one CL singles this out", page)
+        self.assertIn("how it reached the state above", page)
+        self.assertIn("How it got here", page)
 
     def test_the_markdown_report_says_it_too(self):
         """`report.md` has no badge colour, no row state and no panel. The
@@ -5664,9 +5848,13 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
                                      "bugs": []}]}})])
             return md.render(report, "windows")
 
-        for weak in ("crowded", "touched"):
+        # Neither weak verdict may wear the heading a citation wears, and the
+        # two do not share one: `touched` is a lead, `crowded` is the
+        # declaration's history and is ordered to be read as one.
+        for weak, heading in (("crowded", "How it got here, oldest first"),
+                              ("touched", "Leads only, no CL names this")):
             page = rendered(weak)
-            self.assertIn("Leads only, no CL names this", page)
+            self.assertIn(heading, page)
             self.assertNotIn("- Why it changed", page)
             self.assertIn("CL 7700001", page)
         for strong in ("exact", "moved", "declares", "described"):

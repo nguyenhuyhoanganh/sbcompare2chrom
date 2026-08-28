@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import List, Sequence
 
 from ..diff import SIGNAL_LABELS
-from ..enrich.gerrit import CITES as _CITES, _STRENGTH as _EVIDENCE
+from ..enrich.gerrit import CITES as _CITES, strength as _strength
 from . import wording as surfaces
 from ..model import (
     BUCKET_BEHAVIOUR,
@@ -475,10 +475,14 @@ def _provenance_lines(finding) -> List[str]:
         pool = block.get("candidates") or 0
         files = len({c["file"] for c in changes if c.get("file")}) or 1
         where = f"these {files} files" if files > 1 else "this file"
-        leads = all(_EVIDENCE.get(c.get("match"), 0) >= _CITES
-                    for c in changes)
-        what = ("- Leads only, no CL names this"
-                if leads else "- Why it changed")
+        leads = all(_strength(c.get("match")) >= _CITES for c in changes)
+        # A crowd that all edited one declaration is that declaration's
+        # history, and `_prune` has already ordered it forward. Calling it
+        # "leads" would be true and would throw away the one thing it is.
+        history = leads and all(c.get("match") == "crowded" for c in changes)
+        what = ("- How it got here, oldest first" if history
+                else "- Leads only, no CL names this" if leads
+                else "- Why it changed")
         head = (f"{what} ({len(changes)} of {pool} merged CLs "
                 f"touched {where}):" if pool else f"{what}:")
         out.append(head)

@@ -53,10 +53,12 @@ _CSS = """
 --brk:#c0392f;--beh:#a06a10;--new-b:#2c6b45;--hk:#77746d;
 --accent:#2f5fa8;--accent-soft:#eaf0fb;
 --new:#2c6b45;--chg:#a06a10;--gone:#c0392f;
---r1:9px;--r2:14px;
---sh1:0 1px 2px rgba(24,20,12,.05);
---sh2:0 1px 2px rgba(24,20,12,.04),0 4px 14px -4px rgba(24,20,12,.08);
---sh3:0 2px 4px rgba(24,20,12,.05),0 12px 28px -10px rgba(24,20,12,.16);
+/* Two radii, both small, because nothing on this page is a card. A 14px
+   corner with a drop shadow under it is the shape of a thing that floats
+   above the document, and none of this floats: the table is the document.
+   2px is a manufacturing tolerance, not a style -- enough that a 1px border
+   does not look chipped at the corner, not enough to read as a pill. */
+--r1:2px;--r2:0;
 color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
@@ -65,9 +67,6 @@ color-scheme:light;
 --brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 --new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
---sh1:0 1px 2px rgba(0,0,0,.4);
---sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
---sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}}
 :root[data-theme=dark]{
 --bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
@@ -75,9 +74,6 @@ color-scheme:dark;}}
 --brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 --new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
---sh1:0 1px 2px rgba(0,0,0,.4);
---sh2:0 1px 2px rgba(0,0,0,.35),0 4px 14px -4px rgba(0,0,0,.5);
---sh3:0 2px 4px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.65);
 color-scheme:dark;}
 
 *{box-sizing:border-box}
@@ -107,51 +103,55 @@ h1 .arrow{color:var(--accent);font-weight:400;padding:0 .3em}
 .sub{color:var(--faint);font-size:.82rem;letter-spacing:.005em}
 
 /* -- lede ---------------------------------------------------------------- */
-.lede{margin:20px 0 26px;font-size:.98rem;line-height:1.6;max-width:74ch;
+.lede{margin:15px 0 18px;font-size:.98rem;line-height:1.6;max-width:74ch;
 color:var(--muted)}
 .lede b{color:var(--fg);font-weight:600}
 
-/* -- triage cards -------------------------------------------------------- */
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));
-gap:14px}
-/* The bucket colour is a wash from the top edge and a dot beside the label,
-   not a bar across the top: a 3px bar inside a 14px radius gets eaten by the
-   corner at both ends and reads as a mistake. */
-.card{background:var(--card);border:1px solid var(--line);
-border-radius:var(--r2);padding:17px 18px 16px;box-shadow:var(--sh2);
-display:block;color:inherit;text-align:left;font:inherit;cursor:pointer;
-width:100%;
-transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
-.card:hover{transform:translateY(-2px);box-shadow:var(--sh3);
-border-color:var(--line2)}
-.card:active{transform:translateY(0)}
-.card .n{font-size:2.05rem;font-weight:640;line-height:1.05;letter-spacing:-.03em;
+/* -- triage ladder ------------------------------------------------------- */
+/* Four counts. The only thing worth encoding about them is the order, because
+   the order is the reader's working order: 276 Breaking is the morning's job
+   whatever the other three say.
+   Two earlier versions encoded the wrong things. Four cards in a grid said
+   "peers", when this is a ladder -- and it put 276 in one box and 1,240 in
+   another, where the eye cannot compare them. Adding a proportional bar fixed
+   the comparison and made it worse: the bar is longest on Housekeeping, so the
+   heaviest mark on the page pointed at the bucket that matters least. A
+   summary for triage cannot give its loudest signal to the thing you look at
+   last.
+   So: no bar, no box. Figures in one right-aligned column so they compare
+   themselves, severity order down the page, and the sentence that says what
+   the bucket means -- which is the part a reader actually needs and the part
+   the cards had shrunk to a caption. */
+.cards{border-top:1px solid var(--line)}
+.card{--c:var(--hk);display:grid;
+grid-template-columns:6ch minmax(0,1fr);
+grid-template-areas:"n l" "n m";
+column-gap:20px;row-gap:2px;
+width:100%;padding:9px 4px 10px;text-align:left;font:inherit;color:inherit;
+background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;
+transition:background .13s ease}
+.card:hover,.card:focus-visible{background:var(--sunk)}
+.card .n{grid-area:n;align-self:start;text-align:right;color:var(--c);
+font-size:1.2rem;font-weight:660;line-height:1.3;letter-spacing:-.015em;
 font-variant-numeric:tabular-nums}
-.card .l{font-size:.8rem;font-weight:640;letter-spacing:.005em;margin-top:4px;
-display:flex;align-items:center;gap:7px}
-.card .l::before{content:"";flex:0 0 7px;height:7px;border-radius:50%;
-background:var(--line2)}
-.card .m{color:var(--muted);font-size:.785rem;margin-top:8px;line-height:1.5}
-.card.breaking{background:linear-gradient(180deg,
-color-mix(in srgb,var(--brk) 8%,var(--card)),var(--card) 58%)}
-.card.behaviour{background:linear-gradient(180deg,
-color-mix(in srgb,var(--beh) 8%,var(--card)),var(--card) 58%)}
-.card.new{background:linear-gradient(180deg,
-color-mix(in srgb,var(--new-b) 8%,var(--card)),var(--card) 58%)}
-.card.breaking .n{color:var(--brk)}
-.card.breaking .l::before{background:var(--brk)}
-.card.behaviour .n{color:var(--beh)}
-.card.behaviour .l::before{background:var(--beh)}
-.card.new .n{color:var(--new-b)}.card.new .l::before{background:var(--new-b)}
-.card.housekeeping .n{color:var(--hk)}
-.card.housekeeping .l::before{background:var(--hk)}
+.card .l{grid-area:l;align-self:center;font-size:.87rem;font-weight:620}
+.card .m{grid-area:m;max-width:82ch;color:var(--muted);font-size:.79rem;
+line-height:1.5}
+.card.breaking{--c:var(--brk)}
+.card.behaviour{--c:var(--beh)}
+.card.new{--c:var(--new-b)}
+.card.housekeeping{--c:var(--hk)}
 
 /* -- filter row ---------------------------------------------------------- */
-.controls{display:flex;flex-wrap:wrap;gap:9px;margin:28px 0 14px;
+/* The header, the triage and the filter row cost 660px of a 900px laptop
+   before the first finding, which left the table a quarter of the screen no
+   matter how tall its own box was allowed to be. The content all earns its
+   place; the space around it did not. */
+.controls{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0 12px;
 align-items:center}
 input[type=search],select{background:var(--card);color:var(--fg);
 border:1px solid var(--line);border-radius:var(--r1);padding:9px 12px;
-font:inherit;font-size:.87rem;box-shadow:var(--sh1);
+font:inherit;font-size:.87rem;
 transition:border-color .14s ease,box-shadow .14s ease}
 input[type=search]{flex:1;min-width:230px}
 input[type=search]::placeholder{color:var(--faint)}
@@ -166,8 +166,14 @@ font-variant-numeric:tabular-nums}
 /* Its own scroll box, so the column headers stay put: a sticky <th> sticks to
    the nearest scrollport, and the wrapper is already one because overflow-x
    makes overflow-y a scroll container too. */
-.tablewrap{overflow:auto;max-height:min(74vh,860px);border:1px solid var(--line);
-border-radius:var(--r2);background:var(--card);box-shadow:var(--sh2)}
+/* Tall enough to be the page rather than a window onto it. 74vh capped at
+   860px left a quarter of the screen empty below the box and showed ten rows
+   on a laptop, which is a scroll every ten findings. The cap is kept -- above
+   about 1,500px the header has scrolled away and a taller box only makes the
+   sticky row harder to reach -- but it is now far enough up that no ordinary
+   display meets it. */
+.tablewrap{overflow:auto;max-height:min(88vh,1500px);border:1px solid var(--line);
+background:var(--card)}
 /* table-layout:fixed is the single biggest lever here. With the default auto
    layout, column widths depend on cell content, so inserting one expanded row
    makes the browser re-measure every cell before it can paint. Fixed layout
@@ -175,27 +181,43 @@ border-radius:var(--r2);background:var(--card);box-shadow:var(--sh2)}
 table.find{border-collapse:separate;border-spacing:0;table-layout:fixed;
 width:100%;font-size:.875rem;min-width:900px}
 table.find th,table.find td{text-align:left;padding:11px 14px;
-border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+border-bottom:1px solid var(--line);vertical-align:top;
+overflow-wrap:break-word}
 table.find th{font-weight:600;color:var(--muted);font-size:.7rem;
 text-transform:uppercase;letter-spacing:.075em;cursor:pointer;user-select:none;
 white-space:nowrap;position:sticky;top:0;z-index:1;
 background:var(--card);padding-top:13px;padding-bottom:11px;
 box-shadow:inset 0 -1px 0 var(--line)}
 table.find th:hover{color:var(--fg)}
+/* `table-layout:fixed` with no widths splits six columns evenly, which gave a
+   62-character Mojo identifier the same room as the word "Breaking". What
+   varies between rows is the What column, and now that a repeated cause is
+   printed once rather than on every line of its run, the width it was using
+   belongs there. */
+table.find th:nth-child(1){width:62px}
+table.find th:nth-child(2){width:112px}
+table.find th:nth-child(3){width:40%}
+table.find th:nth-child(4){width:19%}
+table.find th:nth-child(5){width:16%}
+table.find th:nth-child(6){width:13%}
 table.find tbody tr:last-child td{border-bottom:none}
 /* Rows outside the viewport skip layout entirely; the intrinsic size keeps the
    scrollbar honest so skipping does not make the page jump. */
 table.find tbody tr{content-visibility:auto;contain-intrinsic-size:auto 46px}
 tbody tr.row-t{cursor:pointer}
 tbody tr.row-t:hover td{background:var(--sunk)}
-tbody tr.det td{background:var(--sunk);font-size:.85rem;
-box-shadow:inset 2px 0 0 var(--accent)}
+/* The expanded panel is already marked by its ground; a coloured rail on top
+   of that is a second answer to a question nobody asked twice. */
+tbody tr.det td{background:var(--sunk);font-size:.85rem}
 
 .score{font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.015em;
 font-size:.95rem;color:var(--muted)}
 .s-hi{color:var(--brk)}.s-mid{color:var(--beh)}
 
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.71rem;
+/* Squared off. A capsule is the shape of a button on a phone, and none of
+   these are buttons -- they are labels on a line of data. `999px` was on five
+   different elements here and it is the single thing that dated the page. */
+.pill{display:inline-block;padding:2px 7px;border-radius:var(--r1);font-size:.71rem;
 font-weight:600;letter-spacing:.01em;white-space:nowrap;
 background:color-mix(in srgb,currentColor 13%,transparent)}
 .b-breaking{color:var(--brk)}.b-behaviour{color:var(--beh)}
@@ -209,12 +231,12 @@ background:color-mix(in srgb,currentColor 13%,transparent)}
 .moved{font-size:.775rem;color:var(--faint);margin-top:4px;line-height:1.45}
 ul.tight{margin:7px 0;padding-left:19px;line-height:1.7}
 .empty{padding:44px;text-align:center;color:var(--faint)}
-.note{background:var(--card);border:1px solid var(--line);border-radius:var(--r1);
+.note{background:var(--card);border:1px solid var(--line);
 border-left:3px solid var(--beh);padding:12px 15px;margin:0 0 16px;
-font-size:.87rem;color:var(--muted);box-shadow:var(--sh1)}
+font-size:.87rem;color:var(--muted)}
 #more{margin-top:14px;width:100%;padding:12px;background:var(--card);
 color:var(--muted);border:1px solid var(--line);border-radius:var(--r1);
-font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;box-shadow:var(--sh1);
+font:inherit;font-size:.86rem;font-weight:600;cursor:pointer;
 transition:border-color .14s ease,color .14s ease,background .14s ease}
 #more:hover{border-color:var(--accent);color:var(--accent);background:var(--sunk)}
 .more-note{color:var(--faint);font-size:.81rem;margin:14px 0 0;line-height:1.6;
@@ -223,7 +245,7 @@ max-width:78ch}
 /* -- shipped-feature brief ----------------------------------------------- */
 /* Background, not findings, so it sits below the table and stays folded. */
 .brief{margin:26px 0 0;background:var(--card);border:1px solid var(--line);
-border-radius:var(--r2);box-shadow:var(--sh2);overflow:hidden}
+overflow:hidden}
 .brief>summary{cursor:pointer;padding:15px 18px;font-size:.87rem;
 font-weight:640;list-style:none;display:flex;align-items:center;gap:9px}
 .brief>summary::-webkit-details-marker{display:none}
@@ -237,7 +259,7 @@ max-width:78ch;margin:13px 0 4px}
 .brief .feat:last-child{border-bottom:none}
 .brief .ms{display:inline-block;font-size:.68rem;font-weight:700;
 letter-spacing:.03em;color:var(--accent);background:var(--accent-soft);
-border-radius:999px;padding:1px 8px;margin-right:8px;vertical-align:1px;
+border-radius:var(--r1);padding:1px 6px;margin-right:8px;vertical-align:1px;
 font-variant-numeric:tabular-nums}
 .brief .fname{font-weight:600;font-size:.88rem}
 .brief .ship{color:var(--faint);font-size:.75rem;margin-left:6px}
@@ -254,10 +276,10 @@ text-transform:uppercase;color:var(--muted)}
 tr.row-t td:first-child{position:relative}
 tr.p-exact td:first-child::before,tr.p-cl td:first-child::before{
 content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
-border-radius:2px;background:var(--new-b)}
+background:var(--new-b)}
 tr.p-cl td:first-child::before{background:var(--accent)}
 tr.p-skipped td:first-child::before{content:"";position:absolute;left:0;
-top:6px;bottom:6px;width:3px;border-radius:2px;background:var(--line2)}
+top:6px;bottom:6px;width:3px;background:var(--line2)}
 button.lookup{margin-top:7px;font:inherit;font-size:.85rem;font-weight:550;
 color:var(--accent);background:var(--accent-soft);border:1px solid transparent;
 border-radius:var(--r1);padding:5px 11px;cursor:pointer}
@@ -267,6 +289,21 @@ button.lookup:disabled{color:var(--muted);background:var(--sunk);cursor:default}
    the issue number and the CL count are metadata, this is the sentence. */
 .prov .isum{display:block;margin-top:4px;font-weight:400;letter-spacing:0;
 text-transform:none;color:var(--fg);font-size:.88rem;line-height:1.5}
+/* An issue is not a CL, and the two blocks were identical boxes stacked on
+   each other, so a reader scanning the panel met "Issue 4012" in the same
+   frame as "CL 7982397" and had to read the label to know which was which.
+   The tracker side is sunk and rail-marked in the accent colour instead. */
+/* An issue is subordinate to the CL that cited it, and that is a relation
+   the layout can state: it is indented under it. The first attempt made it a
+   rounded box with a coloured rail down the edge -- the same device the
+   triage cards had just been rid of, kept in one corner of the page. */
+.prov.iss{margin-left:15px;padding-top:9px}
+.prov.iss h4{margin-top:0}
+/* A dead link with no reason reads as a broken report. The reason is the same
+   every time and it is not about this reader, so it is stated once, plainly,
+   inside the block it explains. */
+.prov .why403{margin:6px 0 0;color:var(--muted);font-size:.8rem;
+line-height:1.5}
 .prov .moreiss{margin-top:8px}
 .prov .none{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
 /* Above a list of leads, not instead of one. It carries the disclaimer the
@@ -292,7 +329,7 @@ white-space:nowrap}
 text-decoration:none;border-bottom:1px dotted var(--line2)}
 .cls a.bug:hover{color:var(--accent)}
 .cls .chain,.cls .in{font-size:.72rem;color:var(--muted);white-space:nowrap;
-background:var(--sunk);border:1px solid var(--line);border-radius:999px;
+background:var(--sunk);border:1px solid var(--line);border-radius:var(--r1);
 padding:0 6px}
 .cls .in{border-style:dashed;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 /* Restricted: still a link, visibly not a promise. */
@@ -303,10 +340,18 @@ padding:0 6px}
 .locked{margin-left:5px;font-size:.68rem;font-weight:650;letter-spacing:.04em;
 text-transform:uppercase;color:var(--beh);
 background:color-mix(in srgb,var(--beh) 14%,transparent);
-padding:1px 5px;border-radius:999px;white-space:nowrap}
+padding:1px 5px;border-radius:var(--r1);white-space:nowrap}
 /* The evidence badge is the one place the two strengths must not blur. */
 .ev{font-size:.68rem;font-weight:650;letter-spacing:.04em;text-transform:uppercase;
-padding:1px 6px;border-radius:999px;white-space:nowrap}
+padding:1px 6px;border-radius:var(--r1);white-space:nowrap}
+/* Every badge is drawn the same way and separated by colour and by the word
+   it carries. `introduced` was a filled block for a while -- the one solid
+   badge on the page, on the grounds that it is the one verdict whose answer
+   *is* the change -- and it turned a list of six verdicts into one shout and
+   five whispers. The ladder is already written down; the badge does not have
+   to perform it. */
+.ev-introduced{color:var(--new-b);
+background:color-mix(in srgb,var(--new-b) 18%,transparent)}
 .ev-exact{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 13%,transparent)}
 /* A pure rename changes no line, so it gets its own badge rather than
    borrowing one that claims a line was edited. */
@@ -343,8 +388,11 @@ for(const field in P){const table=P[field];
     if(typeof v==='number')DATA[i][field]=table[v];}}})();
 const kindLabel=f=>KINDS[f.kind]||f.kind, bucketLabel=f=>BUCKETS[f.bucket]||f.bucket,
 whyLabel=f=>STORIES[f.why]||f.why||'';
-/* Sized for the weakest machine that has to open this, not the fastest. */
-const PAGE=100;
+/* Sized for the weakest machine that has to open this, not the fastest --
+   but the row that is off screen costs almost nothing now that
+   `content-visibility:auto` lets it skip layout, so the page holds twice what
+   it did and the reader meets the button half as often. */
+const PAGE=200;
 const q=document.getElementById('q'),fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
 fo=document.getElementById('fo'),fp=document.getElementById('fp'),
@@ -402,6 +450,18 @@ function details(f){
    nothing and is a lead. The pool it was picked from is printed with it,
    because "1 of 62 CLs that touched this file" is what makes the one CL mean
    anything. */
+/* What each verdict actually claims. The badge is one word because a row has
+   room for one word; the sentence is what the word stands for, and a reader
+   who has not memorised the ladder needs it on hover rather than in the
+   README. */
+var EVID={
+introduced:'This CL added the value the fact ends up with, inside the fact\u2019s own declaration. It is the change.',
+exact:'A line this CL changed carries the identifier.',
+moved:'The file was renamed and the fact came with it. No line changed \u2014 the move is the cause.',
+declares:'This CL edited the body of the declaration, though not the line that names it.',
+described:'The CL\u2019s own title or description names the identifier. No diff was read to claim more.',
+crowded:'One of several CLs that edited this declaration. Shown as history, not as a citation.',
+touched:'This CL touched the declaring file. Nothing ties it to the identifier.'};
 function clRow(c,strong){
   var u='https://chromium-review.googlesource.com/c/chromium/src/+/'+c.n;
   /* A restricted issue keeps its link -- the reader may well be the one
@@ -418,7 +478,8 @@ function clRow(c,strong){
     }).join(' ');
   return '<li><a class="cl" href="'+u+'" target="_blank" rel="noreferrer">CL '+
     c.n+'</a><span class="when">'+esc(c.d)+'</span>'+
-    (strong&&c.m?'<span class="ev ev-'+c.m+'">'+esc(c.m)+'</span>':'')+
+    (strong&&c.m?'<span class="ev ev-'+c.m+'" title="'+esc(EVID[c.m]||'')+
+      '">'+esc(c.m)+'</span>':'')+
     '<span class="subj">'+esc(c.s)+'</span>'+(b?' '+b:'')+'</li>';
 }
 /* Gerrit's own record of a revert or a cherry-pick. Free in the search
@@ -482,7 +543,11 @@ function provenance(f){
       (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
   }
   if(f.cls&&f.cls.length){
-    out+='<div class="prov"><h4>Why it changed'+
+    /* A crowd of CLs that all edited one declaration is the only list here
+       that is not an answer to "why". It is the sequence the declaration
+       passed through, so it is headed as one. */
+    var hist=allWeak(f)&&f.cls[0].m==='crowded';
+    out+='<div class="prov"><h4>'+(hist?'How it got here':'Why it changed')+
       (f.cl_by_message
         ? '<span class="pool">found by commit message \u2014 nothing '+
           'touched '+(f.cl_files>1?'either file':'this file')+' in the '+
@@ -495,30 +560,64 @@ function provenance(f){
       /* A badge saying `touched` is true and easy to skim past. The reader
          who opened this row is owed the disclaimer in words, above the list,
          before they read the first subject line as an explanation. */
-      (allWeak(f)?'<p class="lead">'+(f.cls[0].m==='crowded'
-        ? 'No CL singles this out \u2014 all '+f.cls.length+' below edited the '+
-          'declaration it belongs to, none the line that names it. Leads, not '+
-          'a citation.'
+      (allWeak(f)?'<p class="lead">'+(hist
+        ? 'No one CL singles this out \u2014 these '+f.cls.length+' each edited '+
+          'the declaration it belongs to, none the line that names it. '+
+          'Read oldest first, they are how it reached the state above.'
         : 'No CL mentions this identifier. These are the newest CLs that '+
           'touched '+(f.cl_files>1?'the declaring files':'the declaring file')+
-          '. Leads, not a citation.')+'</p>':'')+
+          '. Leads, not a citation.'+
+          /* A row the budget declined is not a row that was searched and came
+             back empty -- nothing read its diffs, so the strongest verdicts
+             were never even attempted. Filling it with leads made it *look*
+             exhausted and, worse, took its way out with it: the remedy and
+             the lookup button both live in the branch that runs when there
+             are no CLs at all, so the one row that could still be answered
+             was the one row that could no longer ask. */
+          (f.no_diffs?' Nothing here was read \u2014 '+f.cl_pool+' CLs touched '+
+            'this file, more than the run\u2019s diff budget would open.':''))+
+        '</p>':'')+
       '<ul class="cls">'+
-      f.cls.map(function(c){return clRow(c,true);}).join('')+'</ul></div>';
+      f.cls.map(function(c){return clRow(c,true);}).join('')+'</ul>'+
+      /* Which is why the button is offered here too, and only here: a row
+         holding nothing but leads over unread diffs is exactly the row a
+         lookup can still turn into a citation. */
+      (LIVE&&f.no_diffs&&allWeak(f)?lookupBtn(f)
+        :(!LIVE&&f.no_diffs&&allWeak(f)
+          ?'<p class="none">Re-run with a higher <code>--gerrit-budget</code>, '+
+           'or open this row through <code>chromedrift serve</code>.</p>':''))+
+      '</div>';
   }
   /* Every issue the row's CLs cite, busiest first. A flag that launched,
      reverted and relanded often cites two or three, and showing one made the
      answer depend on which CL happened to sort first. */
   (f.issues||[]).forEach(function(i){
     if(!i||!i.cls||!i.cls.length)return;
-    out+='<div class="prov"><h4><a class="cl'+(i.restricted?' bug-x':'')+
+    /* How long the issue has been worked, from the CLs already in hand. No
+       request, and it is the one thing the tracker page would tell a reader
+       who cannot open the tracker page. */
+    var ds=i.cls.map(function(c){return c.d;}).filter(Boolean).sort(),
+        span=ds.length>1&&ds[0]!==ds[ds.length-1]
+          ? ds[0]+' \u2192 '+ds[ds.length-1] : (ds[0]||'');
+    out+='<div class="prov iss"><h4><a class="cl'+(i.restricted?' bug-x':'')+
       '" href="https://issues.chromium.org/issues/'+
       i.id+'" target="_blank" rel="noreferrer">Issue '+esc(i.id)+'</a>'+
       (i.restricted?'<span class="locked">restricted</span>':'')+
       '<span class="pool">'+
       i.total+' CL'+(i.total===1?'':'s')+
       ' cite it'+(i.total>i.cls.length?', newest '+i.cls.length+' shown':'')+
+      (span?' \u00b7 '+esc(span):'')+
       '</span>'+(i.t?'<span class="isum">'+esc(i.t)+'</span>':'')+
-      '</h4><ul class="cls">'+
+      '</h4>'+
+      /* Why the link will not open, stated where the link is. "Restricted"
+         alone reads as a fault in the report; 403 with its cause reads as a
+         fact about the tracker, which is what it is. */
+      (i.restricted?'<p class="why403">HTTP 403 \u2014 this issue sits in a '+
+        'restricted tracker component (security, abuse, or Google-internal). '+
+        'It opens only for an account cleared for that component, so a public '+
+        'Chromium account gets the same 403. The CLs below are public and '+
+        'carry what the issue was about.</p>':'')+
+      '<ul class="cls">'+
       i.cls.map(function(c){return clRow(c,false);}).join('')+'</ul></div>';
   });
   if(f.issues_more)
@@ -526,12 +625,21 @@ function provenance(f){
       (f.issues_more===1?'':'s')+' cited by these CLs, in report.json.</p>';
   return out;
 }
+/* Identifiers and paths carry no spaces, so a cell free to break anywhere
+   breaks inside a word: `third_party/blink/public/mojo` + `m/navigation`, and
+   `early_hints_preloa` + `ded_resources`. Both were on screen in a real
+   report. Offering the separators as break opportunities instead keeps every
+   fragment a token the reader recognises. */
+function brk(s){
+  return esc(s==null?'':s).replace(/([/._,])/g,'$1<wbr>')
+                          .replace(/(&lt;)/g,'$1<wbr>');
+}
 var MARK={added:'+',removed:'\u2212',modified:'~'};
 function whatCell(f){
   var c=f.change_type||'';
   var out='<span class="mk mk-'+c+'" title="'+esc(c)+'">'+(MARK[c]||'?')+'</span>'+
-    (f.what?esc(f.what):'<code>'+esc(f.name)+'</code>');
-  if(f.moved) out+='<div class="moved">'+esc(f.moved)+'</div>';
+    (f.what?brk(f.what):'<code>'+brk(f.name)+'</code>');
+  if(f.moved) out+='<div class="moved">'+brk(f.moved)+'</div>';
   return out;
 }
 function surfaceCell(f){
@@ -539,6 +647,24 @@ function surfaceCell(f){
   if(f.group) out+='<div class="grp">'+esc(f.group)+'</div>';
   return out;
 }
+/* A run of rows sharing a cause repeats the cause on every line of it. Ten
+   consecutive Mojo findings in a real report printed "Mojo data shape changed
+   (ABI) -- the other process reads these bytes as something else" four times,
+   the same directory five times and the same surface five times. Roughly
+   three fifths of the ink in the table was text the reader had already read,
+   while the one phrase that differed between the rows sat in the narrowest
+   column, wrapping mid-identifier.
+   A value equal to the one above it is left out, the way a spreadsheet leaves
+   it out: stated once, and the run below is visibly the same run. It is
+   recomputed on every paint, so it follows the current sort and filter and
+   never claims anything about rows that are not on screen; the omitted value
+   stays on the cell as its title. */
+/* Every cell reads the same, whether or not the row above says the same
+   thing. Three treatments for a repeat were tried -- leaving it out, merging
+   the run into one tall cell, and dimming it -- and each of them encoded a
+   fact about the current sort into the appearance of a value. This table
+   sorts and filters, so that fact is not about the finding, and a reader
+   should not have to work out why two identical values look different. */
 function rowHtml(f,i){
   var sb=f.score>=70?' s-hi':(f.score>=45?' s-mid':'');
   return '<tr class="row-t p-'+provState(f)+'" data-i="'+i+'">'+
@@ -546,7 +672,7 @@ function rowHtml(f,i){
     '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
-    '<td class="where">'+esc(f.where||'')+'</td>'+
+    '<td class="where">'+brk(f.where||'')+'</td>'+
     '<td class="muted">'+surfaceCell(f)+'</td></tr>';
 }
 function paint(){
@@ -629,6 +755,54 @@ apply();
 # The findings payload behind the table
 # ---------------------------------------------------------------------------
 
+def _delta_pair(old: str, new: str, limit: int) -> str:
+    """Two states of one attribute, clipped around what differs between them.
+
+    Clipping each side from its own start was the obvious thing and it threw
+    away the only information the line carries. Every signature that *gained* a
+    parameter shares a prefix with the one before it, so 34 characters of each
+    are the same 34 characters, and the cell rendered
+
+        pending_remote<AIManagerCreateLan… → pending_remote<AIManagerCreateLan…
+
+    -- a delta showing no delta, on five consecutive rows of a real report.
+
+    The shared head and tail are context; what lies between them is the edit.
+    When one side of that is empty the change is an addition or a removal, and
+    it is written with the same `+` and `-` the What column already uses,
+    rather than as an arrow out of nothing.
+    """
+    old, new = str(old), str(new)
+    # An arrow needs two sides. A response type that was dropped is a removal,
+    # and `DeviceAttributeResult result →` trails off into a blank cell.
+    if old and not new:
+        return f"− {_clip(old, limit * 2)}"
+    if new and not old:
+        return f"+ {_clip(new, limit * 2)}"
+    if len(old) <= limit and len(new) <= limit:
+        return f"{old} → {new}"
+    shortest = min(len(old), len(new))
+    head = 0
+    while head < shortest and old[head] == new[head]:
+        head += 1
+    tail = 0
+    while (tail < shortest - head
+           and old[len(old) - 1 - tail] == new[len(new) - 1 - tail]):
+        tail += 1
+    trim = " ,;"
+    a = old[head:len(old) - tail].strip(trim)
+    b = new[head:len(new) - tail].strip(trim)
+    if a and not b:
+        return f"− {_clip(a, limit * 2)}"
+    if b and not a:
+        return f"+ {_clip(b, limit * 2)}"
+    if not a and not b:
+        return f"{_clip(old, limit)} → {_clip(new, limit)}"
+    lead = "…" if head else ""
+    trail = "…" if tail else ""
+    return f"{lead}{_clip(a, limit)}{trail} → {lead}{_clip(b, limit)}{trail}"
+
+
 def _moved(finding_dict: dict, limit: int = 34) -> str:
     """"100 -> 109", for the second line of the What cell.
 
@@ -639,7 +813,7 @@ def _moved(finding_dict: dict, limit: int = 34) -> str:
     for key, old, new in finding_dict.get("deltas", []):
         if key in ("platform_state", "platform_status"):
             continue
-        return f"{_clip(old, limit)} → {_clip(new, limit)}"
+        return _delta_pair(old, new, limit)
     return ""
 
 
@@ -686,7 +860,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
                     continue
                 deltas.append([f"{key} [{platform}]", str(old), str(new)])
             else:
-                deltas.append([key, _trim(delta[0]), _trim(delta[1])])
+                deltas.append([key, *_trim_pair(delta[0], delta[1])])
         status = (finding.enrichment or {}).get("chromestatus") or {}
         provenance = (finding.enrichment or {}).get("gerrit") or {}
         row = {
@@ -891,9 +1065,54 @@ def _is_empty(value) -> bool:
 
 
 def _trim(value, limit: int = 90) -> str:
-    text = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) \
-        else ("(absent)" if value is None else str(value))
+    text = _as_text(value)
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _as_text(value) -> str:
+    return json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) \
+        else ("(absent)" if value is None else str(value))
+
+
+def _trim_pair(old, new, limit: int = 90, context: int = 14):
+    """Two states of one attribute, each shortened around where they differ.
+
+    Trimming each side from its own start independently is what produced the
+    report's emptiest line. A Mojo method that gains a parameter keeps every
+    character of its old signature, so the first 90 of each side are the same
+    90 characters, and both the What column and the detail panel printed
+
+        pending_remote<AIManagerCreateLanguageModelClient> client, A…
+        -> pending_remote<AIManagerCreateLanguageModelClient> client, A…
+
+    on five consecutive rows: a delta rendered as two copies of one string.
+    No amount of care further down can undo that, because by then the two
+    sides really are equal -- the difference was cut off upstream.
+
+    So the cut is made where the difference is. A short run of the shared head
+    is kept before it so the reader can place the edit, and the shared tail is
+    marked rather than repeated.
+    """
+    old, new = _as_text(old), _as_text(new)
+    if len(old) <= limit and len(new) <= limit:
+        return old, new
+    shortest = min(len(old), len(new))
+    head = 0
+    while head < shortest and old[head] == new[head]:
+        head += 1
+    tail = 0
+    while (tail < shortest - head
+           and old[len(old) - 1 - tail] == new[len(new) - 1 - tail]):
+        tail += 1
+    start = max(0, head - context)
+    lead = "…" if start else ""
+    trail = "…" if tail else ""
+
+    def cut(text: str, stop: int) -> str:
+        body = text[start:stop]
+        return lead + (body if len(body) <= limit else body[:limit] + "…") + trail
+
+    return cut(old, len(old) - tail), cut(new, len(new) - tail)
 
 
 # ---------------------------------------------------------------------------
@@ -919,12 +1138,20 @@ def _triage_html(report: Report) -> str:
     was only ever in the markdown report.
     """
     counts = report.bucket_counts()
-    return "".join(
-        f'<button class="card {b}" data-set="fb:{b}">'
-        f'<div class="n">{_n(counts.get(b, 0))}</div>'
-        f'<div class="l">{_esc(BUCKET_LABELS[b])}</div>'
-        f'<div class="m">{_esc(BUCKET_MEANINGS.get(b, ""))}</div></button>'
-        for b in BUCKET_ORDER)
+    total = sum(counts.get(b, 0) for b in BUCKET_ORDER)
+
+    def row(bucket: str) -> str:
+        count = counts.get(bucket, 0)
+        share = f"{count:,} of {total:,} findings" if total else "none"
+        return (
+            f'<button class="card {bucket}" data-set="fb:{bucket}" '
+            f'title="{_esc(share)}">'
+            f'<span class="n">{_n(count)}</span>'
+            f'<span class="l">{_esc(BUCKET_LABELS[bucket])}</span>'
+            f'<span class="m">{_esc(BUCKET_MEANINGS.get(bucket, ""))}</span>'
+            f'</button>')
+
+    return "".join(row(b) for b in BUCKET_ORDER)
 
 
 def _brief_html(summary: dict, limit: int = 200) -> str:
@@ -975,6 +1202,25 @@ def _brief_html(summary: dict, limit: int = 200) -> str:
         more = (f'<div class="why">{_n(len(entries) - limit)} more are in '
                 f'<code>report.json</code> under '
                 f'<code>summary.milestone_brief</code>.</div>')
+
+    # This function built its markup and then fell off the end without
+    # returning it, so `{_brief_html(summary)}` interpolated `None` and the
+    # page printed the bare word "None" where the section belongs. Invisible
+    # to the two tests that cover this feature, because both render the
+    # *markdown* report; the HTML one was never asserted.
+    return (
+        f'<details class="brief"><summary>What Chromium says shipped in this '
+        f'window \u2014 {count} feature{"" if len(entries) == 1 else "s"} '
+        f'from chromestatus{scope}</summary>'
+        f'<div class="body">'
+        f'<div class="why">These are Chromium\u2019s own words about the '
+        f'window being adopted. They are <em>not</em> matched to the findings '
+        f'above \u2014 the names are prose and ours are identifiers \u2014 so '
+        f'read them as background, not as a second opinion on any single '
+        f'row.</div>'
+        + "".join(items) + more +
+        '</div></details>')
+
 
 def _provenance_filter(rows: List[dict]) -> str:
     """Present when there is provenance to filter by, hidden until there is.

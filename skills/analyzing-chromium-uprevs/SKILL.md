@@ -78,6 +78,22 @@ Outputs: `report.md` (paste into a ticket), `report.html` (filterable),
 `report.json` (scripting). Every finding cites `path:line` under
 `change.locations` — quote it, never paraphrase the file name.
 
+**`report.html` alone answers *what* changed, never *why*.** Opened as a file
+it is a complete, offline table; the per-row "why did this change" lookup
+cannot run there, because a page on `file://` may not call
+`chromium-review.googlesource.com` and the browser blocks it before it is
+sent. Serving the directory changes who asks — the page calls localhost, and
+Python asks Gerrit:
+
+```
+python3 -m chromedrift serve out          # prints http://127.0.0.1:8787/
+```
+
+Offer this whenever someone asks why a row changed, what a flag was for, or
+which review to read. You can start it yourself and hand over the URL. Opening
+`report.html` directly and reporting that the lookup does nothing is the
+failure this note exists to prevent.
+
 **The tool does not judge.** It stops at extracted evidence and a deterministic
 rank. It knows nothing about what anyone patches, ships or overrides: a
 **Breaking** row says a contract moved, not that anyone had signed it.
@@ -122,6 +138,49 @@ project's own documents quote, which is how they stay true.
    before closing — those are `chrome://flags` entries Chromium has scheduled
    for deletion, the only rows about work that has not happened yet.
 
+### Step 4: Ask why a row changed
+
+Expanding a row in the served page looks up the review that made the change.
+It reads the CLs that touched the declaring file inside the milestone window,
+then keeps the ones a diff ties to *this* identifier — a declaration file is
+shared, and 500 merged CLs touched `about_flags.cc` between M148 and M151, so
+the file alone answers nothing.
+
+What comes back is a CL, the issue that CL cites, and the other CLs that cite
+the same issue — which is the fix history for the bug behind the change. Each
+CL carries the verdict that put it there, and the verdicts are never merged
+into a score:
+
+| Verdict | What it claims |
+|---|---|
+| `introduced` | an added line **inside this declaration** carries the value the fact ends up with — the CL *is* the change |
+| `exact` | a line the CL changed carries the identifier |
+| `moved` | the file was renamed and the fact came with it; no line changed |
+| `declares` | the CL edited the declaration's body, not the line naming it |
+| `described` | the CL's own title or description names it; no diff was read |
+| `crowded` | several CLs edited this declaration, so none singles it out — read as that declaration's history, oldest first |
+| `touched` | nothing matched the identifier; these merely touched the file |
+
+The last two name no fact. Never quote them as the cause; say what they are.
+
+Lookups are written back to `report.json`, so they survive a restart and reach
+`report.md` on a re-render. `--click-budget N` caps diffs read per row
+(default 600), `--issues N` caps issues per row (default 6), `--no-save` leaves
+the file alone.
+
+**A restricted issue is normal and not a failure.** Around three in ten linked
+issues answer HTTP 403 — they sit in a security, abuse or Google-internal
+tracker component. The panel says so and keeps the link, because the reader
+may be the one person who can open it. **The CLs stay readable either way**:
+they live on Gerrit, they are public, and their subjects carry what the issue
+was about. Report the fix history, not the closed door.
+
+**An empty answer is a statement about this search, never about Chromium.**
+The two trees differ, so something landed. The file is asked three ways — on
+main, then off it for merge-backs, then the whole window's commit messages —
+and if all three miss, the CL is recorded under a name or path this report
+does not hold. Say that; do not report that a declaration changed by itself.
+
 | Bucket | Means |
 |---|---|
 | Breaking | Something outside the binary stops working, silently |
@@ -138,7 +197,7 @@ that after two deductions (not in the Windows build on either side → 0;
 unconfirmed removal → −15). Nothing raises a score, so a score below its
 severity always has a sentence in `reasons`. Quote the sentence, not the number.
 
-### Step 4: Classify each finding by owner
+### Step 5: Classify each finding by owner
 
 `owner` is on every finding. Branch on it, then ask that surface's question.
 
@@ -189,7 +248,7 @@ severity always has a sentence in `reasons`. Quote the sentence, not the number.
 
 Signal meanings: **[reference/signals.md](reference/signals.md)**.
 
-### Step 5: Report per owner
+### Step 6: Report per owner
 
 ```markdown
 ## Verdict

@@ -804,16 +804,27 @@ The middle step is what makes it worth anything. A declaration file is shared: *
 
 The panel prints the denominator with the CL, because `1 of 62` is what makes the one mean something.
 
-**Six strengths of evidence, and they are never merged into a score.** The first four name the fact. The last two name only the file, and the panel says so in words above the list.
+**Seven strengths of evidence, and they are never merged into a score.** The first five name the fact. The last two name only the file, and the panel says so in words above the list.
 
 | Badge | What it means | What it costs |
 |---|---|---|
+| `introduced` | that CL added the fact's new value inside the fact's own declaration | one request per CL |
 | `exact` | that CL edited a line carrying this identifier | one request per CL |
 | `moved` | that CL renamed the file the identifier is declared in | nothing extra |
 | `declares` | a changed line falls inside the declaration this identifier names | one request per CL |
 | `described` | the CL's own title or description names it | nothing |
 | `crowded` | more than four CLs edited that declaration, so none of them singles it out | nothing extra |
 | `touched` | nothing matched the identifier; these are the newest CLs that touched the file | nothing extra |
+
+`introduced` is the only verdict whose answer *is* the change rather than a neighbour of it, and it costs nothing extra because the report already holds what it needs. A finding does not merely name a declaration — it records that declaration's two states, `{"type": ["array<url.mojom.Url>", "array<network.mojom.LinkHeader>"]}` — and the CL that made that change is, by construction, a CL whose diff *adds* a line saying `array<network.mojom.LinkHeader>` inside that declaration. Every other verdict asks "did this CL touch the thing?", which any CL that reformatted the file can satisfy. This one asks "did this CL put the new value there?".
+
+It is what finally answers `blink.mojom.TokenError.url`, whose own name is unsearchable because `.mojom` writes `struct TokenError {` and `url.mojom.Url? url;` and never the qualified string. **Zero of its 13 candidate CLs carry the name; exactly one carries the after-value** — CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"*.
+
+Only the *difference* between the two states is searched for. A value on both sides did not change and would match every CL that touched the declaration for any reason. Values are kept whole when they fit on a line and reduced to the words they gained when they do not, which is how a Mojo method's multi-line parameter list is reached: `CreateLanguageModel` gained `DownloadObserver` and `on_device_model`, and those are single-line strings even though the signature is not.
+
+A value has to look like code to be searched for — an inner capital, an underscore or a dot, or simply be long. `kPreinstalledExtensions`, `IS_ANDROID` and `array<network.mojom.LinkHeader>` identify a change; `enabled`, `stable` and `109` appear in every other declaration in the file and identify nothing.
+
+Measured over the 102 findings of a real M148 → M151 slice: **39 CLs earn `introduced`, 33 rows that already had an answer now have a sharper one**, and **30 of the 33 findings it resolves are resolved to exactly one CL**.
 
 `described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. Of the top 150 findings on a real M148 → M151 run, **65 are found only by the diff and 17 only by the description**, the latter because a CL can delete the declaration it is named after and leave the identifier in no surviving line.
 
@@ -829,7 +840,11 @@ Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 car
 
 That 150 of 150 is a measurement of one slice of one run, not a property of the tool. Five separate paths could still end with a reader clicking a row and being told nothing was found: a name under four characters long, which is unsearchable; a file the diff budget declined; a crowd of CLs that all edited the same declaration; a diff that matched nothing; and a finding whose name is not written anywhere in the file that declares it.
 
-Four of those five had the candidate CLs already in hand. Only the framing was missing — `crowded` and `touched` are that framing. They rank below every badge above them, so they are never reached while real evidence exists, and they can never displace it. The page keeps them apart from evidence in three places: the row gets its own state (`weak`, and the `Has a CL` filter excludes it), the badge is grey rather than borrowing a verdict's colour, and the list is printed under a sentence that says *Leads, not a citation*.
+Four of those five had the candidate CLs already in hand. Only the framing was missing — `crowded` and `touched` are that framing. They rank below every badge above them, so they are never reached while real evidence exists, and they can never displace it. The page keeps them apart from evidence in three places: the row gets its own state (`weak`, and the `Has a CL` filter excludes it), the badge is grey rather than borrowing a verdict's colour, and the list is printed under a sentence saying what it is.
+
+**The two do not share that sentence, because they are not the same claim.** `touched` is a lead: these CLs touched the file and nothing ties any of them to the identifier. `crowded` is every CL that edited *this declaration* — which is that declaration's history, so it is ordered oldest-first, headed **How it got here**, and read as the sequence the fact passed through rather than as one citation that failed to appear.
+
+**And a row the diff budget declined is not a row that was searched.** Its leads sit over diffs nobody opened, so the verdicts that name a fact were never attempted on it. Filling it with `touched` made it *read* as exhausted, and took its way out with it: the remedy sentence and the lookup button both lived in the branch that runs only when there are no CLs at all, so the one row that could still be answered became the one row that could no longer ask. Such a row now says `Nothing here was read — 147 CLs touched this file, more than the run's diff budget would open`, and keeps the button.
 
 This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader who had asked a question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
 

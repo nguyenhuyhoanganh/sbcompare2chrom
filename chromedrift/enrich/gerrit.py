@@ -130,6 +130,17 @@ PAGE = 250
 # quadratic; a declaration longer than this is not one we can attribute anyway.
 DECL_MAX_LINES = 60
 
+# What one line of a diff is. `a` and `b` were being flattened into a single
+# "changed" flag, which throws away the one thing that says *which direction*
+# an edit went -- and direction is the whole of the strongest evidence there
+# is. A CL whose added lines carry the fact's new value is not merely near the
+# change, it is the change.
+#
+# CONTEXT is 0 and ADDED is 1 so that the older `(line, bool)` shape still
+# reads correctly: a line flagged `True` is an added line, which is what a
+# caller saying "this line changed" means.
+CONTEXT, ADDED, REMOVED = 0, 1, 2
+
 # Ranked strongest first. `moved` sits just under `exact` because a pure rename
 # changes no line at all and is still the whole cause: CL 7810461 renamed
 # `html_or_foreign_element.idl` and every member of that interface reads as
@@ -145,13 +156,26 @@ DECL_MAX_LINES = 60
 # more than `DECL_MAX` CLs edited this declaration's body, so they no longer
 # single one out. `touched`: nothing matched the identifier at all, and these
 # are simply the newest CLs that touched the declaring file.
-_STRENGTH = {"exact": 0, "moved": 1, "declares": 2, "described": 3,
-             "crowded": 4, "touched": 5}
+_STRENGTH = {"introduced": 0, "exact": 1, "moved": 2, "declares": 3,
+             "described": 4, "crowded": 5, "touched": 6}
 
 # Everything ranked above this names *this* fact and is printed as a citation.
 # At or below it a CL is a lead the reader has to judge, and the panel says so
 # in those words rather than leaving a badge to carry the distinction alone.
-CITES = 4
+CITES = 5
+
+
+def strength(match: str) -> int:
+    """How strongly a verdict names the fact; lower is stronger.
+
+    One definition, because there were three. `_prune` defaulted an unknown
+    verdict to 9 (weakest), `enrich` indexed the table directly and would have
+    raised, and `report/markdown.py` defaulted to 0 -- so a verdict none of
+    them recognised sorted last in one place, crashed in another, and printed
+    as the strongest citation in the third. Unknown means unranked, and
+    unranked belongs below everything that is ranked.
+    """
+    return _STRENGTH.get(match, len(_STRENGTH))
 
 # How many CLs a `touched` fallback offers. Three, because it is reached
 # exactly when nothing distinguishes them, and a longer list of undistinguished
@@ -479,22 +503,23 @@ def _blocks(doc: dict) -> List[Tuple[str, bool]]:
     - ``{"ab": [...]}`` is context and ``{"a"/"b"}`` without ``common`` is a
       real edit; those two were already right.
     """
-    seq: List[Tuple[str, bool]] = []
+    seq: List[Tuple[str, int]] = []
     for block in doc.get("content", []) or []:
         if not isinstance(block, dict):
             continue
         if "skip" in block:
             try:
-                seq += [("", False)] * int(block["skip"])
+                seq += [("", CONTEXT)] * int(block["skip"])
             except (TypeError, ValueError):
                 pass
             continue
         if "ab" in block:
-            seq += [(line, False) for line in block["ab"] or []]
+            seq += [(line, CONTEXT) for line in block["ab"] or []]
             continue
         changed = not block.get("common")
-        for side in ("a", "b"):
-            seq += [(line, changed) for line in block.get(side) or []]
+        for side, state in (("a", REMOVED), ("b", ADDED)):
+            seq += [(line, state if changed else CONTEXT)
+                    for line in block.get(side) or []]
     return seq
 
 
@@ -581,13 +606,19 @@ class _Scanned:
     match that straddles two of them.
     """
 
-    __slots__ = ("seq", "changed_blob", "all_blob", "changed")
+    __slots__ = ("seq", "changed_blob", "all_blob", "changed",
+                 "added_blob", "removed_blob")
 
-    def __init__(self, seq: Sequence[Tuple[str, bool]]) -> None:
+    def __init__(self, seq: Sequence[Tuple[str, int]]) -> None:
         self.seq = seq
-        self.changed_blob = "\n".join(line for line, ch in seq if ch)
+        self.changed_blob = "\n".join(line for line, st in seq if st)
         self.all_blob = "\n".join(line for line, _ in seq)
-        self.changed = {i for i, (_, ch) in enumerate(seq) if ch}
+        self.changed = {i for i, (_, st) in enumerate(seq) if st}
+        # The two sides kept apart. Which side a value landed on is the
+        # difference between "this CL touched the declaration" and "this CL
+        # is the one that put the new value there".
+        self.added_blob = "\n".join(l for l, st in seq if st == ADDED)
+        self.removed_blob = "\n".join(l for l, st in seq if st == REMOVED)
 
     def declaration_edited(self, start: int) -> bool:
         """Does a changed line fall inside the declaration naming this line?
@@ -614,34 +645,63 @@ class _Scanned:
            picks 1 of the 510 CLs touching the file, and it is CL 7895296,
            "Return empty styles for getComputedStyle() outside flat tree".
         """
+        span = self.declaration_span(start)
+        return any(i in self.changed for i in span) if span else False
+
+    def declaration_span(self, start: int) -> Optional[range]:
+        """The line indices the declaration at ``start`` occupies.
+
+        Derived once and asked two questions -- was it edited, and did the
+        edit introduce this fact's new value -- because deriving the region
+        twice is how the two answers drift apart.
+        """
         seq = self.seq
         limit = min(len(seq), start + DECL_MAX_LINES)
         if seq[start][0].rstrip().endswith("{"):
-            return self._block_edited(start, limit)
-        # A change only counts once the region is known to have closed here.
-        # Returning True on the way to finding out reported the *next* record's
-        # edit as this one's, on exactly the grammar that made the forward scan
+            return self._block_span(start, limit)
+        # The region only counts once it is known to have closed here. Reading
+        # a change on the way to finding out reported the *next* record's edit
+        # as this one's, on exactly the grammar that made the forward scan
         # fail: json5 has no `;`, so the walk ran straight out of the feature
         # it was reading and into the one below.
-        edited = False
         for i in range(start, limit):
-            if i in self.changed:
-                edited = True
             if seq[i][0].rstrip().endswith(";"):
-                return edited
-        return self._enclosing_edited(start)
+                return range(start, i + 1)
+        return self._enclosing_span(start)
 
-    def _block_edited(self, start: int, limit: int) -> bool:
+    def _block_span(self, start: int, limit: int) -> range:
         depth = 0
         for i in range(start, limit):
-            if i in self.changed:
-                return True
             depth += self.seq[i][0].count("{") - self.seq[i][0].count("}")
             if i > start and depth <= 0:
-                return False
+                return range(start, i + 1)
+        # A block the scanner never sees close is capped rather than dropped:
+        # the cap is already the promise this scan makes about how far it will
+        # read, and honouring it here keeps a long declaration answerable.
+        return range(start, limit)
+
+    def declaration_introduced(self, start: int, gained: Set[str],
+                               lost: Set[str]) -> bool:
+        """Did this CL put the fact's new value into its declaration?
+
+        The sharpest question available, and the only one whose answer is the
+        change itself rather than a neighbour of it. `border_offset` moving
+        from `Vector2d` to `Vector2dF` is *some* CL adding a line that says
+        `Vector2dF` inside that declaration -- and among the CLs that touched
+        the file, that is one of them.
+        """
+        span = self.declaration_span(start)
+        if not span:
+            return False
+        for i in span:
+            line, state = self.seq[i]
+            if state == ADDED and any(v in line for v in gained):
+                return True
+            if state == REMOVED and any(v in line for v in lost):
+                return True
         return False
 
-    def _enclosing_edited(self, start: int) -> bool:
+    def _enclosing_span(self, start: int) -> Optional[range]:
         """The innermost block containing `start`, if one opens close above."""
         opener = None
         for i in range(start, max(-1, start - DECL_MAX_LINES), -1):
@@ -649,29 +709,46 @@ class _Scanned:
                 opener = i
                 break
         if opener is None:
-            return False
-        return self._block_edited(opener,
-                                  min(len(self.seq), opener + DECL_MAX_LINES))
+            return None
+        return self._block_span(opener,
+                                min(len(self.seq), opener + DECL_MAX_LINES))
 
 
-def _match(scan: "_Scanned", tokens: Set[str], container: str = "") -> str:
-    """"exact", "declares" or "" -- the strongest evidence this diff carries.
+def _match(scan: "_Scanned", tokens: Set[str], container: str = "",
+           gained: Set[str] = frozenset(),
+           lost: Set[str] = frozenset()) -> str:
+    """The strongest evidence this diff carries, or "".
 
     ``container`` is the weaker token, and it is kept apart rather than added
     to ``tokens`` because it cannot support the stronger verdict: editing a
     line that mentions the enclosing struct is not editing the line that
     declares this member.
+
+    ``gained``/``lost`` are what the finding says the change did, and they are
+    asked first because they are the only question whose answer *is* the
+    change. "A changed line mentions this identifier" is satisfied by any CL
+    that touched the declaration for any reason; "an added line inside this
+    declaration carries the value the fact ended up with" is satisfied by the
+    CL that put it there.
     """
     if not scan.changed_blob:
         return ""
+    search = set(tokens)
+    if container:
+        search.add(container)
+    # Two cheap searches over the joined sides reject almost every CL before a
+    # line is walked, which is what keeps this affordable on a 500-CL file.
+    if ((gained and any(v in scan.added_blob for v in gained))
+            or (lost and any(v in scan.removed_blob for v in lost))):
+        for i, (line, _) in enumerate(scan.seq):
+            if (any(t in line for t in search)
+                    and scan.declaration_introduced(i, gained, lost)):
+                return "introduced"
     for token in tokens:
         if token in scan.changed_blob:
             return "exact"
     # Absent from the file entirely is the common case, and one search over the
     # whole text settles it before any line is walked.
-    search = set(tokens)
-    if container:
-        search.add(container)
     if not any(token in scan.all_blob for token in search):
         return ""
     for i, (line, _) in enumerate(scan.seq):
@@ -705,6 +782,83 @@ def tokens_for(change: Change) -> Set[str]:
     if change.kind in _K_PREFIXED and change.name:
         out.add(var_from_feature_name(change.name))
     return {t for t in out if len(t) >= 4}
+
+
+# A delta value long enough to be specific on its own is used whole; anything
+# with spaces in it is a construct spanning several lines of the file and is
+# reached through the words it gained instead.
+_DELTA_WHOLE_MAX = 72
+_DELTA_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _codelike(text: str) -> bool:
+    """Is this specific enough to search a declaration for?
+
+    `kPreinstalledExtensions`, `IS_ANDROID` and `array<network.mojom.LinkHeader>`
+    identify a change. `enabled`, `stable`, `none` and `109` appear in every
+    other declaration in the file and identify nothing, so the test is whether
+    the value is shaped like code -- an inner capital, an underscore or a dot --
+    or is simply too long to be a coincidence.
+    """
+    if len(text) < 4 or not any(c.isalpha() for c in text):
+        return False
+    return (any(c.isupper() for c in text) or "_" in text or "." in text
+            or len(text) >= 12)
+
+
+def _delta_values(node, out: Set[str]) -> None:
+    """Every searchable string inside one side of a delta, at any depth."""
+    if isinstance(node, str):
+        if " " not in node and len(node) <= _DELTA_WHOLE_MAX and _codelike(node):
+            out.add(node)
+        for word in _DELTA_WORD.findall(node):
+            if _codelike(word):
+                out.add(word)
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            _delta_values(key, out)
+            _delta_values(value, out)
+    elif isinstance(node, (list, tuple)):
+        for item in node:
+            _delta_values(item, out)
+
+
+def delta_tokens(change: Change) -> Tuple[Set[str], Set[str]]:
+    """What this change put into the tree, and what it took out.
+
+    The strongest signal the report already holds and never spent. A finding
+    does not merely name a declaration, it records the declaration's two
+    states -- ``{"type": ["array<url.mojom.Url>", "array<network.mojom.LinkHeader>"]}``
+    -- and the CL that made that change is, by construction, a CL whose diff
+    *adds* a line saying `array<network.mojom.LinkHeader>`.
+
+    Measured on `blink.mojom.TokenError.url`, where the fact's own name cannot
+    be searched for at all: 0 of 13 candidate CLs carry the name, and exactly
+    one carries the after-value -- CL 7982397, "[FedCM] Modernize
+    TokenError::url from string to url.mojom.Url".
+
+    Only the difference is returned. A value on both sides did not change and
+    would match every CL that touched the declaration for any reason.
+    """
+    gained: Set[str] = set()
+    lost: Set[str] = set()
+    for pair in (change.deltas or {}).values():
+        if not (isinstance(pair, (list, tuple)) and len(pair) == 2):
+            continue
+        before: Set[str] = set()
+        after: Set[str] = set()
+        _delta_values(pair[0], before)
+        _delta_values(pair[1], after)
+        # Compared against the other side's *text*, not its token set. A token
+        # can be a substring of one that is still there: `Vector2d` reads as
+        # lost when the type became `Vector2dF`, and would then match every
+        # line carrying the new type -- turning the CL that made the change
+        # into evidence of the opposite change.
+        before_text = json.dumps(pair[0])
+        after_text = json.dumps(pair[1])
+        gained |= {t for t in after if t not in before_text}
+        lost |= {t for t in before if t not in after_text}
+    return gained, lost
 
 
 def container_for(change: Change) -> str:
@@ -937,15 +1091,25 @@ def _prune(hits: List[dict]) -> List[dict]:
     last one to touch the line.
     """
     strong = [h for h in hits
-              if h["match"] in ("exact", "moved", "described")]
+              if h["match"] in ("introduced", "exact", "moved", "described")]
     if strong:
         kept = strong
     else:
         declares = [h for h in hits if h["match"] == "declares"]
-        kept = (declares if len(declares) <= DECL_MAX
-                else [dict(h, match="crowded") for h in declares])
-    kept.sort(key=lambda h: (_STRENGTH.get(h["match"], 9),
-                             _neg_date(h["date"])))
+        if len(declares) > DECL_MAX:
+            # A crowd of CLs that all edited this declaration is not noise to
+            # be thrown away, and it is not a citation either. It is the
+            # declaration's history: the fact reached the state the report
+            # found it in by passing through these, and the reader who cannot
+            # be given one CL can be given the sequence.
+            #
+            # So it is ordered forward. Every other list here is newest-first,
+            # because a citation is the last word on a line; a history read
+            # backwards is not a history.
+            declares.sort(key=lambda h: _neg_date(h["date"]))
+            return [dict(h, match="crowded") for h in reversed(declares[:8])]
+        kept = declares
+    kept.sort(key=lambda h: (strength(h["match"]), _neg_date(h["date"])))
     return kept[:8]
 
 
@@ -1141,6 +1305,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
 
     tokens = {f.uid: tokens_for(f.change) for f in ranked}
     containers = {f.uid: container_for(f.change) for f in ranked}
+    deltas = {f.uid: delta_tokens(f.change) for f in ranked}
     hits: Dict[str, List[dict]] = {f.uid: [] for f in ranked}
 
     # The free pass. Descriptions arrive with the candidate list, so every
@@ -1175,11 +1340,18 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         moved_here = {cl["_number"] for cl, _ in diffs
                       if (cl["_number"], path) in _followed}
         for finding in wanted[path]:
-            if not tokens[finding.uid]:
+            gained, lost = deltas[finding.uid]
+            # A name under four characters leaves the token set empty, and the
+            # finding used to be dropped here without a diff being read. It
+            # still holds two other ways in -- the struct enclosing it, and the
+            # value the change introduced -- so the guard asks whether there is
+            # anything at all to search with, not whether there is a name.
+            if not (tokens[finding.uid] or containers[finding.uid]
+                    or gained or lost):
                 continue
             for cl, scan in diffs:
                 verdict = _match(scan, tokens[finding.uid],
-                                 containers[finding.uid])
+                                 containers[finding.uid], gained, lost)
                 if not verdict and cl["_number"] in moved_here:
                     # The file this fact is declared in moved, and the fact is
                     # in it. Nothing was edited, so no line can carry the
@@ -1241,7 +1413,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         block["changes"] = kept
         # A lead is not a resolution, and the summary counts them apart so a
         # run cannot report itself as having explained more than it did.
-        if all(_STRENGTH[h["match"]] >= CITES for h in kept):
+        if all(strength(h["match"]) >= CITES for h in kept):
             leads_only += 1
             continue
         resolved += 1
