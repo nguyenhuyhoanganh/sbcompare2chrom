@@ -804,14 +804,16 @@ The middle step is what makes it worth anything. A declaration file is shared: *
 
 The panel prints the denominator with the CL, because `1 of 62` is what makes the one mean something.
 
-**Four strengths of evidence, and they are never merged into a score.**
+**Six strengths of evidence, and they are never merged into a score.** The first four name the fact. The last two name only the file, and the panel says so in words above the list.
 
 | Badge | What it means | What it costs |
 |---|---|---|
 | `exact` | that CL edited a line carrying this identifier | one request per CL |
 | `moved` | that CL renamed the file the identifier is declared in | nothing extra |
-| `described` | the CL's own title or description names it | nothing |
 | `declares` | a changed line falls inside the declaration this identifier names | one request per CL |
+| `described` | the CL's own title or description names it | nothing |
+| `crowded` | more than four CLs edited that declaration, so none of them singles it out | nothing extra |
+| `touched` | nothing matched the identifier; these are the newest CLs that touched the file | nothing extra |
 
 `described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. Of the top 150 findings on a real M148 → M151 run, **65 are found only by the diff and 17 only by the description**, the latter because a CL can delete the declaration it is named after and leave the identifier in no surviving line.
 
@@ -822,6 +824,18 @@ The panel prints the denominator with the CL, because `1 of 62` is what makes th
 So there is no radius. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 510 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
 
 Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 112 `exact`, 32 `declares`, 6 `moved` — where the first working version of this managed 115.
+
+#### The last two badges, and why a row always answers
+
+That 150 of 150 is a measurement of one slice of one run, not a property of the tool. Five separate paths could still end with a reader clicking a row and being told nothing was found: a name under four characters long, which is unsearchable; a file the diff budget declined; a crowd of CLs that all edited the same declaration; a diff that matched nothing; and a finding whose name is not written anywhere in the file that declares it.
+
+Four of those five had the candidate CLs already in hand. Only the framing was missing — `crowded` and `touched` are that framing. They rank below every badge above them, so they are never reached while real evidence exists, and they can never displace it. The page keeps them apart from evidence in three places: the row gets its own state (`weak`, and the `Has a CL` filter excludes it), the badge is grey rather than borrowing a verdict's colour, and the list is printed under a sentence that says *Leads, not a citation*.
+
+This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader who had asked a question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
+
+**So the guarantee is this: a finding is left without a CL only when no merged CL touched its declaring file inside the window** — or when there is no window, or no file to search, which is the same emptiness one step earlier. A budget that declined the file, a token too short to search for, a crowd of equally plausible CLs, a diff that matched nothing: none of them ends in silence any more.
+
+The exception is real and cannot be closed. A fact can differ between two trees while nothing landed on the file declaring it — the change arrived through a generated file, a path Gerrit records under another name, or a third-party roll. There is no CL to name there, and inventing one is the only actual lie this stage has available to it. The panel says *no CL touched this file between the two versions, so there is nothing to cite*, and that is where it stops.
 
 ### Why this needs a server, and why nothing else would do
 

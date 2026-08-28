@@ -36,7 +36,8 @@ class El {
 }
 
 const els = {};
-for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'tb', 'cnt', 'more']) els[id] = new El(id);
+for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'fp', 'tb', 'cnt', 'more'])
+  els[id] = new El(id);
 global.document = {
   getElementById: id => els[id],
   querySelectorAll: () => [],
@@ -66,6 +67,17 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     // so the filter has two values to tell apart.
     owner: i % 10 === 0 ? 'ipc' : 'config',
   };
+  // Provenance, in the three shapes the page must tell apart. 30 rows each,
+  // so a filter that quietly lumps two of them together shows up as a count.
+  // `touched` is the floor the enricher falls back to when nothing names the
+  // fact: real CLs, and not an answer to "why did this change".
+  const prov = i % 100;
+  if (prov === 3 || prov === 4 || prov === 5) {
+    row.cl_pool = 9; row.cl_files = 1;
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
+                 m: prov === 3 ? 'touched' : (prov === 4 ? 'exact' : 'declares'),
+                 b: [] }];
+  }
   if (i < 40) { row.we_patch = ['content/f' + i + '.cc']; row.ours = true;
                 row.chromestatus = 'x'.repeat(300); }
   return row;
@@ -148,5 +160,47 @@ out.detailRemovedOnSecondClick = detailRows[0].removed === true;
 // Paging.
 els.more.listeners['click'].forEach(f => f());
 out.rowsAfterShowMore = els.tb.trCount;
+
+// The evidence filter, and the distinction the floor depends on. A row whose
+// only CLs are `touched` lists reviews and explains nothing, so "Has a CL"
+// must not return it -- otherwise the fallback quietly inflates the one count
+// a reader uses to decide what is already understood.
+// The search box still holds the word typed above, and `match` is an AND of
+// every control -- so a stale query silently narrows the counts asserted here.
+els.q.value = '';
+const byEvidence = v => {
+  els.fp.value = v;
+  els.fp.listeners['change'].forEach(f => f());
+  return els.cnt.textContent;
+};
+out.hasCl = byEvidence('cl');
+out.exactOnly = byEvidence('exact');
+out.weakOnly = byEvidence('weak');
+out.weakRowClass = /class="row-t p-weak"/.test(els.tb.innerHTML);
+out.weakRowIsNotCl = !/class="row-t p-cl"/.test(els.tb.innerHTML);
+
+// Expand the first of them: the CLs have to be there, under a sentence saying
+// they are leads. A badge alone is skimmed past.
+detailRows = [];
+const weakRow = new El('tr');
+weakRow.className = 'row'; weakRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? weakRow : null) } }));
+const weakHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.weakDetailListsTheCl = /7700\d{3}/.test(weakHtml);
+out.weakDetailSaysLead = weakHtml.includes('Leads, not a citation');
+out.weakDetailBadge = /ev-touched/.test(weakHtml);
+
+// ...and a row that is actually explained carries no such disclaimer.
+byEvidence('exact');
+detailRows = [];
+const exactRow = new El('tr');
+exactRow.className = 'row'; exactRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? exactRow : null) } }));
+const exactHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.exactDetailListsTheCl = /7700\d{3}/.test(exactHtml);
+out.exactDetailSaysLead = exactHtml.includes('Leads, not a citation');
+byEvidence('');
 
 console.log(JSON.stringify(out));

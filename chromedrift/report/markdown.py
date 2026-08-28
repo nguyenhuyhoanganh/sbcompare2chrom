@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import List, Sequence
 
 from ..diff import SIGNAL_LABELS
+from ..enrich.gerrit import CITES as _CITES, _STRENGTH as _EVIDENCE
 from . import wording as surfaces
 from ..model import (
     BUCKET_BEHAVIOUR,
@@ -455,9 +456,17 @@ def _provenance_lines(finding) -> List[str]:
 
     The pool the CL was chosen from is part of the citation, not decoration:
     "1 of 62 merged CLs touched this file" is the difference between a
-    reference and a coincidence. `nearby` is printed as `nearby` because it is
-    a lead -- the CL edited something next to this identifier -- and a reader
-    pasting it into a ticket has to be able to tell the two apart.
+    reference and a coincidence. Every verdict is printed under its own name,
+    because a reader pasting one of these into a ticket has to be able to tell
+    them apart.
+
+    That matters most at the bottom of the ladder, where `crowded` and
+    `touched` name no fact at all: they exist so a lookup always answers, and
+    an answer that reads as a citation once it has been copied out of the
+    report is worse than the silence they replaced. So the heading itself
+    changes on a row carrying nothing else -- markdown has no badge colour, no
+    row state and no panel to put a disclaimer in, and the line a reader
+    copies is the whole of what travels.
     """
     block = (finding.enrichment or {}).get("gerrit") or {}
     changes = block.get("changes") or []
@@ -466,8 +475,12 @@ def _provenance_lines(finding) -> List[str]:
         pool = block.get("candidates") or 0
         files = len({c["file"] for c in changes if c.get("file")}) or 1
         where = f"these {files} files" if files > 1 else "this file"
-        head = f"- Why it changed ({len(changes)} of {pool} merged CLs " \
-               f"touched {where}):" if pool else "- Why it changed:"
+        leads = all(_EVIDENCE.get(c.get("match"), 0) >= _CITES
+                    for c in changes)
+        what = ("- Leads only, no CL names this"
+                if leads else "- Why it changed")
+        head = (f"{what} ({len(changes)} of {pool} merged CLs "
+                f"touched {where}):" if pool else f"{what}:")
         out.append(head)
         for cl in changes:
             bugs = "".join(

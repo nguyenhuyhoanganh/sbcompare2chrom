@@ -928,6 +928,29 @@ class TestHtmlReportScales(unittest.TestCase):
         self.assertIn("of 1111", out["afterDebounce"])
         self.assertEqual(out["rowsAfterFilter"], out["initialRows"])
 
+        # 4. The floor under provenance, run rather than read. The fixture
+        #    carries 30 rows of each shape, and "Has a CL" must return the 60
+        #    that name their fact and none of the 30 that only list reviews:
+        #    the fallback exists so a click always answers, and it stops being
+        #    worth having the moment it can pass for an explanation.
+        self.assertIn("of 60", out["hasCl"])
+        self.assertIn("of 30", out["exactOnly"])
+        self.assertIn("of 30", out["weakOnly"])
+        self.assertTrue(out["weakRowClass"], "a lead row needs its own state")
+        self.assertTrue(out["weakRowIsNotCl"])
+
+        # A click on one of them returns CLs -- that is the guarantee -- under
+        # a sentence saying what they are. The badge is not enough on its own;
+        # it is one word at the end of a line a reader is skimming.
+        self.assertTrue(out["weakDetailListsTheCl"],
+                        "a lead row must still show the CLs it found")
+        self.assertTrue(out["weakDetailSaysLead"])
+        self.assertTrue(out["weakDetailBadge"])
+
+        # And the disclaimer is not printed over evidence that does name it.
+        self.assertTrue(out["exactDetailListsTheCl"])
+        self.assertFalse(out["exactDetailSaysLead"])
+
         # 4. A score of zero is a real result -- base severity 35 for a removed
         #    preference, minus 45 for one not compiled on Windows, clamped --
         #    and it has to survive the trip into the payload. It did not: the
@@ -4763,15 +4786,37 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
                        {"match": "exact", "date": "2026-04-01"}])
         self.assertEqual([h["match"] for h in kept], ["exact"])
 
-    def test_proximity_that_matches_everything_identifies_nothing(self):
-        """The ai_manager.mojom case: four confident, unrelated answers."""
+    def test_a_crowd_of_declarations_is_demoted_and_not_dropped(self):
+        """The ai_manager.mojom case: four confident, unrelated answers.
+
+        They must not stay `declares`, which claims one of them made this
+        change. They must also not vanish -- dropping them told a reader who
+        opened the row that nothing was found about a declaration that eleven
+        CLs had edited. `crowded` is both: kept, and ranked below every verdict
+        that names the fact.
+        """
         from chromedrift.enrich import gerrit
 
         many = [{"match": "declares", "date": f"2026-06-0{i}"}
                 for i in range(1, gerrit.DECL_MAX + 2)]
-        self.assertEqual(gerrit._prune(many), [])
+        kept = gerrit._prune(many)
+        self.assertEqual(len(kept), len(many))
+        self.assertEqual({h["match"] for h in kept}, {"crowded"})
+        self.assertGreaterEqual(gerrit._STRENGTH["crowded"], gerrit.CITES)
+
         few = many[:gerrit.DECL_MAX]
-        self.assertEqual(len(gerrit._prune(few)), gerrit.DECL_MAX)
+        self.assertEqual([h["match"] for h in gerrit._prune(few)],
+                         ["declares"] * gerrit.DECL_MAX)
+
+    def test_a_crowd_never_displaces_a_cl_that_names_the_fact(self):
+        """Demoting them is only safe while they cannot outrank real
+        evidence, so the one `exact` still retires all eleven."""
+        from chromedrift.enrich import gerrit
+
+        hits = [{"match": "declares", "date": f"2026-06-0{i}"}
+                for i in range(1, gerrit.DECL_MAX + 2)]
+        hits.append({"match": "exact", "date": "2026-04-01"})
+        self.assertEqual([h["match"] for h in gerrit._prune(hits)], ["exact"])
 
     def test_the_newest_cl_is_the_one_a_reader_sees_first(self):
         from chromedrift.enrich.gerrit import _prune
@@ -5328,3 +5373,407 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
         rows = html_report.payload_of(self._page(5))
         self.assertNotIn("what", html_report._POOLED)
         self.assertIsInstance(rows[0]["what"], str)
+
+
+class TestALookupAlwaysAnswers(unittest.TestCase):
+    """Clicking a row returns a CL whenever one could exist.
+
+    The stage began by refusing to answer unless the diff named the fact, and
+    that refusal is the reason it can be trusted. But a reader clicking "Look
+    up the CL for this row" has asked a question, and five separate paths
+    answered it with silence: a token too short to search for, a budget that
+    declined the file, a crowd of equally plausible CLs, a diff that matched
+    nothing, and a finding whose name is not written anywhere. In four of the
+    five the CLs that could have made the change were already in hand.
+
+    So the ladder gained a floor that names no fact and says so. What is left
+    is one shape, asserted at the bottom of this class: no CL touched the
+    declaring file inside the window, where there is genuinely nothing to
+    cite. Everything above it answers.
+    """
+
+    WINDOW = ("2026-04-06", "2026-08-11")
+
+    # A declaration whose name line is untouched and whose body is edited --
+    # the Mojo parameter-list shape, which reads as `declares`.
+    BODY_EDITED = [("  kFoo(", False), ("    a,", True), ("    b);", False)]
+    # Nothing to do with the finding.
+    UNRELATED = [("  kOther;", True)]
+
+    def _enrich(self, *, pool=3, diff=None, budget=0, paths=("f.cc",),
+                key="kFoo", name=None, kind="base_feature", subject="CL"):
+        """`enrich` over one finding with the network replaced.
+
+        Driven through the real entry point rather than `_prune`, because the
+        guarantee is about what a lookup returns and three of the five silent
+        paths are in `enrich` and not in the ranking.
+        """
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding
+
+        finding = Finding(
+            change=Change(change_type="modified", kind=kind, key=key,
+                          name=key if name is None else name,
+                          paths=list(paths)),
+            score=90)
+        rows = [{"_number": 100 + i, "subject": f"{subject} {100 + i}",
+                 "submitted": f"2026-05-{10 + i:02d} 00:00:00.000000000"}
+                for i in range(pool)]
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
+        gerrit.window_for = lambda *a, **k: self.WINDOW
+        gerrit._search_window = lambda *a, **k: ([dict(r) for r in rows], False)
+        gerrit._diff = lambda cl, path, *a, **k: (
+            diff(cl, path) if callable(diff) else (diff or self.UNRELATED))
+        try:
+            summary = gerrit.enrich([finding], "148", "151", cache_dir="",
+                                    budget=budget, with_history=0,
+                                    log=lambda m: None)
+        finally:
+            gerrit.window_for, gerrit._search_window, gerrit._diff = saved
+        return (finding.enrichment.get("gerrit") or {}), summary
+
+    # -- the four paths that used to end in silence -------------------------
+
+    def test_a_crowded_declaration_answers_with_the_crowd(self):
+        """Eleven CLs edited the declaration and none of them is the answer.
+
+        `ai_manager.mojom`. Dropping them was the honest reading of "these do
+        not identify anything" and it is still what the badge says; the row no
+        longer goes empty over it.
+        """
+        from chromedrift.enrich import gerrit
+
+        block, _ = self._enrich(pool=gerrit.DECL_MAX + 2, diff=self.BODY_EDITED)
+        self.assertEqual(len(block["changes"]), gerrit.DECL_MAX + 2)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"crowded"})
+
+    def test_a_diff_that_matches_nothing_falls_back_to_the_file(self):
+        """"No CL among the 13 read of the 13 that touched this file edits a
+        line carrying this identifier" is true and leaves the reader exactly
+        where they started. The 13 are still the only candidates there are."""
+        from chromedrift.enrich import gerrit
+
+        block, _ = self._enrich(pool=5, diff=self.UNRELATED)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
+        self.assertEqual(len(block["changes"]), gerrit.TOUCHED_MAX)
+        # Newest first: the fallback offers leads, so recency is all it has.
+        self.assertEqual([c["number"] for c in block["changes"]],
+                         [104, 103, 102])
+
+    def test_a_file_the_budget_declined_still_answers(self):
+        """The candidate list arrives with the search; only the diffs are
+        budgeted. A file nobody read is exactly the file with nothing else."""
+        block, _ = self._enrich(pool=5, budget=1)
+        self.assertFalse(block["diffs_read"])
+        self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
+
+    def test_a_name_too_short_to_search_for_still_answers(self):
+        """`url`, `id`, `name`: under four characters the token set is empty
+        and the diff loop skips the finding entirely."""
+        from chromedrift.enrich.gerrit import container_for, tokens_for
+        from chromedrift.model import Change
+
+        change = Change(change_type="modified", kind="mojo_field", key="url",
+                        name="url", paths=["f.mojom"])
+        self.assertEqual(tokens_for(change), set())
+        self.assertEqual(container_for(change), "")
+
+        block, _ = self._enrich(pool=4, key="url", kind="mojo_field")
+        self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
+
+    # -- and the floor never rises above the evidence ------------------------
+
+    def test_evidence_that_names_the_fact_retires_every_lead(self):
+        """The floor is reached only when everything above it is empty. If it
+        could sit beside an `exact` hit it would be noise on the rows that are
+        actually answered, which is most of them."""
+        block, _ = self._enrich(pool=4, diff=lambda cl, path: (
+            [("  kFoo,", True)] if cl["_number"] == 101 else self.UNRELATED))
+        self.assertEqual([c["match"] for c in block["changes"]], ["exact"])
+        self.assertEqual([c["number"] for c in block["changes"]], [101])
+
+    def test_a_lead_never_outranks_a_weaker_verdict_that_names_the_fact(self):
+        """`described` is the weakest verdict that names the fact, and it is
+        still stronger than any number of leads."""
+        from chromedrift.enrich import gerrit
+
+        block, _ = self._enrich(pool=6, subject="Rename kFoo to kBar")
+        self.assertEqual({c["match"] for c in block["changes"]}, {"described"})
+        self.assertLess(gerrit._STRENGTH["described"], gerrit.CITES)
+
+    def test_a_lead_is_not_counted_as_a_finding_that_was_explained(self):
+        """The summary is what a run reports about itself; leads must not
+        inflate it, or the guarantee becomes a way to look finished."""
+        block, summary = self._enrich(pool=3, diff=self.UNRELATED)
+        self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
+        self.assertEqual(summary["findings_resolved"], 0)
+        self.assertEqual(summary["findings_leads_only"], 1)
+
+        _, real = self._enrich(pool=3, diff=[("  kFoo,", True)])
+        self.assertEqual(real["findings_resolved"], 1)
+        self.assertEqual(real["findings_leads_only"], 0)
+
+    # -- the boundary, stated -----------------------------------------------
+
+    def test_nothing_touching_the_file_is_the_one_shape_that_cannot_answer(self):
+        """The whole of what is not guaranteed, in one test.
+
+        A fact that differs between two trees while nothing landed on the file
+        declaring it leaves no CL to name -- the change came in through a
+        generated file, a path Gerrit records differently, or a roll. Inventing
+        a CL here would be the only actual lie available to this stage.
+        """
+        block, summary = self._enrich(pool=0)
+        self.assertNotIn("changes", block)
+        self.assertEqual(block["candidates"], 0)
+        self.assertEqual(summary["findings_leads_only"], 0)
+
+    def test_every_other_shape_answers(self):
+        """The guarantee itself, over the shapes that reach it.
+
+        Written as one sweep rather than trusting the cases above to have
+        covered the product: what matters is that no combination of pool size,
+        diff shape and budget produces an empty row while a candidate exists.
+        """
+        from chromedrift.enrich import gerrit
+
+        diffs = {"nothing matches": self.UNRELATED,
+                 "declaration edited": self.BODY_EDITED,
+                 "line edited": [("  kFoo,", True)],
+                 "empty diff": []}
+        for pool in (1, 2, gerrit.DECL_MAX + 2, 9):
+            for label, diff in diffs.items():
+                for budget in (0, 1):
+                    with self.subTest(pool=pool, diff=label, budget=budget):
+                        block, _ = self._enrich(pool=pool, diff=diff,
+                                                budget=budget)
+                        self.assertTrue(
+                            block.get("changes"),
+                            f"{pool} candidate CLs and no answer")
+                        for change in block["changes"]:
+                            self.assertIn(change["match"], gerrit._STRENGTH)
+
+
+class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
+    """The guarantee is only worth having if the weak end reads as weak.
+
+    Every path added above returns CLs that name nothing, and the failure mode
+    of all of them is the same: a reader skims three subject lines under "Why
+    it changed" and takes the first as the answer. So the page separates them
+    from evidence in three independent places -- the row's state, the badge,
+    and a sentence above the list -- and this is what holds all three.
+    """
+
+    def _row(self, match):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report.html import _to_rows
+
+        report = Report(
+            from_ref="a", to_ref="b", summary={}, meta={"platform": "windows"},
+            findings=[Finding(
+                change=Change(change_type="modified", kind="base_feature",
+                              key="kFoo", name="kFoo", paths=["f.cc"]),
+                score=90,
+                enrichment={"gerrit": {
+                    "candidates": 9, "diffs_read": True,
+                    "changes": [{"number": 1, "date": "2026-06-01",
+                                 "match": match, "subject": "s",
+                                 "bugs": []}]}})])
+        return _to_rows(report, "windows")[0]
+
+    def test_the_payload_carries_the_verdict_the_scan_reached(self):
+        for match in ("exact", "declares", "crowded", "touched"):
+            self.assertEqual(self._row(match)["cls"][0]["m"], match)
+
+    def test_the_page_sorts_leads_into_their_own_state(self):
+        """`weak` rather than a corner of `cl`: a reader filtering for rows
+        that are explained must not be handed rows that merely list
+        candidates."""
+        from chromedrift.report import html as html_report
+
+        from chromedrift.model import Report
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn("var WEAK={crowded:1,touched:1}", page)
+        self.assertIn("if(allWeak(f))return 'weak'", page)
+        self.assertIn('<option value="weak"', page)
+
+    def test_the_disclaimer_is_prose_and_not_only_a_badge(self):
+        """A badge reading `touched` is true and easy to skim past, and the
+        reader who opened the row is owed the sentence before the list."""
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn("Leads, not ", page)
+        self.assertIn("No CL mentions this identifier", page)
+        self.assertIn("No CL singles this out", page)
+
+    def test_a_lead_gets_no_colour_that_belongs_to_a_verdict(self):
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn(".ev-crowded,.ev-touched{color:var(--faint)", page)
+        # And the table's "has a CL" marker is drawn for neither.
+        self.assertIn("tr.p-exact td:first-child::before,"
+                      "tr.p-cl td:first-child::before", page)
+        self.assertNotIn("tr.p-weak td:first-child::before", page)
+
+    def test_the_markdown_report_says_it_too(self):
+        """`report.md` has no badge colour, no row state and no panel. The
+        line a reader copies into a ticket is the whole of what travels, so
+        the heading carries the disclaimer there."""
+        from chromedrift.model import BUCKET_BREAKING, Change, Finding, Report
+        from chromedrift.report import markdown as md
+
+        def rendered(match):
+            report = Report(
+                from_ref="a", to_ref="b", summary={},
+                meta={"platform": "windows"},
+                findings=[Finding(
+                    change=Change(change_type="modified", kind="base_feature",
+                                  key="kFoo", name="kFoo", paths=["f.cc"]),
+                    score=90, bucket=BUCKET_BREAKING,
+                    enrichment={"gerrit": {
+                        "candidates": 9, "diffs_read": True,
+                        "changes": [{"number": 7700001, "date": "2026-06-01",
+                                     "match": match, "subject": "s",
+                                     "bugs": []}]}})])
+            return md.render(report, "windows")
+
+        for weak in ("crowded", "touched"):
+            page = rendered(weak)
+            self.assertIn("Leads only, no CL names this", page)
+            self.assertNotIn("- Why it changed", page)
+            self.assertIn("CL 7700001", page)
+        for strong in ("exact", "moved", "declares", "described"):
+            page = rendered(strong)
+            self.assertIn("- Why it changed", page)
+            self.assertNotIn("Leads only", page)
+
+    def test_the_readme_lists_exactly_the_verdicts_that_exist(self):
+        """The badge table is a second copy of a list the code owns, and this
+        one has drifted before: `nearby` became `declares` and three
+        docstrings, a module header and the README kept the old word.
+
+        Order is asserted too, because the table is read as a ladder and the
+        two badges at the bottom mean nothing except in relation to the four
+        above them.
+        """
+        from chromedrift.enrich import gerrit
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
+            readme = fh.read()
+        after = readme.split("| Badge | What it means | What it costs |", 1)
+        self.assertEqual(len(after), 2, "the evidence table moved or was renamed")
+        rows = []
+        for line in after[1].splitlines():
+            found = re.match(r"^\| `(\w+)` \|", line)
+            if found:
+                rows.append(found.group(1))
+            elif rows:
+                break
+        self.assertEqual(rows,
+                         sorted(gerrit._STRENGTH, key=gerrit._STRENGTH.get))
+
+    def test_the_readme_spells_the_threshold_the_code_enforces(self):
+        """"more than four CLs edited that declaration" is the constant in
+        prose, and prose does not fail to import when the constant moves."""
+        from chromedrift.enrich import gerrit
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "README.md"), encoding="utf-8") as fh:
+            readme = fh.read()
+        spelled = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+        self.assertIn(f"more than {spelled[gerrit.DECL_MAX]} CLs edited that "
+                      f"declaration", readme)
+
+    def test_an_untouched_file_says_so_rather_than_repeating_the_old_line(self):
+        """With a floor under it, an empty row means the pool was empty --
+        which is a different sentence from "no CL edits this line"."""
+        from chromedrift.model import Report
+        from chromedrift.report import html as html_report
+
+        page = html_report.render(Report(from_ref="a", to_ref="b"))
+        self.assertIn("between the two versions, so there is nothing to cite",
+                      page)
+
+
+class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
+    """The guarantee at the surface the user actually touches.
+
+    `enrich` is what the tests above drive; `serve` is what the button calls,
+    with `top=1` and its own budget, and it returns a filtered subset of the
+    renderer's keys. A floor in the enricher that the lookup response drops on
+    the way out would be no floor at all.
+    """
+
+    def _state(self, budget):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+        from chromedrift import serve as serve_mod
+
+        report = Report(from_ref="a", to_ref="b", summary={},
+                        meta={"platform": "windows"},
+                        findings=[Finding(
+                            change=Change(change_type="modified",
+                                          kind="base_feature", key="kFoo",
+                                          name="kFoo", paths=["f.cc"]),
+                            score=90)])
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        with open(os.path.join(tmp, "report.json"), "w", encoding="utf-8") as fh:
+            json.dump(report.to_dict(), fh)
+        with open(os.path.join(tmp, "report.html"), "w", encoding="utf-8") as fh:
+            fh.write(html_report.render(report))
+        return serve_mod._State(tmp, tempfile.mkdtemp(), budget=budget)
+
+    def _resolve(self, budget=1, pool=5, state=None):
+        from chromedrift.enrich import gerrit
+
+        state = state or self._state(budget)
+        rows = [{"_number": 200 + i, "subject": f"CL {200 + i}",
+                 "submitted": f"2026-05-{10 + i:02d} 00:00:00.000000000"}
+                for i in range(pool)]
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit._search_window = lambda *a, **k: ([dict(r) for r in rows], False)
+        gerrit._diff = lambda *a, **k: [("  kOther;", True)]
+        try:
+            return state.resolve(state.report.findings[0].uid)
+        finally:
+            gerrit.window_for, gerrit._search_window, gerrit._diff = saved
+
+    def test_the_button_comes_back_with_a_cl(self):
+        payload = self._resolve()
+        self.assertTrue(payload["cls"])
+        self.assertEqual({c["m"] for c in payload["cls"]}, {"touched"})
+
+    def test_the_answer_still_says_the_diffs_were_not_read(self):
+        """Answering is not the same as having looked, and the row has to keep
+        saying which -- a lead offered as though the scan had run would be the
+        confident wrong answer this stage exists to avoid."""
+        payload = self._resolve(budget=1)
+        self.assertTrue(payload["no_diffs"])
+        self.assertEqual(payload["cl_pool"], 5)
+
+    def test_the_lead_survives_the_round_trip_to_disk(self):
+        """A resolved row is written back so a session's clicking is not lost,
+        and the floor has to reach the file and not only the response --
+        otherwise a reopened report is silent again on every row the floor
+        answered."""
+        from chromedrift import serve as serve_mod
+
+        state = self._state(budget=1)
+        self.assertTrue(self._resolve(state=state)["cls"])
+
+        reopened = serve_mod._State(state.directory, tempfile.mkdtemp(),
+                                    budget=1)
+        changes = (reopened.report.findings[0]
+                   .enrichment["gerrit"]["changes"])
+        self.assertEqual({c["match"] for c in changes}, {"touched"})
+        # And the page it re-renders carries them, so a reader who never
+        # clicks again still sees what the last session found.
+        self.assertIn(b'"touched"', reopened.page())

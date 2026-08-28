@@ -23,20 +23,34 @@ identifier.  Measured on ``content_features.cc``: 62 candidates, and
 "android: Enable AndroidCaptureKeyEvents by default", which is the finding
 (disabled -> enabled) in the author's own words.
 
-**Three strengths of evidence, never merged into a score.**  ``exact``: the CL
-edited a line carrying this identifier.  ``described``: the CL's own title or
-description names it -- weaker than editing the declaring line, but written by
-the person who made the change, and free, because descriptions arrive with the
-candidate list.  ``nearby``: the CL edited something within 25 lines of the
-identifier, which is how a Mojo method whose parameter list moved is found,
-since the method's name line is untouched.  ``nearby`` is also how noise gets
-in -- on a file of nothing but declarations every line is near every other --
-so it is dropped when it is not scarce.
+**Six strengths of evidence, never merged into a score.**  Four of them name
+the fact.  ``exact``: the CL edited a line carrying this identifier.
+``moved``: the file was renamed and the fact came with it, so no line changed
+and the move is the whole cause.  ``declares``: the CL edited the body of the
+declaration -- from the line that names it to the ``}`` or ``;`` that closes
+it -- which is how a Mojo method whose parameter list grew is found, since the
+method's name line is untouched.  ``described``: the CL's own title or
+description names it, weaker than a diff but written by the person who made
+the change, and free, because descriptions arrive with the candidate list.
 
-The three are not redundant. Measured over the top 150 findings of a real
+The four are not redundant. Measured over the top 150 findings of a real
 M148 -> M151 run: 65 are found only by the diff, and 17 only by the
 description, because a CL can delete the declaration it is named after and
 leave the identifier in no surviving line.
+
+**And two that do not, so that a row always answers.**  ``crowded``: more than
+``DECL_MAX`` CLs edited this declaration, so they no longer single one out.
+``touched``: nothing matched the identifier, and these are the newest CLs that
+touched the declaring file.  Both are leads, both rank below all four above,
+and the panel prints them under a sentence saying they are not a citation --
+because the alternative, tried first, was to drop them and tell a reader who
+clicked the row that nothing was found about a declaration eleven CLs edited.
+
+That floor is what makes the guarantee: **a finding is left without a CL only
+when no CL touched its declaring file inside the window** -- or when there is
+no window or no file to search, which are the same emptiness one step earlier.
+Nothing else -- a diff budget that declined the file, a token too short to
+search for, a crowd of equally plausible CLs -- ends in silence any more.
 
 **What it costs, and the ceiling on it.**  One request per (CL, file) pair, so
 the bill is set by how *busy* the declaration files are and not by how many
@@ -111,11 +125,30 @@ DECL_MAX_LINES = 60
 # removed at the old path, with nothing in any diff to say so. `declares` is
 # next because editing a declaration's body is nearly as direct as editing the
 # line that names it, and the line that names it is exactly the line a
-# parameter change leaves alone. `described` is last: an author saying a name
-# is weaker than a diff touching it.
-_STRENGTH = {"exact": 0, "moved": 1, "declares": 2, "described": 3}
+# parameter change leaves alone. `described` is last of the four that name the
+# fact: an author saying a name is weaker than a diff touching it.
+#
+# Below those sits the weak pair, and they exist because a reader who opens a
+# row has asked a question that "nothing" does not answer. Neither is reached
+# while anything above it is available, and each says what it is. `crowded`:
+# more than `DECL_MAX` CLs edited this declaration's body, so they no longer
+# single one out. `touched`: nothing matched the identifier at all, and these
+# are simply the newest CLs that touched the declaring file.
+_STRENGTH = {"exact": 0, "moved": 1, "declares": 2, "described": 3,
+             "crowded": 4, "touched": 5}
 
-# How many `declares` CLs a finding may carry before they are all dropped.
+# Everything ranked above this names *this* fact and is printed as a citation.
+# At or below it a CL is a lead the reader has to judge, and the panel says so
+# in those words rather than leaving a badge to carry the distinction alone.
+CITES = 4
+
+# How many CLs a `touched` fallback offers. Three, because it is reached
+# exactly when nothing distinguishes them, and a longer list of undistinguished
+# CLs is the 500-row problem this whole stage exists to avoid.
+TOUCHED_MAX = 3
+
+# How many `declares` CLs a finding may carry before they stop singling one
+# out and are demoted to `crowded`.
 #
 # Proximity identifies a change only when it is scarce, and the directional
 # rule is scarce where the symmetric one was not: on ai_manager.mojom it picks
@@ -124,6 +157,12 @@ _STRENGTH = {"exact": 0, "moved": 1, "declares": 2, "described": 3}
 # a field is reached through its struct, and three CLs really did edit
 # `struct TokenError` in the window, one of them named "[FedCM] Modernize
 # TokenError::url from string to url.mojom.Url".
+#
+# Past it they used to be dropped outright. That is honest -- four confident
+# wrong answers are worse than none -- but it answers a reader who opened the
+# row with silence, about a declaration eleven CLs really did edit. They are
+# demoted instead, which keeps the confidence away from them without throwing
+# away what they do say.
 DECL_MAX = 4
 
 
@@ -847,12 +886,21 @@ def _label(finding: Finding, path: str) -> str:
 
 
 def _prune(hits: List[dict]) -> List[dict]:
-    """Keep the evidence that identifies something; drop the rest.
+    """Keep the evidence that identifies something; demote the rest.
 
-    An `exact` hit makes every `nearby` one on the same finding redundant, and
-    more than ``NEARBY_MAX`` nearby hits and no exact one means proximity has
-    identified nothing. Strongest first, then newest, because the CL a reader
-    wants is usually the last one to touch the line.
+    An `exact` hit makes every `declares` one on the same finding redundant.
+    More than ``DECL_MAX`` of them and no strong one means the declaration was
+    edited by a crowd -- on `ai_manager.mojom` all 11 candidate CLs edit some
+    method -- so they no longer single anything out.
+
+    They used to be dropped for exactly that, and dropping them is defensible
+    right up to the moment a reader clicks the row and is told nothing was
+    found about a declaration that eleven CLs edited. Demoted to `crowded`
+    they rank below every verdict that names the fact, so they can never be
+    read as one, and the reader still gets the eleven.
+
+    Strongest first, then newest, because the CL a reader wants is usually the
+    last one to touch the line.
     """
     strong = [h for h in hits
               if h["match"] in ("exact", "moved", "described")]
@@ -860,7 +908,8 @@ def _prune(hits: List[dict]) -> List[dict]:
         kept = strong
     else:
         declares = [h for h in hits if h["match"] == "declares"]
-        kept = declares if len(declares) <= DECL_MAX else []
+        kept = (declares if len(declares) <= DECL_MAX
+                else [dict(h, match="crowded") for h in declares])
     kept.sort(key=lambda h: (_STRENGTH.get(h["match"], 9),
                              _neg_date(h["date"])))
     return kept[:8]
@@ -904,6 +953,39 @@ def _compact(cl: dict, match: str, path: str = "") -> dict:
     if path:
         out["file"] = path
     return out
+
+
+def _last_resort(finding: Finding, searched: List[str],
+                 found: Dict[str, List[dict]]) -> List[dict]:
+    """The newest CLs that touched the declaring file, when nothing named it.
+
+    A reader who clicks a row has asked a question, and "no CL among the 13
+    read of the 13 that touched this file edits a line carrying this
+    identifier" is a true answer that leaves them exactly where they started.
+    Those 13 remain the best candidates there are: the fact differs between
+    the two trees, and the CLs that touched the file declaring it are where
+    the change came from -- as far as the search saw them, since Gerrit's
+    500-row cap and `--gerrit-max-cls` both trim from the far end. So the
+    newest few are offered as leads --
+    marked `touched`, which claims nothing about the identifier, and ranked
+    below every verdict that does.
+
+    This is the floor, not a guess. It is reached only once `exact`, `moved`,
+    `described`, `declares` and `crowded` have all come back empty, and it is
+    itself empty in exactly one shape: no CL touched the file inside the
+    window. Nothing can turn that into a citation, and the panel says so
+    rather than inventing one.
+
+    Candidates are read from the search, not the diffs, so a file the budget
+    declined still answers -- which is the whole point, since that file is the
+    one that produced nothing else.
+    """
+    out: List[dict] = []
+    for path in searched:
+        for cl in (found.get(path) or [])[:TOUCHED_MAX]:
+            out.append(_compact(cl, "touched", _label(finding, path)))
+    out.sort(key=lambda h: _neg_date(h["date"]))
+    return out[:TOUCHED_MAX]
 
 
 def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
@@ -1013,7 +1095,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
                     hits[finding.uid].append(
                         _compact(cl, verdict, _label(finding, path)))
 
-    resolved = exact_only = described_only = 0
+    resolved = exact_only = described_only = leads_only = 0
     for finding in ranked:
         # One CL can arrive as both `described` and `exact`; the strongest wins
         # so a row never lists the same review twice.
@@ -1045,9 +1127,19 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         # True only when every path behind the row was read; a half-read row
         # cannot claim the scan was complete.
         block["diffs_read"] = bool(searched) and all(p in read for p in searched)
+        # The floor. Everything above named the fact; this names only the file,
+        # and it is what makes a click on any row with a candidate CL answer
+        # something instead of nothing.
+        if not kept:
+            kept = _last_resort(finding, searched, found)
         if not kept:
             continue
         block["changes"] = kept
+        # A lead is not a resolution, and the summary counts them apart so a
+        # run cannot report itself as having explained more than it did.
+        if all(_STRENGTH[h["match"]] >= CITES for h in kept):
+            leads_only += 1
+            continue
         resolved += 1
         if all(h["match"] == "exact" for h in kept):
             exact_only += 1
@@ -1135,6 +1227,10 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         f"({exact_only} on exact matches alone, {described_only} on the "
         f"author's description alone), {histories} with issue history "
         f"from {len(fetched)} distinct issues")
+    if leads_only:
+        log(f"  gerrit: {leads_only} further finding(s) carry leads only -- "
+            f"CLs that touched the declaring file or its declaration, but "
+            f"none that names the fact")
     if restricted:
         log(f"  ! gerrit: {len(restricted)} of {len(chosen)} linked issue(s) "
             f"are access-restricted and will not open without Google "
@@ -1163,6 +1259,7 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         "window": [after, before],
         "findings_asked": len(ranked),
         "findings_resolved": resolved,
+        "findings_leads_only": leads_only,
         "files_searched": len(wanted),
         "candidate_diffs": len(plan),
         "budget": budget,

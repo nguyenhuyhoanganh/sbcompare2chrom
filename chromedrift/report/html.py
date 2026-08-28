@@ -269,6 +269,11 @@ button.lookup:disabled{color:var(--muted);background:var(--sunk);cursor:default}
 text-transform:none;color:var(--fg);font-size:.88rem;line-height:1.5}
 .prov .moreiss{margin-top:8px}
 .prov .none{margin:0;color:var(--muted);font-size:.88rem;line-height:1.55}
+/* Above a list of leads, not instead of one. It carries the disclaimer the
+   badges cannot: that these CLs are on the page because the reader asked and
+   not because any of them names the fact. */
+.prov .lead{margin:0 0 7px;color:var(--muted);font-size:.88rem;line-height:1.55;
+padding-left:9px;border-left:2px solid color-mix(in srgb,var(--faint) 45%,transparent)}
 .prov .none code{font-size:.85em}
 .prov .pool{margin-left:9px;font-weight:400;letter-spacing:0;text-transform:none;
 color:var(--faint);font-size:.75rem}
@@ -309,6 +314,11 @@ padding:1px 6px;border-radius:999px;white-space:nowrap}
 /* Between the two: the author's own words, but not the declaring line. */
 .ev-described{color:var(--accent);background:var(--accent-soft)}
 .ev-declares{color:var(--beh);background:color-mix(in srgb,var(--beh) 15%,transparent)}
+/* The two that name no fact. Grey on purpose: every colour in this palette is
+   already spoken for by a verdict that identifies something, and a lead
+   wearing one would read as the weakest of those rather than as neither. */
+.ev-crowded,.ev-touched{color:var(--faint);
+background:color-mix(in srgb,var(--faint) 12%,transparent)}
 """
 
 _JS = """
@@ -342,13 +352,20 @@ tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
-/* Four states, and they are not degrees of the same thing: `exact` and `cl`
-   say a CL was found, `none` says the scan ran and matched nothing, `skipped`
-   says nobody looked. Collapsing the last two into "no CL" is the mistake the
-   whole stage exists to avoid. */
+/* Five states, and they are not degrees of the same thing: `exact` and `cl`
+   say a CL was found, `weak` says CLs are listed but none of them names this
+   fact, `none` says the scan ran and matched nothing, `skipped` says nobody
+   looked. Collapsing any of them into "no CL" -- or `weak` into `cl` -- is the
+   mistake the whole stage exists to avoid. */
+var WEAK={crowded:1,touched:1};
+function allWeak(f){
+  return f.cls&&f.cls.length&&f.cls.every(function(c){return WEAK[c.m];});
+}
 function provState(f){
-  if(f.cls&&f.cls.length)
+  if(f.cls&&f.cls.length){
+    if(allWeak(f))return 'weak';
     return f.cls.every(function(c){return c.m==='exact';})?'exact':'cl';
+  }
   if(f.cl_pool===undefined)return 'unasked';
   return f.no_diffs?'skipped':'none';
 }
@@ -379,11 +396,12 @@ function details(f){
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
   return '<ul class="tight">'+L.join('')+'</ul>'+provenance(f);
 }
-/* The review behind the row. Two strengths of evidence and they are never
-   levelled: `exact` means that CL edited a line carrying this identifier,
-   `nearby` means it edited something next to one, which is a lead and not a
-   citation. The pool it was picked from is printed with it, because "1 of 62
-   CLs that touched this file" is what makes the one CL mean anything. */
+/* The review behind the row. The strengths are never levelled: `exact` means
+   that CL edited a line carrying this identifier, `declares` means it edited
+   the body of the declaration, and `crowded` and `touched` mean it named
+   nothing and is a lead. The pool it was picked from is printed with it,
+   because "1 of 62 CLs that touched this file" is what makes the one CL mean
+   anything. */
 function clRow(c,strong){
   var u='https://chromium-review.googlesource.com/c/chromium/src/+/'+c.n;
   /* A restricted issue keeps its link -- the reader may well be the one
@@ -443,10 +461,19 @@ function provenance(f){
           'the run\u2019s diff budget would read.'+
           (LIVE?'':' Re-run <code>why</code> with a higher '+
                    '<code>--gerrit-budget</code>.')
-        : 'No CL among the '+(f.cl_read?f.cl_read+' read of the '+f.cl_pool:f.cl_pool)+
-          ' that touched '+
-          (f.cl_files>1?'either file':'this file')+
-          ' edits a line carrying this identifier.')+'</p>'+
+        /* Reached now only when the pool itself is empty, because a pool with
+           anything in it falls back to `touched`. Kept for the reports of
+           earlier runs, which are on disk and still open in this page. */
+        : (f.cl_pool
+            ? 'No CL among the '+
+              (f.cl_read?f.cl_read+' read of the '+f.cl_pool:f.cl_pool)+
+              ' that touched '+(f.cl_files>1?'either file':'this file')+
+              ' can be tied to this identifier.'
+            /* The one shape no amount of looking can cite: the fact differs
+               between the trees and yet nothing landed on the file declaring
+               it, so there is no CL to name. */
+            : 'No CL touched '+(f.cl_files>1?'either file':'this file')+
+              ' between the two versions, so there is nothing to cite.'))+'</p>'+
       (LIVE&&f.no_diffs?lookupBtn(f):'')+'</div>';
   }
   if(f.cls&&f.cls.length){
@@ -455,7 +482,18 @@ function provenance(f){
         ' merged CLs touched '+(f.cl_files>1?'these '+f.cl_files+' files':'this file')+
         (f.cl_read?' \u00b7 '+f.cl_read+' of them read':'')+
         (f.no_diffs?' \u00b7 diffs not read, descriptions only':'')+
-        '</span>':'')+'</h4><ul class="cls">'+
+        '</span>':'')+'</h4>'+
+      /* A badge saying `touched` is true and easy to skim past. The reader
+         who opened this row is owed the disclaimer in words, above the list,
+         before they read the first subject line as an explanation. */
+      (allWeak(f)?'<p class="lead">'+(f.cls[0].m==='crowded'
+        ? 'No CL singles this out \u2014 all '+f.cls.length+' below edited the '+
+          'declaration it belongs to, none the line that names it. Leads, not '+
+          'a citation.'
+        : 'No CL mentions this identifier. These are the newest CLs that '+
+          'touched '+(f.cl_files>1?'the declaring files':'the declaring file')+
+          '. Leads, not a citation.')+'</p>':'')+
+      '<ul class="cls">'+
       f.cls.map(function(c){return clRow(c,true);}).join('')+'</ul></div>';
   }
   /* Every issue the row's CLs cite, busiest first. A flag that launched,
@@ -942,6 +980,11 @@ def _provenance_filter(rows: List[dict]) -> str:
     options = [("", "All evidence"),
                ("cl", "Has a CL"),
                ("exact", "Exact evidence only"),
+               # Its own option rather than a corner of "Has a CL". A reader
+               # filtering for rows that are explained does not want the rows
+               # that merely list candidates, and a reader auditing the weak
+               # end has no other way to reach them.
+               ("weak", "Leads only, nothing names it"),
                ("none", "Scanned, nothing found"),
                ("skipped", "Not looked up")]
     return (f'<select id="fp"{hidden}>'
