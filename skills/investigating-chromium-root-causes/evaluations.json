@@ -1,0 +1,54 @@
+{
+  "_comment": "Scenarios this skill must pass. Each was built from a real M148 -> M151 run; no harness ships with the project, so run them by hand against a fresh agent with the skill loaded. The point of each is the failure it catches, named in `catches`.",
+  "evaluations": [
+    {
+      "skills": ["investigating-chromium-root-causes"],
+      "query": "BackForwardCachePauseMicrotasks went from disabled to enabled between M148 and M151. What is this and does it matter to us?",
+      "files": ["out/M148_to_M151/report.json"],
+      "catches": "Reading a restoration as a launch.",
+      "expected_behavior": [
+        "Runs the lookup rather than answering from the delta and the signal alone",
+        "Reports the defect from issue 500975618 -- Promises stalling on extension pages after navigation -- as the reason, not the signal name enabled_by_default",
+        "Notices the flag was disabled first and merged back to M147 and M148, so disabled -> enabled across these two versions is a restoration and not a new launch",
+        "States the verdict is declares rather than exact, and does not claim more certainty than that supports",
+        "Says explicitly that this does not establish any effect on our own build, and names the identifier to grep for"
+      ]
+    },
+    {
+      "skills": ["investigating-chromium-root-causes"],
+      "query": "Why did blink.mojom.CommitNavigationParams.early_hints_preloaded_resources change?",
+      "files": ["out/M148_to_M151/report.json"],
+      "catches": "Reporting a Mojo shape change as a build break with no check of who is on the other side.",
+      "expected_behavior": [
+        "Resolves to CL 7685815, 'Speculative load measurement - preload early hints', and names the exact verdict",
+        "Prints the pool the CL was chosen from rather than the CL alone",
+        "Distinguishes what changed (ipc_shape_changed) from why it changed (the CL's purpose)",
+        "Does not assert that our build breaks; states that a Mojo change breaks out-of-tree implementors and that checking our tree is a separate step"
+      ]
+    },
+    {
+      "skills": ["investigating-chromium-root-causes"],
+      "query": "The downloads settings page lost a toggle after the uprev. What happened?",
+      "files": ["out/M148_to_M151/report.json"],
+      "catches": "Grepping the report for the words of the complaint, finding nothing, and reporting that nothing changed.",
+      "expected_behavior": [
+        "Does not conclude from an empty text search that nothing changed",
+        "Maps the symptom to a surface before searching, reaching webui_control, webui_gate or pref rather than searching for the phrase 'downloads page'",
+        "Follows the chain from the control to the pref or gate and then to the base::Feature behind it, rather than stopping at the WebUI row",
+        "If no row accounts for it, distinguishes the five causes in reference/no-row.md Part A -- in particular naming coverage as a candidate -- instead of reporting an absence as a fact about Chromium"
+      ]
+    },
+    {
+      "skills": ["investigating-chromium-root-causes"],
+      "query": "What caused AIManager.CreateLanguageModel to change? Give me the CL.",
+      "files": ["out/M148_to_M151/report.json"],
+      "catches": "Quoting a crowded or touched lead as the cause because the user asked for a CL.",
+      "expected_behavior": [
+        "If the lookup returns only crowded or touched verdicts, refuses to name any of them as the cause",
+        "Reports them as that declaration's history or as leads, in the words the skill gives",
+        "Offers the next step -- raising the budget, or reading the declaring file's history -- rather than picking the most plausible-looking CL",
+        "Does not round 'candidates' up to 'the cause' even though the question asked for one CL"
+      ]
+    }
+  ]
+}
