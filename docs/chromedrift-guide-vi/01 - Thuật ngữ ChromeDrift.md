@@ -560,7 +560,14 @@ Một CL land lên release branch **sau khi** branch đã được cắt, thư�
 
 ### Cửa sổ CL (window)
 
-Khoảng thời gian mà một CL phải nằm trong đó để được coi là ứng viên: từ **điểm nhánh của tag cũ** tới **ngày của tag mới**. Hai đầu lấy theo hai cách khác nhau có chủ ý — đầu dưới lấy điểm nhánh để không mất CL, đầu trên lấy ngày tag để không mất merge-back.
+Khoảng thời gian mà một CL phải nằm trong đó để được coi là ứng viên. Đầu dưới là **điểm nhánh của tag cũ** — lấy điểm nhánh chứ không lấy ngày tag để không mất CL.
+
+Đầu trên có **hai** giá trị, tùy truy vấn:
+
+| Truy vấn | Cận trên | Vì sao |
+|---|---|---|
+| ghim `branch:main` | **điểm nhánh của tag mới** | CL land lên main sau khi bản mới tách nhánh thì không nằm trong cây đó, nên không thể là nguyên nhân |
+| bỏ ghim branch | **ngày của tag mới** | merge-back land lên release branch nhiều tuần sau khi cắt, và chúng *có* trong cây |
 
 ### Verdict
 

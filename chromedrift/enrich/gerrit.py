@@ -51,8 +51,10 @@ this search.  Saying otherwise invites the reader to conclude a declaration
 changed on its own, which cannot happen.
 
 So the file is asked three ways before the answer is no.  ``file:`` on main,
-which is the question that works.  Then the same file with the branch pin
-removed, because six weeks of merge-backs land on the release branch after it
+which is the question that works, and which stops where the target version
+left main -- a CL landing on main after that is not in the released tree.
+Then the same file with the branch pin removed, running on to the target tag's
+own date, because six weeks of merge-backs land on the release branch after it
 is cut and those commits are in the tree being compared.  Then, when nothing
 touched the file under the name we hold, the commit messages of the whole
 window, because a declaration can be generated from a template, recorded by
@@ -361,46 +363,77 @@ def _commit(ref: str, cache_dir: str, refresh: bool = False,
                      refresh=refresh, log=log)
 
 
-def window_for(from_ref: str, to_ref: str, cache_dir: str,
-               refresh: bool = False, log=lambda m: None) -> Optional[Tuple[str, str]]:
-    """The main-branch date range that can hold the CL behind any difference.
+def _branch_point(ref: str, cache_dir: str, refresh: bool,
+                  log) -> Tuple[Optional[_dt.date], Optional[_dt.date]]:
+    """(where this tag left main, when the tag itself is dated).
 
-    A release tag records where it left main:
+    A release tag records the first of those about itself:
 
         Cr-Branched-From: 059c884787b1...-refs/heads/main@{#1654411}
 
-    Everything on main before the *from* tag's branch point is in both trees,
-    so it cannot explain a difference -- that is the lower bound, and it is a
-    fact the tag states about itself rather than an estimate from its date.
-    M148's branch point is 2026-04-06 while the tag itself is dated 2026-05-26,
-    so taking the tag date would have started the window seven weeks late and
-    lost every CL in between.
-
-    The upper bound is the *to* tag's own date, not its branch point. Six weeks
-    of merge-backs land on the release branch after it is cut -- M151 branched
-    2026-06-29 and the tag is 2026-08-10 -- and those merge-backs are in the
-    tree being compared. Their originals landed on main by the tag date at the
-    latest, so the tag date is the honest ceiling.
-
-    The result is deliberately a superset. Widening it only adds candidates,
-    and every candidate still has to survive the diff filter.
+    Either may be None; the caller decides what a missing one means.
     """
-    bounds: List[_dt.date] = []
-    tag = _commit(from_ref, cache_dir, refresh, log)
+    tag = _commit(ref, cache_dir, refresh, log)
     if not tag:
-        return None
+        return None, None
+    dated = _parse_git_time(tag.get("committer", {}).get("time", ""))
     branched = _BRANCHED_FROM.search(tag.get("message", "") or "")
-    if branched:
-        base = _commit(branched.group(1), cache_dir, refresh, log)
-        start = _parse_git_time((base or {}).get("committer", {}).get("time", ""))
-    else:
-        start = _parse_git_time(tag.get("committer", {}).get("time", ""))
-    end_tag = _commit(to_ref, cache_dir, refresh, log)
-    end = _parse_git_time((end_tag or {}).get("committer", {}).get("time", ""))
-    if not start or not end or end <= start:
+    if not branched:
+        return None, dated
+    base = _commit(branched.group(1), cache_dir, refresh, log)
+    return _parse_git_time((base or {}).get("committer", {}).get("time", "")), dated
+
+
+def window_for(from_ref: str, to_ref: str, cache_dir: str,
+               refresh: bool = False,
+               log=lambda m: None) -> Optional[Tuple[str, str, str]]:
+    """The date range that can hold the CL behind a difference, in two ceilings.
+
+    Returns ``(after, before_main, before_any)``.
+
+    **The lower bound** is the *from* tag's branch point. Everything on main
+    before it is in both trees and cannot explain a difference, and the tag
+    states it rather than implying it: M148 branched 2026-04-06 while the tag
+    is dated 2026-05-26, so taking the tag date would start the window seven
+    weeks late and lose every CL in between.
+
+    **The upper bound is two different dates**, because the two searches this
+    stage runs are asking two different questions.
+
+    A search pinned to ``branch:main`` must stop at the *to* tag's branch
+    point. A CL that lands on main after the release branch is cut is not in
+    the released tree, so it cannot be the cause of anything -- and it is not
+    a harmless extra candidate, because it can carry the identifier, earn
+    ``exact``, and outrank the CL that really did it. Measured over 105
+    resolved rows of a real M148 -> M151 run when this ended at the tag date
+    instead: 38 of 160 cited CLs had landed on main after M151 branched, 11
+    rows ranked one of them first, and 9 rows cited nothing else. Five
+    different Autofill flags were attributed to one cleanup CL that M151 does
+    not contain.
+
+    A search with the pin removed may run to the *to* tag's own date. That
+    search exists to find merge-backs, which land on the release branch for
+    weeks after it is cut and *are* in the tree being compared. M151 branched
+    2026-06-29 and is dated 2026-08-10, so those six weeks belong to that
+    question and to no other.
+
+    Where the *to* tag states no branch point, both ceilings are its date --
+    the old behaviour, since there is nothing better to use.
+    """
+    start, from_dated = _branch_point(from_ref, cache_dir, refresh, log)
+    if start is None:
+        start = from_dated
+    to_branched, to_dated = _branch_point(to_ref, cache_dir, refresh, log)
+    if not start or not to_dated or to_dated <= start:
         return None
-    bounds = [start, end + _dt.timedelta(days=1)]
-    return bounds[0].isoformat(), bounds[1].isoformat()
+    day = _dt.timedelta(days=1)
+    end_any = to_dated + day
+    # A branch point at or below the window's start would empty the main
+    # search; that is not a tree we can reason about, so fall back rather than
+    # return a window nothing can match.
+    end_main = (to_branched + day
+                if to_branched and to_branched > start else end_any)
+    return start.isoformat(), end_main.isoformat(), end_any.isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -1324,8 +1357,9 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
     if not window:
         log("  gerrit: could not derive a commit window from the two refs")
         return {"available": False, "reason": "no window"}
-    after, before = window
-    log(f"  gerrit: CLs merged {after} .. {before}")
+    after, before, before_any = window
+    log(f"  gerrit: CLs merged on main {after} .. {before}"
+        + (f" (merge-backs to {before_any})" if before_any != before else ""))
 
     ranked = sorted(findings, key=lambda f: -f.score)[:top]
     wanted: Dict[str, List[Finding]] = {}
@@ -1354,10 +1388,10 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         if not rows:
             # A file with nothing on main is not a file nothing landed on.
             # Merge-backs land on the release branch after it is cut, and they
-            # are in the tree being compared -- the window already admits their
-            # dates, and `branch:main` was the only thing hiding them.
-            rows, cut = _search_window(path, after, before, cache_dir, refresh,
-                                       log, branch=False)
+            # are in the tree being compared, so this is the one search that
+            # may run past the branch point -- and the only one that should.
+            rows, cut = _search_window(path, after, before_any, cache_dir,
+                                       refresh, log, branch=False)
             if rows:
                 off_main.append(path)
         if cut:
@@ -1497,8 +1531,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
             # The file led nowhere at all -- not to a match, not even to a
             # candidate. Ask the tree for CLs that name this thing instead,
             # because something landed and only this search has failed.
-            kept = _by_message(tokens[finding.uid], after, before, cache_dir,
-                               refresh, log)
+            kept = _by_message(tokens[finding.uid], after, before_any,
+                               cache_dir, refresh, log)
             if kept:
                 block["found_by"] = "message"
                 by_message.append(finding.uid)

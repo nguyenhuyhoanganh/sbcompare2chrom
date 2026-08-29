@@ -53,7 +53,8 @@ Finding (đã có score, đã có locations)
        │
        ▼
 window_for(from_ref, to_ref)  — cửa sổ thời gian, lấy từ tag
-   Cr-Branched-From của tag cũ  →  ngày tag mới
+   điểm nhánh tag cũ  →  điểm nhánh tag mới   (truy vấn ghim main)
+                       →  ngày tag mới      (chỉ cho merge-back)
        │
        ▼
 tokens_for(change) + container_for(change) + delta_tokens(change)
@@ -97,7 +98,13 @@ Một release branch được cắt ra khỏi `main` từ rất sớm, rồi m�
 
 Đo trên M148: điểm nhánh là **2026-04-06**, tức **bảy tuần** trước ngày ghi trên chính cái tag. Bảy tuần CL sẽ biến mất nếu lấy ngày tag.
 
-Cận trên thì ngược lại — nó là ngày của **tag mới**, không phải điểm nhánh của nó, vì merge-back tiếp tục land lên một release branch hàng tuần liền sau khi branch được cắt, và những commit đó **nằm trong cây đang được so**. Nới rộng cửa sổ chỉ thêm ứng viên, và mọi ứng viên vẫn phải sống sót qua bước lọc diff.
+Cận trên thì có **hai** giá trị, vì hai truy vấn đang hỏi hai câu khác nhau.
+
+Truy vấn ghim `branch:main` phải dừng ở **điểm nhánh của tag mới**. Một CL land lên main sau khi release branch đã cắt thì không nằm trong cây đã phát hành, nên nó không thể là nguyên nhân của bất cứ thứ gì. Và nó không phải ứng viên vô hại: nó vẫn có thể mang identifier, vẫn ăn verdict `exact`, và vẫn xếp trên CL thật sự gây ra thay đổi.
+
+Đo trên 105 row đã resolve khi cận trên còn là ngày tag: **38 trong 160 CL được trích dẫn đã land sau khi M151 tách nhánh, 11 row xếp một trong số đó lên đầu, 9 row không trích gì khác.** Năm flag Autofill khác nhau cùng bị gán cho một CL dọn dẹp mà M151 không hề chứa. Sửa cận trên đưa cả ba con số về 0, và pool ứng viên giảm khoảng một nửa.
+
+Truy vấn **bỏ ghim branch** thì vẫn chạy tới ngày tag mới, vì merge-back còn land lên release branch nhiều tuần sau khi cắt và những commit đó **nằm trong cây đang được so**. M151 tách ngày 2026-06-29 và tag ngày 2026-08-10 — sáu tuần đó thuộc về câu hỏi này, và không thuộc về câu hỏi nào khác.
 
 ## Bước 2 — Danh sách ứng viên, và chỗ Gerrit im lặng
 

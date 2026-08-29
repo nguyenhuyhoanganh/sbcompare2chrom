@@ -4828,12 +4828,14 @@ class TestTheProvenanceWindowIsTakenFromTheTags(unittest.TestCase):
                          "Cr-Branched-From: " + "b" * 40 +
                          "-refs/heads/main@{#1654411}\n",
               "committer": {"time": "Mon Aug 10 22:57:55 2026"}}
+    TO_BRANCH_POINT = {"message": "some other CL\n",
+                       "committer": {"time": "Mon Jun 29 18:02:11 2026"}}
 
     def _window(self):
         from chromedrift.enrich import gerrit
 
         lookup = {"148": self.FROM_TAG, "a" * 40: self.BRANCH_POINT,
-                  "151": self.TO_TAG}
+                  "151": self.TO_TAG, "b" * 40: self.TO_BRANCH_POINT}
         real = gerrit._commit
         gerrit._commit = lambda ref, *a, **k: lookup.get(ref)
         try:
@@ -4844,8 +4846,39 @@ class TestTheProvenanceWindowIsTakenFromTheTags(unittest.TestCase):
     def test_it_starts_at_the_branch_point_not_the_tag(self):
         self.assertEqual(self._window()[0], "2026-04-06")
 
-    def test_it_ends_after_the_tag_so_merge_backs_are_inside_it(self):
-        self.assertEqual(self._window()[1], "2026-08-11")
+    def test_the_main_search_stops_where_the_target_left_main(self):
+        """A CL on main after the branch point is not in the released tree.
+
+        It is not a harmless extra candidate either: it can carry the
+        identifier, earn `exact`, and outrank the CL that really did it.
+        Measured over 105 resolved rows of a real M148 -> M151 run while this
+        ended at the tag date, 38 of 160 cited CLs had landed after M151
+        branched and 11 rows ranked one of them first.
+        """
+        self.assertEqual(self._window()[1], "2026-06-30")
+
+    def test_the_unpinned_search_still_reaches_the_tag_for_merge_backs(self):
+        """Merge-backs land on the release branch for weeks after it is cut.
+
+        They are in the tree being compared, so the one search that is not
+        pinned to main is the one search allowed past the branch point.
+        """
+        self.assertEqual(self._window()[2], "2026-08-11")
+
+    def test_a_target_tag_with_no_branch_point_keeps_the_old_ceiling(self):
+        from chromedrift.enrich import gerrit
+
+        bare = {"message": "Incrementing VERSION to 151.0.7922.138\n",
+                "committer": {"time": "Mon Aug 10 22:57:55 2026"}}
+        lookup = {"148": self.FROM_TAG, "a" * 40: self.BRANCH_POINT,
+                  "151": bare}
+        real = gerrit._commit
+        gerrit._commit = lambda ref, *a, **k: lookup.get(ref)
+        try:
+            self.assertEqual(gerrit.window_for("148", "151", cache_dir=""),
+                             ("2026-04-06", "2026-08-11", "2026-08-11"))
+        finally:
+            gerrit._commit = real
 
 
 class TestAFailedFetchIsNeverReadAsNoEvidence(unittest.TestCase):
@@ -5314,7 +5347,8 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
             change=Change(change_type="modified", kind="base_feature",
                           key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
         saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
         gerrit._diff = lambda *a, **k: [("  kFoo,", gerrit.ADDED)]
         try:
@@ -5428,7 +5462,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
                 Report(from_ref="a", to_ref="b", findings=[f]), "windows")[0]
 
         saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
         cache = tempfile.mkdtemp()
         try:
@@ -5491,7 +5526,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
             change=Change(change_type="modified", kind="base_feature",
                           key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
         saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         # `True` is the search saying it came back at the page cap and cannot
         # prove the window holds nothing more.
         gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], True)
@@ -5566,7 +5602,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
             change=Change(change_type="modified", kind="base_feature",
                           key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
         saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
         gerrit._http_get = lambda url, **k: (
             urls.append(url)
@@ -5620,7 +5657,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
                 {"content": [{"ab": ["interface Foo {};"]}]}).encode()
 
         saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
         gerrit._http_get = http
         cache = tempfile.mkdtemp()
@@ -5946,7 +5984,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
     cite. Everything above it answers.
     """
 
-    WINDOW = ("2026-04-06", "2026-08-11")
+    WINDOW = ("2026-04-06", "2026-06-30", "2026-08-11")
 
     # A declaration whose name line is untouched and whose body is edited --
     # the Mojo parameter-list shape, which reads as `declares`.
@@ -6420,7 +6458,8 @@ class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
                  "submitted": f"2026-05-{10 + i:02d} 00:00:00.000000000"}
                 for i in range(pool)]
         saved = (gerrit.window_for, gerrit._search_window, gerrit._diff)
-        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-06-30",
+                                            "2026-08-11")
         gerrit._search_window = lambda *a, **k: ([dict(r) for r in rows], False)
         gerrit._diff = lambda *a, **k: [("  kOther;", True)]
         try:
