@@ -537,17 +537,18 @@ Một giới hạn cần biết: owner hiện được **tính** từ `Change` l
 
 ### Bộ lọc trong bản HTML
 
-Bản HTML có bốn bộ lọc độc lập cộng một ô tìm kiếm:
+Bản HTML có năm bộ lọc độc lập cộng một ô tìm kiếm:
 
 - **Bucket**: Breaking / Behaviour / New surface / Housekeeping.
 - **Surface hoặc kind**: 16 loại `Fact`, được gom thành ba nhóm — Behaviour switches, External contracts, UI and scheduling.
 - **Nhóm hậu quả**: chính ba nhóm vừa nêu.
 - **Owner**: IPC, Web Platform, Browser C++, WebUI, Outside repository.
+- **Bằng chứng CL**: dòng này đã tra được CL chưa, và ở mức nào. Bộ lọc này chỉ hiện khi báo cáo có dữ liệu tra cứu; [phần 7](<07 - Truy nguyên CL và issue.md>) giải thích năm trạng thái của nó.
 - **Ô tìm kiếm**: khớp với tên, `kind` thô, phần mô tả, tên màn hình hoặc thư mục, signal, đường dẫn, và phần tóm tắt từ ChromeStatus.
 
 Các bộ lọc kết hợp với nhau bằng **AND**. Ô tìm kiếm không thay thế được bộ lọc owner hoặc kind — nó thu hẹp thêm, chứ không thay thế.
 
-Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đề cột để đổi cách sắp. Chỉ 100 dòng đầu được render, để báo cáo lớn vẫn phản hồi nhanh; nút `Show more` mở thêm chứ không làm mất dữ liệu. Bấm vào một dòng sẽ mở ra: signal, vị trí source, các delta chính, lý do chấm điểm, và phần enrichment.
+Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đề cột để đổi cách sắp. Chỉ 200 dòng đầu được render, để báo cáo lớn vẫn phản hồi nhanh; nút `Show more` mở thêm chứ không làm mất dữ liệu. Bấm vào một dòng sẽ mở ra: signal, vị trí source, các delta chính, lý do chấm điểm, phần enrichment, và — nếu đã tra cứu — CL cùng issue đứng sau thay đổi.
 
 ### Luồng triage đề xuất
 
@@ -557,3 +558,5 @@ Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đ
 4. Xem Behaviour change, tập trung vào các luồng mà Samsung có tuỳ biến riêng.
 5. Xem New surface để lập backlog cho việc test và cân nhắc adopt.
 6. Cuối cùng xử lý phần Housekeeping thuộc về cấu hình — flag hết hạn, flag bị dọn. Không bỏ qua cả bucket này.
+
+Với những dòng cần quyết định chứ không chỉ cần ghi nhận, còn một bước nữa: chạy `chromedrift serve` và mở dòng đó ra để xem CL nào đã tạo ra thay đổi và issue nào đứng sau nó. Điểm số nói dòng này đáng xem sớm đến đâu; CL nói người upstream đang sửa cái gì, và đó thường mới là thứ quyết định Samsung có phải làm gì hay không. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).

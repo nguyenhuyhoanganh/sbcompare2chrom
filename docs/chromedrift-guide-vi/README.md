@@ -8,7 +8,7 @@ Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một l
 
 ## Bộ tài liệu này gồm những gì
 
-Sáu tài liệu dưới đây trả lời sáu nhóm câu hỏi độc lập với nhau. Có thể gửi riêng từng phần cho một người mà không bắt họ đọc toàn bộ tài liệu lớn trước đó.
+Bảy tài liệu dưới đây trả lời bảy nhóm câu hỏi độc lập với nhau. Có thể gửi riêng từng phần cho một người mà không bắt họ đọc toàn bộ tài liệu lớn trước đó.
 
 | # | Tài liệu | Trả lời câu hỏi |
 |---|---|---|
@@ -18,6 +18,9 @@ Sáu tài liệu dưới đây trả lời sáu nhóm câu hỏi độc lập v�
 | 4 | [Fact và cách trích xuất](<04 - Fact và cách trích xuất.md>) | Một khai báo trong source biến thành dữ liệu so sánh được bằng cách nào? |
 | 5 | [So sánh, chấm điểm và phân loại](<05 - Cách so sánh, chấm điểm và phân loại.md>) | Vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm? |
 | 6 | [Skill và cách hỗ trợ từng nhóm](<06 - Skill và cách hỗ trợ từng nhóm.md>) | Một AI agent có thể tạo báo cáo riêng cho từng team không, và tới mức nào? |
+| 7 | [Truy nguyên CL và issue](<07 - Truy nguyên CL và issue.md>) | Ai đã tạo ra thay đổi này, và họ đang sửa cái gì? |
+
+Sáu tài liệu đầu nói về việc **cái gì đã đổi** — đó là phần công cụ trả lời được chỉ bằng hai cây source. Tài liệu thứ bảy là phần còn lại: nó hỏi Gerrit, review server của chính Chromium, để tìm ra CL đã tạo ra thay đổi và issue đứng sau CL đó. Nó cần mạng và được tách thành một lệnh riêng, vì một báo cáo vẫn đáng đọc khi không có nó.
 
 Ngoài ra còn một tài liệu tổng quan dài hơn, dùng khi cần trình bày toàn bộ project trong một buổi họp: [ChromeDrift và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromeDrift cho việc nâng phiên bản Chromium.md>). Nội dung của nó bao trùm sáu phần trên, nhưng đi kèm số liệu chạy thật, kịch bản demo và phần hỏi đáp.
 
@@ -31,6 +34,7 @@ Nếu chỉ có thời gian cho một vòng đọc ngắn, đây là lộ trình
 |---|---|---|
 | Người mới, chưa biết gì về project | 1 → 2 → 5 | Có từ vựng, biết dữ liệu từ đâu ra, biết đọc điểm số |
 | Tech lead | 2 → 3 → 5 → 6 | Đủ để đánh giá công cụ đáng tin tới đâu và đưa vào quy trình thế nào |
+| Người trực tiếp triage một đợt uprev | 5 → 7 | Biết đọc điểm số, rồi biết hỏi tiếp *vì sao* một dòng lại đổi |
 | Người viết thêm extractor cho công cụ | 3 → 4 → 5 | Biết bộ lọc, biết cấu trúc dữ liệu, biết thay đổi nào tạo ra tín hiệu gì |
 | Team WebUI | Mục WebUI trong phần 3 → phần 6 | Biết công cụ đọc được gì trong `chrome://settings` và cần kiểm tra gì |
 | Team Browser C++ / native | Các mục `base_feature`, `feature_param`, `pref`, `switch` trong phần 4 → phần 5 → phần 6 | Biết feature flag và pref key được theo dõi ra sao |

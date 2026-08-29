@@ -517,6 +517,89 @@ Cùng một dữ liệu, ba định dạng cho ba mục đích:
 | Markdown | Cần review, lưu lại làm artifact, hoặc dán vào ticket |
 | HTML | Cần duyệt và lọc tương tác theo bucket, owner, kind, điểm số và từ khoá |
 
+## Nhóm 6 — Truy nguyên thay đổi
+
+Nhóm này chỉ dùng cho chặng trả lời câu hỏi *vì sao* một thay đổi xảy ra. Toàn bộ cơ chế nằm trong [phần 7](<07 - Truy nguyên CL và issue.md>).
+
+### Gerrit
+
+Review server của Chromium, tại `chromium-review.googlesource.com`. Mọi thay đổi vào Chromium đều phải đi qua đây trước khi vào cây source, nên nó là nơi duy nhất trả lời được câu hỏi *ai đã làm việc này*.
+
+Đọc được **ẩn danh**, không cần tài khoản. Nhưng nó dừng ở 500 dòng cho một truy vấn ẩn danh và không hề báo rằng nó đã dừng.
+
+### CL (changelist)
+
+Một thay đổi đã được review và merge vào Chromium — tương đương khái niệm pull request ở nơi khác. Mỗi CL có một số, ví dụ `7885356`, và mở được tại `chromium-review.googlesource.com/c/chromium/src/+/7885356`.
+
+Một CL mang theo: tiêu đề do tác giả viết, diff của từng file, ngày merge, và footer ghi issue liên quan.
+
+ChromeDrift quan tâm vì tiêu đề CL thường chính là finding được viết bằng lời của người đã tạo ra nó — *"android: Enable AndroidCaptureKeyEvents by default"* nói đúng cái mà `platform_state: disabled → enabled` nói, nhưng nói được cả ý định.
+
+### Issue
+
+Một mục trong bug tracker của Chromium, tại `issues.chromium.org`. CL ghi issue của nó ở footer commit message theo hai dạng:
+
+- `Bug: 41494401` — CL này liên quan tới issue đó;
+- `Fixed: 41494401` — CL này đóng issue đó.
+
+Hai dạng được hiển thị **tách nhau**, vì tham chiếu và đóng là hai khẳng định khác nhau.
+
+Khoảng **ba trong mười** issue được liên kết trả về HTTP 403 — bị giới hạn cho tài khoản Google, thường vì chúng nằm trong component security hoặc nội bộ. Đó là chuyện bình thường, không phải lỗi công cụ, và các CL thì vẫn đọc được.
+
+### Điểm nhánh (branch point) và `Cr-Branched-From`
+
+Một release branch của Chromium được cắt ra khỏi `main` từ rất sớm, rồi mới được đóng tag nhiều tuần sau đó. Commit message của tag ghi lại chính xác chỗ nó rời `main`, ở dòng `Cr-Branched-From:`.
+
+Điểm nhánh của M148 là **2026-04-06**, tức bảy tuần trước ngày ghi trên chính cái tag M148. Lấy ngày tag làm mốc thì mất bảy tuần CL.
+
+### Merge-back
+
+Một CL land lên release branch **sau khi** branch đã được cắt, thường là bản vá cho một lỗi tìm thấy muộn. Nó nằm trong cây đang được so, nhưng nó không nằm trên `main`.
+
+Đây là lý do câu hỏi tìm CL phải được hỏi lại một lần nữa với ghim branch bị gỡ bỏ.
+
+### Cửa sổ CL (window)
+
+Khoảng thời gian mà một CL phải nằm trong đó để được coi là ứng viên: từ **điểm nhánh của tag cũ** tới **ngày của tag mới**. Hai đầu lấy theo hai cách khác nhau có chủ ý — đầu dưới lấy điểm nhánh để không mất CL, đầu trên lấy ngày tag để không mất merge-back.
+
+### Verdict
+
+Nhãn nói rõ một CL được buộc vào một `Fact` **bằng cách nào**, xếp từ mạnh tới yếu:
+
+| Verdict | Nghĩa |
+|---|---|
+| `introduced` | CL thêm vào một dòng, nằm trong chính declaration này, mang giá trị mà `Fact` chuyển sang |
+| `exact` | một dòng CL đã sửa có mang identifier này |
+| `moved` | file bị đổi tên và `Fact` đi theo; không dòng nào thay đổi |
+| `declares` | CL sửa thân declaration, không phải dòng đặt tên nó |
+| `described` | tiêu đề hoặc mô tả của chính CL nhắc tên nó |
+| `crowded` | quá nhiều CL cùng sửa declaration này, nên không cái nào chỉ ra được cái nào |
+| `touched` | không gì khớp identifier; đây chỉ là các CL đã chạm file |
+
+Verdict **không** được cộng lại thành điểm số, vì chúng trả lời những câu hỏi khác nhau.
+
+### Trích dẫn và manh mối (citation, lead)
+
+Ranh giới quan trọng nhất trong nhóm này. Các verdict phía trên **gọi tên được `Fact`** — chúng là trích dẫn. Hai verdict cuối chỉ gọi tên được **file** — chúng là manh mối.
+
+Một manh mối tồn tại để một dòng luôn có câu trả lời, chứ không phải để được dán vào ticket như nguyên nhân. Báo cáo giữ hai loại này tách nhau ở ba chỗ độc lập: trạng thái của dòng, màu badge, và một câu chữ ngay trên danh sách.
+
+### Revert, reland và cherry-pick
+
+Ba việc thường xảy ra quanh một feature flag, và Gerrit ghi lại cả ba:
+
+- **revert**: một CL đảo ngược một CL trước đó, thường vì nó làm hỏng test hoặc gây hồi quy;
+- **reland**: CL đưa thay đổi đó trở lại sau khi đã sửa nguyên nhân;
+- **cherry-pick**: cùng một thay đổi được đưa thêm sang một branch khác.
+
+Vòng đời đầy đủ của một flag thường đọc là: thêm flag → bật mặc định → launch → revert → reland → revert → reland → gỡ bỏ. Đó là lý do một dòng giữ **cả chuỗi** CL chứ không giữ cái tốt nhất, và đọc theo thứ tự **cũ trước**.
+
+### Same-origin và vì sao cần một server
+
+Trình duyệt không cho JavaScript của một trang đọc phản hồi từ một site khác, trừ khi site đó gửi header `Access-Control-Allow-Origin` cho phép. Gerrit không gửi header đó.
+
+Nên `report.html` mở thẳng từ đĩa **không thể** tự hỏi Gerrit. `chromedrift serve` giải quyết bằng cách đổi **ai đi hỏi**: trang gọi `127.0.0.1`, và Python gọi Gerrit. Quy tắc này tồn tại bên trong trình duyệt để bảo vệ cookie người dùng; `urllib` chưa bao giờ chịu nó.
+
 ## Những cặp khái niệm dễ hiểu nhầm
 
 Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bày công cụ. Cột trái là câu người ta hay nói; cột phải là cách hiểu đúng.
@@ -533,3 +616,8 @@ Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bà
 | "`wide` nghĩa là toàn bộ implementation của Chromium" | `wide` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
 | "Finch chính là command-line switch" | Finch là cấu hình/rollout từ phía server; switch là tham số truyền vào lúc khởi động process |
 | "`chrome://flags` là toàn bộ hệ thống feature flag" | Nó chỉ là giao diện và metadata cho một phần flag; `base::Feature` và Blink runtime flag là các lớp khác |
+| "Không tra được CL nghĩa là không có CL" | Hai cây source khác nhau thì chắc chắn đã có gì đó land. Dòng trống là phát biểu về **cuộc tìm kiếm**, không phải về Chromium |
+| "CL được trích dẫn nghĩa là CL đó gây ra finding" | Nó nghĩa là CL đó đã sửa một dòng mang identifier, trong cửa sổ. Một file bị chạm bởi rename, reformat và thay đổi thật sẽ báo cả ba |
+| "`crowded` và `touched` cũng là CL tìm được" | Chúng gọi tên file, không gọi tên `Fact`. Đừng trích chúng như nguyên nhân |
+| "Issue 403 nghĩa là công cụ hỏng" | Nghĩa là issue bị giới hạn tài khoản. Các CL vẫn công khai và vẫn đọc được |
+| "Tra cứu CL chạy trong `run`" | Không. `run` không chạm Gerrit; chỉ `serve` chạm, và chỉ khi có người mở một dòng ra |
