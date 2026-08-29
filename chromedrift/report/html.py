@@ -1312,7 +1312,10 @@ def _provenance_filter(rows: List[dict]) -> str:
     hidden = "" if any("cl_pool" in row for row in rows) else " hidden"
     options = [("", "All evidence"),
                ("cl", "Has a CL"),
-               ("exact", "Exact evidence only"),
+               # It returns `introduced` as well as `exact`, and both are a
+               # changed line tied to the identifier. The label says what the
+               # filter asks rather than naming one of the two answers.
+               ("exact", "A diff proved it"),
                # Its own option rather than a corner of "Has a CL". A reader
                # filtering for rows that are explained does not want the rows
                # that merely list candidates, and a reader auditing the weak

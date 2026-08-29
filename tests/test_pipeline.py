@@ -5586,6 +5586,61 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
                          f"a diff was fetched twice: {len(diffs)} requests "
                          f"for {len(set(diffs))} files")
 
+    def test_a_lost_rename_lookup_marks_the_row_it_changed(self):
+        """The one fetch whose failure changes the conclusion rather than
+        thinning the evidence: `moved` is granted from `_followed`, and
+        `_followed` is filled by this request. Lose it and the fact reads as
+        deleted at the old path -- the answer the verdict exists to prevent --
+        and the row said nothing, because the failure was recorded against no
+        file at all."""
+        import json
+        import shutil
+        import tempfile
+
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report import html as html_report
+
+        cls = [{"_number": 100, "subject": "s", "id": "i0",
+                "current_revision": "r",
+                "submitted": "2026-05-01 00:00:00.000000000"}]
+        # Two findings in two files, both losing their rename lookup. The run
+        # loses four requests and each row loses two, so a row printing the
+        # run's total tells a reader who lost two that it lost four.
+        findings = [
+            Finding(change=Change(change_type="removed", kind="idl_member",
+                                  key=f"Foo{i}.bar", name="bar",
+                                  paths=[f"a/old{i}.idl"]), score=90)
+            for i in range(2)]
+
+        def http(url, **k):
+            if url.endswith("/files/"):
+                raise gerrit.AcquireError("HTTP 500")
+            return json.dumps(
+                {"content": [{"ab": ["interface Foo {};"]}]}).encode()
+
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._http_get)
+        gerrit.window_for = lambda *a, **k: ("2026-04-06", "2026-08-11")
+        gerrit._search_window = lambda *a, **k: ([dict(c) for c in cls], False)
+        gerrit._http_get = http
+        cache = tempfile.mkdtemp()
+        try:
+            gerrit.enrich(findings, "1", "2", cache_dir=cache,
+                          with_history=0, log=lambda m: None)
+        finally:
+            (gerrit.window_for, gerrit._search_window,
+             gerrit._http_get) = saved
+            shutil.rmtree(cache, ignore_errors=True)
+        rows = html_report._to_rows(
+            Report(from_ref="a", to_ref="b", findings=findings), "windows")
+        for row in rows:
+            self.assertTrue(row.get("cl_failed"),
+                            "the request that decides `moved` failed and the "
+                            "row reports a finished search")
+        self.assertEqual(gerrit._failures.count, sum(r["cl_failed"] for r in rows),
+                         "each row must count its own losses, not the run's")
+        self.assertEqual({r["cl_failed"] for r in rows}, {2})
+
     def test_a_fact_is_followed_into_the_file_it_was_renamed_into(self):
         """A pure rename changes no line, so no diff of the old path carries
         the evidence -- CL 7810461 renamed `html_or_foreign_element.idl` and

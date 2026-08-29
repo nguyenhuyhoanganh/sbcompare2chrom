@@ -2,7 +2,7 @@
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
-The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python (13,666 lines, 32 files), no third-party libraries, no `pip install`.
+The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python, no third-party libraries, no `pip install`.
 
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
@@ -940,12 +940,13 @@ Every interaction on the page was already under 5 ms — filtering 3,022 rows an
 
 ### Telling the rows apart
 
-A row that carries a CL and a row that does not look identical in the table. So the table gains an **All evidence** filter with four states — and they are four, not two, because collapsing them is the mistake the whole stage exists to avoid:
+A row that carries a CL and a row that does not look identical in the table. So the table gains an **All evidence** filter — and its states are separate because collapsing them is the mistake the whole stage exists to avoid:
 
 | | |
 |---|---|
-| **Has a CL** | something was found |
-| **Exact evidence only** | every CL shown edited a line carrying the identifier |
+| **Has a CL** | something was found that names this fact |
+| **A diff proved it** | every CL shown was tied to the identifier by a changed line — `introduced` or `exact` |
+| **Leads only, nothing names it** | CLs are listed, and none of them names this fact |
 | **Scanned, nothing found** | the diffs were read and none matched |
 | **Not looked up** | nobody looked |
 
@@ -1220,22 +1221,22 @@ Tracking down the difference showed **the tool was right and the cross-check was
 
 ```
 chromedrift/
-  acquire.py      566 lines  fetch source over Gitiles or from a local checkout
-  targets.py      783        declares which files to fetch and why; partitions; coverage rules
-  snapshot.py     188        combines fetch + extract into one cached snapshot
-  extract/      2,908        9 extractors + the C++/GRIT/mojom condition scanner
-  diff.py       1,604        semantic comparison, labelling, severity, bucketing, ownership
-  cluster.py      214        assemble scattered fragments into one story
-  score.py        378        the two run-dependent adjustments, and the reasons
-  catalog.py      362        measure what the target set is missing; check reference closure
-  model.py        977        shared data structures, the four buckets, the five owners, JSON read/write
-  eligibility.py   73        one policy for what is product code, shared by discovery and extraction
-  jsonc.py        259        hand-written JSON5 reader
-  report/       2,508        markdown + self-contained HTML dashboard;
-                             groups findings by what happened and by screen
-  enrich/       1,813        context from chromestatus; the CL and issue behind a change
-  serve.py        294        localhost server that resolves a row's CL on demand
-  cli.py          739        8 command-line commands
+  acquire.py      fetch source over Gitiles or from a local checkout
+  targets.py      declares which files to fetch and why; partitions; coverage rules
+  snapshot.py     combines fetch + extract into one cached snapshot
+  extract/        9 extractors + the C++/GRIT/mojom condition scanner
+  diff.py         semantic comparison, labelling, severity, bucketing, ownership
+  cluster.py      assemble scattered fragments into one story
+  score.py        the two run-dependent adjustments, and the reasons
+  catalog.py      measure what the target set is missing; check reference closure
+  model.py        shared data structures, the four buckets, the five owners, JSON read/write
+  eligibility.py  one policy for what is product code, shared by discovery and extraction
+  jsonc.py        hand-written JSON5 reader
+  report/         markdown + self-contained HTML dashboard;
+                  groups findings by what happened and by screen
+  enrich/         context from chromestatus; the CL and issue behind a change
+  serve.py        localhost server that resolves a row's CL on demand
+  cli.py          8 command-line commands
 ```
 
 The whole pipeline is a straight line of pure data transforms:

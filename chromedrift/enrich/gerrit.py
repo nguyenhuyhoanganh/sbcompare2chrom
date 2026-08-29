@@ -238,7 +238,11 @@ class _Failures:
         self.lock = threading.Lock()
         self.count = 0
         self.first = ""
-        self.paths: Set[str] = set()
+        # Per path, because the row prints it. Keeping only the set of paths
+        # and then printing the run's total told a row that lost one request
+        # that the lookup had lost all of them -- true of the run, and not of
+        # the answer the reader is looking at.
+        self.by_path: Dict[str, int] = {}
 
     def record(self, url: str, detail: str, path: str = "") -> None:
         with self.lock:
@@ -246,7 +250,7 @@ class _Failures:
             if not self.first:
                 self.first = f"{url} ({detail})"
             if path:
-                self.paths.add(path)
+                self.by_path[path] = self.by_path.get(path, 0) + 1
 
 
 _failures = _Failures()
@@ -570,9 +574,16 @@ def _renamed_to(cl: dict, path: str, cache_dir: str, refresh: bool,
     rev = cl.get("current_revision")
     if not rev:
         return None
+    # Attributed to the path being followed, not left anonymous. This is the
+    # one fetch whose failure changes the *conclusion* rather than thinning
+    # the evidence for it: `moved` is granted from `_followed`, and
+    # `_followed` is filled by this request. Lose it and the fact reads as
+    # deleted at the old path -- the answer the verdict exists to prevent --
+    # while the row said nothing, because the failure was recorded against no
+    # file at all.
     doc = _get_json(f"{GERRIT}/changes/{cl['id']}/revisions/{rev}/files/",
                     cache_dir, ("files", str(cl["_number"]) + ".json"),
-                    refresh=refresh, log=log)
+                    refresh=refresh, log=log, owner=path)
     if not isinstance(doc, dict):
         return None
     for new_path, meta in doc.items():
@@ -604,7 +615,7 @@ def _diff(cl: dict, path: str, cache_dir: str, refresh: bool,
     doc = _get_json(
         f"{GERRIT}/changes/{cl['id']}/revisions/{rev}/files/{fid}/diff",
         cache_dir, ("diffs", str(cl["_number"]), _slug(moved) + ".json"),
-        refresh=refresh, log=log)
+        refresh=refresh, log=log, owner=path)
     return _blocks(doc) if isinstance(doc, dict) else seq
 
 
@@ -1472,9 +1483,9 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         # older evidence under a flag whose whole contract is to ignore the
         # cache. It is still the best available answer; it is not a finished
         # one, and the row now says which.
-        hurt = sorted(p for p in searched if p in _failures.paths)
+        hurt = sum(_failures.by_path.get(p, 0) for p in searched)
         if hurt:
-            block["failed_fetches"] = _failures.count
+            block["failed_fetches"] = hurt
         if any(p in truncated for p in searched):
             block["search_incomplete"] = True
         # The floor. Everything above named the fact; this names only the file,
