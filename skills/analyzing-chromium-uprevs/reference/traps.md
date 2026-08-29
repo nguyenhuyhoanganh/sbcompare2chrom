@@ -20,8 +20,8 @@ it was handled. Expect them; check for them before reporting any removal.
 - 13. A Mojo method's implicit ordinal is not compared, on purpose
 
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
-7 and 8 about running the tool. Traps 9 to 12 are the other surfaces, which
-carry the highest severities the tool reports: at M148 → M151, 220 of the 276
+7 and 8 about running the tool. The rest are the other surfaces, which carry
+the highest severities the tool reports: at M148 → M151, 220 of the 276
 Breaking rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature

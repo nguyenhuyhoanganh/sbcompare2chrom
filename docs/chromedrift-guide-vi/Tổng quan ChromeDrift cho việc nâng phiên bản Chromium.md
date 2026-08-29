@@ -1498,14 +1498,7 @@ Nhờ đó người đọc có thể mở đúng source và kiểm tra từng ru
 
 ### 23.7. Test evidence
 
-Tại commit được review:
-
-```text
-Ran 368 tests in 9.684s
-OK
-```
-
-Test suite kiểm tra:
+Toàn bộ test chạy được không cần mạng. Test suite kiểm tra:
 
 - Từng extractor và các hàm parser dùng chung.
 - Điều kiện build của C++, GRIT và Mojo.
@@ -1645,7 +1638,7 @@ Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Breaking, 
 
 **Phút 15–18: độ tin cậy và giới hạn**
 
-So sánh coverage của `default` và `wide`, nêu 368 test, và mở vị trí source của một finding. Nói rõ đây là lớp cảnh báo sớm, không thay thế release gate.
+So sánh coverage của `default` và `wide`, và mở vị trí source của một finding. Nói rõ đây là lớp cảnh báo sớm, không thay thế release gate.
 
 **Phút 18–20: đề xuất thử nghiệm**
 

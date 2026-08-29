@@ -23,8 +23,7 @@ identifier.  Measured on ``content_features.cc``: 62 candidates, and
 "android: Enable AndroidCaptureKeyEvents by default", which is the finding
 (disabled -> enabled) in the author's own words.
 
-**Six strengths of evidence, never merged into a score.**  Four of them name
-the fact.  ``exact``: the CL edited a line carrying this identifier.
+**Strengths of evidence, never merged into a score.**  These name the fact.  ``exact``: the CL edited a line carrying this identifier.
 ``moved``: the file was renamed and the fact came with it, so no line changed
 and the move is the whole cause.  ``declares``: the CL edited the body of the
 declaration -- from the line that names it to the ``}`` or ``;`` that closes
@@ -33,7 +32,7 @@ method's name line is untouched.  ``described``: the CL's own title or
 description names it, weaker than a diff but written by the person who made
 the change, and free, because descriptions arrive with the candidate list.
 
-The four are not redundant. Measured over the top 150 findings of a real
+They are not redundant. Measured over the top 150 findings of a real
 M148 -> M151 run: 65 are found only by the diff, and 17 only by the
 description, because a CL can delete the declaration it is named after and
 leave the identifier in no surviving line.
@@ -41,7 +40,7 @@ leave the identifier in no surviving line.
 **And two that do not, so that a row always answers.**  ``crowded``: more than
 ``DECL_MAX`` CLs edited this declaration, so they no longer single one out.
 ``touched``: nothing matched the identifier, and these are the newest CLs that
-touched the declaring file.  Both are leads, both rank below all four above,
+touched the declaring file.  Both are leads, both rank below every verdict above,
 and the panel prints them under a sentence saying they are not a citation --
 because the alternative, tried first, was to drop them and tell a reader who
 clicked the row that nothing was found about a declaration eleven CLs edited.
@@ -148,8 +147,9 @@ CONTEXT, ADDED, REMOVED = 0, 1, 2
 # removed at the old path, with nothing in any diff to say so. `declares` is
 # next because editing a declaration's body is nearly as direct as editing the
 # line that names it, and the line that names it is exactly the line a
-# parameter change leaves alone. `described` is last of the four that name the
-# fact: an author saying a name is weaker than a diff touching it.
+# parameter change leaves alone. `described` is the last of the verdicts
+# that name the fact: an author saying a name is weaker than a diff
+# touching it.
 #
 # Below those sits the weak pair, and they exist because a reader who opens a
 # row has asked a question that "nothing" does not answer. Neither is reached

@@ -15,7 +15,7 @@ There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)*
 3. [What stands between the code and the user](#3-what-stands-between-the-code-and-the-user)
 4. [What the tool reads](#4-what-the-tool-reads)
 5. [Coverage: how much of the tree gets read](#5-coverage-how-much-of-the-tree-gets-read)
-6. [Eight commands](#6-eight-commands)
+6. [The commands](#6-the-commands)
 7. [How a change is ranked](#7-how-a-change-is-ranked)
 8. [Reading the report](#8-reading-the-report)
 9. [Limits](#9-limits)
@@ -526,7 +526,7 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 
 ---
 
-## 6. Eight commands
+## 6. The commands
 
 ```bash
 python3 -m chromedrift check      # verify this machine can run the pipeline
@@ -804,7 +804,7 @@ The middle step is what makes it worth anything. A declaration file is shared: *
 
 The panel prints the denominator with the CL, because `1 of 62` is what makes the one mean something.
 
-**Seven strengths of evidence, and they are never merged into a score.** The first five name the fact. The last two name only the file, and the panel says so in words above the list.
+**The strengths of evidence, and they are never merged into a score.** All but the last two name the fact. Those two name only the file, and the panel says so in words above the list.
 
 | Badge | What it means | What it costs |
 |---|---|---|
@@ -1175,7 +1175,7 @@ BREAKING=$(python3 -c "import json,sys; \
 python3 -m unittest discover -s tests
 ```
 
-**378 tests, running in about three seconds, with no network.**
+The suite runs with no network.
 
 The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
@@ -1193,11 +1193,7 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - Every signal must have a severity, a label **and** a bucket, and every bucket must be reachable. One signal missing from the bucket table would be filed by "something was removed" rather than by what the removal was.
 - Every kind and direction must produce a bucket, including the third of a report that carries no signal at all.
 - No score may exceed its own severity. Severity is the ceiling and the adjustments only subtract, so a score above it would mean a rule had been added without a sentence to explain it.
-- Every reason line quoted in a document must be a line the scorer actually emits. A sample of a finding's reasoning is a second copy of a string the code owns, and it drifted within an hour of being written.
-- The source map in §12 must name every module, not only get their sizes right. A map that quietly stops listing a file is the same defect as one with a wrong number, and harder to see.
-- Nothing shipped may carry Vietnamese. These documents were translated, and the translation was reported complete twice while `pipeline.html` still held six strings — a CSS comment and five inside an interactive widget, which a proof-reader sees rendered rather than in the prose.
 - Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
-- The source map in §12 must match the source.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
 - No command may accept a flag and then ignore it.
 - The coverage denominator is the tree, not the roots the fetch list happens to live under. A rule that admits a file and a measurement that cannot see it is how a percentage learns to flatter itself.
@@ -1224,7 +1220,7 @@ chromedrift/
   acquire.py      fetch source over Gitiles or from a local checkout
   targets.py      declares which files to fetch and why; partitions; coverage rules
   snapshot.py     combines fetch + extract into one cached snapshot
-  extract/        9 extractors + the C++/GRIT/mojom condition scanner
+  extract/        the extractors, and the C++/GRIT/mojom condition scanner
   diff.py         semantic comparison, labelling, severity, bucketing, ownership
   cluster.py      assemble scattered fragments into one story
   score.py        the two run-dependent adjustments, and the reasons
@@ -1236,7 +1232,7 @@ chromedrift/
                   groups findings by what happened and by screen
   enrich/         context from chromestatus; the CL and issue behind a change
   serve.py        localhost server that resolves a row's CL on demand
-  cli.py          8 command-line commands
+  cli.py          the command-line entry points
 ```
 
 The whole pipeline is a straight line of pure data transforms:

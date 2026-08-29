@@ -284,11 +284,11 @@ route."*
 
 ## Reference
 
-- **[reference/traps.md](reference/traps.md)** — twelve ways to reach a wrong
+- **[reference/traps.md](reference/traps.md)** — the ways to reach a wrong
   conclusion, each one measured against real Chromium data. Read before
-  interpreting any removal. Traps 9 to 12 cover Mojo, web APIs and switches.
-- **[reference/signals.md](reference/signals.md)** — what each of the 55
-  signals means.
+  interpreting any removal; the later traps cover Mojo, web APIs and
+  switches.
+- **[reference/signals.md](reference/signals.md)** — what each signal means.
 - **[reference/settings-surface.md](reference/settings-surface.md)** — the
   three-hop chain from a settings page to the flag behind it, and how to size a
   "feature".

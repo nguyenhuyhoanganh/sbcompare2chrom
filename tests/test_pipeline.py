@@ -3340,7 +3340,7 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
     previous commit opened the first, wrote "the ordinal is now a compared
     attribute" in its message, and asserted only that the key existed on the
     fact. `Foo@0 -> Foo@1` produced no change at all, on the surface this tool
-    ranks highest, and 316 tests passed.
+    ranks highest, and the suite stayed green.
 
     So this one drives the whole path: two snapshots in, a scored finding out.
     """
