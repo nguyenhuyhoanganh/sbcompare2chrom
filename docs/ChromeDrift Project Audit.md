@@ -3,11 +3,11 @@
 > Initial assessment: August 21, 2026  
 > Follow-up review: August 22, 2026  
 > Provenance-stage review: August 28, 2026  
-> Latest reviewed baseline: commit `71cba61` — schema `40`  
-> History reviewed through that baseline: all 90 of 90 commits, from `d9fca08` through `71cba61`, including subjects, bodies, and the diffs behind the major decisions.  
+> Latest reviewed baseline: commit `1a3ceb8` — schema `40`  
+> History reviewed through that baseline: all 92 of 92 commits, from `d9fca08` through `1a3ceb8`, including subjects, bodies, and the diffs behind the major decisions.  
 > Scope: all Python source, extractors, targets, caching, snapshots, diffing, scoring, reports, tests, and the cached M130/M136/M139/M143/M147/M148/M151 data available in the project.
 
-> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in Section 34, and the review of the commit answering it, `71cba61`, is in **Section 35**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
+> **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in Section 34, the review of the commit answering it, `71cba61`, is in Section 35, the review of `f6ab1c2` is in Section 36, and the review of the page sweep in `1a3ceb8` is in **Section 37**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
 
 ## 1. Start here if you are not deeply technical
 
@@ -61,7 +61,7 @@ Use this reading path:
 - To understand facts and scoring: Sections 9, 10, and 11.
 - To understand decisions recorded in commit history: Sections 17 and 18.
 - To see which issues originally required the earliest attention: Sections 19, 20, and 21.
-- To see the latest conclusion and recommended stopping point: Section 35.
+- To see the latest conclusion and recommended stopping point: Section 37.
 - To understand the CL-and-issue provenance stage and what it can be trusted for: Section 34.
 
 ### Quick answers
@@ -4754,3 +4754,162 @@ What is left is small and of one kind: a disclosure that is computed and not del
 3. Give `_slug` its one-line test, and drop `_slug` out of the "all ten" claim until it has one.
 
 > **Reviewed at `71cba61`, schema 40. The fixes hold under mutation and on real data. Two new disclosures repeat the defect they were written to fix: one has no consumer, the other reaches one row shape in four.**
+
+## 36. Review of `f6ab1c2` — the Section 35 fixes
+
+> Reviewed: August 29, 2026
+> Baseline: commit `f6ab1c2`, schema `40`, 91 of 91 commits
+> Verified on: Python 3.14.6, 478 of 478 tests pass; fifteen mutations re-run independently
+
+### 36.1. What holds
+
+**Fifteen of fifteen mutations fail a test.** Every fix from Sections 34 and 35 was reverted in turn against a cleared `__pycache__`, including the two that survived last round:
+
+```
+S34-7  _slug back to abs(hash(text))        1 failure   (was: 474 pass)
+S35-3  failures not attributed to a row     1 failure
+S35-5  _Failures stops keeping paths        1 failure
+```
+
+`KEEP_MAX` remains unpinned, which is the right call for the reason given: the invariant is that a cut list says it was cut, and three tests hold that.
+
+**`search_incomplete` reaches the page.** It maps to `row["cl_partial"]`, sits on `PROVENANCE_KEYS`, and renders. Both halves — the enricher recording it and the row carrying it — fail a test when removed.
+
+**The qualifier sits above the answer.** Running the current page script over seven constructed rows:
+
+| Row | Qualifier |
+|---|---|
+| pool 0, no CLs | requests failed |
+| pool 13, no CLs | requests failed |
+| pool 13, `touched` leads | requests failed |
+| pool 13, an `exact` CL | requests failed |
+| page limit, an `exact` CL | candidate list at its page limit |
+| both conditions | both, composed in one block |
+| clean | *(silent)* |
+
+That is the shape the diagnosis called for: a property of the lookup, printed whatever the lookup returned. `serve._warn` is gone, so there is no second place that knows. `.warn` reuses the existing `--beh` token, which is defined in all three theme blocks, so it does not repeat the theme defect the report guards against elsewhere.
+
+### 36.2. The count on the row belongs to the run, not the row
+
+`_failures.paths` decides *which* rows are marked, and that part is right. The number printed beside it is `_failures.count`, which is the whole run's total.
+
+Measured directly — two findings, two files, every diff fetch failing, `a.cc` holding one candidate and `b.cc` holding five:
+
+```
+run total _failures.count = 12
+  kAaa (a.cc, 1 candidate diff)  -> "12 requests ... failed during this lookup"
+  kBbb (b.cc, 5 candidate diffs) -> "12 requests ... failed during this lookup"
+```
+
+`a.cc` lost two fetches and its row claims twelve. The per-path list needed to say otherwise is computed on the line above and thrown away:
+
+```python
+hurt = sorted(p for p in searched if p in _failures.paths)
+if hurt:
+    block["failed_fetches"] = _failures.count
+```
+
+`serve` passes `top=1`, so today's only caller has one row and the number is right by accident. The commit's own reason for moving the recording out of `serve` and into `enrich` was that it should hold *"whether the answer came from a click or a batch"* — and the batch is the case where it does not.
+
+The unit is also not what the sentence says. Three failing diffs on one file produced a count of six, because the warm pass and the read pass each record a failure, and each of those had already been retried three times inside `_http_get`. So "N requests to Gerrit failed" is neither the number of requests nor the number of diffs a reader is missing. A `Counter` keyed by path, reported as distinct unreadable diffs for this row's files, answers the question the sentence asks.
+
+### 36.3. Two fetches are still unattributed, and they are the ones that change a verdict
+
+`owner` was threaded through `_page` and the first `_diff` call. Two `_get_json` calls did not get it: `_renamed_to` at line 573, and the refetch of the moved path at line 604. Both belong to the rename follow.
+
+Measured — a lookup in which only the rename-follow fetch fails:
+
+```
+run total _failures.count = 2
+_failures.paths           = []
+row failed_fetches        = None      <- the row says nothing
+```
+
+No path was recorded, so no row is marked, and the count rises with nobody to carry it. This is live in `serve` today, not only in the unbuilt batch path.
+
+It also lands in the worst available place. Everywhere else a lost fetch thins the evidence: one fewer CL is considered, and the row's other candidates still answer. On the rename follow a lost fetch changes the verdict — `moved` is awarded from `_followed`, which is filled by the very request that failed, so the six IDL members of a renamed interface read as unattributed with nothing to say the file moved. That is the defect README §8 lists as fixed, reappearing as a network fault rather than a parser bug, and it is the one shape of failure that produces a confident wrong answer instead of a thinner right one.
+
+Adding `owner=path` to both calls is the whole fix.
+
+### 36.4. On the self-correction
+
+The commit records that two of its five new tests were first written against a hand-built block, and were rewritten to drive through `enrich`. That is the same shape as the previous round's `_get_json`-instead-of-`_http_get` mistake, and naming it twice is worth more than either fix: a test written at the layer that was just edited confirms the edit and cannot see the gap the edit was made to close. Both `cl_read` and `search_incomplete` fell into exactly that gap — a mapping that was correct and a producer that never reached it.
+
+The pattern to watch for is a test whose fixture is built by the test rather than produced by the pipeline. Both defects in 36.2 and 36.3 are of the same family: `hurt` is computed at the right layer and spent at the wrong one, and `owner` is threaded through the calls that were being edited and not through the two that were not.
+
+### 36.5. Verdict
+
+Section 35's three findings are closed and locked. Fifteen mutations across three audit rounds all fail a test, the qualifier reaches every row shape, and no disclosure computed by this stage is now dropped on the floor — with two exceptions, both in the same fix:
+
+1. Report the failure count for this row's files, not the run's. `_failures` needs a `Counter` keyed by path; `hurt` already names the paths.
+2. Pass `owner=path` in `_renamed_to` and in the moved-path refetch, so a lost rename follow marks its row. It is the one failure that changes a verdict rather than thinning it.
+
+Neither needs a schema bump. Both are the last of a chain the audit has been following since Section 34: a number that is correct at the layer it is computed and wrong at the layer it is read.
+
+> **Reviewed at `f6ab1c2`, schema 40. The disclosure path is complete and tested end to end. What remains is one count scoped to the run instead of the row, and two fetches whose failure no row can see — on the rename follow, where failure changes the answer.**
+
+## 37. Review of `1a3ceb8` — the page sweep
+
+> Reviewed: August 29, 2026
+> Baseline: commit `1a3ceb8`, schema `40`, 92 of 92 commits
+> Verified on: Python 3.14.6, 478 of 478 tests pass; both themes rendered in headless Chrome
+
+### 37.1. What holds
+
+**The behavioural fix is real and is locked.** `provState` tested `c.m === 'exact'`, so a row carrying `introduced` — the strongest verdict the stage produces — sorted into `cl` beside rows found by a commit message, and the strong-evidence option hid it. `PROVED = {introduced, exact}` fixes it, and reverting it fails a test.
+
+**Six tokens down to three.** `--new`, `--chg` and `--gone` are gone from all three theme blocks, and `.mk-added` / `.mk-modified` / `.mk-removed` now read `--new-b` / `--beh` / `--brk` directly. No reference to any removed token survives, and none to `--bg2` or `--r2` either. This was the repo's own duplicated-derivation defect living in a stylesheet, where none of the consistency tests could reach it.
+
+**The issue link is one treatment in two sizes.** `.issl` replaces `.cl` on the issue heading, and `.bug-x` states its border width instead of restyling one that was not there. Rendered in both themes: the restricted heading and the inline chip beside it now draw the same 1px dashed rule at the same weight, a public heading is accent with a dotted rule, and a CL stays accent and bare. The markers keep their bucket colours in both themes.
+
+**No orphan CSS.** A sweep for class selectors with no emitter returned `.card.breaking`, `.card.behaviour` and `.card.housekeeping` — all three false, emitted by `class="card {bucket}"` at line 1220 with the name interpolated. The hand sweep was complete on that axis.
+
+**The mutation report is accurate.** Run independently, one of four fails a test:
+
+```
+introduced-not-proved          1 failure
+issue-wears-the-cl-class       not caught
+restricted-border-fallback     not caught
+marker-colour-drifts           not caught
+```
+
+The three that pass are CSS and markup, which is the class of test removed by agreement in `511fb27`. Keeping them out is consistent; the cost is that the page's appearance is now reviewed rather than tested, and three of this round's four findings were found only by reading it.
+
+### 37.2. The filter now returns more than its name and the README promise
+
+Including `introduced` in the strong-evidence state is right — both verdicts rest on a diff. What did not move is what the page and the README say that state means.
+
+The option is still labelled **"Exact evidence only"**, and README §8 defines it:
+
+> | **Exact evidence only** | every CL shown edited a line carrying the identifier |
+
+`introduced` does not require that, and the flagship case is precisely where it does not hold. Measured against the cached diff of CL 7982397, the CL the README quotes to introduce the verdict:
+
+```
+finding   blink.mojom.TokenError.url
+tokens    ['blink.mojom.TokenError.url']      container 'TokenError'
+
+lines carrying the identifier            0
+  of which changed                       0
+lines carrying the container             2   (changed: 0)
+verdict                            introduced
+```
+
+The CL edited no line carrying the identifier and no changed line carrying the container. It earned `introduced` because an added line inside the declaration's span carries the gained value `url.mojom.Url?` — which is the whole point of the verdict, and why the README calls it the only one whose answer *is* the change. That row now passes a filter promising that every CL shown edited a line carrying the identifier.
+
+So a reader selecting the narrowest evidence option gets rows whose badge says `introduced` and whose definition contradicts the option's own label. The correct wording is already in the commit, in the comment beside the fix: *"The filter asks whether a diff proved the CL."* That sentence is the label — something like **"Proved by a diff"** — and the README row needs the same edit.
+
+One more line of that table is stale for an older reason: it announces **four states** and lists four, while the control has offered five since `a96dd13` added `weak` / *"Leads only, nothing names it"*. The prose two sections earlier describes `weak` correctly; the table never gained the row.
+
+### 37.3. Verdict
+
+The sweep found what a script could not, and the one finding with behaviour behind it is fixed and pinned. The CSS is now one definition per colour, one radius, no dead tokens, and the two link kinds are told apart in both themes.
+
+What is left is the same shape as the last three rounds, one layer further out: a change that is correct in the code and not carried into the words about it.
+
+1. Rename the filter option to what it now selects — *proved by a diff* — and change the README row with it.
+2. Add the `weak` row to that table, and make it say five.
+
+Neither is a code change.
+
+> **Reviewed at `1a3ceb8`, schema 40. The page sweep holds and the filter fix is right; the filter's name and its README definition still describe the narrower set it selected before, and are contradicted by the run's own headline example.**
