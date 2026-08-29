@@ -90,6 +90,14 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
                  m: 'touched', b: [] }];
   }
+  // The strongest verdict there is. It belongs in the same filter state as
+  // `exact` -- both are a changed line tied to the identifier -- and testing
+  // for the word `exact` alone put it outside the option for strong evidence.
+  if (prov === 9) {
+    row.cl_pool = 11; row.cl_files = 1;
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
+                 m: 'introduced', b: [] }];
+  }
   // A lookup that lost requests and still produced a citation. The shape a
   // partial failure most often makes, and the one the warning could not
   // reach while it lived inside the empty panel's innermost branch.

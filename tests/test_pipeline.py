@@ -873,10 +873,14 @@ class TestHtmlReportScales(unittest.TestCase):
         #    that lost requests -- and none of the 60 that only list reviews:
         #    the fallback exists so a click always answers, and it stops being
         #    worth having the moment it passes for an answer.
-        self.assertIn("of 120", out["hasCl"])
-        # 30 plain `exact` rows plus the 30 cited over a lookup that lost
-        # requests -- which are exact evidence, qualified, not lesser.
-        self.assertIn("of 60", out["exactOnly"])
+        self.assertIn("of 150", out["hasCl"])
+        # 30 plain `exact`, 30 cited over a lookup that lost requests, and
+        # 30 `introduced`. All three are a changed line tied to the
+        # identifier; the last is the strongest verdict on the page, and
+        # matching the word `exact` alone had left it out of the option for
+        # strong evidence and filed it under "Has a CL" beside rows found by
+        # a commit message.
+        self.assertIn("of 90", out["exactOnly"])
         # 30 leads over diffs that were read, plus 30 over diffs the budget
         # declined. Both are leads; only the second can still be answered.
         self.assertIn("of 60", out["weakOnly"])

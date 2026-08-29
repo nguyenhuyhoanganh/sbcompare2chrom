@@ -43,37 +43,35 @@ from .markdown import TITLE, display_name
 from . import wording as surfaces
 
 _CSS = """
-/* One accent, one radius scale, one shadow scale, one spacing rhythm. The
+/* One accent, one radius, one spacing rhythm, and no shadows at all. The
    palette is neutral-warm rather than blue-grey so the four bucket colours --
    which are the only saturated things on the page -- carry all of the meaning
    and none of the decoration. */
 :root{
---bg:#faf9f7;--bg2:#f2f0ec;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
+--bg:#faf9f7;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
 --line:#e7e4de;--line2:#d9d5cd;--card:#fff;--sunk:#f5f3ef;
 --brk:#c0392f;--beh:#a06a10;--new-b:#2c6b45;--hk:#77746d;
 --accent:#2f5fa8;--accent-soft:#eaf0fb;
---new:#2c6b45;--chg:#a06a10;--gone:#c0392f;
-/* Two radii, both small, because nothing on this page is a card. A 14px
-   corner with a drop shadow under it is the shape of a thing that floats
+/* One radius, and it is small, because nothing on this page is a card. A
+   14px corner with a drop shadow under it is the shape of a thing that floats
    above the document, and none of this floats: the table is the document.
    2px is a manufacturing tolerance, not a style -- enough that a 1px border
-   does not look chipped at the corner, not enough to read as a pill. */
---r1:2px;--r2:0;
+   does not look chipped at the corner, not enough to read as a pill. The
+   second radius went when the last container that used it was flattened. */
+--r1:2px;
 color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--bg:#141413;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
 --brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
---new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
 color-scheme:dark;}}
 :root[data-theme=dark]{
---bg:#141413;--bg2:#111110;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
+--bg:#141413;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
 --brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
---new:#7fc79b;--chg:#e3ae57;--gone:#f0857a;
 color-scheme:dark;}
 
 *{box-sizing:border-box}
@@ -88,7 +86,8 @@ code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 font-size:.87em;font-variant-ligatures:none}
 .muted{color:var(--muted)}
 .tablewrap{scrollbar-color:var(--line2) transparent}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+border-radius:var(--r1)}
 
 /* -- masthead ------------------------------------------------------------ */
 .top{padding:38px 0 4px}
@@ -191,9 +190,8 @@ box-shadow:inset 0 -1px 0 var(--line)}
 table.find th:hover{color:var(--fg)}
 /* `table-layout:fixed` with no widths splits six columns evenly, which gave a
    62-character Mojo identifier the same room as the word "Breaking". What
-   varies between rows is the What column, and now that a repeated cause is
-   printed once rather than on every line of its run, the width it was using
-   belongs there. */
+   varies between rows is the What column, and it is the column that wraps, so
+   it gets the width the fixed ones do not need. */
 table.find th:nth-child(1){width:62px}
 table.find th:nth-child(2){width:112px}
 table.find th:nth-child(3){width:40%}
@@ -224,8 +222,13 @@ background:color-mix(in srgb,currentColor 13%,transparent)}
 .b-new{color:var(--new-b)}.b-housekeeping{color:var(--hk)}
 
 .mk{font-weight:700;padding-right:6px;font-variant-numeric:tabular-nums}
-.mk-added{color:var(--new)}.mk-removed{color:var(--gone)}
-.mk-modified{color:var(--chg)}
+/* The marker takes the bucket colour rather than a copy of it. There were
+   six tokens here carrying three values -- `--new`/`--chg`/`--gone` held the
+   same hex as `--new-b`/`--beh`/`--brk` in all three themes, and existed only
+   to feed these three rules. Tuning one for contrast would have left the
+   other behind and drifted the `+ ~ -` markers off the buckets they name. */
+.mk-added{color:var(--new-b)}.mk-removed{color:var(--brk)}
+.mk-modified{color:var(--beh)}
 .where{color:var(--muted);font-size:.815rem;line-height:1.45}
 .grp{font-size:.715rem;color:var(--faint);margin-top:3px}
 .moved{font-size:.775rem;color:var(--faint);margin-top:4px;line-height:1.45}
@@ -326,6 +329,17 @@ padding:3px 0;font-size:.88rem;line-height:1.5}
 a.cl{color:var(--accent);text-decoration:none;font-weight:600;
 font-variant-numeric:tabular-nums;white-space:nowrap}
 a.cl:hover{text-decoration:underline}
+/* An issue is not a CL, and the heading of the issue block had been wearing
+   the CL link's class. So one issue number was blue and bare as a heading and
+   grey under a dotted rule three lines below it, and the two were the same
+   number. One treatment in two sizes: a heading is the accent colour and
+   carries the same dotted rule the inline chip does, so the rule is what says
+   "tracker link" in both places and the size says which one you are looking
+   at. */
+a.issl{color:var(--accent);text-decoration:none;font-weight:600;
+font-variant-numeric:tabular-nums;white-space:nowrap;
+border-bottom:1px dotted color-mix(in srgb,var(--accent) 45%,transparent)}
+a.issl:hover{border-bottom-color:var(--accent)}
 .cls .when{color:var(--faint);font-size:.78rem;font-variant-numeric:tabular-nums;
 white-space:nowrap}
 /* Left-packed: a growing subject pushed the issue link to the far edge of
@@ -338,9 +352,14 @@ text-decoration:none;border-bottom:1px dotted var(--line2)}
 background:var(--sunk);border:1px solid var(--line);border-radius:var(--r1);
 padding:0 6px}
 .cls .in{border-style:dashed;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-/* Restricted: still a link, visibly not a promise. */
-.cls a.bug-x,a.cl.bug-x{color:var(--faint);border-bottom-style:dashed}
-.cls a.bug-x:hover,a.cl.bug-x:hover{color:var(--beh)}
+/* Restricted: still a link, visibly not a promise. The width is stated
+   because `border-bottom-style` alone falls back to `medium` -- on the
+   heading, which had no border to restyle, that drew a rule three times the
+   weight of the one on the chip beside it. */
+.cls a.bug-x,a.issl.bug-x{color:var(--faint);
+border-bottom:1px dashed var(--faint)}
+.cls a.bug-x:hover,a.issl.bug-x:hover{color:var(--beh);
+border-bottom-color:var(--beh)}
 /* A word, not a glyph: U+26BF rendered as a tofu box in the report's own
    font stack, which reads as a rendering fault rather than as a warning. */
 .locked{margin-left:5px;font-size:.68rem;font-weight:650;letter-spacing:.04em;
@@ -412,13 +431,20 @@ function esc(s){const d=document.createElement('div');d.textContent=s==null?'':s
    looked. Collapsing any of them into "no CL" -- or `weak` into `cl` -- is the
    mistake the whole stage exists to avoid. */
 var WEAK={crowded:1,touched:1};
+/* Both of these are a changed line tied to this identifier; `introduced` adds
+   which direction the line moved. The filter asks whether a diff proved the
+   CL, so both belong in the same state. Testing for `exact` alone left the
+   strongest verdict on the page outside the option for strong evidence --
+   37 CLs of a real top 150 -- and put those rows under "Has a CL" beside the
+   ones found by a commit message. */
+var PROVED={introduced:1,exact:1};
 function allWeak(f){
   return f.cls&&f.cls.length&&f.cls.every(function(c){return WEAK[c.m];});
 }
 function provState(f){
   if(f.cls&&f.cls.length){
     if(allWeak(f))return 'weak';
-    return f.cls.every(function(c){return c.m==='exact';})?'exact':'cl';
+    return f.cls.every(function(c){return PROVED[c.m];})?'exact':'cl';
   }
   if(f.cl_pool===undefined)return 'unasked';
   return f.no_diffs?'skipped':'none';
@@ -634,7 +660,7 @@ function provenance(f){
     var ds=i.cls.map(function(c){return c.d;}).filter(Boolean).sort(),
         span=ds.length>1&&ds[0]!==ds[ds.length-1]
           ? ds[0]+' \u2192 '+ds[ds.length-1] : (ds[0]||'');
-    out+='<div class="prov iss"><h4><a class="cl'+(i.restricted?' bug-x':'')+
+    out+='<div class="prov iss"><h4><a class="issl'+(i.restricted?' bug-x':'')+
       '" href="https://issues.chromium.org/issues/'+
       i.id+'" target="_blank" rel="noreferrer">Issue '+esc(i.id)+'</a>'+
       (i.restricted?'<span class="locked">restricted</span>':'')+
@@ -682,18 +708,6 @@ function surfaceCell(f){
   if(f.group) out+='<div class="grp">'+esc(f.group)+'</div>';
   return out;
 }
-/* A run of rows sharing a cause repeats the cause on every line of it. Ten
-   consecutive Mojo findings in a real report printed "Mojo data shape changed
-   (ABI) -- the other process reads these bytes as something else" four times,
-   the same directory five times and the same surface five times. Roughly
-   three fifths of the ink in the table was text the reader had already read,
-   while the one phrase that differed between the rows sat in the narrowest
-   column, wrapping mid-identifier.
-   A value equal to the one above it is left out, the way a spreadsheet leaves
-   it out: stated once, and the run below is visibly the same run. It is
-   recomputed on every paint, so it follows the current sort and filter and
-   never claims anything about rows that are not on screen; the omitted value
-   stays on the cell as its title. */
 /* Every cell reads the same, whether or not the row above says the same
    thing. Three treatments for a repeat were tried -- leaving it out, merging
    the run into one tall cell, and dimming it -- and each of them encoded a
