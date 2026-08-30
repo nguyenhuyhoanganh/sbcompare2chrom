@@ -4363,6 +4363,116 @@ class TestEveryKindIsSaidInWords(unittest.TestCase):
         self.assertEqual(sorted(set(ALL_KINDS) - set(KIND_WORDS)), [])
 
 
+class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
+    """`date` is a day, and a revert and its reland land on the same one.
+
+    Measured on `AutofillImprovePhoneFieldParser` of a real M148 -> M151 run:
+    "Enable" on 05-21, then "Reland" and "Revert" both on 05-22, printed in
+    that order. Read forward that says the flag was enabled, relanded, and
+    then reverted -- it ended up off. It ended up on. The list was ordered by
+    a key that cannot tell two CLs on one day apart, so it kept whatever order
+    the search returned.
+
+    Gerrit numbers a change when it is uploaded, and a revert is uploaded
+    after the thing it reverts and a reland after the revert, so the number
+    orders the day the date cannot.
+    """
+
+    @staticmethod
+    def _cl(number, at, subject, match="declares"):
+        return {"number": number, "at": at, "date": at[:10],
+                "subject": subject, "match": match, "bugs": []}
+
+    # The real chain, with the numbers Gerrit really gave it: the revert was
+    # created after the enable and still carries the lower number, so a
+    # tie-break on the number would be reading noise.
+    ENABLE = (7867911, "2026-05-21 20:33:53.000000000", "Enable AutofillImprove")
+    REVERT = (7867879, "2026-05-22 04:01:52.000000000",
+              'Revert "Enable AutofillImprove"')
+    RELAND = (7870889, "2026-05-22 08:06:11.000000000",
+              'Reland "Enable AutofillImprove"')
+
+    def _order(self, hits):
+        from chromedrift.enrich import gerrit
+        return [h["subject"] for h in gerrit._prune(hits)]
+
+    def test_a_reland_never_prints_above_the_revert_it_undid(self):
+        # Shuffled on input, because the defect was that input order survived.
+        hits = [self._cl(*self.RELAND), self._cl(*self.REVERT),
+                self._cl(*self.ENABLE)]
+        self.assertEqual(self._order(hits),
+                         [self.ENABLE[2], self.REVERT[2], self.RELAND[2]])
+
+    def test_the_crowded_history_orders_the_same_way(self):
+        """The branch that reverses itself has to reverse a settled order."""
+        from chromedrift.enrich import gerrit
+
+        extra = [self._cl(7860000 + i, f"2026-05-20 0{i}:00:00.000000000",
+                          f"earlier {i}") for i in range(gerrit.DECL_MAX)]
+        hits = [self._cl(*self.RELAND), self._cl(*self.REVERT)] + extra
+        out = self._order(hits)
+        self.assertLess(out.index(self.REVERT[2]), out.index(self.RELAND[2]))
+
+    # The inversion the real chain proves, put on one day -- which is the
+    # shape a day-only key cannot order at all and the number orders backwards.
+    FIRST = (7867911, "2026-05-22 04:01:52.000000000", "landed first")
+    SECOND = (7867879, "2026-05-22 08:06:11.000000000", "landed second")
+
+    def test_a_lower_numbered_cl_can_be_the_later_one(self):
+        """Neither the day nor the number can order this pair; the stamp can.
+
+        Gerrit does not number changes in the order they are created, and the
+        real chain shows it: the revert was created after the enable and
+        carries 7867879 against 7867911. Two such CLs landing on one day is
+        the case both weaker keys get wrong -- the day has nothing to compare,
+        and the number compares the wrong thing.
+        """
+        self.assertLess(self.SECOND[0], self.FIRST[0])
+        for order in ([self.FIRST, self.SECOND], [self.SECOND, self.FIRST]):
+            self.assertEqual(self._order([self._cl(*c) for c in order]),
+                             [self.FIRST[2], self.SECOND[2]])
+
+    def test_an_issue_history_is_ordered_the_same_way(self):
+        """It builds its own rows rather than going through `_compact`, so it
+        is the one list that can quietly keep ordering by the day."""
+        from chromedrift.enrich import gerrit
+
+        rows = [{"_number": 2, "subject": "second",
+                 "submitted": "2026-05-22 08:06:11.000000000"},
+                {"_number": 1, "subject": "first",
+                 "submitted": "2026-05-22 04:01:52.000000000"}]
+        real = gerrit._get_json
+        gerrit._get_json = lambda *a, **k: [dict(r) for r in rows]
+        try:
+            out = gerrit.issue_history("500975618", cache_dir="")
+        finally:
+            gerrit._get_json = real
+        self.assertEqual([c["subject"] for c in out], ["second", "first"])
+        self.assertEqual(out[0]["at"], "2026-05-22 08:06:11.000000000")
+
+    def test_a_compacted_cl_keeps_the_stamp_it_is_ordered_by(self):
+        """`date` is the stamp truncated for a reader, derived once. Dropping
+        the stamp leaves every list ordered by a day again."""
+        from chromedrift.enrich import gerrit
+
+        out = gerrit._compact(
+            {"_number": 1, "subject": "s",
+             "submitted": "2026-05-22 08:06:11.000000000"}, "exact")
+        self.assertEqual(out["at"], "2026-05-22 08:06:11.000000000")
+        self.assertEqual(out["date"], "2026-05-22")
+
+    def test_the_newest_of_a_day_is_the_one_a_cap_keeps(self):
+        """Selection is newest-first, so the tie-break has to run that way too
+        -- a cap that drops the reland and keeps the revert reports the
+        opposite of the state the report found."""
+        from chromedrift.enrich import gerrit
+
+        hits = ([self._cl(*self.RELAND), self._cl(*self.REVERT)]
+                + [self._cl(7800000 + i, f"2026-05-01 0{i % 10}:00:00.000000000",
+                            f"old {i}") for i in range(gerrit.KEEP_MAX)])
+        self.assertIn(self.RELAND[2], self._order(hits))
+
+
 class TestEveryFlagIsActedOn(unittest.TestCase):
     """A command must not accept a flag it then ignores.
 

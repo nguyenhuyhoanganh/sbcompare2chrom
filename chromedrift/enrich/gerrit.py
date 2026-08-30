@@ -1113,14 +1113,18 @@ def issue_history(issue: str, cache_dir: str, limit: int = 25,
         return []
     out = []
     for cl in doc:
+        at = cl.get("submitted") or cl.get("updated") or ""
         out.append({
             "number": cl.get("_number"),
             "subject": cl.get("subject", ""),
             "status": cl.get("status", ""),
-            "date": (cl.get("submitted") or cl.get("updated") or "")[:10],
+            "at": at,
+            "date": at[:10],
             "url": f"{GERRIT}/c/{PROJECT}/+/{cl.get('_number')}",
         })
-    out.sort(key=lambda c: c["date"], reverse=True)
+    # The same order every other list of CLs uses, for the same reason: an
+    # issue's history is a chain too, and a day is not fine enough to order one.
+    out.sort(key=_newest_first)
     return out
 
 
@@ -1189,13 +1193,13 @@ def _prune(hits: List[dict]) -> List[dict]:
             # So it is ordered forward. Every other list here is newest-first,
             # because a citation is the last word on a line; a history read
             # backwards is not a history.
-            declares.sort(key=lambda h: _neg_date(h["date"]))
+            declares.sort(key=_newest_first)
             return [dict(h, match="crowded")
                     for h in reversed(declares[:KEEP_MAX])]
         kept = declares
     # Selected strongest-then-newest, because that is what a cap should keep:
     # the current state of the line, not the start of its history.
-    kept.sort(key=lambda h: (strength(h["match"]), _neg_date(h["date"])))
+    kept.sort(key=lambda h: (strength(h["match"]), _newest_first(h)))
     kept = kept[:KEEP_MAX]
     # Then read forward, once there is more than one. A single CL is a
     # citation and has no order; several are a sequence, and the reason the
@@ -1204,7 +1208,7 @@ def _prune(hits: List[dict]) -> List[dict]:
     # again is a story, and a story read backwards is not one. This is where
     # those rows actually live: 28 of a real top 150 keep more than one CL.
     if len(kept) > 1:
-        kept.sort(key=lambda h: h["date"] or "")
+        kept.sort(key=_oldest_first)
     return kept
 
 
@@ -1222,6 +1226,43 @@ def _neg_date(date: str) -> str:
                    for ch in date)
 
 
+def _order_key(cl: dict) -> str:
+    """When this CL landed, to the second.
+
+    `date` is a day, and a revert and its reland land on the same one. Sorted
+    by day alone they came back in whatever order the search returned, and on
+    a chain that reads the story backwards: `AutofillImprovePhoneFieldParser`
+    printed "Enable" (05-21), "Reland", "Revert", which says the flag ended up
+    off when it ended up on.
+
+    The CL number looks like it would settle it and does not. Gerrit does not
+    number changes in the order they are created: measured on that same chain,
+    the revert was created 2026-05-22 03:54 against the enable's 2026-05-21
+    11:59 and still carries the *lower* number, 7867879 against 7867911. A
+    tie-break on the number gets that pair right by luck and has nothing
+    behind it.
+
+    `submitted` does settle it, and the search already returns it -- 04:01:52
+    for the revert against 08:06:11 for the reland. It is the moment the CL
+    entered the tree, which is the thing every list here is ordered by.
+
+    There is no second key. The number is the only other thing on hand and it
+    is the thing just shown not to mean this, so a report written before the
+    stamp was recorded sorts by the day and keeps whatever order it already
+    had -- which is what it had anyway. Re-resolving the row fixes it.
+    """
+    return cl.get("at") or cl.get("date") or ""
+
+
+def _newest_first(cl: dict) -> str:
+    return _neg_date(_order_key(cl))
+
+
+def _oldest_first(cl: dict) -> str:
+    """The same order read forward, for the lists that are a history."""
+    return _order_key(cl)
+
+
 def _compact(cl: dict, match: str, path: str = "") -> dict:
     """One CL, reduced to what a row needs.
 
@@ -1236,10 +1277,15 @@ def _compact(cl: dict, match: str, path: str = "") -> dict:
     CL belongs to.
     """
     message = _message_of(cl)
+    at = cl.get("submitted") or cl.get("updated") or ""
     out = {
         "number": cl.get("_number"),
         "subject": cl.get("subject", ""),
-        "date": (cl.get("submitted") or cl.get("updated") or "")[:10],
+        # Two fields from one value, derived here and only here: the day is
+        # what a reader reads, the full stamp is what every list is ordered
+        # by, and a day cannot order a revert against its own reland.
+        "at": at,
+        "date": at[:10],
         "match": match,
         "url": f"{GERRIT}/c/{PROJECT}/+/{cl.get('_number')}",
         "bugs": bugs_in(message),
@@ -1332,7 +1378,7 @@ def _last_resort(finding: Finding, searched: List[str],
     for path in searched:
         for cl in (found.get(path) or [])[:TOUCHED_MAX]:
             out.append(_compact(cl, "touched", _label(finding, path)))
-    out.sort(key=lambda h: _neg_date(h["date"]))
+    out.sort(key=_newest_first)
     return out[:TOUCHED_MAX]
 
 
