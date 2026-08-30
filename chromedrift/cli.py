@@ -358,7 +358,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         except Exception as exc:
             optional = "optional" in label
             skip = " (skippable with --no-enrich)" if "enrichment" in label else (
-                " (only `why` needs it)" if optional else "")
+                " (only `serve` needs it)" if optional else "")
             report(label, optional, f"{exc}{skip}")
 
     for var in ("HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy"):
@@ -485,9 +485,9 @@ def cmd_report(args: argparse.Namespace) -> int:
 def cmd_serve(args: argparse.Namespace) -> int:
     """Serve a report so it can resolve a row's CL when that row is opened.
 
-    The complement of `why`, not a replacement: `why` bakes the top findings in
-    so the file can be mailed, and this pays per row so nothing is spent on the
-    3,000 nobody opens.
+    `run` resolves nothing, so the file it writes can be mailed and read
+    anywhere. This pays per row instead, and nothing is spent on the 3,000
+    nobody opens.
     """
     directory = args.report
     if os.path.isfile(directory):

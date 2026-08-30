@@ -928,7 +928,7 @@ The search pinned to `branch:main` stops at the *to* tag's branch point. A CL th
 
 The searches with the pin removed — the merge-back retry and the commit-message search — still run to the *to* tag's own date, because merge-backs keep landing on a release branch for weeks after it is cut and those commits *are* in the tree being compared. M151 branched 2026-06-29 and is dated 2026-08-10, so those six weeks belong to that question and to no other.
 
-**Gerrit stops at 500 rows for an anonymous query and does not say so** — `start=500` returns an empty page that looks exactly like reaching the end. A window that comes back at the cap is therefore split and asked again until the count is established. Where `--gerrit-max-cls` still trims the result, the panel prints both numbers: *"510 merged CLs touched this file · 500 of them read"*.
+**Gerrit stops at 500 rows for an anonymous query and does not say so** — `start=500` returns an empty page that looks exactly like reaching the end. A window that comes back at the cap is therefore split and asked again until the count is established. Where the per-file ceiling still trims the result, the panel prints both numbers: *"510 merged CLs touched this file · 500 of them read"*.
 
 **A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and turning a network hiccup into a confident "no CL found" is the one thing this tool is not allowed to do.
 

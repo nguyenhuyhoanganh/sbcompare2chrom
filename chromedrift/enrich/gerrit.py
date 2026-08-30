@@ -75,10 +75,11 @@ file the budget does not reach keeps its descriptions and is named in the
 summary. ``diffs_read: false`` on a finding means nobody looked, which is not
 the same answer as "no CL edits this line".
 
-**Nothing here is fetched by the report.**  chromium-review sends no
-``Access-Control-Allow-Origin``, so a browser opening ``report.html`` off a
-disk cannot query it, and the report is supposed to work on an air-gapped
-network anyway.  Everything is resolved during the run and embedded.
+**Nothing here is fetched by the browser.**  chromium-review sends no
+``Access-Control-Allow-Origin``, so a page opening ``report.html`` off a disk
+cannot query it, and the report is supposed to work on an air-gapped network
+anyway.  ``chromedrift serve`` asks on the page's behalf, one row per click;
+``run`` never reaches this module.
 """
 
 from __future__ import annotations
@@ -1359,7 +1360,7 @@ def _last_resort(finding: Finding, searched: List[str],
     Those 13 remain the best candidates there are: the fact differs between
     the two trees, and the CLs that touched the file declaring it are where
     the change came from -- as far as the search saw them, since Gerrit's
-    500-row cap and `--gerrit-max-cls` both trim from the far end. So the
+    500-row cap and the per-file ceiling both trim from the far end. So the
     newest few are offered as leads --
     marked `touched`, which claims nothing about the identifier, and ranked
     below every verdict that does.
@@ -1423,7 +1424,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
     # a widened search is a weaker one and a reader is owed that.
     off_main: List[str] = []
     by_message: List[str] = []
-    # What the search actually found, before --gerrit-max-cls trimmed it. The
+    # What the search actually found, before the per-file ceiling trimmed it.
+    # The
     # row prints "N of M merged CLs touched this file", and M was the trimmed
     # number -- so a file with 510 candidates read as though it had 500, which
     # is the one kind of rounding this stage is not allowed to do.
@@ -1711,8 +1713,8 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
             f"even split by day; their CL list is partial: {truncated[0]}"
             + (" ..." if len(truncated) > 1 else ""))
     if capped:
-        log(f"  ! gerrit: {len(capped)} file(s) had more candidates than "
-            f"--gerrit-max-cls; only the newest were read: {capped[0]}"
+        log(f"  ! gerrit: {len(capped)} file(s) held more candidates than "
+            f"the per-file ceiling; only the newest were read: {capped[0]}"
             + (" ..." if len(capped) > 1 else ""))
     if _failures.count:
         log(f"  ! gerrit: {_failures.count} fetch(es) failed and were read as "

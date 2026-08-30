@@ -16,9 +16,9 @@ So the answer is not to defeat the origin but to leave it. Served over
 that something is this process, which already knows how to ask Gerrit.
 
 What it buys is the thing a pre-baked report cannot: **you pay for the rows you
-open.** ``why`` resolves the top N findings up front because it cannot know
-which ones you care about; here the click says so. A report of 3,022 findings
-costs nothing until you expand one, and then costs one file's worth of diffs.
+open.** Resolving the top N up front cannot know which ones you care about;
+here the click says so. A report of 3,022 findings costs nothing until you
+expand one, and then costs one file's worth of diffs.
 
 Nothing about the file on disk changes. The page asks ``/api/ping`` once on
 load and turns the live path on only if something answers, so the very same
@@ -65,7 +65,7 @@ class _State:
     so the payload can never disagree with what a lookup is about to mutate.
     It also means a restart shows everything the last session resolved: the
     lookups are saved back to ``report.json``, and the next render bakes them
-    in exactly as ``why`` would have.
+    in.
     """
 
     def __init__(self, directory: str, cache_dir: str, budget: int,
@@ -216,7 +216,7 @@ class _State:
 
         A session can spend minutes resolving rows one click at a time, and
         losing that to a closed terminal would make the live path strictly
-        worse than `why`. Written through a temporary file in the same
+        worse than not having it. Written through a temporary file in the same
         directory so an interrupted write cannot leave a half-report where a
         whole one was.
         """

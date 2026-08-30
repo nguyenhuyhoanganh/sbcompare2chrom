@@ -2,9 +2,13 @@
   "_comment": "Scenarios this skill must pass. Each was built from a real M148 -> M151 run; no harness ships with the project, so run them by hand against a fresh agent with the skill loaded. The point of each is the failure it catches, named in `catches`.",
   "evaluations": [
     {
-      "skills": ["investigating-chromium-root-causes"],
+      "skills": [
+        "investigating-chromium-root-causes"
+      ],
       "query": "BackForwardCachePauseMicrotasks went from disabled to enabled between M148 and M151. What is this and does it matter to us?",
-      "files": ["out/M148_to_M151/report.json"],
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
       "catches": "Reading a restoration as a launch.",
       "expected_behavior": [
         "Runs the lookup rather than answering from the delta and the signal alone",
@@ -15,9 +19,13 @@
       ]
     },
     {
-      "skills": ["investigating-chromium-root-causes"],
+      "skills": [
+        "investigating-chromium-root-causes"
+      ],
       "query": "Why did blink.mojom.CommitNavigationParams.early_hints_preloaded_resources change?",
-      "files": ["out/M148_to_M151/report.json"],
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
       "catches": "Reporting a Mojo shape change as a build break with no check of who is on the other side.",
       "expected_behavior": [
         "Resolves to CL 7685815, 'Speculative load measurement - preload early hints', and names the exact verdict",
@@ -27,9 +35,13 @@
       ]
     },
     {
-      "skills": ["investigating-chromium-root-causes"],
+      "skills": [
+        "investigating-chromium-root-causes"
+      ],
       "query": "The downloads settings page lost a toggle after the uprev. What happened?",
-      "files": ["out/M148_to_M151/report.json"],
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
       "catches": "Grepping the report for the words of the complaint, finding nothing, and reporting that nothing changed.",
       "expected_behavior": [
         "Does not conclude from an empty text search that nothing changed",
@@ -39,16 +51,30 @@
       ]
     },
     {
-      "skills": ["investigating-chromium-root-causes"],
-      "query": "What caused AIManager.CreateLanguageModel to change? Give me the CL.",
-      "files": ["out/M148_to_M151/report.json"],
-      "catches": "Quoting a crowded or touched lead as the cause because the user asked for a CL.",
+      "skills": [
+        "investigating-chromium-root-causes"
+      ],
+      "query": "The chrome://flags entry new-tab-page-customization-for-mvt is gone in M151. Which CL removed it?",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Quoting a `touched` lead as the cause because the user asked for one CL.",
       "expected_behavior": [
-        "If the lookup returns only crowded or touched verdicts, refuses to name any of them as the cause",
-        "Reports them as that declaration's history or as leads, in the words the skill gives",
-        "Offers the next step -- raising the budget, or reading the declaring file's history -- rather than picking the most plausible-looking CL",
-        "Does not round 'candidates' up to 'the cause' even though the question asked for one CL"
+        "Runs the lookup and reads the verdict rather than the first subject line",
+        "Reports that every CL returned is `touched` -- they merely edited flag-metadata.json, and nothing ties any of them to this entry",
+        "Refuses to name any of them as the CL that removed the entry, even though the question asked for one",
+        "Carries the disclosure through: 662 CLs touched the file and 500 were read, so the list is not only unproven but incomplete",
+        "Offers the next step -- searching Chromium's history for the flag name -- rather than picking the most plausible-looking CL"
       ]
     }
-  ]
+  ],
+  "_ran": {
+    "how": "By hand, through scripts/why.py against the report in this checkout. No agent harness exists; what is recorded is what the tooling surfaced for each scenario, which is the half an evaluation can check without one.",
+    "results": {
+      "1": "PASS. The lookup returns CL 7747043 'Disable ...' and CL 7789307 'Enable ... by default', oldest first, plus the qualifier that one of two linked issues is restricted. Issue 500975618 opens to 'Extension iframe causes Promises to stall in all extension pages after navigation' with four CLs including [M148] and [m147] merge-backs. Everything the scenario asks the agent to notice is on screen.",
+      "2": "PASS. Resolves to CL 7685815 at `exact`, printed as 1 of 9 merged CLs touching the file.",
+      "3": "NOT RUN. It tests agent behaviour -- whether a symptom with no obvious row is routed through reference/symptom-to-uid.md rather than grepped for and given up on. Nothing in the tooling can answer it; it needs a fresh agent.",
+      "4": "REWRITTEN. The original used AIManager.CreateLanguageModel, which the commit history describes as the crowded case. It is not one any more: the scan-to-delimiter rule picks 1 of 11 CLs on that file, and the one it picks is right -- '[3/3] Pass download progress observers dynamically in WebPlatform APIs', which is the CL that added the `DownloadObserver` parameter the finding reports. The scenario tested nothing. It now uses a flag_entry that really does return only `touched`, verified against the report."
+    }
+  }
 }
