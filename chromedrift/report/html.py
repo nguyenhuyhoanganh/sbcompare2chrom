@@ -370,8 +370,12 @@ button.ibtn.bug-x{color:var(--faint);border-bottom-style:dashed;
 border-bottom-color:var(--faint)}
 button.ibtn.bug-x:hover{color:var(--beh);border-bottom-color:var(--beh)}
 /* Opened inside the CL's own line, indented under it, so several stacked read
-   as belonging to that CL rather than to the row. */
-.ihist{margin:7px 0 4px;padding:8px 0 2px 11px;
+   as belonging to that CL rather than to the row.
+   `ul.cls li` is a flex row, so a panel appended to it is another item on that
+   row and sits to the right of the subject until it happens not to fit. Given
+   the whole line it drops below instead, and two of them stack rather than
+   competing for the width the subject was using. */
+.ihist{flex:0 0 100%;width:100%;margin:7px 0 4px;padding:8px 0 2px 11px;
 border-left:2px solid var(--line2)}
 .ihist h4{margin:0 0 5px}
 .ihist .cls{margin:0}
