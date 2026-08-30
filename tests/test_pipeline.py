@@ -5121,6 +5121,42 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         self.assertEqual(self._get(base, "/api/why?uid=nope:nope")[0], 404)
         self.assertEqual(self._get(base, "/api/why")[0], 400)
 
+    def test_an_issue_id_has_to_be_one(self):
+        """The route takes a number and nothing else.
+
+        It reaches the tracker and Gerrit with whatever it is handed, so the
+        one thing it must not do is pass a caller's string through to either.
+        """
+        base = self._server()
+        for bad in ("", "abc", "1;2", "../x", "12%20OR%201"):
+            self.assertEqual(self._get(base, f"/api/issue?id={bad}")[0], 400, bad)
+
+    def test_a_row_lookup_does_not_pay_for_issue_history(self):
+        """The CLs carry their `Bug:` footers already; the history behind one
+        is fetched only when a reader picks that CL and asks for it.
+
+        Held here rather than at the renderer because the cost is the point:
+        a row citing six issues used to spend twelve requests before the
+        reader had decided which CL mattered.
+        """
+        from chromedrift import serve as serve_mod
+        from chromedrift.enrich import gerrit
+
+        seen = {}
+        real = gerrit.enrich
+
+        def spy(*a, **k):
+            seen.update(k)
+            return {"available": False}
+
+        gerrit.enrich = spy
+        try:
+            state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
+            state.resolve("base_feature:F")
+        finally:
+            gerrit.enrich = real
+        self.assertEqual(seen.get("with_history"), 0)
+
     def test_the_server_returns_every_key_the_renderer_adds(self):
         """One list, in the renderer. Two lists drifted the first time a key
         was renamed -- `issue` became `issues` and the server went on filtering
@@ -6047,6 +6083,52 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
             (gerrit.window_for, gerrit._search_window, gerrit._diff,
              gerrit._page) = saved
         return (finding.enrichment.get("gerrit") or {}), summary
+
+    def test_asking_for_no_issue_history_asks_for_none_of_it(self):
+        """`with_history=0` is a ceiling of nothing, not the absence of one.
+
+        It used to mean "fetch every issue", because the guard was truthiness
+        rather than `is not None` -- so `serve`, which defers issue history to
+        a click, would have paid for every issue on the row while showing
+        none of them. `None` is the way to say "no limit".
+        """
+        from chromedrift.enrich import gerrit
+        from chromedrift.model import Change, Finding
+
+        cl = {"_number": 100, "subject": "CL 100",
+              "submitted": "2026-05-10 00:00:00.000000000",
+              "revisions": {"r": {"commit": {
+                  "message": "CL 100\n\nBug: 500975618\n"}}}}
+        finding = Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key="kFoo", name="kFoo", paths=["f.cc"]), score=90)
+        asked = []
+        saved = (gerrit.window_for, gerrit._search_window, gerrit._diff,
+                 gerrit._page, gerrit.issue_history, gerrit.issue_meta)
+        gerrit.window_for = lambda *a, **k: self.WINDOW
+        gerrit._search_window = lambda *a, **k: ([dict(cl)], False)
+        gerrit._page = lambda *a, **k: []
+        gerrit._diff = lambda *a, **k: [("  kFoo;", True)]
+        gerrit.issue_history = lambda i, *a, **k: asked.append(i) or []
+        gerrit.issue_meta = lambda i, *a, **k: asked.append(i) or {"public": True}
+        try:
+            gerrit.enrich([finding], "148", "151", cache_dir="", budget=0,
+                          with_history=0, log=lambda m: None)
+            block = finding.enrichment["gerrit"]
+            # The footer still reaches the row: it is free in the search
+            # response, and it is what the chip on the CL is built from.
+            self.assertEqual([b["id"] for b in block["changes"][0]["bugs"]],
+                             ["500975618"])
+            self.assertEqual(asked, [])
+            self.assertFalse(block.get("issues"))
+
+            finding.enrichment = {}
+            gerrit.enrich([finding], "148", "151", cache_dir="", budget=0,
+                          with_history=None, log=lambda m: None)
+            self.assertEqual(asked, ["500975618", "500975618"])
+        finally:
+            (gerrit.window_for, gerrit._search_window, gerrit._diff,
+             gerrit._page, gerrit.issue_history, gerrit.issue_meta) = saved
 
     # -- the four paths that used to end in silence -------------------------
 

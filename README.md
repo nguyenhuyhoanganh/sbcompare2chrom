@@ -956,7 +956,9 @@ A row that carries a CL and a row that does not look identical in the table. So 
 
 A 3px edge on the score cell says the same thing while you scroll. The control starts hidden on a report nothing has been looked up in, and the page unhides it the moment a server answers or the first lookup lands.
 
-Each row shows **every issue its CLs cite**, busiest first, not the first one that happened to sort highest — a flag that launched, reverted and relanded routinely cites three, and picking one made the answer depend on the sort order.
+**An issue opens where the reader asks for it.** Every CL on the row carries its `Bug:` footer, which is free in the search response, so the row can name every issue without asking the tracker anything. The history behind one — its title, whether it opens, and the other CLs citing it — is fetched only when the reader clicks that CL's issue, which is the click that says which CL they think is the right one. A row citing six issues used to spend twelve requests before the reader had decided which CL mattered.
+
+Each one opens in its own box under the CL it belongs to, and a second does not close the first: a reader comparing two issues is comparing them, not toggling between them. Clicking the same chip again closes only that one. Off a disk there is nothing to ask, so the chip stays the plain tracker link it always was.
 
 ```bash
 python3 -m chromedrift serve out/M148_to_M151      # then open http://127.0.0.1:8787/

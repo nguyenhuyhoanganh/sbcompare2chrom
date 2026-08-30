@@ -31,8 +31,30 @@ class El {
   addEventListener(ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }
   querySelectorAll() { return []; }
   after(el) { detailRows.push(el); }
-  remove() { this.removed = true; }
-  get classList() { return { contains: c => this.className.split(' ').includes(c) }; }
+  // Real enough for the issue panels, which are appended to a CL's own line
+  // and have to survive each other: a second one must not close the first.
+  appendChild(c) { (this.children = this.children || []).push(c); c.parent = this; }
+  remove() {
+    this.removed = true;
+    if (this.parent && this.parent.children)
+      this.parent.children = this.parent.children.filter(c => c !== this);
+  }
+  // Only the one shape the page asks for: `.ihist[data-issue="N"]`.
+  querySelector(sel) {
+    const m = /^\.(\w+)\[data-issue="([^"]+)"\]$/.exec(sel);
+    if (!m) return null;
+    return (this.children || []).find(
+      c => c.className === m[1] && c.dataset.issue === m[2]) || null;
+  }
+  get classList() {
+    return {
+      contains: c => this.className.split(' ').includes(c),
+      add: c => { if (!this.className.split(' ').includes(c))
+                    this.className = (this.className + ' ' + c).trim(); },
+      remove: c => { this.className = this.className.split(' ')
+                       .filter(x => x !== c).join(' '); },
+    };
+  }
 }
 
 const els = {};
@@ -125,6 +147,30 @@ let pending = null;
 global.setTimeout = fn => { pending = fn; return 1; };
 global.clearTimeout = () => { pending = null; };
 const flush = () => { if (pending) { const f = pending; pending = null; f(); } };
+
+// The page discovers a server by asking for it, so the harness answers rather
+// than reaching into the script's scope to set the flag. Resolving in place:
+// the harness is synchronous, and a real microtask would land after the
+// assertions rather than before them.
+const settled = v => ({
+  // Unwraps, as a real promise does: `r.json()` returns another thenable, and
+  // wrapping it again hands the page a promise where it expects the body.
+  then: f => { const r = f(v);
+               return r && typeof r.then === 'function' ? r : settled(r); },
+  catch: () => settled(v),
+});
+const served = {
+  '500975618': { id: '500975618', restricted: false, t: 'Promises stall',
+                 total: 4, cls: [{ n: 7747043, d: '2026-04-10', s: 'Disable it' }] },
+  '501771345': { id: '501771345', restricted: true, t: '', total: 2,
+                 cls: [{ n: 7789307, d: '2026-04-23', s: 'Enable it' }] },
+};
+global.fetch = url => {
+  if (/api\/ping/.test(url))
+    return settled({ ok: true, json: () => settled({ ok: true }) });
+  const m = /api\/issue\?id=(\d+)/.exec(url);
+  return settled({ ok: true, json: () => settled(m ? served[m[1]] : null) });
+};
 
 const raw = fs.readFileSync(process.argv[2], 'utf8');
 const js = raw.split('<script>').slice(1).map(s => s.split('</script>')[0]).pop();
@@ -253,9 +299,13 @@ els.tb.listeners['click'].forEach(
 const budgetHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.budgetRowSaysNothingWasRead = budgetHtml.includes('Nothing here was read');
 out.budgetRowNamesThePool = /147 CLs touched/.test(budgetHtml);
-// Named as the flag that exists. `--gerrit-budget` belonged to a `why`
-// command that was removed, and the page went on telling readers to re-run it.
-out.budgetRowOffersTheRemedy = /--click-budget/.test(budgetHtml);
+// A row the budget declined must keep a way out, and which way out depends on
+// whether anything can answer. Served, that is the lookup button; off a disk
+// it is the flag to re-run with -- named as the flag that exists, because
+// `--gerrit-budget` belonged to a `why` command that was removed and the page
+// went on telling readers to re-run it.
+out.budgetRowOffersTheRemedy = /button class="lookup"/.test(budgetHtml);
+out.budgetRowRemedyMatchesTheMode = !/--click-budget/.test(budgetHtml);
 
 // A row that lost requests says so whatever shape its answer took. The
 // warning used to live in one branch of the empty panel, which is the one
@@ -316,5 +366,38 @@ out.messageDetailHidesTheDenominator = !/merged CLs touched/.test(msgHtml);
 out.messageDetailListsTheCl = /7700\d{3}/.test(msgHtml);
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
+
+// An issue opens where the reader asked for it, and a second one does not
+// close the first. The whole point of putting the control on the CL is that
+// the reader is choosing which CL they believe; comparing two issues means
+// having both on screen, so the boxes accumulate and each closes only itself.
+const li = new El('li');
+const chip = id => {
+  const b = new El('button');
+  b.className = 'ibtn'; b.dataset.issue = id;
+  b.closest = q => (q === 'li' ? li : null);
+  return b;
+};
+const a = chip('500975618'), b = chip('501771345');
+const clickChip = c => els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'button.ibtn' ? c : null) } }));
+
+clickChip(a);
+out.oneIssueOpens = (li.children || []).length === 1;
+out.theIssueCarriesItsTitle = /Promises stall/.test(li.children[0].innerHTML);
+out.theChipMarksItselfOpen = a.classList.contains('on');
+
+clickChip(b);
+out.bothIssuesStayOpen = li.children.length === 2;
+out.theSecondLandsBelowTheFirst =
+  li.children[0].dataset.issue === '500975618' &&
+  li.children[1].dataset.issue === '501771345';
+out.aRestrictedIssueSaysWhy = /HTTP 403/.test(li.children[1].innerHTML);
+out.aRestrictedIssueKeepsItsCls = /7789307/.test(li.children[1].innerHTML);
+
+clickChip(a);
+out.closingOneLeavesTheOther =
+  li.children.length === 1 && li.children[0].dataset.issue === '501771345';
+out.theClosedChipIsNoLongerMarked = !a.classList.contains('on');
 
 console.log(JSON.stringify(out));

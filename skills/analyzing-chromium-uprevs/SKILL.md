@@ -165,8 +165,9 @@ The last two name no fact. Never quote them as the cause; say what they are.
 
 Lookups are written back to `report.json`, so they survive a restart and reach
 `report.md` on a re-render. `--click-budget N` caps diffs read per row
-(default 600), `--issues N` caps issues per row (default 6), `--no-save` leaves
-the file alone.
+(default 600), `--no-save` leaves the file alone. An issue's history is not
+fetched with the row: click the issue on the CL you believe, and it opens
+under that CL.
 
 **A restricted issue is normal and not a failure.** Around three in ten linked
 issues answer HTTP 403 — they sit in a security, abuse or Google-internal

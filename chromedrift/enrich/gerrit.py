@@ -1338,8 +1338,8 @@ def _last_resort(finding: Finding, searched: List[str],
 
 def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
            top: int = 150, max_cls_per_file: int = 500, workers: int = 4,
-           with_history: int = 250, budget: int = 1200, refresh: bool = False,
-           log=lambda m: None) -> dict:
+           with_history: Optional[int] = 250, budget: int = 1200,
+           refresh: bool = False, log=lambda m: None) -> dict:
     """Attach CL provenance to the highest-ranked findings, in place.
 
     Only the top ``top`` findings are resolved, because the cost is one HTTP
@@ -1575,8 +1575,14 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
     # A budget cut drops the least important issue, so the order is the best
     # score among the rows citing it.
     chosen = sorted(by_issue, key=lambda i: -max(f.score for f in by_issue[i]))
-    dropped_issues = max(0, len(chosen) - with_history) if with_history else 0
-    chosen = chosen[:with_history] if with_history else chosen
+    # `with_history` is a ceiling, and 0 is a ceiling of nothing rather than
+    # no ceiling at all -- it used to mean "fetch every issue", which is the
+    # opposite of what a caller asking for zero wants and is how `serve` would
+    # have paid for every issue on a row while deferring them all. None is the
+    # way to say "no limit".
+    dropped_issues = (max(0, len(chosen) - with_history)
+                      if with_history is not None else 0)
+    chosen = chosen[:with_history] if with_history is not None else chosen
     with ThreadPoolExecutor(max(1, workers)) as pool:
         fetched = dict(zip(chosen, pool.map(
             lambda i: issue_history(i, cache_dir, refresh=refresh, log=log),

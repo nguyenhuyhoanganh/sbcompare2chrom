@@ -69,11 +69,10 @@ class _State:
     """
 
     def __init__(self, directory: str, cache_dir: str, budget: int,
-                 issues: int = 6, save: bool = True) -> None:
+                 save: bool = True) -> None:
         self.directory = os.path.abspath(directory)
         self.cache_dir = cache_dir
         self.budget = budget
-        self.issues = issues
         self.save = save
         self.json_path = os.path.join(self.directory, "report.json")
         with open(self.json_path, encoding="utf-8") as fh:
@@ -118,7 +117,13 @@ class _State:
             gerrit.enrich(
                 [finding], self.report.from_ref, self.report.to_ref,
                 self.cache_dir, top=1, budget=self.budget,
-                with_history=self.issues,
+                # None of it, on purpose. The CLs already carry their `Bug:`
+                # footers for free in the search response, so the row can name
+                # every issue without asking the tracker anything; the history
+                # behind one is fetched only when a reader picks that CL and
+                # asks. A row citing six issues used to spend twelve requests
+                # before the reader had decided which CL mattered.
+                with_history=0,
                 log=lambda m: notes.append(m.strip()))
             for note in notes:
                 # `!` is the enricher's own mark for a line that qualifies an
@@ -135,6 +140,30 @@ class _State:
             self._page = None
             self._persist()
         return self._payload(finding)
+
+    def issue(self, issue: str) -> dict:
+        """One issue's title and the CLs citing it, in the row's own shape.
+
+        Serialised on the same lock as a lookup: `enrich.gerrit` keeps
+        module-level state and two callers inside it at once is how a failure
+        counter starts reporting somebody else's failures.
+
+        Not written back to `report.json`. A row's CLs are the answer and are
+        worth keeping; an issue's history is context the reader asked to see
+        once, and the HTTP cache already makes the second ask free.
+        """
+        with _LOCK:
+            meta = gerrit.issue_meta(issue, self.cache_dir)
+            # The default limit, matching what a baked run asks for, so a
+            # click reads the entry a run already wrote instead of missing on
+            # a key that differs only in a number nobody chose.
+            cls = gerrit.issue_history(issue, self.cache_dir)
+        return {"id": issue,
+                "restricted": not meta.get("public", True),
+                "t": meta.get("title") or "",
+                "total": len(cls),
+                "cls": [{"n": c.get("number"), "d": c.get("date", ""),
+                         "s": c.get("subject", "")} for c in cls[:12]]}
 
     def _persist(self) -> None:
         """Write the report back, atomically.
@@ -217,6 +246,17 @@ class _Handler(BaseHTTPRequestHandler):
             self._json(200, block)
             return
 
+        if route == "/api/issue":
+            issue = urllib.parse.parse_qs(parsed.query).get("id", [""])[0]
+            if not issue.isdigit():
+                self._json(400, {"error": "numeric issue id required"})
+                return
+            try:
+                self._json(200, self.state.issue(issue))
+            except Exception as exc:  # never take the server down for one issue
+                self._json(500, {"error": str(exc)})
+            return
+
         # Only the three files the report is made of, and matched on the whole
         # route rather than its basename. Taking the basename could not escape
         # the directory -- it always yields a plain filename, joined to a fixed
@@ -241,7 +281,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 def serve(directory: str, cache_dir: str, port: int = 8787,
-          budget: int = CLICK_BUDGET, issues: int = 6, save: bool = True,
+          budget: int = CLICK_BUDGET, save: bool = True,
           log=print) -> int:
     """Run until interrupted. Bound to the loopback interface only."""
     # Flushed, because the process then blocks forever in serve_forever: with
@@ -254,7 +294,7 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
         except (AttributeError, ValueError):
             pass
 
-    state = _State(directory, cache_dir, budget, issues=issues, save=save)
+    state = _State(directory, cache_dir, budget, save=save)
     handler = type("_Bound", (_Handler,), {"state": state})
     httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
     say(f"  {state.report.from_ref} -> {state.report.to_ref}, "

@@ -356,6 +356,26 @@ padding:0 6px}
    because `border-bottom-style` alone falls back to `medium` -- on the
    heading, which had no border to restyle, that drew a rule three times the
    weight of the one on the chip beside it. */
+/* The chip that opens an issue in place. Sized and coloured as the link it
+   replaces, because it is the same thing to a reader -- what changes is where
+   the answer arrives, not what they are clicking. */
+button.ibtn{font:inherit;font-size:.78rem;white-space:nowrap;cursor:pointer;
+background:none;border:0;padding:0;color:var(--muted);
+border-bottom:1px dotted var(--line2)}
+button.ibtn:hover{color:var(--accent);border-bottom-color:var(--accent)}
+button.ibtn.on{color:var(--accent);border-bottom-style:solid;
+border-bottom-color:var(--accent)}
+button.ibtn.on::after{content:"";margin-left:4px}
+button.ibtn.bug-x{color:var(--faint);border-bottom-style:dashed;
+border-bottom-color:var(--faint)}
+button.ibtn.bug-x:hover{color:var(--beh);border-bottom-color:var(--beh)}
+/* Opened inside the CL's own line, indented under it, so several stacked read
+   as belonging to that CL rather than to the row. */
+.ihist{margin:7px 0 4px;padding:8px 0 2px 11px;
+border-left:2px solid var(--line2)}
+.ihist h4{margin:0 0 5px}
+.ihist .cls{margin:0}
+.ihist .none{margin:0}
 .cls a.bug-x,a.issl.bug-x{color:var(--faint);
 border-bottom:1px dashed var(--faint)}
 .cls a.bug-x:hover,a.issl.bug-x:hover{color:var(--beh);
@@ -502,17 +522,59 @@ function clRow(c,strong){
      broken tool. `Fixed:` is shown apart from `Bug:` because closing an issue
      and referencing one are different claims. */
   var b=(c.b||[]).map(function(g){
+    var label=(g.f?'fixes ':'issue ')+esc(g.i);
+    /* Served, the chip opens the issue's own CL history in place. That is the
+       question a reader actually has at this point -- "what else touched this
+       bug" -- and the tracker cannot always answer it: three in ten issues
+       return 403, while the CLs citing them are public on Gerrit either way.
+       Off a disk there is nothing to ask, so it stays the link it always was. */
+    if(LIVE)
+      return '<button class="ibtn'+(g.r?' bug-x':'')+'" data-issue="'+esc(g.i)+
+        '" title="show the CLs that cite this issue">'+label+'</button>';
     return '<a class="bug'+(g.r?' bug-x':'')+'" href="'+
       'https://issues.chromium.org/issues/'+g.i+'" target="_blank"'+
       ' rel="noreferrer" title="'+(g.r?'access-restricted: opens only with '+
-      'Google credentials':'public issue')+'">'+(g.f?'fixes ':'issue ')+
-      esc(g.i)+'</a>'+(g.r?'<span class="locked">restricted</span>':'');
+      'Google credentials':'public issue')+'">'+label+'</a>'+
+      (g.r?'<span class="locked">restricted</span>':'');
     }).join(' ');
   return '<li><a class="cl" href="'+u+'" target="_blank" rel="noreferrer">CL '+
     c.n+'</a><span class="when">'+esc(c.d)+'</span>'+
     (strong&&c.m?'<span class="ev ev-'+c.m+'" title="'+esc(EVID[c.m]||'')+
       '">'+esc(c.m)+'</span>':'')+
     '<span class="subj">'+esc(c.s)+'</span>'+(b?' '+b:'')+'</li>';
+}
+/* One issue, rendered the same whether a run baked it in or a click just
+   fetched it. Two renderers for one thing is how the served page and the
+   mailed file start disagreeing about what an issue looks like. */
+function issueHtml(i){
+  /* How long the issue has been worked, from the CLs already in hand. No
+     request, and it is the one thing the tracker page would tell a reader who
+     cannot open the tracker page. */
+  var cls=i.cls||[],
+      ds=cls.map(function(c){return c.d;}).filter(Boolean).sort(),
+      span=ds.length>1&&ds[0]!==ds[ds.length-1]
+        ? ds[0]+' \u2192 '+ds[ds.length-1] : (ds[0]||''),
+      total=i.total||cls.length;
+  return '<h4><a class="issl'+(i.restricted?' bug-x':'')+
+    '" href="https://issues.chromium.org/issues/'+esc(i.id)+
+    '" target="_blank" rel="noreferrer">Issue '+esc(i.id)+'</a>'+
+    (i.restricted?'<span class="locked">restricted</span>':'')+
+    '<span class="pool">'+total+' CL'+(total===1?'':'s')+' cite it'+
+    (total>cls.length?', newest '+cls.length+' shown':'')+
+    (span?' \u00b7 '+esc(span):'')+'</span>'+
+    (i.t?'<span class="isum">'+esc(i.t)+'</span>':'')+'</h4>'+
+    /* Why the link will not open, stated where the link is. "Restricted"
+       alone reads as a fault in the report; 403 with its cause reads as a
+       fact about the tracker, which is what it is. */
+    (i.restricted?'<p class="why403">HTTP 403 \u2014 this issue sits in a '+
+      'restricted tracker component (security, abuse, or Google-internal). '+
+      'It opens only for an account cleared for that component, so a public '+
+      'Chromium account gets the same 403. The CLs below are public and '+
+      'carry what the issue was about.</p>':'')+
+    (cls.length
+      ? '<ul class="cls">'+cls.map(function(c){return clRow(c,false);}).join('')+
+        '</ul>'
+      : '<p class="none">Gerrit indexes no CL citing this issue.</p>');
 }
 /* Gerrit's own record of a revert or a cherry-pick. Free in the search
    response, and the one thing that makes a flag's launch/revert/reland
@@ -652,34 +714,12 @@ function provenance(f){
   /* Every issue the row's CLs cite, busiest first. A flag that launched,
      reverted and relanded often cites two or three, and showing one made the
      answer depend on which CL happened to sort first. */
+  /* Only what a run baked in. Served, a row shows no issue until the reader
+     picks the CL whose issue they want -- which is the click that says which
+     CL they think is the right one. */
   (f.issues||[]).forEach(function(i){
     if(!i||!i.cls||!i.cls.length)return;
-    /* How long the issue has been worked, from the CLs already in hand. No
-       request, and it is the one thing the tracker page would tell a reader
-       who cannot open the tracker page. */
-    var ds=i.cls.map(function(c){return c.d;}).filter(Boolean).sort(),
-        span=ds.length>1&&ds[0]!==ds[ds.length-1]
-          ? ds[0]+' \u2192 '+ds[ds.length-1] : (ds[0]||'');
-    out+='<div class="prov iss"><h4><a class="issl'+(i.restricted?' bug-x':'')+
-      '" href="https://issues.chromium.org/issues/'+
-      i.id+'" target="_blank" rel="noreferrer">Issue '+esc(i.id)+'</a>'+
-      (i.restricted?'<span class="locked">restricted</span>':'')+
-      '<span class="pool">'+
-      i.total+' CL'+(i.total===1?'':'s')+
-      ' cite it'+(i.total>i.cls.length?', newest '+i.cls.length+' shown':'')+
-      (span?' \u00b7 '+esc(span):'')+
-      '</span>'+(i.t?'<span class="isum">'+esc(i.t)+'</span>':'')+
-      '</h4>'+
-      /* Why the link will not open, stated where the link is. "Restricted"
-         alone reads as a fault in the report; 403 with its cause reads as a
-         fact about the tracker, which is what it is. */
-      (i.restricted?'<p class="why403">HTTP 403 \u2014 this issue sits in a '+
-        'restricted tracker component (security, abuse, or Google-internal). '+
-        'It opens only for an account cleared for that component, so a public '+
-        'Chromium account gets the same 403. The CLs below are public and '+
-        'carry what the issue was about.</p>':'')+
-      '<ul class="cls">'+
-      i.cls.map(function(c){return clRow(c,false);}).join('')+'</ul></div>';
+    out+='<div class="prov iss">'+issueHtml(i)+'</div>';
   });
   if(f.issues_more)
     out+='<p class="none moreiss">'+f.issues_more+' further issue'+
@@ -756,6 +796,30 @@ function apply(){
 }
 /* One listener for the whole table instead of one per row. */
 tb.addEventListener('click',e=>{
+  /* Each issue opens in its own box appended to that CL's line, so a second
+     one lands under the first instead of replacing it -- a reader comparing
+     two issues is comparing them, not toggling between them. Clicking the
+     same chip again closes only that box. */
+  const ib=e.target.closest('button.ibtn');
+  if(ib){
+    const li=ib.closest('li'), id=ib.dataset.issue;
+    const open=li.querySelector('.ihist[data-issue="'+id+'"]');
+    if(open){open.remove();ib.classList.remove('on');return;}
+    const box=document.createElement('div');
+    box.className='ihist';box.dataset.issue=id;
+    box.innerHTML='<p class="none">Reading issue '+esc(id)+'\u2026</p>';
+    li.appendChild(box);ib.classList.add('on');
+    fetch('api/issue?id='+encodeURIComponent(id))
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(d){
+        /* An issue Gerrit indexes no CL for is an answer, not a failure. */
+        box.innerHTML=d&&d.id?issueHtml(d)
+          :'<p class="none">Issue '+esc(id)+' could not be read.</p>';})
+      .catch(function(){
+        box.innerHTML='<p class="none">Could not reach the server for issue '+
+          esc(id)+'. Is <code>chromedrift serve</code> still running?</p>';});
+    return;
+  }
   const btn=e.target.closest('button.lookup');
   if(btn){
     e.stopPropagation();
@@ -1460,9 +1524,10 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <th data-k="where">Where</th><th data-k="kind">Surface</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
 <button id="more" hidden></button>
-<p class="more-note">Rows render in pages of 100 &mdash; the JSON below holds
-every finding regardless of what is on screen. Click any row for its evidence,
-its declaring line, and the reasoning behind its score.</p>
+<p class="more-note">Rows render a page at a time &mdash; the JSON below holds
+every finding regardless of what is on screen, and the button above says how
+many are hidden. Click any row for its evidence, its declaring line, and the
+reasoning behind its score.</p>
 {_brief_html(summary)}
 </div>
 <script>window.__FINDINGS__={_embed(rows)};

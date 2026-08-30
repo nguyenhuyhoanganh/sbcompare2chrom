@@ -83,7 +83,6 @@ what is stored. Options:
 | Option | Default | Use when |
 |---|---|---|
 | `--budget N` | 600 | a busy declaration file was declined; raise it |
-| `--issues N` | 6 | a change cites many issues |
 | `--save` | off | you want the answer written back into `report.json` |
 | `--json` | off | you need the raw block rather than prose |
 
@@ -114,9 +113,11 @@ both `LEAD ONLY` for that reason.
 Work outward in this order, and stop as soon as the answer is sufficient:
 
 1. **The issue title.** Usually the actual defect, in one line.
-2. **The other CLs citing that issue.** This is the fix history — the shape of
-   the problem, including whether it was serious enough to merge back to
-   released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
+2. **The other CLs citing that issue.** Click the issue chip on the CL you
+   think is the right one; the history opens under it, and a second issue
+   opens under the first rather than replacing it. This is the fix history —
+   the shape of the problem, including whether it was serious enough to merge
+   back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
    that, and it is strong evidence the bug hurt real users.
 3. **The CL diff**, only if 1 and 2 leave the mechanism unclear. Open
    `https://chromium-review.googlesource.com/c/chromium/src/+/<number>`.

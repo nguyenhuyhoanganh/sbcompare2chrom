@@ -250,6 +250,16 @@ Từ issue, ChromeDrift hỏi ngược lại: *còn CL nào khác cite cùng iss
 
 `revert_of` và `cherry_pick_of_change` đến sẵn trong cùng response và cũng được in ra: **23 trong 534 CL của một mẫu thật là revert**, và chúng là thứ làm cho lịch sử launch–revert–reland của một flag đọc được mà không phải so tiêu đề bằng mắt.
 
+### Issue chỉ tải khi bạn bấm vào nó
+
+Mỗi CL trên dòng đã mang sẵn footer `Bug:` của nó — thứ này đến **miễn phí** trong kết quả tìm kiếm, nên dòng gọi tên được mọi issue mà không cần hỏi tracker câu nào.
+
+Phần còn lại của issue — tiêu đề, có mở được không, và các CL khác cùng cite nó — chỉ được tải **khi bạn bấm vào chip issue trên một CL cụ thể**. Đó chính là cú bấm nói lên bạn cho rằng CL nào mới là CL đúng. Trước đây một dòng cite sáu issue tiêu mười hai request trước khi người đọc kịp quyết định CL nào đáng quan tâm.
+
+Mỗi issue mở ra trong khối riêng, thụt vào dưới đúng CL của nó, và **bấm cái thứ hai không đóng cái thứ nhất** — người đọc đang *so sánh* hai issue chứ không phải bật qua bật lại. Bấm lại đúng chip đó thì chỉ đóng riêng nó.
+
+Mở file từ đĩa thì không có gì để hỏi, nên chip quay về đúng cái link tracker như cũ.
+
 ### Ba trong mười link issue không mở được
 
 Đo trên 236 issue phân biệt mà một lần chạy M148 → M151 thật liên kết tới: **70 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
@@ -409,7 +419,6 @@ Lệnh `run` không đổi và **không hề chạm mạng Gerrit** — chặng 
 |---|---|---|
 | `--port` | 8787 | Cổng localhost |
 | `--click-budget N` | 600 | Đọc tối đa N diff cho mỗi dòng được mở (0 = không trần) |
-| `--issues N` | 6 | Tra cứu tối đa N issue phân biệt cho mỗi dòng |
 | `--no-save` | tắt | Không ghi kết quả ngược vào `report.json` |
 
 Server chỉ bind vào `127.0.0.1`, chỉ phục vụ đúng ba file của báo cáo, và xử lý một request tra cứu tại một thời điểm (công việc **bên trong** một request vẫn chạy song song, và đó mới là chỗ tốn thời gian).

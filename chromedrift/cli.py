@@ -497,7 +497,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
     return serve_mod.serve(directory, args.cache, port=args.port,
-                           budget=args.click_budget, issues=args.issues,
+                           budget=args.click_budget,
                            save=not args.no_save, log=print)
 
 
@@ -684,9 +684,6 @@ def build_parser() -> argparse.ArgumentParser:
                         f"(default: {serve_mod.CLICK_BUDGET}, 0 for no "
                         f"ceiling). Only the busiest two declaration files in "
                         f"the tree come near it")
-    p.add_argument("--issues", type=int, default=6, metavar="N",
-                   help="look up at most N distinct issues per row opened "
-                        "(default: 6)")
     p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("report",
