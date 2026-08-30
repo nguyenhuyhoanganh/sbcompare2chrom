@@ -403,6 +403,10 @@ Trần 600 được đặt hào phóng có chủ ý. Ngân sách của một l�
 
 Mọi thứ được cache **vĩnh viễn**, vì một CL đã merge thì không đổi nữa. Dòng thứ hai trong cùng file là tức thì, và dòng cũ mở lại ngày mai cũng vậy.
 
+**Câu trả lời cũ được hỏi lại, không phục vụ lại.** Không tra lại chính là thứ làm cú bấm thứ hai vào một dòng trở nên tức thì — và cái giá của nó là một report sống lâu hơn cái bug nó được sinh ra dưới. Hai lỗi đã biết đều **nhìn thấy được ngay trong dữ liệu đã lưu**, nên không cần cờ hay số phiên bản: một CL không có dấu thời gian submit là CL từng bị sắp theo ngày, và một CL có ngày sau khi bản đích tách nhánh thì không nằm trong cây đó.
+
+Đo trên một report thật: **16 trong 60 dòng đã tra** đang trích loại thứ hai. `blink.mojom.TokenError.url` — chính ví dụ chủ lực của tài liệu này — đang đứng đầu bằng một CL dọn dẹp land một tuần *sau* khi M151 tách nhánh; sau khi hỏi lại, nó đứng đầu bằng CL 7982397 với verdict `introduced`.
+
 Kết quả tra cứu được **ghi ngược lại `report.json`**, ghi nguyên tử qua một file tạm cùng thư mục. Trang được render từ bản báo cáo mà process này đang giữ, chứ không đọc lại từ đĩa, nên reload thấy đúng những gì các cú click đã tìm ra và restart cũng vậy. Một buổi triage không mất vì đóng terminal. `--no-save` để tắt.
 
 ## Dùng như thế nào

@@ -135,9 +135,10 @@ confident wrong answer.
 - **Does the date fit, at both ends?** A CL merged before the *from* version's
   branch point is in both trees and cannot explain a difference. A CL merged
   after the *to* version's branch point is not in the released tree at all —
-  `Cr-Branched-From` in each tag gives both dates. The lookup enforces this,
-  but a report resolved before it did will still carry such CLs; re-resolve
-  the row rather than quoting one.
+  `Cr-Branched-From` in each tag gives both dates. The lookup enforces both,
+  and a served row written under the older, wider window is recognised and
+  asked again rather than served — so a date past the target's branch point on
+  a served row means something else, and is worth reporting.
 - **Does the direction fit?** A flag going `enabled → disabled` is not explained
   by a CL titled "Enable …". Check which way the delta actually went.
 - **Is the CL about this fact, or about the file?** A file touched by a rename,

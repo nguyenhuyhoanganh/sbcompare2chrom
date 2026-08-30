@@ -5241,6 +5241,65 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         for bad in ("", "abc", "1;2", "../x", "12%20OR%201"):
             self.assertEqual(self._get(base, f"/api/issue?id={bad}")[0], 400, bad)
 
+    def _state_with(self, changes, before_main=""):
+        from chromedrift import serve as serve_mod
+
+        state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
+        state._before_main = before_main
+        finding = state.by_uid["base_feature:F"]
+        finding.enrichment = {"gerrit": {"changes": changes}}
+        return state, finding
+
+    def test_an_answer_written_under_a_corrected_lookup_is_asked_again(self):
+        """A stored answer is not re-fetched, and the cost of that is a report
+        outliving the bug it was written under.
+
+        Both known ones are visible in what was stored, so neither needs a
+        flag or a version stamp: a CL with no `at` was ordered by the day, and
+        a CL dated after the target left main is not in the tree at all. 16 of
+        the 60 rows in one real report cite the second kind.
+        """
+        good = [{"number": 1, "date": "2026-05-01",
+                 "at": "2026-05-01 00:00:00.000000000"}]
+        state, _ = self._state_with(good, before_main="2026-06-30")
+        self.assertFalse(state._stale({"changes": good}))
+
+        no_stamp = [{"number": 1, "date": "2026-05-01"}]
+        self.assertTrue(state._stale({"changes": no_stamp}))
+
+        past_branch = [{"number": 1, "date": "2026-07-20",
+                        "at": "2026-07-20 00:00:00.000000000"}]
+        self.assertTrue(state._stale({"changes": past_branch}))
+
+    def test_a_report_whose_refs_no_longer_resolve_keeps_what_it_holds(self):
+        """An unanswerable question is not an answer of no. Throwing the row
+        away because the window could not be derived would lose evidence to a
+        network fault."""
+        state, _ = self._state_with([], before_main="")
+        self.assertFalse(state._stale(
+            {"changes": [{"number": 1, "date": "2026-07-20",
+                          "at": "2026-07-20 00:00:00.000000000"}]}))
+
+    def test_a_stale_block_is_dropped_rather_than_written_over(self):
+        """`enrich` reuses the block it finds, so a key an older run set and
+        this one does not would survive and read as part of the new answer."""
+        from chromedrift.enrich import gerrit
+
+        state, finding = self._state_with(
+            [{"number": 1, "date": "2026-05-01"}])          # no `at` -> stale
+        finding.enrichment["gerrit"]["issues"] = [{"id": "1", "changes": [1]}]
+        real = gerrit.enrich
+
+        def spy(findings, *a, **k):
+            self.assertNotIn("gerrit", findings[0].enrichment)
+            return {}
+
+        gerrit.enrich = spy
+        try:
+            state.resolve("base_feature:F")
+        finally:
+            gerrit.enrich = real
+
     def test_a_row_lookup_does_not_pay_for_issue_history(self):
         """The CLs carry their `Bug:` footers already; the history behind one
         is fetched only when a reader picks that CL and asks for it.

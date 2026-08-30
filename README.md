@@ -905,6 +905,8 @@ One request per (CL, file) pair, so the bill is set by how *busy* the declaratio
 
 Everything is cached forever — a merged CL never changes — so the second row in the same file is instant, and so is the same row tomorrow.
 
+**A stored answer written under a lookup that has since been corrected is asked again rather than served.** Not re-fetching is what makes the second click on a row instant, and the cost of it is a report outliving the bug it was written under. Both known ones are visible in what was stored, so neither needs a flag or a version stamp: a CL with no submit stamp was ordered by the day, and a CL dated after the target left main is not in the tree at all. Measured on one real report, 16 of its 60 resolved rows cite the second kind — `blink.mojom.TokenError.url` led with a cleanup CL that landed a week after M151 branched, and now leads with CL 7982397 at `introduced`, which is the answer the section above claims.
+
 What a session resolves is written back to `report.json`, atomically, through a temporary file in the same directory. The page is rendered from the report this process holds rather than read off the disk, so a reload shows what the clicks have found and a restart still does. An hour of triage is not lost to a closed terminal. `--no-save` opts out.
 
 Matching is not the bottleneck it was: proving a token *absent* was 83 seconds of the 500-row case, and one search over the joined text settles it before any line is touched. The same work now takes **5.0 seconds** for an identical answer.

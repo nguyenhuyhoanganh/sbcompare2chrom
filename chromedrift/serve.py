@@ -79,7 +79,12 @@ class _State:
             self.report: Report = Report.from_dict(json.load(fh))
         self.by_uid: Dict[str, Finding] = {f.uid: f for f in self.report.findings}
         self.resolved = 0
+        self.restaled = 0
         self._page: Optional[bytes] = None
+        # Derived on the first click, not at startup: it costs two requests,
+        # and a server nobody opens a row on should not spend them -- nor
+        # should the test suite, which runs with no network.
+        self._before_main: Optional[str] = None
 
     # -- the page -----------------------------------------------------------
 
@@ -104,7 +109,7 @@ class _State:
         if finding is None:
             return None
         already = (finding.enrichment or {}).get("gerrit") or {}
-        if already.get("changes"):
+        if already.get("changes") and not self._stale(already):
             return self._payload(finding)
         with _LOCK:
             # The lookup's own account of itself, kept rather than dropped.
@@ -114,6 +119,11 @@ class _State:
             # `enrich` itself, because it belongs to the answer rather than to
             # whoever asked for it.
             notes: List[str] = []
+            # Dropped rather than written over: `enrich` reuses the block it
+            # finds, so a key an older run set and this one does not would
+            # survive the re-lookup and be read as part of the new answer.
+            if already.get("changes"):
+                (finding.enrichment or {}).pop("gerrit", None)
             gerrit.enrich(
                 [finding], self.report.from_ref, self.report.to_ref,
                 self.cache_dir, top=1, budget=self.budget,
@@ -137,9 +147,45 @@ class _State:
                     except (AttributeError, ValueError):
                         pass
             self.resolved += 1
+            if already.get("changes"):
+                self.restaled += 1
             self._page = None
             self._persist()
         return self._payload(finding)
+
+    def _stale(self, block: dict) -> bool:
+        """Was this answer written by a version of the lookup since corrected?
+
+        A stored answer is not re-fetched -- that is what makes a click cheap
+        the second time -- and the cost of that is a report outliving the bug
+        it was written under. Two are known, and both are visible in what was
+        stored, so neither needs a flag or a version stamp:
+
+        - A CL dated after the target left main cannot be in the tree being
+          compared. The window used to run to the tag's date, six weeks past
+          the branch point, and 16 of the 60 rows in one real report cite such
+          a CL.
+        - A CL with no `at` was compacted before the submit stamp was kept,
+          so every list it is in was ordered by the day. A revert and its
+          reland land on the same day.
+
+        Recomputed, not repaired: the row is asked again, which is the only
+        thing that can be right about it.
+        """
+        changes = block.get("changes") or []
+        if any(not cl.get("at") for cl in changes):
+            return True
+        if self._before_main is None:
+            try:
+                window = gerrit.window_for(self.report.from_ref,
+                                           self.report.to_ref, self.cache_dir)
+            except Exception:
+                window = None
+            # "" means the question cannot be asked, not that it was answered
+            # no: a report whose refs no longer resolve keeps what it holds.
+            self._before_main = window[1] if window else ""
+        return bool(self._before_main) and any(
+            (cl.get("date") or "") > self._before_main for cl in changes)
 
     def issue(self, issue: str) -> dict:
         """One issue's title and the CLs citing it, in the row's own shape.
