@@ -41,9 +41,9 @@ as an answer to 3.
 - [ ] 1. Pin the question to one identifier
 - [ ] 2. Get the row, or establish there is none
 - [ ] 3. Get the CL and the issue
-- [ ] 4. Read the issue for the defect, the CL history for the shape of it
+- [ ] 4. Read the CL's own words and its own diff, and the issue behind it
 - [ ] 5. Test the causal claim against the symptom
-- [ ] 6. Answer at a stated confidence level
+- [ ] 6. Answer at the evidence rung you actually reached
 ```
 
 ### Step 1: Pin the question to one identifier
@@ -108,7 +108,7 @@ person will be reading; use the script when you are.
 Quoting `crowded` or `touched` as the cause invents a cause. The script labels
 both `LEAD ONLY` for that reason.
 
-### Step 4: Read the issue for the defect
+### Step 4: Read the evidence, not the summary of it
 
 Work outward in this order, and stop as soon as the answer is sufficient:
 
@@ -119,8 +119,24 @@ Work outward in this order, and stop as soon as the answer is sufficient:
    the shape of the problem, including whether it was serious enough to merge
    back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
    that, and it is strong evidence the bug hurt real users.
-3. **The CL diff**, only if 1 and 2 leave the mechanism unclear. Open
-   `https://chromium-review.googlesource.com/c/chromium/src/+/<number>`.
+3. **The CL's own words and its own diff**, whenever the answer matters — and
+   always before quoting a CL in a ticket, whenever the verdict is `declares`
+   or `described`, and whenever the subject reads as unrelated to the finding:
+
+   ```bash
+   python3 skills/investigating-chromium-root-causes/scripts/cl.py 7982397
+   python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+     7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
+   ```
+
+   **Do not judge relevance from the subject.** Chromium subjects are
+   `[area] what`, and the area is the author's word for the surface, not the
+   identifier — `[sub apps] change web api` is the CL behind
+   `SubAppsServiceRemoveResult.manifest_id`. Measured over 84 Mojo and Web IDL
+   rows, the full message names the identifier in 39; reading the rest, all
+   but five are unmistakable in the author's vocabulary.
+   **[reference/reading-a-cl.md](reference/reading-a-cl.md)** is how to read
+   both, and what each level of evidence lets you claim.
 
 **A restricted issue is normal, not a failure.** Around three in ten linked
 issues answer HTTP 403 — security, abuse, or Google-internal components. The
@@ -143,7 +159,13 @@ confident wrong answer.
   by a CL titled "Enable …". Check which way the delta actually went.
 - **Is the CL about this fact, or about the file?** A file touched by a rename,
   a reformat and the real change reports all three. `introduced` and `exact`
-  discriminate; `declares` does not, on its own.
+  discriminate; `declares` does not, on its own. The diff settles it, and four
+  questions settle the diff: does a removed line carry the finding's
+  before-value, does an added line carry the after-value, is the change inside
+  the declaration the finding names, and is it more than a reindent? Three
+  yeses and the CL is the cause; one no and it is context. Gerrit marks a
+  reindent `common: true` and `cl.py` prints it `~`, because counting one as
+  an edit is how a reformat becomes evidence.
 - **Does the mechanism reach the symptom?** A flag flip explains a behaviour
   change on the platform where the flag flipped. Read
   `platform_state.windows`, never `default_state`.
@@ -153,7 +175,7 @@ confident wrong answer.
 
 If a check fails, the CL is context, not cause. Say which.
 
-### Step 6: Answer at a stated confidence level
+### Step 6: Answer at the rung you reached
 
 ```markdown
 **What changed:** [the fact, with `path:line`, and which direction]
@@ -166,10 +188,18 @@ If a check fails, the CL is context, not cause. Say which.
 
 | Say | When |
 |---|---|
-| The cause is CL N | `introduced` or `exact`, one CL, date and direction fit |
-| The likely cause is CL N | `declares` or `described`, or several CLs and one story |
+| The cause is CL N | the diff shows the finding's before-value removed and its after-value added, inside the declaration |
+| The likely cause is CL N | `introduced` or `exact` with a date and direction that fit, but the diff not read |
+| Related, not shown to be the cause | `declares` or `described`, or several CLs and one story |
 | Candidates, not a cause | `crowded` or `touched`, or the checks in step 5 fail |
 | Not established | the lookup missed, failed, or was declined — say which |
+
+The top row needs the diff. Rung 4 of the evidence ladder in
+[reference/reading-a-cl.md](reference/reading-a-cl.md) is the only one that
+supports the word "caused"; everything below it supports "names", "touched",
+or "was found by". **Report the highest rung you actually reached, and say
+which it is** — a row answered from a verdict and written up as though the
+diff had been read is the failure this skill exists to prevent.
 
 Never round the last two up. "Candidates" written as "the cause" is the single
 most damaging output available here.
@@ -215,6 +245,10 @@ issue history is what makes it convincing, not the verdict.
 
 ## Reference
 
+- **[reference/reading-a-cl.md](reference/reading-a-cl.md)** — the evidence
+  ladder and what each rung lets you claim; why the author's vocabulary is not
+  the identifier's; how to read a commit message and a diff, and the four
+  questions a diff answers that nothing else does.
 - **[reference/no-row.md](reference/no-row.md)** — every way a lookup comes
   back empty, what each licenses you to say, and the one sentence you may
   never write.

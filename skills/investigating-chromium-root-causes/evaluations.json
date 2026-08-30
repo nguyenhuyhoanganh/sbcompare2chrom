@@ -66,6 +66,23 @@
         "Carries the disclosure through: 662 CLs touched the file and 500 were read, so the list is not only unproven but incomplete",
         "Offers the next step -- searching Chromium's history for the flag name -- rather than picking the most plausible-looking CL"
       ]
+    },
+    {
+      "skills": [
+        "investigating-chromium-root-causes"
+      ],
+      "query": "Is CL 7982397 really what changed blink.mojom.TokenError.url, or does it just mention it?",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Answering a question about causation from a verdict, without opening the CL.",
+      "expected_behavior": [
+        "Recognises that the verdict answers how the CL was found, not whether it caused the change, and opens the CL rather than restating the badge",
+        "Reads the diff of the declaring file and finds `string? url;` removed and `url.mojom.Url? url;` added -- the finding's before-value and after-value on opposite sides",
+        "Reports that as rung 4 of the evidence ladder, which is the only rung that supports the word 'caused'",
+        "Does not treat unchanged context lines carrying `url` as evidence; the question is whether this CL changed a line carrying it",
+        "Quotes the commit message body, which names TokenError, the file, and the reason, rather than only the subject"
+      ]
     }
   ],
   "_ran": {
@@ -74,7 +91,8 @@
       "1": "PASS. The lookup returns CL 7747043 'Disable ...' and CL 7789307 'Enable ... by default', oldest first, plus the qualifier that one of two linked issues is restricted. Issue 500975618 opens to 'Extension iframe causes Promises to stall in all extension pages after navigation' with four CLs including [M148] and [m147] merge-backs. Everything the scenario asks the agent to notice is on screen.",
       "2": "PASS. Resolves to CL 7685815 at `exact`, printed as 1 of 9 merged CLs touching the file.",
       "3": "NOT RUN. It tests agent behaviour -- whether a symptom with no obvious row is routed through reference/symptom-to-uid.md rather than grepped for and given up on. Nothing in the tooling can answer it; it needs a fresh agent.",
-      "4": "REWRITTEN. The original used AIManager.CreateLanguageModel, which the commit history describes as the crowded case. It is not one any more: the scan-to-delimiter rule picks 1 of 11 CLs on that file, and the one it picks is right -- '[3/3] Pass download progress observers dynamically in WebPlatform APIs', which is the CL that added the `DownloadObserver` parameter the finding reports. The scenario tested nothing. It now uses a flag_entry that really does return only `touched`, verified against the report."
+      "4": "REWRITTEN. The original used AIManager.CreateLanguageModel, which the commit history describes as the crowded case. It is not one any more: the scan-to-delimiter rule picks 1 of 11 CLs on that file, and the one it picks is right -- '[3/3] Pass download progress observers dynamically in WebPlatform APIs', which is the CL that added the `DownloadObserver` parameter the finding reports. The scenario tested nothing. It now uses a flag_entry that really does return only `touched`, verified against the report.",
+      "5": "PASS. `cl.py 7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'` prints the added line alone; dropping the value and passing `--find url` prints both sides of the same hunk and nothing else, because only changed lines are marked. The message body names the struct, the file and the reason."
     }
   }
 }
