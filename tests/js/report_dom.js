@@ -123,6 +123,26 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   // A lookup that lost requests and still produced a citation. The shape a
   // partial failure most often makes, and the one the warning could not
   // reach while it lived inside the empty panel's innermost branch.
+  if (prov === 11) {
+    // Baked too, but the server agrees with what is stored -- so nothing
+    // repaints and what is asserted is the panel as it was first drawn.
+    row.cl_pool = 5; row.cl_files = 1; row.owner = 'agrees';
+    row.id = 'base_feature:Agrees';
+    row.cls = [{ n: 8800000, d: '2026-06-01', s: 'a subject', m: 'exact',
+                 b: [{ i: '500975618' }] }];
+    row.issues = [{ id: '500975618', restricted: false, t: 'a title', total: 4,
+                    cls: [{ n: 7747043, d: '2026-04-10', s: 'Disable it' }] }];
+  }
+  if (prov === 10) {
+    // A row a run baked an issue history into. Served, the chip is the way to
+    // see one, and rendering the baked list too puts it on the page twice.
+    row.cl_pool = 5; row.cl_files = 1; row.owner = 'baked';
+    row.id = 'base_feature:Baked';
+    row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject', m: 'exact',
+                 b: [{ i: '500975618' }] }];
+    row.issues = [{ id: '500975618', restricted: false, t: 'a title', total: 4,
+                    cls: [{ n: 7747043, d: '2026-04-10', s: 'Disable it' }] }];
+  }
   if (prov === 8) {
     row.cl_pool = 13; row.cl_files = 1; row.cl_failed = 2;
     row.owner = 'flaky';
@@ -142,6 +162,10 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
 global.window.__KINDS__ = { base_feature: 'Chromium feature flag' };
 global.window.__BUCKETS__ = { breaking: 'Breaking', housekeeping: 'Housekeeping' };
 global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
+// The renderer's own list, as the page embeds it.
+global.window.__PROVKEYS__ = ['cls', 'cl_pool', 'cl_files', 'cl_read',
+  'cl_match', 'cl_failed', 'cl_partial', 'issues', 'issues_more',
+  'no_diffs', 'cl_by_message'];
 
 let pending = null;
 global.setTimeout = fn => { pending = fn; return 1; };
@@ -165,9 +189,24 @@ const served = {
   '501771345': { id: '501771345', restricted: true, t: '', total: 2,
                  cls: [{ n: 7789307, d: '2026-04-23', s: 'Enable it' }] },
 };
+const asked = [];
 global.fetch = url => {
+  asked.push(url);
   if (/api\/ping/.test(url))
     return settled({ ok: true, json: () => settled({ ok: true }) });
+  // Only the baked row: every other row here is opened by a test that asserts
+  // what it already holds, and answering for all of them replaces it.
+  if (/api\/why\?uid=base_feature%3AAgrees$/.test(url))
+    return settled({ ok: true, json: () => settled(
+      { cls: [{ n: 8800000, d: '2026-06-01', s: 'a subject', m: 'exact',
+                b: [{ i: '500975618' }] }],
+        cl_pool: 5, cl_files: 1 }) });
+  const w = /api\/why\?uid=base_feature%3ABaked$/.test(url);
+  if (w)
+    return settled({ ok: true, json: () => settled(
+      { cls: [{ n: 9000001, d: '2026-06-02', s: 'the verified answer',
+                m: 'exact', b: [{ i: '500975618' }] }],
+        cl_pool: 5, cl_files: 1 }) });
   const m = /api\/issue\?id=(\d+)/.exec(url);
   return settled({ ok: true, json: () => settled(m ? served[m[1]] : null) });
 };
@@ -399,5 +438,51 @@ clickChip(a);
 out.closingOneLeavesTheOther =
   li.children.length === 1 && li.children[0].dataset.issue === '501771345';
 out.theClosedChipIsNoLongerMarked = !a.classList.contains('on');
+
+// A baked issue list belongs to the file on a disk. Served, the chip is the
+// way to see one, and rendering both puts the same issue on the page twice --
+// once before the reader has touched it, and again under the CL when they do.
+els.fo.value = 'baked';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const bakedRow = new El('tr');
+bakedRow.className = 'row'; bakedRow.dataset.i = '0';
+asked.length = 0;
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? bakedRow : null) } }));
+const bakedHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.servedRowStillOffersTheChip = /button class="ibtn/.test(bakedHtml);
+// And a row that already carries CLs has no lookup button, so opening it is
+// the only moment anything can ask whether the stored answer still stands.
+out.openingAResolvedRowVerifiesIt = asked.some(u => /api\/why/.test(u));
+// The verified answer replaces the stored one rather than merging over it. A
+// key the old lookup set and the new one does not -- a baked `issues` list
+// outliving a lookup that no longer fetches one -- has to go with it.
+const bakedFinding = global.window.__FINDINGS__.find(r => r.owner === 'baked');
+out.whatWasAsked = asked.filter(u => /api\/why/.test(u));
+out.theVerifiedAnswerReplacesTheStoredOne =
+  !!bakedFinding && !bakedFinding.issues && bakedFinding.cls[0].n === 9000001;
+const afterVerify = detailRows.length ? detailRows[0].innerHTML : '';
+out.thePanelRepaintsWithIt = /9000001/.test(afterVerify);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+
+// A baked issue list belongs to the file on a disk. Served, the chip is the
+// way to see one, and rendering both puts the same issue on the page twice --
+// once before the reader has touched it, and again under the CL when they do.
+// Asserted on the row whose verification agrees with what is stored, so what
+// is on screen is the panel as it was first drawn rather than a repaint.
+els.fo.value = 'agrees';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const agreeRow = new El('tr');
+agreeRow.className = 'row'; agreeRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? agreeRow : null) } }));
+const agreeHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.servedRowHidesTheBakedIssue = !/prov iss/.test(agreeHtml);
+out.anAgreeingAnswerDoesNotRepaint = /8800000/.test(agreeHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
 
 console.log(JSON.stringify(out));

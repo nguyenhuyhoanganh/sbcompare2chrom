@@ -602,6 +602,21 @@ try{fetch('api/ping').then(function(r){return r.ok?r.json():null;})
       if(f)tr.firstChild.innerHTML=details(f);});}})
   .catch(function(){});}catch(e){}
 
+/* The keys a lookup owns. Assigning over them leaves whatever the previous
+   answer held -- a baked `issues` list outliving a lookup that no longer
+   fetches one -- so they are cleared first. The list is the renderer's own,
+   embedded rather than restated here. */
+function applyProv(f,d){
+  (window.__PROVKEYS__||[]).forEach(function(k){delete f[k];});
+  Object.assign(f,d);
+}
+/* What a row's answer amounts to, cheaply. Used to decide whether a verified
+   answer differs from the one already on screen, so a row that was already
+   right does not repaint under the reader. */
+function provSig(f){
+  return (f.cls||[]).map(function(c){return c.n+':'+c.m;}).join(',')
+    +'|'+(f.cl_pool||0)+'|'+(f.no_diffs?1:0);
+}
 function lookupBtn(f){
   return '<button class="lookup" data-uid="'+esc(f.id)+'">Look up the CL '+
     'for this row</button>';
@@ -718,10 +733,12 @@ function provenance(f){
   /* Every issue the row's CLs cite, busiest first. A flag that launched,
      reverted and relanded often cites two or three, and showing one made the
      answer depend on which CL happened to sort first. */
-  /* Only what a run baked in. Served, a row shows no issue until the reader
-     picks the CL whose issue they want -- which is the click that says which
-     CL they think is the right one. */
-  (f.issues||[]).forEach(function(i){
+  /* Only what a run baked in, and only where nothing can be asked. Served, a
+     row shows no issue until the reader picks the CL whose issue they want --
+     which is the click that says which CL they think is the right one. Doing
+     both puts the same issue on the page twice: once before the reader has
+     touched it, and again under the CL when they do. */
+  (LIVE?[]:(f.issues||[])).forEach(function(i){
     if(!i||!i.cls||!i.cls.length)return;
     out+='<div class="prov iss">'+issueHtml(i)+'</div>';
   });
@@ -832,7 +849,7 @@ tb.addEventListener('click',e=>{
     btn.disabled=true; btn.textContent='Looking\u2026';
     fetch('api/why?uid='+encodeURIComponent(btn.dataset.uid))
       .then(r=>r.ok?r.json():Promise.reject(r.status))
-      .then(d=>{Object.assign(f,d); f._hay=undefined; cell.innerHTML=details(f);
+      .then(d=>{applyProv(f,d); f._hay=undefined; cell.innerHTML=details(f);
         if(fp)fp.hidden=false;})
       .catch(err=>{btn.disabled=false;
         btn.textContent='Lookup failed ('+err+') \u2014 try again';});
@@ -846,6 +863,32 @@ tb.addEventListener('click',e=>{
   det.className='det';
   det.innerHTML='<td colspan="6">'+details(f)+'</td>';
   tr.after(det);
+  /* A row that already carries CLs shows no lookup button, so nothing on the
+     page could ever ask the server about it again -- and a stored answer
+     written by a lookup that has since been corrected would be served for as
+     long as the report exists. Opening the row asks. The server hands back
+     what it holds unless it judges the answer stale, so this costs one
+     localhost round trip and no Gerrit request on a row that is already
+     right; when it is not, the panel is replaced with the answer that is.
+     An unresolved row is not asked -- resolving one costs real requests, and
+     that is what the button is for. */
+  if(LIVE&&f.cls&&f.cls.length){
+    const before=provSig(f), drawn=det.innerHTML;
+    fetch('api/why?uid='+encodeURIComponent(f.id))
+      .then(r=>r.ok?r.json():null)
+      .then(d=>{
+        if(!d)return;
+        applyProv(f,d);
+        if(provSig(f)===before)return;
+        /* Only if nothing has happened to the panel since it was drawn. The
+           reader may have closed the row or opened an issue inside it while
+           this was in flight, and replacing it under them would take the
+           thing they just asked for. */
+        if(det.innerHTML!==drawn)return;
+        det.innerHTML='<td colspan="6">'+details(f)+'</td>';
+      })
+      .catch(()=>{});
+  }
 });
 more.addEventListener('click',()=>{shown+=PAGE;paint();});
 document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{
@@ -1538,6 +1581,7 @@ reasoning behind its score.</p>
 window.__KINDS__={_embed(KIND_LABELS)};
 window.__BUCKETS__={_embed(BUCKET_LABELS)};
 window.__STORIES__={_embed(stories)};
+window.__PROVKEYS__={_embed(list(PROVENANCE_KEYS))};
 window.__POOL__={_embed(pool)};</script>
 <script>{_JS}</script>
 """

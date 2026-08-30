@@ -873,14 +873,16 @@ class TestHtmlReportScales(unittest.TestCase):
         #    that lost requests -- and none of the 60 that only list reviews:
         #    the fallback exists so a click always answers, and it stops being
         #    worth having the moment it passes for an answer.
-        self.assertIn("of 150", out["hasCl"])
+        # Plus 30 whose stored answer a run baked an issue history into, which
+        # a served page hides in favour of the chip on the CL.
+        self.assertIn("of 210", out["hasCl"])
         # 30 plain `exact`, 30 cited over a lookup that lost requests, and
         # 30 `introduced`. All three are a changed line tied to the
         # identifier; the last is the strongest verdict on the page, and
         # matching the word `exact` alone had left it out of the option for
         # strong evidence and filed it under "Has a CL" beside rows found by
         # a commit message.
-        self.assertIn("of 90", out["exactOnly"])
+        self.assertIn("of 150", out["exactOnly"])
         # 30 leads over diffs that were read, plus 30 over diffs the budget
         # declined. Both are leads; only the second can still be answered.
         self.assertIn("of 60", out["weakOnly"])
@@ -5230,6 +5232,29 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         base = self._server()
         self.assertEqual(self._get(base, "/api/why?uid=nope:nope")[0], 404)
         self.assertEqual(self._get(base, "/api/why")[0], 400)
+
+    def test_the_dom_harness_knows_the_same_provenance_keys(self):
+        """The page embeds the list; the node harness carries a copy.
+
+        The copy is there because the harness evaluates only the page's code
+        block and never runs the block that assigns the payload, so it has to
+        stand the constant up itself. Two lists is the shape this project
+        keeps finding bugs in, and this is the thread that catches this one:
+        a key added to the renderer and not to the harness would leave the
+        harness testing a page that clears one fewer field than the real one.
+        """
+        import re
+
+        from chromedrift.report.html import PROVENANCE_KEYS
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(root, "tests", "js", "report_dom.js")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        block = re.search(r"__PROVKEYS__ = \[(.*?)\]", text, re.S)
+        self.assertIsNotNone(block, "the harness no longer declares the list")
+        self.assertEqual(sorted(re.findall(r"'([^']+)'", block.group(1))),
+                         sorted(PROVENANCE_KEYS))
 
     def test_an_issue_id_has_to_be_one(self):
         """The route takes a number and nothing else.
