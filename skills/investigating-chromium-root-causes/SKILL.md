@@ -138,7 +138,7 @@ Work outward in this order, and stop as soon as the answer is sufficient:
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** is how to read
    both, and what each level of evidence lets you claim.
 
-**A restricted issue is normal, not a failure.** Around three in ten linked
+**A restricted issue is normal, not a failure.** Around four in ten linked
 issues answer HTTP 403 — security, abuse, or Google-internal components. The
 CLs stay public and their subjects carry the story. Report the fix history and
 note the closed door; do not report the tool as broken.

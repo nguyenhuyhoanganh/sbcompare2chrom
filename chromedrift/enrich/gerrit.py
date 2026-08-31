@@ -32,10 +32,12 @@ method's name line is untouched.  ``described``: the CL's own title or
 description names it, weaker than a diff but written by the person who made
 the change, and free, because descriptions arrive with the candidate list.
 
-They are not redundant. Measured over the top 150 findings of a real
-M148 -> M151 run: 65 are found only by the diff, and 17 only by the
-description, because a CL can delete the declaration it is named after and
-leave the identifier in no surviving line.
+They are not redundant, and they are not evenly used. Measured over the top
+150 findings of a real M148 -> M151 run: 145 rows are answered by a diff
+alone, 2 by a diff and the author's words together, and none by the words
+alone. ``described`` earns its place on the shape no diff search can reach --
+a CL that deletes the declaration it is named after leaves the identifier in
+no surviving line -- rather than on how often it fires.
 
 **And two that do not, so that a row always answers.**  ``crowded``: more than
 ``DECL_MAX`` CLs edited this declaration, so they no longer single one out.
@@ -1052,9 +1054,9 @@ def issue_meta(issue: str, cache_dir: str, refresh: bool = False,
     Both answers come from one request, which is why the accessibility check
     is a GET and no longer a HEAD: the HEAD cost nothing and told us only that
     the door was open, while the same request costs a body and also says what
-    is behind it. Measured on a real M148 -> M151 run, **70 of 236 linked
-    issues answer HTTP 403** -- three dead links in ten, and an unmarked one
-    reads as a broken tool rather than as a closed door.
+    is behind it. Measured on a real M148 -> M151 run, **44 of 97 linked
+    issues answer HTTP 403** -- more than four dead links in ten, and an
+    unmarked one reads as a broken tool rather than as a closed door.
 
     An unknown answer is not a restricted one: a network fault must never turn
     a working link into a warning, so anything that is not an explicit refusal

@@ -521,15 +521,15 @@ touched:'This CL touched the declaring file. Nothing ties it to the identifier.'
 function clRow(c,strong){
   var u='https://chromium-review.googlesource.com/c/chromium/src/+/'+c.n;
   /* A restricted issue keeps its link -- the reader may well be the one
-     person who can open it -- but says so first. Three in ten of the issues a
-     real report links answer 403, and a dead link with no warning reads as a
-     broken tool. `Fixed:` is shown apart from `Bug:` because closing an issue
+     person who can open it -- but says so first. More than four in ten of the
+     issues a real report links answer 403, and a dead link with no warning
+     reads as a broken tool. `Fixed:` is shown apart from `Bug:` because closing an issue
      and referencing one are different claims. */
   var b=(c.b||[]).map(function(g){
     var label=(g.f?'fixes ':'issue ')+esc(g.i);
     /* Served, the chip opens the issue's own CL history in place. That is the
        question a reader actually has at this point -- "what else touched this
-       bug" -- and the tracker cannot always answer it: three in ten issues
+       bug" -- and the tracker cannot always answer it: four in ten issues
        return 403, while the CLs citing them are public on Gerrit either way.
        Off a disk there is nothing to ask, so it stays the link it always was. */
     if(LIVE)

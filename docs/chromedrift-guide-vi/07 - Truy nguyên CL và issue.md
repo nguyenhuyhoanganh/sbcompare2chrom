@@ -143,7 +143,9 @@ Mỗi CL mang theo một **verdict** nói rõ nó được tìm ra bằng cách 
 
 **Các verdict phía trên gọi tên được Fact. Hai cái cuối thì không** — và ranh giới đó được vẽ rõ trong code bằng một hằng số (`CITES`), chứ không để cho màu badge tự gánh.
 
-Chúng **không thừa nhau**. Đo trên top 150 finding của một lần chạy M148 → M151 thật: **65 finding chỉ tìm được bằng diff, và 17 chỉ tìm được bằng mô tả** — cái sau xảy ra vì một CL có thể xoá đúng cái declaration mang tên nó, để lại identifier không nằm trong dòng nào còn sống sót.
+Chúng **không thừa nhau, và cũng không được dùng ngang nhau**. Đo trên top 150 finding của một lần chạy M148 → M151 thật: **145 dòng được trả lời chỉ bằng diff, 2 dòng bằng cả diff lẫn lời tác giả, và không dòng nào chỉ bằng lời tác giả.**
+
+`described` giữ chỗ của nó nhờ **hình dạng mà không phép tìm diff nào với tới được** — một CL xoá đúng cái declaration mang tên nó thì identifier không còn nằm trong dòng nào sống sót — chứ không nhờ tần suất.
 
 ### `introduced` — verdict duy nhất mà câu trả lời *là* thay đổi
 
@@ -171,7 +173,7 @@ Ba điều kiện làm cho nó không sinh ra kết quả rác:
 - **Chỉ tìm thứ trông giống code.** Phải có chữ hoa ở giữa, dấu gạch dưới, dấu chấm, hoặc đơn giản là dài. `kPreinstalledExtensions`, `IS_ANDROID`, `array<network.mojom.LinkHeader>` nhận diện được một thay đổi; `enabled`, `stable`, `109` xuất hiện trong mọi declaration khác của cùng file và không nhận diện gì.
 - **So với văn bản của phía kia, không phải tập token của nó.** `Vector2d` sẽ đọc ra thành "đã mất đi" khi type đổi thành `Vector2dF`, tức là biến chính CL làm ra thay đổi thành bằng chứng cho điều ngược lại.
 
-Đo trên 102 finding của một lát cắt M148 → M151 thật: **39 CL đạt `introduced`**, **33 dòng vốn đã có câu trả lời nay có câu sắc hơn**, và **30 trong 33 finding nó giải quyết được quy về đúng một CL**.
+Đo trên top 150 finding của một lần chạy M148 → M151 thật: **37 CL đạt `introduced`, trải trên 33 dòng**, và **29 trong 33 dòng đó quy về đúng một CL**.
 
 `TokenError.url` giờ đọc ra CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"* — dù **không một CL nào trong 10 ứng viên mang cái tên đó**.
 
@@ -240,12 +242,15 @@ Trên top 150 finding của một lần chạy M148 → M151 thật:
 | | Số dòng |
 |---|---|
 | Có ít nhất một CL | **150 / 150** |
-| `exact` | 129 |
-| `declares` | 62 |
+| Trong đó được một verdict **gọi tên** | **147** |
+| Chỉ có manh mối | 3 |
+| `exact` | 94 |
+| `declares` | 60 |
 | `introduced` | 37 |
+| `touched` | 7 |
 | `moved` | 6 |
-| `described` | 3 |
-| Tổng số CL được trích dẫn | 237 |
+| `described` | 2 |
+| Tổng số CL được trích dẫn | 206 |
 
 Phiên bản chạy được đầu tiên của chặng này đạt 115 trên 150. Ba lần cải tiến — quét tới dấu đóng, rơi về container, và `introduced` — là chỗ 35 dòng còn lại đến từ.
 
@@ -267,9 +272,9 @@ Mỗi issue mở ra trong khối riêng, thụt vào dưới đúng CL của nó
 
 Mở file từ đĩa thì không có gì để hỏi, nên chip quay về đúng cái link tracker như cũ.
 
-### Ba trong mười link issue không mở được
+### Hơn bốn trong mười link issue không mở được
 
-Đo trên 236 issue phân biệt mà một lần chạy M148 → M151 thật liên kết tới: **70 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
+Đo trên 97 issue phân biệt mà top 150 finding của một lần chạy M148 → M151 thật liên kết tới: **44 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
 
 Một link chết không được đánh dấu đọc ra như một **công cụ hỏng**, chứ không phải như một **cánh cửa đóng**. Nên mọi issue được liên kết đều bị thăm dò một lần và cái bị hạn chế được đánh dấu `RESTRICTED` ngay tại chỗ. Link vẫn **được giữ lại**, vì người đọc báo cáo có thể chính là người mở được nó.
 

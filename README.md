@@ -824,9 +824,9 @@ Only the *difference* between the two states is searched for. A value on both si
 
 A value has to look like code to be searched for — an inner capital, an underscore or a dot, or simply be long. `kPreinstalledExtensions`, `IS_ANDROID` and `array<network.mojom.LinkHeader>` identify a change; `enabled`, `stable` and `109` appear in every other declaration in the file and identify nothing.
 
-Measured over the 102 findings of a real M148 → M151 slice: **39 CLs earn `introduced`, 33 rows that already had an answer now have a sharper one**, and **30 of the 33 findings it resolves are resolved to exactly one CL**.
+Measured over the top 150 findings of a real M148 → M151 run: **37 CLs earn `introduced` across 33 rows**, and **29 of those 33 resolve to exactly one CL**.
 
-`described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. Of the top 150 findings on a real M148 → M151 run, **65 are found only by the diff and 17 only by the description**, the latter because a CL can delete the declaration it is named after and leave the identifier in no surviving line.
+`described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. It is the thinnest of the five, and deliberately so: over the top 150 findings of a real M148 → M151 run only **2 CLs** earn it, both on rows a diff had already answered, and no row rests on it alone. It is worth keeping because a CL can delete the declaration it is named after and leave the identifier in no surviving line, which is the one shape no diff search can reach.
 
 `moved` exists because a pure rename changes no line and is still the whole cause. CL 7810461 renamed `html_or_foreign_element.idl`, so every member of that interface reads as removed at the old path with nothing in any diff to say so — six findings that came back empty until the rename itself was treated as the evidence.
 
@@ -834,7 +834,7 @@ Measured over the 102 findings of a real M148 → M151 slice: **39 CLs earn `int
 
 So there is no radius. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 337 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
 
-Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 129 `exact`, 62 `declares`, 37 `introduced`, 6 `moved`, 3 `described` across 237 CLs — where the first working version of this managed 115.
+Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` across 206 CLs. **147 of the 150 are named by a verdict; 3 hold leads only**, and the first working version of this managed 115.
 
 **A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one story. Two rules used to cut that list without saying so:
 
@@ -932,7 +932,7 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 **A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and turning a network hiccup into a confident "no CL found" is the one thing this tool is not allowed to do.
 
-**Three in ten issue links do not open.** Of the 236 distinct issues a real M148 → M151 run linked, **70 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a closed door, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may be exactly the person who can open it.
+**Four in ten issue links do not open.** Of the 97 distinct issues the top 150 findings of a real M148 → M151 run link, **44 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a closed door, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may be exactly the person who can open it.
 
 **An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the door was open, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
 

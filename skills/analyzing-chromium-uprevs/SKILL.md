@@ -169,7 +169,7 @@ Lookups are written back to `report.json`, so they survive a restart and reach
 fetched with the row: click the issue on the CL you believe, and it opens
 under that CL.
 
-**A restricted issue is normal and not a failure.** Around three in ten linked
+**A restricted issue is normal and not a failure.** Around four in ten linked
 issues answer HTTP 403 — they sit in a security, abuse or Google-internal
 tracker component. The panel says so and keeps the link, because the reader
 may be the one person who can open it. **The CLs stay readable either way**:
