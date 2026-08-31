@@ -233,9 +233,36 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
 
 
 def cluster_label(members: Sequence[Finding]) -> str:
-    """A human name for the cluster: the highest-scoring member's name."""
+    """A human name for the cluster.
+
+    The highest-scoring member's name, unless the members share a CL -- in
+    which case that CL's subject is the name, because the author already wrote
+    one. A group joined by "[sub apps] change web api" was labelled `Add`,
+    which is the leaf of `blink.mojom.SubAppsService.Add` and tells a reader
+    nothing about what the group is. The subject says it in the words of the
+    person who made the change.
+
+    The shared CL only: a CL on one member names that member's change, not the
+    group's.
+    """
+    shared = None
+    numbers = None
+    for f in members:
+        here = {c.get("number"): c.get("subject", "")
+                for c in ((f.enrichment or {}).get("gerrit") or {}).get(
+                    "changes") or []
+                if c.get("match") not in _LEAD_VERDICTS}
+        if numbers is None:
+            numbers = dict(here)
+        else:
+            numbers = {n: s for n, s in numbers.items() if n in here}
+        if not numbers:
+            break
+    if numbers:
+        # The oldest, when a chain shares several: it is where the story starts.
+        shared = numbers[min(numbers)]
     lead = max(members, key=lambda f: f.score)
-    return lead.change.name
+    return shared or lead.change.name
 
 
 def annotate(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:

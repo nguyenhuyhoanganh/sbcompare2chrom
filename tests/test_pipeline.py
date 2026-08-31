@@ -1306,6 +1306,35 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(len(clusters), 1)
         self.assertEqual(len(next(iter(clusters.values()))), 3)
 
+    def test_a_group_is_named_by_the_cl_that_made_it(self):
+        """`Add` is the leaf of `blink.mojom.SubAppsService.Add` and tells a
+        reader nothing about the group. The author already wrote a name for
+        the change; the subject is it."""
+        from chromedrift.cluster import build_clusters, cluster_label
+
+        cl = [{"number": 7957918, "match": "exact",
+               "subject": "[sub apps] change web api"}]
+        rows = [self._cited("mojo_method", "blink.mojom.SubAppsService.Add", cl,
+                            score=80),
+                self._cited("idl_interface", "SubAppsAddParams", cl, score=70)]
+        members = next(iter(build_clusters(rows).values()))
+        self.assertEqual(cluster_label(members), "[sub apps] change web api")
+
+    def test_a_cl_on_one_member_does_not_name_the_group(self):
+        """It names that member's change. Only a CL every member carries is
+        speaking about the group."""
+        from chromedrift.cluster import cluster_label
+        from chromedrift.model import Change, Finding
+
+        shared = {"number": 1, "match": "exact", "subject": "the shared one"}
+        lone = {"number": 2, "match": "exact", "subject": "only on this row"}
+        a = self._cited("mojo_method", "I.a", [shared, lone], score=80)
+        b = self._cited("mojo_method", "I.b", [shared], score=70)
+        self.assertEqual(cluster_label([a, b]), "the shared one")
+        # and with nothing shared, the highest-scoring member's own name
+        c = self._cited("mojo_method", "I.c", [lone], score=90)
+        self.assertEqual(cluster_label([b, c]), "c")
+
     def test_a_lead_is_not_a_link(self):
         """`crowded` and `touched` name the declaring file, not the fact. Two
         rows sharing one share a busy file, which is not a story -- and

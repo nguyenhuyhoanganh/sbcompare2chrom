@@ -172,7 +172,7 @@ global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
 // The renderer's own list, as the page embeds it.
 global.window.__PROVKEYS__ = ['cls', 'cl_pool', 'cl_files', 'cl_read',
   'cl_match', 'cl_failed', 'cl_partial', 'issues', 'issues_more',
-  'no_diffs', 'cl_by_message'];
+  'no_diffs', 'cl_by_message', 'grp'];
 
 let pending = null;
 global.setTimeout = fn => { pending = fn; return 1; };

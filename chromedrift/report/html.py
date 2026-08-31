@@ -1174,9 +1174,14 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
 # the two drifted the first time a key was renamed: `issue` became `issues` in
 # the renderer and the server went on filtering for `issue`, so every lookup
 # answered with the CLs and silently dropped the issue history.
+# What a lookup owns, and therefore what it must hand back. `grp` is on the
+# list because a lookup is what produces it: the CLs it brings in are what the
+# grouping joins on, so the row that was just asked about can gain a group it
+# did not have a moment ago. Without it here the note appeared only on the
+# next page load, which is the one moment the reader is not looking.
 PROVENANCE_KEYS = ("cls", "cl_pool", "cl_files", "cl_read", "cl_match",
                    "cl_failed", "cl_partial", "issues", "issues_more",
-                   "no_diffs", "cl_by_message")
+                   "no_diffs", "cl_by_message", "grp")
 
 
 def _issue_payload(issue) -> dict:
