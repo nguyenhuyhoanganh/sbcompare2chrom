@@ -429,7 +429,15 @@ Kết quả tra cứu được **ghi ngược lại `report.json`**, ghi nguyên
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out/M148_to_M151
 python3 -m chromedrift serve out/M148_to_M151
 # → http://127.0.0.1:8787/
+
+# sau khi dừng serve, đưa những gì đã tra vào hai file trên đĩa
+python3 -m chromedrift report out/M148_to_M151/report.json \
+  --format both --out out/M148_to_M151/report
 ```
+
+Lệnh thứ ba không bỏ được. `serve` ghi kết quả tra cứu vào `report.json` và **chỉ** vào đó; `report.md` với `report.html` trên đĩa vẫn là bản `run` viết ra lúc đầu, tức **không có một link CL nào** dù `report.json` đã đầy. Ai đọc file mà không ngồi cạnh bàn phím sẽ đọc bản cũ.
+
+`--out` cũng không bỏ được: thiếu nó, `report` in ra stdout, tức là đổ cả bản báo cáo ra terminal và để nguyên hai file cũ.
 
 Lệnh `run` không đổi và **không hề chạm mạng Gerrit** — chặng này hoàn toàn nằm ngoài nó. Sau khi `run` xong, nó in ra dòng nhắc `serve`.
 
@@ -506,6 +514,8 @@ Nó **không lấy gì thêm** — chỉ đọc CL mà dòng đó đã có. Chi 
 
 - **Bảng HTML** — mở một dòng ra, panel nói ngay trên phần bằng chứng: *"Part of a larger change — [sub apps] change web api, 3 findings in all. The heaviest of them scores 80, so read that one first."* Nhãn lấy từ **tiêu đề CL chung**, vì tác giả đã đặt tên sẵn.
 - **`report.md`** — mục *"Related changes, grouped"* ở đầu, **và** một dòng trong mục của từng finding. Dòng thứ hai mới quan trọng: bản Markdown là bản đi vào ticket, mà người ta paste một mục chứ không paste cái bảng.
+
+Cả hai chỗ trên chỉ có sau khi render lại: panel HTML là do process đang chạy dựng nên nên thấy ngay, còn hai file trên đĩa thì phải chạy lệnh `report` ở mục trên.
 
 Bảng **không gộp dòng, không giấu dòng, không đổi thứ tự** — mỗi finding vẫn một dòng, vẫn sắp theo điểm. Gom nhóm chỉ thêm một câu vào panel.
 
