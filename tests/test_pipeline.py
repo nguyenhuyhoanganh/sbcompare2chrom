@@ -1222,6 +1222,50 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("base", by_area)
 
 
+class TestTheMarkdownCarriesTheGroup(unittest.TestCase):
+    """`report.md` is the copy that travels.
+
+    A reader pastes one section of it into a ticket and that section is the
+    whole of what the next person sees. The table of groups at the top says
+    which findings belong together, and nobody pastes the table.
+    """
+
+    def _finding(self, key, score, group=None):
+        from chromedrift.model import Change, Finding
+        return Finding(
+            change=Change(change_type="modified", kind="mojo_method", key=key,
+                          name=key.split(".")[-1], signals=["ipc_signature_change"]),
+            score=score, bucket="breaking", reasons=["severity 80"],
+            enrichment={"cluster": group} if group else {})
+
+    def _detail(self, finding):
+        from chromedrift.report.markdown import _render_details
+        return _render_details([finding], "windows")
+
+    def test_a_fragment_says_so_and_points_at_the_heaviest(self):
+        text = self._detail(self._finding(
+            "blink.mojom.SubAppsService.Add", 15,
+            {"id": "x", "label": "[sub apps] change web api", "size": 7,
+             "kinds": [], "top_score": 80}))
+        self.assertIn("Part of a larger change", text)
+        self.assertIn("[sub apps] change web api", text)
+        self.assertIn("6 elsewhere in this report", text)
+        self.assertIn("The heaviest scores 80", text)
+
+    def test_the_heaviest_is_not_named_on_the_heaviest(self):
+        """Telling the top row of a group to go read the top row of its group
+        is noise."""
+        text = self._detail(self._finding(
+            "blink.mojom.SubAppsService.Add", 80,
+            {"id": "x", "label": "l", "size": 2, "kinds": [], "top_score": 80}))
+        self.assertIn("Part of a larger change", text)
+        self.assertNotIn("read that one first", text)
+
+    def test_a_lone_finding_says_nothing(self):
+        self.assertNotIn("Part of a larger change",
+                         self._detail(self._finding("blink.mojom.I.m", 80)))
+
+
 class TestAFragmentSaysItIsOne(unittest.TestCase):
     """The run works out which findings are fragments of one change, and
     `report.md` prints the groups. The table did not carry it at all.
@@ -5562,6 +5606,24 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
             state.resolve("base_feature:F")
         finally:
             gerrit.enrich = real
+
+    def test_a_lookup_updates_the_summary_the_markdown_reads(self):
+        """`report.md` takes its group table from the summary, which `run`
+        wrote once -- before any CL existed to group on. Re-rendering after a
+        session of lookups would print the run's groups over the lookups'
+        findings."""
+        from chromedrift import cluster, serve as serve_mod
+        from chromedrift.enrich import gerrit
+
+        real = gerrit.enrich
+        gerrit.enrich = lambda *a, **k: {"available": False}
+        try:
+            state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
+            state.report.summary = {"clusters": [{"label": "stale"}]}
+            state.resolve("base_feature:F")
+        finally:
+            gerrit.enrich = real
+        self.assertEqual(state.report.summary["clusters"], [])
 
     def test_a_lookup_regroups_the_report(self):
         """The CL rule can only fire once a lookup has brought the CLs in.

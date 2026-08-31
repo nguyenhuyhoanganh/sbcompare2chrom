@@ -164,7 +164,13 @@ class _State:
             # so the grouping is redone here. It fetches nothing: it reads
             # what the row already holds, and the pass over the report costs
             # less than the render that follows it.
-            cluster.annotate(self.report.findings)
+            groups = cluster.annotate(self.report.findings)
+            # The summary is where `report.md` reads the groups from, and it
+            # was written once by `run` -- before any CL existed to group on.
+            # Re-rendering the report after a session of lookups would have
+            # printed the run's groups over the lookups' findings.
+            if self.report.summary is not None:
+                self.report.summary["clusters"] = cluster.summarize(groups)
             self._page = None
             self._persist()
         return self._payload(finding)

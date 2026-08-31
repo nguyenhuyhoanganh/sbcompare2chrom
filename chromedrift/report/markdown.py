@@ -407,6 +407,7 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
         out.append(f"- Surface: {KIND_LABELS.get(change.kind, change.kind)} "
                    f"({change.change_type})")
         out.append(f"- Signals: {_signals(finding)}")
+        out.extend(_group_line(finding))
         # The place, not just the file. Every extractor computes a line number
         # and nothing used to carry it past the snapshot, so a Mojo method in a
         # 900-line .mojom cited the file and left the reader to find it.
@@ -445,6 +446,30 @@ def _render_details(findings: Sequence[Finding], platform: str) -> str:
     out.append("</details>")
     out.append("")
     return "\n".join(out)
+
+
+def _group_line(finding) -> List[str]:
+    """That this finding is one fragment of a larger change, and which row to
+    read first.
+
+    This file is the one that travels: a reader pastes a section of it into a
+    ticket, and what they paste is the whole of what the next person sees. A
+    parameter of an enabled feature reads here as a 15-point row in "New
+    surface" -- a bucket whose meaning is that nothing switches it on -- while
+    the feature it belongs to sits at 55 in a section further down. The table
+    of groups at the top of the report says so, and nobody pastes the table.
+    """
+    group = (finding.enrichment or {}).get("cluster") or {}
+    if group.get("size", 0) < 2:
+        return []
+    others = group["size"] - 1
+    line = (f"- Part of a larger change: **{_esc(group.get('label', ''))}** "
+            f"— {group['size']} findings in all, {others} elsewhere in this "
+            f"report")
+    top = group.get("top_score", 0)
+    if top > finding.score:
+        line += f". The heaviest scores {top}; read that one first"
+    return [line + "."]
 
 
 GERRIT_CL = "https://chromium-review.googlesource.com/c/chromium/src/+/"
