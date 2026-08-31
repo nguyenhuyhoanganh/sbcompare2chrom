@@ -875,14 +875,14 @@ class TestHtmlReportScales(unittest.TestCase):
         #    worth having the moment it passes for an answer.
         # Plus 30 whose stored answer a run baked an issue history into, which
         # a served page hides in favour of the chip on the CL.
-        self.assertIn("of 210", out["hasCl"])
+        self.assertIn("of 240", out["hasCl"])
         # 30 plain `exact`, 30 cited over a lookup that lost requests, and
         # 30 `introduced`. All three are a changed line tied to the
         # identifier; the last is the strongest verdict on the page, and
         # matching the word `exact` alone had left it out of the option for
         # strong evidence and filed it under "Has a CL" beside rows found by
         # a commit message.
-        self.assertIn("of 150", out["exactOnly"])
+        self.assertIn("of 180", out["exactOnly"])
         # 30 leads over diffs that were read, plus 30 over diffs the budget
         # declined. Both are leads; only the second can still be answered.
         self.assertIn("of 60", out["weakOnly"])

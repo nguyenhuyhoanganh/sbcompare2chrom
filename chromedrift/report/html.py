@@ -631,8 +631,14 @@ function applyProv(f,d){
    answer differs from the one already on screen, so a row that was already
    right does not repaint under the reader. */
 function provSig(f){
+  /* The group is in here because a row can gain one without its own CLs
+     changing at all: looking up a *different* row is what joins them, and the
+     row that gains a group that way is not the row being looked at. Left out,
+     the verified answer was assigned and the repaint skipped, so the panel
+     went on saying nothing until the next full page load. */
   return (f.cls||[]).map(function(c){return c.n+':'+c.m;}).join(',')
-    +'|'+(f.cl_pool||0)+'|'+(f.no_diffs?1:0);
+    +'|'+(f.cl_pool||0)+'|'+(f.no_diffs?1:0)
+    +'|'+(f.grp?f.grp.n+':'+f.grp.c+':'+f.grp.t:'');
 }
 function lookupBtn(f){
   return '<button class="lookup" data-uid="'+esc(f.id)+'">Look up the CL '+

@@ -130,6 +130,14 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     row.score = 15; row.bucket = 'new'; row.owner = 'frag';
     row.grp = { n: 'CastStreamingMaxVideoBitrate', c: 2, t: 55 };
   }
+  if (prov === 13) {
+    // Already resolved and not in a group. Looking up a *different* row is
+    // what joins them, so this row gains a group without its own CLs
+    // changing -- and it is not the row being looked at when that happens.
+    row.cl_pool = 5; row.cl_files = 1; row.owner = 'joined';
+    row.id = 'base_feature:Joined';
+    row.cls = [{ n: 8800001, d: '2026-06-01', s: 'a subject', m: 'exact', b: [] }];
+  }
   if (prov === 11) {
     // Baked too, but the server agrees with what is stored -- so nothing
     // repaints and what is asserted is the panel as it was first drawn.
@@ -203,6 +211,12 @@ global.fetch = url => {
     return settled({ ok: true, json: () => settled({ ok: true }) });
   // Only the baked row: every other row here is opened by a test that asserts
   // what it already holds, and answering for all of them replaces it.
+  // Same CLs it already holds, plus the group it has just been joined into.
+  if (/api\/why\?uid=base_feature%3AJoined$/.test(url))
+    return settled({ ok: true, json: () => settled(
+      { cls: [{ n: 8800001, d: '2026-06-01', s: 'a subject', m: 'exact', b: [] }],
+        cl_pool: 5, cl_files: 1,
+        grp: { n: '[sub apps] change web api', c: 2, t: 80 } }) });
   if (/api\/why\?uid=base_feature%3AAgrees$/.test(url))
     return settled({ ok: true, json: () => settled(
       { cls: [{ n: 8800000, d: '2026-06-01', s: 'a subject', m: 'exact',
@@ -507,6 +521,21 @@ out.aFragmentSaysSo = /Part of a larger change/.test(fragHtml);
 out.aFragmentNamesItsGroup = /CastStreamingMaxVideoBitrate/.test(fragHtml);
 // And points at the row worth reading first, which is the whole use of it.
 out.aFragmentNamesTheHeaviest = /scores <b>55<\/b>/.test(fragHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+
+// A row can gain a group without its own CLs changing: the lookup that joins
+// them is on another row. Left out of the signature, the answer was assigned
+// and the repaint skipped, and the panel said nothing until a page reload.
+els.fo.value = 'joined';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const joinedRow = new El('tr');
+joinedRow.className = 'row'; joinedRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? joinedRow : null) } }));
+const joinedHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.aRowJoinedByAnotherLookupRepaints = /Part of a larger change/.test(joinedHtml);
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
 
