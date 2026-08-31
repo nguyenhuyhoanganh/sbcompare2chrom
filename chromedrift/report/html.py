@@ -1089,10 +1089,10 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             row["cl_files"] = len([p for p in (change.paths or [])[:2]])
             # Set by the enricher and never mapped, so the panel's
             # `f.cl_read` was undefined on every row and the denominator it
-            # guards printed unqualified: a file with 510 candidates whose
-            # newest 500 were read said "1 of 510 merged CLs touched this
-            # file". The number found and the number opened are different
-            # claims and the row has room for both.
+            # guards printed unqualified, so a file whose newest N were read
+            # out of more than N read as though the whole list had been. The
+            # number found and the number opened are different claims and the
+            # row has room for both.
             if provenance.get("candidates_read"):
                 row["cl_read"] = provenance["candidates_read"]
             # How many were tied to this fact, when the list below was cut.

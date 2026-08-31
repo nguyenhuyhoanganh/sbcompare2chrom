@@ -716,7 +716,7 @@ class _Scanned:
            where the naming line ends in a comma and nothing after it ever ends
            in a `;`. Scanning forward could only run to the cap, so the region
            is instead the innermost block *enclosing* the name. Measured: that
-           picks 1 of the 510 CLs touching the file, and it is CL 7895296,
+           picks 1 of the 337 CLs touching the file, and it is CL 7895296,
            "Return empty styles for getComputedStyle() outside flat tree".
         """
         span = self.declaration_span(start)
@@ -907,7 +907,7 @@ def delta_tokens(change: Change) -> Tuple[Set[str], Set[str]]:
     *adds* a line saying `array<network.mojom.LinkHeader>`.
 
     Measured on `blink.mojom.TokenError.url`, where the fact's own name cannot
-    be searched for at all: 0 of 13 candidate CLs carry the name, and exactly
+    be searched for at all: 0 of 10 candidate CLs carry the name, and exactly
     one carries the after-value -- CL 7982397, "[FedCM] Modernize
     TokenError::url from string to url.mojom.Url".
 
@@ -1427,8 +1427,9 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
     # What the search actually found, before the per-file ceiling trimmed it.
     # The
     # row prints "N of M merged CLs touched this file", and M was the trimmed
-    # number -- so a file with 510 candidates read as though it had 500, which
-    # is the one kind of rounding this stage is not allowed to do.
+    # number -- so a file trimmed to the ceiling read as though the ceiling
+    # were the whole count, which is the one kind of rounding this stage is
+    # not allowed to do.
     total_found: Dict[str, int] = {}
 
     def candidates(path: str) -> List[dict]:

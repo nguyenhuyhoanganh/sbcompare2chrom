@@ -37,7 +37,7 @@ File khai báo là **tài sản chung**. Đo trên khoảng giữa hai điểm n
 | File khai báo | Số CL đã merge chạm vào nó |
 |---|---|
 | `chrome/browser/about_flags.cc` | 500 |
-| `third_party/blink/.../runtime_enabled_features.json5` | 510 |
+| `third_party/blink/.../runtime_enabled_features.json5` | 337 |
 | `content/public/common/content_features.cc` | 62 |
 
 Đưa cho người đọc 500 CL cho một cái flag còn tệ hơn không đưa gì — nó biến một câu trả lời thành một việc phải làm. Vì vậy file **chỉ sinh ra ứng viên**, và ứng viên sau đó bị lọc bằng câu hỏi: *diff của chính CL đó, trên chính file đó, có nhắc tới identifier này không?*
@@ -81,11 +81,18 @@ verdict: introduced / exact / moved / declares / described / crowded / touched
 _prune()  — bỏ trùng, xếp hạng, cắt còn tối đa 12, sắp cũ trước
        │
        ▼
-bugs_in(message)  →  issue_meta()  →  issue_history()
-   footer Bug:/Fixed:   tiêu đề + có mở được không   các CL khác cùng issue
+bugs_in(message)   — footer Bug:/Fixed:, miễn phí trong kết quả tìm kiếm
        │
        ▼
 finding.enrichment["gerrit"]  →  panel trong HTML, và các dòng trong report.md
+
+       ╌╌ tới đây là hết một lượt tra dòng ╌╌
+
+người đọc bấm chip issue trên một CL
+       │
+       ▼
+issue_meta()  →  issue_history()
+   tiêu đề + có mở được không   các CL khác cùng cite issue đó
 ```
 
 Các mục dưới đây đi qua từng chặng.
@@ -114,7 +121,7 @@ Truy vấn ứng viên là một câu hỏi theo file, giới hạn trong cửa 
 
 Nên một truy vấn trả về đúng ở mức trần là một truy vấn **chưa được chứng minh**. ChromeDrift chẻ đôi cửa sổ và hỏi lại cho tới khi xác lập được con số. Đo trên `about_flags.cc`: hỏi nguyên khối trả về 500; chẻ ba trả về 130 + 196 + 174 = 500. Cái đó đúng là 500 thật — nhưng **phép chẻ mới là thứ chứng minh điều đó**, và nếu không chẻ thì con số 500 và con số 1.500 sẽ trông y hệt nhau.
 
-Khi danh sách vẫn bị cắt, panel in **cả hai số**: `510 merged CLs touched this file · 500 of them read`. Tìm thấy và đã đọc là hai con số khác nhau, và khoảng cách giữa chúng chính là chỗ một CL bị thiếu sẽ nằm.
+Khi danh sách vẫn bị cắt, panel in **cả hai số**. `chrome/browser/flag-metadata.json` bị **662** CL chạm vào trên cặp này, và chỉ 500 cái mới nhất được đọc — nên một dòng khai báo trong đó hiện `3 of 662 merged CLs touched this file · 500 of them read`. Tìm thấy và đã đọc là hai khẳng định khác nhau, và khoảng cách giữa chúng chính là chỗ một CL bị thiếu sẽ nằm.
 
 ## Bước 3 — Lọc ứng viên bằng chính diff của CL
 
@@ -148,7 +155,7 @@ struct TokenError {
 };
 ```
 
-Nó không bao giờ viết chuỗi `blink.mojom.TokenError.url`, còn `url` thì quá ngắn để tìm. Hệ quả trước khi có verdict này: 13 diff được đọc để tìm một chuỗi **không thể xuất hiện trong bất kỳ diff nào**, và kết quả được báo là *"không CL nào sửa dòng mang identifier này"* — đúng về mặt kỹ thuật, và sai lệch nghiêm trọng về mặt ý nghĩa.
+Nó không bao giờ viết chuỗi `blink.mojom.TokenError.url`, còn `url` thì quá ngắn để tìm. Hệ quả trước khi có verdict này: 10 diff được đọc để tìm một chuỗi **không thể xuất hiện trong bất kỳ diff nào**, và kết quả được báo là *"không CL nào sửa dòng mang identifier này"* — đúng về mặt kỹ thuật, và sai lệch nghiêm trọng về mặt ý nghĩa.
 
 Câu trả lời vốn đã nằm sẵn trong báo cáo và chưa bao giờ được tiêu. Một `Change` không chỉ gọi tên declaration — nó ghi lại **hai trạng thái** của declaration đó:
 
@@ -166,7 +173,7 @@ Ba điều kiện làm cho nó không sinh ra kết quả rác:
 
 Đo trên 102 finding của một lát cắt M148 → M151 thật: **39 CL đạt `introduced`**, **33 dòng vốn đã có câu trả lời nay có câu sắc hơn**, và **30 trong 33 finding nó giải quyết được quy về đúng một CL**.
 
-`TokenError.url` giờ đọc ra CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"* — dù **không một CL nào trong 13 ứng viên mang cái tên đó**.
+`TokenError.url` giờ đọc ra CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"* — dù **không một CL nào trong 10 ứng viên mang cái tên đó**.
 
 ### `declares` — và bài học "không có bán kính nào đúng"
 
@@ -188,7 +195,7 @@ Kết luận: **không có bán kính nào đúng**, vì bài toán không phả
 | `Type name;` | đúng một dòng |
 | không có gì đóng cả | block **trong cùng bao quanh** cái tên |
 
-Trường hợp cuối là `runtime_enabled_features.json5`: nó đặt tên feature bên trong một record `{ … },` và không có gì phía sau kết thúc bằng `;`. Riêng quy tắc đó chọn ra **1 trong 510 CL** chạm file đó, và đó là CL 7895296, *"Return empty styles for getComputedStyle() outside flat tree"*.
+Trường hợp cuối là `runtime_enabled_features.json5`: nó đặt tên feature bên trong một record `{ … },` và không có gì phía sau kết thúc bằng `;`. Riêng quy tắc đó chọn ra **1 trong 337 CL** chạm file đó, và đó là CL 7895296, *"Return empty styles for getComputedStyle() outside flat tree"*.
 
 Vùng quét bị chặn ở 60 dòng, để một file mà scanner không hiểu cú pháp không thể làm bước này thành bậc hai. Một declaration dài hơn thế thì cũng không phải thứ quy trách nhiệm được.
 
@@ -339,7 +346,7 @@ Cùng chỗ này từng có một lỗi trình bày đáng ghi lại, vì nó l�
 2. bao nhiêu trong số đó được một diff buộc vào Fact này;
 3. bao nhiêu cái được in ra.
 
-Panel in **cái thứ ba đối chiếu cái thứ nhất, như thể nó là cái thứ hai**. `runtime_enabled_features.json5` hiện `1 of 510 merged CLs touched this file` trên một cuộc tìm chỉ mở 500 cái mới nhất; `NtpComposebox` hiện `8 of 19` trên một dòng mà 15 cái khớp và 7 cái bị cắt, không có gì nói rằng danh sách đã bị cắt.
+Panel in **cái thứ ba đối chiếu cái thứ nhất, như thể nó là cái thứ hai**. `runtime_enabled_features.json5` hiện `1 of <toàn bộ>` trên một cuộc tìm chỉ mở phần mới nhất; `NtpComposebox` hiện `8 of 19` trên một dòng mà 15 cái khớp và 7 cái bị cắt, không có gì nói rằng danh sách đã bị cắt.
 
 Khối issue nằm ngay dưới một panel đã làm đúng chuyện này ngay từ đầu — *"11 CLs cite it, newest 8 shown"*.
 
@@ -395,8 +402,8 @@ Hoá đơn được quyết định bởi **file khai báo bận đến đâu**,
 |---|---|
 | Một báo cáo 3.022 finding, chưa mở dòng nào | **0 request** |
 | Một dòng điểm 45, cache lạnh | **5,7 giây** |
-| File trung vị trong một top-300 thật | 13 CL ứng viên |
-| Hai file bận nhất cả cây | 500 và 510 CL |
+| File trung vị, mẫu 183 dòng đủ 16 loại | 8 CL ứng viên |
+| Ba file bận nhất | 662 · 500 · 337 CL |
 | Trần mặc định mỗi cú click | 600 diff |
 
 Trần 600 được đặt hào phóng có chủ ý. Ngân sách của một lần chạy được rải lên hàng trăm dòng chưa ai hỏi; một cú click là **một dòng có người hỏi**, nên từ chối nó để người đọc không còn chỗ nào đi — bấm lại chỉ nhận đúng lời từ chối đó.
@@ -405,7 +412,9 @@ Mọi thứ được cache **vĩnh viễn**, vì một CL đã merge thì không
 
 **Câu trả lời cũ được hỏi lại, không phục vụ lại.** Không tra lại chính là thứ làm cú bấm thứ hai vào một dòng trở nên tức thì — và cái giá của nó là một report sống lâu hơn cái bug nó được sinh ra dưới. Hai lỗi đã biết đều **nhìn thấy được ngay trong dữ liệu đã lưu**, nên không cần cờ hay số phiên bản: một CL không có dấu thời gian submit là CL từng bị sắp theo ngày, và một CL có ngày sau khi bản đích tách nhánh thì không nằm trong cây đó.
 
-Đo trên một report thật: **16 trong 60 dòng đã tra** đang trích loại thứ hai. `blink.mojom.TokenError.url` — chính ví dụ chủ lực của tài liệu này — đang đứng đầu bằng một CL dọn dẹp land một tuần *sau* khi M151 tách nhánh; sau khi hỏi lại, nó đứng đầu bằng CL 7982397 với verdict `introduced`.
+**Phép kiểm chạy lúc bạn mở dòng ra.** Một dòng đã có CL thì không hiện nút tra cứu, nên nếu không kiểm ở đây thì không có gì trên trang gọi được server về nó nữa — câu trả lời sai sẽ được phục vụ mãi. Mở dòng là một round trip tới localhost; server trả lại đúng cái nó đang giữ nếu còn tốt, không tốn request Gerrit nào. Dòng **chưa** tra thì không tự hỏi: tra một dòng tốn request thật, và đó là việc của cái nút.
+
+Đo trên một report thật: **16 trong 60 dòng đã tra** đang trích loại thứ hai. `blink.mojom.TokenError.url` — chính ví dụ chủ lực của tài liệu này — đang đứng đầu bằng một CL dọn dẹp land **ba ngày** *sau* khi M151 tách nhánh; sau khi hỏi lại, nó còn 2 CL và đứng đầu bằng CL 7982397 với verdict `introduced`.
 
 Kết quả tra cứu được **ghi ngược lại `report.json`**, ghi nguyên tử qua một file tạm cùng thư mục. Trang được render từ bản báo cáo mà process này đang giữ, chứ không đọc lại từ đĩa, nên reload thấy đúng những gì các cú click đã tìm ra và restart cũng vậy. Một buổi triage không mất vì đóng terminal. `--no-save` để tắt.
 
@@ -451,7 +460,7 @@ Một dòng có CL và một dòng không có CL **trông giống hệt nhau** t
 
 Một vạch 3px trên ô điểm nói cùng điều đó trong khi cuộn. Bộ lọc này **ẩn** trên một báo cáo chưa tra cứu gì và tự hiện ra ngay khi server trả lời hoặc lượt tra cứu đầu tiên land — nó không chiếm chỗ trên một báo cáo mà nó chưa có gì để nói.
 
-Mỗi dòng hiện **mọi issue mà các CL của nó cite**, bận rộn nhất trước, chứ không phải cái đầu tiên tình cờ sắp cao nhất: một flag từng launch, revert và reland thường cite ba issue, và chọn một cái làm câu trả lời khiến kết quả phụ thuộc vào thứ tự sắp xếp.
+Mỗi CL trên dòng **gọi tên được issue của nó** — footer `Bug:` đến miễn phí trong kết quả tìm kiếm — nên một flag từng launch, revert và reland hiện đủ cả ba issue nó cite, chứ không phải một cái tình cờ sắp cao nhất. Còn *lịch sử* của một issue thì chỉ tải khi bạn bấm vào chip của đúng CL bạn tin, như mục trên đã nói.
 
 ### Trong `report.md`
 

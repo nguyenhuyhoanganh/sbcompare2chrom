@@ -490,9 +490,10 @@ def _provenance_lines(finding) -> List[str]:
         cut = (f", newest {len(changes)} shown"
                if matched > len(changes) else "")
         # Found and opened are different numbers, and the gap is where a
-        # missing CL would be. A file with 510 candidates whose newest 500
-        # were read said "1 of 510 merged CLs touched this file" in both
-        # reports; the line a reader pastes into a ticket has to carry it.
+        # missing CL would be. A file whose newest N were read out of more
+        # than N said "1 of <all of them> merged CLs touched this file" in
+        # both reports; the line a reader pastes into a ticket has to carry
+        # the difference.
         read = block.get("candidates_read")
         seen = f", {read} of them read" if read else ""
         head = (f"{what} ({matched} of {pool} merged CLs "

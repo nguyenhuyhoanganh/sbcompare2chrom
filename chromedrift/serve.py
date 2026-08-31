@@ -49,8 +49,11 @@ _LOCK = threading.Lock()
 # over hundreds of rows nobody asked for; a click is one row somebody did, so
 # declining it leaves the reader nowhere -- pressing the button again returns
 # the same refusal. 600 covers every declaration file measured, the busiest
-# being runtime_enabled_features.json5 at 510 CLs and about_flags.cc at 500.
-# Typical is far below it: the median file in a real top-300 has 13.
+# being flag-metadata.json at 662 CLs, about_flags.cc at 500 and
+# runtime_enabled_features.json5 at 337 -- and the first of those is itself
+# trimmed to 500 by the per-file ceiling before any diff is read. Typical is
+# far below: across a stratified sample of all sixteen kinds the median file
+# has 8.
 CLICK_BUDGET = 600
 
 _ALLOWED = {"report.html": "text/html; charset=utf-8",
