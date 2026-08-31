@@ -1714,8 +1714,12 @@ def enrich(findings: List[Finding], from_ref: str, to_ref: str, cache_dir: str,
         log(f"  ! gerrit: {len(restricted)} of {len(chosen)} linked issue(s) "
             f"are access-restricted and will not open without Google "
             f"credentials; they are marked in the report")
-    if dropped_issues:
-        log(f"  ! gerrit: --gerrit-issues stopped at {with_history}, so "
+    # A ceiling of zero is a caller deferring the issues, not falling short of
+    # them: `serve` shows every issue the CLs name and fetches the history
+    # behind one when the reader picks it. Warning there reports a design as a
+    # shortfall, on every single lookup.
+    if dropped_issues and with_history:
+        log(f"  ! gerrit: the issue ceiling stopped at {with_history}, so "
             f"{dropped_issues} issue(s) were not looked up")
     if skipped:
         log(f"  ! gerrit: the diff budget stopped at {budget}, so "

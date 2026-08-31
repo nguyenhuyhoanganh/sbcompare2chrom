@@ -378,13 +378,28 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
     say(f"  expanding a row without a CL looks one up, reading at most "
         f"{budget} diffs")
     say(f"  lookups are {'saved back to report.json' if save else 'not saved'}")
-    say("  ctrl-c to stop")
+    say("  ctrl-c to stop, and it will say how to fold what you found back "
+        "into report.md")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        log(f"\nstopped after resolving {state.resolved} row(s)"
+        # `say`, not `log`: this is the last thing the process does, and with
+        # stdout going anywhere but a terminal a plain print dies in the
+        # buffer. The start-up lines learned that already.
+        say(f"\nstopped after resolving {state.resolved} row(s)"
             + (f"; {os.path.join(state.directory, 'report.json')} holds them"
                if save and state.resolved else ""))
+        # `report.md` and `report.html` on disk are what a session leaves
+        # behind for anyone who was not at the keyboard, and neither is
+        # rewritten here -- overwriting a file the reader may have open, or
+        # edited, is worse than leaving it a command away. Nobody guesses the
+        # command, though, so it is printed at the one moment it is wanted.
+        if save and state.resolved:
+            say(f"  the CLs, the issues and the groups they formed reach "
+                f"report.md and report.html with:")
+            say(f"    python3 -m chromedrift report "
+                f"{os.path.join(state.directory, 'report.json')} "
+                f"--format both")
     finally:
         httpd.server_close()
     return 0

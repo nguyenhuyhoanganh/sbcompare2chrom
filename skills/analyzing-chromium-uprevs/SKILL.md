@@ -163,11 +163,20 @@ into a score:
 
 The last two name no fact. Never quote them as the cause; say what they are.
 
-Lookups are written back to `report.json`, so they survive a restart and reach
-`report.md` on a re-render. `--click-budget N` caps diffs read per row
-(default 600), `--no-save` leaves the file alone. An issue's history is not
-fetched with the row: click the issue on the CL you believe, and it opens
-under that CL.
+Lookups are written back to `report.json`, so they survive a restart. They
+reach `report.md` and `report.html` only on a re-render, which `serve` does not
+do for you — it prints the command when you stop it:
+
+```bash
+python3 -m chromedrift report out/report.json --format both
+```
+
+Do that before quoting a report to anyone: what you found by clicking is in
+the JSON, and the two files on disk are still the ones the run wrote.
+
+`--click-budget N` caps diffs read per row (default 600), `--no-save`
+leaves the file alone. An issue's history is not fetched with the row:
+click the issue on the CL you believe, and it opens under that CL.
 
 **A restricted issue is normal and not a failure.** Around four in ten linked
 issues answer HTTP 403 — they sit in a security, abuse or Google-internal

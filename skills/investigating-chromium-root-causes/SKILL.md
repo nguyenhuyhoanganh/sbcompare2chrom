@@ -86,6 +86,18 @@ what is stored. Options:
 | `--save` | off | you want the answer written back into `report.json` |
 | `--json` | off | you need the raw block rather than prose |
 
+What a `serve` session finds is saved to `report.json` and nowhere else.
+`report.md` and `report.html` on disk are still what the run wrote, so
+re-render before handing either to anyone:
+
+```bash
+python3 -m chromedrift report out/M148_to_M151/report.json --format both
+```
+
+That is also what puts the groupings in: findings sharing a CL are joined when
+the lookup brings the CL in, and `report.md` names the group in each finding's
+own section — the part a reader pastes into a ticket.
+
 It needs network access to `chromium-review.googlesource.com`. `python3 -m
 chromedrift check` verifies that host.
 

@@ -298,6 +298,13 @@ def _incomplete_reason(snapshot) -> str:
     return " and ".join(reasons)
 
 
+# One clean fetch of the default target set costs 79 MB for a single version
+# (36 MB of trees, 32 MB of directory listings, 12 MB of snapshot), so a pair
+# costs about this much. The wide set roughly doubles it. README quotes the
+# same number; a test keeps the two together.
+PAIR_DISK_MB = 150
+
+
 def cmd_check(args: argparse.Namespace) -> int:
     """Verify a fresh machine can actually run the pipeline.
 
@@ -332,7 +339,8 @@ def cmd_check(args: argparse.Namespace) -> int:
         free = shutil.disk_usage(args.cache).free // (1024 ** 3)
         report(f"{os.path.abspath(args.cache)} writable", True, f"{free} GB free")
         if free < 2:
-            print("        note: a two-version run needs roughly 250 MB")
+            print("        note: two versions on the default target set take"
+                  f" roughly {PAIR_DISK_MB} MB; --target-set wide about doubles it")
     except OSError as exc:
         report(f"{args.cache} writable", False, str(exc))
 

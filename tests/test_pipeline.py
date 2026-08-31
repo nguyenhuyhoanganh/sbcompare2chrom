@@ -5528,6 +5528,43 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         self.assertEqual(sorted(re.findall(r"'([^']+)'", block.group(1))),
                          sorted(PROVENANCE_KEYS))
 
+    def test_stopping_says_how_to_get_what_you_found_into_the_report(self):
+        """A session's findings go to `report.json` and nowhere else.
+
+        Rewriting `report.md` from under a reader who may have it open is
+        worse than leaving it a command away -- but nobody guesses the
+        command, so it is printed at the one moment it is wanted.
+        """
+        import shutil
+
+        from chromedrift import serve as serve_mod
+
+        directory = self._dir()
+        lines = []
+        real_server, real_state = (serve_mod.ThreadingHTTPServer,
+                                   serve_mod._State)
+
+        class _Stops(real_server):
+            def serve_forever(self, *a, **k):
+                raise KeyboardInterrupt
+
+        class _Found(real_state):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                self.resolved = 3
+
+        serve_mod.ThreadingHTTPServer, serve_mod._State = _Stops, _Found
+        try:
+            serve_mod.serve(directory, tempfile.mkdtemp(), log=lines.append)
+        finally:
+            (serve_mod.ThreadingHTTPServer,
+             serve_mod._State) = real_server, real_state
+        text = "\n".join(lines)
+        self.assertIn("stopped after resolving 3 row(s)", text)
+        self.assertIn("chromedrift report", text)
+        self.assertIn("--format both", text)
+        self.assertIn(os.path.join(directory, "report.json"), text)
+
     def test_an_issue_id_has_to_be_one(self):
         """The route takes a number and nothing else.
 
@@ -7116,3 +7153,78 @@ class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
         # And the page it re-renders carries them, so a reader who never
         # clicks again still sees what the last session found.
         self.assertIn(b'"touched"', reopened.page())
+
+
+class TestPrintedCommandsExist(unittest.TestCase):
+    """A command the project shows a reader has to be one the CLI accepts.
+
+    Three names reached users that the tool never had: `--gerrit-max-cls`,
+    `--gerrit-issues` and a `why` subcommand. Each was written into a docstring
+    or a warning, each read as an instruction, and each sent whoever followed it
+    into an argparse error. Nothing checked them, because the check needs the
+    parser and the prose in the same place, which no single test had been.
+    """
+
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    SKIP = {".git", ".chromedrift-cache", "out", "__pycache__", "node_modules"}
+    # How the project writes a command: run it, or quote it in backticks.
+    COMMAND = re.compile(r"(?:python3 -m chromedrift|`chromedrift)\s+([a-z]+)"
+                         r"((?:\s+[^`\n|)]*)?)")
+
+    def _texts(self):
+        for dirpath, dirnames, filenames in os.walk(self.ROOT):
+            dirnames[:] = [d for d in dirnames if d not in self.SKIP]
+            for name in filenames:
+                if not name.endswith((".py", ".md", ".html")):
+                    continue
+                path = os.path.join(dirpath, name)
+                try:
+                    with open(path, encoding="utf-8") as fh:
+                        yield os.path.relpath(path, self.ROOT), fh.read()
+                except (UnicodeDecodeError, OSError):
+                    continue
+
+    def _parser_shape(self):
+        import argparse
+
+        from chromedrift import cli
+        parser = cli.build_parser()
+        shape = {}
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                for name, sub in action.choices.items():
+                    flags = set()
+                    for a in sub._actions:
+                        flags.update(a.option_strings)
+                    shape[name] = flags
+        return shape
+
+    def test_every_command_the_project_prints_is_one_the_cli_accepts(self):
+        shape = self._parser_shape()
+        self.assertIn("serve", shape)  # the scan is worthless if this is empty
+        wrong, seen = [], 0
+        for path, text in self._texts():
+            for line_no, line in enumerate(text.splitlines(), 1):
+                for match in self.COMMAND.finditer(line):
+                    sub, rest = match.group(1), match.group(2) or ""
+                    seen += 1
+                    where = "%s:%d  %s" % (path, line_no, match.group(0).strip())
+                    if sub not in shape:
+                        wrong.append("%s -> no `%s` subcommand" % (where, sub))
+                        continue
+                    for flag in re.findall(r"--[a-z][a-z0-9-]*", rest):
+                        if flag not in shape[sub]:
+                            wrong.append("%s -> `%s` has no %s"
+                                         % (where, sub, flag))
+        self.assertGreater(seen, 20, "the scan found no commands to check")
+        self.assertEqual([], wrong, "\n".join(wrong))
+
+    def test_the_disk_note_and_the_readme_agree(self):
+        # Measured on a clean fetch, so the two places that quote it must not
+        # drift apart the way the two of them already had.
+        from chromedrift import cli
+        readme = os.path.join(self.ROOT, "README.md")
+        with open(readme, encoding="utf-8") as fh:
+            rows = [ln for ln in fh if "Free disk" in ln]
+        self.assertEqual(1, len(rows), "README lost its free-disk row")
+        self.assertIn(str(cli.PAIR_DISK_MB), rows[0])
