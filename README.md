@@ -282,11 +282,18 @@ route  --names its guard-->  gate  --names its feature-->  base_feature
 control  --names its label-->  route
 feature_param  --names its owning feature-->  base_feature
 blink  --names its base_feature-->  base_feature
+finding  --was changed by-->  CL  <--was changed by--  finding
 ```
 
 Each arrow is a real field. The seventh fragment — `blink_runtime LocalNetworkAccessSplitPermissions` — deliberately stands apart, because its fact declares `base_feature: "none"`: Chromium is saying outright that this flag has no matching C++ feature. A similar name is not a relationship.
 
-On the M148 → M151 run: **72 clusters, the largest 7 fragments**. The report has a *Related changes, grouped* section ordered by the highest score in each cluster.
+**The last arrow is the one that reaches the top of the report.** The four above it join on a link Chromium writes *in the source*, and between a `.mojom` and an `.idl` no such link is ever written — so they group a feature with its parameters, which is the bottom of the ranking, and almost nothing else. On the M148 → M151 run they build 72 clusters covering 183 of 3,022 findings, and of the 150 highest-scoring findings they reach **6**.
+
+A shared CL is the same evidence recorded somewhere else: the author wrote one change and it landed across several declarations, and the CL number is Chromium saying so. With the top 150 resolved it reaches **84** of them and takes the whole report to 261. Measured on that run, **9 of the 20 highest-scoring rows** are a second or fifth telling of a change already on screen — one CL introducing a mixin takes 14 rows, `[sub apps] change web api` takes 7 across three kinds.
+
+Only the CL, never the issue: one issue on that run carries 24 CLs across unrelated surfaces. Only verdicts that name the fact, never `crowded` or `touched`, which name the declaring file — `about_flags.cc` alone would put five hundred findings in one group. And the grouping runs where its evidence arrives, which is a lookup: `run` asks Gerrit nothing, so on a report nobody has looked anything up in this arrow is silent and the other four are the whole of it.
+
+The report has a *Related changes, grouped* section ordered by the highest score in each cluster, and every finding's own section says whether it is a fragment and what the heaviest thing in its group scores — because that section is what a reader pastes into a ticket, and the table is not.
 
 ---
 

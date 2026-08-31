@@ -18,7 +18,7 @@ Bảy tài liệu dưới đây trả lời bảy nhóm câu hỏi độc lập 
 | 4 | [Fact và cách trích xuất](<04 - Fact và cách trích xuất.md>) | Một khai báo trong source biến thành dữ liệu so sánh được bằng cách nào? |
 | 5 | [So sánh, chấm điểm và phân loại](<05 - Cách so sánh, chấm điểm và phân loại.md>) | Vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm? |
 | 6 | [Skill và cách hỗ trợ từng nhóm](<06 - Skill và cách hỗ trợ từng nhóm.md>) | Một AI agent có thể tạo báo cáo riêng cho từng team không, và tới mức nào? |
-| 7 | [Truy nguyên CL và issue](<07 - Truy nguyên CL và issue.md>) | Ai đã tạo ra thay đổi này, và họ đang sửa cái gì? |
+| 7 | [Truy nguyên CL và issue](<07 - Truy nguyên CL và issue.md>) | Ai đã tạo ra thay đổi này, họ đang sửa cái gì, và những dòng nào thật ra là cùng một thay đổi? |
 
 Sáu tài liệu đầu nói về việc **cái gì đã đổi** — đó là phần công cụ trả lời được chỉ bằng hai cây source. Tài liệu thứ bảy là phần còn lại: nó hỏi Gerrit, review server của chính Chromium, để tìm ra CL đã tạo ra thay đổi và issue đứng sau CL đó. Nó cần mạng và được tách thành một lệnh riêng, vì một báo cáo vẫn đáng đọc khi không có nó.
 

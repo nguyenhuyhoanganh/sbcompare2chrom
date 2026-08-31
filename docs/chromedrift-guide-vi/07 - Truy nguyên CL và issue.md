@@ -450,6 +450,65 @@ Trang gọi `/api/ping` **đúng một lần lúc load** và chỉ bật đườ
 
 Đây cũng là cái bẫy hay gặp nhất với người dùng mới, kể cả AI agent: mở `report.html` bằng cách bấm đúp vào file, thấy tra cứu không hoạt động, rồi báo cáo rằng tính năng bị hỏng. Nó không hỏng — nó đang ở đúng chế độ mà origin `file://` cho phép.
 
+## Một CL nối các dòng lại với nhau
+
+Đây là thứ mà việc tra CL cho không, ngoài câu trả lời cho từng dòng.
+
+Một thay đổi của Chromium thường land qua **nhiều khai báo cùng lúc**, và report hiện ra thành nhiều dòng rời. Người đọc mở từng dòng, đọc từng lần, rồi mới nhận ra đó là **một** chuyện.
+
+```
+CL 7957918  "[sub apps] change web api"
+   mojo_method:blink.mojom.SubAppsService.Add        80 điểm
+   mojo_method:blink.mojom.SubAppsService.List       80
+   idl_interface:SubAppsAddParams                    70
+   idl_member:SubAppsAddParams.installURL            70
+   ...  7 dòng, 3 loại fact
+```
+
+### Vì sao luật cũ không thấy được
+
+`cluster.py` vốn đã gom nhóm, nhưng chỉ theo **liên kết Chromium tự khai báo trong source**: một `webui_gate` nhắc tên một `base_feature`, một `feature_param` nhắc feature cha, một control nhắc trang nó thuộc về. Comment trong code nói thẳng nguyên tắc — *chỉ nối theo liên kết Chromium thật sự khai báo; suy từ tên giống nhau là đoán mò*.
+
+Nguyên tắc đó **đúng**, nhưng nó giới hạn việc gom vào bề mặt WebUI. Giữa một file `.mojom` và một file `.idl`, **Chromium không viết ra liên kết nào cả**.
+
+Hậu quả đo được trên M148 → M151: luật cũ gom được 183 trong 3.022 dòng, mà **143 nhóm trong đó là feature + param của nó** — tức là đáy bảng xếp hạng. Trong 150 dòng điểm cao nhất, nó với tới **6**.
+
+### CL là cùng loại bằng chứng, ghi ở chỗ khác
+
+Tác giả viết **một** thay đổi, nó land qua nhiều khai báo, và **số CL là chính Chromium nói vậy**. Không phải đoán theo tên giống nhau — đúng chuẩn mà luật cũ tự đặt ra cho mình, chỉ là ở một nguồn nó chưa được nối vào.
+
+| | Luật cũ | Thêm luật CL |
+|---|---:|---:|
+| Trong 150 dòng điểm cao nhất | 6 | **84** |
+| Toàn report | 183 | **261** |
+
+Và nó quan trọng nhất **đúng chỗ người đọc đang nhìn**: trong **20 dòng đầu bảng, 9 dòng** là bản kể lại của một thay đổi đã có trên màn hình. Một CL đưa vào một mixin chiếm **14 dòng**.
+
+### Ba ràng buộc, mỗi cái có lý do đo được
+
+- **Chỉ CL, không dùng issue.** Một issue trong lần chạy này mang 24 CL trải khắp các bề mặt không liên quan — gom theo issue sẽ ra một cụm không ai đọc nổi.
+- **Chỉ verdict gọi tên fact**, không dùng `crowded`/`touched`. Chúng gọi tên **file**; riêng `about_flags.cc` sẽ nhét 500 finding vào một cụm.
+- **Trần 20 dòng một nhóm** — và đây là *hàng rào phòng xa, không phải số đo*. Dữ liệu không cần nó: nhóm chạy 2–7 dòng và đúng một nhóm 14. Thứ tạo nhóm sai to nhất — một CL reformat khớp hàng chục khai báo — đã bị chặn ở tầng trên, vì Gerrit đánh dấu reformat là `common: true` và tool không tính nó là dòng đã đổi.
+
+### Nó chạy lúc nào
+
+**Lúc bạn bấm tra một dòng.** `run` không hỏi Gerrit câu nào, nên trên một report chưa tra gì thì luật CL im lặng hoàn toàn và bốn luật cũ là tất cả. Nhóm **lớn dần** theo lúc bạn khám phá:
+
+```
+tra dòng 1  → (chưa có nhóm)
+tra dòng 2  → 2 findings in all
+tra dòng 3  → 3 findings in all. The heaviest scores 80, read that one first.
+```
+
+Nó **không lấy gì thêm** — chỉ đọc CL mà dòng đó đã có. Chi phí 2 ms cho cả 3.022 dòng.
+
+### Nhìn thấy ở đâu
+
+- **Bảng HTML** — mở một dòng ra, panel nói ngay trên phần bằng chứng: *"Part of a larger change — [sub apps] change web api, 3 findings in all. The heaviest of them scores 80, so read that one first."* Nhãn lấy từ **tiêu đề CL chung**, vì tác giả đã đặt tên sẵn.
+- **`report.md`** — mục *"Related changes, grouped"* ở đầu, **và** một dòng trong mục của từng finding. Dòng thứ hai mới quan trọng: bản Markdown là bản đi vào ticket, mà người ta paste một mục chứ không paste cái bảng.
+
+Bảng **không gộp dòng, không giấu dòng, không đổi thứ tự** — mỗi finding vẫn một dòng, vẫn sắp theo điểm. Gom nhóm chỉ thêm một câu vào panel.
+
 ## Đọc panel và các bộ lọc
 
 ### Bộ lọc thứ năm trong bảng HTML

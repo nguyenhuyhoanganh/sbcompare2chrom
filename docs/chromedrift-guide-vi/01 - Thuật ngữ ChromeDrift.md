@@ -507,6 +507,17 @@ Hai bước bổ sung ngữ cảnh, không ảnh hưởng tới điểm số:
 - `enrichment`: thêm ngữ cảnh từ nguồn ngoài, ví dụ metadata từ ChromeStatus khi được bật.
 - `cluster`: gom các finding có liên quan lại, để người đọc thấy một đợt migration như một câu chuyện liền mạch, thay vì mấy dòng rời rạc không hiểu vì sao lại xuất hiện cùng lúc.
 
+Việc gom chỉ dựa trên **liên kết mà Chromium tự khai báo**, không suy từ tên giống nhau. Có hai nguồn khai báo:
+
+| Nguồn | Ví dụ |
+|---|---|
+| Trong source | một `webui_gate` nhắc tên một `base_feature`; một `feature_param` nhắc feature cha của nó |
+| **Trên Gerrit** | hai finding **cùng một CL** — tác giả viết một thay đổi, nó land qua nhiều khai báo |
+
+Nguồn thứ hai mới với tới được đỉnh report: giữa một file `.mojom` và một file `.idl`, Chromium **không viết ra liên kết nào trong source cả**. Đo trên M148 → M151: luật trong source gom được 6 trong 150 dòng điểm cao nhất; thêm luật CL thì lên 84.
+
+Nó chỉ chạy khi có dữ liệu tra cứu — `run` không hỏi Gerrit nên luật CL im lặng, chỉ khi bạn bấm tra một dòng thì nhóm mới hình thành. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).
+
 ### Báo cáo dạng JSON, Markdown và HTML
 
 Cùng một dữ liệu, ba định dạng cho ba mục đích:

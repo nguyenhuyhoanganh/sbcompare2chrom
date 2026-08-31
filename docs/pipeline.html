@@ -1626,6 +1626,24 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       a web-platform feature declares its matching C++ flag. Because those links are
       facts rather than guesses, the resulting group is <b>exact</b>, not approximate.
     </p>
+    <p>
+      Those links are written <i>in the source</i>, and between a <code>.mojom</code>
+      and an <code>.idl</code> Chromium never writes one — so they group a feature
+      with its parameters, which is the bottom of the ranking, and reach <b>6 of the
+      150 highest-scoring findings</b>. A shared CL is the same evidence recorded
+      somewhere else: the author wrote one change and it landed across several
+      declarations, and the CL number is Chromium saying so. That one reaches
+      <b>84</b> of the same 150.
+    </p>
+    <div class="warnbox" style="margin-top:13px">
+      It matters most exactly where the reader is looking. Of the <b>20
+      highest-scoring rows</b> of a real run, <b>9</b> are a second or fifth telling
+      of a change already on screen — one CL introducing a mixin takes 14 rows.
+      Only the CL, never the issue, and never a verdict that names the declaring
+      file rather than the fact: one issue on that run carries 24 CLs across
+      unrelated surfaces, and <code>about_flags.cc</code> alone would put five
+      hundred findings in one group.
+    </div>
     <div class="note" style="margin-top:13px">
       Read as one group, those seven items say something single and simple: the
       permission page moved to the split-permission mechanism, <b>users have been
