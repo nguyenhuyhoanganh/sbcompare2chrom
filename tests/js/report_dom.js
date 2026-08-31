@@ -46,6 +46,17 @@ class El {
     return (this.children || []).find(
       c => c.className === m[1] && c.dataset.issue === m[2]) || null;
   }
+  // The page pins the clicked row against the growth of panels above it, so
+  // the harness has to answer where a row is. Zero everywhere: nothing moves
+  // in a DOM with no layout, which is the honest answer here and leaves the
+  // pin a no-op rather than a crash.
+  // The page reads a row's position twice around a redraw and scrolls by the
+  // difference. `_rects` lets a test hand it a row that moved, which is the
+  // only part of the pin arithmetic a DOM with no layout can check.
+  getBoundingClientRect() {
+    const top = (this._rects && this._rects.length) ? this._rects.shift() : 0;
+    return { top, height: 0, width: 0, left: 0 };
+  }
   get classList() {
     return {
       contains: c => this.className.split(' ').includes(c),
@@ -57,11 +68,14 @@ class El {
   }
 }
 
+// What the page scrolls to keep the clicked row still.
+const scroller = { scrollTop: 0 };
 const els = {};
 for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'fp', 'tb', 'cnt', 'more'])
   els[id] = new El(id);
 global.document = {
   getElementById: id => els[id],
+  querySelector: sel => (sel === '.tablewrap' ? scroller : null),
   // The page redraws open panels after a lookup, so the harness has to be
   // able to hand it the ones that are open.
   querySelectorAll: sel => (sel === 'tr.det' ? detailRows : []),
@@ -585,5 +599,24 @@ out.theSiblingRowGetsTheGroupInItsData = (() => {
 })();
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
+
+// A panel above the clicked row grows by the line it just gained, and
+// everything below slides down by that much -- including the button the
+// pointer is still on. Measured in a browser: 38px gained above, 37 moved.
+// The row is pinned instead, and the growth goes to the scroll.
+scroller.scrollTop = 0;
+const pinHead = new El('tr');
+pinHead.className = 'row'; pinHead.dataset.i = '0';
+pinHead._rects = [100, 137];   // where it sat, and where the redraw put it
+const pinDet = new El('tr'); pinDet.className = 'det';
+pinDet.previousElementSibling = pinHead;
+pinDet.firstChild = new El('td');
+els.tb.listeners['click'].forEach(f => f({ stopPropagation() {},
+  target: { closest: q => (q === 'button.lookup'
+    ? { dataset: { uid: 'base_feature:Joined2' }, disabled: false,
+        closest: s2 => (s2 === 'td' ? pinDet.firstChild
+                      : s2 === 'tr.det' ? pinDet : null) }
+    : null) } }));
+out.theClickedRowIsPinned = scroller.scrollTop === 37;
 
 console.log(JSON.stringify(out));

@@ -893,8 +893,21 @@ tb.addEventListener('click',e=>{
     btn.disabled=true; btn.textContent='Looking\u2026';
     fetch('api/why?uid='+encodeURIComponent(btn.dataset.uid))
       .then(r=>r.ok?r.json():Promise.reject(r.status))
-      .then(d=>{applyProv(f,d); f._hay=undefined; cell.innerHTML=details(f);
-        if(fp)fp.hidden=false; spreadGroup(f);})
+      .then(d=>{applyProv(f,d); f._hay=undefined;
+        /* Panels above this one are about to grow -- a row joined into the
+           same group gains a line it did not have -- and everything below
+           them slides down by that much, including the button the reader's
+           pointer is still on. Measured: a sibling two rows up gained 38px
+           and this row moved 37. So the row is pinned: where it sat before
+           the redraw is where it sits after, and the growth is absorbed by
+           the scroll instead of by the reader. */
+        const anchor=row.previousElementSibling||row;
+        const was=anchor.getBoundingClientRect().top;
+        cell.innerHTML=details(f);
+        if(fp)fp.hidden=false; spreadGroup(f);
+        const box=document.querySelector('.tablewrap');
+        const drift=anchor.getBoundingClientRect().top-was;
+        if(box&&drift)box.scrollTop+=drift;})
       .catch(err=>{btn.disabled=false;
         btn.textContent='Lookup failed ('+err+') \u2014 try again';});
     return;
