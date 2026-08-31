@@ -7170,6 +7170,50 @@ class TestPrintedCommandsExist(unittest.TestCase):
     # How the project writes a command: run it, or quote it in backticks.
     COMMAND = re.compile(r"(?:python3 -m chromedrift|`chromedrift)\s+([a-z]+)"
                          r"((?:\s+[^`\n|)]*)?)")
+    # A command longer than a line is still one command. Shell wraps with a
+    # backslash; Python wraps by putting the next piece of the string on the
+    # next line. Scanning raw lines reads `--format both` as belonging to
+    # nothing, which is how a fake flag on a continuation line survived.
+    SHELL_WRAP = re.compile(r"\\\s*$")
+    STRING_ENDS = re.compile(r"[\"']\s*$")
+    STRING_OPENS = re.compile(r"^\s*[frbu]*[\"']")
+    PLACEHOLDER = re.compile(r"\{[^{}]*\}")
+
+    # Inside a fenced block the prefix is often dropped, because the block
+    # already says it is a shell. Prose never does that, so a fence is what
+    # separates `chromedrift figures ...` the command from "chromedrift does".
+    FENCE = re.compile(r"^\s*```")
+    BARE = re.compile(r"^(\s*\$?\s*)chromedrift(\s+[a-z]+)")
+
+    def _logical_lines(self, path, text):
+        """Yield (line number, command text) with wrapped lines put back."""
+        lines = text.splitlines()
+        python = path.endswith(".py")
+        fenced = False
+        i = 0
+        while i < len(lines):
+            start, buf = i, lines[i]
+            if self.FENCE.match(buf):
+                fenced = not fenced
+            elif fenced:
+                buf = self.BARE.sub(r"\1python3 -m chromedrift\2", buf, count=1)
+            while i + 1 < len(lines):
+                nxt = lines[i + 1]
+                if self.SHELL_WRAP.search(buf):
+                    buf = self.SHELL_WRAP.sub(" ", buf) + nxt.strip()
+                elif (python and self.STRING_ENDS.search(buf)
+                        and self.STRING_OPENS.match(nxt)):
+                    buf = (self.STRING_ENDS.sub("", buf)
+                           + self.STRING_OPENS.sub("", nxt))
+                else:
+                    break
+                i += 1
+            if python:
+                # `{os.path.join(...)}` is an argument, not a flag, and the
+                # brackets in it would end the scan early.
+                buf = self.PLACEHOLDER.sub("X", buf)
+            yield start + 1, buf
+            i += 1
 
     def _texts(self):
         for dirpath, dirnames, filenames in os.walk(self.ROOT):
@@ -7204,7 +7248,7 @@ class TestPrintedCommandsExist(unittest.TestCase):
         self.assertIn("serve", shape)  # the scan is worthless if this is empty
         wrong, seen = [], 0
         for path, text in self._texts():
-            for line_no, line in enumerate(text.splitlines(), 1):
+            for line_no, line in self._logical_lines(path, text):
                 for match in self.COMMAND.finditer(line):
                     sub, rest = match.group(1), match.group(2) or ""
                     seen += 1
@@ -7227,4 +7271,6 @@ class TestPrintedCommandsExist(unittest.TestCase):
         with open(readme, encoding="utf-8") as fh:
             rows = [ln for ln in fh if "Free disk" in ln]
         self.assertEqual(1, len(rows), "README lost its free-disk row")
-        self.assertIn(str(cli.PAIR_DISK_MB), rows[0])
+        # As a whole number: "150" sits inside "1500", so a substring
+        # test accepts a tenfold error in the row it exists to hold.
+        self.assertRegex(rows[0], r"\b%d\b" % cli.PAIR_DISK_MB)
