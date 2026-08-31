@@ -5534,6 +5534,27 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         finally:
             gerrit.enrich = real
 
+    def test_a_lookup_regroups_the_report(self):
+        """The CL rule can only fire once a lookup has brought the CLs in.
+
+        `cluster.annotate` ran in `run` and nowhere else, and `run` never asks
+        Gerrit anything -- so the rule that joins findings sharing a CL could
+        never fire at all. A lookup is the moment its evidence arrives.
+        """
+        from chromedrift import cluster, serve as serve_mod
+        from chromedrift.enrich import gerrit
+
+        seen = []
+        real_enrich, real_annotate = gerrit.enrich, cluster.annotate
+        gerrit.enrich = lambda *a, **k: {"available": False}
+        cluster.annotate = lambda findings: seen.append(len(findings)) or {}
+        try:
+            state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
+            state.resolve("base_feature:F")
+        finally:
+            gerrit.enrich, cluster.annotate = real_enrich, real_annotate
+        self.assertEqual(seen, [1])
+
     def test_a_row_lookup_does_not_pay_for_issue_history(self):
         """The CLs carry their `Bug:` footers already; the history behind one
         is fetched only when a reader picks that CL and asks for it.

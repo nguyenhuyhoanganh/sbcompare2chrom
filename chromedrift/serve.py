@@ -36,6 +36,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, List, Optional
 
+from . import cluster
 from .enrich import gerrit
 from .model import Finding, Report
 from .report import html as html_report
@@ -156,6 +157,14 @@ class _State:
             self.resolved += 1
             if already.get("changes"):
                 self.restaled += 1
+            # Findings are grouped by the links Chromium declares, and a
+            # shared CL is one of them -- but the only place that ran was
+            # `run`, which never asks Gerrit anything, so the CL rule could
+            # never fire. A lookup is the moment the evidence for it arrives,
+            # so the grouping is redone here. It fetches nothing: it reads
+            # what the row already holds, and the pass over the report costs
+            # less than the render that follows it.
+            cluster.annotate(self.report.findings)
             self._page = None
             self._persist()
         return self._payload(finding)
