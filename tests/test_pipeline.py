@@ -5561,9 +5561,26 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
              serve_mod._State) = real_server, real_state
         text = "\n".join(lines)
         self.assertIn("stopped after resolving 3 row(s)", text)
-        self.assertIn("chromedrift report", text)
-        self.assertIn("--format both", text)
-        self.assertIn(os.path.join(directory, "report.json"), text)
+
+        # Run what it printed, rather than reading it. The command parsed
+        # cleanly and named the right file and still did nothing, because
+        # `report` writes to stdout unless `--out` says otherwise: the reader
+        # got a report in the terminal and two files as stale as before.
+        printed = [ln.strip() for ln in lines
+                   if "python3 -m chromedrift report" in ln]
+        self.assertEqual(1, len(printed), text)
+        argv = printed[0].split()[3:]           # drop `python3 -m chromedrift`
+        md = os.path.join(directory, "report.md")
+        html = os.path.join(directory, "report.html")
+        for path in (md, html):
+            if os.path.exists(path):
+                os.remove(path)
+
+        from chromedrift import cli
+        self.assertEqual(0, cli.main(argv))
+        for path in (md, html):
+            self.assertTrue(os.path.exists(path),
+                            "%s: the command it prints does not write it" % path)
 
     def test_an_issue_id_has_to_be_one(self):
         """The route takes a number and nothing else.
@@ -7262,6 +7279,33 @@ class TestPrintedCommandsExist(unittest.TestCase):
                                          % (where, sub, flag))
         self.assertGreater(seen, 20, "the scan found no commands to check")
         self.assertEqual([], wrong, "\n".join(wrong))
+
+    def test_a_skill_never_shows_a_report_command_that_writes_nothing(self):
+        """`report` prints unless `--out` or a redirect sends it somewhere.
+
+        That is the right default for a subcommand, and wrong in a skill: an
+        agent runs what the file shows, and the whole reason these lines exist
+        is to get a `serve` session's lookups into `report.md`. Without `--out`
+        the agent gets a report in its own output and hands over the stale
+        file, which is the failure the instruction was written to prevent.
+        """
+        skills = os.path.join(self.ROOT, "skills")
+        checked = []
+        for path, text in self._texts():
+            if not path.startswith("skills" + os.sep):
+                continue
+            for line_no, line in self._logical_lines(path, text):
+                for match in self.COMMAND.finditer(line):
+                    if match.group(1) != "report":
+                        continue
+                    rest = match.group(2) or ""
+                    checked.append("%s:%d" % (path, line_no))
+                    self.assertTrue(
+                        "--out" in rest or ">" in line,
+                        "%s:%d shows `report` with nowhere to write: %s"
+                        % (path, line_no, line.strip()))
+        self.assertTrue(os.path.isdir(skills))
+        self.assertTrue(checked, "no report command found in skills/")
 
     def test_the_disk_note_and_the_readme_agree(self):
         # Measured on a clean fetch, so the two places that quote it must not

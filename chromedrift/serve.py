@@ -397,9 +397,13 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
         if save and state.resolved:
             say(f"  the CLs, the issues and the groups they formed reach "
                 f"report.md and report.html with:")
+            # `--out` is not optional here: without it `report` writes to
+            # stdout, which prints a report to the terminal and leaves the two
+            # files exactly as stale as they were.
             say(f"    python3 -m chromedrift report "
                 f"{os.path.join(state.directory, 'report.json')} "
-                f"--format both")
+                f"--format both --out "
+                f"{os.path.join(state.directory, 'report')}")
     finally:
         httpd.server_close()
     return 0

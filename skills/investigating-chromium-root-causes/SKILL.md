@@ -91,7 +91,7 @@ What a `serve` session finds is saved to `report.json` and nowhere else.
 re-render before handing either to anyone:
 
 ```bash
-python3 -m chromedrift report out/M148_to_M151/report.json --format both
+python3 -m chromedrift report out/M148_to_M151/report.json --format both --out out/M148_to_M151/report
 ```
 
 That is also what puts the groupings in: findings sharing a CL are joined when

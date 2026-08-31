@@ -122,8 +122,9 @@ read a fraction of the other. Neither is a bug to work around: check that
 surface, wrong as a release gate — Chromium is not organised by product, so a
 change affecting downloads can live in `content/` and match no partition.
 
-Also: `chromedrift report <report.json> --format both` re-renders without
-re-running; `chromedrift catalog <ref>` measures what the target set is
+Also: `chromedrift report <report.json> --format both --out <dir>/report`
+re-renders without re-running, and writes the files rather than printing
+them; `chromedrift catalog <ref>` measures what the target set is
 missing; `chromedrift figures <report.json>` writes the measurements the
 project's own documents quote, which is how they stay true.
 
@@ -168,7 +169,7 @@ reach `report.md` and `report.html` only on a re-render, which `serve` does not
 do for you — it prints the command when you stop it:
 
 ```bash
-python3 -m chromedrift report out/report.json --format both
+python3 -m chromedrift report out/report.json --format both --out out/report
 ```
 
 Do that before quoting a report to anyone: what you found by clicking is in
