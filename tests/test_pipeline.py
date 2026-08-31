@@ -5296,6 +5296,37 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
                         "at": "2026-07-20 00:00:00.000000000"}]
         self.assertTrue(state._stale({"changes": past_branch}))
 
+    def test_a_lookup_that_lost_requests_is_asked_again(self):
+        """The panel tells the reader to open the row again to retry.
+
+        Until this was here that instruction did nothing: the row had CLs, so
+        it was served rather than asked, and an answer the lookup itself calls
+        unfinished stayed unfinished for as long as the report existed.
+        """
+        good = [{"number": 1, "date": "2026-05-01",
+                 "at": "2026-05-01 00:00:00.000000000"}]
+        state, _ = self._state_with(good, before_main="2026-06-30")
+        self.assertFalse(state._stale({"changes": good}))
+        self.assertTrue(state._stale({"changes": good, "failed_fetches": 2}))
+
+    def test_refresh_reaches_the_enricher(self):
+        """`enrich` has taken a `refresh` since it was written and no caller
+        ever set it. Re-asking a row still reads the HTTP cache, so a bad
+        response cached once is a bad answer for ever; this is the way past."""
+        from chromedrift import serve as serve_mod
+        from chromedrift.enrich import gerrit
+
+        seen = {}
+        real = gerrit.enrich
+        gerrit.enrich = lambda *a, **k: (seen.update(k), {"available": False})[1]
+        try:
+            state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1,
+                                     refresh=True)
+            state.resolve("base_feature:F")
+        finally:
+            gerrit.enrich = real
+        self.assertIs(seen.get("refresh"), True)
+
     def test_a_report_whose_refs_no_longer_resolve_keeps_what_it_holds(self):
         """An unanswerable question is not an answer of no. Throwing the row
         away because the window could not be derived would lose evidence to a

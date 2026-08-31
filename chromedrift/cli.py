@@ -497,7 +497,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
     return serve_mod.serve(directory, args.cache, port=args.port,
-                           budget=args.click_budget,
+                           budget=args.click_budget, refresh=args.refresh,
                            save=not args.no_save, log=print)
 
 
@@ -678,6 +678,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=8787)
     p.add_argument("--no-save", action="store_true",
                    help="do not write what was looked up back to report.json")
+    # A re-asked row still reads the HTTP cache, so a bad response cached once
+    # is a bad answer for ever. Its own flag rather than the shared pair,
+    # because a server has no snapshot to refetch -- only Gerrit's answers.
+    p.add_argument("--refresh", action="store_true",
+                   help="ignore the cached Gerrit responses and ask again")
     p.add_argument("--click-budget", type=int,
                    default=serve_mod.CLICK_BUDGET, metavar="N",
                    help=f"read at most N diffs per row opened "

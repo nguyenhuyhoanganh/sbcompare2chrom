@@ -72,11 +72,15 @@ class _State:
     """
 
     def __init__(self, directory: str, cache_dir: str, budget: int,
-                 save: bool = True) -> None:
+                 save: bool = True, refresh: bool = False) -> None:
         self.directory = os.path.abspath(directory)
         self.cache_dir = cache_dir
         self.budget = budget
         self.save = save
+        # Re-asking a row still reads the HTTP cache, so a bad response cached
+        # once is a bad answer for ever. This is the only way past it, and the
+        # only caller `enrich`'s `refresh` has ever had.
+        self.refresh = refresh
         self.json_path = os.path.join(self.directory, "report.json")
         with open(self.json_path, encoding="utf-8") as fh:
             self.report: Report = Report.from_dict(json.load(fh))
@@ -136,7 +140,7 @@ class _State:
                 # behind one is fetched only when a reader picks that CL and
                 # asks. A row citing six issues used to spend twelve requests
                 # before the reader had decided which CL mattered.
-                with_history=0,
+                with_history=0, refresh=self.refresh,
                 log=lambda m: notes.append(m.strip()))
             for note in notes:
                 # `!` is the enricher's own mark for a line that qualifies an
@@ -160,9 +164,9 @@ class _State:
         """Was this answer written by a version of the lookup since corrected?
 
         A stored answer is not re-fetched -- that is what makes a click cheap
-        the second time -- and the cost of that is a report outliving the bug
-        it was written under. Two are known, and both are visible in what was
-        stored, so neither needs a flag or a version stamp:
+        the second time -- and the cost of that is a report outliving both the
+        bug it was written under and the request it lost. Three cases, all
+        visible in what was stored, so none needs a flag or a version stamp:
 
         - A CL dated after the target left main cannot be in the tree being
           compared. The window used to run to the tag's date, six weeks past
@@ -171,10 +175,16 @@ class _State:
         - A CL with no `at` was compacted before the submit stamp was kept,
           so every list it is in was ordered by the day. A revert and its
           reland land on the same day.
+        - A lookup that lost requests left an answer it says itself is not a
+          finished search. The panel tells the reader to open the row again to
+          retry, and until this was here that instruction did nothing: the row
+          had CLs, so it was served rather than asked.
 
         Recomputed, not repaired: the row is asked again, which is the only
         thing that can be right about it.
         """
+        if block.get("failed_fetches"):
+            return True
         changes = block.get("changes") or []
         if any(not cl.get("at") for cl in changes):
             return True
@@ -202,11 +212,12 @@ class _State:
         once, and the HTTP cache already makes the second ask free.
         """
         with _LOCK:
-            meta = gerrit.issue_meta(issue, self.cache_dir)
+            meta = gerrit.issue_meta(issue, self.cache_dir, self.refresh)
             # The default limit, matching what a baked run asks for, so a
             # click reads the entry a run already wrote instead of missing on
             # a key that differs only in a number nobody chose.
-            cls = gerrit.issue_history(issue, self.cache_dir)
+            cls = gerrit.issue_history(issue, self.cache_dir,
+                                       refresh=self.refresh)
         return {"id": issue,
                 "restricted": not meta.get("public", True),
                 "t": meta.get("title") or "",
@@ -331,7 +342,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 def serve(directory: str, cache_dir: str, port: int = 8787,
           budget: int = CLICK_BUDGET, save: bool = True,
-          log=print) -> int:
+          refresh: bool = False, log=print) -> int:
     """Run until interrupted. Bound to the loopback interface only."""
     # Flushed, because the process then blocks forever in serve_forever: with
     # stdout going anywhere but a terminal it is block-buffered, so the address
@@ -343,7 +354,7 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
         except (AttributeError, ValueError):
             pass
 
-    state = _State(directory, cache_dir, budget, save=save)
+    state = _State(directory, cache_dir, budget, save=save, refresh=refresh)
     handler = type("_Bound", (_Handler,), {"state": state})
     httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
     say(f"  {state.report.from_ref} -> {state.report.to_ref}, "

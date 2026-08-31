@@ -1681,6 +1681,80 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   </div>
 </section>
 
+<!-- ── 10. Why it changed ────────────────────────────────── -->
+<section class="station reveal">
+  <div class="rail"><div class="num">10</div><div class="thread"></div></div>
+  <div class="body">
+    <h2>Why it changed</h2>
+    <div class="file">enrich/gerrit.py · serve.py</div>
+    <p>
+      Everything above compares two trees, and a tree holds no intent.
+      <code>disabled → enabled</code> is the whole of what a diff can say: not who
+      did it, and not what they were fixing. That is the first question a reader
+      asks after the report, and it is answered from somewhere else — Chromium's
+      own review server, one row at a time, only when somebody clicks.
+    </p>
+    <div class="grid2">
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">Four lookups, no guesses</h3>
+        <p style="font-size:.87rem;margin:0">
+          The fact names a file. The file names every CL that touched it between
+          the two versions. Those CLs are filtered by whether the CL's own diff of
+          that file mentions this identifier. What survives carries its
+          <code>Bug:</code> footer, and the issue behind it is fetched when the
+          reader picks the CL they believe.
+        </p>
+      </div>
+      <div class="card">
+        <h3 class="sub" style="margin-top:0">The middle step is the value</h3>
+        <p style="font-size:.87rem;margin:0">
+          A declaration file is shared. <b>500</b> merged CLs touched
+          <code>about_flags.cc</code> between the M148 and M151 branch points and
+          <b>337</b> touched <code>runtime_enabled_features.json5</code>. Handing a
+          reader 500 CLs is worse than handing them none — so the file only
+          produces candidates, and the diff decides.
+        </p>
+      </div>
+    </div>
+    <p style="margin-top:14px">
+      Measured on <code>content_features.cc</code>: 62 candidates, and
+      <code>AndroidCaptureKeyEvents</code> survives in exactly one of them — CL
+      7885356, <i>“android: Enable AndroidCaptureKeyEvents by default”</i>, which is
+      the finding in the author's own words. The panel prints the denominator with
+      the CL, because <b>1 of 62</b> is what makes the one mean anything.
+    </p>
+    <div class="note" style="margin-top:13px">
+      Seven verdicts, never merged into a score, because they answer different
+      questions. <code>introduced</code>: an added line inside this declaration
+      carries the value the fact ends up with. <code>exact</code>: a changed line
+      carries the identifier. <code>moved</code>: the file was renamed and the fact
+      came with it. <code>declares</code>: the declaration's body was edited, not
+      the line naming it. <code>described</code>: the CL's own title names it.
+      Below those sit <code>crowded</code> and <code>touched</code>, which name a
+      <b>file</b> and not a fact — the panel calls them leads, in words, above the
+      list.
+    </div>
+    <div class="note" style="margin-top:12px">
+      <b>An empty answer is never a fact about Chromium.</b> The two trees differ,
+      so something landed. The file is asked three ways — on <code>main</code>, then
+      off it for merge-backs, then the whole window's commit messages — and if all
+      three miss, the CL is recorded under some name or path this report does not
+      hold. Saying otherwise invites the reader to conclude that a declaration
+      changed on its own, which cannot happen.
+    </div>
+    <div class="warnbox" style="margin-top:14px">
+      This stage needs the network, so it is <b>not part of a run</b>.
+      <code>report.html</code> opened from a disk is exactly what it always was: a
+      complete, offline table with the lookup absent, because a page on the
+      <code>file://</code> origin may not call chromium-review and the browser
+      blocks it before it is sent. <code>python3 -m chromedrift serve out</code>
+      changes who asks — the page calls localhost, and Python asks Gerrit. Opening
+      the file directly and reporting the lookup as broken is the one mistake this
+      note exists to prevent.
+    </div>
+  </div>
+</section>
+
 <!-- ── Verification ──────────────────────────────────────── -->
 <section class="station reveal">
   <div class="rail"><div class="num" style="background:var(--brass-soft);color:var(--brass)">✓</div></div>
@@ -1751,7 +1825,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
 
 <footer>
   <div>Every figure in this document was measured against real Chromium source (M139, M143, M148, M151) and can be reproduced with <code>chromedrift catalog</code> and <code>chromedrift run</code>.</div>
-  <div>Related document: <code>README.md</code> — what the project is, installation, the six commands, how a change is ranked, and how to read a report.</div>
+  <div>Related document: <code>README.md</code> — what the project is, installation, the commands, how a change is ranked, and how to read a report.</div>
 </footer>
 
 </div>
