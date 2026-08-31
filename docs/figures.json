@@ -36,5 +36,21 @@
    "candidates": 8366,
    "read": 8295
   }
+ },
+ "provenance": {
+  "rows": 150,
+  "rows_named_by_a_verdict": 147,
+  "rows_leads_only": 3,
+  "cls_cited": 206,
+  "verdicts": {
+   "declares": 60,
+   "described": 2,
+   "exact": 94,
+   "introduced": 37,
+   "moved": 6,
+   "touched": 7
+  },
+  "issues_linked": 97,
+  "issues_restricted": 44
  }
 }

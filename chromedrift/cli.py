@@ -434,6 +434,49 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
             owner = owner_of_finding(finding)
             breaking_by_owner[owner] = breaking_by_owner.get(owner, 0) + 1
 
+    # What the CL-and-issue stage found, over whatever rows the report has had
+    # resolved. Every figure here moved when the candidate window was
+    # corrected, and every document quoting one had to be re-measured by hand
+    # -- twice, because the first sweep only looked for flags and commands.
+    # `rows` is emitted beside them so the numbers carry their own denominator
+    # and a report with three rows resolved cannot read like a run.
+    from .enrich.gerrit import CITES, strength
+
+    prov: dict = {}
+    resolved = [f for f in report.findings
+                if ((f.enrichment or {}).get("gerrit") or {}).get("changes")]
+    if resolved:
+        verdicts: dict = {}
+        issues: dict = {}
+        named = 0
+        cls = 0
+        for finding in resolved:
+            block = finding.enrichment["gerrit"]
+            changes = block["changes"]
+            cls += len(changes)
+            if any(strength(c.get("match")) < CITES for c in changes):
+                named += 1
+            for change in changes:
+                verdicts[change.get("match")] = verdicts.get(
+                    change.get("match"), 0) + 1
+                for bug in change.get("bugs") or []:
+                    issues.setdefault(bug["id"], False)
+                    if bug.get("restricted"):
+                        issues[bug["id"]] = True
+            for issue in block.get("issues") or []:
+                issues.setdefault(issue["id"], bool(issue.get("restricted")))
+                if issue.get("restricted"):
+                    issues[issue["id"]] = True
+        prov = {
+            "rows": len(resolved),
+            "rows_named_by_a_verdict": named,
+            "rows_leads_only": len(resolved) - named,
+            "cls_cited": cls,
+            "verdicts": dict(sorted(verdicts.items())),
+            "issues_linked": len(issues),
+            "issues_restricted": sum(1 for v in issues.values() if v),
+        }
+
     summary = report.summary or {}
     coverage = (report.meta or {}).get("coverage") or {}
     out = {
@@ -449,6 +492,10 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
         "coverage": {"default": {k: v for k, v in (coverage.get("to") or {}).items()
                                  if k in ("read", "candidates")}},
     }
+    # Absent rather than zeroed on a report nothing has been looked up in: a
+    # figure of 0 reads as a measurement, and there was no measurement.
+    if prov:
+        out["provenance"] = prov
     if wide is not None:
         wide_cov = ((wide.meta or {}).get("coverage") or {}).get("to") or {}
         out["coverage"]["wide"] = {k: v for k, v in wide_cov.items()
@@ -460,12 +507,35 @@ def cmd_figures(args: argparse.Namespace) -> int:
     report = Report.from_dict(read_json(args.report))
     wide = Report.from_dict(read_json(args.wide)) if args.wide else None
     figures = measured_figures(report, wide)
+    # A `wide` run is expensive and rarely on disk, so this is usually invoked
+    # without one -- and dropping the section that needed it would silently
+    # delete a real measurement, which is the failure this artifact exists to
+    # prevent. What cannot be recomputed is carried forward instead, and said
+    # out loud so nobody reads a stale figure as a fresh one.
+    if wide is None and os.path.exists(args.out):
+        try:
+            previous = read_json(args.out)
+        except (OSError, ValueError):
+            previous = {}
+        kept = (previous.get("coverage") or {}).get("wide")
+        if kept:
+            figures["coverage"]["wide"] = kept
+            print(f"  kept coverage.wide from {args.out} "
+                  f"(re-run with --wide to remeasure it)")
     write_json(args.out, figures)
     print(f"  figures -> {args.out}")
     for key in ("total", "not_in_build", "no_signal"):
         print(f"    {key}: {figures[key]}")
     print(f"    buckets: {figures['buckets']}")
     print(f"    owners: {figures['owners']}")
+    prov = figures.get("provenance")
+    if prov:
+        print(f"    provenance: {prov['rows_named_by_a_verdict']} of "
+              f"{prov['rows']} rows named by a verdict, {prov['cls_cited']} "
+              f"CLs, {prov['issues_restricted']} of {prov['issues_linked']} "
+              f"issues restricted")
+    else:
+        print("    provenance: no row in this report has been looked up")
     return 0
 
 

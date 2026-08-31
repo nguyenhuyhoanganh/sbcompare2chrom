@@ -4475,6 +4475,86 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
         self.assertIn(self.RELAND[2], self._order(hits))
 
 
+class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
+    """Every figure this stage produces moved when the window was corrected.
+
+    Each one was then re-measured by hand, twice, because the first sweep
+    looked only for flags and command names and prose is where they live.
+    `chromedrift figures` is the answer the project already has for that, and
+    the stage was not in it.
+    """
+
+    def _report(self, findings):
+        from chromedrift.model import Change, Finding, Report
+        return Report(from_ref="a", to_ref="b", summary={}, meta={},
+                      findings=findings)
+
+    def _finding(self, key, changes, issues=None):
+        from chromedrift.model import Change, Finding
+        block = {"changes": changes}
+        if issues is not None:
+            block["issues"] = issues
+        return Finding(
+            change=Change(change_type="modified", kind="base_feature",
+                          key=key, name=key), score=50,
+            enrichment={"gerrit": block})
+
+    def test_it_counts_what_the_documents_quote(self):
+        from chromedrift.cli import measured_figures
+
+        rows = [
+            self._finding("A", [{"match": "exact", "number": 1,
+                                 "bugs": [{"id": "111111"}]},
+                                {"match": "declares", "number": 2, "bugs": []}]),
+            # Leads only: named by nothing, and counted apart because a run
+            # must not report itself as having explained more than it did.
+            self._finding("B", [{"match": "touched", "number": 3,
+                                 "bugs": [{"id": "222222",
+                                           "restricted": True}]}]),
+        ]
+        out = measured_figures(self._report(rows))["provenance"]
+        self.assertEqual(out["rows"], 2)
+        self.assertEqual(out["rows_named_by_a_verdict"], 1)
+        self.assertEqual(out["rows_leads_only"], 1)
+        self.assertEqual(out["cls_cited"], 3)
+        self.assertEqual(out["verdicts"],
+                         {"declares": 1, "exact": 1, "touched": 1})
+        self.assertEqual(out["issues_linked"], 2)
+        self.assertEqual(out["issues_restricted"], 1)
+
+    def test_a_report_nothing_was_looked_up_in_claims_nothing(self):
+        """Zero reads as a measurement, and there was no measurement."""
+        from chromedrift.model import Change, Finding
+        from chromedrift.cli import measured_figures
+
+        bare = Finding(change=Change(change_type="modified",
+                                     kind="base_feature", key="A", name="A"),
+                       score=50)
+        self.assertNotIn("provenance",
+                         measured_figures(self._report([bare])))
+
+    def test_it_does_not_delete_a_measurement_it_cannot_retake(self):
+        """A `wide` run is expensive and rarely on disk, so this is usually
+        invoked without one. Dropping the section that needed it would silently
+        delete a real figure, which is the failure the artifact exists to
+        prevent."""
+        import argparse
+
+        from chromedrift.cli import cmd_figures
+        from chromedrift.model import write_json
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out = os.path.join(tmp, "figures.json")
+        report = os.path.join(tmp, "report.json")
+        write_json(report, self._report([]).to_dict())
+        write_json(out, {"coverage": {"wide": {"read": 8295,
+                                               "candidates": 8366}}})
+        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
+        with open(out, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["coverage"]["wide"]["read"], 8295)
+
+
 class TestEveryFlagIsActedOn(unittest.TestCase):
     """A command must not accept a flag it then ignores.
 

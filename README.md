@@ -543,6 +543,15 @@ Splitting them up is not decoration. The expensive stage (fetching) and the stag
 
 `figures` exists because every measurement in this README and in `pipeline.html` used to be maintained by hand, and six of them were corrected in a single working session — four having been written wrong by the same hand that corrected them. The numbers now live in `docs/figures.json`, written from a real run, so a document quotes one file rather than each carrying its own copy of the measurement.
 
+It covers the CL-and-issue stage too, and that is where it earns its keep: correcting the candidate window moved every figure that stage produces at once — the verdict counts, the CLs cited, the share of issues that answer 403 — and each was found by hand, in a second sweep, because the first one looked for flags and command names and those figures live in prose. Regenerate rather than re-measure:
+
+```bash
+python3 -m chromedrift serve out/M148_to_M151     # click rows, or leave it to a run
+python3 -m chromedrift figures out/M148_to_M151/report.json
+```
+
+The block carries `rows` beside every count, so a report with three rows resolved cannot read like a run. It is absent entirely on a report nothing has been looked up in — a zero would read as a measurement, and there was none. Anything the command cannot recompute is carried forward and said out loud rather than dropped: `--wide` is expensive and rarely on disk, and silently deleting the coverage figure that needed it is precisely the failure this file exists to prevent.
+
 ```bash
 python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out
 python3 -m chromedrift figures out/report.json --wide out-wide/report.json
