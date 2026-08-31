@@ -875,14 +875,14 @@ class TestHtmlReportScales(unittest.TestCase):
         #    worth having the moment it passes for an answer.
         # Plus 30 whose stored answer a run baked an issue history into, which
         # a served page hides in favour of the chip on the CL.
-        self.assertIn("of 240", out["hasCl"])
+        self.assertIn("of 300", out["hasCl"])
         # 30 plain `exact`, 30 cited over a lookup that lost requests, and
         # 30 `introduced`. All three are a changed line tied to the
         # identifier; the last is the strongest verdict on the page, and
         # matching the word `exact` alone had left it out of the option for
         # strong evidence and filed it under "Has a CL" beside rows found by
         # a commit message.
-        self.assertIn("of 180", out["exactOnly"])
+        self.assertIn("of 240", out["exactOnly"])
         # 30 leads over diffs that were read, plus 30 over diffs the budget
         # declined. Both are leads; only the second can still be answered.
         self.assertIn("of 60", out["weakOnly"])
@@ -1287,11 +1287,17 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
                           name="max_bitrate_mbps"),
             score=15, bucket="new",
             enrichment={"cluster": {"id": "x", "label": "CastStreamingMaxVideoBitrate",
-                                    "size": 2, "kinds": [], "top_score": 55}})
+                                    "size": 2, "kinds": [], "top_score": 55,
+                                    "members": ["base_feature:CastStreamingMaxVideoBitrate",
+                                                "feature_param:CastStreamingMaxVideoBitrate/max_bitrate_mbps"]}})
         row = _to_rows(Report(from_ref="a", to_ref="b", summary={}, meta={},
                               findings=[finding]), "windows")[0]
-        self.assertEqual(row["grp"], {"n": "CastStreamingMaxVideoBitrate",
-                                      "c": 2, "t": 55})
+        self.assertEqual(row["grp"]["n"], "CastStreamingMaxVideoBitrate")
+        self.assertEqual(row["grp"]["c"], 2)
+        self.assertEqual(row["grp"]["t"], 55)
+        # Who else is in it, so a lookup can say which other rows it changed.
+        self.assertIn("base_feature:CastStreamingMaxVideoBitrate",
+                      row["grp"]["m"])
 
     def test_a_lone_finding_is_not_a_group(self):
         """A cluster of one is the finding itself, and saying so is noise."""
@@ -1378,6 +1384,21 @@ class TestClustering(unittest.TestCase):
         # and with nothing shared, the highest-scoring member's own name
         c = self._cited("mojo_method", "I.c", [lone], score=90)
         self.assertEqual(cluster_label([b, c]), "c")
+
+    def test_a_cluster_names_its_members(self):
+        """A lookup joins two rows and only one is the row asked about. Without
+        the members on the cluster, the answer cannot say which other rows it
+        just changed, and a panel already open on one of them goes on showing
+        an answer that stopped being true."""
+        from chromedrift.cluster import annotate
+
+        cl = [{"number": 1, "match": "exact", "subject": "s"}]
+        rows = [self._cited("mojo_method", "I.a", cl),
+                self._cited("mojo_method", "I.b", cl)]
+        annotate(rows)
+        members = rows[0].enrichment["cluster"]["members"]
+        self.assertEqual(sorted(members),
+                         ["mojo_method:I.a", "mojo_method:I.b"])
 
     def test_a_lead_is_not_a_link(self):
         """`crowded` and `touched` name the declaring file, not the fact. Two

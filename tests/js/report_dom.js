@@ -29,7 +29,7 @@ class El {
   set textContent(v) { this._text = v; }
   get textContent() { return this._text === undefined ? '' : this._text; }
   addEventListener(ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }
-  querySelectorAll() { return []; }
+  querySelectorAll(sel) { return sel === 'tr.det' ? detailRows : []; }
   after(el) { detailRows.push(el); }
   // Real enough for the issue panels, which are appended to a CL's own line
   // and have to survive each other: a second one must not close the first.
@@ -62,7 +62,9 @@ for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'fp', 'tb', 'cnt', 'more'])
   els[id] = new El(id);
 global.document = {
   getElementById: id => els[id],
-  querySelectorAll: () => [],
+  // The page redraws open panels after a lookup, so the harness has to be
+  // able to hand it the ones that are open.
+  querySelectorAll: sel => (sel === 'tr.det' ? detailRows : []),
   createElement: t => new El(t),
 };
 
@@ -130,12 +132,19 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     row.score = 15; row.bucket = 'new'; row.owner = 'frag';
     row.grp = { n: 'CastStreamingMaxVideoBitrate', c: 2, t: 55 };
   }
+  if (prov === 14 || prov === 15) {
+    // Two rows one lookup will join. Nothing happens to the second on screen,
+    // and a panel open on it must still stop saying what stopped being true.
+    row.cl_pool = 5; row.cl_files = 1; row.owner = 'pair';
+    row.id = prov === 14 ? 'base_feature:Joined' : 'base_feature:Sibling';
+    row.cls = [{ n: 8800002 + prov, d: '2026-06-01', s: 's', m: 'exact', b: [] }];
+  }
   if (prov === 13) {
     // Already resolved and not in a group. Looking up a *different* row is
     // what joins them, so this row gains a group without its own CLs
     // changing -- and it is not the row being looked at when that happens.
     row.cl_pool = 5; row.cl_files = 1; row.owner = 'joined';
-    row.id = 'base_feature:Joined';
+    row.id = 'base_feature:Joined2';
     row.cls = [{ n: 8800001, d: '2026-06-01', s: 'a subject', m: 'exact', b: [] }];
   }
   if (prov === 11) {
@@ -212,11 +221,17 @@ global.fetch = url => {
   // Only the baked row: every other row here is opened by a test that asserts
   // what it already holds, and answering for all of them replaces it.
   // Same CLs it already holds, plus the group it has just been joined into.
-  if (/api\/why\?uid=base_feature%3AJoined$/.test(url))
+  if (/api\/why\?uid=base_feature%3AJoined2$/.test(url))
     return settled({ ok: true, json: () => settled(
       { cls: [{ n: 8800001, d: '2026-06-01', s: 'a subject', m: 'exact', b: [] }],
         cl_pool: 5, cl_files: 1,
         grp: { n: '[sub apps] change web api', c: 2, t: 80 } }) });
+  if (/api\/why\?uid=base_feature%3AJoined$/.test(url))
+    return settled({ ok: true, json: () => settled(
+      { cls: [{ n: 8800016, d: '2026-06-01', s: 's', m: 'exact', b: [] }],
+        cl_pool: 5, cl_files: 1,
+        grp: { n: '[sub apps] change web api', c: 2, t: 80,
+               m: ['base_feature:Joined', 'base_feature:Sibling'] } }) });
   if (/api\/why\?uid=base_feature%3AAgrees$/.test(url))
     return settled({ ok: true, json: () => settled(
       { cls: [{ n: 8800000, d: '2026-06-01', s: 'a subject', m: 'exact',
@@ -536,6 +551,38 @@ els.tb.listeners['click'].forEach(
   f => f({ target: { closest: q => (q === 'tr.row-t' ? joinedRow : null) } }));
 const joinedHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.aRowJoinedByAnotherLookupRepaints = /Part of a larger change/.test(joinedHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+
+// A lookup joins two rows and only one is the row asked about. 23 rows open,
+// one button pressed, one panel updated and the rest stale is what this stops.
+// Driven through the real filter, because `view` belongs to the page script.
+els.fo.value = 'pair';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const heads = [0, 1].map(i => {
+  const h = new El('tr'); h.className = 'row'; h.dataset.i = String(i);
+  els.tb.listeners['click'].forEach(
+    f => f({ target: { closest: q => (q === 'tr.row-t' ? h : null) } }));
+  return h;
+});
+detailRows.forEach((d, i) => { d.previousElementSibling = heads[i]; });
+// press the lookup on whichever of the two is `Joined`
+const btn = { dataset: { uid: 'base_feature:Joined' }, disabled: false,
+  closest: q => (q === 'td' ? new El('td')
+    : q === 'tr.det' ? detailRows[0] : null) };
+detailRows[0].firstChild = new El('td');
+els.tb.listeners['click'].forEach(
+  f => f({ stopPropagation() {},
+           target: { closest: q => (q === 'button.lookup' ? btn : null) } }));
+// The row the lookup was not on gets the group in its data. The redraw of a
+// panel already open on it is verified in a real browser instead: this
+// fixture generates thirty rows per shape, so two open panels here are two
+// copies of one row and cannot tell the two apart.
+out.theSiblingRowGetsTheGroupInItsData = (() => {
+  const sib = global.window.__FINDINGS__.find(r => r.id === 'base_feature:Sibling');
+  return !!(sib && sib.grp && sib.grp.c === 2);
+})();
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
 

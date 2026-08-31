@@ -277,6 +277,12 @@ def annotate(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
                 "size": len(members),
                 "kinds": sorted({m.change.kind for m in members}),
                 "top_score": max(m.score for m in members),
+                # The other findings in it. A lookup joins two rows and only
+                # one of them is the row being asked about; without this the
+                # answer cannot say which other rows it just changed, and a
+                # panel already open on one of them goes on showing an answer
+                # that stopped being true.
+                "members": [m.uid for m in members],
             }
     return clusters
 

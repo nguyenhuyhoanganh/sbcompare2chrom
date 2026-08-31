@@ -640,6 +640,27 @@ function provSig(f){
     +'|'+(f.cl_pool||0)+'|'+(f.no_diffs?1:0)
     +'|'+(f.grp?f.grp.n+':'+f.grp.c+':'+f.grp.t:'');
 }
+/* A lookup joins two rows and only one of them is the row that was asked
+   about. The other gains a group without anything happening to it on screen,
+   and a panel already open on it goes on saying nothing -- 23 rows open, one
+   button pressed, one panel updated and the rest stale. The answer names the
+   group's members, so they are given it here, and any of them the reader
+   currently has open is redrawn. */
+function spreadGroup(f){
+  if(!f.grp||!f.grp.m||!f.grp.m.length)return;
+  const mine=new Set(f.grp.m);
+  DATA.forEach(function(o){
+    if(o===f||!mine.has(o.id))return;
+    o.grp={n:f.grp.n,c:f.grp.c,t:f.grp.t,m:f.grp.m};
+  });
+  document.querySelectorAll('tr.det').forEach(function(tr){
+    const head=tr.previousElementSibling;
+    if(!head)return;
+    const o=view[+head.dataset.i];
+    if(o&&o!==f&&mine.has(o.id))
+      tr.innerHTML='<td colspan="6">'+details(o)+'</td>';
+  });
+}
 function lookupBtn(f){
   return '<button class="lookup" data-uid="'+esc(f.id)+'">Look up the CL '+
     'for this row</button>';
@@ -873,7 +894,7 @@ tb.addEventListener('click',e=>{
     fetch('api/why?uid='+encodeURIComponent(btn.dataset.uid))
       .then(r=>r.ok?r.json():Promise.reject(r.status))
       .then(d=>{applyProv(f,d); f._hay=undefined; cell.innerHTML=details(f);
-        if(fp)fp.hidden=false;})
+        if(fp)fp.hidden=false; spreadGroup(f);})
       .catch(err=>{btn.disabled=false;
         btn.textContent='Lookup failed ('+err+') \u2014 try again';});
     return;
@@ -1108,7 +1129,13 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         if cluster.get("size", 0) > 1:
             row["grp"] = {"n": cluster.get("label", ""),
                           "c": cluster["size"],
-                          "t": cluster.get("top_score", 0)}
+                          "t": cluster.get("top_score", 0),
+                          # Who else is in it. A lookup joins two rows and only
+                          # one of them is the row being asked about, so the
+                          # answer has to be able to say which others it just
+                          # changed -- otherwise a panel already open on one of
+                          # them keeps showing an answer that is no longer true.
+                          "m": cluster.get("members") or []}
         # Only alongside the CLs it is the denominator for. `_is_empty` keeps a
         # zero on purpose -- a score of 0 is a real rank -- so an unconditional
         # `cl_pool` would ride on all 3,022 rows to say nothing on 2,896 of
