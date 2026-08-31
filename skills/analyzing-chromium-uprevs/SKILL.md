@@ -153,7 +153,7 @@ into a score:
 
 | Verdict | What it claims |
 |---|---|
-| `introduced` | an added line **inside this declaration** carries the value the fact ends up with — the CL *is* the change |
+| `introduced` | **inside this declaration**, a line gained the value the fact ends up with or lost the one it started from — the CL *is* the change |
 | `exact` | a line the CL changed carries the identifier |
 | `moved` | the file was renamed and the fact came with it; no line changed |
 | `declares` | the CL edited the declaration's body, not the line naming it |

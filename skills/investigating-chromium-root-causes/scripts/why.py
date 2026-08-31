@@ -60,7 +60,7 @@ ISSUE_URL = "https://issues.chromium.org/issues/"
 # to prevent: `touched` and `crowded` name a file, not a fact, and quoting one
 # as a cause invents a cause.
 MEANING = {
-    "introduced": "this CL put the new value there -- it IS the change",
+    "introduced": "added the new value or removed the old one, inside this declaration -- it IS the change",
     "exact": "a line this CL changed carries the identifier",
     "moved": "this CL renamed the declaring file; no line changed",
     "declares": "this CL edited the declaration's body, not its name line",

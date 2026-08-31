@@ -133,7 +133,7 @@ Mỗi CL mang theo một **verdict** nói rõ nó được tìm ra bằng cách 
 
 | Verdict | Nó khẳng định điều gì | Chi phí thêm |
 |---|---|---|
-| `introduced` | một dòng CL **thêm vào**, nằm trong chính declaration này, mang giá trị mà Fact kết thúc ở đó — CL này *là* thay đổi | không |
+| `introduced` | trong chính declaration này, CL **thêm** giá trị mà Fact kết thúc ở đó, **hoặc xoá** giá trị nó bắt đầu từ đó — CL này *là* thay đổi | không |
 | `exact` | một dòng CL đã sửa có mang identifier này | một request/CL |
 | `moved` | file bị đổi tên và Fact đi theo; không dòng nào thay đổi | không |
 | `declares` | CL sửa **thân** declaration, không phải dòng đặt tên nó | một request/CL |
@@ -165,7 +165,7 @@ Câu trả lời vốn đã nằm sẵn trong báo cáo và chưa bao giờ đư
 {"type": ["array<url.mojom.Url>", "array<network.mojom.LinkHeader>"]}
 ```
 
-Và CL đã làm ra thay đổi đó, theo định nghĩa, là CL có diff **thêm vào** một dòng chứa `array<network.mojom.LinkHeader>`, nằm bên trong declaration đó. Mọi verdict khác hỏi *"CL này có chạm vào thứ đó không"* — câu mà bất kỳ CL nào reformat file cũng thoả mãn. `introduced` hỏi *"CL này có đặt giá trị mới vào đó không"*.
+Và CL đã làm ra thay đổi đó, theo định nghĩa, là CL có diff **thêm vào** một dòng chứa `array<network.mojom.LinkHeader>`, nằm bên trong declaration đó — hoặc **xoá đi** dòng chứa `array<url.mojom.Url>`. Cả hai phía đều tính, vì cả hai đều *là* thay đổi đang diễn ra: một phép đổi tên làm trong một CL thì thêm và xoá cùng lúc, làm trong hai CL thì không. `blink.mojom.AIManagerCreateClientError` đi từ `kUnsupportedPerformancePreference` sang `kIncompatiblePreferenceOptions` qua **hai CL cách nhau hai ngày**, và CL đầu chỉ xoá tên cũ — không dòng nào ở đâu mang giá trị cuối cho tới CL thứ hai. Chỉ hỏi về dòng thêm thì CL đầu bị gọi là hàng xóm, mà nó không phải. Mọi verdict khác hỏi *"CL này có chạm vào thứ đó không"* — câu mà bất kỳ CL nào reformat file cũng thoả mãn. `introduced` hỏi *"CL này có đặt giá trị mới vào đó không"*.
 
 Ba điều kiện làm cho nó không sinh ra kết quả rác:
 

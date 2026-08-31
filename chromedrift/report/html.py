@@ -511,7 +511,7 @@ function details(f){
    who has not memorised the ladder needs it on hover rather than in the
    README. */
 var EVID={
-introduced:'This CL added the value the fact ends up with, inside the fact\u2019s own declaration. It is the change.',
+introduced:'Inside the fact\u2019s own declaration, this CL added the value it ends up with or removed the one it started from. It is the change.',
 exact:'A line this CL changed carries the identifier.',
 moved:'The file was renamed and the fact came with it. No line changed \u2014 the move is the cause.',
 declares:'This CL edited the body of the declaration, though not the line that names it.',

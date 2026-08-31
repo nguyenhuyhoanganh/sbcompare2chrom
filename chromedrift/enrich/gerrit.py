@@ -692,7 +692,7 @@ class _Scanned:
         self.changed = {i for i, (_, st) in enumerate(seq) if st}
         # The two sides kept apart. Which side a value landed on is the
         # difference between "this CL touched the declaration" and "this CL
-        # is the one that put the new value there".
+        # is the one that moved it between the two states".
         self.added_blob = "\n".join(l for l, st in seq if st == ADDED)
         self.removed_blob = "\n".join(l for l, st in seq if st == REMOVED)
 
@@ -758,13 +758,23 @@ class _Scanned:
 
     def declaration_introduced(self, start: int, gained: Set[str],
                                lost: Set[str]) -> bool:
-        """Did this CL put the fact's new value into its declaration?
+        """Did this CL move the declaration between the fact's two states?
 
         The sharpest question available, and the only one whose answer is the
         change itself rather than a neighbour of it. `border_offset` moving
         from `Vector2d` to `Vector2dF` is *some* CL adding a line that says
         `Vector2dF` inside that declaration -- and among the CLs that touched
         the file, that is one of them.
+
+        Either side counts, because either side is the change happening. A
+        rename done in one CL adds the new name and removes the old one
+        together; done in two it does not. `blink.mojom.AIManagerCreateClientError`
+        went from `kUnsupportedPerformancePreference` to
+        `kIncompatiblePreferenceOptions` through two CLs two days apart, and
+        the first of them only ever removed the old name -- there is no line
+        anywhere carrying the value the fact ends up with until the second.
+        Asking only about added lines would credit the second and call the
+        first a neighbour, which is a worse answer than crediting both.
         """
         span = self.declaration_span(start)
         if not span:
@@ -803,9 +813,9 @@ def _match(scan: "_Scanned", tokens: Set[str], container: str = "",
     ``gained``/``lost`` are what the finding says the change did, and they are
     asked first because they are the only question whose answer *is* the
     change. "A changed line mentions this identifier" is satisfied by any CL
-    that touched the declaration for any reason; "an added line inside this
-    declaration carries the value the fact ended up with" is satisfied by the
-    CL that put it there.
+    that touched the declaration for any reason; "a line inside this
+    declaration gained the value the fact ends up with, or lost the one it
+    started from" is satisfied only by a CL that moved it between the two.
     """
     if not scan.changed_blob:
         return ""

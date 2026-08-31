@@ -1725,8 +1725,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     </p>
     <div class="note" style="margin-top:13px">
       Seven verdicts, never merged into a score, because they answer different
-      questions. <code>introduced</code>: an added line inside this declaration
-      carries the value the fact ends up with. <code>exact</code>: a changed line
+      questions. <code>introduced</code>: inside this declaration, a line gained
+      the value the fact ends up with or lost the one it started from.
+      <code>exact</code>: a changed line
       carries the identifier. <code>moved</code>: the file was renamed and the fact
       came with it. <code>declares</code>: the declaration's body was edited, not
       the line naming it. <code>described</code>: the CL's own title names it.

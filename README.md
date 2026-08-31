@@ -817,7 +817,7 @@ The panel prints the denominator with the CL, because `1 of 62` is what makes th
 
 | Badge | What it means | What it costs |
 |---|---|---|
-| `introduced` | that CL added the fact's new value inside the fact's own declaration | one request per CL |
+| `introduced` | inside the fact's own declaration, that CL added the value it ends up with or removed the one it started from | one request per CL |
 | `exact` | that CL edited a line carrying this identifier | one request per CL |
 | `moved` | that CL renamed the file the identifier is declared in | nothing extra |
 | `declares` | a changed line falls inside the declaration this identifier names | one request per CL |
