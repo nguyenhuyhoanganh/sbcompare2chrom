@@ -845,7 +845,7 @@ So the cap is twelve, matched to the one the issue block already used; what it c
 
 **A row says what would make its own answer less than sure.** Three things can: a request that failed, a candidate list Gerrit returned at its page limit, and a diff budget that declined the file. None of them makes the row wrong, and all three make it unfinished — so the qualifier sits above the answer rather than inside one branch of it. Written into the empty panel it reached the one shape a partial failure cannot produce, because the floor hands any row with a candidate a lead; the three shapes such a failure does produce were the three that said nothing.
 
-It is recorded by the lookup rather than by whoever called it, which is what makes it survive `--refresh`. Under that flag a warm-pass fetch that fails leaves the read pass on the entry a previous run wrote, and the row is served older evidence under a flag whose contract is to ignore the cache. That is still the best answer available; it is not a finished one, and the row now says which.
+It is recorded by the lookup rather than by whoever called it, because it belongs to the answer rather than to whoever asked for it. `serve` used to read the run summary instead, which records nothing at all for a call about one row — so the row that lost a request was exactly the row that said nothing about it.
 
 #### The last two badges, and why a row always answers
 
@@ -940,7 +940,7 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 ### The payload stops repeating itself
 
-Every interaction on the page was already under 5 ms — filtering 3,022 rows and repainting is 4 ms, expanding the heaviest row is 0.1 ms — so the only thing a reader could feel was the download and the JSON parse. A quarter of that was repetition: `reasons` was 319 KB of text drawn from **66** distinct strings, `signals` 127 KB from 63, and `group` 58 KB from **three**. Stored once and referenced by index, the page falls from 2.29 MB to 1.75 MB.
+Every interaction on the page was already under 5 ms — filtering 3,022 rows and repainting is 4 ms, expanding the heaviest row is 0.1 ms — so the only thing a reader could feel was the download and the JSON parse. A quarter of that was repetition: `reasons` was 319 KB of text drawn from **66** distinct strings, `signals` 127 KB from 63, and `group` 58 KB from **three**. Stored once and referenced by index, the page falls from 2.01 MB to 1.48 MB — a quarter of it, and the same quarter it was when the pooling was written, though both totals have since moved with everything else on the page.
 
 `what` and `paths` are deliberately left alone — they are near-unique per row, so a table of them is the same bytes plus an index. The page puts the five pooled fields back in one pass on load, so nothing downstream knows it happened, and the payload has one reader — `html.payload_of` — rather than a regex in each place that wants it.
 

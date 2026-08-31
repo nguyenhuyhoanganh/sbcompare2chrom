@@ -364,7 +364,7 @@ Không thứ nào làm dòng đó **sai**, và cả ba làm nó **chưa hoàn t�
 Có ba nguyên tắc ở đây, và cả ba đều đến từ việc sửa một lỗi thật:
 
 - **Cảnh báo nằm phía trên câu trả lời, không nằm trong một nhánh của nó.** Cảnh báo từng được viết vào nhánh trong cùng của panel rỗng — mà đó lại là hình dạng **duy nhất mà một thất bại một phần không thể tạo ra**, vì sàn `touched` luôn đưa manh mối cho bất kỳ dòng nào có ứng viên. Nên ba hình dạng mà một thất bại một phần **thực sự** tạo ra lại là ba hình dạng không nói gì. Một qualifier là thuộc tính **của cuộc tra cứu**, không phải của cách cuộc tra cứu kết thúc.
-- **Cuộc tra cứu tự ghi lại, không để người gọi ghi hộ.** Đây là chỗ đánh đổi của `--refresh` thực sự cắn: một fetch ở lượt làm nóng thất bại sẽ để lượt đọc rơi vào entry do lần chạy **trước** ghi, và dòng đó được phục vụ bằng chứng cũ hơn dưới một cờ mà toàn bộ hợp đồng của nó là *bỏ qua cache*. Đó vẫn là câu trả lời tốt nhất có sẵn; nó không phải câu trả lời hoàn tất, và dòng phải nói ra nó là cái nào.
+- **Cuộc tra cứu tự ghi lại, không để người gọi ghi hộ.** Vì lời cảnh báo thuộc về **câu trả lời**, không thuộc về người đi hỏi. Trước đây `serve` đọc bản tóm tắt của cả lần chạy để lấy nó — mà một lời gọi cho *một dòng* thì bản tóm tắt đó không ghi gì cả, nên đúng cái dòng mất request lại là cái dòng không nói gì về việc đó.
 - **Request thất bại được ghi kèm file đã mất nó, không chỉ đếm.** Một con số đếm thì chỉ tới được summary; một dòng cần biết **chính nó** đã mất gì.
 
 Một cái tinh vi đáng nêu riêng, vì nó là trường hợp duy nhất mà mất một request làm **đổi kết luận** chứ không chỉ làm mỏng bằng chứng: hai fetch đứng sau một phép đổi tên từng đi ra **nặc danh**, nên thất bại ở một trong hai không đánh dấu dòng nào. Verdict `moved` được cấp từ chính hai fetch đó. Mất chúng thì Fact đọc ra thành **"đã bị xoá ở path cũ"** — đúng cái câu trả lời mà verdict `moved` tồn tại để ngăn — trong khi dòng báo cáo một cuộc tìm đã hoàn tất.
@@ -438,6 +438,7 @@ Lệnh `run` không đổi và **không hề chạm mạng Gerrit** — chặng 
 | `--port` | 8787 | Cổng localhost |
 | `--click-budget N` | 600 | Đọc tối đa N diff cho mỗi dòng được mở (0 = không trần) |
 | `--no-save` | tắt | Không ghi kết quả ngược vào `report.json` |
+| `--cache DIR` | `.chromedrift-cache` | Thư mục cache dùng chung với `run` |
 
 Server chỉ bind vào `127.0.0.1`, chỉ phục vụ đúng ba file của báo cáo, và xử lý một request tra cứu tại một thời điểm (công việc **bên trong** một request vẫn chạy song song, và đó mới là chỗ tốn thời gian).
 
