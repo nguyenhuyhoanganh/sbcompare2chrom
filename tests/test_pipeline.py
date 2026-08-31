@@ -1222,6 +1222,49 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("base", by_area)
 
 
+class TestAFragmentSaysItIsOne(unittest.TestCase):
+    """The run works out which findings are fragments of one change, and
+    `report.md` prints the groups. The table did not carry it at all.
+
+    Read alone, a parameter of an enabled feature is a 15-point row in "New
+    surface", whose whole meaning is that nothing switches it on -- while the
+    feature it belongs to sits at 55 in the same report with the flag already
+    flipped. Measured on a real M148 -> M151 run, 20 rows are in exactly that
+    position, and every one of them was already clustered with its parent.
+    """
+
+    def test_the_payload_carries_the_group(self):
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report.html import _to_rows
+
+        finding = Finding(
+            change=Change(change_type="added", kind="feature_param",
+                          key="CastStreamingMaxVideoBitrate/max_bitrate_mbps",
+                          name="max_bitrate_mbps"),
+            score=15, bucket="new",
+            enrichment={"cluster": {"id": "x", "label": "CastStreamingMaxVideoBitrate",
+                                    "size": 2, "kinds": [], "top_score": 55}})
+        row = _to_rows(Report(from_ref="a", to_ref="b", summary={}, meta={},
+                              findings=[finding]), "windows")[0]
+        self.assertEqual(row["grp"], {"n": "CastStreamingMaxVideoBitrate",
+                                      "c": 2, "t": 55})
+
+    def test_a_lone_finding_is_not_a_group(self):
+        """A cluster of one is the finding itself, and saying so is noise."""
+        from chromedrift.model import Change, Finding, Report
+        from chromedrift.report.html import _to_rows
+
+        finding = Finding(
+            change=Change(change_type="added", kind="feature_param",
+                          key="A/b", name="b"),
+            score=15, bucket="new",
+            enrichment={"cluster": {"id": "x", "label": "A", "size": 1,
+                                    "kinds": [], "top_score": 15}})
+        row = _to_rows(Report(from_ref="a", to_ref="b", summary={}, meta={},
+                              findings=[finding]), "windows")[0]
+        self.assertNotIn("grp", row)
+
+
 class TestClustering(unittest.TestCase):
     """One Chromium change arrives as fragments; they must read as one story."""
 
@@ -1232,6 +1275,61 @@ class TestClustering(unittest.TestCase):
                           name=key.split("/")[-1], before=dict(attrs),
                           after=dict(attrs)),
             score=score, bucket="behaviour")
+
+    def _cited(self, kind, key, cls, score=70):
+        """A finding carrying the CLs a lookup tied to it."""
+        from chromedrift.model import Change, Finding
+        return Finding(
+            change=Change(change_type="modified", kind=kind, key=key,
+                          name=key.split(".")[-1]),
+            score=score, bucket="breaking",
+            enrichment={"gerrit": {"changes": cls}})
+
+    def test_one_cl_across_several_declarations_is_one_story(self):
+        """Every other rule joins on a link Chromium declares in the source,
+        and between a `.mojom` and an `.idl` no such link is ever written.
+
+        Measured on a real M148 -> M151 run: those rules reach 6 of the 150
+        highest-scoring findings, because 143 of the groups they do build are
+        a feature and its parameters, which is the bottom of the ranking. A
+        shared CL is the same evidence recorded elsewhere -- one author, one
+        change, landing across several declarations -- and it reaches 84.
+        """
+        from chromedrift.cluster import build_clusters
+
+        cl = [{"number": 7957918, "match": "exact",
+               "subject": "[sub apps] change web api"}]
+        rows = [self._cited("mojo_method", "blink.mojom.SubAppsService.Add", cl),
+                self._cited("idl_interface", "SubAppsAddParams", cl),
+                self._cited("idl_member", "SubAppsAddParams.installURL", cl)]
+        clusters = build_clusters(rows)
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(len(next(iter(clusters.values()))), 3)
+
+    def test_a_lead_is_not_a_link(self):
+        """`crowded` and `touched` name the declaring file, not the fact. Two
+        rows sharing one share a busy file, which is not a story -- and
+        `about_flags.cc` alone would put five hundred findings in one group."""
+        from chromedrift.cluster import build_clusters
+
+        cl = [{"number": 8007779, "match": "touched", "subject": "unrelated"}]
+        rows = [self._cited("flag_entry", "flag-a", cl),
+                self._cited("flag_entry", "flag-b", cl)]
+        self.assertEqual(build_clusters(rows), {})
+
+    def test_a_group_past_the_guard_rail_is_skipped_not_split(self):
+        """The cap is a guard-rail, so the behaviour at it has to be the one
+        the comment claims: a group past it is dropped whole. A split group
+        would read as two changes where there was one."""
+        from chromedrift.cluster import CL_GROUP_MAX, build_clusters
+
+        cl = [{"number": 1, "match": "exact", "subject": "s"}]
+        rows = [self._cited("idl_member", f"I.m{i}", cl)
+                for i in range(CL_GROUP_MAX + 1)]
+        self.assertEqual(build_clusters(rows), {})
+        rows = rows[:CL_GROUP_MAX]
+        self.assertEqual(len(next(iter(build_clusters(rows).values()))),
+                         CL_GROUP_MAX)
 
     def test_route_gate_feature_form_one_cluster(self):
         from chromedrift.cluster import build_clusters

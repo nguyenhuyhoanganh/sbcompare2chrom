@@ -123,6 +123,13 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   // A lookup that lost requests and still produced a citation. The shape a
   // partial failure most often makes, and the one the warning could not
   // reach while it lived inside the empty panel's innermost branch.
+  if (prov === 12) {
+    // A fragment of a larger change. Read alone it is a 15-point "New
+    // surface" row, and that bucket's sentence -- nothing switches it on --
+    // is false of it: the feature it belongs to does, from another row.
+    row.score = 15; row.bucket = 'new'; row.owner = 'frag';
+    row.grp = { n: 'CastStreamingMaxVideoBitrate', c: 2, t: 55 };
+  }
   if (prov === 11) {
     // Baked too, but the server agrees with what is stored -- so nothing
     // repaints and what is asserted is the panel as it was first drawn.
@@ -482,6 +489,24 @@ els.tb.listeners['click'].forEach(
 const agreeHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.servedRowHidesTheBakedIssue = !/prov iss/.test(agreeHtml);
 out.anAgreeingAnswerDoesNotRepaint = /8800000/.test(agreeHtml);
+els.fo.value = '';
+els.fo.listeners['change'].forEach(f => f());
+
+// The run already works out which findings are fragments of one change and
+// `report.md` prints the groups; the table did not, so a row read alone gave
+// no sign that it was one.
+els.fo.value = 'frag';
+els.fo.listeners['change'].forEach(f => f());
+detailRows = [];
+const fragRow = new El('tr');
+fragRow.className = 'row'; fragRow.dataset.i = '0';
+els.tb.listeners['click'].forEach(
+  f => f({ target: { closest: q => (q === 'tr.row-t' ? fragRow : null) } }));
+const fragHtml = detailRows.length ? detailRows[0].innerHTML : '';
+out.aFragmentSaysSo = /Part of a larger change/.test(fragHtml);
+out.aFragmentNamesItsGroup = /CastStreamingMaxVideoBitrate/.test(fragHtml);
+// And points at the row worth reading first, which is the whole use of it.
+out.aFragmentNamesTheHeaviest = /scores <b>55<\/b>/.test(fragHtml);
 els.fo.value = '';
 els.fo.listeners['change'].forEach(f => f());
 

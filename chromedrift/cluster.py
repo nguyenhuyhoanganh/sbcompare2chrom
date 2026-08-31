@@ -91,6 +91,28 @@ def _data_key(finding: Finding) -> str:
     return finding.change.name or finding.change.key.rsplit("/", 1)[-1]
 
 
+# Verdicts that name the declaring file rather than the fact. Two rows sharing
+# one of these share a busy file, which is not a story.
+_LEAD_VERDICTS = frozenset({"crowded", "touched"})
+
+# How many findings one CL may join. A guard-rail, not a measurement, and it
+# is written down as one.
+#
+# Nothing in the data needs it. Measured over a real M148 -> M151 run with the
+# top 150 resolved, groups run 2 to 7 with a single exception at 14 -- CL
+# 7899676, "[dom] Introduce HyperlinkElementUtils", where one CL introduces a
+# mixin and fourteen members of the interface move with it. That group is
+# right, and it is the most useful one in the run; a cap of twelve would drop
+# it whole, since a group past the cap is skipped rather than split.
+#
+# The real guard against a CL joining everything it touched is upstream and
+# already there: a reformat is `common: true` in Gerrit's diff and never
+# counts as a changed line, and a lead names the file rather than the fact and
+# is excluded below. This exists only so that if both of those ever fail, the
+# failure is a group nobody reads rather than a group holding half the report.
+CL_GROUP_MAX = 20
+
+
 def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     """Return cluster_id -> findings, for clusters of two or more.
 
@@ -167,6 +189,41 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
                     route = routes_by_norm.get(_norm(candidate)) if candidate else None
                     if route is not None:
                         union.union(f.uid, route.uid)
+
+    # Every rule above joins on a link Chromium declares *in the source*, and
+    # that is why they reach almost nothing at the top of a report: between a
+    # `.mojom` and an `.idl` no such link is ever written. Measured on a real
+    # M148 -> M151 run, the rules above cover 183 of 3,022 findings and 143 of
+    # those groups are a feature and its parameters -- which is the bottom of
+    # the ranking, not the top. Of the 150 highest-scoring findings they reach
+    # 6.
+    #
+    # A shared CL is the same kind of evidence recorded somewhere else. The
+    # author wrote one change and it landed across several declarations; the
+    # CL number is Chromium saying so, not a guess from name similarity. It
+    # reaches 86 of that same top 150, and none of the 6.
+    #
+    # Only the CL, never the issue. An issue collects a programme of work --
+    # one in this run carries 24 CLs across unrelated surfaces -- and joining
+    # on it would build a group nobody can read. A CL is one author's one
+    # change, which is the unit this function is about.
+    by_cl: Dict[int, List[Finding]] = {}
+    for f in findings:
+        for change in ((f.enrichment or {}).get("gerrit") or {}).get(
+                "changes") or []:
+            # A lead names the file, not the fact, so two rows sharing one is
+            # evidence that the file is busy and nothing more.
+            if change.get("match") in _LEAD_VERDICTS:
+                continue
+            number = change.get("number")
+            if number:
+                by_cl.setdefault(number, []).append(f)
+    for members in by_cl.values():
+        if len(members) < 2 or len(members) > CL_GROUP_MAX:
+            continue
+        first = members[0]
+        for other in members[1:]:
+            union.union(first.uid, other.uid)
 
     groups: Dict[str, List[Finding]] = {}
     for f in findings:

@@ -318,6 +318,9 @@ line-height:1.5}
 /* Above a list of leads, not instead of one. It carries the disclaimer the
    badges cannot: that these CLs are on the page because the reader asked and
    not because any of them names the fact. */
+/* Stated before the evidence, because it changes how the evidence reads. */
+p.grp{margin:0 0 10px;padding:7px 10px;font-size:.85rem;line-height:1.5;
+color:var(--fg);background:var(--sunk);border-left:2px solid var(--accent)}
 .prov .lead{margin:0 0 7px;color:var(--muted);font-size:.88rem;line-height:1.55;
 padding-left:9px;border-left:2px solid color-mix(in srgb,var(--faint) 45%,transparent)}
 .prov .none code{font-size:.85em}
@@ -491,6 +494,20 @@ function match(f,t){
   return f._hay.indexOf(t)!==-1;
 }
 /* Built only when a row is actually expanded. This was half the payload. */
+/* A row that is one fragment of a larger change says so, and says what the
+   largest thing in that change scores. Read alone a parameter of an enabled
+   feature is a 15-point "New surface" row, and the sentence that bucket
+   carries -- nothing switches it on -- is false of it: the feature does, from
+   another row in the same report. */
+function groupNote(f){
+  if(!f.grp)return '';
+  var more=f.grp.c-1;
+  return '<p class="grp"><b>Part of a larger change</b> \u2014 '+esc(f.grp.n)+
+    ', '+f.grp.c+' findings in all'+(more?' ('+more+' other'+(more===1?'':'s')+
+    ' in this report)':'')+
+    (f.grp.t>f.score?'. The heaviest of them scores <b>'+f.grp.t+
+      '</b>, so read that one first.':'.')+'</p>';
+}
 function details(f){
   const L=[];
   if(f.signals&&f.signals.length)L.push('<li><b>Signals:</b> '+esc(f.signals.join(', '))+'</li>');
@@ -498,7 +515,7 @@ function details(f){
   (f.deltas||[]).forEach(d=>L.push('<li><b>'+esc(d[0])+':</b> <code>'+esc(d[1])+'</code> \\u2192 <code>'+esc(d[2])+'</code></li>'));
   if(f.chromestatus)L.push('<li><b>Chromestatus:</b> '+esc(f.chromestatus)+'</li>');
   if(f.reasons&&f.reasons.length)L.push('<li class="muted"><b>Score:</b> '+esc(f.reasons.join(' \\u00b7 '))+'</li>');
-  return '<ul class="tight">'+L.join('')+'</ul>'+provenance(f);
+  return groupNote(f)+'<ul class="tight">'+L.join('')+'</ul>'+provenance(f);
 }
 /* The review behind the row. The strengths are never levelled: `exact` means
    that CL edited a line carrying this identifier, `declares` means it edited
@@ -1074,6 +1091,18 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "issues": [_issue_payload(i)
                        for i in provenance.get("issues") or []][:3],
         }
+        # The run already works out which findings are fragments of one
+        # change, and `report.md` prints the groups. The table did not, so a
+        # row read alone gave no sign that it was a fragment -- a feature's
+        # parameter scores 15 in "New surface", whose whole meaning is that
+        # nothing switches it on, while the feature it belongs to sits at 55
+        # in the same report with the flag already flipped. The reader had to
+        # notice the shared prefix and go looking.
+        cluster = (finding.enrichment or {}).get("cluster") or {}
+        if cluster.get("size", 0) > 1:
+            row["grp"] = {"n": cluster.get("label", ""),
+                          "c": cluster["size"],
+                          "t": cluster.get("top_score", 0)}
         # Only alongside the CLs it is the denominator for. `_is_empty` keeps a
         # zero on purpose -- a score of 0 is a real rank -- so an unconditional
         # `cl_pool` would ride on all 3,022 rows to say nothing on 2,896 of
