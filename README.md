@@ -90,8 +90,8 @@ There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
 tar czf chromiumdiff.tgz chromiumdiff/ tests/ skills/ docs/ README.md
-# on the target machine
-tar xzf chromiumdiff.tgz && cd chromiumdiff
+# on the target machine, in an empty directory
+tar xzf chromiumdiff.tgz
 python3 -m chromiumdiff --version
 ```
 
@@ -538,7 +538,7 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 ```bash
 python3 -m chromiumdiff check      # verify this machine can run the pipeline
 python3 -m chromiumdiff snapshot   # extract the feature surface of ONE version
-python3 -m chromiumdiff diff       # semantic comparison between TWO versions
+python3 -m chromiumdiff compare    # semantic comparison between TWO versions
 python3 -m chromiumdiff run        # the whole pipeline: snapshot → diff → rank → report
 python3 -m chromiumdiff report     # re-render a saved report.json
 python3 -m chromiumdiff catalog    # measure which files the target set is missing

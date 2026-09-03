@@ -721,7 +721,7 @@ class TestPartitionPlumbing(unittest.TestCase):
         import inspect
         from chromiumdiff import cli
 
-        for name in ("cmd_snapshot", "cmd_diff", "cmd_run"):
+        for name in ("cmd_snapshot", "cmd_compare", "cmd_run"):
             src = inspect.getsource(getattr(cli, name))
             self.assertIn("build_snapshot", src, name)
             self.assertEqual(

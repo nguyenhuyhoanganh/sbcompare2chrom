@@ -67,7 +67,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_diff(args: argparse.Namespace) -> int:
+def cmd_compare(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM,
                          local_src=args.from_src or args.local_src,
@@ -704,12 +704,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref", help="milestone (143), version (143.0.7499.40) or git ref")
     p.set_defaults(func=cmd_snapshot)
 
-    p = sub.add_parser("diff", parents=[cache, which_files, two_checkouts],
-                       help="semantic diff between two refs")
+    p = sub.add_parser("compare", parents=[cache, which_files, two_checkouts],
+                       help="semantic comparison between two refs")
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
     p.add_argument("--out", help="write changes JSON here")
-    p.set_defaults(func=cmd_diff)
+    p.set_defaults(func=cmd_compare)
 
     p = sub.add_parser("run",
                        parents=[cache, which_files, two_checkouts],
