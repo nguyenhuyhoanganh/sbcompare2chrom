@@ -2,7 +2,7 @@ __pycache__/
 *.py[cod]
 
 # Generated artifacts — regenerable, and the cache is ~45 MB per version pair.
-.chromedrift-cache/
+.chromiumdiff-cache/
 out/
 out-*/
 

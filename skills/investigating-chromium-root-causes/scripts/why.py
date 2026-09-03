@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Print the review and the issue behind one finding, without a browser.
 
-`chromedrift serve` answers the same question through a page and a click. An
+`chromiumdiff serve` answers the same question through a page and a click. An
 agent has neither, and driving the HTTP path means starting a server, polling a
 port, URL-encoding a uid and decoding a payload whose keys are one letter long.
 This does the lookup directly instead: same enricher, same cache, one command.
@@ -14,8 +14,8 @@ each CL was filed against.
 Usage:
     python3 scripts/why.py <report-dir-or-json> <search> [options]
 
-    --cache DIR    cache directory (default: $CHROMEDRIFT_CACHE or
-                   .chromedrift-cache, matching the rest of the tool)
+    --cache DIR    cache directory (default: $CHROMIUMDIFF_CACHE or
+                   .chromiumdiff-cache, matching the rest of the tool)
     --budget N     read at most N diffs (default 600, the `serve` per-click
                    ceiling; 0 removes it)
     --issues N     look up at most N distinct issues (default 6)
@@ -44,11 +44,11 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 try:
-    from chromedrift.enrich import gerrit
-    from chromedrift.model import Report
+    from chromiumdiff.enrich import gerrit
+    from chromiumdiff.model import Report
 except ImportError as exc:  # a checkout this script was copied out of
-    print(f"cannot import chromedrift ({exc}). Run this from the "
-          f"chromedrift repository, or set PYTHONPATH to its root.",
+    print(f"cannot import chromiumdiff ({exc}). Run this from the "
+          f"chromiumdiff repository, or set PYTHONPATH to its root.",
           file=sys.stderr)
     sys.exit(2)
 
@@ -80,14 +80,14 @@ def load(path: str):
     else:
         json_path = path
     if not os.path.exists(json_path):
-        print(f"no report.json at {json_path} -- run `chromedrift run` first",
+        print(f"no report.json at {json_path} -- run `chromiumdiff run` first",
               file=sys.stderr)
         sys.exit(2)
     try:
         with open(json_path, encoding="utf-8") as fh:
             return Report.from_dict(json.load(fh)), json_path
     except (OSError, ValueError, KeyError) as exc:
-        print(f"{json_path} is not a readable chromedrift report ({exc})",
+        print(f"{json_path} is not a readable chromiumdiff report ({exc})",
               file=sys.stderr)
         sys.exit(2)
 
@@ -235,8 +235,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(add_help=True, description=__doc__.split("\n")[0])
     ap.add_argument("report", help="report directory, or a report.json in one")
     ap.add_argument("search", help="uid, key, name, or a path fragment")
-    ap.add_argument("--cache", default=os.environ.get("CHROMEDRIFT_CACHE",
-                                                      ".chromedrift-cache"))
+    ap.add_argument("--cache", default=os.environ.get("CHROMIUMDIFF_CACHE",
+                                                      ".chromiumdiff-cache"))
     ap.add_argument("--budget", type=int, default=600)
     ap.add_argument("--issues", type=int, default=6)
     ap.add_argument("--limit", type=int, default=15)

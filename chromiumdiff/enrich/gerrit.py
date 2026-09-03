@@ -80,7 +80,7 @@ the same answer as "no CL edits this line".
 **Nothing here is fetched by the browser.**  chromium-review sends no
 ``Access-Control-Allow-Origin``, so a page opening ``report.html`` off a disk
 cannot query it, and the report is supposed to work on an air-gapped network
-anyway.  ``chromedrift serve`` asks on the page's behalf, one row per click;
+anyway.  ``chromiumdiff serve`` asks on the page's behalf, one row per click;
 ``run`` never reaches this module.
 """
 

@@ -6,7 +6,7 @@
 
 Một file mã nguồn có thể dài hàng nghìn dòng, và phần lớn thay đổi của nó đến từ format lại hoặc refactor. Nếu đem nguyên file đi so, kết quả sẽ ngập trong nhiễu.
 
-Vì vậy ChromeDrift làm khác: nó lấy ra từng khai báo có ý nghĩa, chuyển mỗi khai báo thành một object nhỏ gọi là `Fact`, rồi ghép các `Fact` tương ứng giữa hai version với nhau.
+Vì vậy ChromiumDiff làm khác: nó lấy ra từng khai báo có ý nghĩa, chuyển mỗi khai báo thành một object nhỏ gọi là `Fact`, rồi ghép các `Fact` tương ứng giữa hai version với nhau.
 
 Mọi `Fact` đều dùng chung một schema:
 

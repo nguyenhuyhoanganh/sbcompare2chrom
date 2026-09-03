@@ -32,7 +32,7 @@ import urllib.parse
 import urllib.request
 from typing import Dict, Iterable, List, Optional, Tuple
 
-USER_AGENT = "chromedrift/0.1 (+chromium version comparison)"
+USER_AGENT = "chromiumdiff/0.1 (+chromium version comparison)"
 GITILES_BASE = "https://chromium.googlesource.com/chromium/src"
 CHROMIUMDASH = "https://chromiumdash.appspot.com"
 
@@ -305,7 +305,7 @@ class GitilesSource(Source):
     def _one(self, target: "FetchTarget", root: str) -> str:
         """Fetch a single target. Returns the stats string for it."""
         dest = os.path.join(root, target.path.replace("/", os.sep))
-        marker = os.path.join(root, ".chromedrift",
+        marker = os.path.join(root, ".chromiumdiff",
                               _target_marker(target) + ".state")
         if os.path.exists(marker) and not self.refresh:
             # A cached absence stays an absence, so callers counting missing

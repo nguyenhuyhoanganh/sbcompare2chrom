@@ -12,12 +12,12 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from chromedrift import jsonc
-from chromedrift.model import Fact
-from chromedrift.extract import base_features, blink_runtime, constants, mojom, web_idl
-from chromedrift.extract import webui_controls as web_ui
-from chromedrift.extract import _stamp_platform_dirs
-from chromedrift.extract._cpp import (
+from chromiumdiff import jsonc
+from chromiumdiff.model import Fact
+from chromiumdiff.extract import base_features, blink_runtime, constants, mojom, web_idl
+from chromiumdiff.extract import webui_controls as web_ui
+from chromiumdiff.extract import _stamp_platform_dirs
+from chromiumdiff.extract._cpp import (
     PLATFORM,
     balanced_args,
     eval_condition,
@@ -171,8 +171,8 @@ BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
         self.assertEqual(shapes["macro3"], shapes["macro2"])
 
     def test_the_same_feature_written_two_ways_is_not_a_change(self):
-        from chromedrift.diff import diff_snapshots
-        from chromedrift.model import Snapshot
+        from chromiumdiff.diff import diff_snapshots
+        from chromiumdiff.model import Snapshot
 
         guard = "#if BUILDFLAG(IS_WIN)\n%s\n#endif\n"
         old = base_features.extract(
@@ -469,13 +469,13 @@ enum TopLevel { kA, kB = 2, };
         Every field is already a fact, so comparing the list would report one
         ABI change twice, once vaguely and once precisely.
         """
-        from chromedrift.diff import MEANINGFUL_ATTRS
-        from chromedrift.model import KIND_MOJO_STRUCT
+        from chromiumdiff.diff import MEANINGFUL_ATTRS
+        from chromiumdiff.model import KIND_MOJO_STRUCT
         self.assertNotIn("fields", MEANINGFUL_ATTRS[KIND_MOJO_STRUCT])
 
     def test_a_field_type_change_is_an_abi_break(self):
-        from chromedrift.diff import diff_snapshots
-        from chromedrift.model import Snapshot
+        from chromiumdiff.diff import diff_snapshots
+        from chromiumdiff.model import Snapshot
         old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
                        meta={"target_set": "default"})
         new = Snapshot(ref="b", meta={"target_set": "default"},
@@ -487,8 +487,8 @@ enum TopLevel { kA, kB = 2, };
         self.assertGreaterEqual(change.severity, 80)
 
     def test_an_enum_member_change_is_reported_once(self):
-        from chromedrift.diff import diff_snapshots
-        from chromedrift.model import Snapshot
+        from chromiumdiff.diff import diff_snapshots
+        from chromiumdiff.model import Snapshot
         old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
                        meta={"target_set": "default"})
         new = Snapshot(ref="b", meta={"target_set": "default"},
@@ -673,7 +673,7 @@ class TestPrefBindingForms(unittest.TestCase):
     PATH = "chrome/browser/resources/settings/a11y_page/captions_page.html"
 
     def _prefs(self, markup):
-        from chromedrift.extract import webui_controls
+        from chromiumdiff.extract import webui_controls
         return {f.attrs["element_id"]: f.attrs["pref"]
                 for f in webui_controls.extract(markup, self.PATH)}
 
@@ -716,7 +716,7 @@ class TestPrefFileConventions(unittest.TestCase):
     """
 
     def test_both_conventions_are_recognised(self):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
         for name in ("chrome/common/pref_names.h",
                      "components/bookmarks/common/bookmark_pref_names.h",
                      "chrome/browser/ui/safety_hub/safety_hub_prefs.h",
@@ -725,13 +725,13 @@ class TestPrefFileConventions(unittest.TestCase):
             self.assertTrue(constants.applies_to(name), name)
 
     def test_unrelated_files_are_not_claimed(self):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
         for name in ("chrome/browser/foo.cc", "components/x/prefs_unittest.cc",
                      "chrome/browser/prefs_test.cc"):
             self.assertFalse(constants.applies_to(name), name)
 
     def test_a_real_declaration_is_extracted(self):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
         facts = constants.extract(
             'inline constexpr char kMemorySaverModeEnabled[] =\n'
             '    "performance_tuning.high_efficiency_mode.enabled";',
@@ -758,7 +758,7 @@ class TestPlatformSkipHasOneException(unittest.TestCase):
         import os
         import tempfile
 
-        from chromedrift.extract import run_on_tree
+        from chromiumdiff.extract import run_on_tree
 
         with tempfile.TemporaryDirectory() as tmp:
             for rel, text in tree.items():
@@ -802,7 +802,7 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
     """
 
     def test_every_cc_hint_has_an_h_hint(self):
-        from chromedrift.extract.base_features import FILE_HINTS
+        from chromiumdiff.extract.base_features import FILE_HINTS
 
         # These have no header form in Chromium: the definitions live in the
         # .cc and the header, if any, declares nothing this extractor reads.
@@ -816,8 +816,8 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
 
     def test_the_wide_filter_and_the_hints_agree(self):
         """Fetching a suffix nobody reads is waste; the reverse loses data."""
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import READABLE_SUFFIXES
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import READABLE_SUFFIXES
 
         for suffix in READABLE_SUFFIXES:
             if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
@@ -835,8 +835,8 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
         `--disable-popup-blocking`, `extensions/common/switches.cc` declares
         35 more -- inside a target set reporting full coverage.
         """
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import READABLE_SUFFIXES
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import READABLE_SUFFIXES
 
         for suffix in READABLE_SUFFIXES:
             if not suffix.endswith((".cc", ".h")) or suffix.startswith("."):
@@ -855,8 +855,8 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
         counted it. A denominator that disagrees with what is read makes the
         percentage describe nothing.
         """
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import could_declare
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import could_declare
 
         conventions = ("features", "switches", "feature_list", "field_trial",
                        "fieldtrial", "flags", "pref_names", "prefs")
@@ -871,7 +871,7 @@ class TestDeclarationHintsComeInPairs(unittest.TestCase):
                         f"coverage counts {path} but nothing reads it")
 
     def test_a_bare_switches_file_yields_its_switches(self):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
 
         source = """
         namespace switches {
@@ -985,8 +985,8 @@ class TestPlatformDirectories(unittest.TestCase):
         scoring, so 164 findings on a wide M148 -> M151 run were declared
         under a platform we do not build and none of them scored zero.
         """
-        from chromedrift.extract._cpp import PLATFORM_DIR_RE
-        from chromedrift.targets import _OTHER_PLATFORM_RE
+        from chromiumdiff.extract._cpp import PLATFORM_DIR_RE
+        from chromiumdiff.targets import _OTHER_PLATFORM_RE
         self.assertIs(_OTHER_PLATFORM_RE, PLATFORM_DIR_RE)
 
     def test_a_declaration_under_a_platform_directory_is_not_in_our_build(self):
@@ -1082,7 +1082,7 @@ BASE_FEATURE(kMaybe, base::FEATURE_ENABLED_BY_DEFAULT);
 
     def test_test_and_fuzzer_declarations_never_reach_a_product_report(self):
         """151 facts at M151 came from files that ship to nobody."""
-        from chromedrift.extract import _skip
+        from chromiumdiff.extract import _skip
         for path in ("services/network/public/mojom/network_service_test.mojom",
                      "mojo/public/tools/fuzzers/fuzz.mojom",
                      "content/browser/indexed_db_control_test.mojom"):

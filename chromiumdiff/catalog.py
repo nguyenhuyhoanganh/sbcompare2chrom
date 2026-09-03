@@ -92,7 +92,7 @@ def list_tree(ref: str, workdir: Optional[str] = None,
     Downloads the commit and tree objects but no file contents, which is what
     keeps this to seconds rather than hours.
     """
-    tmp = workdir or tempfile.mkdtemp(prefix="chromedrift-catalog-")
+    tmp = workdir or tempfile.mkdtemp(prefix="chromiumdiff-catalog-")
     repo = os.path.join(tmp, "src")
     branch = ref.split("/")[-1] if ref.startswith("refs/") else ref
 

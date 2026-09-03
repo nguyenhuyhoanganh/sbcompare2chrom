@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>The chromedrift pipeline</title>
+<title>The chromiumdiff pipeline</title>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0}
@@ -418,7 +418,7 @@ footer{
 <div class="wrap">
 
 <header class="hero">
-  <div class="eyebrow">chromedrift · pipeline documentation</div>
+  <div class="eyebrow">chromiumdiff · pipeline documentation</div>
   <h1>Comparing two Chromium versions:<br>what changed, and how much it costs</h1>
   <p class="lede">
     Every <b>uprev</b> — moving onto a newer Chromium — someone has to answer two
@@ -427,7 +427,7 @@ footer{
   </p>
   <p class="lede">
     Running <code>git diff</code> between two versions produces several million
-    lines, almost none of which answer either question. <b>chromedrift</b> takes a
+    lines, almost none of which answer either question. <b>chromiumdiff</b> takes a
     different route: it does not read the code, it reads only the <b>declaration
     files</b> — the places where Chromium lists what it has, in a machine-readable
     form — labels every difference with what it means, and ranks the labels.
@@ -553,7 +553,7 @@ param <span class="g">ignore_delay_seconds</span> = 300</pre>
               — belong to <code>ParallelDownloading</code> itself, but they live in a
               file the current fetch list <b>does not reach</b>, so the tool cannot read
               them. That is precisely the kind of gap the
-              <code>chromedrift catalog</code> command exists to measure, and why the
+              <code>chromiumdiff catalog</code> command exists to measure, and why the
               end of this document states coverage rather than staying quiet about it.
             </p>
           </div>
@@ -1766,7 +1766,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <code>report.html</code> opened from a disk is exactly what it always was: a
       complete, offline table with the lookup absent, because a page on the
       <code>file://</code> origin may not call chromium-review and the browser
-      blocks it before it is sent. <code>python3 -m chromedrift serve out</code>
+      blocks it before it is sent. <code>python3 -m chromiumdiff serve out</code>
       changes who asks — the page calls localhost, and Python asks Gerrit. Opening
       the file directly and reporting the lookup as broken is the one mistake this
       note exists to prevent.
@@ -1843,7 +1843,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
 </section>
 
 <footer>
-  <div>Every figure in this document was measured against real Chromium source (M139, M143, M148, M151) and can be reproduced with <code>chromedrift catalog</code> and <code>chromedrift run</code>.</div>
+  <div>Every figure in this document was measured against real Chromium source (M139, M143, M148, M151) and can be reproduced with <code>chromiumdiff catalog</code> and <code>chromiumdiff run</code>.</div>
   <div>Related document: <code>README.md</code> — what the project is, installation, the commands, how a change is ranked, and how to read a report.</div>
 </footer>
 

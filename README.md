@@ -1,4 +1,4 @@
-# chromedrift
+# chromiumdiff
 
 A tool that compares two Chromium versions and answers one question: **what actually changed, and how much does each change matter.**
 
@@ -35,7 +35,7 @@ Every few releases the team moves its Chromium base to a newer milestone — M14
 
 Download two Chromium releases and run `git diff` and you get several million changed lines. Most of it is irrelevant: renamed variables, cleanup, typo fixes in comments, third-party library rolls. Reading all of it is not possible; skimming it misses exactly the thing that mattered.
 
-So the real problem is not "how do we compare them" but **"how do we filter down to the part that means something"**. That is what chromedrift does.
+So the real problem is not "how do we compare them" but **"how do we filter down to the part that means something"**. That is what chromiumdiff does.
 
 ### Three design principles
 
@@ -57,9 +57,9 @@ BASE_FEATURE(kBackForwardCache, "BackForwardCache", base::FEATURE_ENABLED_BY_DEF
 BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
 ```
 
-In a single file, M139 has 170 of 170 declarations in the old form and M143 has 12 of 187. A tool that compares source text reports "170 features deleted, 187 features added" — which is meaningless. chromedrift normalizes `kBackForwardCache` to `"BackForwardCache"` before comparing, and gets a readable answer: 152 unchanged, 18 dropped, 35 added.
+In a single file, M139 has 170 of 170 declarations in the old form and M143 has 12 of 187. A tool that compares source text reports "170 features deleted, 187 features added" — which is meaningless. chromiumdiff normalizes `kBackForwardCache` to `"BackForwardCache"` before comparing, and gets a readable answer: 152 unchanged, 18 dropped, 35 added.
 
-**Stop at the evidence.** The deterministic stages — extract, normalize, compare, rank — turn several million changed lines into a few thousand labelled changes, sorted so the ones that cost something are at the top, and then stop. The tool does not conclude "this means X for the product". That takes judgement about a particular product, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md) skill. chromedrift's job is to make that input complete, ranked and citable.
+**Stop at the evidence.** The deterministic stages — extract, normalize, compare, rank — turn several million changed lines into a few thousand labelled changes, sorted so the ones that cost something are at the top, and then stop. The tool does not conclude "this means X for the product". That takes judgement about a particular product, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-uprevs`](skills/analyzing-chromium-uprevs/SKILL.md) skill. chromiumdiff's job is to make that input complete, ranked and citable.
 
 It is also why nothing in the tool describes *your* codebase. An earlier version took a config file naming the files you patch and the symbols you reference, and added points when a change touched one. It was the right idea and it could not be supplied honestly: with no config the scoring collapsed into a second copy of the severity, its top bucket was unreachable by construction, and 1,384 of 2,800 findings landed in a bucket called "New opportunity" whose rule was "anything added". What is left is what two Chromium trees can establish on their own, and the step it does not take — searching your own tree for the identifier a finding cites — is one command you run yourself.
 
@@ -89,10 +89,10 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
-tar czf chromedrift.tgz chromedrift/ tests/ skills/ docs/ README.md
+tar czf chromiumdiff.tgz chromiumdiff/ tests/ skills/ docs/ README.md
 # on the target machine
-tar xzf chromedrift.tgz && cd chromedrift
-python3 -m chromedrift --version
+tar xzf chromiumdiff.tgz && cd chromiumdiff
+python3 -m chromiumdiff --version
 ```
 
 On Windows use `py -3` instead of `python3`.
@@ -102,14 +102,14 @@ On Windows use `py -3` instead of `python3`.
 Run this first on any new machine. It checks everything that commonly breaks, in one pass, instead of letting you discover each failure two minutes into a run:
 
 ```bash
-python3 -m chromedrift check
+python3 -m chromiumdiff check
 ```
 
 ```
 python
   [OK  ] version 3.14.6
 cache directory
-  [OK  ] /path/.chromedrift-cache writable — 68 GB free
+  [OK  ] /path/.chromiumdiff-cache writable — 68 GB free
 network
   [OK  ] gitiles (source) — HTTP 200
   [OK  ] chromiumdash (version resolution) — HTTP 200
@@ -123,7 +123,7 @@ Exit code `0` means ready, `1` means there is a FAIL line to deal with — usabl
 ### Smoke-testing the pipeline (~10 seconds)
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
   --target-set minimal --no-enrich
 ```
 
@@ -132,7 +132,7 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 ### A full run
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151
 ```
 
@@ -472,7 +472,7 @@ So `default` reads 43% of the files but more than half of the `base::Feature` de
 
 There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. The remaining 1% has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
 
-What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromedrift catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
+What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
 Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
@@ -492,8 +492,8 @@ That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared b
 When you only care about one area, `--partition` bounds both the fetching and the reading:
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition downloads
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --partition settings --partition bookmarks
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 --partition downloads
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 --partition settings --partition bookmarks
 ```
 
 Available: `settings, downloads, bookmarks, history, extensions, passwords, printing, newtab, webplatform, network, media`.
@@ -503,7 +503,7 @@ A partition is a **filter over the target list**, not a second list to maintain 
 A partitioned run prints its own coverage, measured against exactly the roots that partition fetches:
 
 ```
-$ python3 -m chromedrift snapshot 151.0.7922.138 --partition downloads
+$ python3 -m chromiumdiff snapshot 151.0.7922.138 --partition downloads
 coverage: reads 3 of 6 files in this tree that could declare (50% of files)
 snapshot: 2692 facts
 ```
@@ -517,7 +517,7 @@ Add `--complete` and the partition fetches whole directory roots instead of filt
 `catalog` answers the same question from a different source: a clone that downloads no file contents gets Chromium's entire tree structure in seconds.
 
 ```bash
-python3 -m chromedrift catalog 151.0.7922.138
+python3 -m chromiumdiff catalog 151.0.7922.138
 ```
 
 It uses **the same rule** as the per-run measurement, so the two numbers describe the same population, and it names every missing file so they can be added in priority order.
@@ -536,14 +536,14 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 ## 6. The commands
 
 ```bash
-python3 -m chromedrift check      # verify this machine can run the pipeline
-python3 -m chromedrift snapshot   # extract the feature surface of ONE version
-python3 -m chromedrift diff       # semantic comparison between TWO versions
-python3 -m chromedrift run        # the whole pipeline: snapshot → diff → rank → report
-python3 -m chromedrift report     # re-render a saved report.json
-python3 -m chromedrift catalog    # measure which files the target set is missing
-python3 -m chromedrift figures    # write docs/figures.json from a report
-python3 -m chromedrift serve      # serve a report where opening a row looks its CL up
+python3 -m chromiumdiff check      # verify this machine can run the pipeline
+python3 -m chromiumdiff snapshot   # extract the feature surface of ONE version
+python3 -m chromiumdiff diff       # semantic comparison between TWO versions
+python3 -m chromiumdiff run        # the whole pipeline: snapshot → diff → rank → report
+python3 -m chromiumdiff report     # re-render a saved report.json
+python3 -m chromiumdiff catalog    # measure which files the target set is missing
+python3 -m chromiumdiff figures    # write docs/figures.json from a report
+python3 -m chromiumdiff serve      # serve a report where opening a row looks its CL up
 ```
 
 Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
@@ -553,15 +553,15 @@ Splitting them up is not decoration. The expensive stage (fetching) and the stag
 It covers the CL-and-issue stage too, and that is where it earns its keep: correcting the candidate window moved every figure that stage produces at once — the verdict counts, the CLs cited, the share of issues that answer 403 — and each was found by hand, in a second sweep, because the first one looked for flags and command names and those figures live in prose. Regenerate rather than re-measure:
 
 ```bash
-python3 -m chromedrift serve out/M148_to_M151     # click rows, or leave it to a run
-python3 -m chromedrift figures out/M148_to_M151/report.json
+python3 -m chromiumdiff serve out/M148_to_M151     # click rows, or leave it to a run
+python3 -m chromiumdiff figures out/M148_to_M151/report.json
 ```
 
 The block carries `rows` beside every count, so a report with three rows resolved cannot read like a run. It is absent entirely on a report nothing has been looked up in — a zero would read as a measurement, and there was none. Anything the command cannot recompute is carried forward and said out loud rather than dropped: `--wide` is expensive and rarely on disk, and silently deleting the coverage figure that needed it is precisely the failure this file exists to prevent.
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out
-python3 -m chromedrift figures out/report.json --wide out-wide/report.json
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 --out out
+python3 -m chromiumdiff figures out/report.json --wide out-wide/report.json
 ```
 
 `serve` is the only stage that asks a question the two trees cannot answer between them: *who changed this, and what were they fixing.* It is separate from `run` because it needs the network and because a report is worth reading without it. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
@@ -666,7 +666,7 @@ A rule that produced the same answer either way would be wrong in one of the two
 
 ### Changing the ranking
 
-`SIGNAL_SEVERITY`, `BASE_SEVERITY` and `SIGNAL_BUCKET` in `chromedrift/diff.py`, and the two constants in `chromedrift/score.py`, are all plain data. A test holds the three tables to the same set of signals, so a new signal cannot be added to one and forgotten in the others.
+`SIGNAL_SEVERITY`, `BASE_SEVERITY` and `SIGNAL_BUCKET` in `chromiumdiff/diff.py`, and the two constants in `chromiumdiff/score.py`, are all plain data. A test holds the three tables to the same set of signals, so a new signal cannot be added to one and forgotten in the others.
 
 ---
 
@@ -768,8 +768,8 @@ A ranking nobody can argue with is a ranking that gets ignored the first time it
 `report.json` always holds every finding, including Housekeeping, and the two rendered files are views of it:
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138
-python3 -m chromedrift report out/report.json --format both --out out/again
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138
+python3 -m chromiumdiff report out/report.json --format both --out out/again
 ```
 
 Size is not the constraint: the whole of an uprev is about 4 MB of JSON and `report.md` is about 118 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
@@ -805,7 +805,7 @@ The window is counted back from the version being adopted, and the list is order
 
 ### Why it changed: the CL and the issue
 
-The two trees say a feature flipped from `disabled` to `enabled`. They cannot say who did it or what they were fixing. `chromedrift serve` answers that from Chromium's own review server, one row at a time, and without ever asserting anything the diff does not show.
+The two trees say a feature flipped from `disabled` to `enabled`. They cannot say who did it or what they were fixing. `chromiumdiff serve` answers that from Chromium's own review server, one row at a time, and without ever asserting anything the diff does not show.
 
 The chain is four lookups, and none of them is a guess:
 
@@ -979,7 +979,7 @@ A 3px edge on the score cell says the same thing while you scroll. The control s
 Each one opens in its own box under the CL it belongs to, and a second does not close the first: a reader comparing two issues is comparing them, not toggling between them. Clicking the same chip again closes only that one. Off a disk there is nothing to ask, so the chip stays the plain tracker link it always was.
 
 ```bash
-python3 -m chromedrift serve out/M148_to_M151      # then open http://127.0.0.1:8787/
+python3 -m chromiumdiff serve out/M148_to_M151      # then open http://127.0.0.1:8787/
 ```
 
 ---
@@ -1067,7 +1067,7 @@ Two independent checks, neither of which reads the diff the match was made on. O
 
 The default target set tracks eight `chrome://` surfaces (`wide` reads all 132). Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
 
-Adding a surface is one line in `chromedrift/targets.py`:
+Adding a surface is one line in `chromiumdiff/targets.py`:
 
 ```python
 WEBUI_SURFACES = (
@@ -1082,7 +1082,7 @@ No new parser needed — the three WebUI extractors are general across surfaces.
 
 ### Adding a new source of truth
 
-Write an extractor with two pure functions, `applies_to(path)` and `extract(text, path)`, register it with one line in `chromedrift/extract/__init__.py`, and declare the files to fetch in `chromedrift/targets.py`. Nothing else changes.
+Write an extractor with two pure functions, `applies_to(path)` and `extract(text, path)`, register it with one line in `chromiumdiff/extract/__init__.py`, and declare the files to fetch in `chromiumdiff/targets.py`. Nothing else changes.
 
 ---
 
@@ -1111,7 +1111,7 @@ On Windows, nothing in the source depends on POSIX. The things that usually brea
 ```bash
 export HTTPS_PROXY=http://proxy.internal:8080
 export NO_PROXY=localhost,127.0.0.1,.internal
-python3 -m chromedrift check          # prints the proxy in use
+python3 -m chromiumdiff check          # prints the proxy in use
 ```
 
 If the proxy terminates TLS and you get `CERTIFICATE_VERIFY_FAILED`, point Python at the internal CA:
@@ -1127,7 +1127,7 @@ Two options.
 **Use an internal checkout or mirror.** `--local-src` applies to both refs, so when the two versions live in different directories use `--from-src` and `--to-src`:
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
   --from-src /mirror/chromium-148/src \
   --to-src   /mirror/chromium-151/src \
   --no-enrich
@@ -1137,8 +1137,8 @@ python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
 
 ```bash
 # on the networked machine
-python3 -m chromedrift snapshot 151.0.7922.138
-# copy .chromedrift-cache/snapshots/*.json to the air-gapped machine
+python3 -m chromiumdiff snapshot 151.0.7922.138
+# copy .chromiumdiff-cache/snapshots/*.json to the air-gapped machine
 ```
 
 ### Troubleshooting table
@@ -1160,15 +1160,15 @@ python3 -m chromedrift snapshot 151.0.7922.138
 | `Breaking: 0` on a default run | Normal, and not a clean bill of health | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Housekeeping there by design. Run `--target-set wide` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
-| (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMEDRIFT_CACHE=C:\cdcache` |
+| (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMIUMDIFF_CACHE=C:\cdcache` |
 | (Windows) `python3` is not a command | Windows names it differently | Use `py -3` or `python` |
 
 ### Cache and logs
 
 ```bash
-CHROMEDRIFT_DEBUG=1 python3 -m chromedrift run …   # print full tracebacks
-python3 -m chromedrift run … --refresh             # ignore the cache and refetch
-export CHROMEDRIFT_CACHE=/shared/chromedrift-cache # put the cache elsewhere
+CHROMIUMDIFF_DEBUG=1 python3 -m chromiumdiff run …   # print full tracebacks
+python3 -m chromiumdiff run … --refresh             # ignore the cache and refetch
+export CHROMIUMDIFF_CACHE=/shared/chromiumdiff-cache # put the cache elsewhere
 ```
 
 A shared cache makes later CI jobs nearly instant. A released tag's snapshot never changes, so it can be shared freely between jobs and between teams.
@@ -1178,13 +1178,13 @@ A shared cache makes later CI jobs nearly instant. A released tag's snapshot nev
 ```bash
 #!/bin/bash
 set -euo pipefail
-export CHROMEDRIFT_CACHE=/shared/chromedrift-cache
+export CHROMIUMDIFF_CACHE=/shared/chromiumdiff-cache
 
 FROM="148.0.7778.217"        # pinned, not a bare milestone number
 TO="151.0.7922.138"
 
-python3 -m chromedrift check
-python3 -m chromedrift run "$FROM" "$TO" \
+python3 -m chromiumdiff check
+python3 -m chromiumdiff run "$FROM" "$TO" \
   --target-set wide \
   --out "reports/${FROM}_to_${TO}"
 
@@ -1244,7 +1244,7 @@ Tracking down the difference showed **the tool was right and the cross-check was
 ## 12. Source layout
 
 ```
-chromedrift/
+chromiumdiff/
   acquire.py      fetch source over Gitiles or from a local checkout
   targets.py      declares which files to fetch and why; partitions; coverage rules
   snapshot.py     combines fetch + extract into one cached snapshot

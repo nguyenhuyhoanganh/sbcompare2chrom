@@ -1,10 +1,10 @@
-# 2. ChromeDrift lấy source tree, thư mục và file như thế nào
+# 2. ChromiumDiff lấy source tree, thư mục và file như thế nào
 
 Tài liệu này trả lời một câu hỏi duy nhất: **công cụ lấy mã nguồn Chromium từ đâu, lấy bao nhiêu, và làm sao biết là đã lấy đúng.** Nếu không tin bước này, mọi kết luận phía sau đều không đáng tin.
 
 ## Trả lời ngắn
 
-ChromeDrift làm việc với hai trạng thái source hoàn toàn độc lập: một bên là version cũ, một bên là version mới. Với mỗi bên, công cụ lần lượt làm ba việc:
+ChromiumDiff làm việc với hai trạng thái source hoàn toàn độc lập: một bên là version cũ, một bên là version mới. Với mỗi bên, công cụ lần lượt làm ba việc:
 
 1. xác định một Git ref cụ thể (một điểm cố định trong lịch sử Chromium);
 2. hỏi cây file của **chính ref đó** để đo xem phạm vi đọc được là bao nhiêu;
@@ -15,7 +15,7 @@ Có hai nguồn để lấy mã nguồn:
 - **Gitiles** — tải trực tiếp từng file, hoặc tải cả một thư mục con, tại đúng tag cần đọc;
 - **local checkout** — sao chép đúng những file cần thiết từ một thư mục Chromium `src/` đã có sẵn trên máy.
 
-Cây source mà ChromeDrift dựng ra là một cây **không đầy đủ** (partial tree), nhưng đường dẫn tương đối của mỗi file vẫn giữ nguyên như trên upstream. Ví dụ file `chrome/browser/resources/settings/route.ts` của Chromium vẫn nằm đúng ở đường dẫn đó trong cache; nó không bị gom vào một thư mục phẳng kiểu "routes". Phần "Bước 6" giải thích vì sao chi tiết này lại quan trọng đến vậy.
+Cây source mà ChromiumDiff dựng ra là một cây **không đầy đủ** (partial tree), nhưng đường dẫn tương đối của mỗi file vẫn giữ nguyên như trên upstream. Ví dụ file `chrome/browser/resources/settings/route.ts` của Chromium vẫn nằm đúng ở đường dẫn đó trong cache; nó không bị gom vào một thư mục phẳng kiểu "routes". Phần "Bước 6" giải thích vì sao chi tiết này lại quan trọng đến vậy.
 
 ## Toàn bộ luồng, nhìn từ trên xuống
 
@@ -284,7 +284,7 @@ Khi review một báo cáo thật, đây là sáu câu cần tự hỏi:
 
 ## Vì sao không dùng thẳng một Git diff của cả checkout
 
-Một Git diff trên toàn bộ cây trả lời câu hỏi *"dòng text nào đã đổi"*. Nhưng câu hỏi ChromeDrift cần trả lời là *"contract nào trong các khai báo đã đổi"*. Đó là hai câu hỏi khác nhau.
+Một Git diff trên toàn bộ cây trả lời câu hỏi *"dòng text nào đã đổi"*. Nhưng câu hỏi ChromiumDiff cần trả lời là *"contract nào trong các khai báo đã đổi"*. Đó là hai câu hỏi khác nhau.
 
 Việc chỉ tải vừa đủ các file chứa khai báo mang lại ba lợi ích cụ thể:
 

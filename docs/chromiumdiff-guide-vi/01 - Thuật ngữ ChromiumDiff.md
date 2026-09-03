@@ -1,8 +1,8 @@
-# 1. Thuật ngữ dùng trong ChromeDrift
+# 1. Thuật ngữ dùng trong ChromiumDiff
 
 Tài liệu này là từ điển tra cứu. Không cần đọc hết một lượt — khi gặp một từ lạ trong báo cáo hoặc trong các phần khác của bộ tài liệu, quay lại đây tìm.
 
-Mỗi mục được viết theo cùng một khuôn: **từ đó nghĩa là gì**, **ví dụ cụ thể**, và khi cần thì thêm **vì sao ChromeDrift quan tâm**.
+Mỗi mục được viết theo cùng một khuôn: **từ đó nghĩa là gì**, **ví dụ cụ thể**, và khi cần thì thêm **vì sao ChromiumDiff quan tâm**.
 
 ## Mười từ nên biết trước
 
@@ -13,7 +13,7 @@ Nếu chỉ đọc được mười dòng, hãy đọc mười dòng này. Chún
 | `uprev` | Một đợt nâng nền Chromium của Samsung Browser từ version cũ lên version mới |
 | `upstream` | Chromium gốc do Google phát triển; đối lập với `downstream` là Samsung Browser |
 | Khai báo (declaration) | Một dòng source định nghĩa ra một thứ có tên: một feature flag, một Web API, một preference key... |
-| `Fact` | Một khai báo đã được ChromeDrift rút gọn thành object JSON nhỏ để so sánh được giữa hai version |
+| `Fact` | Một khai báo đã được ChromiumDiff rút gọn thành object JSON nhỏ để so sánh được giữa hai version |
 | `Snapshot` | Toàn bộ `Fact` đọc được ở **một** version Chromium |
 | `Change` | Kết quả so sánh một `Fact` giữa hai snapshot: được thêm, bị bỏ, hay bị sửa |
 | `signal` | Nhãn mô tả chính xác chuyện gì đã xảy ra, ví dụ `pref_renamed` (preference key đã bị đổi tên) |
@@ -40,7 +40,7 @@ Project mã nguồn mở làm nền cho Chrome và nhiều browser khác. Trong 
 
 Chromium là codebase mở, ai cũng tải được. Chrome là sản phẩm của Google, được build từ Chromium rồi cộng thêm branding, các service riêng và cấu hình riêng.
 
-ChromeDrift đọc **mã nguồn Chromium**, và đọc thêm **dữ liệu release của Chromium/Chrome** chỉ để xác định một số version là bản nào. Công cụ không mở file binary của Chrome và không so binary Chrome với binary Samsung Browser.
+ChromiumDiff đọc **mã nguồn Chromium**, và đọc thêm **dữ liệu release của Chromium/Chrome** chỉ để xác định một số version là bản nào. Công cụ không mở file binary của Chrome và không so binary Chrome với binary Samsung Browser.
 
 ### Upstream, downstream và fork
 
@@ -50,7 +50,7 @@ Ba từ này mô tả quan hệ giữa Chromium và Samsung Browser:
 - `downstream`: sản phẩm lấy Chromium làm nền và có phần sửa riêng. Ở đây là Samsung Browser.
 - `fork`: nhánh code phát triển ra từ Chromium.
 
-Cần lưu ý: `fork` **không** có nghĩa là tách hẳn và không quay lại. Samsung vẫn định kỳ nhận code mới từ upstream, và chính việc nhận code định kỳ đó tạo ra bài toán mà ChromeDrift muốn giải.
+Cần lưu ý: `fork` **không** có nghĩa là tách hẳn và không quay lại. Samsung vẫn định kỳ nhận code mới từ upstream, và chính việc nhận code định kỳ đó tạo ra bài toán mà ChromiumDiff muốn giải.
 
 ### Uprev
 
@@ -76,17 +76,17 @@ Ba cách chỉ tới một trạng thái mã nguồn trong Git:
 - `tag`: một cái tên cố định gắn với một bản release, ví dụ `refs/tags/151.0.7922.138`. Tag đã tạo thì không đổi nữa.
 - `commit SHA`: mã định danh của một commit cụ thể.
 
-ChromeDrift luôn quy full version về dạng tag. Nếu người dùng chỉ nhập milestone, công cụ đi tìm bản Windows Stable mới nhất của milestone đó trước, rồi mới tạo tag từ full version tìm được.
+ChromiumDiff luôn quy full version về dạng tag. Nếu người dùng chỉ nhập milestone, công cụ đi tìm bản Windows Stable mới nhất của milestone đó trước, rồi mới tạo tag từ full version tìm được.
 
 ### ChromiumDash
 
-Một API công khai cung cấp thông tin về các bản release của Chromium/Chrome. ChromeDrift chỉ gọi tới nó trong đúng một tình huống: đầu vào chỉ có milestone, và công cụ cần biết full version Windows Stable tương ứng là bản nào.
+Một API công khai cung cấp thông tin về các bản release của Chromium/Chrome. ChromiumDiff chỉ gọi tới nó trong đúng một tình huống: đầu vào chỉ có milestone, và công cụ cần biết full version Windows Stable tương ứng là bản nào.
 
 ChromiumDash **không** cung cấp mã nguồn. Bước lấy source dùng nguồn khác.
 
 ### Gitiles
 
-Một web service cho phép đọc Git repository của Chromium qua HTTP, không cần clone toàn bộ repository về máy. ChromeDrift dùng Gitiles để làm ba việc:
+Một web service cho phép đọc Git repository của Chromium qua HTTP, không cần clone toàn bộ repository về máy. ChromiumDiff dùng Gitiles để làm ba việc:
 
 - xem danh sách file trong một thư mục, tại đúng tag cần đọc;
 - tải về một file đơn lẻ;
@@ -96,13 +96,13 @@ Một web service cho phép đọc Git repository của Chromium qua HTTP, khôn
 
 `checkout` là bản mã nguồn đã được lấy về máy. Trong một checkout Chromium chuẩn, `src/` là thư mục gốc, bên trong chứa `chrome/`, `content/`, `components/`, `third_party/` và nhiều thư mục khác.
 
-Khi chạy ChromeDrift với option `--local-src` (đọc source có sẵn trên máy thay vì tải qua mạng), phải truyền đúng đường dẫn tới thư mục `src/` — không phải thư mục cha của nó, và cũng không phải một thư mục con đã bị cắt bớt.
+Khi chạy ChromiumDiff với option `--local-src` (đọc source có sẵn trên máy thay vì tải qua mạng), phải truyền đúng đường dẫn tới thư mục `src/` — không phải thư mục cha của nó, và cũng không phải một thư mục con đã bị cắt bớt.
 
 ### `depot_tools` và `gclient sync`
 
 `depot_tools` là bộ công cụ chuẩn của Chromium; `gclient sync` là lệnh dùng để tạo ra một checkout Chromium đầy đủ — kéo về dependency, generated file và các repository liên quan. Đây là quy trình bình thường khi muốn build Chromium.
 
-ChromeDrift **không cần** chạy `gclient sync` khi dùng Gitiles, vì nó chỉ đọc một số file khai báo chứ không build gì cả. Nhưng nếu chọn dùng checkout có sẵn trên máy, thì việc checkout đó đầy đủ và đúng version là trách nhiệm của người chuẩn bị source, công cụ không tự kiểm tra hộ.
+ChromiumDiff **không cần** chạy `gclient sync` khi dùng Gitiles, vì nó chỉ đọc một số file khai báo chứ không build gì cả. Nhưng nếu chọn dùng checkout có sẵn trên máy, thì việc checkout đó đầy đủ và đúng version là trách nhiệm của người chuẩn bị source, công cụ không tự kiểm tra hộ.
 
 ### Source tree, directory tree và relative path
 
@@ -112,17 +112,17 @@ Ba mức phạm vi khác nhau khi nói về cấu trúc thư mục:
 - `directory tree`: một nhánh con trong đó, ví dụ `chrome/browser/resources/settings/`.
 - `relative path`: đường dẫn tính từ thư mục `src/` của Chromium, ví dụ `content/common/features.cc`.
 
-ChromeDrift luôn giữ nguyên relative path khi lưu file về máy. Có hai lý do: bộ đọc nhận ra đúng loại file nhờ đường dẫn, và báo cáo trỏ được về đúng `path:dòng` để người đọc mở source kiểm tra.
+ChromiumDiff luôn giữ nguyên relative path khi lưu file về máy. Có hai lý do: bộ đọc nhận ra đúng loại file nhờ đường dẫn, và báo cáo trỏ được về đúng `path:dòng` để người đọc mở source kiểm tra.
 
 ### Archive
 
 Gói nén của một thư mục tại đúng một Git ref. Gitiles có thể trả về archive cho cả một nhánh con.
 
-Khi giải nén, ChromeDrift kiểm tra từng đường dẫn bên trong để archive không thể ghi file ra ngoài thư mục đích, và chỉ ghi ra những file khớp bộ lọc đuôi file đã khai báo.
+Khi giải nén, ChromiumDiff kiểm tra từng đường dẫn bên trong để archive không thể ghi file ra ngoài thư mục đích, và chỉ ghi ra những file khớp bộ lọc đuôi file đã khai báo.
 
 ### Cache
 
-Dữ liệu được lưu lại để lần chạy sau không phải tải và xử lý lại phần không đổi. Cache của ChromeDrift gồm bốn thứ:
+Dữ liệu được lưu lại để lần chạy sau không phải tải và xử lý lại phần không đổi. Cache của ChromiumDiff gồm bốn thứ:
 
 - danh sách cây file theo từng ref;
 - cây source đã tải về;
@@ -133,7 +133,7 @@ Tag release là bất biến, nên cache theo tag có thể tái sử dụng an 
 
 ## Nhóm 2 — Phạm vi đọc mã nguồn
 
-Nhóm từ này trả lời câu hỏi: một lần chạy ChromeDrift **cam kết đọc những gì**, và đọc được bao nhiêu phần trăm so với những gì đáng lẽ nên đọc.
+Nhóm từ này trả lời câu hỏi: một lần chạy ChromiumDiff **cam kết đọc những gì**, và đọc được bao nhiêu phần trăm so với những gì đáng lẽ nên đọc.
 
 ### Target
 
@@ -146,7 +146,7 @@ Mỗi target có bốn thuộc tính: `path` (tải ở đâu), `kind` (file hay
 
 ### Target set
 
-Một tập hợp target, tương ứng với một mức độ quét. ChromeDrift có ba target set:
+Một tập hợp target, tương ứng với một mức độ quét. ChromiumDiff có ba target set:
 
 | Target set | Dùng khi nào | Đặc điểm |
 |---|---|---|
@@ -202,7 +202,7 @@ Hậu quả: mọi bằng chứng về việc "đã bị xoá" trong lần chạ
 
 ## Nhóm 3 — Kiến trúc của browser
 
-Nhóm từ này giải thích các bộ phận bên trong Chromium mà ChromeDrift theo dõi.
+Nhóm từ này giải thích các bộ phận bên trong Chromium mà ChromiumDiff theo dõi.
 
 ### Browser process, renderer process và process boundary
 
@@ -254,7 +254,7 @@ Cần phân biệt rõ với WebUI: Web Platform là bề mặt dành cho **nộ
 
 Ngôn ngữ dùng để khai báo hình dạng của một Web API. Một file `.idl` cho biết interface có những gì: method, attribute, tham số, kiểu trả về, quan hệ kế thừa và các extended attribute.
 
-Một quy tắc quan trọng của ChromeDrift: chỉ những file `.idl` nằm dưới `third_party/blink/renderer/` mới được coi là Web IDL của Blink. Các file `.idl` ở chỗ khác — của extension API, hoặc của Windows MIDL — là những dialect hoàn toàn khác, đọc nhầm sẽ tạo ra kết luận sai.
+Một quy tắc quan trọng của ChromiumDiff: chỉ những file `.idl` nằm dưới `third_party/blink/renderer/` mới được coi là Web IDL của Blink. Các file `.idl` ở chỗ khác — của extension API, hoặc của Windows MIDL — là những dialect hoàn toàn khác, đọc nhầm sẽ tạo ra kết luận sai.
 
 ### Interface
 
@@ -290,7 +290,7 @@ WebUI không phải website thông thường, và cũng không phải toàn bộ
 
 Thành phần mà người dùng tương tác trong template WebUI: toggle, dropdown, radio group, ô nhập, nút bấm...
 
-ChromeDrift theo dõi bốn thứ ở mỗi control: tag của element, thuộc tính `id`, khoá label dùng cho đa ngôn ngữ, pref mà nó ghi vào, và điều kiện build.
+ChromiumDiff theo dõi bốn thứ ở mỗi control: tag của element, thuộc tính `id`, khoá label dùng cho đa ngôn ngữ, pref mà nó ghi vào, và điều kiện build.
 
 ### `loadTimeData`
 
@@ -312,13 +312,13 @@ Một route hoặc control ở phía giao diện gọi `loadTimeData.getBoolean(
 
 ### GRIT
 
-Hệ thống quản lý resource và build của Chromium. Trong phạm vi những file mà ChromeDrift đọc, điều kiện GRIT `<if expr>` quyết định một template hoặc một control có được đưa vào bản build cho Windows hay không.
+Hệ thống quản lý resource và build của Chromium. Trong phạm vi những file mà ChromiumDiff đọc, điều kiện GRIT `<if expr>` quyết định một template hoặc một control có được đưa vào bản build cho Windows hay không.
 
 ### Polymer và Lit
 
 Hai cách Chromium viết template WebUI. Polymer thường dùng file `.html` với binding kiểu `{{prefs.x}}`; Lit thường dùng file `.html.ts` với template literal.
 
-ChromeDrift hỗ trợ cả hai, vì các surface WebUI đang chuyển từ Polymer sang Lit với tốc độ không đồng đều — cùng một lúc trong Chromium sẽ có cả hai kiểu.
+ChromiumDiff hỗ trợ cả hai, vì các surface WebUI đang chuyển từ Polymer sang Lit với tốc độ không đồng đều — cùng một lúc trong Chromium sẽ có cả hai kiểu.
 
 ## Nhóm 4 — Feature và cấu hình
 
@@ -336,7 +336,7 @@ Feature flag ở phía C++ của Chromium. Mỗi khai báo chứa: tên C++ dạ
 | Ai dùng | Code C++ gọi trực tiếp | Finch và `--enable-features` |
 | Nếu bị đổi tên | Build thường fail ngay — dễ phát hiện | Cấu hình cũ **im lặng** mất tác dụng — rất khó phát hiện |
 
-Chính sự bất đối xứng này là lý do ChromeDrift theo dõi cả hai tên riêng biệt.
+Chính sự bất đối xứng này là lý do ChromiumDiff theo dõi cả hai tên riêng biệt.
 
 ### `FeatureParam`
 
@@ -356,7 +356,7 @@ Hệ thống phía server của Chrome, dùng để triển khai thử nghiệm 
 - giá trị cụ thể cho một `FeatureParam`;
 - rule chọn nhóm người dùng hoặc nhóm thiết bị nào nhận cấu hình đó.
 
-Giới hạn cần nói rõ: ChromeDrift chỉ nhìn thấy **tên và cách đấu nối được khai báo trong mã nguồn Chromium**. Nó không biết Samsung có hệ thống rollout tương đương hay không, đang dùng tên feature nào, hay đang đặt param bằng bao nhiêu — trừ khi được cấp riêng nguồn cấu hình đó.
+Giới hạn cần nói rõ: ChromiumDiff chỉ nhìn thấy **tên và cách đấu nối được khai báo trong mã nguồn Chromium**. Nó không biết Samsung có hệ thống rollout tương đương hay không, đang dùng tên feature nào, hay đang đặt param bằng bao nhiêu — trừ khi được cấp riêng nguồn cấu hình đó.
 
 ### Kill switch
 
@@ -380,7 +380,7 @@ Hậu quả khi đổi pref key rất đặc thù: dữ liệu cũ vẫn nằm n
 
 Mục mà người dùng hoặc developer nhìn thấy trên trang `chrome://flags`.
 
-File `flag-metadata.json` chủ yếu cho ChromeDrift biết ai là owner upstream và milestone dự kiến xoá entry. Nó **không** phải khai báo đầy đủ của feature phía C++.
+File `flag-metadata.json` chủ yếu cho ChromiumDiff biết ai là owner upstream và milestone dự kiến xoá entry. Nó **không** phải khai báo đầy đủ của feature phía C++.
 
 ### Cấu hình nằm ngoài repository
 
@@ -388,7 +388,7 @@ Những thứ ảnh hưởng tới browser nhưng không nằm trong mã nguồn
 
 Trong báo cáo, owner `config` được hiển thị bằng nhãn `Outside the repository`, để nhắc người đọc rằng việc xác minh phải diễn ra ở một nguồn khác, không tìm trong Chromium được.
 
-## Nhóm 5 — Dữ liệu bên trong ChromeDrift
+## Nhóm 5 — Dữ liệu bên trong ChromiumDiff
 
 Đây là nhóm từ riêng của công cụ. Hiểu nhóm này là hiểu cách đọc báo cáo.
 
@@ -435,7 +435,7 @@ Ví dụ: macro `BASE_FEATURE` có dạng hai tham số và dạng ba tham số;
 
 ### Deduplication (loại bản ghi trùng)
 
-Gộp các `Fact` trùng UID theo một quy tắc cố định. ChromeDrift chọn khai báo có `(path, line)` nhỏ nhất, đồng thời tổng hợp thêm metadata của các overload khi cần.
+Gộp các `Fact` trùng UID theo một quy tắc cố định. ChromiumDiff chọn khai báo có `(path, line)` nhỏ nhất, đồng thời tổng hợp thêm metadata của các overload khi cần.
 
 Lý do phải cố định: nếu không, kết quả sẽ phụ thuộc vào thứ tự file mà hệ điều hành trả về, và hai lần chạy trên cùng một cây source có thể ra hai kết quả khác nhau.
 
@@ -447,7 +447,7 @@ Snapshot là **đầu ra** của hai bước lấy source và trích xuất, đ�
 
 ### Semantic diff (so sánh theo ý nghĩa)
 
-So sánh dựa trên ý nghĩa thay vì so từng dòng text. ChromeDrift ghép các `Fact` theo UID, rồi chỉ so những thuộc tính được coi là có hậu quả.
+So sánh dựa trên ý nghĩa thay vì so từng dòng text. ChromiumDiff ghép các `Fact` theo UID, rồi chỉ so những thuộc tính được coi là có hậu quả.
 
 Ví dụ cụ thể: `declared_form` đổi vì Chromium thay macro thì **không** tạo ra finding nào; còn `default_state` đổi thì có.
 
@@ -544,7 +544,7 @@ Một thay đổi đã được review và merge vào Chromium — tương đư�
 
 Một CL mang theo: tiêu đề do tác giả viết, diff của từng file, ngày merge, và footer ghi issue liên quan.
 
-ChromeDrift quan tâm vì tiêu đề CL thường chính là finding được viết bằng lời của người đã tạo ra nó — *"android: Enable AndroidCaptureKeyEvents by default"* nói đúng cái mà `platform_state: disabled → enabled` nói, nhưng nói được cả ý định.
+ChromiumDiff quan tâm vì tiêu đề CL thường chính là finding được viết bằng lời của người đã tạo ra nó — *"android: Enable AndroidCaptureKeyEvents by default"* nói đúng cái mà `platform_state: disabled → enabled` nói, nhưng nói được cả ý định.
 
 ### Issue
 
@@ -616,7 +616,7 @@ Vòng đời đầy đủ của một flag thường đọc là: thêm flag → 
 
 Trình duyệt không cho JavaScript của một trang đọc phản hồi từ một site khác, trừ khi site đó gửi header `Access-Control-Allow-Origin` cho phép. Gerrit không gửi header đó.
 
-Nên `report.html` mở thẳng từ đĩa **không thể** tự hỏi Gerrit. `chromedrift serve` giải quyết bằng cách đổi **ai đi hỏi**: trang gọi `127.0.0.1`, và Python gọi Gerrit. Quy tắc này tồn tại bên trong trình duyệt để bảo vệ cookie người dùng; `urllib` chưa bao giờ chịu nó.
+Nên `report.html` mở thẳng từ đĩa **không thể** tự hỏi Gerrit. `chromiumdiff serve` giải quyết bằng cách đổi **ai đi hỏi**: trang gọi `127.0.0.1`, và Python gọi Gerrit. Quy tắc này tồn tại bên trong trình duyệt để bảo vệ cookie người dùng; `urllib` chưa bao giờ chịu nó.
 
 ## Những cặp khái niệm dễ hiểu nhầm
 

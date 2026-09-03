@@ -2,13 +2,13 @@
 
 Sáu tài liệu trước trả lời câu hỏi **cái gì đã đổi**. Tài liệu này trả lời câu hỏi còn lại, và là câu hỏi người triage hỏi ngay sau đó: **ai đã đổi nó, và họ đang sửa cái gì.**
 
-Đây là chặng duy nhất trong công cụ hỏi một thứ mà hai cây source không chứa. Nó được tách thành một lệnh riêng — `chromedrift serve` — vì nó cần mạng, và vì một báo cáo vẫn đáng đọc khi không có nó.
+Đây là chặng duy nhất trong công cụ hỏi một thứ mà hai cây source không chứa. Nó được tách thành một lệnh riêng — `chromiumdiff serve` — vì nó cần mạng, và vì một báo cáo vẫn đáng đọc khi không có nó.
 
 ## Trả lời ngắn
 
 Hai cây source nói được rằng một feature flag chuyển từ `disabled` sang `enabled`. Chúng **không thể** nói ai làm việc đó. Thông tin đó nằm ở nơi khác: trên Gerrit, review server của chính Chromium, nơi mọi thay đổi phải đi qua trước khi vào cây.
 
-ChromeDrift đi tới đó bằng bốn bước tra cứu, không bước nào là phỏng đoán:
+ChromiumDiff đi tới đó bằng bốn bước tra cứu, không bước nào là phỏng đoán:
 
 ```text
 một Fact  →  file khai báo nó
@@ -101,7 +101,7 @@ Các mục dưới đây đi qua từng chặng.
 
 Muốn hỏi "CL nào đã merge giữa hai version" thì phải có hai mốc ngày. Lấy ngày của hai tag là sai, và sai theo hướng nguy hiểm nhất: **bỏ sót**.
 
-Một release branch được cắt ra khỏi `main` từ rất sớm, rồi mới được đóng tag nhiều tuần sau đó. Tag của Chromium ghi lại chính xác chỗ nó rời `main`, trong dòng `Cr-Branched-From:` của commit message. ChromeDrift đọc dòng đó.
+Một release branch được cắt ra khỏi `main` từ rất sớm, rồi mới được đóng tag nhiều tuần sau đó. Tag của Chromium ghi lại chính xác chỗ nó rời `main`, trong dòng `Cr-Branched-From:` của commit message. ChromiumDiff đọc dòng đó.
 
 Đo trên M148: điểm nhánh là **2026-04-06**, tức **bảy tuần** trước ngày ghi trên chính cái tag. Bảy tuần CL sẽ biến mất nếu lấy ngày tag.
 
@@ -119,7 +119,7 @@ Truy vấn ứng viên là một câu hỏi theo file, giới hạn trong cửa 
 
 Ở đây có một cái bẫy phải biết: **Gerrit dừng ở 500 dòng cho truy vấn ẩn danh và không nói gì cả.** Hỏi `start=500` thì nó trả về một trang rỗng, không có dấu hiệu `_more_changes` nào — tức là **không phân biệt được** với việc đã đọc hết.
 
-Nên một truy vấn trả về đúng ở mức trần là một truy vấn **chưa được chứng minh**. ChromeDrift chẻ đôi cửa sổ và hỏi lại cho tới khi xác lập được con số. Đo trên `about_flags.cc`: hỏi nguyên khối trả về 500; chẻ ba trả về 130 + 196 + 174 = 500. Cái đó đúng là 500 thật — nhưng **phép chẻ mới là thứ chứng minh điều đó**, và nếu không chẻ thì con số 500 và con số 1.500 sẽ trông y hệt nhau.
+Nên một truy vấn trả về đúng ở mức trần là một truy vấn **chưa được chứng minh**. ChromiumDiff chẻ đôi cửa sổ và hỏi lại cho tới khi xác lập được con số. Đo trên `about_flags.cc`: hỏi nguyên khối trả về 500; chẻ ba trả về 130 + 196 + 174 = 500. Cái đó đúng là 500 thật — nhưng **phép chẻ mới là thứ chứng minh điều đó**, và nếu không chẻ thì con số 500 và con số 1.500 sẽ trông y hệt nhau.
 
 Khi danh sách vẫn bị cắt, panel in **cả hai số**. `chrome/browser/flag-metadata.json` bị **662** CL chạm vào trên cặp này, và chỉ 500 cái mới nhất được đọc — nên một dòng khai báo trong đó hiện `3 of 662 merged CLs touched this file · 500 of them read`. Tìm thấy và đã đọc là hai khẳng định khác nhau, và khoảng cách giữa chúng chính là chỗ một CL bị thiếu sẽ nằm.
 
@@ -258,7 +258,7 @@ Phiên bản chạy được đầu tiên của chặng này đạt 115 trên 15
 
 Một CL Chromium ghi issue của nó trong footer commit message, dạng `Bug:` hoặc `Fixed:`. Hai cái này **được hiển thị tách nhau**, vì đóng một issue và tham chiếu một issue là hai khẳng định khác nhau — đo trên một mẫu thật, Chromium viết **575 dòng `Bug:` so với 34 dòng `Fixed:`**.
 
-Từ issue, ChromeDrift hỏi ngược lại: *còn CL nào khác cite cùng issue này?* Đó chính là **lịch sử sửa lỗi** của bug đứng sau thay đổi — và nó đến gần như miễn phí, vì nó là một truy vấn thay vì một loạt diff.
+Từ issue, ChromiumDiff hỏi ngược lại: *còn CL nào khác cite cùng issue này?* Đó chính là **lịch sử sửa lỗi** của bug đứng sau thay đổi — và nó đến gần như miễn phí, vì nó là một truy vấn thay vì một loạt diff.
 
 `revert_of` và `cherry_pick_of_change` đến sẵn trong cùng response và cũng được in ra: **23 trong 534 CL của một mẫu thật là revert**, và chúng là thứ làm cho lịch sử launch–revert–reland của một flag đọc được mà không phải so tiêu đề bằng mắt.
 
@@ -426,12 +426,12 @@ Kết quả tra cứu được **ghi ngược lại `report.json`**, ghi nguyên
 ## Dùng như thế nào
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 --out out/M148_to_M151
-python3 -m chromedrift serve out/M148_to_M151
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 --out out/M148_to_M151
+python3 -m chromiumdiff serve out/M148_to_M151
 # → http://127.0.0.1:8787/
 
 # sau khi dừng serve, đưa những gì đã tra vào hai file trên đĩa
-python3 -m chromedrift report out/M148_to_M151/report.json \
+python3 -m chromiumdiff report out/M148_to_M151/report.json \
   --format both --out out/M148_to_M151/report
 ```
 
@@ -446,7 +446,7 @@ Lệnh `run` không đổi và **không hề chạm mạng Gerrit** — chặng 
 | `--port` | 8787 | Cổng localhost |
 | `--click-budget N` | 600 | Đọc tối đa N diff cho mỗi dòng được mở (0 = không trần) |
 | `--no-save` | tắt | Không ghi kết quả ngược vào `report.json` |
-| `--cache DIR` | `.chromedrift-cache` | Thư mục cache dùng chung với `run` |
+| `--cache DIR` | `.chromiumdiff-cache` | Thư mục cache dùng chung với `run` |
 
 Server chỉ bind vào `127.0.0.1`, chỉ phục vụ đúng ba file của báo cáo, và xử lý một request tra cứu tại một thời điểm (công việc **bên trong** một request vẫn chạy song song, và đó mới là chỗ tốn thời gian).
 

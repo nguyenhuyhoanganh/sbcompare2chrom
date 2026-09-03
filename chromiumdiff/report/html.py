@@ -609,7 +609,7 @@ function chain(c){
 }
 /* Live mode is discovered, never baked in. The same file opened from a disk
    fails this fetch and stays exactly as static as it was; served by
-   `chromedrift serve` it answers, and rows gain a lookup button. */
+   `chromiumdiff serve` it answers, and rows gain a lookup button. */
 var LIVE=false;
 try{fetch('api/ping').then(function(r){return r.ok?r.json():null;})
   .then(function(d){if(d&&d.ok){LIVE=true;
@@ -770,7 +770,7 @@ function provenance(f){
       (LIVE&&f.no_diffs&&allWeak(f)?lookupBtn(f)
         :(!LIVE&&f.no_diffs&&allWeak(f)
           ?'<p class="none">Open this row through '+
-           '<code>chromedrift serve</code>, or raise '+
+           '<code>chromiumdiff serve</code>, or raise '+
            '<code>--click-budget</code>.</p>':''))+
       '</div>';
   }
@@ -882,7 +882,7 @@ tb.addEventListener('click',e=>{
           :'<p class="none">Issue '+esc(id)+' could not be read.</p>';})
       .catch(function(){
         box.innerHTML='<p class="none">Could not reach the server for issue '+
-          esc(id)+'. Is <code>chromedrift serve</code> still running?</p>';});
+          esc(id)+'. Is <code>chromiumdiff serve</code> still running?</p>';});
     return;
   }
   const btn=e.target.closest('button.lookup');

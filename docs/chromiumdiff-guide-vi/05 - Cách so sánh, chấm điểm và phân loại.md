@@ -294,7 +294,7 @@ score = clamp(score, 0, 100)
 
 Severity là **trần**. Mọi modifier chỉ có thể trừ điểm hoặc đưa về 0.
 
-Không có rule kiểu "Samsung có patch trong file này nên +20", vì ChromeDrift không có dữ liệu về source Samsung trong pipeline lõi. Nếu tự cộng điểm cho một thứ mình không quan sát được, con số sẽ tạo cảm giác chính xác giả.
+Không có rule kiểu "Samsung có patch trong file này nên +20", vì ChromiumDiff không có dữ liệu về source Samsung trong pipeline lõi. Nếu tự cộng điểm cho một thứ mình không quan sát được, con số sẽ tạo cảm giác chính xác giả.
 
 Hệ quả kiểm chứng được: mọi chênh lệch giữa severity và score đều phải xuất hiện trong trường `reasons`. Nếu không giải thích được vì sao lệch, đó là bug.
 
@@ -559,4 +559,4 @@ Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đ
 5. Xem New surface để lập backlog cho việc test và cân nhắc adopt.
 6. Cuối cùng xử lý phần Housekeeping thuộc về cấu hình — flag hết hạn, flag bị dọn. Không bỏ qua cả bucket này.
 
-Với những dòng cần quyết định chứ không chỉ cần ghi nhận, còn một bước nữa: chạy `chromedrift serve` và mở dòng đó ra để xem CL nào đã tạo ra thay đổi và issue nào đứng sau nó. Điểm số nói dòng này đáng xem sớm đến đâu; CL nói người upstream đang sửa cái gì, và đó thường mới là thứ quyết định Samsung có phải làm gì hay không. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).
+Với những dòng cần quyết định chứ không chỉ cần ghi nhận, còn một bước nữa: chạy `chromiumdiff serve` và mở dòng đó ra để xem CL nào đã tạo ra thay đổi và issue nào đứng sau nó. Điểm số nói dòng này đáng xem sớm đến đâu; CL nói người upstream đang sửa cái gì, và đó thường mới là thứ quyết định Samsung có phải làm gì hay không. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).
