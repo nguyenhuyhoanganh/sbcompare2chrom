@@ -71,8 +71,73 @@ class El {
 // What the page scrolls to keep the clicked row still.
 const scroller = { scrollTop: 0 };
 const els = {};
-for (const id of ['q', 'fb', 'fk', 'fg', 'fo', 'fp', 'tb', 'cnt', 'more'])
+for (const id of ['q', 'x', 'tb', 'cnt', 'more'])
   els[id] = new El(id);
+
+/* A filter is a disclosure holding checkboxes now, so the harness has to be
+ * one too: the page reads its ticked boxes, writes its summary, and closes it
+ * when a click lands elsewhere. Values come from the fixture rather than from
+ * the rendered page, which is enough -- what is under test is the filtering,
+ * not the markup that offers it. */
+class Pick extends El {
+  /* A checkbox sits inside its label beside a span holding the words. The
+     page reads that span to write the closed control's summary, so the double
+     has to have one -- with it missing the fallback ran instead and the
+     labelling was never tested. */
+  static box(v) {
+    const span = { textContent: v.charAt(0).toUpperCase() + v.slice(1) };
+    return { value: v, checked: false,
+             parentNode: { querySelector: sel => (sel === 'span' ? span : null) } };
+  }
+  constructor(id, values) {
+    super('details');
+    this.id = id;
+    this.open = false;
+    this.dataset = { all: 'All ' + id };
+    this.boxes = values.map(v => Pick.box(v));
+    this.summary = new El('summary');
+  }
+  querySelectorAll(sel) {
+    if (sel === 'input:checked') return this.boxes.filter(b => b.checked);
+    if (sel === 'input') return this.boxes;
+    return [];
+  }
+  querySelector(sel) {
+    if (sel === 'summary') return this.summary;
+    return null;
+  }
+  contains() { return false; }
+  tick(...values) {
+    // The empty string is not a choice, it is the absence of one -- the old
+    // `<select>`'s "All" option. Ticking a box for it filtered every row out.
+    values = values.filter(Boolean);
+    // A value the fixture invents is a box the page would have rendered, so
+    // the double grows one rather than refusing. The harness picks rows by
+    // owner, and those owners are made up per assertion.
+    values.forEach(v => {
+      if (!this.boxes.some(b => b.value === v))
+        this.boxes.push(Pick.box(v));
+    });
+    this.boxes.forEach(b => { b.checked = values.includes(b.value); });
+    return this;
+  }
+  // The control this replaces was a `<select>`, and most of the harness still
+  // drives it that way. One value in, one value out: enough for every
+  // assertion that predates multi-select, and the ones that need two use
+  // `tick`. Guarded because `El`'s constructor assigns `value` before the
+  // boxes exist.
+  set value(v) { if (this.boxes) this.tick(...(v ? [v] : [])); }
+  get value() {
+    const on = this.boxes ? this.boxes.filter(b => b.checked) : [];
+    return on.length ? on[0].value : '';
+  }
+}
+els.fb = new Pick('fb', ['breaking', 'behaviour', 'new', 'housekeeping']);
+els.fk = new Pick('fk', ['base_feature', 'mojo_method', 'pref']);
+els.fg = new Pick('fg', ['External contracts', 'Behaviour switches']);
+els.fo = new Pick('fo', ['ipc', 'native', 'webplatform', 'budget']);
+els.fp = new Pick('fp', ['exact', 'cl', 'weak', 'none', 'skipped']);
+
 global.document = {
   getElementById: id => els[id],
   querySelector: sel => (sel === '.tablewrap' ? scroller : null),
@@ -80,6 +145,7 @@ global.document = {
   // able to hand it the ones that are open.
   querySelectorAll: sel => (sel === 'tr.det' ? detailRows : []),
   createElement: t => new El(t),
+  addEventListener: () => {},
 };
 
 // Rows are shaped like the real payload, which drops empty values -- so a row
@@ -197,6 +263,28 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
                 row.chromestatus = 'x'.repeat(300); }
   return row;
 }) };
+
+/* Rows named for the exclude filter's rules rather than for a count. The
+ * generated ones are all `FeatureN`, which cannot tell a term that matches a
+ * whole word from one that matches a fragment of one -- and that distinction
+ * is the entire filter. Each of these is a case the rule has to get right. */
+global.window.__FINDINGS__.push(...[
+  ['AIManager.CreateWriter', 'ai matches a word'],
+  ['AutofillAiOrder', 'ai matches a camel hump'],
+  ['EmailVerificationProtocol', 'ai is inside email and must not match'],
+  ['AddResourceTimingEntryForFailed', 'ai is inside failed and must not match'],
+  ['GlicPageHandler', 'glic matches'],
+  ['WebGPUUseSpirv14', 'webgpu spans two words'],
+  ['SqlDiskCacheSynchronousOff', 'settings must not reach this'],
+  ['CookiesEnabled', 'cookie only reaches it with a star'],
+].map(([name, why], i) => ({
+  id: 'base_feature:' + name, name, kind: 'base_feature', owner: 'excl',
+  bucket: i % 2 ? 'breaking' : 'housekeeping', score: 50,
+  change_type: 'modified', what: name, why: 'flag_retired_on',
+  where: 'content/public/common', signals: ['flag_retired_on'],
+  paths: ['content/' + name + '.cc'], reasons: [why],
+})));
+
 global.window.__KINDS__ = { base_feature: 'Chromium feature flag' };
 global.window.__BUCKETS__ = { breaking: 'Breaking', housekeeping: 'Housekeeping' };
 global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
@@ -265,7 +353,8 @@ const raw = fs.readFileSync(process.argv[2], 'utf8');
 const js = raw.split('<script>').slice(1).map(s => s.split('</script>')[0]).pop();
 eval(js);
 
-const out = { total: N, initialRows: els.tb.trCount, initialCount: els.cnt.textContent,
+const out = { total: global.window.__FINDINGS__.length,
+  initialRows: els.tb.trCount, initialCount: els.cnt.textContent,
               detailsBuiltUpfront: detailRows.length, moreShown: !els.more.hidden };
 
 // Nothing may render as `undefined`. Every cell comes from a field the payload
@@ -289,20 +378,20 @@ out.noCellIsMarkedAsARepeat = !/\brep\b/.test(els.tb.innerHTML);
 // on one page, four of which score zero. The script is eval'd, so its own
 // functions are out of scope here -- everything goes through the DOM, as the
 // listeners above do.
-els.fb.value = 'breaking';
+els.fb.tick('breaking');
 els.fb.listeners['change'].forEach(f => f());
 out.zeroRendersAsZero = /class="score[^"]*">0</.test(els.tb.innerHTML);
 out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
-els.fb.value = '';
+els.fb.tick();
 els.fb.listeners['change'].forEach(f => f());
 
 // The owner filter narrows to exactly the rows carrying that owner. It is a
 // fifth dropdown over the same `match`, so an unwired one would silently show
 // everything rather than error.
-els.fo.value = 'ipc';
+els.fo.tick('ipc');
 els.fo.listeners['change'].forEach(f => f());
 out.ownerFilterCount = els.cnt.textContent;
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 out.allOwnersRestores = els.cnt.textContent;
 
@@ -351,7 +440,7 @@ out.rowsAfterShowMore = els.tb.trCount;
 // every control -- so a stale query silently narrows the counts asserted here.
 els.q.value = '';
 const byEvidence = v => {
-  els.fp.value = v;
+  els.fp.tick(v);
   els.fp.listeners['change'].forEach(f => f());
   return els.cnt.textContent;
 };
@@ -378,7 +467,7 @@ out.weakDetailBadge = /ev-touched/.test(weakHtml);
 // its remedy with it, because both the sentence and the button lived in the
 // branch that runs only when there are no CLs at all.
 els.q.value = '';
-els.fo.value = 'budget';
+els.fo.tick('budget');
 els.fo.listeners['change'].forEach(f => f());
 detailRows = [];
 const budgetRow = new El('tr');
@@ -416,11 +505,11 @@ out.aCitedRowStillWarns = /class="warn"/.test(flakyHtml);
 out.theWarningNamesTheCount = /2 requests to Gerrit failed/.test(flakyHtml);
 // ...and it does not swallow the answer it qualifies.
 out.theCitationSurvivesTheWarning = /7700\d{3}/.test(flakyHtml);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';
 els.fp.listeners['change'].forEach(f => f());
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';
 els.fp.listeners['change'].forEach(f => f());
@@ -453,7 +542,7 @@ const msgHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.messageDetailSaysHow = msgHtml.includes('found by commit message');
 out.messageDetailHidesTheDenominator = !/merged CLs touched/.test(msgHtml);
 out.messageDetailListsTheCl = /7700\d{3}/.test(msgHtml);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // An issue opens where the reader asked for it, and a second one does not
@@ -514,7 +603,7 @@ out.theVerifiedAnswerReplacesTheStoredOne =
   !!bakedFinding && !bakedFinding.issues && bakedFinding.cls[0].n === 9000001;
 const afterVerify = detailRows.length ? detailRows[0].innerHTML : '';
 out.thePanelRepaintsWithIt = /9000001/.test(afterVerify);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // A baked issue list belongs to the file on a disk. Served, the chip is the
@@ -532,7 +621,7 @@ els.tb.listeners['click'].forEach(
 const agreeHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.servedRowHidesTheBakedIssue = !/prov iss/.test(agreeHtml);
 out.anAgreeingAnswerDoesNotRepaint = /8800000/.test(agreeHtml);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // The run already works out which findings are fragments of one change and
@@ -550,7 +639,7 @@ out.aFragmentSaysSo = /Part of a larger change/.test(fragHtml);
 out.aFragmentNamesItsGroup = /CastStreamingMaxVideoBitrate/.test(fragHtml);
 // And points at the row worth reading first, which is the whole use of it.
 out.aFragmentNamesTheHeaviest = /scores <b>55<\/b>/.test(fragHtml);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // A row can gain a group without its own CLs changing: the lookup that joins
@@ -565,7 +654,7 @@ els.tb.listeners['click'].forEach(
   f => f({ target: { closest: q => (q === 'tr.row-t' ? joinedRow : null) } }));
 const joinedHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.aRowJoinedByAnotherLookupRepaints = /Part of a larger change/.test(joinedHtml);
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // A lookup joins two rows and only one is the row asked about. 23 rows open,
@@ -597,7 +686,7 @@ out.theSiblingRowGetsTheGroupInItsData = (() => {
   const sib = global.window.__FINDINGS__.find(r => r.id === 'base_feature:Sibling');
   return !!(sib && sib.grp && sib.grp.c === 2);
 })();
-els.fo.value = '';
+els.fo.tick();
 els.fo.listeners['change'].forEach(f => f());
 
 // A panel above the clicked row grows by the line it just gained, and
@@ -618,5 +707,54 @@ els.tb.listeners['click'].forEach(f => f({ stopPropagation() {},
                       : s2 === 'tr.det' ? pinDet : null) }
     : null) } }));
 out.theClickedRowIsPinned = scroller.scrollTop === 37;
+
+
+/* -- the exclude box, and picking more than one -------------------------- */
+/* Driven through the DOM like everything else here: the script is eval'd, so
+   its `hasTerm` is out of scope and the only way to ask what a term excludes
+   is to type it and read the count. */
+const excludeNames = () => {
+  els.fo.tick('excl');
+  els.fo.listeners['change'].forEach(f => f());
+  return els.tb.innerHTML;
+};
+const typeExclude = v => {
+  els.x.value = v;
+  els.x.listeners['input'].forEach(f => f());
+  flush();
+  return excludeNames();
+};
+
+els.q.value = '';
+els.fp.tick();
+els.fb.tick();
+els.fp.listeners['change'].forEach(f => f());
+
+out.exclNoneHtml = typeExclude('');
+out.exclAi = typeExclude('ai');
+out.exclAiGlic = typeExclude('ai, glic');
+out.exclWebgpu = typeExclude('webgpu');
+out.exclSettings = typeExclude('settings');
+out.exclCookie = typeExclude('cookie');
+out.exclCookieStar = typeExclude('cookie*');
+out.exclTrailingComma = typeExclude('ai,');
+typeExclude('ai');
+out.exclCount = els.cnt.textContent;
+typeExclude('');
+
+/* Two buckets at once. A single select could hold one, so the union is the
+   whole point: 40 breaking rows plus the four the fixture files elsewhere. */
+els.fo.tick();
+els.fb.tick('breaking');
+els.fb.listeners['change'].forEach(f => f());
+out.oneBucket = els.cnt.textContent;
+out.oneBucketLabel = els.fb.querySelector('summary').textContent;
+els.fb.tick('breaking', 'housekeeping');
+els.fb.listeners['change'].forEach(f => f());
+out.twoBuckets = els.cnt.textContent;
+out.twoBucketsLabel = els.fb.querySelector('summary').textContent;
+els.fb.tick();
+els.fb.listeners['change'].forEach(f => f());
+out.noBucketLabel = els.fb.querySelector('summary').textContent;
 
 console.log(JSON.stringify(out));
