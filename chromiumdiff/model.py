@@ -785,6 +785,30 @@ BUCKET_MEANINGS = {
                          "that anything did.",
 }
 
+# What each provenance verdict actually claims. The ladder itself lives in
+# `enrich.gerrit._STRENGTH`, which orders these seven words; this says what
+# each word stands for, and it is here rather than in either renderer because
+# both of them need it and so does anyone asking about one row from a command
+# line. Written once, it cannot say one thing on a page and another in a
+# terminal -- and the badge is one word because a table row has room for one,
+# which is exactly why the sentence has to exist somewhere.
+VERDICT_MEANINGS = {
+    "introduced": "Inside the fact’s own declaration, this CL added the "
+                  "value it ends up with or removed the one it started from. "
+                  "It is the change.",
+    "exact": "A line this CL changed carries the identifier.",
+    "moved": "The file was renamed and the fact came with it. No line changed "
+             "— the move is the cause.",
+    "declares": "This CL edited the body of the declaration, though not the "
+                "line that names it.",
+    "described": "The CL’s own title or description names the identifier. "
+                 "No diff was read to claim more.",
+    "crowded": "One of several CLs that edited this declaration. Shown as "
+               "history, not as a citation.",
+    "touched": "This CL touched the declaring file. Nothing ties it to the "
+               "identifier.",
+}
+
 
 @dataclass
 class Finding:

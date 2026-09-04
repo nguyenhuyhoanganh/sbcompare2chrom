@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import difflib
+import json
 import os
 import shutil
 import sys
@@ -26,11 +28,13 @@ from . import __version__
 from .acquire import CHROMIUMDASH, GITILES_BASE, USER_AGENT
 from .extract._cpp import PLATFORM
 from . import catalog, cluster
+from .agent import briefing
 from .diff import diff_snapshots, summarize
 from . import serve as serve_mod
 from .enrich import chromestatus, gerrit
 from .model import (BUCKET_HOUSEKEEPING, BUCKET_LABELS, BUCKET_ORDER,
-                    SCHEMA_VERSION, Report, read_json, write_json)
+                    SCHEMA_VERSION, VERDICT_MEANINGS, Report, read_json,
+                    write_json)
 from .report import html as html_report
 from .report import markdown as md_report
 from .score import Scope, score_all, summarize_findings
@@ -236,6 +240,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     write_json(json_path, report.to_dict())
     _write_text(md_path, md_report.render(report, platform=platform))
     _write_text(html_path, html_report.render(report, platform=platform))
+    # Written with the report rather than on request, because the thing it
+    # prevents happens on the first command somebody runs here and there is no
+    # request before that. It costs about a thousand tokens and one file.
+    brief_path = briefing.write(report, out_dir)
 
     counts = report.bucket_counts()
     print()
@@ -246,6 +254,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  {md_path}")
     print(f"  {html_path}")
     print(f"  {json_path}")
+    print(f"  {brief_path}")
     print()
     print(f"  why each row changed:  python3 -m chromiumdiff serve {out_dir}")
     return 0
@@ -560,6 +569,48 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_package(args: argparse.Namespace) -> int:
+    """Write the tool into one file, for somebody who does not have a checkout.
+
+    The point is not distribution for its own sake. A report is read by people
+    who did not make it, and telling them to clone a repository and find an
+    interpreter is how a report goes unread.
+    """
+    from .agent import package as package_mod
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skills = args.skills or os.path.join(root, "skills")
+    written = package_mod.build(args.out, skills=skills
+                                if os.path.isdir(skills) else None)
+    size = os.path.getsize(written)
+    print(f"written: {written}  ({size / 1000:.0f} kB)")
+    if not os.path.isdir(skills):
+        # Said rather than passed over: a copy that answers without the skills
+        # answers differently, and the person running this is the only one who
+        # can tell whether that matters.
+        print(f"  no skills/ at {skills} -- the archive has the tool but not "
+              f"the method it is meant to follow", file=sys.stderr)
+    print(f"  run it with:  python3 {os.path.basename(written)} serve <report>")
+    return 0
+
+
+def _report_directory(path: str) -> Optional[str]:
+    """The directory holding `report.json`, from that directory or that file.
+
+    Shared rather than repeated: two commands take the same argument and have
+    to accept it in the same two forms, and the second copy of a rule like
+    this is where they stop agreeing.
+    """
+    directory = path
+    if os.path.isfile(directory):
+        directory = os.path.dirname(os.path.abspath(directory))
+    if not os.path.exists(os.path.join(directory, "report.json")):
+        print(f"no report.json in {directory} -- run `run` first",
+              file=sys.stderr)
+        return None
+    return directory
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     """Serve a report so it can resolve a row's CL when that row is opened.
 
@@ -567,16 +618,147 @@ def cmd_serve(args: argparse.Namespace) -> int:
     anywhere. This pays per row instead, and nothing is spent on the 3,000
     nobody opens.
     """
-    directory = args.report
-    if os.path.isfile(directory):
-        directory = os.path.dirname(os.path.abspath(directory))
-    if not os.path.exists(os.path.join(directory, "report.json")):
-        print(f"no report.json in {directory} -- run `run` first",
-              file=sys.stderr)
+    directory = _report_directory(args.report)
+    if directory is None:
         return 1
+    chat = None
+    if args.chat:
+        from .agent import chat as chat_mod
+        from .agent import engine as engine_mod
+        try:
+            engine = engine_mod.build(args.engine)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        # Refused at startup rather than at the first question. A panel that
+        # appears and then says it cannot answer has already cost the reader
+        # the time it took to type one.
+        reason = engine.available()
+        if reason:
+            print(f"--chat needs an engine that can run: {reason}",
+                  file=sys.stderr)
+            return 1
+        chat = chat_mod.Chat(directory, engine, allow_shell=not args.no_shell)
     return serve_mod.serve(directory, args.cache, port=args.port,
                            budget=args.click_budget, refresh=args.refresh,
-                           save=not args.no_save, log=print)
+                           save=not args.no_save, chat=chat, log=print)
+
+
+def cmd_why(args: argparse.Namespace) -> int:
+    """Look one row up, from a terminal rather than from a click.
+
+    `serve` already does this, and does it better for a person: a report is
+    open, a row is in front of them, and the lookup is a click. What it cannot
+    serve is anything that is not a browser -- a script, a note being written,
+    or a model asked what a finding means. Those had one route to the CL
+    behind a row, which was to open a browser and click it.
+
+    The work is `serve`'s own: the same lookup, the same per-row budget, the
+    same write back into `report.json`, so a row resolved here is resolved for
+    the page too and the next reader pays nothing for it.
+    """
+    directory = _report_directory(args.report)
+    if directory is None:
+        return 1
+    state = serve_mod._State(directory, args.cache, args.click_budget,
+                             save=not args.no_save, refresh=args.refresh)
+    finding = state.by_uid.get(args.uid)
+    if finding is None:
+        print(f"no finding with uid {args.uid!r} in this report",
+              file=sys.stderr)
+        # A near miss is the common case -- a truncated uid, a kind prefix
+        # left off, the name without its interface -- and the alternative to
+        # naming the neighbours is that the caller has to go and grep 3,000
+        # of them for a spelling it already almost had.
+        #
+        # Containment is tried first because it is what the common miss looks
+        # like: the caller had a real name and dropped the prefix, so the uid
+        # they want has theirs inside it. Edit distance ranks by how a string
+        # looks rather than by what it holds, and offered
+        # `flag_entry:dse-preload2-on-press` for a Mojo field.
+        near = [uid for uid in state.by_uid if args.uid in uid][:5]
+        if not near:
+            near = difflib.get_close_matches(args.uid, list(state.by_uid),
+                                             5, 0.5)
+        if near:
+            print("did you mean:", file=sys.stderr)
+            for uid in near:
+                print(f"  {uid}", file=sys.stderr)
+        return 1
+    try:
+        state.resolve(args.uid)
+    except Exception as exc:  # a failed lookup is an answer, not a crash
+        print(f"lookup failed: {exc}", file=sys.stderr)
+        return 1
+    if args.as_json:
+        print(json.dumps({"uid": args.uid,
+                          "change": finding.change.to_dict(),
+                          "bucket": finding.bucket,
+                          "score": finding.score,
+                          "reasons": finding.reasons,
+                          "gerrit": (finding.enrichment or {}).get("gerrit")
+                          or {}}, indent=1))
+    else:
+        print(_why_text(args.uid, finding))
+    return 0
+
+
+def _why_text(uid: str, finding) -> str:
+    """One row's answer, with what each verdict claims printed beside it.
+
+    The verdict is the whole point and it is one word, so the word goes with
+    its sentence every time rather than on a ladder the reader is assumed to
+    have memorised. `touched` and `introduced` are both "a CL", and treating
+    them alike is the mistake this output exists to prevent.
+    """
+    out: List[str] = [uid]
+    change = finding.change
+    where = (change.locations or change.paths or [""])[0]
+    out.append(f"  {finding.bucket}, score {finding.score}"
+               + (f", {', '.join(change.signals)}" if change.signals else ""))
+    if where:
+        out.append(f"  {where}")
+    for reason in finding.reasons:
+        out.append(f"  {reason}")
+
+    block = (finding.enrichment or {}).get("gerrit") or {}
+    changes = block.get("changes") or []
+    window = block.get("window") or []
+    pool = block.get("candidates")
+    out.append("")
+    if window and pool is not None:
+        out.append(f"  {pool} CL(s) touched this declaration between "
+                   f"{window[0]} and {window[1]}"
+                   + (", and their diffs were read"
+                      if block.get("diffs_read") else ""))
+    if not changes:
+        # The one thing this stage must never be read as saying is "nothing
+        # changed this". It searched and did not find, which is a different
+        # sentence and leads somewhere else.
+        out.append("  no CL in that window names this identifier. That is a "
+                   "search that came back empty, not a change with no cause.")
+        if block.get("failed_fetches"):
+            out.append(f"  {block['failed_fetches']} request(s) failed, so the "
+                       f"search was not finished -- ask again to retry them")
+        return "\n".join(out)
+
+    for cl in changes:
+        verdict = cl.get("match", "")
+        out.append(f"  CL {cl.get('number')}  {cl.get('date', '')}  {verdict}")
+        out.append(f"    {cl.get('subject', '')}")
+        out.append(f"    {cl.get('url', '')}")
+        meaning = VERDICT_MEANINGS.get(verdict)
+        if meaning:
+            out.append(f"    {verdict}: {meaning}")
+        for bug in cl.get("bugs") or []:
+            out.append(f"    bug {bug.get('id')}: "
+                       f"https://issues.chromium.org/issues/{bug.get('id')}")
+        out.append("")
+    # Said here because this is the moment it is wrong to stop: the CL is in
+    # hand, it reads like an answer, and it answers a different question.
+    out.append("  the CL says what was done; the issue it cites says what was "
+               "wrong. They are different answers.")
+    return "\n".join(out)
 
 
 def _emit(text: str, out: Optional[str], suffix: str) -> None:
@@ -767,7 +949,52 @@ def build_parser() -> argparse.ArgumentParser:
                         f"(default: {serve_mod.CLICK_BUDGET}, 0 for no "
                         f"ceiling). Only the busiest two declaration files in "
                         f"the tree come near it")
+    # Off unless asked for, and the help says why rather than leaving it to be
+    # found out. Without it this server reads a report; with it, a question
+    # typed into a browser runs commands on this machine.
+    p.add_argument("--chat", action="store_true",
+                   help="add a chat panel to the page. Questions are answered "
+                        "by running commands in the report directory on this "
+                        "machine, so turn it on for a report you trust")
+    p.add_argument("--engine", default="",
+                   help="which backend answers (default: http, configured by "
+                        "CHROMIUMDIFF_MODEL_URL)")
+    p.add_argument("--no-shell", action="store_true",
+                   help="answer with python queries only, no shell commands")
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("why",
+                       help="look up the CL behind one finding, without a "
+                            "browser")
+    p.add_argument("uid", help="the finding's uid, as report.json spells it")
+    # Optional and defaulting to here, because the caller is usually already
+    # standing in the report's directory -- a shell in it, or a script run
+    # from it -- and naming the directory again is a step that can be wrong.
+    p.add_argument("report", nargs="?", default=".",
+                   help="report directory, or a report.json in one "
+                        "(default: the current directory)")
+    p.add_argument("--cache", default=DEFAULT_CACHE)
+    p.add_argument("--json", action="store_true", dest="as_json",
+                   help="the raw finding and its Gerrit block, for a program")
+    p.add_argument("--no-save", action="store_true",
+                   help="do not write what was looked up back to report.json")
+    p.add_argument("--refresh", action="store_true",
+                   help="ignore the cached Gerrit responses and ask again")
+    p.add_argument("--click-budget", type=int,
+                   default=serve_mod.CLICK_BUDGET, metavar="N",
+                   help=f"read at most N diffs for this row "
+                        f"(default: {serve_mod.CLICK_BUDGET}, 0 for no "
+                        f"ceiling)")
+    p.set_defaults(func=cmd_why)
+
+    p = sub.add_parser("package",
+                       help="write the whole tool into one runnable file")
+    p.add_argument("--out", default="chromiumdiff.pyz",
+                   help="where to write it (default: chromiumdiff.pyz)")
+    p.add_argument("--skills", default="",
+                   help="skills directory to include (default: skills/ beside "
+                        "this checkout)")
+    p.set_defaults(func=cmd_package)
 
     p = sub.add_parser("report",
                        help="re-render a saved report.json")

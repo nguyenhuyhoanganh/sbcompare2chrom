@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import sys
 import threading
 import urllib.parse
@@ -73,7 +74,8 @@ class _State:
     """
 
     def __init__(self, directory: str, cache_dir: str, budget: int,
-                 save: bool = True, refresh: bool = False) -> None:
+                 save: bool = True, refresh: bool = False,
+                 chat=None) -> None:
         self.directory = os.path.abspath(directory)
         self.cache_dir = cache_dir
         self.budget = budget
@@ -82,10 +84,16 @@ class _State:
         # once is a bad answer for ever. This is the only way past it, and the
         # only caller `enrich`'s `refresh` has ever had.
         self.refresh = refresh
+        self.chat = chat
+        # Minted per process and never written down. The page reads it from
+        # `/api/ping`, which a page on another origin can send but cannot read
+        # -- no `Access-Control-Allow-Origin` goes out, which is the same
+        # absence that made this server necessary in the first place. Without
+        # it any page open in the same browser could post to this port, and
+        # with a chat on the other end that is a way to run commands here.
+        self.token = secrets.token_urlsafe(16)
         self.json_path = os.path.join(self.directory, "report.json")
-        with open(self.json_path, encoding="utf-8") as fh:
-            self.report: Report = Report.from_dict(json.load(fh))
-        self.by_uid: Dict[str, Finding] = {f.uid: f for f in self.report.findings}
+        self._load()
         self.resolved = 0
         self.restaled = 0
         self._page: Optional[bytes] = None
@@ -93,6 +101,43 @@ class _State:
         # and a server nobody opens a row on should not spend them -- nor
         # should the test suite, which runs with no network.
         self._before_main: Optional[str] = None
+
+    # -- the file underneath ------------------------------------------------
+
+    def _load(self) -> None:
+        with open(self.json_path, encoding="utf-8") as fh:
+            self.report: Report = Report.from_dict(json.load(fh))
+        self.by_uid: Dict[str, Finding] = {f.uid: f
+                                           for f in self.report.findings}
+        try:
+            self._mtime = os.path.getmtime(self.json_path)
+        except OSError:
+            self._mtime = 0.0
+
+    def _reload_if_changed(self) -> bool:
+        """Pick up a `report.json` something else has written.
+
+        The page used to be the only writer, so the copy in memory was the
+        only copy that mattered. It is not any more: `chromiumdiff why` writes
+        the same file, and a chat can run it. Without this the next lookup
+        here would write the in-memory report over the answers that command
+        had just saved, and they would be gone with nothing to say they had
+        ever been there.
+        """
+        try:
+            mtime = os.path.getmtime(self.json_path)
+        except OSError:
+            return False
+        if mtime <= self._mtime:
+            return False
+        try:
+            self._load()
+        except (OSError, ValueError):
+            # A half-written file is not a reason to lose the working one. The
+            # next lookup tries again, by which time the writer has finished.
+            return False
+        self._page = None
+        return True
 
     # -- the page -----------------------------------------------------------
 
@@ -103,6 +148,7 @@ class _State:
         path of a click; doing it on the next page request costs nothing a
         reader can feel and keeps a reload honest.
         """
+        self._reload_if_changed()
         if self._page is None:
             self._page = html_report.render(
                 self.report,
@@ -113,6 +159,7 @@ class _State:
 
     def resolve(self, uid: str) -> Optional[dict]:
         """Look one finding up, and return the block the page renders."""
+        self._reload_if_changed()
         finding = self.by_uid.get(uid)
         if finding is None:
             return None
@@ -256,6 +303,10 @@ class _State:
             with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump(self.report.to_dict(), fh)
             os.replace(tmp, self.json_path)
+            try:
+                self._mtime = os.path.getmtime(self.json_path)
+            except OSError:
+                pass
         except OSError:
             if os.path.exists(tmp):
                 try:
@@ -293,6 +344,59 @@ class _Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, doc) -> None:
         self._send(code, json.dumps(doc).encode("utf-8"), "application/json")
 
+    def _chat_allowed(self) -> bool:
+        """Is this request from the page this process served?
+
+        Two things are checked and they cover different attackers. The token
+        answers "did the sender read `/api/ping` from this origin", which only
+        a same-origin page could have done. The `Origin` header answers "does
+        the browser think this is a cross-site request", which is the case the
+        token is protecting against in the first place -- and a request with
+        neither is a curl, which is fine.
+
+        This route runs commands. Everything else here only reads a report, so
+        the cost of being wrong is not the same and neither is the check.
+        """
+        if self.state.chat is None:
+            self._json(404, {"error": "not serving a chat -- start with "
+                                      "--chat to enable it"})
+            return False
+        origin = self.headers.get("Origin")
+        if origin and origin != f"http://{self.headers.get('Host', '')}":
+            self._json(403, {"error": "cross-origin"})
+            return False
+        if self.headers.get("X-Chromiumdiff-Token") != self.state.token:
+            self._json(403, {"error": "this page was not served by this "
+                                      "process -- reload it"})
+            return False
+        return True
+
+    def do_POST(self) -> None:  # noqa: N802 -- BaseHTTPRequestHandler's name
+        route = urllib.parse.urlparse(self.path).path
+        if route != "/api/chat":
+            self._json(404, {"error": "not found"})
+            return
+        if not self._chat_allowed():
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        # A body large enough to be a denial of service is not a question.
+        if length > 64 * 1024:
+            self._json(413, {"error": "that is not a question"})
+            return
+        try:
+            doc = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError):
+            self._json(400, {"error": "expected JSON"})
+            return
+        if not isinstance(doc, dict):
+            self._json(400, {"error": "expected an object"})
+            return
+        answer = self.state.chat.ask(doc.get("session"), doc.get("message"))
+        self._json(400 if "error" in answer else 200, answer)
+
     def do_GET(self) -> None:  # noqa: N802 -- BaseHTTPRequestHandler's name
         parsed = urllib.parse.urlparse(self.path)
         route = parsed.path
@@ -300,9 +404,42 @@ class _Handler(BaseHTTPRequestHandler):
             route = "/report.html"
 
         if route == "/api/ping":
+            # The token rides on the reply rather than being baked into the
+            # page, so the same rendered `report.html` is safe to save or mail:
+            # nothing in the file grants anything. A page on another origin can
+            # send this request and cannot read what comes back.
             self._json(200, {"ok": True,
                              "from": self.state.report.from_ref,
-                             "to": self.state.report.to_ref})
+                             "to": self.state.report.to_ref,
+                             "chat": self.state.chat is not None,
+                             "token": self.state.token})
+            return
+
+        if route == "/api/chat/events":
+            if not self._chat_allowed():
+                return
+            query = urllib.parse.parse_qs(parsed.query)
+            turn = query.get("turn", [""])[0]
+            try:
+                since = int(query.get("since", ["0"])[0])
+            except ValueError:
+                since = 0
+            block = self.state.chat.events(turn, since)
+            if block is None:
+                self._json(404, {"error": "no such turn"})
+                return
+            self._json(200, block)
+            return
+
+        if route == "/api/chat/history":
+            if not self._chat_allowed():
+                return
+            sid = urllib.parse.parse_qs(parsed.query).get("session", [""])[0]
+            block = self.state.chat.history(sid)
+            if block is None:
+                self._json(404, {"error": "no such conversation"})
+                return
+            self._json(200, block)
             return
 
         if route == "/api/why":
@@ -357,7 +494,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 def serve(directory: str, cache_dir: str, port: int = 8787,
           budget: int = CLICK_BUDGET, save: bool = True,
-          refresh: bool = False, log=print) -> int:
+          refresh: bool = False, chat=None, log=print) -> int:
     """Run until interrupted. Bound to the loopback interface only."""
     # Flushed, because the process then blocks forever in serve_forever: with
     # stdout going anywhere but a terminal it is block-buffered, so the address
@@ -369,7 +506,8 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
         except (AttributeError, ValueError):
             pass
 
-    state = _State(directory, cache_dir, budget, save=save, refresh=refresh)
+    state = _State(directory, cache_dir, budget, save=save, refresh=refresh,
+                   chat=chat)
     handler = type("_Bound", (_Handler,), {"state": state})
     httpd = ThreadingHTTPServer(("127.0.0.1", port), handler)
     say(f"  {state.report.from_ref} -> {state.report.to_ref}, "
@@ -377,6 +515,12 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
     say(f"  http://127.0.0.1:{port}/")
     say(f"  expanding a row without a CL looks one up, reading at most "
         f"{budget} diffs")
+    if chat is not None:
+        # Said plainly, because it is the one thing about this server that is
+        # not just reading a file. Somebody starting it should know what they
+        # turned on without going and reading for it.
+        say(f"  a chat panel is on: questions run commands in {directory} on "
+            f"this machine")
     say(f"  lookups are {'saved back to report.json' if save else 'not saved'}")
     say("  ctrl-c to stop, and it will say how to fold what you found back "
         "into report.md")

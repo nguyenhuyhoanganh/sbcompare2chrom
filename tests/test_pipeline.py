@@ -578,6 +578,35 @@ class TestEverySignalIsClassified(unittest.TestCase):
             self.assertTrue(BUCKET_LABELS.get(bucket))
             self.assertTrue(BUCKET_MEANINGS.get(bucket))
 
+    def test_every_provenance_verdict_says_what_it_means(self):
+        """The ladder and its glosses are two lists that have to stay one.
+
+        `_STRENGTH` orders the verdicts and decides which of them count as a
+        citation; `VERDICT_MEANINGS` is what a page, a report and the `why`
+        command all print for them. A verdict added to the ladder and not to
+        the glosses reaches a reader as a bare word with no meaning attached,
+        and one removed from the ladder leaves a sentence nothing can produce.
+        """
+        from chromiumdiff.enrich.gerrit import _STRENGTH
+        from chromiumdiff.model import VERDICT_MEANINGS
+        self.assertEqual(sorted(_STRENGTH), sorted(VERDICT_MEANINGS))
+        for verdict, meaning in VERDICT_MEANINGS.items():
+            self.assertTrue(meaning.strip(), verdict)
+
+    def test_the_page_carries_the_glosses_rather_than_its_own_copy(self):
+        """The renderer reads the one definition, so a change reaches both.
+
+        The sentences used to be written into the page's JavaScript, where
+        nothing outside a browser could reach them and nothing kept them equal
+        to anything else.
+        """
+        from chromiumdiff.model import VERDICT_MEANINGS
+        from chromiumdiff.report import html as html_report
+        self.assertIn("window.__EVID__=", html_report.render(
+            Report(from_ref="a", to_ref="b", findings=[], summary={},
+                   meta={"platform": "windows"})))
+        self.assertNotIn(VERDICT_MEANINGS["exact"], html_report._JS)
+
     def test_a_change_of_every_kind_and_direction_gets_a_bucket(self):
         """Including the ones that carry no signal at all -- 903 of 2,800 on a
         real M148 -> M151 run, and every one of them has to be filed."""

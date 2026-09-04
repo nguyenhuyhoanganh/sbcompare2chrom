@@ -546,6 +546,8 @@ python3 -m chromiumdiff report     # re-render a saved report.json
 python3 -m chromiumdiff catalog    # measure which files the target set is missing
 python3 -m chromiumdiff figures    # write docs/figures.json from a report
 python3 -m chromiumdiff serve      # serve a report where opening a row looks its CL up
+python3 -m chromiumdiff why        # look one row's CL up, without a browser
+python3 -m chromiumdiff package    # fold the tool into one runnable file
 ```
 
 Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
@@ -567,6 +569,23 @@ python3 -m chromiumdiff figures out/report.json --wide out-wide/report.json
 ```
 
 `serve` is the only stage that asks a question the two trees cannot answer between them: *who changed this, and what were they fixing.* It is separate from `run` because it needs the network and because a report is worth reading without it. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
+
+`why` is `serve`'s lookup with the browser taken out. It does the same work — the same per-row budget, the same write back into `report.json`, so a row resolved either way is resolved for both — and exists because a script, a note, or an agent had no route to a CL that did not involve opening a page and clicking it. It prints what each verdict claims beside the CL carrying it, because `introduced` and `touched` are both "a CL was found" and reporting the second as a cause is the mistake the ladder exists to prevent.
+
+```bash
+python3 -m chromiumdiff why mojo_field:blink.mojom.CommitNavigationParams.early_hints_preloaded_resources out/M148_to_M151
+```
+
+A uid that names nothing gets the ones it could have meant rather than a refusal: the common miss is a name with its `kind:` prefix dropped, and the alternative is grepping three thousand of them for a spelling you nearly had.
+
+`package` writes the whole tool into a single `.pyz` with `zipapp`, which is in the standard library — no build step and nothing to install. It carries the skills when they are there and neither the report nor the tree cache, because those belong to whoever made them:
+
+```bash
+python3 -m chromiumdiff package --out chromiumdiff.pyz
+python3 chromiumdiff.pyz serve out/M148_to_M151
+```
+
+`run` also leaves an `AGENTS.md` beside the report. It is written from that report, so its counts are that report's, and it exists to stop the first thing anything does in a report directory: `report.json` is written without indentation, so the whole file is one line, and grepping a feature name out of it returns every byte. It also carries the shape of a finding, the recipe for a uid, the `why` command, and the four ways to quote this report correctly and still be wrong.
 
 Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `check` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
@@ -1263,6 +1282,9 @@ chromiumdiff/
                   groups findings by what happened and by screen
   enrich/         context from chromestatus; the CL and issue behind a change
   serve.py        localhost server that resolves a row's CL on demand
+  agent/          what something answering questions about a report is given:
+                  a bounded command runner, the note left beside a report,
+                  the conversation store, and the one seam an engine plugs into
   cli.py          the command-line entry points
 ```
 
