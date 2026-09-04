@@ -345,7 +345,7 @@ Cần đọc cho đúng: đây **không** phải khẳng định Samsung chắc 
 
 ### Behaviour change
 
-Bản build Windows sẽ làm hoặc sẽ expose một thứ khác sau khi uprev. Sẽ có người dùng, website hoặc luồng test quan sát thấy khác đi.
+Bản build Windows sẽ làm hoặc sẽ expose một thứ khác sau khi upgrade. Sẽ có người dùng, website hoặc luồng test quan sát thấy khác đi.
 
 ### New surface
 
@@ -507,7 +507,7 @@ Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh 
 - Rằng target set mặc định phủ được phần implementation.
 - Rằng cấu hình bên ngoài repository đã được ai đó kiểm tra.
 
-Tóm lại: báo cáo là **bằng chứng đã xếp hạng và đầu vào cho việc triage**, không phải một cái gật đầu tự động cho đợt uprev.
+Tóm lại: báo cáo là **bằng chứng đã xếp hạng và đầu vào cho việc triage**, không phải một cái gật đầu tự động cho đợt upgrade.
 
 ## Đọc và lọc báo cáo như thế nào
 

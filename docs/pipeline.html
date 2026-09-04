@@ -421,7 +421,7 @@ footer{
   <div class="eyebrow">chromiumdiff · pipeline documentation</div>
   <h1>Comparing two Chromium versions:<br>what changed, and how much it costs</h1>
   <p class="lede">
-    Every <b>uprev</b> — moving onto a newer Chromium — someone has to answer two
+    Every <b>upgrade</b> — moving onto a newer Chromium — someone has to answer two
     questions: <b>what did Chromium change?</b> and <b>which of those changes are
     worth reading?</b>
   </p>
@@ -632,7 +632,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
               This is <b>the only source in the tree that talks about the future</b>
               rather than the present. Because of it, "twelve flags we depend on will be
               removed at M151" becomes something you can plan for today, instead of a
-              build failure discovered at the next uprev.
+              build failure discovered at the next upgrade.
             </p>
           </div>
 
@@ -1009,7 +1009,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
   <div class="rail"><div class="num">4</div><div class="thread"></div></div>
   <div class="body">
     <h2>Nine sources of data</h2>
-    <div class="file">Each source answers a different question about an uprev</div>
+    <div class="file">Each source answers a different question about an upgrade</div>
     <p>
       The nine sources below were chosen by exactly one criterion: they are the
       places <b>Chromium is obliged to declare what it has, in machine-readable
@@ -1165,7 +1165,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <div><span class="k">Contains</span><span class="v">Metadata for each <code>chrome://flags</code> entry, including <b>the milestone it is scheduled for removal in</b>.</span></div>
           <div><span class="k">Role</span><span class="v">The only source in the tree that talks about <b>the future</b> rather than the present.</span></div>
           <div><span class="k">Compared by</span><span class="v">The removal milestone. A flag whose removal date falls on the version being adopted, or just after it, is marked.</span></div>
-          <div><span class="k">Missing it means</span><span class="v">Losing the ability to plan. "Twelve flags we depend on will be removed at M151" is something you can schedule today, instead of a build failure discovered at the next uprev.</span></div>
+          <div><span class="k">Missing it means</span><span class="v">Losing the ability to plan. "Twelve flags we depend on will be removed at M151" is something you can schedule today, instead of a build failure discovered at the next upgrade.</span></div>
         </div>
       </div>
 
@@ -1567,7 +1567,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <tr><td>Default flipped on for Windows</td><td class="n">75</td><td><b>Our</b> users get different behaviour</td></tr>
           <tr><td>Global default flipped on</td><td class="n">60</td><td>May not apply to Windows; needs checking</td></tr>
           <tr><td>Flag deleted, prior state unreadable</td><td class="n">65</td><td>Not enough data to classify; someone has to look it up</td></tr>
-          <tr><td>Flag retired after shipping</td><td class="n">35</td><td>Behaviour does not change in this uprev</td></tr>
+          <tr><td>Flag retired after shipping</td><td class="n">35</td><td>Behaviour does not change in this upgrade</td></tr>
           <tr><td>Flag retired without ever shipping</td><td class="n">30</td><td>The code is gone; it cannot be turned back on</td></tr>
           <tr><td>A Mojo method's signature changed</td><td class="n">80</td><td><b>The highest in the system</b>: it breaks at runtime, across a process boundary</td></tr>
         </tbody>
@@ -1675,7 +1675,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <code>report.html</code> — sectioned by the questions a reader arrives with,
           with a final table that filters and sorts, and <b>no external resources</b>,
           so it opens on an isolated network and can be attached to an email.<br>
-          <code>report.json</code> — for scripts and for comparing across uprevs.
+          <code>report.json</code> — for scripts and for comparing across upgrades.
         </p>
       </div>
       <div class="card">
@@ -1833,7 +1833,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      So <code>Breaking: 0</code> <b>never means “this uprev carries no risk”.</b> It
+      So <code>Breaking: 0</code> <b>never means “this upgrade carries no risk”.</b> It
       means “nothing was found within the scope that was scanned” — and on the default
       set an unconfirmed disappearance is filed under Housekeeping by design, so some
       of what would be breaking is not counted there at all. Every report should

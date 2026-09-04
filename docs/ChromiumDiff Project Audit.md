@@ -19,7 +19,7 @@ The tool already does many things well. It reads Chromium source, extracts tens 
 
 The most important conclusion from this review is:
 
-> **ChromiumDiff meets its goal as an early-warning radar: it detects a useful subset of noteworthy changes so that people can investigate them before an uprev. The project neither needs to prove, nor currently claims to prove, that it finds 100% of all changes or can automatically declare an uprev safe.**
+> **ChromiumDiff meets its goal as an early-warning radar: it detects a useful subset of noteworthy changes so that people can investigate them before an upgrade. The project neither needs to prove, nor currently claims to prove, that it finds 100% of all changes or can automatically declare an upgrade safe.**
 
 The project owner clarified that an **automated release gate is not part of the current acceptance criteria**. Older passages saying the project “does not yet meet release-gate requirements” should therefore be read as usage boundaries, not as a project-failure verdict. The correct standard for the current baseline is:
 
@@ -44,7 +44,7 @@ For the early-detection goal, the current baseline is **good enough to use now, 
 In plain language:
 
 - If ChromiumDiff reports a dangerous change, open the source and verify it. The warning may be correct, but it can also be a false alarm.
-- If ChromiumDiff reports nothing dangerous, that still does not prove the uprev is safe. The tool may not have downloaded the file, the parser may not understand the syntax, or two different declarations may have been collapsed into one.
+- If ChromiumDiff reports nothing dangerous, that still does not prove the upgrade is safe. The tool may not have downloaded the file, the parser may not understand the syntax, or two different declarations may have been collapsed into one.
 - M151 `wide` coverage is currently `8,295 / 8,366 (99%)`, leaving 71 files. This is file-scope coverage, not parser or product completeness. The raw M151 inventory still contains 85 callback definitions, 144 typedefs, 200 `includes` relations, 18 Mojo `feature` blocks, and hundreds of Mojo constants without corresponding fact kinds. For the current goal, documenting this known scope is enough; there is no need to implement every extractor immediately.
 - A score of `75` does not mean “a 75% chance of failure.” It is a manually assigned weight used to order the report.
 
@@ -680,7 +680,7 @@ Facts are sufficient for:
 
 They are not sufficient for:
 
-> “No Breaking finding means the uprev is definitely safe.”
+> “No Breaking finding means the upgrade is definitely safe.”
 
 ## 10. Comparison and scoring in plain language
 
@@ -1205,7 +1205,7 @@ The history is a straight line of 66 commits with no merge commits, produced mai
 | 3 | `85b4b29` | Removed the top-findings cap; route by product/infra/platform because feature-based scope hid 1,802 of 2,226 findings. | The author measured and avoided filtering out high-severity rows. |
 | 4 | `47e6dae` | Added WebUI routes, controls, and gates, plus union-find clustering by declared edges rather than name similarity. | The intent is correct; the implementation in the same commit contradicts it for Blink `base_feature:none`. |
 | 5 | `67ec4a1` | Separated “not read” from “deliberately not read”; stated explicitly that TypeScript behavior is outside the model. | Function bodies and TS logic are declared scope boundaries, not forgotten bugs. |
-| 6 | `85be946` | Added fork mode and separate checkouts for each side; uprev and fork comparisons need opposite vocabulary. | Shows that the author tested real product/fork semantics. |
+| 6 | `85be946` | Added fork mode and separate checkouts for each side; upgrade and fork comparisons need opposite vocabulary. | Shows that the author tested real product/fork semantics. |
 | 7 | `b8aab1d` | Added provenance states to distinguish stale merge debt from deliberate divergence. | A two-way diff cannot infer intent; the history already recognized this. |
 | 8 | `9a3ee25` | Recognized that forks commonly shadow upstream with build flags; added enclosing conditions. | Build conditions became important facts early in the project. |
 | 9 | `7ace48b` | Wrote a HANDOFF for work requiring internal source, an LLM, and merge history; openly listed what had never been run. | Good transparency; the repository cannot measure product evidence by itself. |
@@ -1359,7 +1359,7 @@ Before reading the history, the project can look like a prototype full of lightl
 
 > **This is a prototype with strong engineering discipline, a good measurement culture, and many sound decisions. However, it evolved too quickly in under five days, so contracts among target selection, extraction, coverage, platform handling, and reporting continued to drift.**
 
-The history increases confidence in path/line evidence, deterministic output, basic semantic normalization, and usefulness for manual review. It does not prove that `wide` fetches everything, that absence always means removal, that Windows scores are correct for every kind, or that a clean report means an uprev is safe.
+The history increases confidence in path/line evidence, deterministic output, basic semantic normalization, and usefulness for manual review. It does not prove that `wide` fetches everything, that absence always means removal, that Windows scores are correct for every kind, or that a clean report means an upgrade is safe.
 
 The release-gate verdict therefore remains **not ready**, while the engineering-quality verdict rises from “fair” to **“good, but not mature.”**
 
@@ -4248,7 +4248,7 @@ Three items were enough to close this round:
 2. add the four boundary regression tests for `bee9e7d`;
 3. publish the five unread grammar classes in user-facing documentation.
 
-After that, **stop expanding against hypothetical audit findings**. Use the tool on real uprevs and record:
+After that, **stop expanding against hypothetical audit findings**. Use the tool on real upgrades and record:
 
 - which top findings helped discover something real;
 - which false positives wasted a reader's time;
@@ -4258,7 +4258,7 @@ Add a new extractor or scoring rule only when there is a real example with a cle
 
 #### Final verdict for schema 39
 
-> **Usable as it stood. No known false Breaking regression and no current overload location hidden. The code item most worth fixing was the 164 repeated stability child rows; the unread grammar needed documenting, not resolving. After one small fix, four boundary tests, and a scope note, the project was “good enough” for its early-warning goal and should shift from audit-driven expansion to learning from real uprevs.**
+> **Usable as it stood. No known false Breaking regression and no current overload location hidden. The code item most worth fixing was the 164 repeated stability child rows; the unread grammar needed documenting, not resolving. After one small fix, four boundary tests, and a scope note, the project was “good enough” for its early-warning goal and should shift from audit-driven expansion to learning from real upgrades.**
 
 ## 32. Final review of `f56bafa` — schema 40
 
@@ -4365,7 +4365,7 @@ After tightening those two tests:
 - use `default` for fast early warning;
 - use `wide` when the story needs to depend less on sampling;
 - keep a person checking the evidence behind important findings;
-- open a new extractor or rule only when a real uprev shows an actionable missed change.
+- open a new extractor or rule only when a real upgrade shows an actionable missed change.
 
 The variadic lexer, escaped quotes, the five grammar extractors, a full Chromium fetch in CI, and 100% coverage are all unnecessary right now.
 
@@ -4421,7 +4421,7 @@ No finding in the current audit round remains to be fixed.
 - The boundary tests now prove behavior rather than inspecting the shape of source.
 - Expanding the parser purely to chase completeness is unnecessary.
 
-From here, reopen the audit only when a real uprev produces one of three kinds of evidence:
+From here, reopen the audit only when a real upgrade produces one of three kinds of evidence:
 
 1. a top finding is a false positive that wastes a reader's time;
 2. a genuinely important change is missed by the tool;
@@ -4436,7 +4436,7 @@ From here, reopen the audit only when a real uprev produces one of three kinds o
 > New since the closure at `a4f13ec`: 11 commits, of which 6 are the provenance stage
 > Verified on: Python 3.14.6, 458 of 458 tests pass; real `M148 → M151 default` data throughout
 
-The audit was closed at `a4f13ec` on the understanding that it would reopen when a real uprev produced evidence. It is reopened here for a different reason: a substantial new stage was added, and it is the first stage in the tool that fetches from a third party and asserts a causal claim.
+The audit was closed at `a4f13ec` on the understanding that it would reopen when a real upgrade produced evidence. It is reopened here for a different reason: a substantial new stage was added, and it is the first stage in the tool that fetches from a third party and asserts a causal claim.
 
 `chromiumdiff/enrich/gerrit.py` (1,559 lines) and `chromiumdiff/serve.py` (255 lines) answer a question the two trees cannot: *who made this change, and what were they fixing.* This section reviews that stage and nothing else; the earlier verdicts on extraction, diffing and scoring are unchanged.
 

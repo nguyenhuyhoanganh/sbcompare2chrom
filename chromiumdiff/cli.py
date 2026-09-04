@@ -8,7 +8,7 @@ tool people run once.
 
 The pipeline stops at the report.  Judging what a change means for a
 particular product is deliberately not done here: the report is the input to a
-reader -- a human, or an agent running the `analyzing-chromium-uprevs` skill --
+reader -- a human, or an agent running the `analyzing-chromium-upgrades` skill --
 and this tool's job is to make that input complete, ranked and citable rather
 than to reach a verdict of its own.
 """

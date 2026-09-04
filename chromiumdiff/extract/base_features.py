@@ -3,7 +3,7 @@
 Why this is the highest-value extractor: a base::Feature default flipping from
 DISABLED to ENABLED is Chromium saying "this shipped".  That single bit
 predicts most of the behaviour change a build inherits on an
-uprev, and it is invisible in release notes.
+upgrade, and it is invisible in release notes.
 
 Three declaration syntaxes coexist across the milestone range we care about:
 

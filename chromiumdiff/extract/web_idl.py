@@ -1,7 +1,7 @@
 """Extract the Web IDL surface: interfaces and their members.
 
 IDL is where "a new web API landed" becomes concrete and testable.  Diffing it
-answers three distinct questions an uprev raises:
+answers three distinct questions an upgrade raises:
 
   * added member   -> new surface to test, and possibly to adopt in the UI
   * removed member -> a site-visible compatibility break

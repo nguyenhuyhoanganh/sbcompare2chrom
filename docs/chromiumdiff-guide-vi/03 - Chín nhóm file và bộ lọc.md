@@ -90,9 +90,9 @@ Hai điều cần hiểu đúng về danh sách này.
 
 ## Tổng quan 9 extractor
 
-Bảng này là bản đồ của cả tài liệu. Cột cuối cùng cho biết mỗi extractor tồn tại để trả lời câu hỏi gì trong một đợt uprev.
+Bảng này là bản đồ của cả tài liệu. Cột cuối cùng cho biết mỗi extractor tồn tại để trả lời câu hỏi gì trong một đợt upgrade.
 
-| Extractor | File / đường dẫn chính | `Fact` tạo ra | Câu hỏi uprev nó trả lời |
+| Extractor | File / đường dẫn chính | `Fact` tạo ra | Câu hỏi upgrade nó trả lời |
 |---|---|---|---|
 | `base_features` | Các file feature C++ | `base_feature`, `feature_param` | Feature hoặc param nào đổi mặc định, đổi C++ symbol, hoặc đổi điều kiện build? |
 | `blink_runtime` | `runtime_enabled_features.json5` | `blink_runtime_feature` | Feature Web Platform nào đang stable/experimental/test trên Windows, và cách đấu nối nào đã đổi? |
@@ -434,7 +434,7 @@ WebUI gate: IsEnabled(features::kFoo)
 base_feature: trạng thái mặc định + trạng thái trên Windows
 ```
 
-Nhờ chuỗi liên kết này, một agent phân biệt được hai tình huống rất khác nhau: *"trang bị xoá, nhưng nó đã bị ẩn từ trước"* và *"trang đang hiển thị bình thường rồi biến mất trong đợt uprev này"*.
+Nhờ chuỗi liên kết này, một agent phân biệt được hai tình huống rất khác nhau: *"trang bị xoá, nhưng nó đã bị ẩn từ trước"* và *"trang đang hiển thị bình thường rồi biến mất trong đợt upgrade này"*.
 
 Trường hợp riêng: một gate phụ thuộc hoàn toàn vào policy hoặc profile vẫn tạo ra `Fact`, nhưng sẽ không nối được sang `base_feature` nào.
 

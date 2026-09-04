@@ -419,7 +419,7 @@ background:color-mix(in srgb,var(--faint) 12%,transparent)}
 """
 
 _JS = """
-/* Rendering is windowed, lazy and delegated, because a full uprev is thousands
+/* Rendering is windowed, lazy and delegated, because a full upgrade is thousands
    of findings and the obvious implementation makes the page unusable.
    Measured on a real 3,120-finding report, the previous version rebuilt 1.79 MB
    of HTML and 6,240 <tr> nodes on EVERY keystroke -- 48% of it detail markup for

@@ -82,7 +82,7 @@ moved behind a different guard, and what users noticed was the flag flipping,
 which is a `base_feature` row somewhere else entirely.
 
 So investigate all three hops before answering, and expect the CL to attach to
-the last one. `../analyzing-chromium-uprevs/reference/settings-surface.md` walks
+the last one. `../analyzing-chromium-upgrades/reference/settings-surface.md` walks
 the chain in detail.
 
 ## When the symptom is a build break

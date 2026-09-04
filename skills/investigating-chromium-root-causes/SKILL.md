@@ -1,6 +1,6 @@
 ---
 name: investigating-chromium-root-causes
-description: Traces one Chromium change back to the review that made it and the bug that review was fixing, then judges whether that cause actually explains the symptom being reported. Use when asked what a specific finding really means, why a flag flipped, what a change was for, which review or issue to read, what broke after a Chromium uprev and why, or when a symptom is reported and no finding obviously accounts for it. Works on one identifier or one symptom at a time. Use analyzing-chromium-uprevs instead to produce a full ranked report of everything that changed between two versions.
+description: Traces one Chromium change back to the review that made it and the bug that review was fixing, then judges whether that cause actually explains the symptom being reported. Use when asked what a specific finding really means, why a flag flipped, what a change was for, which review or issue to read, what broke after a Chromium upgrade and why, or when a symptom is reported and no finding obviously accounts for it. Works on one identifier or one symptom at a time. Use analyzing-chromium-upgrades instead to produce a full ranked report of everything that changed between two versions.
 ---
 
 # Investigating Chromium root causes
@@ -266,9 +266,9 @@ issue history is what makes it convincing, not the verdict.
   never write.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — starting from
   a user-visible symptom instead of an identifier.
-- **`../analyzing-chromium-uprevs/reference/traps.md`** — the ways to reach a
+- **`../analyzing-chromium-upgrades/reference/traps.md`** — the ways to reach a
   wrong conclusion from a finding. Read before interpreting any removal.
-- **`../analyzing-chromium-uprevs/reference/signals.md`** — what each signal
+- **`../analyzing-chromium-upgrades/reference/signals.md`** — what each signal
   means.
 
 ## What this cannot establish

@@ -38,7 +38,7 @@ been `stable`.
 
 **Check:** read the prior state. `flag_retired_on` means behaviour is now
 permanent and unremovable; `flag_retired_off` means the code is gone. Neither
-changes behaviour at this uprev — which is why both are filed under
+changes behaviour at this upgrade — which is why both are filed under
 Housekeeping — but both break the build of anything naming the symbol, and both
 silently kill any override that was setting the flag from outside the binary.
 
@@ -347,7 +347,7 @@ the 1,110 shifts is in a stable declaration.
 
 Outside `[Stable]`, Chromium reorders and inserts freely because both ends of
 the interface are rebuilt together. Reporting those 1,110 would report file
-layout as an ABI event at Mojo severity, every uprev; recording position only
+layout as an ABI event at Mojo severity, every upgrade; recording position only
 where compatibility is promised costs 0 rows today and catches the first one
 that is real.
 

@@ -60,7 +60,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #  12: findings no longer carry an `ai` verdict. The tool stops at the evidence
 #      and the ranking; judging what a change means is the reader's job, and
 #      the reader is a human or an agent running the
-#      `analyzing-chromium-uprevs` skill. A version 11 report may hold `ai`
+#      `analyzing-chromium-upgrades` skill. A version 11 report may hold `ai`
 #      blocks, which nothing here reads any more.
 #  13: extraction honours a tree target's suffix filter, not just its path
 #      prefix. Version 12 snapshots extracted whatever an earlier, wider run

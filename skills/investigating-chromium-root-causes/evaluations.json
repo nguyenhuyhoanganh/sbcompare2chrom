@@ -38,7 +38,7 @@
       "skills": [
         "investigating-chromium-root-causes"
       ],
-      "query": "The downloads settings page lost a toggle after the uprev. What happened?",
+      "query": "The downloads settings page lost a toggle after the upgrade. What happened?",
       "files": [
         "out/M148_to_M151/report.json"
       ],

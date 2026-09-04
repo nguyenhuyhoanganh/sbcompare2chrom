@@ -754,7 +754,7 @@ class TestPartitionPlumbing(unittest.TestCase):
 
 
 class TestHtmlReportScales(unittest.TestCase):
-    """A full uprev is thousands of findings, and the obvious rendering froze
+    """A full upgrade is thousands of findings, and the obvious rendering froze
     the tab.
 
     Measured on a real 3,120-finding report, the first version rebuilt 1.79 MB

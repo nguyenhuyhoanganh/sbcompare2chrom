@@ -275,7 +275,7 @@ Phần metadata của snapshot nên được đọc **trước** khi đọc bấ
 
 Khi review một báo cáo thật, đây là sáu câu cần tự hỏi:
 
-1. `ref` của cả hai bên có đúng là hai full version cần uprev không?
+1. `ref` của cả hai bên có đúng là hai full version cần upgrade không?
 2. `target_set`, `partitions` và `complete` của hai bên có giống nhau không?
 3. `missing_targets` có mục nào bất thường không?
 4. `_errors` trong phần trích xuất có bằng 0 không?

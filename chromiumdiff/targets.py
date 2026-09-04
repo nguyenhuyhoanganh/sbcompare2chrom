@@ -1,7 +1,7 @@
 """What to pull from Chromium, and why.
 
 Each entry answers a question someone actually asks during
-an uprev.  Keeping the list declarative (rather than hard-coded inside each
+an upgrade.  Keeping the list declarative (rather than hard-coded inside each
 extractor) means adding a new source of truth is a one-line change, and the
 cost of a snapshot stays visible.
 
@@ -362,7 +362,7 @@ def default_targets() -> List[FetchTarget]:
     return [
         # -- base::Feature declarations: the canonical "what can be toggled"
         #    list.  A default-state flip here is the single highest-signal
-        #    event in an uprev: it means a feature actually shipped.
+        #    event in an upgrade: it means a feature actually shipped.
         FetchTarget("content/public/common", "tree", _CPP,
                     "content layer features/switches"),
         # Blink splits these: the declarations live under public/, the
@@ -395,7 +395,7 @@ def default_targets() -> List[FetchTarget]:
         # the browser's own.  Measured at M151, these files declare 964 more
         # base::Feature than the set above -- about 45% of the total, with
         # chrome_features.cc alone holding 247.  A gap that size does not
-        # look like a gap in a report: it looks like a quiet uprev.
+        # look like a gap in a report: it looks like a quiet upgrade.
         FetchTarget("chrome/common/chrome_features.cc", "file",
                     note="Chrome-level features (247 at M151)"),
         FetchTarget("chrome/common/chrome_features.h", "file"),

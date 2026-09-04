@@ -28,11 +28,11 @@ Các phần cần tra cứu riêng đã được tách thành một bộ tài li
 - [So sánh, chấm điểm, bucket và owner](<05 - Cách so sánh, chấm điểm và phân loại.md>)
 - [Skill, agent và nội dung dành cho từng team](<06 - Skill và cách hỗ trợ từng nhóm.md>)
 
-**Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `uprev`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromiumDiff.md>).
+**Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `upgrade`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromiumDiff.md>).
 
 ## 1. Bài toán cần giải quyết
 
-Samsung Browser được phát triển từ mã nguồn Chromium. Mỗi lần chuyển sang một phiên bản Chromium mới — việc này gọi là một đợt `uprev` — team không chỉ phải merge một lượng code rất lớn, mà còn phải trả lời sớm những câu hỏi khó hơn nhiều:
+Samsung Browser được phát triển từ mã nguồn Chromium. Mỗi lần chuyển sang một phiên bản Chromium mới — việc này gọi là một đợt `upgrade` — team không chỉ phải merge một lượng code rất lớn, mà còn phải trả lời sớm những câu hỏi khó hơn nhiều:
 
 - Hành vi nào của Chromium đã đổi mặc định trên Windows?
 - API, IPC contract hoặc cấu trúc dữ liệu nào mà Samsung code có thể đang phụ thuộc đã đổi, nhưng compiler không hề cảnh báo?
@@ -1282,7 +1282,7 @@ Python code trong `chromiumdiff/` chịu trách nhiệm sáu việc:
 
 **Không bước nào trong số này gọi LLM.** Với cùng một snapshot và cùng một version code của ChromiumDiff, kết quả report là như nhau.
 
-### 20.2. Skill `analyzing-chromium-uprevs`
+### 20.2. Skill `analyzing-chromium-upgrades`
 
 Skill là checklist hướng dẫn engineer hoặc coding agent **đọc và xử lý** report. Nó không tham gia vào việc trích xuất dữ liệu. Nội dung chính:
 
@@ -1732,7 +1732,7 @@ Hiểu đơn giản, Finch là hệ thống thử nghiệm của Chrome. Thay v�
 
 Ví dụ: source có feature tên `NewDownloadUI` và param `button_style=compact`. Server có thể chỉ bật feature này cho 10% người dùng. Browser nhận quyết định đó lúc chạy, nên Chrome có thể thử nghiệm hoặc thu hồi tính năng mà không cần phát hành bản cài đặt mới.
 
-**Vì sao điều này nguy hiểm khi uprev:** nếu Chromium đổi tên `NewDownloadUI` hoặc bỏ param `button_style`, source vẫn build bình thường, trong khi server vẫn gửi tên cũ. Browser không tìm thấy feature tương ứng và âm thầm dùng trạng thái mặc định — không có lỗi nào được báo.
+**Vì sao điều này nguy hiểm khi upgrade:** nếu Chromium đổi tên `NewDownloadUI` hoặc bỏ param `button_style`, source vẫn build bình thường, trong khi server vẫn gửi tên cũ. Browser không tìm thấy feature tương ứng và âm thầm dùng trạng thái mặc định — không có lỗi nào được báo.
 
 Vì config trên server không nằm trong source Chromium, report giao các finding này cho nhóm `Outside the repository`.
 
@@ -1968,7 +1968,7 @@ Dành cho người muốn tự đọc code thay vì tin tài liệu:
 - Gom nhóm các thay đổi liên quan: `chromiumdiff/cluster.py`
 - Ngữ cảnh từ Chromestatus: `chromiumdiff/enrich/chromestatus.py`
 - Câu chữ của report, Markdown và HTML: `chromiumdiff/report/`
-- Playbook cho người và agent: `skills/analyzing-chromium-uprevs/`
+- Playbook cho người và agent: `skills/analyzing-chromium-upgrades/`
 - Tests: `tests/test_extract.py`, `tests/test_pipeline.py`, `tests/js/report_dom.js`
 - Audit kỹ thuật chi tiết và lịch sử: `docs/ChromiumDiff Project Audit.md`
 
@@ -1976,7 +1976,7 @@ Dành cho người muốn tự đọc code thay vì tin tài liệu:
 
 | Thuật ngữ | Ý nghĩa trong project |
 |---|---|
-| Uprev | Chuyển Samsung Browser từ một Chromium version lên version mới hơn |
+| Upgrade | Chuyển Samsung Browser từ một Chromium version lên version mới hơn |
 | Blink | Rendering engine của Chromium; xử lý DOM, layout và phần lớn Web Platform API mà website sử dụng |
 | Web IDL | Ngôn ngữ khai báo Web API mà Blink cung cấp cho JavaScript — interface, method, property |
 | Mojo / `.mojom` | IPC framework của Chromium. File `.mojom` khai báo interface, method và data type trao đổi giữa các process. `Interface` ở đây là IPC contract, **không phải** UI |

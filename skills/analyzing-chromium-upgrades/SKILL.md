@@ -1,9 +1,9 @@
 ---
-name: analyzing-chromium-uprevs
-description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from cleanup, and produces a ranked report of what moved, routed to the team that would make each fix. Use when planning or reviewing a Chromium uprev such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+name: analyzing-chromium-upgrades
+description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, settings surface - separating real behaviour changes from cleanup, and produces a ranked report of what moved, routed to the team that would make each fix. Use when planning or reviewing a Chromium upgrade such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
-# Analyzing Chromium uprevs
+# Analyzing Chromium upgrades
 
 Run `chromiumdiff` over two Chromium versions, then classify what it found and
 report it per owner. The tool ranks; deciding what a change means for a
@@ -51,7 +51,7 @@ questions to them is the failure this skill prevents.
 - **Exact versions, never bare milestone numbers.** `151` resolves to whatever
   is newest stable today. `ServiceWorkerAutoPreload` is ENABLED in
   143.0.7499.40 and DISABLED in 143.0.7499.194.
-- **Which target set**, below. If the question is "can we ship this uprev", the
+- **Which target set**, below. If the question is "can we ship this upgrade", the
   answer is `wide`.
 
 Ask for anything missing.
@@ -306,7 +306,7 @@ route."*
 
 ## What the tool cannot see
 
-State these in every report. A clean report does not imply a clean uprev.
+State these in every report. A clean report does not imply a clean upgrade.
 
 - **Whether any of it touches a particular product.** The tool compares
   Chromium against Chromium. Searching your own tree for the identifier a

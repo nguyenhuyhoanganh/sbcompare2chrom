@@ -7,7 +7,7 @@ which flags will disappear in the milestone after the one they are landing.
 
 This converts a class of surprise breakage into
 planned work -- "these 12 flags we depend on expire in M148" is a backlog item
-you can file today rather than a build failure you discover next uprev.
+you can file today rather than a build failure you discover next upgrade.
 """
 
 from __future__ import annotations

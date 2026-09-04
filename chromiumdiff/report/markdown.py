@@ -273,7 +273,7 @@ def _render_stories(report: Report) -> str:
                 # so the gap between the two columns is the discount.
                 "| Count | What happened | Direction | Severity | Top score |",
                 "|---:|---|---|---:|---:|"]
-        # Every story, not the top few. There are about fifty in a full uprev
+        # Every story, not the top few. There are about fifty in a full upgrade
         # and the tail is where the quiet ones live -- 181 flags that arrived
         # with nothing else moving is a fact about the milestone, and cutting
         # the table at fourteen rows hid 546 of these 974 findings.

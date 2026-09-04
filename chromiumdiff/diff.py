@@ -262,7 +262,7 @@ SIGNAL_SEVERITY: Dict[str, int] = {
     # chrome/common/pref_names.h is at least as likely to have moved into a
     # file outside the scan. Chromium is actively splitting that file up --
     # 4,322 lines at M143, 3,267 at M151 -- which turned 337 such moves into
-    # 337 "removed" findings at severity 55 across two uprevs.
+    # 337 "removed" findings at severity 55 across two upgrades.
     #
     # The honest severity is lower than a confirmed removal and higher than
     # nothing, because the one case that would matter is real and invisible.

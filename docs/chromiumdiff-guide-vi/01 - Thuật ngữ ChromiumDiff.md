@@ -10,7 +10,7 @@ Nếu chỉ đọc được mười dòng, hãy đọc mười dòng này. Chún
 
 | Từ | Hiểu nhanh |
 |---|---|
-| `uprev` | Một đợt nâng nền Chromium của Samsung Browser từ version cũ lên version mới |
+| `upgrade` | Một đợt nâng nền Chromium của Samsung Browser từ version cũ lên version mới |
 | `upstream` | Chromium gốc do Google phát triển; đối lập với `downstream` là Samsung Browser |
 | Khai báo (declaration) | Một dòng source định nghĩa ra một thứ có tên: một feature flag, một Web API, một preference key... |
 | `Fact` | Một khai báo đã được ChromiumDiff rút gọn thành object JSON nhỏ để so sánh được giữa hai version |
@@ -52,11 +52,11 @@ Ba từ này mô tả quan hệ giữa Chromium và Samsung Browser:
 
 Cần lưu ý: `fork` **không** có nghĩa là tách hẳn và không quay lại. Samsung vẫn định kỳ nhận code mới từ upstream, và chính việc nhận code định kỳ đó tạo ra bài toán mà ChromiumDiff muốn giải.
 
-### Uprev
+### Upgrade
 
-`uprev` là việc nâng phiên bản nền của một dependency lên bản mới hơn. Với Samsung Browser, một đợt uprev nghĩa là: chuyển nền Chromium từ version cũ sang version mới, merge các thay đổi upstream, xử lý conflict, sửa những chỗ code riêng không còn tương thích, rồi kiểm tra những hành vi mới xuất hiện.
+`upgrade` là việc nâng phiên bản nền của một dependency lên bản mới hơn. Với Samsung Browser, một đợt upgrade nghĩa là: chuyển nền Chromium từ version cũ sang version mới, merge các thay đổi upstream, xử lý conflict, sửa những chỗ code riêng không còn tương thích, rồi kiểm tra những hành vi mới xuất hiện.
 
-Trong tài liệu và trong ticket, nên viết "đợt uprev Chromium" hoặc "nâng version Chromium". Không cần cố dịch `uprev` thành một cụm tiếng Việt dài dòng.
+Trong tài liệu và trong ticket, nên viết "đợt upgrade Chromium" hoặc "nâng version Chromium". Không cần cố dịch `upgrade` thành một cụm tiếng Việt dài dòng.
 
 ### Milestone
 
@@ -218,7 +218,7 @@ Chromium không chạy trong một process duy nhất. Nó tách browser thành 
 
 `Inter-Process Communication` (giao tiếp giữa các process): cơ chế để các process trao đổi message với nhau. Trong Chromium, hệ thống IPC chính là Mojo.
 
-Điều làm IPC nguy hiểm khi uprev: một thay đổi IPC có thể **không** làm phần code Samsung đang sửa báo lỗi lúc compile, nhưng vẫn gây lỗi lúc chạy, vì hai đầu hiểu message theo hai cách khác nhau.
+Điều làm IPC nguy hiểm khi upgrade: một thay đổi IPC có thể **không** làm phần code Samsung đang sửa báo lỗi lúc compile, nhưng vẫn gây lỗi lúc chạy, vì hai đầu hiểu message theo hai cách khác nhau.
 
 ### Mojo
 

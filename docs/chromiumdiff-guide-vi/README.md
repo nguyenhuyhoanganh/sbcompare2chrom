@@ -2,7 +2,7 @@
 
 ## ChromiumDiff là gì, trong ba câu
 
-Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một lần, team phải chuyển nền Chromium sang một version mới hơn — đây là việc mà tài liệu này gọi là `uprev`. ChromiumDiff là một công cụ đọc mã nguồn Chromium ở hai version, tìm ra những **khai báo** đã thay đổi (feature flag, Web API, IPC contract, preference key, trang `chrome://`...), rồi xếp chúng thành một danh sách có thứ tự ưu tiên, có lý do và có vị trí `file:dòng` để người đọc mở source kiểm tra lại.
+Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một lần, team phải chuyển nền Chromium sang một version mới hơn — đây là việc mà tài liệu này gọi là `upgrade`. ChromiumDiff là một công cụ đọc mã nguồn Chromium ở hai version, tìm ra những **khai báo** đã thay đổi (feature flag, Web API, IPC contract, preference key, trang `chrome://`...), rồi xếp chúng thành một danh sách có thứ tự ưu tiên, có lý do và có vị trí `file:dòng` để người đọc mở source kiểm tra lại.
 
 Điều quan trọng cần nhớ ngay từ đầu: ChromiumDiff **chỉ đọc Chromium gốc**. Nó không đọc mã nguồn Samsung, nên nó không thể nói "Samsung sẽ bị lỗi ở đâu". Nó chỉ nói "Chromium đã đổi những gì, và team nào nên kiểm tra trước".
 
@@ -34,7 +34,7 @@ Nếu chỉ có thời gian cho một vòng đọc ngắn, đây là lộ trình
 |---|---|---|
 | Người mới, chưa biết gì về project | 1 → 2 → 5 | Có từ vựng, biết dữ liệu từ đâu ra, biết đọc điểm số |
 | Tech lead | 2 → 3 → 5 → 6 | Đủ để đánh giá công cụ đáng tin tới đâu và đưa vào quy trình thế nào |
-| Người trực tiếp triage một đợt uprev | 5 → 7 | Biết đọc điểm số, rồi biết hỏi tiếp *vì sao* một dòng lại đổi |
+| Người trực tiếp triage một đợt upgrade | 5 → 7 | Biết đọc điểm số, rồi biết hỏi tiếp *vì sao* một dòng lại đổi |
 | Người viết thêm extractor cho công cụ | 3 → 4 → 5 | Biết bộ lọc, biết cấu trúc dữ liệu, biết thay đổi nào tạo ra tín hiệu gì |
 | Team WebUI | Mục WebUI trong phần 3 → phần 6 | Biết công cụ đọc được gì trong `chrome://settings` và cần kiểm tra gì |
 | Team Browser C++ / native | Các mục `base_feature`, `feature_param`, `pref`, `switch` trong phần 4 → phần 5 → phần 6 | Biết feature flag và pref key được theo dõi ra sao |

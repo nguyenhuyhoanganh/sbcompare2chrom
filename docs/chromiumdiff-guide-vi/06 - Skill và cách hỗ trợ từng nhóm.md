@@ -4,7 +4,7 @@ Câu hỏi mà tài liệu này trả lời: **có thể giao cho một AI agent
 
 ## Trả lời trực tiếp
 
-Có. Khi gắn skill `analyzing-chromium-uprevs` vào một agent, agent có thể tạo báo cáo riêng cho WebUI và cho Browser C++/WebNative, đọc đúng ý nghĩa của từng signal, lần theo chuỗi gate, và giải thích những việc cần kiểm tra.
+Có. Khi gắn skill `analyzing-chromium-upgrades` vào một agent, agent có thể tạo báo cáo riêng cho WebUI và cho Browser C++/WebNative, đọc đúng ý nghĩa của từng signal, lần theo chuỗi gate, và giải thích những việc cần kiểm tra.
 
 Nhưng câu trả lời có **hai mức**, và trộn hai mức này lại là sai lầm nguy hiểm nhất khi dùng agent:
 
@@ -24,7 +24,7 @@ ChromiumDiff tool
   lấy source → trích Fact → so sánh → sinh signal → chấm điểm → xuất báo cáo
         │
         ▼
-Skill analyzing-chromium-uprevs
+Skill analyzing-chromium-upgrades
   quy định cách đọc báo cáo, các bẫy cần tránh, và câu hỏi đúng cho từng owner
         │
         ▼
@@ -128,7 +128,7 @@ Nếu chỉ có báo cáo mà không có ba trường về source và config, v�
 
 Một cảnh báo cụ thể: **không được kết luận "an toàn" chỉ vì tìm chuỗi chính xác không ra.** Wrapper, code do máy sinh, symbol đã bị đổi tên trong fork, hoặc cấu hình nằm ở một hệ thống khác — tất cả đều có thể vẫn đang giữ dependency đó.
 
-## Đội WebUI cần biết gì ở mỗi đợt uprev
+## Đội WebUI cần biết gì ở mỗi đợt upgrade
 
 ### 1. Trang và điều hướng nào thay đổi
 
@@ -433,7 +433,7 @@ Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_inte
 ### WebUI
 
 ```text
-Phân tích uprev Chromium <from_full_version> → <to_full_version> trên Windows.
+Phân tích upgrade Chromium <from_full_version> → <to_full_version> trên Windows.
 Chạy ChromiumDiff target-set wide. Chỉ lập report cho WebUI, nhưng kéo thêm
 base_feature và pref liên quan bằng route/control/gate chain. Với mỗi screen:
 nói upstream đổi gì, Windows user có thấy khác không, Samsung source có reference
@@ -444,7 +444,7 @@ removed là user-visible change trước khi kiểm tra guard và backing featur
 ### Browser C++ / WebNative
 
 ```text
-Phân tích uprev Chromium <from_full_version> → <to_full_version> trên Windows.
+Phân tích upgrade Chromium <from_full_version> → <to_full_version> trên Windows.
 Chạy ChromiumDiff target-set wide. Tạo queue Browser C++/WebNative gồm feature
 state/param, pref, switch, C++ symbol và Mojo có Samsung reference. Tách rõ
 build work, runtime behaviour, stored-profile migration và external config.
