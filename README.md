@@ -4,6 +4,8 @@ A tool that compares two Chromium versions and answers one question: **what actu
 
 The target product is a Chromium-based desktop browser on Windows, which is why the platform is fixed rather than selectable. Everything here is plain Python, no third-party libraries, no `pip install`.
 
+**Every measurement below was taken on one pair of versions, M148 → M151, unless the sentence names another. They are evidence for the argument being made, not properties of the tool: the number to trust is the one your own run prints.**
+
 There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
 
 ---
@@ -447,8 +449,8 @@ coverage: reads 3677 of 8366 files in this tree that could declare (43% of files
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
 | `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | 3,677 / 8,366 (43%) | Day-to-day work |
-| `wide` | ~337 MB | ~110 MB | **8,295 / 8,366 (99%)** | The widest read available |
+| `default` | ~40 MB | ~38 MB | under half | Day-to-day work |
+| `wide` | ~337 MB | ~110 MB | **nearly all of them** | The widest read available |
 
 5% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
@@ -466,11 +468,11 @@ coverage: reads 3677 of 8366 files in this tree that could declare (43% of files
 | WebUI controls | 971 | 1,431 |
 | **Total facts** | **29,118** | **54,298** |
 
-So `default` reads 43% of the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
+So `default` reads under half the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 
-`wide` reads 99%, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
+`wide` reads nearly the whole tree, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
 
-There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. The remaining 1% has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
+There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. What it still misses has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
 
 What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
@@ -759,7 +761,8 @@ severity 35 — Preference no longer in the file we read — it may have been
 ```
 
 A web API removed on the same run keeps its full 70, because the surface it
-vanished from was read at 99%. The deduction is per surface, not per run.
+vanished from was read almost completely. The deduction is per surface, not
+per run.
 
 A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
 
@@ -798,7 +801,7 @@ The section is placed before *What happened* on purpose. It is the first questio
 
 ### Context from chromestatus
 
-`enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works (~2% hit rate) because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what Chromium *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
+`enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works — a hit is the exception — because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what Chromium *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
 
 The window is counted back from the version being adopted, and the list is ordered newest milestone first. Both used to be the other way round, and the result was that a 143 → 151 report carried 200 entries covering M144 to M150 and **nothing at all from M151** — the milestone actually being adopted. Truncation now happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` really does hold the rest.
 ---
@@ -952,7 +955,7 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 **An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the door was open, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
 
-`Fixed:` and `Bug:` are shown apart, because closing an issue and referencing one are different claims — Chromium writes 575 of the latter to 34 of the former. `revert_of` and `cherry_pick_of_change` come free in the same response and are printed too: 23 of 534 CLs in a real sample are reverts, and they are what makes a flag's launch–revert–reland history readable without diffing subjects by eye.
+`Fixed:` and `Bug:` are shown apart, because closing an issue and referencing one are different claims — Chromium writes far more of the latter than the former. `revert_of` and `cherry_pick_of_change` come free in the same response and are printed too: 23 of 534 CLs in a real sample are reverts, and they are what makes a flag's launch–revert–reland history readable without diffing subjects by eye.
 
 ### The payload stops repeating itself
 

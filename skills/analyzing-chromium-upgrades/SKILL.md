@@ -71,8 +71,8 @@ half minutes cold for a pair; half a second cached.
 | `--target-set` | Per version | Files read | Use for |
 |---|---:|---:|---|
 | `minimal` | ~1 MB | 3 | smoke test |
-| `default` | ~40 MB | 43% of files, over half the flags | day to day |
-| `wide` | 337 MB fetched | **99% of files** | the widest read available |
+| `default` | ~40 MB | under half the files, over half the flags | day to day |
+| `wide` | ~337 MB fetched | **nearly the whole tree** | the widest read available |
 
 Outputs: `report.md` (paste into a ticket), `report.html` (filterable),
 `report.json` (scripting). Every finding cites `path:line` under
@@ -102,13 +102,13 @@ rank. It knows nothing about what anyone patches, ships or overrides: a
 never quote one from this file.
 
 ```
-coverage: reads 3669 of 8349 files in this tree that could declare (43% of files)
+coverage: reads N of M files in this tree that could declare (P% of files)
 ```
 
 **Coverage changes the answer, not just the confidence.** A removal is an
 inference from absence, so on a partial read it loses 15 points and a
-`pref_left_scan` is filed as Housekeeping rather than Breaking. Measured on one
-pair: `default` gives 139 of those at 20 points, `wide` gives 171 at 35.
+`pref_left_scan` is filed as Housekeeping rather than Breaking. Measured on M148 → M151:
+`default` gives 139 of those at 20 points, `wide` gives 171 at 35.
 **`Breaking: 0` on a default run is not a clean bill of health.**
 
 **Two refusals, one meaning.** `cannot diff snapshots built from different

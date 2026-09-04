@@ -725,7 +725,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     <div class="warnbox" style="margin-top:14px">
       <b>A removal is an inference from absence, and the other two are not.</b> Both
       sides of a modification were read; an addition is a thing seen. A removal is a
-      thing <em>not</em> seen, which on a run covering 44% of the tree is a much weaker
+      thing <em>not</em> seen, which on a run covering under half the tree is a much weaker
       claim than on one covering all of it. Measured M148 → M151: of 141 preference
       keys that vanished, 100 had simply moved into a file the run never opened.
     </div>
@@ -781,9 +781,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <b>One bucket moves with the coverage, deliberately.</b>
       <code>pref_left_scan</code> means “deleted, or moved out of the files we
       read”, and which of those it is depends entirely on how much of the tree the
-      run covered. On <code>--target-set default</code> (43% of files) 139 of these
-      are filed under Housekeeping at 20 points; on <code>wide</code> (100%) 171 are
-      filed under Breaking at 35. A rule that gave the same answer either way would
+      run covered. Measured on M148 → M151, <code>--target-set default</code> files 139
+      of these under Housekeeping at 20 points, while <code>wide</code> puts 171
+      under Breaking at 35. A rule that gave the same answer either way would
       be wrong in one of the two directions.
     </div>
 
@@ -1516,7 +1516,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
             <span class="d"><b>Outside the Windows build on <em>both</em> sides</b>
             <span>Chromium's own <code>#if</code> keeps it out of the binary this product ships. 187 of 3,022 findings at M148 → M151</span></span></label>
           <label class="tg"><input type="checkbox" data-add="-15" data-why="−15 unconfirmed: this run read 44% of the tree, so “gone” may mean “moved into a file we never opened”">
-            <span class="d"><b>A removal, on a run that read 44% of the tree</b>
+            <span class="d"><b>A removal, on a run that read only part of the tree</b>
             <span>Absence is not evidence of deletion. Of 141 preference keys that vanished at M148 → M151, 100 had simply moved</span></span></label>
         </div>
         <div class="dial">

@@ -126,8 +126,9 @@ BASE_FEATURE(kAudioServiceOutOfProcess,
 );
 ```
 
-In `content_features.cc` alone, 14 of 187 features have platform-divergent
-defaults.
+In `content_features.cc` alone a small but steady minority of features carry
+platform-divergent defaults, which is enough that assuming the global default
+is wrong on a regular basis rather than a rare one.
 
 **Check:** read `platform_state.windows`, never `default_state`. The platform is
 fixed to Windows and is not selectable — reading the wrong one does not blur the

@@ -37,14 +37,14 @@ python3 skills/investigating-chromium-root-causes/scripts/why.py out/DIR feature
 
 ### A2. The declaring file was outside the target set
 
-`default` reads about 44% of candidate files. A declaration in a file this run
+`default` reads under half the candidate files. A declaration in a file this run
 did not fetch produces no fact on either side, so it produces no row and no
 `removed` either. Re-run `--target-set wide` before concluding anything.
 
 Check what the run actually read — every run prints it:
 
 ```
-coverage: reads 3669 of 8349 files in this tree that could declare (43% of files)
+coverage: reads N of M files in this tree that could declare (P% of files)
 ```
 
 ### A3. The declaration is a class the extractors do not turn into facts
