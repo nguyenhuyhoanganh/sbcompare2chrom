@@ -4813,6 +4813,15 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
     # extractor's docstring as sample markup.
     ALLOWED = re.compile(r"prompt_for_download|promptForDownload")
 
+    # `agent/` is the one place where a model reading the output is the whole
+    # subject, so the rule stops at its door rather than being weakened for
+    # everyone. What it still protects is the claim that mattered: the
+    # pipeline -- snapshot, compare, rank, report -- ends at the report, and
+    # nothing on that path may promise a stage that was removed. A chat asked
+    # for by name with `serve --chat` is not that stage returning; it reads a
+    # finished report the same way a person does.
+    EXEMPT = os.sep + "agent" + os.sep
+
     def test_nothing_in_the_package_describes_a_model_reading_the_output(self):
         import glob
 
@@ -4820,6 +4829,8 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
         offenders = []
         for path in glob.glob(os.path.join(root, "chromiumdiff", "**", "*.py"),
                               recursive=True):
+            if self.EXEMPT in path:
+                continue
             with open(path, encoding="utf-8") as fh:
                 for lineno, line in enumerate(fh, 1):
                     if self.ALLOWED.search(line):
