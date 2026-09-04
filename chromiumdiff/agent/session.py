@@ -33,6 +33,12 @@ HISTORY_BUDGET = 24000
 # The answer written from it is what carries forward; the raw output is not.
 RESULT_KEEP = 600
 
+# How long an opening question may be and still be carried forward with every
+# later turn. A question is normally a line; one longer than this is a pasted
+# stack trace or a log, and repeating it on every turn for the rest of the
+# conversation costs more than the anchor is worth.
+OPENING_MAX = 1200
+
 
 def new_id() -> str:
     """Unguessable, because it appears in a URL a browser can be told to open.
@@ -57,13 +63,23 @@ class Session:
         self.messages.append({"role": role, "content": content})
 
     def for_engine(self, budget: int = HISTORY_BUDGET) -> List[Dict[str, str]]:
-        """The tail of the conversation that fits, oldest dropped first.
+        """The tail of the conversation that fits, plus the question it began
+        with, oldest of the rest dropped first.
 
-        Dropped from the front rather than summarised, because a summary is
-        another model call that can be wrong, and the front of a conversation
-        about a report is usually the part already answered. The newest turn
-        is always included whatever its size: sending a question with its
-        context trimmed away is better than sending no question.
+        Dropped rather than summarised, because a summary is another model
+        call that can be wrong -- and wrong here means a count that was never
+        in the report carried forward as though it had been.
+
+        The first question is kept because a pure tail loses what the
+        conversation is *about*. "Which of those need retesting?" eight turns
+        later refers to something, and the something was the opening question;
+        without it the follow-up is answered against whatever happens to be
+        left. It costs one message, and it cannot invent anything, which is
+        the whole difference between it and a summary.
+
+        The newest turn is always included whatever its size: sending a
+        question with its context trimmed away is better than sending no
+        question.
         """
         kept: List[Dict[str, str]] = []
         spent = 0
@@ -74,7 +90,23 @@ class Session:
             kept.append(message)
             spent += len(content)
         kept.reverse()
+        opening = self._opening()
+        if opening is not None and opening not in kept:
+            kept.insert(0, opening)
         return kept
+
+    def _opening(self) -> Optional[Dict[str, str]]:
+        """The question this conversation started with, if it is still short.
+
+        A first question long enough to matter to the budget is one the tail
+        would have had to drop for a reason, and re-adding it here would put
+        the same pressure back on the turn being answered.
+        """
+        for message in self.messages:
+            if message.get("role") == "user":
+                return message if len(message.get("content", "")) <= \
+                    OPENING_MAX else None
+        return None
 
     def add_tool_result(self, name: str, text: str) -> None:
         """Record that a tool ran, without carrying its output for ever.

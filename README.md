@@ -578,6 +578,30 @@ python3 -m chromiumdiff why mojo_field:blink.mojom.CommitNavigationParams.early_
 
 A uid that names nothing gets the ones it could have meant rather than a refusal: the common miss is a name with its `kind:` prefix dropped, and the alternative is grepping three thousand of them for a spelling you nearly had.
 
+### Asking a report a question
+
+`serve --chat` adds a panel to the page. It is off unless asked for, because it changes what the command is: a server that reads a report becomes one where a question typed into a browser runs commands on this machine. Answers are worked out by running queries over `report.json`, and each query is shown with the answer it produced — an answer you can check beats one you have to believe.
+
+An engine is what answers. Two exist:
+
+| Engine | State | Reached by |
+|---|---|---|
+| `http` (default) | Works | `CHROMIUMDIFF_MODEL_URL`, `CHROMIUMDIFF_MODEL`, `CHROMIUMDIFF_API_KEY` |
+| `cline` | **Not implemented** — a documented place to plug one in | `--engine cline` |
+
+```bash
+export CHROMIUMDIFF_MODEL_URL=https://your-endpoint/v1
+python3 -m chromiumdiff serve out/M148_to_M151 --chat
+```
+
+`--no-shell` answers with Python queries only. Everything about the report is a computation over the parsed file, so the shell is what a question needs when it has to reach outside the report — and it is the part that cannot be handed to a machine you do not own.
+
+**Adding an engine.** `ClineEngine` in `chromiumdiff/agent/engine.py` is a class with two methods and a docstring listing exactly what an implementation has to do. The specification is executable: `tests/test_agent_contract.py` checks every rule, and it checks itself — `ContractCatchesViolationsTest` runs the contract against engines that break each rule on purpose, because a contract that had quietly stopped checking anything would look exactly like an implementation that was correct.
+
+```bash
+python3 -m unittest tests.test_agent_contract
+```
+
 `package` writes the whole tool into a single `.pyz` with `zipapp`, which is in the standard library — no build step and nothing to install. It carries the skills when they are there and neither the report nor the tree cache, because those belong to whoever made them:
 
 ```bash

@@ -720,6 +720,487 @@ class ChatOffTest(unittest.TestCase):
             self.assertEqual(404, exc.code)
 
 
+class TurnBookkeepingTest(unittest.TestCase):
+    """One turn at a time per conversation, and a bounded number kept.
+
+    Both were described where they are implemented and neither was checked.
+    The first is a correctness rule -- a second question asked mid-answer
+    reaches the engine with a history missing the first answer, so it is
+    answered as though nothing had been asked, and the two answers land in
+    whichever order they finish.
+    """
+
+    def setUp(self):
+        from chromiumdiff.agent import chat as chat_mod
+        from chromiumdiff.agent import engine as engine_mod
+        self.chat_mod, self.engine_mod = chat_mod, engine_mod
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"), [])
+
+    def _chat(self, engine=None):
+        return self.chat_mod.Chat(
+            self.dir, engine or self.engine_mod.ScriptedEngine(["done."]))
+
+    def _settle(self, chat, turn):
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            block = chat.events(turn, 0)
+            if block and not block["running"]:
+                return block
+            time.sleep(0.02)
+        self.fail("the turn never finished")
+
+    def test_an_empty_question_is_refused_before_anything_starts(self):
+        answer = self._chat().ask(None, "   ")
+        self.assertIn("error", answer)
+        self.assertNotIn("turn", answer)
+
+    def test_a_second_question_mid_answer_is_refused_not_queued(self):
+        engine_mod = self.engine_mod
+
+        class _Slow(engine_mod.Engine):
+            def _run(self, session, question, workspace, emit):
+                time.sleep(1.0)
+                emit(engine_mod.text("late answer"))
+                session.add("assistant", "late answer")
+
+        chat = self._chat(_Slow())
+        first = chat.ask(None, "first")
+        second = chat.ask(first["session"], "second")
+        self.assertIn("error", second)
+        self.assertEqual(first["turn"], second["turn"])
+        self._settle(chat, first["turn"])
+
+    def test_a_finished_conversation_accepts_the_next_question(self):
+        chat = self._chat(self.engine_mod.ScriptedEngine(["one.", "two."]))
+        first = chat.ask(None, "first")
+        self._settle(chat, first["turn"])
+        second = chat.ask(first["session"], "second")
+        self.assertNotIn("error", second)
+        self.assertNotEqual(first["turn"], second["turn"])
+
+    def test_two_conversations_do_not_block_each_other(self):
+        chat = self._chat(self.engine_mod.ScriptedEngine(["a.", "b."]))
+        one = chat.ask(None, "first")
+        two = chat.ask(None, "second")
+        self.assertNotIn("error", two)
+        self.assertNotEqual(one["session"], two["session"])
+
+    def test_old_turns_are_forgotten_and_the_conversation_is_not(self):
+        """Turns are the live view; what was said is on disk.
+
+        Forgetting a turn bounds memory over a long session. Forgetting the
+        conversation would lose the answers.
+        """
+        chat = self._chat()
+        keep = self.chat_mod.KEEP_TURNS
+        first = chat.ask(None, "first")
+        self._settle(chat, first["turn"])
+        for i in range(keep + 3):
+            later = chat.ask(None, f"q{i}")
+            self._settle(chat, later["turn"])
+        self.assertLessEqual(len(chat.turns), keep)
+        self.assertIsNone(chat.events(first["turn"], 0))
+        history = chat.history(first["session"])
+        self.assertIsNotNone(history)
+        self.assertEqual("first", history["messages"][0]["content"])
+
+    def test_events_can_be_read_from_where_the_last_poll_stopped(self):
+        chat = self._chat()
+        started = chat.ask(None, "hello")
+        whole = self._settle(chat, started["turn"])
+        tail = chat.events(started["turn"], whole["next"] - 1)
+        self.assertEqual(1, len(tail["events"]))
+        self.assertEqual(whole["events"][-1], tail["events"][0])
+
+    def test_a_poll_beyond_the_end_returns_nothing_rather_than_failing(self):
+        chat = self._chat()
+        started = chat.ask(None, "hello")
+        self._settle(chat, started["turn"])
+        self.assertEqual([], chat.events(started["turn"], 9999)["events"])
+
+    def test_the_page_is_not_shown_the_tool_chatter(self):
+        """`history` is what a reader reloads into the panel.
+
+        The engine needs the tool turns; a person reading back what they asked
+        does not, and they are the bulk of a long conversation.
+        """
+        chat = self._chat(self.engine_mod.ScriptedEngine(
+            ["<run-python>\nprint(1)\n</run-python>", "one."]))
+        started = chat.ask(None, "how many?")
+        self._settle(chat, started["turn"])
+        roles = [m["role"] for m in chat.history(started["session"])["messages"]]
+        self.assertEqual(["user", "assistant"], roles)
+        session = chat.sessions.get(started["session"])
+        self.assertIn("tool", [m["role"] for m in session.messages])
+
+    def test_an_unknown_conversation_is_absent(self):
+        self.assertIsNone(self._chat().history("nope"))
+
+
+class SessionHistoryTest(unittest.TestCase):
+    """What a later turn is told about an earlier one.
+
+    The history is kept here rather than in the engine, so these rules are
+    the whole of the conversation's memory. Every one of them was described
+    in a docstring and none was checked.
+    """
+
+    def setUp(self):
+        from chromiumdiff.agent import session as session_mod
+        self.mod = session_mod
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def test_the_oldest_turns_are_dropped_first(self):
+        s = self.mod.Session()
+        for i in range(12):
+            s.add("user", f"question {i}")
+            s.add("assistant", f"answer {i} " + "x" * 3000)
+        sent = s.for_engine()
+        content = [m["content"] for m in sent]
+        self.assertLess(len(sent), len(s.messages))
+        self.assertLessEqual(
+            sum(len(m["content"]) for m in sent), self.mod.HISTORY_BUDGET
+            + max(len(m["content"]) for m in s.messages)
+            + self.mod.OPENING_MAX)
+        self.assertEqual(s.messages[-1], sent[-1], "the newest turn must go")
+        # "question 0" is the opening and is kept on purpose; what has to be
+        # gone is the middle, which is what the budget is spent on.
+        self.assertNotIn("question 1", content)
+        self.assertIn("question 0", content)
+
+    def test_the_opening_question_survives_the_trimming(self):
+        """What the conversation is about, when the tail no longer says.
+
+        "Which of those need retesting?" refers to something, and after eight
+        turns the something has been dropped. One message, and it cannot
+        invent anything -- which is the difference between it and a summary.
+        """
+        s = self.mod.Session()
+        s.add("user", "what changed in settings?")
+        for i in range(12):
+            s.add("assistant", f"answer {i} " + "x" * 3000)
+            s.add("user", f"follow-up {i}")
+        sent = s.for_engine()
+        self.assertEqual("what changed in settings?", sent[0]["content"])
+        self.assertNotIn("answer 0", [m["content"][:8] for m in sent])
+
+    def test_a_pasted_log_is_not_carried_on_every_later_turn(self):
+        """An anchor worth one message, not worth the budget."""
+        s = self.mod.Session()
+        s.add("user", "here is the log:\n" + "L" * (self.mod.OPENING_MAX * 2))
+        for i in range(12):
+            s.add("assistant", f"answer {i} " + "x" * 3000)
+            s.add("user", f"follow-up {i}")
+        sent = s.for_engine()
+        self.assertNotIn("here is the log", sent[0]["content"])
+
+    def test_the_opening_is_not_sent_twice_while_it_is_still_in_the_tail(self):
+        s = self.mod.Session()
+        s.add("user", "first question")
+        s.add("assistant", "short answer")
+        sent = s.for_engine()
+        self.assertEqual(1, [m["content"] for m in sent]
+                         .count("first question"))
+
+    def test_a_question_larger_than_the_budget_is_still_sent_whole(self):
+        """Trimming the newest turn sends a question with its point removed."""
+        s = self.mod.Session()
+        s.add("user", "y" * (self.mod.HISTORY_BUDGET * 3))
+        sent = s.for_engine()
+        self.assertEqual(1, len(sent))
+        self.assertEqual(self.mod.HISTORY_BUDGET * 3, len(sent[0]["content"]))
+
+    def test_a_tool_result_does_not_cost_the_rest_of_the_conversation(self):
+        """The answer written from a result carries forward; the result does
+        not. Otherwise one large query is a permanent tax on every later turn.
+        """
+        s = self.mod.Session()
+        s.add_tool_result("python", "z" * 50000)
+        carried = s.messages[-1]["content"]
+        self.assertLess(len(carried), self.mod.RESULT_KEEP + 200)
+        self.assertIn("not kept in the history", carried)
+
+    def test_a_short_tool_result_is_kept_whole(self):
+        s = self.mod.Session()
+        s.add_tool_result("python", "42")
+        self.assertIn("42", s.messages[-1]["content"])
+        self.assertNotIn("not kept", s.messages[-1]["content"])
+
+    def test_a_conversation_survives_a_restart(self):
+        store = self.mod.SessionStore(self.dir)
+        s = store.new()
+        s.add("user", "what changed")
+        store.save(s)
+        again = self.mod.SessionStore(self.dir)
+        self.assertEqual("what changed",
+                         again.get(s.id).messages[0]["content"])
+
+    def test_a_session_id_cannot_name_a_file_outside_the_store(self):
+        """The id arrives from a URL and would otherwise be joined to a path.
+
+        Checked against the ids that exist rather than sanitised, so there is
+        no escaping-rule to get wrong.
+
+        The decoy is a *readable session file* one directory up. Pointing the
+        hostile ids at `/etc/passwd` proved nothing: that returns None however
+        the store is written, because it is not a session, so the test passed
+        with the guard deleted.
+        """
+        store = self.mod.SessionStore(self.dir)
+        store.save(store.new())                      # so `chats/` exists
+        decoy = os.path.join(self.dir, "secret.json")
+        with open(decoy, "w", encoding="utf-8") as fh:
+            json.dump({"id": "secret", "messages":
+                       [{"role": "user", "content": "not yours"}]}, fh)
+        self.assertIsNone(store.get("../secret"),
+                          "a session id reached a file outside the store")
+        for hostile in ("../../etc/passwd", "..", "/etc/passwd", "a/../../b"):
+            self.assertIsNone(store.get(hostile), hostile)
+
+    def test_an_unknown_session_is_absent_rather_than_invented(self):
+        self.assertIsNone(self.mod.SessionStore(self.dir).get("nope"))
+
+    def test_ids_are_not_guessable_from_each_other(self):
+        made = {self.mod.new_id() for _ in range(200)}
+        self.assertEqual(200, len(made))
+        self.assertTrue(all(len(i) >= 12 for i in made))
+
+
+class TurnLimitsTest(unittest.TestCase):
+    """The two ceilings on one question, both claimed and neither checked."""
+
+    def setUp(self):
+        from chromiumdiff.agent import engine as engine_mod
+        self.mod = engine_mod
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"), [])
+        self.ws = engine_mod.Workspace(self.dir)
+
+    def _forever(self):
+        """An engine that never stops asking for another lookup."""
+        mod = self.mod
+
+        class _Loop(mod.TextProtocolEngine):
+            calls = 0
+
+            def complete(self, messages):
+                _Loop.calls += 1
+                return "<run-python>\nprint(1)\n</run-python>"
+
+        return _Loop()
+
+    def test_a_loop_that_will_not_converge_is_stopped(self):
+        from chromiumdiff.agent.session import Session
+        session = Session()
+        session.add("user", "go")
+        events = []
+        self._forever().run(session, "go", self.ws, events.append)
+        ran = len([e for e in events if e["type"] == "tool"])
+        self.assertLessEqual(ran, self.mod.MAX_STEPS)
+        self.assertTrue([e for e in events if e["type"] == "error"])
+        self.assertEqual("done", events[-1]["type"])
+
+    def test_the_reader_is_told_why_it_stopped(self):
+        from chromiumdiff.agent.session import Session
+        session = Session()
+        session.add("user", "go")
+        events = []
+        self._forever().run(session, "go", self.ws, events.append)
+        said = " ".join(e.get("message", "") for e in events
+                        if e["type"] == "error")
+        self.assertIn(str(self.mod.MAX_STEPS), said)
+
+    def test_a_turn_that_runs_too_long_gives_up(self):
+        from chromiumdiff.agent.session import Session
+        mod = self.mod
+        original = mod.TURN_SECONDS
+        mod.TURN_SECONDS = -1.0          # every turn is already over time
+        self.addCleanup(setattr, mod, "TURN_SECONDS", original)
+        session = Session()
+        session.add("user", "go")
+        events = []
+        self._forever().run(session, "go", self.ws, events.append)
+        self.assertEqual([], [e for e in events if e["type"] == "tool"])
+        self.assertTrue([e for e in events if e["type"] == "error"])
+
+
+class WorkspaceTest(unittest.TestCase):
+    """What the engine is told about the report, and what it may reach."""
+
+    def setUp(self):
+        from chromiumdiff.agent import engine as engine_mod
+        self.mod = engine_mod
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"), [])
+
+    def test_the_note_on_disk_is_the_note_that_is_used(self):
+        """An edited AGENTS.md is somebody's correction. It wins."""
+        with open(os.path.join(self.dir, "AGENTS.md"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("# hand-written")
+        self.assertIn("hand-written",
+                      self.mod.Workspace(self.dir).briefing_text())
+
+    def test_a_report_written_before_the_note_existed_still_gets_one(self):
+        text = self.mod.Workspace(self.dir).briefing_text()
+        self.assertIn("do not grep it", text)
+
+    def test_a_directory_with_nothing_in_it_does_not_raise(self):
+        empty = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, empty, True)
+        self.assertEqual("", self.mod.Workspace(empty).briefing_text())
+
+    def test_the_prompt_carries_the_report_and_the_protocol(self):
+        prompt = self.mod.Workspace(self.dir).system_prompt()
+        self.assertIn("<run-python>", prompt)
+        self.assertIn("do not grep it", prompt)
+        self.assertIn(str(self.mod.MAX_STEPS), prompt)
+
+    def test_without_shell_the_prompt_does_not_offer_it(self):
+        """A tool named in the prompt and refused at the door wastes a turn."""
+        prompt = self.mod.Workspace(
+            self.dir, allow_shell=False).system_prompt()
+        self.assertNotIn("<run-shell>", prompt)
+        self.assertIn("<run-python>", prompt)
+
+    def test_shell_is_refused_with_a_reason_when_it_is_off(self):
+        result = self.mod.Workspace(self.dir, allow_shell=False).run(
+            "shell", "echo hello")
+        self.assertFalse(result.ok)
+        self.assertIn("python", result.output)
+        self.assertNotIn("hello", result.output)
+
+    def test_a_tool_that_does_not_exist_is_an_answer(self):
+        result = self.mod.Workspace(self.dir).run("telepathy", "x")
+        self.assertFalse(result.ok)
+        self.assertIn("telepathy", result.output)
+
+
+class HttpEngineFailureTest(unittest.TestCase):
+    """What the reader is told when the endpoint is the thing that is wrong.
+
+    Three failures that look identical from a spinner and need different
+    fixes: it refused, it was unreachable, it answered something else.
+    """
+
+    def setUp(self):
+        from chromiumdiff.agent import engine as engine_mod
+        self.mod = engine_mod
+
+    def _engine(self, handler):
+        import threading
+        from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+
+        outer = handler
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                self.rfile.read(length)
+                outer(self)
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        port = httpd.server_address[1]
+        return self.mod.HttpEngine(base_url=f"http://127.0.0.1:{port}/v1",
+                                   model="m", timeout=10)
+
+    def _say(self, engine):
+        from chromiumdiff.agent.session import Session
+        directory = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, directory, True)
+        _report(os.path.join(directory, "report.json"), [])
+        session = Session()
+        session.add("user", "hello")
+        events = []
+        engine.run(session, "hello", self.mod.Workspace(directory),
+                   events.append)
+        return " ".join(e.get("message", "") for e in events
+                        if e["type"] == "error"), events
+
+    def test_a_refusal_carries_what_the_endpoint_said(self):
+        """`400` alone sends the reader to the wrong question."""
+        def refuse(h):
+            body = b'{"error":{"message":"model not enabled for this key"}}'
+            h.send_response(400)
+            h.send_header("Content-Length", str(len(body)))
+            h.end_headers()
+            h.wfile.write(body)
+
+        said, events = self._say(self._engine(refuse))
+        self.assertIn("400", said)
+        self.assertIn("model not enabled", said)
+        self.assertEqual("done", events[-1]["type"])
+
+    def test_an_answer_in_an_unknown_shape_says_what_arrived(self):
+        def odd(h):
+            body = b'{"output":"hello"}'
+            h.send_response(200)
+            h.send_header("Content-Length", str(len(body)))
+            h.end_headers()
+            h.wfile.write(body)
+
+        said, _ = self._say(self._engine(odd))
+        self.assertIn("shape", said)
+        self.assertIn("output", said)
+
+    def test_an_endpoint_that_is_not_there_is_named_as_such(self):
+        engine = self.mod.HttpEngine(base_url="http://127.0.0.1:1/v1",
+                                     model="m", timeout=5)
+        said, events = self._say(engine)
+        self.assertIn("could not reach", said)
+        self.assertEqual("done", events[-1]["type"])
+
+    def test_an_unconfigured_engine_says_which_variable_to_set(self):
+        engine = self.mod.HttpEngine(base_url="")
+        self.assertIn("CHROMIUMDIFF_MODEL_URL", engine.available())
+
+    def test_a_refusal_does_not_leak_the_connection_it_read(self):
+        """This runs inside a server that stays up.
+
+        The error body is worth reading and the object holding it owns a
+        socket. Left to the collector, a session against a misconfigured
+        endpoint leaks one connection per refusal -- and a refusal is exactly
+        what a reader retries.
+        """
+        import warnings
+
+        def refuse(h):
+            h.send_response(400)
+            h.send_header("Content-Length", "2")
+            h.end_headers()
+            h.wfile.write(b"{}")
+
+        engine = self._engine(refuse)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            for _ in range(3):
+                self._say(engine)
+            import gc
+            gc.collect()
+        leaked = [w for w in caught
+                  if issubclass(w.category, ResourceWarning)
+                  and "HTTPError" in str(w.message)]
+        self.assertEqual([], leaked, "an unclosed response per refusal")
+
+    def test_the_cline_engine_says_it_is_not_wired_up(self):
+        engine = self.mod.ClineEngine()
+        self.assertIn("not wired up", engine.available())
+        said, events = self._say(engine)
+        self.assertIn("not wired up", said)
+        self.assertEqual("done", events[-1]["type"])
+
+
 class ToolsReachTheCliTest(unittest.TestCase):
     """The command the briefing tells a reader to run has to actually run.
 
