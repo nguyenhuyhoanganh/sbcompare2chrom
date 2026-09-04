@@ -5523,7 +5523,11 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
             with urllib.request.urlopen(base + path, timeout=10) as resp:
                 return resp.status, resp.read()
         except urllib.error.HTTPError as exc:
-            return exc.code, b""
+            # Closed, not dropped: an HTTPError owns the socket, and one left
+            # to the collector prints a ResourceWarning later, from whichever
+            # frame happened to be running when the collector got to it.
+            with exc:
+                return exc.code, b""
 
     def test_the_page_reports_which_pair_it_is_serving(self):
         base = self._server()
