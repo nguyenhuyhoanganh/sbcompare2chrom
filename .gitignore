@@ -5,5 +5,7 @@ __pycache__/
 .chromiumdiff-cache/
 out/
 out-*/
+# Built by `chromiumdiff package` from the source beside it.
+*.pyz
 
 .DS_Store

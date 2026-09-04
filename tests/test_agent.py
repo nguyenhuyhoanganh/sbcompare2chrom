@@ -1,12 +1,20 @@
-"""Tests for the bounded command and query runner.
+"""Tests for what an agent is given: a bounded runner, and a route to a row.
 
 The interesting cases are the bounds, not the happy path: what a command that
 prints too much costs, what a command that refuses to stop costs, and whether
 a failing query is reported at the line the model actually wrote.
+
+`why` is here rather than beside the other commands because it exists for a
+caller that is not a browser. Its output is read by whatever asked, so what it
+says about a weak verdict matters as much as what it finds.
 """
 
+import contextlib
+import io
 import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 import time
@@ -281,6 +289,666 @@ class ResultTest(unittest.TestCase):
         success has to mean both things: it finished, and it finished in time.
         """
         self.assertFalse(tools.Result("partial", 0, 0, 30.0, True).ok)
+
+
+class WhyCommandTest(unittest.TestCase):
+    """The route to a row for a caller that cannot click one.
+
+    Every case here is about what the words say, not whether a lookup ran. A
+    CL reached from a weak verdict reads exactly like a CL reached from a
+    strong one, and the output is the only thing standing between those two.
+    """
+
+    CL = {"number": 7685815, "subject": "Preload early hints",
+          "at": "2026-05-11 12:02:38.000000000", "date": "2026-05-11",
+          "url": "https://chromium-review.googlesource.com/c/chromium/src/"
+                 "+/7685815",
+          "bugs": [{"id": "493637574"}]}
+
+    def setUp(self):
+        from chromiumdiff.enrich import gerrit
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        # `_stale` asks Gerrit where the branch point was before it trusts a
+        # stored answer. Stubbed rather than left to fail, so the test says
+        # the same thing on a machine with a network as on one without.
+        self._saved = gerrit.window_for
+        gerrit.window_for = lambda *a, **k: None
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        from chromiumdiff.enrich import gerrit
+        gerrit.window_for = self._saved
+
+    def _report(self, verdict="introduced", changes=None):
+        from chromiumdiff.model import Change, Finding, Report
+        gerrit_block = {"candidates": 6, "diffs_read": True,
+                        "window": ["2026-04-06", "2026-06-30"],
+                        "changes": [dict(self.CL, match=verdict)]
+                        if changes is None else changes}
+        report = Report(
+            from_ref="a", to_ref="b", summary={},
+            meta={"platform": "windows"},
+            findings=[Finding(
+                change=Change(change_type="modified", kind="mojo_field",
+                              key="blink.mojom.Params.early_hints",
+                              name="early_hints",
+                              paths=["navigation_params.mojom"],
+                              locations=["navigation_params.mojom:571"],
+                              signals=["ipc_shape_changed"], severity=80),
+                score=80, bucket="breaking",
+                reasons=["severity 80 -- Mojo data shape changed"],
+                enrichment={"gerrit": gerrit_block})])
+        with open(os.path.join(self.dir, "report.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(report.to_dict(), fh)
+        return "mojo_field:blink.mojom.Params.early_hints"
+
+    def _run(self, *argv):
+        from chromiumdiff.cli import main
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(["why"] + list(argv) + [self.dir, "--no-save"])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_a_row_prints_its_cl(self):
+        uid = self._report()
+        code, out, _ = self._run(uid)
+        self.assertEqual(0, code)
+        self.assertIn("7685815", out)
+        self.assertIn("Preload early hints", out)
+
+    def test_a_verdict_is_printed_with_what_it_claims(self):
+        """One word is not enough for a reader who has not memorised seven.
+
+        `touched` and `introduced` are both "a CL was found", and a caller
+        that treats them alike reports a coincidence as a cause. The sentence
+        travels with the word so that cannot happen quietly.
+        """
+        from chromiumdiff.model import VERDICT_MEANINGS
+        uid = self._report(verdict="touched")
+        _, out, _ = self._run(uid)
+        self.assertIn(VERDICT_MEANINGS["touched"], out)
+
+    def test_the_glosses_come_from_the_one_definition(self):
+        from chromiumdiff.model import VERDICT_MEANINGS
+        for verdict in VERDICT_MEANINGS:
+            uid = self._report(verdict=verdict)
+            _, out, _ = self._run(uid)
+            self.assertIn(VERDICT_MEANINGS[verdict], out)
+
+    def test_the_answer_separates_the_cl_from_the_issue(self):
+        """The step the caller stops one short of.
+
+        The CL is in hand, it reads like an answer, and it answers a different
+        question: what was done, not what was wrong.
+        """
+        uid = self._report()
+        _, out, _ = self._run(uid)
+        self.assertIn("the CL says what was done", out)
+        self.assertIn("493637574", out)
+
+    def test_an_empty_search_does_not_read_as_no_cause(self):
+        """The one sentence this stage must never be heard saying.
+
+        No CL found means the search came back empty. It does not mean the
+        change had no cause, and a caller told the first will go looking while
+        one told the second stops.
+        """
+        uid = self._report(changes=[])
+        _, out, _ = self._run(uid)
+        self.assertIn("not a change with no cause", out)
+
+    def test_an_unknown_uid_names_the_ones_it_could_have_meant(self):
+        self._report()
+        code, _, err = self._run("early_hints")
+        self.assertEqual(1, code)
+        self.assertIn("mojo_field:blink.mojom.Params.early_hints", err)
+
+    def test_a_misspelt_uid_falls_back_to_near_spellings(self):
+        self._report()
+        code, _, err = self._run("mojo_field:blink.mojom.Parms.early_hint")
+        self.assertEqual(1, code)
+        self.assertIn("mojo_field:blink.mojom.Params.early_hints", err)
+
+    def test_a_uid_resembling_nothing_gets_no_invented_suggestion(self):
+        self._report()
+        code, _, err = self._run("zzzzzzzzzzzz")
+        self.assertEqual(1, code)
+        self.assertNotIn("did you mean", err)
+
+    def test_json_carries_the_change_and_the_gerrit_block(self):
+        uid = self._report()
+        _, out, _ = self._run(uid, "--json")
+        doc = json.loads(out)
+        self.assertEqual(uid, doc["uid"])
+        self.assertEqual("ipc_shape_changed", doc["change"]["signals"][0])
+        self.assertEqual(7685815, doc["gerrit"]["changes"][0]["number"])
+
+    def test_a_directory_with_no_report_is_refused(self):
+        from chromiumdiff.cli import main
+        err = io.StringIO()
+        empty = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, empty, True)
+        with contextlib.redirect_stderr(err):
+            code = main(["why", "anything", empty])
+        self.assertEqual(1, code)
+        self.assertIn("no report.json", err.getvalue())
+
+
+class BriefingTest(unittest.TestCase):
+    """The note is read before every answer, so it has to be true and small.
+
+    True: every number in it is read out of the report it sits beside, so a
+    second report cannot inherit the first one's counts. Small: it is paid for
+    on every turn, which is a different economy from a document read once.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def _report(self, findings=None, meta=None):
+        from chromiumdiff.model import Change, Finding, Report
+        if findings is None:
+            findings = [Finding(
+                change=Change(change_type="modified", kind="mojo_field",
+                              key="blink.mojom.Params.early_hints",
+                              name="early_hints"),
+                score=80, bucket="breaking")]
+        return Report(from_ref="M148", to_ref="M151", findings=findings,
+                      summary={"total": len(findings)},
+                      meta=meta or {"platform": "windows",
+                                    "target_set": "default"})
+
+    def test_the_counts_come_from_the_report_it_sits_beside(self):
+        from chromiumdiff.agent import briefing
+        from chromiumdiff.model import Change, Finding
+        many = [Finding(change=Change(change_type="added", kind="pref",
+                                      key=f"k{i}", name=f"k{i}"),
+                        score=10, bucket="housekeeping") for i in range(7)]
+        text = briefing.render(self._report(findings=many), self.dir)
+        self.assertIn("7 findings", text)
+        self.assertIn("7 Housekeeping", text)
+        self.assertNotIn("Breaking", text)
+
+    def test_the_uid_recipe_it_prints_is_the_one_the_code_uses(self):
+        """Prose describing a derivation is a second copy of it.
+
+        The note tells the reader to build a uid as `kind:key`, and nothing
+        stops `Change.uid` from changing under it. This is the one thing
+        holding the sentence to the code.
+        """
+        from chromiumdiff.agent import briefing
+        from chromiumdiff.model import Change
+        change = Change(change_type="modified", kind="mojo_field",
+                        key="blink.mojom.Params.early_hints", name="x")
+        text = briefing.render(self._report(), self.dir)
+        self.assertIn("`kind:key`", text)
+        self.assertEqual(f"{change.kind}:{change.key}", change.uid)
+
+    def test_it_names_every_bucket_the_model_defines(self):
+        from chromiumdiff.agent import briefing
+        from chromiumdiff.model import BUCKET_ORDER
+        text = briefing.render(self._report(), self.dir)
+        for bucket in BUCKET_ORDER:
+            self.assertIn(bucket, text)
+
+    def test_it_warns_against_the_thing_that_costs_a_session(self):
+        from chromiumdiff.agent import briefing
+        text = briefing.render(self._report(), self.dir)
+        self.assertIn("one line", text)
+        self.assertIn("grep", text)
+
+    def test_it_says_when_the_scan_was_incomplete(self):
+        from chromiumdiff.agent import briefing
+        meta = {"platform": "windows", "target_set": "default",
+                "complete": False}
+        self.assertIn("not complete",
+                      briefing.render(self._report(meta=meta), self.dir))
+        meta["complete"] = True
+        self.assertNotIn("not complete",
+                         briefing.render(self._report(meta=meta), self.dir))
+
+    def test_coverage_is_quoted_from_the_side_being_moved_to(self):
+        from chromiumdiff.agent import briefing
+        meta = {"platform": "windows", "target_set": "wide",
+                "coverage": {"from": {"read": 1, "candidates": 100},
+                             "to": {"read": 90, "candidates": 100}}}
+        text = briefing.render(self._report(meta=meta), self.dir)
+        self.assertIn("Read 90 of 100", text)
+        self.assertNotIn("Read 1 of 100", text)
+
+    def test_it_stays_cheap_enough_to_read_every_turn(self):
+        """A budget, not a style rule.
+
+        This is prepended to every question asked about the report. Doubling
+        it is not a formatting change, it is a per-turn cost, and the point of
+        the note is to save turns rather than to spend them.
+        """
+        from chromiumdiff.agent import briefing
+        text = briefing.render(self._report(), self.dir)
+        self.assertLess(len(text), 8000, "the briefing has grown expensive")
+
+    def test_write_puts_it_where_an_agent_will_look(self):
+        from chromiumdiff.agent import briefing
+        path = briefing.write(self._report(), self.dir)
+        self.assertEqual(os.path.join(self.dir, "AGENTS.md"), path)
+        with open(path, encoding="utf-8") as fh:
+            self.assertIn("M148 to M151", fh.read())
+
+    def test_a_missing_report_json_does_not_stop_the_note(self):
+        """The size line is a convenience; the warning it carries is not."""
+        from chromiumdiff.agent import briefing
+        text = briefing.render(self._report(), self.dir)
+        self.assertIn("do not grep it", text)
+
+
+class ChatServerTest(unittest.TestCase):
+    """The whole path, over a real socket, with the endpoint replaced.
+
+    A question is posted, a turn runs, a query really executes against a real
+    `report.json`, and the events come back by polling. Everything between the
+    page and the model is under test; only the model is not.
+    """
+
+    REPLIES = ["<run-python>\nprint(len(F))\n</run-python>",
+               "There is one finding."]
+
+    def setUp(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from chromiumdiff import serve as serve_mod
+        from chromiumdiff.agent import chat as chat_mod
+        from chromiumdiff.agent import engine as engine_mod
+
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"),
+                [{"change": {"change_type": "modified", "kind": "mojo_field",
+                             "key": "k", "name": "k"},
+                  "score": 80, "bucket": "breaking", "reasons": []}])
+        self.chat = chat_mod.Chat(
+            self.dir, engine_mod.ScriptedEngine(list(self.REPLIES)))
+        state = serve_mod._State(self.dir, tempfile.mkdtemp(), budget=1,
+                                 save=False, chat=self.chat)
+        self.token = state.token
+        handler = type("_B", (serve_mod._Handler,), {"state": state})
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.addCleanup(self.httpd.server_close)
+        self.addCleanup(self.httpd.shutdown)
+        self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+
+    def _request(self, path, data=None, token=True, origin=None):
+        import urllib.error
+        import urllib.request
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["X-Chromiumdiff-Token"] = self.token
+        if origin:
+            headers["Origin"] = origin
+        body = json.dumps(data).encode("utf-8") if data is not None else None
+        request = urllib.request.Request(self.base + path, data=body,
+                                         headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=10) as resp:
+                return resp.status, json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            # Closed rather than left to the collector: an HTTPError holds the
+            # socket, and a suite that leaks one per refusal prints a
+            # ResourceWarning from somewhere unrelated to the test that leaked.
+            with exc:
+                try:
+                    return exc.code, json.loads(exc.read().decode("utf-8"))
+                except ValueError:
+                    return exc.code, {}
+
+    def _ask(self, question="how many findings?"):
+        status, doc = self._request("/api/chat", {"message": question})
+        self.assertEqual(200, status, doc)
+        events, since = [], 0
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            _, block = self._request(
+                f"/api/chat/events?turn={doc['turn']}&since={since}")
+            events.extend(block["events"])
+            since = block["next"]
+            if not block["running"]:
+                break
+        return doc, events
+
+    def test_ping_says_a_chat_is_here_and_hands_over_the_token(self):
+        status, doc = self._request("/api/ping", token=False)
+        self.assertEqual(200, status)
+        self.assertTrue(doc["chat"])
+        self.assertEqual(self.token, doc["token"])
+
+    def test_a_question_runs_a_query_and_comes_back_with_an_answer(self):
+        _, events = self._ask()
+        kinds = [e["type"] for e in events]
+        self.assertIn("tool", kinds)
+        self.assertIn("tool_result", kinds)
+        self.assertEqual("done", kinds[-1])
+        result = [e for e in events if e["type"] == "tool_result"][0]
+        # The query really ran against the real file: one finding is in it.
+        self.assertEqual("1", result["output"].strip())
+        answer = " ".join(e["text"] for e in events if e["type"] == "text")
+        self.assertIn("one finding", answer.lower())
+
+    def test_the_conversation_is_kept_and_can_be_read_back(self):
+        doc, _ = self._ask()
+        _, history = self._request(
+            f"/api/chat/history?session={doc['session']}")
+        roles = [m["role"] for m in history["messages"]]
+        self.assertEqual(["user", "assistant"], roles)
+
+    def test_a_second_question_carries_the_first_one_with_it(self):
+        """A conversation the engine is not told about is a list of firsts."""
+        self.chat.engine.replies = ["Two.", "Three."]
+        doc, _ = self._ask("first question")
+        status, _ = self._request("/api/chat",
+                                  {"session": doc["session"],
+                                   "message": "second question"})
+        self.assertEqual(200, status)
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and len(self.chat.engine.seen) < 2:
+            time.sleep(0.05)
+        sent = self.chat.engine.seen[-1]
+        asked = [m["content"] for m in sent if m["role"] == "user"]
+        self.assertIn("first question", asked)
+        self.assertIn("second question", asked)
+
+    def test_a_post_without_the_token_is_refused(self):
+        """Any page open in this browser can post here. Only ours can read.
+
+        The token comes from `/api/ping`, which is same-origin readable and
+        nothing else, so holding it is the proof that matters.
+        """
+        status, _ = self._request("/api/chat", {"message": "hi"}, token=False)
+        self.assertEqual(403, status)
+
+    def test_a_post_from_another_origin_is_refused(self):
+        status, _ = self._request("/api/chat", {"message": "hi"},
+                                  origin="http://evil.example")
+        self.assertEqual(403, status)
+
+    def test_an_unknown_turn_is_not_found(self):
+        status, _ = self._request("/api/chat/events?turn=nope&since=0")
+        self.assertEqual(404, status)
+
+    def test_a_body_that_is_not_a_question_is_refused(self):
+        status, _ = self._request("/api/chat", {"message": "   "})
+        self.assertEqual(400, status)
+
+
+class ChatOffTest(unittest.TestCase):
+    """Without --chat the routes are not merely idle, they are absent."""
+
+    def setUp(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from chromiumdiff import serve as serve_mod
+
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"), [])
+        state = serve_mod._State(self.dir, tempfile.mkdtemp(), budget=1,
+                                 save=False)
+        handler = type("_B", (serve_mod._Handler,), {"state": state})
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+        self.addCleanup(self.httpd.server_close)
+        self.addCleanup(self.httpd.shutdown)
+        self.base = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+
+    def test_ping_says_there_is_no_chat(self):
+        import urllib.request
+        with urllib.request.urlopen(self.base + "/api/ping",
+                                    timeout=10) as resp:
+            self.assertFalse(json.loads(resp.read().decode("utf-8"))["chat"])
+
+    def test_posting_a_question_is_not_found(self):
+        import urllib.error
+        import urllib.request
+        request = urllib.request.Request(
+            self.base + "/api/chat", data=b"{}",
+            headers={"Content-Type": "application/json"})
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=10)
+        with caught.exception as exc:
+            self.assertEqual(404, exc.code)
+
+
+class AnswerRenderingTest(unittest.TestCase):
+    """The page's own renderer, run rather than read.
+
+    It puts text a model wrote into `innerHTML`. Three defects were found by
+    looking at a screenshot of it and none by reading it: `**120**` printed
+    with its asterisks, a list printed as a column of hyphens, and a uid --
+    the longest token an answer contains and the one it cites most -- running
+    off the edge of the panel. The first two are here. The third is CSS, and
+    is checked by rendering the page and looking for the rule.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import shutil as _shutil
+        import subprocess
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
+
+        node = _shutil.which("node")
+        if not node:
+            raise unittest.SkipTest("node not installed")
+        cls.tmp = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        page = os.path.join(cls.tmp, "report.html")
+        with open(page, "w", encoding="utf-8") as fh:
+            fh.write(html_report.render(
+                Report(from_ref="a", to_ref="b", findings=[], summary={},
+                       meta={"platform": "windows"})))
+        root = os.path.dirname(os.path.abspath(__file__))
+        done = subprocess.run(
+            [node, os.path.join(root, "js", "ask_prose.js"), page],
+            capture_output=True, text=True, timeout=120)
+        if done.returncode != 0:
+            raise AssertionError(done.stderr[:400])
+        cls.out = json.loads(done.stdout)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(getattr(cls, "tmp", ""), ignore_errors=True)
+
+    def test_bold_is_rendered_not_printed(self):
+        self.assertIn("<strong>120</strong>", self.out["bold"])
+        self.assertNotIn("**", self.out["bold"])
+
+    def test_a_list_is_a_list(self):
+        """The shape most answers about a report take."""
+        for key in ("bullets", "starBullets"):
+            self.assertIn("<ul>", self.out[key], key)
+            self.assertEqual(2, self.out[key].count("<li>"), key)
+            self.assertNotIn("<li>- ", self.out[key], key)
+
+    def test_a_paragraph_beside_a_list_stays_a_paragraph(self):
+        self.assertIn("<p>Read these:</p>", self.out["bullets"])
+
+    def test_inline_code_survives_a_uid(self):
+        self.assertIn("<code>mojo_field:blink.mojom.Params.x</code>",
+                      self.out["inlineCode"])
+
+    def test_a_fence_becomes_a_block_without_its_language(self):
+        self.assertIn("<pre>print(len(F))", self.out["fenced"])
+        self.assertNotIn("python\n", self.out["fenced"])
+
+    def test_blank_lines_separate_and_single_ones_do_not(self):
+        self.assertEqual(2, self.out["paragraphs"].count("<p>"))
+        self.assertEqual(1, self.out["softBreak"].count("<p>"))
+        self.assertIn("<br>", self.out["softBreak"])
+
+    def test_nothing_at_all_still_produces_a_block(self):
+        self.assertEqual("<p></p>", self.out["empty"])
+
+    # The tags the renderer is allowed to produce. Anything else beginning a
+    # tag came from the answer, which is the failure.
+    OURS = re.compile(r"</?(?:p|ul|li|code|strong|pre|br)>")
+
+    def test_markup_in_an_answer_arrives_as_text(self):
+        """An answer is text from outside, and it lands in `innerHTML`.
+
+        Nothing before this point is a sanitiser: the model writes what it
+        writes, and a report directory can hold anything. The other rendering
+        rules are convenience; this one is not.
+
+        Checked by removing the tags the renderer itself emits and requiring
+        that no `<` is left. Naming the dangerous strings instead -- `<script`,
+        `onerror=` -- checks a list rather than the property, and `onerror=`
+        appears in correct output as inert text, which is how this test failed
+        while the code was right.
+        """
+        for key in ("markup", "markupInCode", "markupInFence"):
+            leftover = self.OURS.sub("", self.out[key])
+            self.assertNotIn("<", leftover, key)
+            self.assertNotIn(">", leftover, key)
+            self.assertIn("&lt;", self.out[key], key)
+
+    def test_an_ampersand_is_not_doubled(self):
+        self.assertIn("flags &amp; switches", self.out["ampersand"])
+        self.assertNotIn("&amp;amp;", self.out["ampersand"])
+
+    def test_a_long_identifier_is_allowed_to_wrap(self):
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
+        page = html_report.render(
+            Report(from_ref="a", to_ref="b", findings=[], summary={},
+                   meta={"platform": "windows"}))
+        self.assertIn("overflow-wrap:anywhere", page.replace(" ", ""))
+
+
+class OutsideWriterTest(unittest.TestCase):
+    """`report.json` has two writers now, and the server used to be one of one.
+
+    A chat can run `chromiumdiff why`, which resolves a row in another process
+    and saves it. Nothing told the server, so the next thing it saved was its
+    own older copy written over the top -- lookups gone, with nothing to say
+    they had been there.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.path = os.path.join(self.dir, "report.json")
+
+    def _write(self, keys):
+        _report(self.path, [{"change": {"change_type": "added", "kind": "pref",
+                                        "key": k, "name": k},
+                             "score": 10, "bucket": "housekeeping",
+                             "reasons": []} for k in keys])
+        # Two writes inside one filesystem timestamp are one write as far as
+        # mtime is concerned, and the test would pass without the reload.
+        stamp = os.path.getmtime(self.path) + 10
+        os.utime(self.path, (stamp, stamp))
+
+    def _state(self):
+        from chromiumdiff import serve as serve_mod
+        return serve_mod._State(self.dir, tempfile.mkdtemp(), budget=1,
+                                save=False)
+
+    def test_a_row_added_by_another_process_becomes_visible(self):
+        self._write(["a"])
+        state = self._state()
+        self.assertEqual({"pref:a"}, set(state.by_uid))
+        self._write(["a", "b"])
+        state.page()
+        self.assertEqual({"pref:a", "pref:b"}, set(state.by_uid))
+
+    def test_a_lookup_sees_a_row_that_arrived_after_startup(self):
+        self._write(["a"])
+        state = self._state()
+        self._write(["a", "b"])
+        # `resolve` returns None for an unknown uid, so reaching the lookup at
+        # all is the assertion: without the reload this row does not exist.
+        self.assertIsNotNone(state.by_uid.get("pref:a"))
+        state.resolve("pref:b")
+        self.assertIn("pref:b", state.by_uid)
+
+    def test_a_half_written_file_is_not_taken(self):
+        """A writer mid-write must not empty the report being served."""
+        self._write(["a"])
+        state = self._state()
+        with open(self.path, "w", encoding="utf-8") as fh:
+            fh.write('{"findings": [')
+        stamp = os.path.getmtime(self.path) + 10
+        os.utime(self.path, (stamp, stamp))
+        self.assertFalse(state._reload_if_changed())
+        self.assertEqual({"pref:a"}, set(state.by_uid))
+
+    def test_an_untouched_file_is_not_reread(self):
+        self._write(["a"])
+        state = self._state()
+        self.assertFalse(state._reload_if_changed())
+
+
+class PackageTest(unittest.TestCase):
+    """One file, and it has to run somewhere that is not this checkout.
+
+    The whole value of the archive is that it works where the repository is
+    not, so it is built and then run from a directory with nothing else in it.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def _build(self, skills=None):
+        from chromiumdiff.agent import package
+        return package.build(os.path.join(self.dir, "chromiumdiff.pyz"),
+                             skills=skills)
+
+    def test_the_archive_runs_on_its_own(self):
+        import subprocess
+        archive = self._build()
+        done = subprocess.run([sys.executable, archive, "--version"],
+                              cwd=self.dir, capture_output=True, text=True,
+                              timeout=60)
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertTrue(done.stdout.strip())
+
+    def test_it_carries_every_command(self):
+        import subprocess
+        archive = self._build()
+        done = subprocess.run([sys.executable, archive, "--help"],
+                              cwd=self.dir, capture_output=True, text=True,
+                              timeout=60)
+        for command in ("run", "serve", "why", "report", "package"):
+            self.assertIn(command, done.stdout)
+
+    def test_no_bytecode_travels_with_it(self):
+        """A `.pyc` built here can shadow the source it was built from.
+
+        It is also dead weight in a file whose only job is to be small enough
+        to send.
+        """
+        from chromiumdiff.agent import package
+        names = package.contents(self._build())
+        self.assertEqual([], [n for n in names if "__pycache__" in n])
+        self.assertEqual([], [n for n in names if n.endswith(".pyc")])
+
+    def test_the_skills_go_in_when_they_are_there(self):
+        from chromiumdiff.agent import package
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        skills = os.path.join(root, "skills")
+        if not os.path.isdir(skills):
+            self.skipTest("this checkout has no skills/")
+        names = package.contents(self._build(skills=skills))
+        self.assertTrue([n for n in names if n.endswith("SKILL.md")])
+
+    def test_it_names_a_python_the_other_machine_will_have(self):
+        """A shebang pointing at this home directory runs nowhere else."""
+        archive = self._build()
+        with open(archive, "rb") as fh:
+            first = fh.readline()
+        self.assertEqual(b"#!/usr/bin/env python3\n", first)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ from typing import List
 from ..diff import SIGNAL_LABELS, owner_of
 from ..model import (BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER, KIND_GROUPS,
                      KIND_LABELS, OWNER_LABELS, OWNER_ORDER, Report,
-                     group_of)
+                     VERDICT_MEANINGS, group_of)
 from .markdown import TITLE, display_name
 from . import wording as surfaces
 
@@ -416,6 +416,85 @@ background:color-mix(in srgb,var(--new-b) 18%,transparent)}
    wearing one would read as the weakest of those rather than as neither. */
 .ev-crowded,.ev-touched{color:var(--faint);
 background:color-mix(in srgb,var(--faint) 12%,transparent)}
+
+/* -- asking about the report --------------------------------------------- */
+/* Present only when a server answered `/api/ping` with a chat on the other
+   end. The same file opened from a disk has no launcher at all, which is the
+   rule the row lookups already follow.
+
+   It does not float and it is not a circle. Everything above says this page
+   has no cards and no shadows, and a chat bubble is the most card-shaped
+   thing in the vocabulary -- so it is a docked control with one border, and
+   the panel it opens is a column of the document rather than a sheet over it.
+   The launcher sits still while the page scrolls because it is a way in, not
+   a part of the report. */
+#askbtn{position:fixed;right:18px;bottom:18px;z-index:40;
+display:none;align-items:center;gap:8px;
+padding:9px 14px;font:inherit;font-size:.82rem;font-weight:600;
+color:var(--fg);background:var(--card);
+border:1px solid var(--line2);border-radius:var(--r1);cursor:pointer}
+#askbtn:hover{border-color:var(--accent);color:var(--accent)}
+#askbtn::before{content:"";width:7px;height:7px;border-radius:50%;
+background:var(--accent);flex:none}
+#askbtn.on{display:inline-flex}
+
+#ask{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);z-index:41;
+display:none;flex-direction:column;
+background:var(--card);border-left:1px solid var(--line2)}
+#ask.on{display:flex}
+#ask header{display:flex;align-items:baseline;gap:10px;flex:none;
+padding:14px 16px;border-bottom:1px solid var(--line)}
+/* The pair of refs is long and the title is not, so the title holds its line
+   and the refs give way. Letting both wrap turned a one-line header into
+   three and pushed the conversation down the panel. */
+#ask header b{font-size:.86rem;font-weight:650;white-space:nowrap;flex:none}
+#ask header span{color:var(--faint);font-size:.74rem;
+flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ask header button{margin-left:auto;font:inherit;font-size:.78rem;
+color:var(--muted);background:none;border:0;cursor:pointer;padding:2px 4px}
+#ask header button:hover{color:var(--fg)}
+#asklog{flex:1;overflow-y:auto;padding:14px 16px;font-size:.87rem;
+line-height:1.6;overscroll-behavior:contain}
+#askform{flex:none;display:flex;gap:8px;padding:12px 16px;
+border-top:1px solid var(--line)}
+#askin{flex:1;font:inherit;font-size:.87rem;resize:none;
+padding:8px 10px;color:var(--fg);background:var(--bg);
+border:1px solid var(--line2);border-radius:var(--r1)}
+#askform button{font:inherit;font-size:.82rem;font-weight:600;padding:0 14px;
+color:var(--card);background:var(--accent);border:0;
+border-radius:var(--r1);cursor:pointer}
+#askform button:disabled{background:var(--faint);cursor:default}
+
+.qa{margin:0 0 16px}
+.qa.you{color:var(--fg);font-weight:600;
+padding-left:11px;border-left:2px solid var(--accent)}
+.qa.them p{margin:0 0 9px}
+.qa.them p:last-child{margin-bottom:0}
+.qa.err{color:var(--brk)}
+.qa ul{margin:0 0 9px;padding-left:1.15em}
+.qa li{margin:0 0 3px}
+/* A uid is the longest unbroken token an answer contains and also the one it
+   cites most, so it is the one thing guaranteed to be wider than this panel.
+   Left alone it ran off the right edge and the identifier the reader was
+   being sent to was the part that got cut. */
+.qa code{overflow-wrap:anywhere;word-break:break-word}
+.qa pre{margin:8px 0;padding:9px 11px;overflow-x:auto;
+background:var(--sunk);border:1px solid var(--line);border-radius:var(--r1);
+font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+font-size:.78rem;line-height:1.5}
+/* The work is shown, folded. What a query was is the difference between an
+   answer a reader can check and one they have to believe, and it is also the
+   thing they do not want in front of them once they have. */
+.qa details{margin:0 0 10px;font-size:.79rem}
+.qa summary{color:var(--muted);cursor:pointer;list-style:none;
+padding:3px 0}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary::before{content:"› ";color:var(--faint)}
+.qa details[open] summary::before{content:"⌄ "}
+.qa summary:hover{color:var(--fg)}
+.qa .ran{color:var(--faint)}
+.asking{color:var(--faint);font-size:.8rem}
+@media (max-width:720px){#ask{width:100vw;border-left:0}}
 """
 
 _JS = """
@@ -526,15 +605,10 @@ function details(f){
 /* What each verdict actually claims. The badge is one word because a row has
    room for one word; the sentence is what the word stands for, and a reader
    who has not memorised the ladder needs it on hover rather than in the
-   README. */
-var EVID={
-introduced:'Inside the fact\u2019s own declaration, this CL added the value it ends up with or removed the one it started from. It is the change.',
-exact:'A line this CL changed carries the identifier.',
-moved:'The file was renamed and the fact came with it. No line changed \u2014 the move is the cause.',
-declares:'This CL edited the body of the declaration, though not the line that names it.',
-described:'The CL\u2019s own title or description names the identifier. No diff was read to claim more.',
-crowded:'One of several CLs that edited this declaration. Shown as history, not as a citation.',
-touched:'This CL touched the declaring file. Nothing ties it to the identifier.'};
+   README. Embedded from `model.VERDICT_MEANINGS` rather than written here,
+   because the same seven sentences answer the same question at a command
+   line, and two copies of an explanation drift into two explanations. */
+var EVID=window.__EVID__||{};
 function clRow(c,strong){
   var u='https://chromium-review.googlesource.com/c/chromium/src/+/'+c.n;
   /* A restricted issue keeps its link -- the reader may well be the one
@@ -611,9 +685,14 @@ function chain(c){
    fails this fetch and stays exactly as static as it was; served by
    `chromiumdiff serve` it answers, and rows gain a lookup button. */
 var LIVE=false;
+/* The token the chat routes want. It is read here rather than embedded in the
+   page, so this file saved to a disk and passed on grants nothing: what it
+   carries is the code to ask, never the permission. */
+var TOKEN='';
 try{fetch('api/ping').then(function(r){return r.ok?r.json():null;})
-  .then(function(d){if(d&&d.ok){LIVE=true;
+  .then(function(d){if(d&&d.ok){LIVE=true;TOKEN=d.token||'';
     if(fp)fp.hidden=false;
+    if(d.chat)askEnable(d);
     document.querySelectorAll('tr.det').forEach(function(tr){
       var f=view[+tr.previousElementSibling.dataset.i];
       if(f)tr.firstChild.innerHTML=details(f);});}})
@@ -965,6 +1044,166 @@ let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);});
 [fb,fk,fg,fo,fp].forEach(el=>el&&el.addEventListener('change',apply));
 apply();
+
+/* -- asking about the report --------------------------------------------- */
+/* Built only when `/api/ping` says a chat is on the other end. Nothing below
+   runs otherwise, and the markup is created here rather than rendered into the
+   file so that a saved copy has no dead panel in it.
+
+   A turn is started with a POST and then followed by polling. Holding the
+   response open would be fewer requests and one more way to hang: the work
+   happens in another thread and sometimes another process, and a connection
+   nobody closes is a page that never finishes loading. */
+var askSession=null,askTurn=null,askPoll=null;
+
+function askEl(tag,attrs,parent){
+  var el=document.createElement(tag);
+  Object.keys(attrs||{}).forEach(function(k){el[k]=attrs[k];});
+  if(parent)parent.appendChild(el);
+  return el;
+}
+
+function askEnable(ping){
+  var btn=askEl('button',{id:'askbtn',className:'on',type:'button',
+    textContent:'Ask about this report'},document.body);
+  var panel=askEl('div',{id:'ask'},document.body);
+  var head=askEl('header',{},panel);
+  askEl('b',{textContent:'Ask about this report'},head);
+  askEl('span',{textContent:(ping.from||'')+' \\u2192 '+(ping.to||'')},head);
+  askEl('button',{type:'button',textContent:'close'},head)
+    .addEventListener('click',function(){panel.classList.remove('on');});
+  var log=askEl('div',{id:'asklog'},panel);
+  askEl('p',{className:'asking',textContent:
+    'Answers are worked out by running queries over report.json in this '+
+    'directory. The queries are shown with each answer.'},log);
+  var form=askEl('form',{id:'askform'},panel);
+  var input=askEl('textarea',{id:'askin',rows:2,
+    placeholder:'What changed in settings?'},form);
+  var send=askEl('button',{type:'submit',textContent:'Ask'},form);
+
+  btn.addEventListener('click',function(){
+    panel.classList.add('on');input.focus();});
+  form.addEventListener('submit',function(e){
+    e.preventDefault();askSend(input,send,log);});
+  /* Enter asks, shift-enter breaks a line. A question is one line far more
+     often than it is several, and a textarea that swallows Enter makes the
+     common case take a mouse. */
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();
+      askSend(input,send,log);}});
+}
+
+function askSay(log,cls,text){
+  var el=askEl('div',{className:'qa '+cls},log);
+  if(cls==='them')el.innerHTML=askProse(text);
+  else el.textContent=text;
+  log.scrollTop=log.scrollHeight;
+  return el;
+}
+
+/* Enough of a renderer for what an answer actually contains: paragraphs,
+   bullets, fenced code, inline code and bold. Everything goes through `esc`
+   first, so what arrives is text however it was written.
+
+   Bullets and bold are here because leaving them out did not leave them out
+   -- it printed `**120**` and a column of hyphens at a reader, which is worse
+   than either rendering them or refusing to. A list is the shape most answers
+   about a report take. */
+function askInline(s){
+  return esc(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\\*\\*([^*]+)\\*\\*/g,'<strong>$1</strong>');
+}
+
+function askProse(text){
+  var parts=String(text).split(/```/),out='';
+  parts.forEach(function(part,i){
+    if(i%2){out+='<pre>'+esc(part.replace(/^\\w*\\n/,''))+'</pre>';return;}
+    part.split(/\\n{2,}/).forEach(function(block){
+      if(!block.trim())return;
+      var lines=block.split('\\n');
+      if(lines.every(function(l){return /^\\s*[-*]\\s+/.test(l)||!l.trim();})){
+        out+='<ul>'+lines.filter(function(l){return l.trim();})
+              .map(function(l){
+                return '<li>'+askInline(l.replace(/^\\s*[-*]\\s+/,''))+'</li>';})
+              .join('')+'</ul>';
+        return;}
+      out+='<p>'+askInline(block).replace(/\\n/g,'<br>')+'</p>';});});
+  return out||'<p></p>';
+}
+
+function askSend(input,send,log){
+  var question=input.value.trim();
+  if(!question||send.disabled)return;
+  input.value='';
+  send.disabled=true;
+  askSay(log,'you',question);
+  var waiting=askSay(log,'asking','working\\u2026');
+  fetch('api/chat',{method:'POST',
+    headers:{'Content-Type':'application/json',
+             'X-Chromiumdiff-Token':TOKEN},
+    body:JSON.stringify({session:askSession,message:question})})
+   .then(function(r){return r.json();})
+   .then(function(d){
+     if(d.error){waiting.className='qa err';waiting.textContent=d.error;
+       send.disabled=false;return;}
+     askSession=d.session;askTurn=d.turn;
+     waiting.remove();
+     askFollow(d.turn,0,log,send);})
+   .catch(function(e){
+     waiting.className='qa err';
+     waiting.textContent='could not reach the server: '+e;
+     send.disabled=false;});
+}
+
+function askFollow(turn,since,log,send){
+  fetch('api/chat/events?turn='+encodeURIComponent(turn)+'&since='+since,
+        {headers:{'X-Chromiumdiff-Token':TOKEN}})
+   .then(function(r){return r.json();})
+   .then(function(d){
+     (d.events||[]).forEach(function(ev){askEvent(ev,log);});
+     if(d.running){
+       askPoll=setTimeout(function(){
+         askFollow(turn,d.next,log,send);},700);
+     }else{
+       send.disabled=false;
+     }})
+   .catch(function(){
+     askSay(log,'err','lost the connection to the server');
+     send.disabled=false;});
+}
+
+/* One open block per answer, so consecutive prose from one turn reads as one
+   answer rather than as several. */
+var askBlock=null;
+
+function askEvent(ev,log){
+  if(ev.type==='text'){
+    if(!askBlock||askBlock.dataset.closed)askBlock=askSay(log,'them','');
+    askBlock.innerHTML+=askProse(ev.text);
+    log.scrollTop=log.scrollHeight;
+    return;}
+  if(ev.type==='tool'){
+    var d=askEl('details',{},askBlock&&!askBlock.dataset.closed?askBlock:log);
+    askEl('summary',{textContent:'ran '+ev.name},d);
+    askEl('pre',{textContent:ev.input},d);
+    d.dataset.tool=ev.name;
+    log.scrollTop=log.scrollHeight;
+    return;}
+  if(ev.type==='tool_result'){
+    var all=log.querySelectorAll('details[data-tool]');
+    var last=all[all.length-1];
+    if(last){
+      var out=askEl('pre',{textContent:ev.output},last);
+      out.className='ran';
+      last.querySelector('summary').textContent=
+        'ran '+ev.name+' \\u00b7 '+(ev.ok?'ok':'failed')+
+        ' \\u00b7 '+ev.seconds+'s';}
+    log.scrollTop=log.scrollHeight;
+    return;}
+  if(ev.type==='error'){askSay(log,'err',ev.message);return;}
+  if(ev.type==='done'&&askBlock)askBlock.dataset.closed='1';
+}
 """
 
 
@@ -1662,6 +1901,7 @@ window.__KINDS__={_embed(KIND_LABELS)};
 window.__BUCKETS__={_embed(BUCKET_LABELS)};
 window.__STORIES__={_embed(stories)};
 window.__PROVKEYS__={_embed(list(PROVENANCE_KEYS))};
+window.__EVID__={_embed(VERDICT_MEANINGS)};
 window.__POOL__={_embed(pool)};</script>
 <script>{_JS}</script>
 """
