@@ -117,6 +117,33 @@ class Result:
                 "timed_out": self.timed_out, "ok": self.ok}
 
 
+def child_env(base: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    """The environment a command runs in, with this package importable.
+
+    Commands run with the report directory as their working directory, and
+    from there `python3 -m chromiumdiff` fails: the package is somewhere else
+    entirely. The briefing tells a reader to run exactly that -- it is how a
+    row's CL is looked up, and the one thing a query cannot do for itself --
+    so the instruction has to be true from where it is given rather than only
+    from the directory the tool happens to live in.
+
+    `PYTHONPATH` rather than an absolute path in the instruction, because the
+    instruction is also what a person reads, and `python3 -m chromiumdiff` is
+    what they would type. Prepended to whatever `PYTHONPATH` already held, so
+    a caller's own path still applies after it.
+
+    Works from a `.pyz` too: `__file__` inside a zipapp is a path *through*
+    the archive, so two directories up from the package is the archive
+    itself -- and Python imports from one of those directly.
+    """
+    env = dict(os.environ if base is None else base)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = os.path.dirname(root)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (root + os.pathsep + existing) if existing else root
+    return env
+
+
 def _kill_tree(proc: "subprocess.Popen") -> None:
     """Kill the child and anything it started, and never anything else.
 
