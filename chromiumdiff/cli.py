@@ -257,6 +257,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  {brief_path}")
     print()
     print(f"  why each row changed:  python3 -m chromiumdiff serve {out_dir}")
+    # Printed here because this is the moment it is wanted and nobody guesses
+    # it. `serve` is the answer for a reader with the report open; this is the
+    # answer for anything that is not a browser, and it was reachable only by
+    # reading the help for a command nobody had a reason to open.
+    print(f"  one row, no browser:   python3 -m chromiumdiff why <uid> "
+          f"{out_dir}")
     return 0
 
 
