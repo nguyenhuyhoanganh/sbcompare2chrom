@@ -782,6 +782,61 @@ class TestPartitionPlumbing(unittest.TestCase):
         self.assertIn("covers less by design", text)
 
 
+class TestEveryFilterOffersWhatItFilters(unittest.TestCase):
+    """A control that filters nothing looks exactly like one that works.
+
+    The consequences filter was empty for as long as the payload has been
+    pooled. `_intern` replaces every pooled value with its index, `group` is
+    pooled, and the list of consequences was built by comparing `r["group"]`
+    against the group names *after* that -- so it matched nothing, every
+    time, and rendered a dropdown with one entry that said "All consequences"
+    and no consequences under it.
+
+    Nothing caught it because every other test asked whether the page
+    rendered, and it did.
+    """
+
+    def _page(self):
+        from chromiumdiff.model import (Change, Finding, KIND_GROUPS, Report)
+        from chromiumdiff.report import html as html_report
+
+        findings = []
+        for group_name, kinds in KIND_GROUPS:
+            kind = kinds[0]
+            findings.append(Finding(
+                change=Change(change_type="modified", kind=kind,
+                              key=f"{kind}Key", name=f"{kind}Name",
+                              paths=[f"chrome/{kind}.cc"]),
+                score=50, bucket="behaviour"))
+        return html_report.render(
+            Report(from_ref="a", to_ref="b", findings=findings, summary={},
+                   meta={"platform": "windows"}))
+
+    def test_every_consequence_present_in_the_rows_can_be_filtered_for(self):
+        from chromiumdiff.model import KIND_GROUPS
+        page = self._page()
+        for group_name, _ in KIND_GROUPS:
+            self.assertIn(f'value="{group_name}"', page,
+                          f"the consequences filter does not offer "
+                          f"{group_name!r}, which its own rows carry")
+
+    def test_every_surface_present_in_the_rows_can_be_filtered_for(self):
+        from chromiumdiff.model import KIND_GROUPS
+        page = self._page()
+        for _, kinds in KIND_GROUPS:
+            self.assertIn(f'value="{kinds[0]}"', page)
+
+    def test_a_filter_with_choices_is_not_just_a_clear_button(self):
+        """The shape the defect had: a list holding only its own reset."""
+        import re
+        page = self._page()
+        for ident in ("fb", "fk", "fg", "fo"):
+            block = re.search(r'id="%s".*?</details>' % ident, page, re.S)
+            self.assertIsNotNone(block, ident)
+            self.assertIn("checkbox", block.group(0),
+                          f"{ident} offers nothing to tick")
+
+
 class TestHtmlReportScales(unittest.TestCase):
     """A full upgrade is thousands of findings, and the obvious rendering froze
     the tab.

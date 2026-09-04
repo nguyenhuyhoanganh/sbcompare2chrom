@@ -2008,12 +2008,18 @@ def render(report: Report, platform: str = "windows") -> str:
     provenance_filter = _provenance_filter(rows)
     # After the filter is built, because that reads `cl_pool`, and before the
     # payload is embedded, because that is what shrinks.
+    # Read before interning, not after. `_intern` replaces every pooled value
+    # with its index into the pool, and `group` is pooled -- so a list built by
+    # comparing `r["group"]` against the group names finds nothing and the
+    # consequences filter offered no consequences to filter by. It has been
+    # empty for as long as the pooling has existed, and it looked like a
+    # working control the whole time.
+    kinds = sorted({r["kind"] for r in rows})
+    groups = [g for g, _ in KIND_GROUPS if any(r.get("group") == g for r in rows)]
+
     pool = _intern(rows)
     meta = report.meta or {}
     summary = report.summary or {}
-
-    kinds = sorted({r["kind"] for r in rows})
-    groups = [g for g, _ in KIND_GROUPS if any(r.get("group") == g for r in rows)]
     idle = summary.get("not_in_build") or 0
 
     # One sentence per story, stored once instead of once per row.
