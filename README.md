@@ -236,7 +236,7 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 
 This is not an isolated case:
 
-- **M148 → M151, Windows:** 145 flags removed — 72 that had shipped, 60 that were abandoned, 6 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 145 "feature lost" makes most of the alert list a false alarm.
+- **M148 → M151, Windows:** 154 flags removed — 72 that had shipped, 60 that were abandoned, 22 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 145 "feature lost" makes most of the alert list a false alarm.
 - **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
 A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
@@ -655,7 +655,7 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
 
-**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 145 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
+**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 154 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
 
 **An unconfirmed disappearance moves bucket with the coverage.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
 
