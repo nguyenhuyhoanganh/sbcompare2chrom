@@ -512,7 +512,7 @@ class TestWebApiGates(unittest.TestCase):
         self.assertIn("web_api_added_live", by_key["Widget.plain"].signals)
 
     def test_a_gate_on_the_interface_counts_too(self):
-        """51 of 220 additions are gated only there, and were read as live."""
+        """45 of the 87 gated additions are gated only there, and read as live."""
         iface = Fact(kind="idl_interface", key="Widget", name="Widget",
                      path="a.idl",
                      attrs={"ext": {"RuntimeEnabled": "Later"}, "members": []})

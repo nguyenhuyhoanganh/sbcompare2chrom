@@ -289,7 +289,8 @@ already reached stable is an open gate.
 
 Measured M148 → M151 on 220 added `idl_member` rows: 133 are reachable by a
 page on arrival and 87 are not. The gate can also sit on the *interface* rather
-than the member, which accounts for 51 of them.
+than the member, which accounts for 45 of the 87 — a member carrying no
+`[RuntimeEnabled]` of its own is not therefore reachable.
 
 **Check:** the tool resolves this now, into `web_api_added_live` and
 `web_api_added_gated`, with `web_api_added` kept for the case where the gating
