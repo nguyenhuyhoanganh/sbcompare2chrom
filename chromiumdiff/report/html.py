@@ -158,6 +158,54 @@ input[type=search]:hover,select:hover{border-color:var(--line2)}
 input[type=search]:focus,select:focus{outline:none;border-color:var(--accent);
 box-shadow:0 0 0 3px var(--accent-soft)}
 select{cursor:pointer}
+
+/* -- picking more than one of something ---------------------------------- */
+/* A `<select multiple>` needs a modifier key nobody discovers, has no way to
+   say "all", and stands four rows tall in a bar that is one row. This is a
+   disclosure holding checkboxes: closed it is the same shape as the control
+   it replaces, open it is a bordered list.
+
+   It is positioned over the page rather than pushing it down, which is what
+   the native dropdown it replaces already did. The rule this page keeps --
+   nothing floats -- is about the document, and a list that exists only while
+   a control is open is not part of the document. It gets a border and no
+   shadow, like everything else here. */
+.pick{position:relative}
+.pick>summary{list-style:none;cursor:pointer;white-space:nowrap;
+background:var(--card);color:var(--fg);
+border:1px solid var(--line);border-radius:var(--r1);padding:9px 12px;
+font-size:.87rem;transition:border-color .14s ease}
+.pick>summary::-webkit-details-marker{display:none}
+.pick>summary::after{content:" \\25be";color:var(--faint)}
+.pick>summary:hover{border-color:var(--line2)}
+.pick[open]>summary{border-color:var(--accent)}
+.pick summary b{font-weight:600}
+.pick .opts{position:absolute;z-index:30;top:calc(100% + 4px);left:0;
+min-width:100%;max-height:290px;overflow-y:auto;padding:5px;
+background:var(--card);border:1px solid var(--line2);border-radius:var(--r1)}
+.pick .opts label{display:flex;align-items:center;gap:8px;
+padding:5px 8px;white-space:nowrap;cursor:pointer;font-size:.85rem;
+border-radius:var(--r1)}
+.pick .opts label:hover{background:var(--sunk)}
+.pick .opts input{margin:0;flex:none}
+/* The `<optgroup>` heading, which the checkbox list has to keep: a flat list
+   of sixteen kinds reads as sixteen kinds of feature, and two thirds of them
+   are not features. Set like the other small headings on the page rather than
+   as bold body text, so it reads as a divider and not as a choice. */
+.pick .opts .head{display:block;padding:9px 8px 3px;
+font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+color:var(--faint)}
+.pick .opts .head:first-child{padding-top:3px}
+.pick .opts .clear{width:100%;text-align:left;font:inherit;font-size:.8rem;
+color:var(--muted);background:none;border:0;border-top:1px solid var(--line);
+margin-top:4px;padding:7px 8px 3px;cursor:pointer}
+.pick .opts .clear:hover{color:var(--fg)}
+
+/* The exclude box. Narrower than search because it takes a few words rather
+   than a phrase, and it sits beside search because they are the same kind of
+   question asked in opposite directions. */
+#x{flex:0 1 250px;min-width:150px}
+#x:not(:placeholder-shown){border-color:var(--brk)}
 #cnt{margin-left:auto;font-size:.82rem;color:var(--faint);
 font-variant-numeric:tabular-nums}
 
@@ -524,7 +572,8 @@ whyLabel=f=>STORIES[f.why]||f.why||'';
    `content-visibility:auto` lets it skip layout, so the page holds twice what
    it did and the reader meets the button half as often. */
 const PAGE=200;
-const q=document.getElementById('q'),fb=document.getElementById('fb'),
+const q=document.getElementById('q'),x=document.getElementById('x'),
+fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
 fo=document.getElementById('fo'),fp=document.getElementById('fp'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
@@ -555,21 +604,122 @@ function provState(f){
   if(f.cl_pool===undefined)return 'unasked';
   return f.no_diffs?'skipped':'none';
 }
-function match(f,t){
-  if(fp&&fp.value){
-    var st=provState(f);
-    if(fp.value==='cl'){ if(st!=='cl'&&st!=='exact')return false; }
-    else if(st!==fp.value)return false;
-  }
-  if(fb.value&&f.bucket!==fb.value)return false;
-  if(fk.value&&f.kind!==fk.value)return false;
-  if(fg.value&&f.group!==fg.value)return false;
-  if(fo.value&&f.owner!==fo.value)return false;
-  if(!t)return true;
-  if(f._hay===undefined)
-    f._hay=(f.name+' '+f.kind+' '+(f.what||'')+' '+(f.where||'')+' '+whyLabel(f)+' '
+function hayOf(f){
+  if(f._raw===undefined)
+    f._raw=f.name+' '+f.kind+' '+(f.what||'')+' '+(f.where||'')+' '+whyLabel(f)+' '
       +(f.signals||[]).join(' ')+' '+(f.paths||[]).join(' ')
-      +' '+(f.chromestatus||'')).toLowerCase();
+      +' '+(f.chromestatus||'');
+  return f._raw;
+}
+
+/* The words a row is made of, with `AIManager` counted as `ai` + `manager`
+   and `site_settings` as `site` + `settings`. Camel humps are separated first
+   so the split can be on non-alphanumerics alone, which avoids a lookbehind
+   that not every browser has. */
+function tokensOf(f){
+  if(f._tk===undefined)
+    f._tk=hayOf(f).replace(/([a-z0-9])([A-Z])/g,'$1 $2')
+                  .replace(/([A-Z]+)([A-Z][a-z])/g,'$1 $2')
+                  .toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return f._tk;
+}
+
+/* How many words a term may span. `webgpu` is two (`web`+`gpu`); nothing
+   anyone types to exclude a topic is more than a handful. */
+var SPAN=4;
+
+/* Does `term` name this row?
+ *
+ * A term matches a run of whole consecutive words, so `ai` finds `AIManager`
+ * and `AutofillAiOrder` and does not find `EmailVerification` -- which plain
+ * substring did, along with 163 other rows on a real report, because `ai` is
+ * inside `email`, `available`, `chain` and `failed`.
+ *
+ * Whole words, not a prefix of one: matching a prefix let `settings` reach
+ * `SqlDiskCacheSynchronousOff`. A trailing `*` asks for the prefix anyway,
+ * which is what `cookie*` needs to reach `Cookies`.
+ */
+function hasTerm(f,term){
+  var star=term.charAt(term.length-1)==='*';
+  var want=star?term.slice(0,-1):term;
+  if(!want)return false;
+  var t=tokensOf(f);
+  for(var i=0;i<t.length;i++){
+    var acc='';
+    for(var k=0;k<SPAN&&i+k<t.length;k++){
+      acc+=t[i+k];
+      if(star?acc.indexOf(want)===0:acc===want)return true;
+      if(acc.length>=want.length)break;
+    }
+  }
+  return false;
+}
+
+/* Comma-separated, because that is how anybody writes a list. Blank entries
+   are dropped so a trailing comma while typing does not exclude everything. */
+function terms(value){
+  return String(value||'').toLowerCase().split(',')
+    .map(function(s){return s.trim();}).filter(Boolean);
+}
+
+/* Ticked boxes, in the order they appear. No box ticked means no filter,
+   which is what "All buckets" says and what a single select could not. */
+function picked(el){
+  if(!el)return [];
+  return Array.prototype.slice.call(el.querySelectorAll('input:checked'))
+    .map(function(i){return i.value;});
+}
+
+var SEL={b:[],k:[],g:[],o:[],p:[]},EXCL=[];
+
+function readFilters(){
+  SEL={b:picked(fb),k:picked(fk),g:picked(fg),o:picked(fo),p:picked(fp)};
+  EXCL=terms(x&&x.value);
+}
+
+/* What a closed picker says. The first choice by name, and a count for the
+   rest: "Breaking +2" rather than three labels the control has no room for.
+   Untouched it says what the single select said, so a report nobody has
+   filtered reads exactly as it did before. */
+function pickLabels(){
+  [fb,fk,fg,fo,fp].forEach(function(el){
+    if(!el)return;
+    var on=Array.prototype.slice.call(el.querySelectorAll('input:checked'));
+    var sum=el.querySelector('summary');
+    if(!sum)return;
+    if(!on.length){sum.textContent=el.dataset.all||'All';return;}
+    var first=on[0].parentNode.querySelector('span');
+    var text=first?first.textContent:on[0].value;
+    sum.textContent=on.length>1?text+' +'+(on.length-1):text;});
+}
+
+function clearPick(el){
+  if(!el)return;
+  el.querySelectorAll('input:checked').forEach(function(i){i.checked=false;});
+}
+
+function setPick(el,value){
+  if(!el)return;
+  el.querySelectorAll('input').forEach(function(i){i.checked=i.value===value;});
+}
+
+function provPasses(f,want){
+  var st=provState(f);
+  return want==='cl' ? (st==='cl'||st==='exact') : st===want;
+}
+
+/* Within one filter the choices are OR -- Breaking *or* Behaviour change --
+   and between filters they stay AND, which is what the single selects did and
+   the only reading that lets the four narrow each other. */
+function match(f,t){
+  if(SEL.p.length&&!SEL.p.some(function(v){return provPasses(f,v);}))return false;
+  if(SEL.b.length&&SEL.b.indexOf(f.bucket)<0)return false;
+  if(SEL.k.length&&SEL.k.indexOf(f.kind)<0)return false;
+  if(SEL.g.length&&SEL.g.indexOf(f.group)<0)return false;
+  if(SEL.o.length&&SEL.o.indexOf(f.owner)<0)return false;
+  for(var i=0;i<EXCL.length;i++)if(hasTerm(f,EXCL[i]))return false;
+  if(!t)return true;
+  if(f._hay===undefined)f._hay=hayOf(f).toLowerCase();
   return f._hay.indexOf(t)!==-1;
 }
 /* Built only when a row is actually expanded. This was half the payload. */
@@ -910,8 +1060,13 @@ function rowHtml(f,i){
 }
 function paint(){
   const slice=view.slice(0,shown);
+  /* The excluded count is said out loud. Without it a reader who typed a term
+     an hour ago sees a short list and reads it as a small report. */
+  var hidden=EXCL.length?DATA.filter(function(f){
+    return EXCL.some(function(term){return hasTerm(f,term);});}).length:0;
   cnt.textContent=(view.length?('showing '+slice.length+' of '+view.length):'0')+
-    ' \\u00b7 '+DATA.length+' total';
+    ' \\u00b7 '+DATA.length+' total'+
+    (hidden?' \\u00b7 '+hidden+' excluded':'');
   if(!view.length){
     tb.innerHTML='<tr><td colspan="6" class="empty">No findings match.</td></tr>';
     more.hidden=true;return;
@@ -930,6 +1085,8 @@ function sortVal(f){
   return f[sortKey];
 }
 function apply(){
+  readFilters();
+  pickLabels();
   const t=q.value.trim().toLowerCase();
   view=DATA.filter(f=>match(f,t));
   view.sort((a,b)=>{
@@ -1036,13 +1193,29 @@ document.querySelectorAll('[data-set]').forEach(function(el){
   el.addEventListener('click',function(){
     var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg,fo:fo}[p[0]];
     if(!sel)return;
-    fb.value='';fk.value='';fg.value='';fo.value='';if(fp)fp.value='';
-    sel.value=p.slice(1).join(':');
+    /* A card is one bucket, so it replaces the filters rather than adding to
+       them: it is a way to see what that count counted, and leaving another
+       filter on would show fewer rows than the number that was clicked. */
+    [fb,fk,fg,fo,fp].forEach(clearPick);
+    setPick(sel,p.slice(1).join(':'));
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
 let timer=null;
 q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);});
-[fb,fk,fg,fo,fp].forEach(el=>el&&el.addEventListener('change',apply));
+/* The same debounce, for the same reason: `ai, glic, webgpu` is eighteen
+   keystrokes and each one would otherwise re-filter three thousand rows. */
+if(x)x.addEventListener('input',()=>{clearTimeout(timer);
+  timer=setTimeout(apply,140);});
+[fb,fk,fg,fo,fp].forEach(function(el){
+  if(!el)return;
+  el.addEventListener('change',apply);
+  var clear=el.querySelector('.clear');
+  if(clear)clear.addEventListener('click',function(){clearPick(el);apply();});});
+/* Clicking away closes whichever picker is open, which is what the control it
+   replaces did and what anyone expects of something shaped like a dropdown. */
+document.addEventListener('click',function(e){
+  [fb,fk,fg,fo,fp].forEach(function(el){
+    if(el&&el.open&&!el.contains(e.target))el.open=false;});});
 apply();
 
 /* -- asking about the report --------------------------------------------- */
@@ -1753,10 +1926,42 @@ def _provenance_filter(rows: List[dict]) -> str:
                ("weak", "Leads only, nothing names it"),
                ("none", "Scanned, nothing found"),
                ("skipped", "Not looked up")]
-    return (f'<select id="fp"{hidden}>'
-            + "".join(f'<option value="{v}">{_esc(label)}</option>'
-                      for v, label in options)
-            + "</select>")
+    # The first option is the "everything" state and is not a value anything
+    # can be, so it is dropped: with checkboxes, "all" is no box ticked.
+    return _picker("fp", options[0][1], [(None, options[1:])],
+                   hidden=bool(hidden))
+
+
+def _picker(ident: str, all_label: str, groups, hidden: bool = False) -> str:
+    """One filter, chooseable more than one at a time.
+
+    A disclosure rather than a `<select multiple>`, because the native control
+    needs a modifier key to pick a second value, cannot express "no filter",
+    and is four rows tall in a bar that is one row.
+
+    `groups` is a list of `(heading or None, [(value, label), ...])`. The
+    heading is kept because the surfaces list needs it and the `<optgroup>`
+    this replaces had it: a flat list of sixteen kinds reads as sixteen kinds
+    of feature, and two thirds of them are not features at all.
+
+    The summary carries the label the closed control shows. It is rewritten by
+    the page as boxes are ticked, and starts as the "all" wording the single
+    select used, so a report nobody touches reads exactly as it did.
+    """
+    body = []
+    for heading, options in groups:
+        if heading:
+            body.append(f'<b class="head">{_esc(heading)}</b>')
+        body.extend(
+            f'<label><input type="checkbox" value="{_esc(value)}">'
+            f'<span>{_esc(label)}</span></label>'
+            for value, label in options)
+    return (f'<details class="pick" id="{ident}"'
+            f'{" hidden" if hidden else ""} data-all="{_esc(all_label)}">'
+            f'<summary>{_esc(all_label)}</summary>'
+            f'<div class="opts">{"".join(body)}'
+            f'<button type="button" class="clear">Clear</button>'
+            f'</div></details>')
 
 
     return (f'<details class="brief"><summary>What Chromium says shipped in '
@@ -1832,14 +2037,12 @@ def render(report: Report, platform: str = "windows") -> str:
     # Grouped, because a flat list of sixteen kinds reads as sixteen kinds of
     # "feature" -- and two thirds of them are not features at all. The groups
     # say which is which without needing a legend.
-    surface_options = ""
+    surface_groups = []
     for group_name, group_kinds in KIND_GROUPS:
         present = [k for k in group_kinds if k in kinds]
-        if not present:
-            continue
-        surface_options += f'<optgroup label="{html.escape(group_name)}">'
-        surface_options += "".join(option(k, KIND_LABELS.get(k, k)) for k in present)
-        surface_options += "</optgroup>"
+        if present:
+            surface_groups.append(
+                (group_name, [(k, KIND_LABELS.get(k, k)) for k in present]))
 
     stats = summary.get("changes") or {}
     lede = (f"{_n(meta.get('facts_from', 0))} \u2192 "
@@ -1869,14 +2072,11 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <div class="cards">{_triage_html(report)}</div>
 <div class="controls">
 <input type="search" id="q" placeholder="Search name, signal, path, page\u2026">
-<select id="fb"><option value="">All buckets</option>
-{''.join(option(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER)}</select>
-<select id="fk"><option value="">All surfaces</option>
-{surface_options}</select>
-<select id="fg"><option value="">All consequences</option>
-{''.join(option(g) for g in groups)}</select>
-<select id="fo"><option value="">All owners</option>
-{''.join(option(o, OWNER_LABELS[o]) for o in OWNER_ORDER)}</select>
+<input type="search" id="x" placeholder="Exclude: ai, glic\u2026">
+{_picker("fb", "All buckets", [(None, [(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER])])}
+{_picker("fk", "All surfaces", surface_groups)}
+{_picker("fg", "All consequences", [(None, [(g, g) for g in groups])])}
+{_picker("fo", "All owners", [(None, [(o, OWNER_LABELS[o]) for o in OWNER_ORDER])])}
 {provenance_filter}
 <span class="muted" id="cnt"></span>
 </div>

@@ -876,7 +876,10 @@ class TestHtmlReportScales(unittest.TestCase):
         # 2. Detail markup -- half the old payload -- is built on expand only.
         # 300 of the 3,000 fixture rows are `ipc`; the rest are `config`.
         self.assertIn("300", out["ownerFilterCount"])
-        self.assertIn("3000", out["allOwnersRestores"])
+        # Read from the fixture rather than written down: rows get added to it
+        # for new filters, and a hand-copied total makes an unrelated test the
+        # thing that fails.
+        self.assertIn(str(out["total"]), out["allOwnersRestores"])
 
         self.assertEqual(out["detailsBuiltUpfront"], 0)
         self.assertEqual(out["detailsAfterClick"], 1)
@@ -947,6 +950,61 @@ class TestHtmlReportScales(unittest.TestCase):
                         "a row that lost requests reads as a finished search")
         self.assertTrue(out["theWarningNamesTheCount"])
         self.assertTrue(out["theCitationSurvivesTheWarning"])
+
+        # 5. Excluding a topic. The rule is what makes this usable or not:
+        # measured on a real M148 -> M151 report, `ai` as plain substring
+        # takes out 299 rows and as whole words 136, and the 163 in between
+        # are `email`, `available`, `chain` and `failed`.
+        def shows(key, name):
+            return name in out[key]
+
+        self.assertTrue(shows("exclNoneHtml", "AIManager"),
+                        "the fixture rows must be on screen to begin with")
+
+        # A word, and a camel hump, both count.
+        self.assertFalse(shows("exclAi", "AIManager"))
+        self.assertFalse(shows("exclAi", "AutofillAiOrder"))
+        # Inside a longer word, it does not. This is the whole rule.
+        self.assertTrue(shows("exclAi", "EmailVerificationProtocol"),
+                        "`ai` matched inside `email`")
+        self.assertTrue(shows("exclAi", "AddResourceTimingEntryForFailed"),
+                        "`ai` matched inside `failed`")
+
+        # Several terms, comma separated, and a trailing one while typing is
+        # not a term that excludes everything.
+        self.assertFalse(shows("exclAiGlic", "GlicPageHandler"))
+        self.assertFalse(shows("exclAiGlic", "AIManager"))
+        self.assertTrue(shows("exclAiGlic", "EmailVerificationProtocol"))
+        self.assertEqual(out["exclAi"], out["exclTrailingComma"])
+
+        # A term may span words that were joined by a capital: `WebGPU` is
+        # `web` + `gpu`, and a rule that only compared single words missed it.
+        self.assertFalse(shows("exclWebgpu", "WebGPUUseSpirv14"))
+
+        # ...but spanning must not run past the words it needs. Allowing that
+        # let `settings` reach `SqlDiskCacheSynchronousOff`.
+        self.assertTrue(shows("exclSettings", "SqlDiskCacheSynchronousOff"),
+                        "`settings` reached a row that says nothing of the kind")
+
+        # Whole words means `cookie` is not `cookies`. The star asks for the
+        # prefix, which is the one case where being loose is what was meant.
+        self.assertTrue(shows("exclCookie", "CookiesEnabled"))
+        self.assertFalse(shows("exclCookieStar", "CookiesEnabled"))
+
+        # What was removed is said out loud. A reader who typed a term an hour
+        # ago otherwise reads a short list as a small report.
+        self.assertIn("2 excluded", out["exclCount"])
+
+        # 6. More than one value per filter, which the single select could not
+        # hold. Within a filter the choices are OR; the count is the union.
+        self.assertIn("of 43", out["oneBucket"])
+        self.assertIn("of 2978", out["twoBuckets"])
+        self.assertEqual("Breaking", out["oneBucketLabel"])
+        # Named plus a count, because three labels do not fit a control that
+        # is one line tall.
+        self.assertEqual("Breaking +1", out["twoBucketsLabel"])
+        # Nothing ticked reads as it always did.
+        self.assertTrue(out["noBucketLabel"].startswith("All"))
 
         # And the disclaimer is not printed over evidence that does name it.
         self.assertTrue(out["exactDetailListsTheCl"])
@@ -5599,7 +5657,12 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
 
         serve_mod.ThreadingHTTPServer, serve_mod._State = _Stops, _Found
         try:
-            serve_mod.serve(directory, tempfile.mkdtemp(), log=lines.append)
+            # Port 0, so the kernel picks a free one. The default is 8787 and
+            # this bound it for real: the suite failed with "address already
+            # in use" for anyone who happened to have `serve` running, which
+            # is everyone who is working on `serve`.
+            serve_mod.serve(directory, tempfile.mkdtemp(), port=0,
+                            log=lines.append)
         finally:
             (serve_mod.ThreadingHTTPServer,
              serve_mod._State) = real_server, real_state
@@ -7035,7 +7098,9 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("var WEAK={crowded:1,touched:1}", page)
         self.assertIn("if(allWeak(f))return 'weak'", page)
-        self.assertIn('<option value="weak"', page)
+        # A checkbox now, not an option: the filter takes more than one
+        # state at a time, so "leads only" can be read beside "nothing found".
+        self.assertIn('<input type="checkbox" value="weak"', page)
 
     def test_the_disclaimer_is_prose_and_not_only_a_badge(self):
         """A badge reading `touched` is true and easy to skim past, and the
