@@ -539,7 +539,7 @@ For example: every declaration in `chrome/browser/resources/settings` is readabl
 python3 -m chromiumdiff check      # verify this machine can run the pipeline
 python3 -m chromiumdiff snapshot   # extract the feature surface of ONE version
 python3 -m chromiumdiff compare    # semantic comparison between TWO versions
-python3 -m chromiumdiff run        # the whole pipeline: snapshot → diff → rank → report
+python3 -m chromiumdiff run        # the whole pipeline: snapshot → compare → rank → report
 python3 -m chromiumdiff report     # re-render a saved report.json
 python3 -m chromiumdiff catalog    # measure which files the target set is missing
 python3 -m chromiumdiff figures    # write docs/figures.json from a report
