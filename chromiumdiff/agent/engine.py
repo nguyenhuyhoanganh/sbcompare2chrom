@@ -45,7 +45,8 @@ from typing import Callable, Dict, List, Optional
 
 from ..model import Report
 from . import briefing
-from .tools import DEFAULT_CAP, DEFAULT_TIMEOUT, Result, run_python, run_shell
+from .tools import (DEFAULT_CAP, DEFAULT_TIMEOUT, Result, child_env,
+                    run_python, run_shell)
 
 Emit = Callable[[dict], None]
 
@@ -116,17 +117,22 @@ class Workspace:
         return os.path.join(self.directory, "report.json")
 
     def run(self, name: str, source: str) -> Result:
+        # The environment carries this package on `PYTHONPATH`, so the
+        # `python3 -m chromiumdiff why` the briefing names works from the
+        # report directory -- which is the only directory anything here runs
+        # in, and is not the one the package lives in.
+        env = child_env()
         if name == "python":
             return run_python(source, cwd=self.directory,
                               report_path=self.report_path,
-                              timeout=self.timeout, cap=self.cap)
+                              timeout=self.timeout, cap=self.cap, env=env)
         if name == "shell":
             if not self.allow_shell:
                 return Result("[shell is not available here. Everything about "
                               "the report can be answered with python.]",
                               1, 0, 0.0, False)
             return run_shell(source, cwd=self.directory, timeout=self.timeout,
-                             cap=self.cap)
+                             cap=self.cap, env=env)
         return Result(f"[no tool called {name!r}]", 1, 0, 0.0, False)
 
     def briefing_text(self) -> str:

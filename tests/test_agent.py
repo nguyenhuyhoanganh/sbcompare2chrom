@@ -720,6 +720,75 @@ class ChatOffTest(unittest.TestCase):
             self.assertEqual(404, exc.code)
 
 
+class ToolsReachTheCliTest(unittest.TestCase):
+    """The command the briefing tells a reader to run has to actually run.
+
+    Everything a question needs is a query over the report except one thing:
+    the CL behind a row, which only `why` can fetch. The briefing names
+    `python3 -m chromiumdiff why <uid>` and every command runs with the report
+    directory as its working directory -- where the package is not importable,
+    so the one documented command failed with `No module named chromiumdiff`
+    and the one thing a query cannot do for itself was unreachable.
+    """
+
+    def setUp(self):
+        from chromiumdiff.agent.engine import Workspace
+        self.dir = tempfile.mkdtemp(prefix="chromiumdiff-test-")
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        _report(os.path.join(self.dir, "report.json"),
+                [{"change": {"change_type": "modified", "kind": "mojo_field",
+                             "key": "k", "name": "k"},
+                  "score": 80, "bucket": "breaking", "reasons": []}])
+        self.ws = Workspace(self.dir)
+
+    def test_the_package_is_importable_from_the_report_directory(self):
+        r = self.ws.run("shell",
+                        f"{sys.executable} -c "
+                        f"'import chromiumdiff; print(chromiumdiff.__name__)'")
+        self.assertTrue(r.ok, r.as_text())
+        self.assertEqual("chromiumdiff", r.output.strip())
+
+    def test_the_command_the_briefing_names_is_the_command_that_works(self):
+        """Read out of the briefing rather than retyped here.
+
+        A test that spells the command itself passes while the document sends
+        the reader somewhere else, which is the failure this is for.
+        """
+        from chromiumdiff.agent import briefing
+        text = briefing.render(
+            __import__("chromiumdiff.model", fromlist=["Report"]).Report(
+                from_ref="a", to_ref="b", findings=[], summary={},
+                meta={"platform": "windows"}), self.dir)
+        named = [line.strip() for line in text.splitlines()
+                 if line.strip().startswith("python3 -m chromiumdiff why")]
+        self.assertTrue(named, "the briefing stopped naming `why`")
+        command = named[0].split("#")[0].replace("<uid>", "mojo_field:k")
+        r = self.ws.run("shell", command)
+        self.assertNotIn("No module named", r.output)
+        self.assertIn("mojo_field:k", r.output)
+
+    def test_a_query_can_import_the_package_too(self):
+        r = self.ws.run("python", "import chromiumdiff.model as m\n"
+                                  "print(sorted(m.VERDICT_MEANINGS)[0])")
+        self.assertTrue(r.ok, r.as_text())
+        self.assertEqual("crowded", r.output.strip())
+
+    def test_an_existing_python_path_is_kept(self):
+        """A caller's own path still applies, after ours."""
+        from chromiumdiff.agent import tools as t
+        env = t.child_env({"PYTHONPATH": "/somewhere/else"})
+        self.assertTrue(env["PYTHONPATH"].endswith("/somewhere/else"))
+        self.assertIn(os.pathsep, env["PYTHONPATH"])
+
+    def test_the_root_it_adds_actually_holds_the_package(self):
+        from chromiumdiff.agent import tools as t
+        root = t.child_env({})["PYTHONPATH"]
+        # A directory in a checkout, or the .pyz itself when packaged. Both
+        # are things `-m chromiumdiff` can import from.
+        self.assertTrue(os.path.isdir(os.path.join(root, "chromiumdiff"))
+                        or root.endswith(".pyz"), root)
+
+
 class AnswerRenderingTest(unittest.TestCase):
     """The page's own renderer, run rather than read.
 
