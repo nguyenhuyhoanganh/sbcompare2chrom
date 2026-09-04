@@ -330,7 +330,13 @@ class HttpEngine(TextProtocolEngine):
             # The body, not just the status: an endpoint refusing a request
             # says why in it, and "400" alone sends the reader to the wrong
             # question.
-            body = exc.read().decode("utf-8", "replace")[:400]
+            #
+            # Closed rather than left to the collector. An HTTPError holds the
+            # socket, and this runs inside a server that stays up: a session
+            # against a misconfigured endpoint leaks one connection per
+            # refusal, and every refusal is a retry away from the next.
+            with exc:
+                body = exc.read().decode("utf-8", "replace")[:400]
             raise RuntimeError(f"{exc.code} from the endpoint: {body}")
         except (urllib.error.URLError, TimeoutError) as exc:
             raise RuntimeError(f"could not reach the endpoint: {exc}")
