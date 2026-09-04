@@ -67,7 +67,7 @@ WEBUI_SURFACES = (
 # downloads. A tag's tree is immutable, so the listing is cached forever.
 #
 # The rules stay narrow on purpose. They are matched against filenames, which
-# is a convention rather than a guarantee, so `chromedrift catalog` still
+# is a convention rather than a guarantee, so `chromiumdiff catalog` still
 # exists to measure what the conventions themselves miss.
 # ---------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ WEBUI_SURFACES = (
 # coverage number learns to flatter itself. These roots used to be the fourteen
 # the fetch targets happen to live under, which meant the measurement graded
 # `wide` against the ground `wide` already covered: 1,039 of 1,039, reported as
-# **100%**, while `chromedrift catalog` -- which walks the real tree -- counted
+# **100%**, while `chromiumdiff catalog` -- which walks the real tree -- counted
 # 1,192 files the same rule says can declare. The 153 in the gap could never
 # show up as missed however wide the run, and they are not obscure:
 # `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the

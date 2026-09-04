@@ -15,11 +15,11 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from chromedrift.diff import diff_snapshots
-from chromedrift.extract import mojom
-from chromedrift.model import (ADDED, BUCKET_HOUSEKEEPING, Fact, REMOVED,
+from chromiumdiff.diff import diff_snapshots
+from chromiumdiff.extract import mojom
+from chromiumdiff.model import (ADDED, BUCKET_HOUSEKEEPING, Fact, REMOVED,
                                Report, Snapshot)
-from chromedrift.score import (Scope, score_all, score_change,
+from chromiumdiff.score import (Scope, score_all, score_change,
                                summarize_findings)
 
 
@@ -171,7 +171,7 @@ class TestSnapshotScoping(unittest.TestCase):
     def test_extraction_is_scoped_to_declared_targets(self):
         import tempfile
 
-        from chromedrift.extract import run_on_tree
+        from chromiumdiff.extract import run_on_tree
 
         with tempfile.TemporaryDirectory() as root:
             wanted = os.path.join(root, "content", "public", "common")
@@ -197,7 +197,7 @@ class TestSnapshotScoping(unittest.TestCase):
     def test_prefix_targets_scope_a_whole_subtree(self):
         import tempfile
 
-        from chromedrift.extract import run_on_tree
+        from chromiumdiff.extract import run_on_tree
 
         with tempfile.TemporaryDirectory() as root:
             deep = os.path.join(root, "net", "base")
@@ -381,12 +381,12 @@ class TestOwnership(unittest.TestCase):
 
     def test_every_kind_has_an_owner(self):
         """A kind added without one would silently be filed as Browser C++."""
-        from chromedrift.model import ALL_KINDS, KIND_OWNERS
+        from chromiumdiff.model import ALL_KINDS, KIND_OWNERS
         self.assertEqual(sorted(KIND_OWNERS), sorted(ALL_KINDS))
 
     def test_every_owner_named_is_a_real_owner(self):
-        from chromedrift.diff import SIGNAL_OWNERS
-        from chromedrift.model import KIND_OWNERS, OWNER_ORDER
+        from chromiumdiff.diff import SIGNAL_OWNERS
+        from chromiumdiff.model import KIND_OWNERS, OWNER_ORDER
         for source in (KIND_OWNERS, SIGNAL_OWNERS):
             for key, owner in source.items():
                 self.assertIn(owner, OWNER_ORDER, key)
@@ -398,8 +398,8 @@ class TestOwnership(unittest.TestCase):
         repository -- so it is reached only by signal. An owner reachable from
         neither would be a name in the report legend that no row can carry.
         """
-        from chromedrift.diff import SIGNAL_OWNERS
-        from chromedrift.model import (KIND_OWNERS, OWNER_LABELS,
+        from chromiumdiff.diff import SIGNAL_OWNERS
+        from chromiumdiff.model import (KIND_OWNERS, OWNER_LABELS,
                                        OWNER_MEANINGS, OWNER_ORDER)
         reachable = set(KIND_OWNERS.values()) | set(SIGNAL_OWNERS.values())
         self.assertEqual(sorted(reachable), sorted(OWNER_ORDER))
@@ -414,8 +414,8 @@ class TestOwnership(unittest.TestCase):
         One stops the build and is fixed in the file beside it; the other
         compiles and is fixed in a server-side config nobody can see from here.
         """
-        from chromedrift.diff import owner_of
-        from chromedrift.model import OWNER_CONFIG, OWNER_NATIVE
+        from chromiumdiff.diff import owner_of
+        from chromiumdiff.model import OWNER_CONFIG, OWNER_NATIVE
         renamed = diff_snapshots(
             snap("148.0.0.0", [feature("OldName", "enabled", var="kThing")]),
             snap("151.0.0.0", [feature("NewName", "enabled", var="kThing")]))
@@ -440,9 +440,9 @@ class TestOwnership(unittest.TestCase):
         """
         import re
 
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
-        from chromedrift.model import OWNER_LABELS
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
+        from chromiumdiff.model import OWNER_LABELS
 
         findings = score_all(diff_snapshots(
             snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
@@ -467,7 +467,7 @@ class TestOwnership(unittest.TestCase):
 
     def test_the_owner_counts_partition_the_report(self):
         """Each tally adds up to the total, so the counts are the report."""
-        from chromedrift.model import OWNER_ORDER
+        from chromiumdiff.model import OWNER_ORDER
         findings = score_all(diff_snapshots(
             snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
             snap("151.0.0.0", [feature("A", "enabled"), feature("C", "enabled")])))
@@ -552,7 +552,7 @@ class TestEverySignalIsClassified(unittest.TestCase):
     """
 
     def _tables(self):
-        from chromedrift.diff import (SIGNAL_BUCKET, SIGNAL_LABELS,
+        from chromiumdiff.diff import (SIGNAL_BUCKET, SIGNAL_LABELS,
                                       SIGNAL_SEVERITY)
         return SIGNAL_SEVERITY, SIGNAL_LABELS, SIGNAL_BUCKET
 
@@ -562,18 +562,18 @@ class TestEverySignalIsClassified(unittest.TestCase):
         self.assertEqual(set(severity), set(buckets))
 
     def test_every_bucket_named_is_a_real_bucket(self):
-        from chromedrift.model import BUCKET_ORDER
+        from chromiumdiff.model import BUCKET_ORDER
         _, _, buckets = self._tables()
         for signal, bucket in buckets.items():
             self.assertIn(bucket, BUCKET_ORDER, signal)
 
     def test_every_bucket_is_reachable(self):
-        from chromedrift.model import BUCKET_ORDER
+        from chromiumdiff.model import BUCKET_ORDER
         _, _, buckets = self._tables()
         self.assertEqual(sorted(set(buckets.values())), sorted(BUCKET_ORDER))
 
     def test_every_bucket_says_what_it_means(self):
-        from chromedrift.model import BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER
+        from chromiumdiff.model import BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER
         for bucket in BUCKET_ORDER:
             self.assertTrue(BUCKET_LABELS.get(bucket))
             self.assertTrue(BUCKET_MEANINGS.get(bucket))
@@ -581,8 +581,8 @@ class TestEverySignalIsClassified(unittest.TestCase):
     def test_a_change_of_every_kind_and_direction_gets_a_bucket(self):
         """Including the ones that carry no signal at all -- 903 of 2,800 on a
         real M148 -> M151 run, and every one of them has to be filed."""
-        from chromedrift.diff import bucket_of
-        from chromedrift.model import (ADDED, ALL_KINDS, BUCKET_ORDER, MODIFIED,
+        from chromiumdiff.diff import bucket_of
+        from chromiumdiff.model import (ADDED, ALL_KINDS, BUCKET_ORDER, MODIFIED,
                                        REMOVED, Change)
         for kind in ALL_KINDS:
             for direction in (ADDED, REMOVED, MODIFIED):
@@ -600,7 +600,7 @@ class TestPartitions(unittest.TestCase):
     """
 
     def test_partition_narrows_the_fetch_list(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         full = get_targets("default")
         part = get_targets("default", ["downloads"])
@@ -610,7 +610,7 @@ class TestPartitions(unittest.TestCase):
 
     def test_core_targets_survive_every_partition(self):
         """Prefs and flag metadata are cheap and relevant to everything."""
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         for name in ("downloads", "settings", "history"):
             paths = {t.path for t in get_targets("default", [name])}
@@ -618,14 +618,14 @@ class TestPartitions(unittest.TestCase):
             self.assertIn("chrome/browser/flag-metadata.json", paths, name)
 
     def test_partitions_combine(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         both = {t.path for t in get_targets("default", ["downloads", "bookmarks"])}
         self.assertTrue(any("resources/downloads" in p for p in both))
         self.assertTrue(any("resources/bookmarks" in p for p in both))
 
     def test_unknown_partition_is_rejected(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         with self.assertRaises(KeyError):
             get_targets("default", ["not-a-partition"])
@@ -636,7 +636,7 @@ class TestPartitions(unittest.TestCase):
         This exact class of bug has bitten twice: a "minimal" snapshot holding
         the full fact set, and a widened filter that changed nothing.
         """
-        from chromedrift.snapshot import snapshot_path
+        from chromiumdiff.snapshot import snapshot_path
 
         full = snapshot_path("/c", "refs/tags/151.0.0.0", "default")
         part = snapshot_path("/c", "refs/tags/151.0.0.0", "default", ["downloads"])
@@ -667,8 +667,8 @@ class TestFetchMarkers(unittest.TestCase):
 
     def setUp(self):
         import tempfile
-        from chromedrift.acquire import GitilesSource
-        from chromedrift.targets import get_targets
+        from chromiumdiff.acquire import GitilesSource
+        from chromiumdiff.targets import get_targets
 
         class AllMissing(GitilesSource):
             def fetch_file(self, path):
@@ -714,14 +714,14 @@ class TestPartitionPlumbing(unittest.TestCase):
     """
 
     def _parse(self, argv):
-        from chromedrift.cli import build_parser
+        from chromiumdiff.cli import build_parser
         return build_parser().parse_args(argv)
 
     def test_every_command_taking_the_flag_forwards_it(self):
         import inspect
-        from chromedrift import cli
+        from chromiumdiff import cli
 
-        for name in ("cmd_snapshot", "cmd_diff", "cmd_run"):
+        for name in ("cmd_snapshot", "cmd_compare", "cmd_run"):
             src = inspect.getsource(getattr(cli, name))
             self.assertIn("build_snapshot", src, name)
             self.assertEqual(
@@ -729,7 +729,7 @@ class TestPartitionPlumbing(unittest.TestCase):
                 f"{name} builds a snapshot without forwarding --partition")
 
     def test_catalog_measures_the_partition_it_was_given(self):
-        from chromedrift import catalog
+        from chromiumdiff import catalog
         paths = ["chrome/browser/resources/settings/route.ts",
                  "components/download/public/common/download_features.cc",
                  "media/base/media_switches.cc"]
@@ -745,7 +745,7 @@ class TestPartitionPlumbing(unittest.TestCase):
                       {c.path for c in full.covered()})
 
     def test_the_summary_admits_it_is_partial(self):
-        from chromedrift import catalog
+        from chromiumdiff import catalog
         report = catalog.analyze(["media/base/media_switches.cc"],
                                  ref="151.0.0.0", partitions=["downloads"])
         text = "\n".join(catalog.summarize(report))
@@ -771,7 +771,7 @@ class TestHtmlReportScales(unittest.TestCase):
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def _report(self, n=3000):
-        from chromedrift.model import Change, Finding, Report
+        from chromiumdiff.model import Change, Finding, Report
         findings = [
             Finding(change=Change(change_type="modified", kind="base_feature",
                                   key=f"Feature{i}", name=f"Feature{i}",
@@ -783,7 +783,7 @@ class TestHtmlReportScales(unittest.TestCase):
         return Report(from_ref="a", to_ref="b", findings=findings)
 
     def _report_html(self, n=3000):
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
         return html_report.render(self._report(n))
 
     def test_every_finding_is_still_embedded(self):
@@ -793,7 +793,7 @@ class TestHtmlReportScales(unittest.TestCase):
         reader can always search the whole set and the JSON never disagrees
         with the page.
         """
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
         text = self._report_html(300)
         rows = html_report.payload_of(text)
         self.assertEqual(len(rows), 300)
@@ -972,7 +972,7 @@ class TestHtmlReportScales(unittest.TestCase):
         real M143 -> M151 run. `ours: False` still has to be dropped, which is
         what makes the two cases easy to conflate.
         """
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.report.html import _to_rows
 
         report = self._report()
         report.findings[0].score = 0
@@ -998,7 +998,7 @@ class TestReferenceClosure(unittest.TestCase):
         return Snapshot(ref="151.0.0.0", facts=facts)
 
     def test_a_self_contained_surface_reports_complete(self):
-        from chromedrift.catalog import summarize_closure, unresolved_references
+        from chromiumdiff.catalog import summarize_closure, unresolved_references
         snap_ = self._snap([
             Fact("webui_route", "settings/PRIVACY", "PRIVACY", "route.ts",
                  attrs={"guards": ["enablePrivacyGuide"]}),
@@ -1010,7 +1010,7 @@ class TestReferenceClosure(unittest.TestCase):
         self.assertIn("complete", summarize_closure({})[0])
 
     def test_a_flag_declared_outside_the_partition_is_named(self):
-        from chromedrift.catalog import unresolved_references
+        from chromiumdiff.catalog import unresolved_references
         snap_ = self._snap([
             Fact("webui_gate", "enableThing", "enableThing", "h.cc",
                  attrs={"features": ["kThingDeclaredInContent"]}),
@@ -1019,7 +1019,7 @@ class TestReferenceClosure(unittest.TestCase):
                          {"feature": ["ThingDeclaredInContent"]})
 
     def test_a_pref_bound_but_never_declared_is_named(self):
-        from chromedrift.catalog import unresolved_references
+        from chromiumdiff.catalog import unresolved_references
         snap_ = self._snap([
             Fact("webui_control", "settings/x/pref:download.prompt", "pref:download.prompt",
                  "x.html", attrs={"pref": "download.prompt"}),
@@ -1027,7 +1027,7 @@ class TestReferenceClosure(unittest.TestCase):
         self.assertEqual(unresolved_references(snap_), {"pref": ["download.prompt"]})
 
     def test_the_summary_names_what_to_add(self):
-        from chromedrift.catalog import summarize_closure, unresolved_references
+        from chromiumdiff.catalog import summarize_closure, unresolved_references
         snap_ = self._snap([
             Fact("webui_gate", "g", "g", "h.cc", attrs={"features": ["kMissing"]}),
         ])
@@ -1047,7 +1047,7 @@ class TestCompletePartitions(unittest.TestCase):
     """
 
     def test_complete_pulls_roots_not_a_curated_subset(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         filtered = get_targets("default", ["downloads"])
         complete = get_targets("default", ["downloads"], complete=True)
         self.assertTrue(any(t.kind == "tree" and t.path == "components/download"
@@ -1058,7 +1058,7 @@ class TestCompletePartitions(unittest.TestCase):
 
     def test_complete_covers_what_the_curated_list_missed(self):
         """Measured gaps at M151, now inside the roots by construction."""
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         targets = get_targets("default", ["bookmarks", "history"], complete=True)
         prefixes = [t.path.rstrip("/") + "/" for t in targets if t.kind == "tree"]
         for missed in ("components/bookmarks/common/bookmark_pref_names.h",
@@ -1074,7 +1074,7 @@ class TestCompletePartitions(unittest.TestCase):
         roots, by construction" was fetching less than the extractors read.
         Measured at M151 across the tree: 86 files holding 747 keys.
         """
-        from chromedrift.targets import READABLE_SUFFIXES, get_targets
+        from chromiumdiff.targets import READABLE_SUFFIXES, get_targets
 
         wide = {t.include for t in get_targets("wide")
                 if t.kind == "tree" and t.include}
@@ -1096,8 +1096,8 @@ class TestCompletePartitions(unittest.TestCase):
         the third went quiet: the fetch would keep working and the extractor
         would stop matching, or the reverse.
         """
-        from chromedrift.extract.webui_gates import WEBUI_HANDLER_DIR, applies_to
-        from chromedrift.targets import GATE_ROOT, get_targets, reaches, scope_of
+        from chromiumdiff.extract.webui_gates import WEBUI_HANDLER_DIR, applies_to
+        from chromiumdiff.targets import GATE_ROOT, get_targets, reaches, scope_of
 
         self.assertEqual(GATE_ROOT, WEBUI_HANDLER_DIR.rstrip("/"))
         probe = WEBUI_HANDLER_DIR + "settings/settings_ui.cc"
@@ -1111,7 +1111,7 @@ class TestCompletePartitions(unittest.TestCase):
 
     def test_complete_fetches_the_pref_files_the_extractor_reads(self):
         """The concrete files the second list was dropping, at M151."""
-        from chromedrift.targets import get_targets, reaches, scope_of
+        from chromiumdiff.targets import get_targets, reaches, scope_of
         files, trees = scope_of(get_targets("default", ["extensions"],
                                             complete=True))
         for path in ("extensions/browser/extension_prefs.h",
@@ -1120,24 +1120,24 @@ class TestCompletePartitions(unittest.TestCase):
             self.assertTrue(reaches(path, files, trees), path)
 
     def test_an_unaffordable_root_is_refused_not_faked(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         with self.assertRaises(ValueError) as caught:
             get_targets("default", ["webplatform"], complete=True)
         self.assertIn("webplatform", str(caught.exception))
 
     def test_complete_needs_a_partition(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         with self.assertRaises(ValueError):
             get_targets("default", None, complete=True)
 
     def test_complete_is_part_of_the_cache_key(self):
-        from chromedrift.snapshot import snapshot_path
+        from chromiumdiff.snapshot import snapshot_path
         a = snapshot_path("/c", "refs/tags/151", "default", ["settings"])
         b = snapshot_path("/c", "refs/tags/151", "default", ["settings"], True)
         self.assertNotEqual(a, b)
 
     def test_diff_refuses_to_mix_complete_with_filtered(self):
-        from chromedrift.diff import diff_snapshots
+        from chromiumdiff.diff import diff_snapshots
         old = Snapshot(ref="a", facts=[],
                        meta={"target_set": "default", "partitions": ["settings"],
                              "complete": True})
@@ -1171,7 +1171,7 @@ class TestCatalog(unittest.TestCase):
     ]
 
     def _report(self, **kw):
-        from chromedrift.catalog import analyze
+        from chromiumdiff.catalog import analyze
         return analyze(self.PATHS, ref="151.0.0.0", **kw)
 
     def test_every_surface_an_extractor_reads_is_a_candidate(self):
@@ -1231,7 +1231,7 @@ class TestTheMarkdownCarriesTheGroup(unittest.TestCase):
     """
 
     def _finding(self, key, score, group=None):
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.model import Change, Finding
         return Finding(
             change=Change(change_type="modified", kind="mojo_method", key=key,
                           name=key.split(".")[-1], signals=["ipc_signature_change"]),
@@ -1239,7 +1239,7 @@ class TestTheMarkdownCarriesTheGroup(unittest.TestCase):
             enrichment={"cluster": group} if group else {})
 
     def _detail(self, finding):
-        from chromedrift.report.markdown import _render_details
+        from chromiumdiff.report.markdown import _render_details
         return _render_details([finding], "windows")
 
     def test_a_fragment_says_so_and_points_at_the_heaviest(self):
@@ -1278,8 +1278,8 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
     """
 
     def test_the_payload_carries_the_group(self):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report.html import _to_rows
 
         finding = Finding(
             change=Change(change_type="added", kind="feature_param",
@@ -1301,8 +1301,8 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
 
     def test_a_lone_finding_is_not_a_group(self):
         """A cluster of one is the finding itself, and saying so is noise."""
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report.html import _to_rows
 
         finding = Finding(
             change=Change(change_type="added", kind="feature_param",
@@ -1319,7 +1319,7 @@ class TestClustering(unittest.TestCase):
     """One Chromium change arrives as fragments; they must read as one story."""
 
     def _finding(self, kind, key, attrs, score=50):
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.model import Change, Finding
         return Finding(
             change=Change(change_type="modified", kind=kind, key=key,
                           name=key.split("/")[-1], before=dict(attrs),
@@ -1328,7 +1328,7 @@ class TestClustering(unittest.TestCase):
 
     def _cited(self, kind, key, cls, score=70):
         """A finding carrying the CLs a lookup tied to it."""
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.model import Change, Finding
         return Finding(
             change=Change(change_type="modified", kind=kind, key=key,
                           name=key.split(".")[-1]),
@@ -1345,7 +1345,7 @@ class TestClustering(unittest.TestCase):
         shared CL is the same evidence recorded elsewhere -- one author, one
         change, landing across several declarations -- and it reaches 84.
         """
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         cl = [{"number": 7957918, "match": "exact",
                "subject": "[sub apps] change web api"}]
@@ -1360,7 +1360,7 @@ class TestClustering(unittest.TestCase):
         """`Add` is the leaf of `blink.mojom.SubAppsService.Add` and tells a
         reader nothing about the group. The author already wrote a name for
         the change; the subject is it."""
-        from chromedrift.cluster import build_clusters, cluster_label
+        from chromiumdiff.cluster import build_clusters, cluster_label
 
         cl = [{"number": 7957918, "match": "exact",
                "subject": "[sub apps] change web api"}]
@@ -1373,8 +1373,8 @@ class TestClustering(unittest.TestCase):
     def test_a_cl_on_one_member_does_not_name_the_group(self):
         """It names that member's change. Only a CL every member carries is
         speaking about the group."""
-        from chromedrift.cluster import cluster_label
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.cluster import cluster_label
+        from chromiumdiff.model import Change, Finding
 
         shared = {"number": 1, "match": "exact", "subject": "the shared one"}
         lone = {"number": 2, "match": "exact", "subject": "only on this row"}
@@ -1390,7 +1390,7 @@ class TestClustering(unittest.TestCase):
         the members on the cluster, the answer cannot say which other rows it
         just changed, and a panel already open on one of them goes on showing
         an answer that stopped being true."""
-        from chromedrift.cluster import annotate
+        from chromiumdiff.cluster import annotate
 
         cl = [{"number": 1, "match": "exact", "subject": "s"}]
         rows = [self._cited("mojo_method", "I.a", cl),
@@ -1404,7 +1404,7 @@ class TestClustering(unittest.TestCase):
         """`crowded` and `touched` name the declaring file, not the fact. Two
         rows sharing one share a busy file, which is not a story -- and
         `about_flags.cc` alone would put five hundred findings in one group."""
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         cl = [{"number": 8007779, "match": "touched", "subject": "unrelated"}]
         rows = [self._cited("flag_entry", "flag-a", cl),
@@ -1415,7 +1415,7 @@ class TestClustering(unittest.TestCase):
         """The cap is a guard-rail, so the behaviour at it has to be the one
         the comment claims: a group past it is dropped whole. A split group
         would read as two changes where there was one."""
-        from chromedrift.cluster import CL_GROUP_MAX, build_clusters
+        from chromiumdiff.cluster import CL_GROUP_MAX, build_clusters
 
         cl = [{"number": 1, "match": "exact", "subject": "s"}]
         rows = [self._cited("idl_member", f"I.m{i}", cl)
@@ -1426,7 +1426,7 @@ class TestClustering(unittest.TestCase):
                          CL_GROUP_MAX)
 
     def test_route_gate_feature_form_one_cluster(self):
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         route = self._finding("webui_route", "settings/SITE_SETTINGS_LNA",
                               {"surface": "settings", "route": "lna",
@@ -1441,8 +1441,8 @@ class TestClustering(unittest.TestCase):
 
     def test_guard_on_either_side_links_the_route(self):
         """A migration re-gates a page; reading only the new guard splits it."""
-        from chromedrift.cluster import build_clusters
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.cluster import build_clusters
+        from chromiumdiff.model import Change, Finding
 
         moved = Finding(
             change=Change(change_type="modified", kind="webui_route",
@@ -1460,7 +1460,7 @@ class TestClustering(unittest.TestCase):
 
     def test_control_joins_the_route_it_labels(self):
         """SITE_SETTINGS_LNA and siteSettingsLna are one identifier."""
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         route = self._finding("webui_route", "settings/SITE_SETTINGS_LNA",
                               {"surface": "settings", "guards": []}, 60)
@@ -1473,7 +1473,7 @@ class TestClustering(unittest.TestCase):
 
     def test_blink_flag_without_a_declared_feature_stays_alone(self):
         """base_feature: "none" means there is no link. Do not invent one."""
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         blink = self._finding("blink_runtime_feature", "LnaSplitPermissions",
                               {"base_feature": "none"}, 20)
@@ -1481,7 +1481,7 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(build_clusters([blink, flag]), {})
 
     def test_blink_flag_joins_via_its_declared_feature(self):
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         blink = self._finding("blink_runtime_feature", "SomeApi",
                               {"base_feature": "kBackingFeature"}, 20)
@@ -1489,7 +1489,7 @@ class TestClustering(unittest.TestCase):
         self.assertEqual(len(build_clusters([blink, flag])), 1)
 
     def test_unrelated_findings_are_not_clustered(self):
-        from chromedrift.cluster import build_clusters
+        from chromiumdiff.cluster import build_clusters
 
         a = self._finding("base_feature", "Alpha", {})
         b = self._finding("base_feature", "Beta", {})
@@ -1508,7 +1508,7 @@ class TestWindowsConsoleEncoding(unittest.TestCase):
         import subprocess
         import tempfile
 
-        from chromedrift.model import Change, Finding, Report, write_json
+        from chromiumdiff.model import Change, Finding, Report, write_json
 
         change = Change(change_type="modified", kind="base_feature",
                         key="Foo", name="Foo",
@@ -1526,7 +1526,7 @@ class TestWindowsConsoleEncoding(unittest.TestCase):
 
             env = dict(os.environ, PYTHONIOENCODING="cp1252")
             result = subprocess.run(
-                [sys.executable, "-m", "chromedrift", "report", path,
+                [sys.executable, "-m", "chromiumdiff", "report", path,
                  "--format", "md"],
                 cwd=repo_root, env=env, capture_output=True, timeout=60)
 
@@ -1546,7 +1546,7 @@ class TestNoVerdictStage(unittest.TestCase):
     """
 
     def _report(self, **summary):
-        from chromedrift.model import Change, Finding, Report
+        from chromiumdiff.model import Change, Finding, Report
         change = Change(change_type="modified", kind="base_feature",
                         key="Foo", name="Foo",
                         deltas={"default_state": ["disabled", "enabled"]},
@@ -1564,7 +1564,7 @@ class TestNoVerdictStage(unittest.TestCase):
 
     def test_a_legacy_report_with_a_verdict_still_loads(self):
         """Reports written before the stage was removed must not crash."""
-        from chromedrift.model import Report
+        from chromiumdiff.model import Report
 
         payload = self._report().to_dict()
         payload["summary"]["ai"] = {"headline": "old"}
@@ -1574,8 +1574,8 @@ class TestNoVerdictStage(unittest.TestCase):
         self.assertFalse(hasattr(loaded.findings[0], "ai"))
 
     def test_neither_renderer_offers_a_verdict_column(self):
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
 
         report = self._report()
         md = md_report.render(report)
@@ -1594,7 +1594,7 @@ class TestNoVerdictStage(unittest.TestCase):
         """
         import re
 
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
 
         text = html_report.render(self._report())
         # Scoped to the findings table: the overview carries a table of its own
@@ -1619,8 +1619,8 @@ class TestNoVerdictStage(unittest.TestCase):
         """
         import re
 
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         change = Change(change_type="modified", kind="feature_param",
                         key="helpUrl", name="helpUrl",
@@ -1644,7 +1644,7 @@ class TestNoVerdictStage(unittest.TestCase):
         With the prompt gone it has to land in the report, or the one source
         that says what Chromium *meant* to ship is fetched and thrown away.
         """
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.report import markdown as md_report
 
         report = self._report(milestone_brief=[
             {"milestone": 149, "name": "CSS anchor positioning",
@@ -1657,7 +1657,7 @@ class TestNoVerdictStage(unittest.TestCase):
         self.assertIn("not* matched to the findings", text)
 
     def test_a_report_without_a_brief_renders_no_empty_section(self):
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.report import markdown as md_report
         self.assertNotIn("What Chromium says shipped",
                          md_report.render(self._report()))
 
@@ -1667,7 +1667,7 @@ class TestNoVerdictStage(unittest.TestCase):
         page printed the bare word `None` where the section belongs, and
         nothing failed. The feature is only shipped in the file people open.
         """
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
 
         page = html_report.render(self._report(milestone_brief=[
             {"milestone": 149, "name": "CSS anchor positioning",
@@ -1681,7 +1681,7 @@ class TestNoVerdictStage(unittest.TestCase):
         self.assertNotIn("\nNone\n", page)
 
     def test_a_report_without_a_brief_renders_no_html_section(self):
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
         self.assertNotIn('class="brief"',
                          html_report.render(self._report(), "windows"))
 
@@ -1714,7 +1714,7 @@ class TestTreeFilterIsPartOfScope(unittest.TestCase):
 
     def test_a_leftover_file_outside_the_filter_is_not_extracted(self):
         import tempfile
-        from chromedrift.extract import run_on_tree
+        from chromiumdiff.extract import run_on_tree
 
         with tempfile.TemporaryDirectory() as tmp:
             self._tree(tmp)
@@ -1728,7 +1728,7 @@ class TestTreeFilterIsPartOfScope(unittest.TestCase):
     def test_a_prefix_with_no_filter_still_takes_everything(self):
         """The bare-set form keeps working, for callers that want the tree."""
         import tempfile
-        from chromedrift.extract import run_on_tree
+        from chromiumdiff.extract import run_on_tree
 
         with tempfile.TemporaryDirectory() as tmp:
             self._tree(tmp)
@@ -1737,7 +1737,7 @@ class TestTreeFilterIsPartOfScope(unittest.TestCase):
 
     def test_the_snapshot_scope_carries_the_filter(self):
         """snapshot.py must pass the filter through, not just the path."""
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         prefixes = {t.path.rstrip("/") + "/": t.include
                     for t in get_targets("default") if t.kind == "tree"}
@@ -1756,14 +1756,14 @@ class TestScopeViolations(unittest.TestCase):
     """
 
     def _snap(self, paths):
-        from chromedrift.model import Fact, Snapshot
+        from chromiumdiff.model import Fact, Snapshot
         return Snapshot(
             ref="test", meta={"target_set": "default", "partitions": [],
                               "complete": False},
             facts=[Fact(kind="x", key=p, name="x", path=p) for p in paths])
 
     def test_a_file_outside_the_tree_filter_is_flagged(self):
-        from chromedrift.catalog import scope_violations
+        from chromiumdiff.catalog import scope_violations
 
         # The default target asks for chrome/browser/ui/webui as *.cc only.
         snap = self._snap(["chrome/browser/ui/webui/downloads/downloads.cc",
@@ -1772,12 +1772,12 @@ class TestScopeViolations(unittest.TestCase):
                          ["chrome/browser/ui/webui/downloads/downloads.mojom"])
 
     def test_a_file_under_no_target_at_all_is_flagged(self):
-        from chromedrift.catalog import scope_violations
+        from chromiumdiff.catalog import scope_violations
         snap = self._snap(["chrome/browser/ui/views/toolbar/toolbar_view.cc"])
         self.assertEqual(len(scope_violations(snap)), 1)
 
     def test_a_clean_snapshot_is_silent(self):
-        from chromedrift.catalog import scope_violations
+        from chromiumdiff.catalog import scope_violations
         snap = self._snap(["chrome/browser/ui/webui/downloads/downloads.cc",
                            "chrome/common/pref_names.h",
                            "third_party/blink/public/mojom/frame/frame.mojom"])
@@ -1785,7 +1785,7 @@ class TestScopeViolations(unittest.TestCase):
 
     def test_a_polymer_to_lit_migration_is_not_a_violation(self):
         """Both dialects are inside the WebUI filter, so neither is out of scope."""
-        from chromedrift.catalog import scope_violations
+        from chromiumdiff.catalog import scope_violations
         snap = self._snap(["chrome/browser/resources/history/app.html",
                            "chrome/browser/resources/history/app.html.ts"])
         self.assertEqual(scope_violations(snap), [])
@@ -1795,14 +1795,14 @@ class TestScopeViolations(unittest.TestCase):
         import glob
         import os
 
-        from chromedrift.catalog import scope_violations
-        from chromedrift.model import Snapshot, read_json
+        from chromiumdiff.catalog import scope_violations
+        from chromiumdiff.model import Snapshot, read_json
 
-        from chromedrift.model import SCHEMA_VERSION
+        from chromiumdiff.model import SCHEMA_VERSION
 
         found = sorted(glob.glob(os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            ".chromedrift-cache", "snapshots", "*.json")))
+            ".chromiumdiff-cache", "snapshots", "*.json")))
         checked = 0
         for path in found:
             raw = read_json(path)
@@ -1844,7 +1844,7 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
             return [p for p in self.paths if p.startswith(d)]
 
     def _found(self, paths):
-        from chromedrift.targets import discover_candidates
+        from chromiumdiff.targets import discover_candidates
         return set(discover_candidates(self._Tree(paths))[0])
 
     def test_both_pref_naming_conventions_are_found(self):
@@ -1896,8 +1896,8 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
         self.assertEqual(got, set())
 
     def test_coverage_counts_what_a_target_set_reaches(self):
-        from chromedrift.acquire import FetchTarget
-        from chromedrift.targets import coverage_against
+        from chromiumdiff.acquire import FetchTarget
+        from chromiumdiff.targets import coverage_against
 
         candidates = {"components/a/a_features.cc": "f",
                       "components/b/b_features.cc": "f",
@@ -1911,8 +1911,8 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
 
     def test_a_tree_filter_that_excludes_a_file_leaves_it_uncovered(self):
         """Reaching a directory is not the same as reading the file in it."""
-        from chromedrift.acquire import FetchTarget
-        from chromedrift.targets import coverage_against
+        from chromiumdiff.acquire import FetchTarget
+        from chromiumdiff.targets import coverage_against
 
         cov = coverage_against({"chrome/browser/x/x_prefs.h": "p"},
                                [FetchTarget("chrome/browser", "tree", (".cc",))])
@@ -1920,7 +1920,7 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
 
     def test_the_wide_target_set_closes_most_of_the_gap(self):
         """`--target-set wide` exists to be the answer when the gap matters."""
-        from chromedrift.targets import coverage_against, get_targets
+        from chromiumdiff.targets import coverage_against, get_targets
 
         candidates = {"components/deep/nested/x_features.cc": "f",
                       "chrome/browser/deep/y_prefs.h": "p",
@@ -1949,14 +1949,14 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
     """
 
     def _feature(self, name, var):
-        from chromedrift.model import Fact
+        from chromiumdiff.model import Fact
         return Fact(kind="base_feature", key=name, name=name,
                     path="content/features.cc",
                     attrs={"var": var, "default_state": "enabled",
                            "platform_state": {"windows": "enabled"}})
 
     def _control(self, pref, element_id, control="settings-toggle-button"):
-        from chromedrift.model import Fact
+        from chromiumdiff.model import Fact
         key = f"settings/a11y_page/pref:{pref}#{element_id}"
         return Fact(kind="webui_control", key=key, name=key,
                     path="chrome/browser/resources/settings/a11y_page/p.html",
@@ -2005,13 +2005,13 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
     """
 
     def test_every_named_set_resolves(self):
-        from chromedrift.targets import TARGET_SETS, get_targets
+        from chromiumdiff.targets import TARGET_SETS, get_targets
         for name in TARGET_SETS:
             self.assertTrue(get_targets(name), name)
 
     def test_wide_is_a_superset_of_default(self):
         """A release gate must never read *less* than a working run."""
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         default = {(t.path, t.kind) for t in get_targets("default")}
         wide = {(t.path, t.kind) for t in get_targets("wide")}
         self.assertTrue(default <= wide, sorted(default - wide))
@@ -2025,8 +2025,8 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         resources/, `flag-metadata.json` only by its exact name -- so the probe
         has to be a path that could really occur.
         """
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import READABLE_SUFFIXES
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import READABLE_SUFFIXES
 
         probes = {
             ".json5": "third_party/blink/renderer/platform/"
@@ -2049,7 +2049,7 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
 
     def test_wide_roots_all_carry_a_filter(self):
         """An unfiltered root would unpack a whole Chromium subsystem to disk."""
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
 
         default_trees = {t.path for t in get_targets("default") if t.kind == "tree"}
         for target in get_targets("wide"):
@@ -2058,7 +2058,7 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
 
     def test_the_cache_key_separates_the_sets(self):
         """Otherwise a 40 MB snapshot gets reused as if it were the 315 MB one."""
-        from chromedrift.snapshot import snapshot_path
+        from chromiumdiff.snapshot import snapshot_path
         paths = {snapshot_path("c", "refs/tags/151.0.0.0", name)
                  for name in ("default", "minimal", "wide")}
         self.assertEqual(len(paths), 3)
@@ -2075,13 +2075,13 @@ class TestMinimalStaysMinimal(unittest.TestCase):
     """
 
     def test_minimal_is_three_declaration_files(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         targets = get_targets("minimal")
         self.assertEqual(len(targets), 3, [t.path for t in targets])
         self.assertTrue(all(t.kind == "file" for t in targets))
 
     def test_minimal_is_a_subset_of_default(self):
-        from chromedrift.targets import get_targets
+        from chromiumdiff.targets import get_targets
         minimal = {t.path for t in get_targets("minimal")}
         default = get_targets("default")
         names = {t.path for t in default if t.kind == "file"}
@@ -2092,7 +2092,7 @@ class TestMinimalStaysMinimal(unittest.TestCase):
 
     def test_every_partition_core_file_is_reachable_from_default(self):
         """PARTITION_CORE promises these to every partition."""
-        from chromedrift.targets import PARTITION_CORE, get_targets
+        from chromiumdiff.targets import PARTITION_CORE, get_targets
         default = get_targets("default")
         names = {t.path for t in default if t.kind == "file"}
         trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
@@ -2113,32 +2113,32 @@ class TestOneDefinitionOfScope(unittest.TestCase):
     """
 
     def _targets(self):
-        from chromedrift.acquire import FetchTarget
+        from chromiumdiff.acquire import FetchTarget
         return [FetchTarget("chrome/browser/ui/webui", "tree", (".cc",)),
                 FetchTarget("chrome/browser", "tree", ("prefs.h", ".mojom")),
                 FetchTarget("chrome/common/pref_names.h", "file")]
 
     def test_a_wider_target_covers_what_a_narrower_one_excludes(self):
-        from chromedrift.targets import reaches, scope_of
+        from chromiumdiff.targets import reaches, scope_of
         files, trees = scope_of(self._targets())
         self.assertTrue(reaches(
             "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h", files, trees))
 
     def test_a_path_no_target_claims_is_not_reached(self):
-        from chromedrift.targets import reaches, scope_of
+        from chromiumdiff.targets import reaches, scope_of
         files, trees = scope_of(self._targets())
         self.assertFalse(reaches("chrome/browser/ui/views/toolbar.cc", files, trees))
 
     def test_an_exact_file_target_is_reached(self):
-        from chromedrift.targets import reaches, scope_of
+        from chromiumdiff.targets import reaches, scope_of
         files, trees = scope_of(self._targets())
         self.assertTrue(reaches("chrome/common/pref_names.h", files, trees))
 
     def test_extraction_and_coverage_give_the_same_answer(self):
         """They used to disagree, which is the whole reason for one definition."""
-        from chromedrift.catalog import scope_violations
-        from chromedrift.model import Fact, Snapshot
-        from chromedrift.targets import coverage_against, get_targets
+        from chromiumdiff.catalog import scope_violations
+        from chromiumdiff.model import Fact, Snapshot
+        from chromiumdiff.targets import coverage_against, get_targets
 
         path = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
         targets = get_targets("wide")
@@ -2170,8 +2170,8 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
         as covered -- an error in the reassuring direction, in the one
         command whose whole job is measuring the gap.
         """
-        from chromedrift.catalog import covered_by_targets
-        from chromedrift.targets import get_targets, reaches, scope_of
+        from chromiumdiff.catalog import covered_by_targets
+        from chromiumdiff.targets import get_targets, reaches, scope_of
 
         targets = get_targets("default")
         files, trees = scope_of(targets)
@@ -2185,8 +2185,8 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
         so a `--complete` run was measured against the curated file list it
         replaces -- reporting as missing every file the run does fetch.
         """
-        from chromedrift.catalog import covered_by_targets
-        from chromedrift.targets import get_targets
+        from chromiumdiff.catalog import covered_by_targets
+        from chromiumdiff.targets import get_targets
 
         path = "components/bookmarks/browser/bookmark_pref_names.h"
         filtered = get_targets("default", ["bookmarks"])
@@ -2212,7 +2212,7 @@ class TestOneDefinitionOfWhatCouldDeclare(unittest.TestCase):
     ANDROID = "chrome/browser/android/chrome_startup_flags.cc"
 
     def test_catalog_uses_the_same_rule_as_the_coverage_measurement(self):
-        from chromedrift.targets import could_declare
+        from chromiumdiff.targets import could_declare
 
         self.assertTrue(could_declare(self.PREF_CONVENTION))
         self.assertFalse(could_declare(self.ANDROID))
@@ -2232,7 +2232,7 @@ class TestOneDefinitionOfWhatCouldDeclare(unittest.TestCase):
             self._catalog([path], include_irrelevant=True).candidates, [])
 
     def _catalog(self, paths, include_irrelevant=False):
-        from chromedrift.catalog import analyze
+        from chromiumdiff.catalog import analyze
         return analyze(paths, ref="151", include_irrelevant=include_irrelevant)
 
 
@@ -2253,8 +2253,8 @@ class TestOneDefinitionOfWhatIsReadable(unittest.TestCase):
 
     def _probe_basenames(self):
         """Real basenames carrying every convention an extractor claims."""
-        from chromedrift.extract import constants
-        from chromedrift.extract.base_features import FILE_HINTS
+        from chromiumdiff.extract import constants
+        from chromiumdiff.extract.base_features import FILE_HINTS
 
         for hint in FILE_HINTS:
             # A hint spelled with a leading underscore is deliberately narrower:
@@ -2269,7 +2269,7 @@ class TestOneDefinitionOfWhatIsReadable(unittest.TestCase):
                 yield "foo_" + stem + ext
 
     def test_every_extractor_hint_is_fetched(self):
-        from chromedrift.targets import READABLE_SUFFIXES
+        from chromiumdiff.targets import READABLE_SUFFIXES
 
         for base in self._probe_basenames():
             self.assertTrue(
@@ -2278,7 +2278,7 @@ class TestOneDefinitionOfWhatIsReadable(unittest.TestCase):
 
     def test_the_probes_are_really_read(self):
         """Guards the test itself: a probe nothing reads proves nothing."""
-        from chromedrift.extract import REGISTRY
+        from chromiumdiff.extract import REGISTRY
 
         for base in self._probe_basenames():
             path = "components/x/" + base
@@ -2302,7 +2302,7 @@ class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         offenders = []
-        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+        for path in glob.glob(os.path.join(root, "chromiumdiff", "**", "*.py"),
                               recursive=True):
             if os.path.basename(path) == "base_features.py":
                 continue
@@ -2313,9 +2313,9 @@ class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
                          "re-use extract.base_features.feature_name_from_var")
 
     def test_every_consumer_agrees_with_it(self):
-        from chromedrift.catalog import _bare
-        from chromedrift.cluster import _flag_name
-        from chromedrift.extract.base_features import feature_name_from_var
+        from chromiumdiff.catalog import _bare
+        from chromiumdiff.cluster import _flag_name
+        from chromiumdiff.extract.base_features import feature_name_from_var
 
         for probe in ("kBackForwardCache", "kDIPS", "kilo", "k", "Feature", ""):
             expected = feature_name_from_var(probe)
@@ -2331,7 +2331,7 @@ class TestOneDefinitionOfTheKPrefixRule(unittest.TestCase):
         counts as an identifier -- otherwise the search asks for a spelling
         that is not in the file.
         """
-        from chromedrift.extract.base_features import (feature_name_from_var,
+        from chromiumdiff.extract.base_features import (feature_name_from_var,
                                                        var_from_feature_name)
 
         for probe in ("BackForwardCache", "DIPS", "Feature"):
@@ -2352,7 +2352,7 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
     """
 
     def _report(self):
-        from chromedrift.score import summarize_findings
+        from chromiumdiff.score import summarize_findings
         summary = {"changes": {"total": 0, "by_kind": {}}}
         summary.update(summarize_findings([]))
         return Report(
@@ -2370,11 +2370,11 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
         """One name per measurement. `summary.coverage` used to be area
         routing while `meta.coverage` was tree coverage, so a reader -- or an
         agent -- looking up one found the other with nothing saying so."""
-        from chromedrift.score import summarize_findings
+        from chromiumdiff.score import summarize_findings
         self.assertNotIn("coverage", summarize_findings([]))
 
     def test_the_ranking_reads_the_same_measurement_the_report_prints(self):
-        from chromedrift.score import Scope
+        from chromiumdiff.score import Scope
         meta = self._report().meta
         scope = Scope({"to": meta["coverage"]["to"]}, to_ref="refs/tags/151")
         self.assertFalse(scope.confirms_absence())
@@ -2387,20 +2387,20 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
                          ["chrome/browser/x_prefs.h"])
 
     def test_the_rendered_report_states_it(self):
-        from chromedrift.report import markdown as md
+        from chromiumdiff.report import markdown as md
         text = md.render(self._report())
         self.assertIn("read 42 of 1,039 files", text)
         self.assertIn("`chrome/browser/` (251 files)", text)
         self.assertIn("--target-set wide", text)
 
     def test_a_wide_run_is_not_told_to_widen(self):
-        from chromedrift.report import markdown as md
+        from chromiumdiff.report import markdown as md
         report = self._report()
         report.meta["target_set"] = "wide"
         self.assertNotIn("--target-set wide", md.render(report))
 
     def test_a_report_without_the_measurement_renders_no_empty_row(self):
-        from chromedrift.report import markdown as md
+        from chromiumdiff.report import markdown as md
         report = self._report()
         report.meta["coverage"] = {}
         self.assertNotIn("Coverage at", md.render(report))
@@ -2418,9 +2418,9 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
     """
 
     def test_every_admissible_tag_gets_a_word(self):
-        from chromedrift.extract.webui_controls import (INTERACTIVE_SEGMENTS,
+        from chromiumdiff.extract.webui_controls import (INTERACTIVE_SEGMENTS,
                                                         STRUCTURAL_TAGS)
-        from chromedrift.report.wording import control_word
+        from chromiumdiff.report.wording import control_word
 
         unnamed = [tag for tag in
                    [f"cr-{seg}" for seg in sorted(INTERACTIVE_SEGMENTS)]
@@ -2430,7 +2430,7 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
                          "these tags reach the report as raw tag names")
 
     def test_the_rule_admits_what_it_was_built_for(self):
-        from chromedrift.extract.webui_controls import is_control
+        from chromiumdiff.extract.webui_controls import is_control
 
         for tag in ("settings-toggle-button", "cr-icon-button",
                     "settings-collapse-radio-button", "cr-action-menu",
@@ -2439,7 +2439,7 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
             self.assertTrue(is_control(tag, "", element_id="x"), tag)
 
     def test_the_rule_keeps_decoration_out(self):
-        from chromedrift.extract.webui_controls import is_control
+        from chromiumdiff.extract.webui_controls import is_control
 
         for tag in ("cr-icon", "cr-iconset", "cr-ripple", "site-favicon",
                     "iron-media-query"):
@@ -2447,14 +2447,14 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
 
     def test_a_preference_makes_anything_a_control(self):
         """The rule that recovered the 41 the name list was dropping."""
-        from chromedrift.extract.webui_controls import is_control
+        from chromiumdiff.extract.webui_controls import is_control
 
         self.assertTrue(is_control("some-unknown-widget", "download.prompt"))
         self.assertFalse(is_control("some-unknown-widget", ""))
 
     def test_an_interactive_tag_with_no_identity_is_not_worth_a_fact(self):
         """Position is the only identity left, and it churns on reorder."""
-        from chromedrift.extract.webui_controls import is_control
+        from chromiumdiff.extract.webui_controls import is_control
 
         self.assertFalse(is_control("cr-button", ""))
         self.assertTrue(is_control("cr-button", "", element_id="save"))
@@ -2475,14 +2475,14 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
     """
 
     def _snap(self, ref, n, kind="base_feature"):
-        from chromedrift.model import Fact, Snapshot
+        from chromiumdiff.model import Fact, Snapshot
         return Snapshot(ref=ref, meta={"target_set": "default"},
                         facts=[Fact(kind, f"F{i}", f"F{i}", path="a.cc",
                                     attrs={"default_state": "enabled"})
                                for i in range(n)])
 
     def test_a_side_holding_a_fraction_of_the_other_is_refused(self):
-        from chromedrift.diff import diff_snapshots
+        from chromiumdiff.diff import diff_snapshots
         with self.assertRaises(ValueError) as caught:
             diff_snapshots(self._snap("full", 24959), self._snap("partial", 1647))
         message = str(caught.exception)
@@ -2492,11 +2492,11 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
 
     def test_two_real_versions_are_not_refused(self):
         """M143 holds 24,113 facts against M151's 24,959 -- 3% apart."""
-        from chromedrift.diff import diff_snapshots
+        from chromiumdiff.diff import diff_snapshots
         diff_snapshots(self._snap("m143", 24113), self._snap("m151", 24959))
 
     def test_an_empty_side_is_refused(self):
-        from chromedrift.diff import diff_snapshots
+        from chromiumdiff.diff import diff_snapshots
         with self.assertRaises(ValueError) as caught:
             diff_snapshots(self._snap("good", 24959), self._snap("broken", 0))
         self.assertIn("no facts at all", str(caught.exception))
@@ -2508,7 +2508,7 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
         builds a one-fact snapshot against a three-fact one, which is how it
         was first written.
         """
-        from chromedrift.diff import diff_snapshots
+        from chromiumdiff.diff import diff_snapshots
         diff_snapshots(self._snap("a", 1), self._snap("b", 9))
 
 
@@ -2523,19 +2523,19 @@ class TestMissingTargetsReachTheReport(unittest.TestCase):
     """
 
     def _report(self, missing):
-        from chromedrift.model import Report
+        from chromiumdiff.model import Report
         return Report(from_ref="a", to_ref="b", findings=[],
                       summary={}, meta={"missing_targets": missing})
 
     def test_the_markdown_names_them(self):
-        from chromedrift.report import markdown as md
+        from chromiumdiff.report import markdown as md
         text = md.render(self._report({"b": ["net/base/features.cc",
                                              "media/base/media_switches.cc"]}))
         self.assertIn("2 target(s) absent from `b`", text)
         self.assertIn("net/base/features.cc", text)
 
     def test_nothing_is_said_when_nothing_is_missing(self):
-        from chromedrift.report import markdown as md
+        from chromiumdiff.report import markdown as md
         self.assertNotIn("absent from", md.render(self._report({"b": []})))
 
 
@@ -2570,7 +2570,7 @@ class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
 
     def test_a_file_the_rule_admits_is_inside_a_root(self):
         """Otherwise it cannot be counted, however wide the run."""
-        from chromedrift.targets import DISCOVERY_ROOTS, could_declare
+        from chromiumdiff.targets import DISCOVERY_ROOTS, could_declare
 
         roots = tuple(r.rstrip("/") + "/" for r in DISCOVERY_ROOTS)
         outside = [p for p in self.ROOTS_MUST_COVER
@@ -2586,7 +2586,7 @@ class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
         while the per-run measurement could not, and the two numbers would
         disagree for a reason nobody had written down.
         """
-        from chromedrift.targets import could_declare
+        from chromiumdiff.targets import could_declare
 
         for path in ("third_party/zlib/cpu_features.h",
                      "third_party/abseil-cpp/absl/base/features.h",
@@ -2600,11 +2600,11 @@ class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
         """Checked against a real tree listing when one is on disk."""
         import glob
 
-        from chromedrift.targets import (DISCOVERY_ROOTS, could_declare,
+        from chromiumdiff.targets import (DISCOVERY_ROOTS, could_declare,
                                          discover_candidates)
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        listings = glob.glob(os.path.join(root, ".chromedrift-cache",
+        listings = glob.glob(os.path.join(root, ".chromiumdiff-cache",
                                           "listings", "*", "*.json"))
         if not listings:
             self.skipTest("no cached tree listings here")
@@ -2659,8 +2659,8 @@ class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
     def _facts(self, tmp, shuffle_seed=None):
         import random
 
-        from chromedrift.extract import run_on_tree
-        import chromedrift.extract as ex
+        from chromiumdiff.extract import run_on_tree
+        import chromiumdiff.extract as ex
 
         real = os.walk
         if shuffle_seed is not None:
@@ -2688,7 +2688,7 @@ class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
                                  f"walk order {seed} changed the fact set")
 
     def test_the_surviving_copy_is_chosen_by_path_not_arrival(self):
-        from chromedrift.model import Fact, dedupe_facts
+        from chromiumdiff.model import Fact, dedupe_facts
 
         low = Fact("pref", "shared", "shared", path="components/alpha/p.cc")
         high = Fact("pref", "shared", "shared", path="components/zebra/p.cc")
@@ -2697,7 +2697,7 @@ class TestExtractionDoesNotDependOnWalkOrder(unittest.TestCase):
             self.assertEqual([f.path for f in kept], ["components/alpha/p.cc"])
 
     def test_an_earlier_line_in_one_file_wins(self):
-        from chromedrift.model import Fact, dedupe_facts
+        from chromiumdiff.model import Fact, dedupe_facts
 
         first = Fact("switch", "s", "s", path="a.cc", line=10)
         second = Fact("switch", "s", "s", path="a.cc", line=90)
@@ -2715,11 +2715,11 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
     """
 
     def _pref(self, source):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
         return {f.key: f.attrs for f in constants.extract(source, "components/x/pref_names.cc")}
 
     def test_a_headers_include_guard_is_not_a_build_guard(self):
-        from chromedrift.extract import constants
+        from chromiumdiff.extract import constants
         source = ('#ifndef COMPONENTS_X_PREF_NAMES_H_\n'
                   '#define COMPONENTS_X_PREF_NAMES_H_\n'
                   'inline constexpr char kA[] = "a.b";\n'
@@ -2747,7 +2747,7 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
         self.assertEqual(attrs["a.b"]["platform_state"], {"windows": "conditional"})
 
     def test_an_elif_branch_carries_the_branches_above_it(self):
-        from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
+        from chromiumdiff.extract._cpp import conditional_spans, enclosing_conditions
         source = ('#if defined(ENABLE_X)\nA\n'
                   '#elif BUILDFLAG(IS_WIN)\nB\n#else\nC\n#endif\n')
         spans = conditional_spans(source)
@@ -2757,22 +2757,22 @@ class TestBuildGuardsAreRecordedAndResolved(unittest.TestCase):
                          ["!(defined(ENABLE_X))", "!(BUILDFLAG(IS_WIN))"])
 
     def test_a_plain_else_is_unchanged(self):
-        from chromedrift.extract._cpp import conditional_spans, enclosing_conditions
+        from chromiumdiff.extract._cpp import conditional_spans, enclosing_conditions
         source = "#if BUILDFLAG(IS_WIN)\nA\n#else\nB\n#endif\n"
         self.assertEqual(
             enclosing_conditions(conditional_spans(source), source.index("\nB") + 1),
             ["!(BUILDFLAG(IS_WIN))"])
 
     def test_a_grit_condition_is_read_by_the_same_evaluator(self):
-        from chromedrift.extract._cpp import eval_grit_condition
+        from chromiumdiff.extract._cpp import eval_grit_condition
         self.assertIs(eval_grit_condition("not is_win"), False)
         self.assertIs(eval_grit_condition("is_win or is_macosx"), True)
         self.assertIs(eval_grit_condition("is_macosx or is_linux"), False)
         self.assertIsNone(eval_grit_condition("_google_chrome"))
 
     def test_a_control_grit_excludes_is_scored_down(self):
-        from chromedrift.score import score_change
-        from chromedrift.model import Change
+        from chromiumdiff.score import score_change
+        from chromiumdiff.model import Change
         change = Change(change_type="modified", kind="webui_control",
                         key="k", name="k",
                         before={"platform_state": {"windows": "not_compiled"}},
@@ -2794,8 +2794,8 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     """
 
     def _change(self, kind, attr, before, after):
-        from chromedrift.diff import _make_change
-        from chromedrift.model import Fact
+        from chromiumdiff.diff import _make_change
+        from chromiumdiff.model import Fact
         old = Fact(kind, "k", "k", path="components/x/y.cc", attrs={attr: before})
         new = Fact(kind, "k", "k", path="components/x/y.cc", attrs={attr: after})
         return _make_change("modified", old, new, "windows", 151,
@@ -2822,8 +2822,8 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
             self.assertIn(expected, change.signals, f"{kind}.{attr}")
 
     def test_a_blink_flag_losing_its_feature_says_so(self):
-        from chromedrift.diff import _make_change
-        from chromedrift.model import Fact
+        from chromiumdiff.diff import _make_change
+        from chromiumdiff.model import Fact
         old = Fact("blink_runtime_feature", "F", "F", attrs={"base_feature": "F"})
         new = Fact("blink_runtime_feature", "F", "F", attrs={"base_feature": "none"})
         change = _make_change("modified", old, new, "windows", 151,
@@ -2832,7 +2832,7 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
 
     def test_labelling_the_expiry_moves_changed_no_ranking(self):
         """281 of them at M148 -> M151; the floor stays under the base."""
-        from chromedrift.diff import BASE_SEVERITY, SIGNAL_SEVERITY
+        from chromiumdiff.diff import BASE_SEVERITY, SIGNAL_SEVERITY
         self.assertLess(SIGNAL_SEVERITY["flag_expiry_moved"],
                         BASE_SEVERITY[("flag_entry", "modified")])
 
@@ -2911,7 +2911,7 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         state moving to `conditional`, and the three Blink fields that say who
         may reach a flag from outside the renderer.
         """
-        from chromedrift.diff import MEANINGFUL_ATTRS
+        from chromiumdiff.diff import MEANINGFUL_ATTRS
 
         missing_sample = []
         unexplained = []
@@ -2935,12 +2935,12 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
     def test_no_modified_change_in_the_real_range_is_unexplained(self):
         import glob
 
-        from chromedrift.diff import diff_snapshots
-        from chromedrift.model import SCHEMA_VERSION, Snapshot, read_json
+        from chromiumdiff.diff import diff_snapshots
+        from chromiumdiff.model import SCHEMA_VERSION, Snapshot, read_json
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         snaps = {}
-        for path in glob.glob(os.path.join(root, ".chromedrift-cache",
+        for path in glob.glob(os.path.join(root, ".chromiumdiff-cache",
                                            "snapshots", "*.default.json")):
             blob = read_json(path)
             if blob.get("schema") == SCHEMA_VERSION:
@@ -3006,33 +3006,33 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
     def test_a_mojo_interface_is_not_reported_at_the_line_above_it(self):
         """`\\s*` after the newline crossed the comment block and the blank
         line, so 1,453 of 1,455 interfaces at M151 pointed at the wrong line."""
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         found = self._lines(mojom.extract(self.MOJOM, "a/b.mojom"), self.MOJOM)
         self.assertEqual(found["Pinger"][0], 6)
         self.assertIn("interface Pinger", found["Pinger"][1])
 
     def test_every_mojo_method_has_its_own_line(self):
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         found = self._lines(mojom.extract(self.MOJOM, "a/b.mojom"), self.MOJOM)
         self.assertEqual(found["Ping"][0], 7)
         self.assertEqual(found["Pong"][0], 8)
 
     def test_every_idl_member_has_its_own_line(self):
-        from chromedrift.extract import web_idl
+        from chromiumdiff.extract import web_idl
         path = "third_party/blink/renderer/core/x.idl"
         found = self._lines(web_idl.extract(self.IDL, path), self.IDL)
         self.assertEqual(found["width"][0], 2)
         self.assertEqual(found["resize"][0], 3)
 
     def test_a_blink_flag_has_a_line_on_either_layout(self):
-        from chromedrift.extract import blink_runtime
+        from chromiumdiff.extract import blink_runtime
         path = "third_party/blink/renderer/platform/runtime_enabled_features.json5"
         found = self._lines(blink_runtime.extract(self.JSON5, path), self.JSON5)
         self.assertEqual(found["Alpha"][0], 4)
         self.assertEqual(found["Beta"][0], 7, "a brace sharing the line still counts")
 
     def test_a_flag_entry_has_a_line_on_either_layout(self):
-        from chromedrift.extract import flags_metadata
+        from chromiumdiff.extract import flags_metadata
         path = "chrome/browser/flag-metadata.json"
         found = self._lines(flags_metadata.extract(self.FLAGS, path), self.FLAGS)
         self.assertEqual(found["alpha-flag"][0], 3)
@@ -3040,7 +3040,7 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
 
     def test_the_line_never_walks_back_to_the_line_above(self):
         """`\\s` matches newlines; `[ \\t]` is what these patterns need."""
-        from chromedrift.extract import blink_runtime, flags_metadata
+        from chromiumdiff.extract import blink_runtime, flags_metadata
         for module, source, name in (
                 (blink_runtime, self.JSON5, "Alpha"),
                 (flags_metadata, self.FLAGS, "alpha-flag")):
@@ -3048,8 +3048,8 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
             self.assertIn(name, source.splitlines()[lines[name] - 1])
 
     def test_the_change_carries_the_place_not_just_the_file(self):
-        from chromedrift.diff import _make_change
-        from chromedrift.model import Fact
+        from chromiumdiff.diff import _make_change
+        from chromiumdiff.model import Fact
         old = Fact("mojo_method", "k", "k", path="a/b.mojom", line=41)
         new = Fact("mojo_method", "k", "k", path="a/b.mojom", line=87)
         change = _make_change("modified", old, new, "windows", 151,
@@ -3059,9 +3059,9 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
                          "the profile matches path prefixes; keep them clean")
 
     def test_both_renderers_show_it(self):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
         change = Change(change_type="modified", kind="mojo_method",
                         key="blink.mojom.X.Y", name="Y",
                         paths=["a/b.mojom"], locations=["a/b.mojom:41"],
@@ -3074,8 +3074,8 @@ class TestEveryFactPointsAtItsDeclaration(unittest.TestCase):
 
     def test_a_report_from_before_this_still_renders(self):
         """Version 20 reports have no locations; fall back to the file."""
-        from chromedrift.model import Report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
         blob = {"from_ref": "a", "to_ref": "b", "findings": [{
             "change": {"change_type": "modified", "kind": "mojo_method",
                        "key": "k", "name": "Y", "paths": ["a/b.mojom"],
@@ -3106,14 +3106,14 @@ class TestWebIdlReadsOnlyWebIdl(unittest.TestCase):
                      '};\n')
 
     def test_blink_idl_is_read(self):
-        from chromedrift.extract import web_idl
+        from chromiumdiff.extract import web_idl
         self.assertTrue(web_idl.applies_to(
             "third_party/blink/renderer/modules/webgl/x.idl"))
         self.assertTrue(web_idl.applies_to(
             "third_party/blink/renderer/core/dom/element.idl"))
 
     def test_the_extensions_dialect_is_not(self):
-        from chromedrift.extract import web_idl
+        from chromiumdiff.extract import web_idl
         for path in ("chrome/common/extensions/api/file_manager_private.idl",
                      "extensions/common/api/file_system.idl",
                      "chrome/common/apps/platform_apps/api/x.idl",
@@ -3128,7 +3128,7 @@ class TestWebIdlReadsOnlyWebIdl(unittest.TestCase):
         present but misdescribed -- the outcome this project treats as worse
         than a gap.
         """
-        from chromedrift.extract import web_idl
+        from chromiumdiff.extract import web_idl
         facts = web_idl.extract(self.EXTENSION_IDL,
                                 "third_party/blink/renderer/x.idl")
         self.assertEqual([(f.kind, f.key) for f in facts],
@@ -3153,7 +3153,7 @@ class TestEveryTreeWalkIsSorted(unittest.TestCase):
         # how the first version of this test reported all six lines as broken.
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         offenders = []
-        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+        for path in glob.glob(os.path.join(root, "chromiumdiff", "**", "*.py"),
                               recursive=True):
             with open(path, encoding="utf-8") as fh:
                 for lineno, line in enumerate(fh, 1):
@@ -3172,7 +3172,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
     """
 
     def _control(self, change_type="added", **attrs):
-        from chromedrift.model import Change
+        from chromiumdiff.model import Change
         base = {"surface": "settings", "page": "privacy_page",
                 "control": "settings-toggle-button", "element_id": "httpsOnly",
                 "pref": "generated.https_first_mode_enabled", "label": ""}
@@ -3183,14 +3183,14 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
                       name="id:httpsOnly", **side)
 
     def test_a_control_names_its_screen(self):
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.report import wording as surfaces
         self.assertEqual(surfaces.screen_of(self._control()),
                          "settings › privacy_page")
 
     def test_a_gate_is_placed_by_the_handler_that_sets_it(self):
         """Otherwise every gate lands in one undifferentiated pile."""
-        from chromedrift.model import Change
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Change
+        from chromiumdiff.report import wording as surfaces
         for handler, screen in (("downloads_ui", "downloads"),
                                 ("new_tab_page_ui", "new_tab_page"),
                                 ("history_util", "history")):
@@ -3200,21 +3200,21 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
             self.assertEqual(surfaces.screen_of(change), screen)
 
     def test_a_control_is_described_in_words(self):
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.report import wording as surfaces
         self.assertEqual(
             surfaces.describe(self._control()),
             "toggle — httpsOnly (writes generated.https_first_mode_enabled)")
 
     def test_a_retyped_control_shows_both_types(self):
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.report import wording as surfaces
         change = self._control("modified", control="settings-toggle-button")
         change.deltas = {"control": ["settings-dropdown-menu",
                                      "settings-toggle-button"]}
         self.assertIn("dropdown → toggle", surfaces.describe(change))
 
     def test_a_route_says_what_shows_it(self):
-        from chromedrift.model import Change
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Change
+        from chromiumdiff.report import wording as surfaces
         change = Change(change_type="added", kind="webui_route",
                         key="settings/AI", name="AI",
                         after={"surface": "settings", "route": "/ai",
@@ -3223,8 +3223,8 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
                          "page /ai (shown when showAiPage)")
 
     def test_screens_group_and_count_by_direction(self):
-        from chromedrift.model import Finding
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Finding
+        from chromiumdiff.report import wording as surfaces
         findings = [Finding(change=self._control("added"), score=30),
                     Finding(change=self._control("removed"), score=20),
                     Finding(change=self._control("modified"), score=40)]
@@ -3236,8 +3236,8 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
 
     def test_new_things_are_listed_first(self):
         """"What is new here" is the question people arrive with."""
-        from chromedrift.model import Finding
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Finding
+        from chromiumdiff.report import wording as surfaces
         findings = [Finding(change=self._control("removed"), score=90),
                     Finding(change=self._control("added"), score=10)]
         order = [f.change.change_type
@@ -3245,15 +3245,15 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         self.assertEqual(order, ["added", "removed"])
 
     def test_nothing_but_screens_is_grouped(self):
-        from chromedrift.model import Change, Finding
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Change, Finding
+        from chromiumdiff.report import wording as surfaces
         flag = Change(change_type="added", kind="base_feature", key="F", name="F")
         self.assertEqual(surfaces.build([Finding(change=flag)]), [])
 
     def test_both_renderers_carry_the_section(self):
-        from chromedrift.model import Finding, Report
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Finding, Report
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=self._control(), score=30,
                                           bucket="behaviour")])
@@ -3269,8 +3269,8 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
 
     def test_the_table_carries_the_direction_and_the_place(self):
         """Both were reachable only by opening a row, or not at all."""
-        from chromedrift.model import Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Finding, Report
+        from chromiumdiff.report import html as html_report
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=self._control(), score=30,
                                           bucket="behaviour")])
@@ -3280,8 +3280,8 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         self.assertIn("toggle", row["what"])
 
     def test_a_report_with_no_screens_renders_no_empty_section(self):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import markdown as md_report
         flag = Change(change_type="added", kind="base_feature", key="F", name="F")
         report = Report(from_ref="a", to_ref="b",
                         findings=[Finding(change=flag, score=20, bucket="housekeeping")])
@@ -3300,8 +3300,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def _change(self, kind="base_feature", change_type="added", signals=(),
                 **kw):
-        from chromedrift.diff import _severity_for
-        from chromedrift.model import Change
+        from chromiumdiff.diff import _severity_for
+        from chromiumdiff.model import Change
         change = Change(change_type=change_type, kind=kind,
                         key=kw.pop("key", "K"), name=kw.pop("name", "K"), **kw)
         change.signals = list(signals)
@@ -3310,8 +3310,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def test_the_story_is_the_signal_that_set_the_severity(self):
         """Otherwise a finding is filed under one sentence and ranked by another."""
-        from chromedrift.diff import SIGNAL_SEVERITY, leading_signal
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.diff import SIGNAL_SEVERITY, leading_signal
+        from chromiumdiff.report import wording as surfaces
 
         change = self._change(signals=["flag_expiring", "flag_retired_on",
                                        "declaration_moved"])
@@ -3322,7 +3322,7 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         self.assertEqual(change.severity, SIGNAL_SEVERITY[top])
 
     def test_the_pick_does_not_depend_on_signal_order(self):
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.report import wording as surfaces
         pair = ["flag_expiring", "flag_retired_on"]
         first = surfaces.story_of(self._change(signals=pair))
         second = surfaces.story_of(self._change(signals=list(reversed(pair))))
@@ -3330,8 +3330,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def test_a_change_with_no_signal_still_has_a_headline(self):
         """A third of a real report carries no signal -- things that only arrived."""
-        from chromedrift.model import ALL_KINDS
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import ALL_KINDS
+        from chromiumdiff.report import wording as surfaces
         for kind in ALL_KINDS:
             for direction in ("added", "removed", "modified"):
                 key, headline = surfaces.story_of(
@@ -3343,8 +3343,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def test_every_finding_lands_in_exactly_one_story(self):
         """The section is a partition of the report, not a highlight reel."""
-        from chromedrift.model import ALL_KINDS, KIND_GROUPS, Finding
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import ALL_KINDS, KIND_GROUPS, Finding
+        from chromiumdiff.report import wording as surfaces
 
         findings = []
         for i, kind in enumerate(ALL_KINDS):
@@ -3364,15 +3364,15 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def test_every_kind_belongs_to_exactly_one_group(self):
         """The group is printed on every row; a kind in none of them prints blank."""
-        from chromedrift.model import ALL_KINDS, KIND_GROUPS, group_of
+        from chromiumdiff.model import ALL_KINDS, KIND_GROUPS, group_of
         grouped = [k for _, kinds in KIND_GROUPS for k in kinds]
         self.assertEqual(sorted(grouped), sorted(ALL_KINDS))
         self.assertEqual(len(set(grouped)), len(grouped))
         self.assertTrue(all(group_of(k) for k in ALL_KINDS))
 
     def test_the_heaviest_story_leads(self):
-        from chromedrift.model import Finding
-        from chromedrift.report import wording as surfaces
+        from chromiumdiff.model import Finding
+        from chromiumdiff.report import wording as surfaces
         findings = [
             Finding(change=self._change(key="a", signals=["flag_expiring"])),
             Finding(change=self._change(key="b", signals=["enabled_by_default"])),
@@ -3384,9 +3384,9 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
                          "one severity-75 finding outranks two severity-45 ones")
 
     def test_both_renderers_carry_the_section(self):
-        from chromedrift.model import Finding, Report
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Finding, Report
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
         report = Report(from_ref="a", to_ref="b", findings=[
             Finding(change=self._change(signals=["enabled_by_default"]),
                     score=75, bucket="behaviour")])
@@ -3406,8 +3406,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         import json
         import re
 
-        from chromedrift.model import Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Finding, Report
+        from chromiumdiff.report import html as html_report
 
         report = Report(from_ref="a", to_ref="b", findings=[
             Finding(change=self._change(key="a", signals=["enabled_by_default"]),
@@ -3438,8 +3438,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         import json
         import re
 
-        from chromedrift.model import ALL_KINDS, BUCKET_ORDER, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import ALL_KINDS, BUCKET_ORDER, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         findings = []
         for i, kind in enumerate(ALL_KINDS):
@@ -3465,8 +3465,8 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
 
     def test_a_long_delta_does_not_take_over_the_table_cell(self):
         """A Mojo signature runs past 400 characters."""
-        from chromedrift.model import Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Finding, Report
+        from chromiumdiff.report import html as html_report
 
         change = self._change(kind="mojo_method", change_type="modified",
                               signals=["ipc_signature_change"])
@@ -3500,7 +3500,7 @@ class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
         import glob
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+        for path in glob.glob(os.path.join(root, "chromiumdiff", "**", "*.py"),
                               recursive=True):
             with open(path, encoding="utf-8") as fh:
                 tree = ast.parse(fh.read())
@@ -3540,7 +3540,7 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
     """
 
     def _snap(self, ref, body):
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         return Snapshot(ref=ref, facts=mojom.extract(
             f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
             meta={"target_set": "default"})
@@ -3559,7 +3559,7 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
 
     def test_the_row_says_what_moved(self):
         """A reader must not have to open the mojom to see it."""
-        from chromedrift.report import wording
+        from chromiumdiff.report import wording
         change = [c for c in diff_snapshots(
             self._snap("148.0.0.0", "Foo@0(int32 a);"),
             self._snap("151.0.0.0", "Foo@1(int32 a);"))
@@ -3590,7 +3590,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
 
     # --- the whitespace normaliser, and the false negative it first traded for
     def test_a_reformatted_signature_is_not_a_change(self):
-        from chromedrift.extract.web_idl import _normalize_signature as norm
+        from chromiumdiff.extract.web_idl import _normalize_signature as norm
         wrapped = ("Promise<ArrayBuffer> deriveBits( AlgorithmIdentifier a, "
                    "CryptoKey b, optional long? length = null)")
         inline = ("Promise<ArrayBuffer> deriveBits(AlgorithmIdentifier a, "
@@ -3601,7 +3601,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
 
     def test_a_string_literal_is_left_exactly_as_written(self):
         """`"a,b"` is not `"a, b"`, and the first normaliser made them equal."""
-        from chromedrift.extract.web_idl import _normalize_signature as norm
+        from chromiumdiff.extract.web_idl import _normalize_signature as norm
         self.assertNotEqual(norm('void f(optional DOMString s = "a,b")'),
                             norm('void f(optional DOMString s = "a, b")'))
         self.assertIn('"a,b"', norm('void f(optional DOMString s = "a,b")'))
@@ -3663,7 +3663,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
     # --- platform_state, on a kind that only started comparing it
     def test_a_mojo_method_leaving_the_windows_build_is_a_change(self):
         """Compared on three of sixteen kinds, so this produced no row."""
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
@@ -3678,8 +3678,8 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
 
     # --- per-overload extended attributes, not just the runtime flag
     def test_an_extended_attribute_moving_on_one_overload_is_visible(self):
-        from chromedrift.extract import web_idl
-        from chromedrift.model import dedupe_facts
+        from chromiumdiff.extract import web_idl
+        from chromiumdiff.model import dedupe_facts
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
                 "interface N { %s };" % body,
@@ -3699,7 +3699,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         The method case was tested and the field case was not, which is the
         half the review had to point out twice.
         """
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\n[Stable]\nstruct S {{ {body} }};\n", "t.mojom"),
@@ -3723,7 +3723,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         `device.mojom.HidCollectionInfo` and its neighbours losing `[Stable]`
         upstream. A position is evidence only against another position.
         """
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
 
         def snap_of(ref, header):
             return Snapshot(ref=ref, facts=mojom.extract(
@@ -3742,7 +3742,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
 
     def test_the_same_move_outside_a_stable_struct_is_not_reported(self):
         """1,110 of them at M148 -> M151. Chromium reorders freely there."""
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\nstruct S {{ {body} }};\n", "t.mojom"),
@@ -3756,8 +3756,8 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
     def test_one_event_scores_the_same_under_either_declaration_order(self):
         """The previous version compared two different events and called it a
         permutation test."""
-        from chromedrift.extract import web_idl
-        from chromedrift.model import dedupe_facts
+        from chromiumdiff.extract import web_idl
+        from chromiumdiff.model import dedupe_facts
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
                 "interface N { %s };" % body,
@@ -3798,7 +3798,7 @@ class TestASurfaceCountsEveryFileThatReadsIt(unittest.TestCase):
     ]
 
     def test_a_shared_file_counts_once_globally_and_once_per_surface(self):
-        from chromedrift.targets import coverage_against, discover_candidates
+        from chromiumdiff.targets import coverage_against, discover_candidates
         candidates, memberships = discover_candidates(self._Tree(self.PATHS))
         shared = "base/base_switches.cc"
         self.assertIn(shared, candidates)
@@ -3827,7 +3827,7 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
     """
 
     def _mojom_snapshot(self, ref, body, meta=None):
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
         return Snapshot(ref=ref, facts=mojom.extract(body, "t.mojom"),
                         meta=meta or {"target_set": "default"})
 
@@ -3840,7 +3840,7 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
         the function now: two snapshots in, and the object it returns has to
         answer the two directions differently.
         """
-        from chromedrift.cli import scope_for
+        from chromiumdiff.cli import scope_for
 
         thin = Snapshot(ref="148.0.0.0", facts=[], meta={
             "coverage": {"candidates": 100, "read": 1}})
@@ -3891,10 +3891,10 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
     def test_both_renderers_show_every_location_of_a_five_way_overload(self):
         """`report.json` carried all of them and the renderers cut at three,
         which dropped the line an overload had been removed from."""
-        from chromedrift.extract import web_idl
-        from chromedrift.model import Report, dedupe_facts
-        from chromedrift.report import html as html_report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.extract import web_idl
+        from chromiumdiff.model import Report, dedupe_facts
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff.report import markdown as md_report
 
         def side(body):
             return dedupe_facts(web_idl.extract(
@@ -3929,7 +3929,7 @@ class TestPairedAttributesStayScoped(unittest.TestCase):
     """
 
     def test_only_the_kinds_that_mean_it_compare_a_position(self):
-        from chromedrift.diff import MEANINGFUL_ATTRS, PAIRED_ATTRS
+        from chromiumdiff.diff import MEANINGFUL_ATTRS, PAIRED_ATTRS
         for attr in PAIRED_ATTRS:
             owners = {kind for kind, attrs in MEANINGFUL_ATTRS.items()
                       if attr in attrs}
@@ -3939,7 +3939,7 @@ class TestPairedAttributesStayScoped(unittest.TestCase):
                 f"comparing it under a different meaning would lose rows")
 
     def test_a_paired_attribute_still_speaks_when_both_sides_have_it(self):
-        from chromedrift.extract import mojom
+        from chromiumdiff.extract import mojom
 
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
@@ -3983,8 +3983,8 @@ class TestTheCompletenessMatrix(unittest.TestCase):
                               snap("151.0.0.0", sides[1]))[0]
 
     def _variant(self, direction):
-        from chromedrift.extract import web_idl
-        from chromedrift.model import dedupe_facts
+        from chromiumdiff.extract import web_idl
+        from chromiumdiff.model import dedupe_facts
 
         def side(body):
             return dedupe_facts(web_idl.extract(
@@ -4060,7 +4060,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
         cannot help because the break already happened when the document was
         parsed.
         """
-        from chromedrift.report.html import _embed
+        from chromiumdiff.report.html import _embed
         out = _embed({"name": "</script><script>alert(1)</script>"})
         self.assertNotIn("</script>", out)
         self.assertNotIn("<script", out)
@@ -4074,7 +4074,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
         `javascript:alert(1)` survives every entity encoding and runs on
         click, and the value arrives from chromestatus over the network.
         """
-        from chromedrift.report.html import _http_url
+        from chromiumdiff.report.html import _http_url
         self.assertTrue(_http_url("https://spec.example/x"))
         self.assertTrue(_http_url("http://spec.example/x"))
         self.assertFalse(_http_url("javascript:alert(1)"))
@@ -4084,7 +4084,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
 
     def test_a_line_separator_cannot_break_the_literal(self):
         """U+2028 is valid JSON and illegal in a JS string literal."""
-        from chromedrift.report.html import _embed
+        from chromiumdiff.report.html import _embed
         self.assertNotIn("\u2028", _embed({"a": "x\u2028y"}))
 
     def test_a_ref_cannot_climb_out_of_the_cache(self):
@@ -4094,7 +4094,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
         platform this tool is written for -- so `..\\..\\victim` wrote outside
         the cache, and `tree_path` is where a whole source tree is unpacked.
         """
-        from chromedrift.acquire import safe_name as _safe_name
+        from chromiumdiff.acquire import safe_name as _safe_name
         for hostile in ("..\\..\\victim", "../../etc/passwd", "a/b", "a:b",
                         "..", "....//"):
             safe = _safe_name(hostile)
@@ -4107,7 +4107,7 @@ class TestTheReportIsSafeToOpen(unittest.TestCase):
 
     def test_check_does_not_print_proxy_credentials(self):
         """`check` output is the first thing pasted into a ticket."""
-        from chromedrift.cli import _redact_proxy
+        from chromiumdiff.cli import _redact_proxy
         self.assertEqual(_redact_proxy("http://user:pw@proxy.corp:8080"),
                          "http://<redacted>@proxy.corp:8080")
         self.assertEqual(_redact_proxy("http://proxy.corp:8080"),
@@ -4137,8 +4137,8 @@ class TestOneEligibilityPolicy(unittest.TestCase):
     }
 
     def test_both_pipelines_give_the_same_answer(self):
-        from chromedrift.extract import _skip
-        from chromedrift.targets import could_declare
+        from chromiumdiff.extract import _skip
+        from chromiumdiff.targets import could_declare
         for path, keep in self.CASES.items():
             self.assertEqual(not _skip(path), keep, f"extraction: {path}")
             self.assertEqual(could_declare(path) is not None, keep,
@@ -4146,7 +4146,7 @@ class TestOneEligibilityPolicy(unittest.TestCase):
 
     def test_a_product_word_containing_test_is_not_test_code(self):
         """The rule is a suffix before the extension, not a substring."""
-        from chromedrift.eligibility import skip_reason
+        from chromiumdiff.eligibility import skip_reason
         self.assertEqual(skip_reason("cc/mojom/hit_test_opaqueness.mojom"), "")
         self.assertEqual(skip_reason("ui/latency_test_helper.cc"), "")
         self.assertTrue(skip_reason("ui/widget_test.cc"))
@@ -4207,8 +4207,8 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
     """
 
     def _snap(self, ref, body):
-        from chromedrift.extract import web_idl
-        from chromedrift.model import dedupe_facts
+        from chromiumdiff.extract import web_idl
+        from chromiumdiff.model import dedupe_facts
         return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
             "interface N { %s };" % body,
             "third_party/blink/renderer/x.idl")),
@@ -4264,7 +4264,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
 
     def test_an_optional_argument_serves_more_than_one_count(self):
         """Declared parameter count is not the effective overload set."""
-        from chromedrift.diff import _arity_range
+        from chromiumdiff.diff import _arity_range
         self.assertEqual(_arity_range("void f(optional long a)"), (0, 1))
         self.assertEqual(_arity_range("void f(long... a)"), (0, None))
         self.assertEqual(_arity_range("void f(long a, optional long b)"), (1, 2))
@@ -4348,7 +4348,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         would turn ordinary churn into rows. What was missing was landing on
         the right declaration, not being told a line moved.
         """
-        from chromedrift.diff import MEANINGFUL_ATTRS
+        from chromiumdiff.diff import MEANINGFUL_ATTRS
         change = [c for c in diff_snapshots(
             self._snap("148.0.0.0", "void f();\n  void f(long a);"),
             self._snap("151.0.0.0", "void f();"))
@@ -4396,7 +4396,7 @@ class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
         self.assertFalse(scope.confirms_absence("pref"))
 
     def test_the_reason_says_which_it_was(self):
-        from chromedrift.model import Fact
+        from chromiumdiff.model import Fact
         scope = Scope(self.FULL, "refs/tags/151",
                       incomplete="1 file(s) that would not parse")
         fact = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
@@ -4408,7 +4408,7 @@ class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
         self.assertNotIn("of that surface", reasons)
 
     def test_the_reason_is_built_from_the_snapshot(self):
-        from chromedrift.cli import _incomplete_reason
+        from chromiumdiff.cli import _incomplete_reason
         clean = Snapshot(ref="r", facts=[], meta={"missing_targets": [],
                                                   "extract_stats": {"_errors": 0}})
         holed = Snapshot(ref="r", facts=[], meta={"missing_targets": ["a", "b"],
@@ -4429,8 +4429,8 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
     """
 
     def test_every_extractor_widens_the_denominator(self):
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import could_declare
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import could_declare
         samples = {
             "base_features": "content/public/common/content_features.cc",
             "web_idl": "third_party/blink/renderer/core/dom/element.idl",
@@ -4443,8 +4443,8 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
 
     def test_the_denominator_and_the_extractors_cannot_disagree(self):
         """The rules *are* the extractor predicates, not a copy of them."""
-        from chromedrift.extract import REGISTRY
-        from chromedrift.targets import _discovery_rules
+        from chromiumdiff.extract import REGISTRY
+        from chromiumdiff.targets import _discovery_rules
         rules = _discovery_rules()
         self.assertEqual(len(rules), len(REGISTRY))
         for rule, (_, applies, _fn) in zip(rules, REGISTRY):
@@ -4467,8 +4467,8 @@ class TestNoRowPrintsTheSameArrowTwice(unittest.TestCase):
     """
 
     def _row(self, kind, key, attrs_before, attrs_after, deltas):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
         change = Change(change_type="modified", kind=kind, key=key,
                         name=key.split(".")[-1], before=attrs_before,
                         after=attrs_after, deltas=deltas)
@@ -4518,7 +4518,7 @@ class TestEveryKindIsSaidInWords(unittest.TestCase):
     """
 
     def _change(self, kind):
-        from chromedrift.model import Change
+        from chromiumdiff.model import Change
         # Only the attributes every kind of that shape really carries, so the
         # test fails when a branch is missing rather than when it is thin.
         attrs = {
@@ -4540,8 +4540,8 @@ class TestEveryKindIsSaidInWords(unittest.TestCase):
                       name="c", after=attrs)
 
     def test_every_kind_describes_itself_as_more_than_its_name(self):
-        from chromedrift.model import ALL_KINDS
-        from chromedrift.report import wording
+        from chromiumdiff.model import ALL_KINDS
+        from chromiumdiff.report import wording
 
         bare = []
         for kind in ALL_KINDS:
@@ -4552,8 +4552,8 @@ class TestEveryKindIsSaidInWords(unittest.TestCase):
         self.assertEqual(bare, [], "kinds that reach the report as an identifier")
 
     def test_every_kind_has_a_word_for_what_it_is(self):
-        from chromedrift.model import ALL_KINDS
-        from chromedrift.report.wording import KIND_WORDS
+        from chromiumdiff.model import ALL_KINDS
+        from chromiumdiff.report.wording import KIND_WORDS
         self.assertEqual(sorted(set(ALL_KINDS) - set(KIND_WORDS)), [])
 
 
@@ -4587,7 +4587,7 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
               'Reland "Enable AutofillImprove"')
 
     def _order(self, hits):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
         return [h["subject"] for h in gerrit._prune(hits)]
 
     def test_a_reland_never_prints_above_the_revert_it_undid(self):
@@ -4599,7 +4599,7 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
 
     def test_the_crowded_history_orders_the_same_way(self):
         """The branch that reverses itself has to reverse a settled order."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         extra = [self._cl(7860000 + i, f"2026-05-20 0{i}:00:00.000000000",
                           f"earlier {i}") for i in range(gerrit.DECL_MAX)]
@@ -4629,7 +4629,7 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
     def test_an_issue_history_is_ordered_the_same_way(self):
         """It builds its own rows rather than going through `_compact`, so it
         is the one list that can quietly keep ordering by the day."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         rows = [{"_number": 2, "subject": "second",
                  "submitted": "2026-05-22 08:06:11.000000000"},
@@ -4647,7 +4647,7 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
     def test_a_compacted_cl_keeps_the_stamp_it_is_ordered_by(self):
         """`date` is the stamp truncated for a reader, derived once. Dropping
         the stamp leaves every list ordered by a day again."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         out = gerrit._compact(
             {"_number": 1, "subject": "s",
@@ -4659,7 +4659,7 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
         """Selection is newest-first, so the tie-break has to run that way too
         -- a cap that drops the reland and keeps the revert reports the
         opposite of the state the report found."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         hits = ([self._cl(*self.RELAND), self._cl(*self.REVERT)]
                 + [self._cl(7800000 + i, f"2026-05-01 0{i % 10}:00:00.000000000",
@@ -4672,17 +4672,17 @@ class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
 
     Each one was then re-measured by hand, twice, because the first sweep
     looked only for flags and command names and prose is where they live.
-    `chromedrift figures` is the answer the project already has for that, and
+    `chromiumdiff figures` is the answer the project already has for that, and
     the stage was not in it.
     """
 
     def _report(self, findings):
-        from chromedrift.model import Change, Finding, Report
+        from chromiumdiff.model import Change, Finding, Report
         return Report(from_ref="a", to_ref="b", summary={}, meta={},
                       findings=findings)
 
     def _finding(self, key, changes, issues=None):
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.model import Change, Finding
         block = {"changes": changes}
         if issues is not None:
             block["issues"] = issues
@@ -4692,7 +4692,7 @@ class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
             enrichment={"gerrit": block})
 
     def test_it_counts_what_the_documents_quote(self):
-        from chromedrift.cli import measured_figures
+        from chromiumdiff.cli import measured_figures
 
         rows = [
             self._finding("A", [{"match": "exact", "number": 1,
@@ -4716,8 +4716,8 @@ class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
 
     def test_a_report_nothing_was_looked_up_in_claims_nothing(self):
         """Zero reads as a measurement, and there was no measurement."""
-        from chromedrift.model import Change, Finding
-        from chromedrift.cli import measured_figures
+        from chromiumdiff.model import Change, Finding
+        from chromiumdiff.cli import measured_figures
 
         bare = Finding(change=Change(change_type="modified",
                                      kind="base_feature", key="A", name="A"),
@@ -4732,8 +4732,8 @@ class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
         prevent."""
         import argparse
 
-        from chromedrift.cli import cmd_figures
-        from chromedrift.model import write_json
+        from chromiumdiff.cli import cmd_figures
+        from chromiumdiff.model import write_json
 
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, True)
@@ -4766,7 +4766,7 @@ class TestEveryFlagIsActedOn(unittest.TestCase):
         import ast
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "chromedrift", "cli.py"), encoding="utf-8") as fh:
+        with open(os.path.join(root, "chromiumdiff", "cli.py"), encoding="utf-8") as fh:
             tree = ast.parse(fh.read())
         fn = next(n for n in ast.walk(tree)
                   if isinstance(n, ast.FunctionDef) and n.name == f"cmd_{name}")
@@ -4775,7 +4775,7 @@ class TestEveryFlagIsActedOn(unittest.TestCase):
                 and getattr(n.value, "id", "") == "args"}
 
     def test_no_subcommand_offers_a_flag_it_never_reads(self):
-        from chromedrift.cli import build_parser
+        from chromiumdiff.cli import build_parser
 
         parser = build_parser()
         commands = parser._subparsers._group_actions[0].choices
@@ -4792,7 +4792,7 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
     """The AI stage is gone. Help text and docstrings must not advertise it."""
 
     def test_the_run_command_help_does_not_promise_ai(self):
-        from chromedrift.cli import build_parser
+        from chromiumdiff.cli import build_parser
 
         parser = build_parser()
         run = parser._subparsers._group_actions[0].choices["run"]
@@ -4818,7 +4818,7 @@ class TestTheRemovedVerdictStageLeavesNoTrace(unittest.TestCase):
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         offenders = []
-        for path in glob.glob(os.path.join(root, "chromedrift", "**", "*.py"),
+        for path in glob.glob(os.path.join(root, "chromiumdiff", "**", "*.py"),
                               recursive=True):
             with open(path, encoding="utf-8") as fh:
                 for lineno, line in enumerate(fh, 1):
@@ -4847,19 +4847,19 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     """
 
     def _change(self, kind, key, name=None):
-        from chromedrift.model import Change
+        from chromiumdiff.model import Change
         return Change(change_type="modified", kind=kind, key=key,
                       name=name if name is not None else key)
 
     def test_a_feature_is_searched_for_under_both_spellings(self):
-        from chromedrift.enrich.gerrit import tokens_for
+        from chromiumdiff.enrich.gerrit import tokens_for
 
         tokens = tokens_for(self._change("base_feature", "BackForwardCache"))
         self.assertIn("BackForwardCache", tokens)
         self.assertIn("kBackForwardCache", tokens)
 
     def test_a_qualified_key_also_yields_the_leaf_the_declaration_writes(self):
-        from chromedrift.enrich.gerrit import tokens_for
+        from chromiumdiff.enrich.gerrit import tokens_for
 
         tokens = tokens_for(self._change(
             "mojo_method", "blink.mojom.AIManager.CreateLanguageModel",
@@ -4868,7 +4868,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
 
     def test_a_leaf_too_short_to_identify_anything_is_not_searched_for(self):
         """`url` matches every line in a .mojom; the qualified key does not."""
-        from chromedrift.enrich.gerrit import tokens_for
+        from chromiumdiff.enrich.gerrit import tokens_for
 
         tokens = tokens_for(self._change(
             "mojo_field", "blink.mojom.TokenError.url", "url"))
@@ -4876,7 +4876,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         self.assertIn("blink.mojom.TokenError.url", tokens)
 
     def test_a_changed_line_is_exact_and_a_neighbour_is_only_nearby(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         edited = [("  kFoo,", True), ("  b);", False)]
         self.assertEqual(gerrit._match(gerrit._Scanned(edited), {"kFoo"}),
@@ -4891,7 +4891,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         """Directional on purpose. A declaration's body follows its name -- a
         Mojo method's parameters, a field's type -- so an edit *above* the name
         belongs to whatever was declared before it, not to this."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         above = [("  edited,", True), ("  Other();", False),
                  ("  CreateWriter(", False), ("    a);", False)]
@@ -4911,9 +4911,9 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         that cannot occur in any of them. Reported as "no CL edits a line
         carrying this identifier", which was true and deeply misleading.
         """
-        from chromedrift.enrich.gerrit import tokens_for
+        from chromiumdiff.enrich.gerrit import tokens_for
 
-        from chromedrift.enrich.gerrit import container_for
+        from chromiumdiff.enrich.gerrit import container_for
 
         change = self._change("mojo_field", "blink.mojom.TokenError.url", "url")
         self.assertNotIn("url", tokens_for(change))
@@ -4923,7 +4923,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         """A changed line mentioning `TokenError` is not a changed line
         declaring `TokenError.url`. Mixed into the token set it claimed `exact`
         on two CLs that had merely tidied the struct."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seq = [("struct TokenError {", True), ("  int32 a;", False),
                ("};", False)]
@@ -4935,9 +4935,9 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_key_with_a_usable_leaf_does_not_widen_to_its_container(self):
         """`AIManager` names twenty methods; falling back to it when the method
         itself is searchable would trade one answer for twenty."""
-        from chromedrift.enrich.gerrit import tokens_for
+        from chromiumdiff.enrich.gerrit import tokens_for
 
-        from chromedrift.enrich.gerrit import container_for
+        from chromiumdiff.enrich.gerrit import container_for
 
         change = self._change("mojo_method",
                               "blink.mojom.AIManager.CreateLanguageModel",
@@ -4946,7 +4946,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         self.assertEqual(container_for(change), "")
 
     def test_a_mention_far_from_every_edit_is_no_evidence_at_all(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seq = [("  kFoo;", False), ("  Other();", False),
                ("  edited,", True), ("  more);", False)]
@@ -4955,7 +4955,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_declaration_that_never_closes_is_not_attributed(self):
         """A shape the scanner cannot close is one it cannot bound, and an
         unbounded region would swallow the rest of the file."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seq = [("  kFoo", False)] + [("filler", False)] * 80 + [("x", True)]
         self.assertEqual(gerrit._match(gerrit._Scanned(seq), {"kFoo"}), "")
@@ -4964,7 +4964,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         """`runtime_enabled_features.json5` names a feature inside a `{...},`
         record and nothing after it ever ends in `;`, so scanning forward could
         only ever run to the cap."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seq = [("  {", False),
                ('    name: "GetComputedStyleOutsideFlatTree",', False),
@@ -4988,7 +4988,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_struct_body_runs_to_its_closing_brace(self):
         """A field is reached through the struct that declares it, so the
         region is the whole struct rather than the first line ending in `;`."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seq = [("struct TokenError {", False), ("  string? a;", False),
                ("  url.mojom.Url? url;", True), ("};", False)]
@@ -5008,7 +5008,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
 
         It still ranks below, so it can never be read as the citation.
         """
-        from chromedrift.enrich.gerrit import _prune
+        from chromiumdiff.enrich.gerrit import _prune
 
         kept = _prune([{"match": "declares", "date": "2026-06-01"},
                        {"match": "exact", "date": "2026-04-01"}])
@@ -5017,7 +5017,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_crowd_of_declarations_is_still_dropped_beside_a_strong_hit(self):
         """The scarcity test is what makes `declares` mean anything, and it
         does not stop applying because a strong hit turned up."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         crowd = [{"match": "declares", "date": f"2026-06-{i + 1:02d}"}
                  for i in range(gerrit.DECL_MAX + 1)]
@@ -5033,7 +5033,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         CLs had edited. `crowded` is both: kept, and ranked below every verdict
         that names the fact.
         """
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         many = [{"match": "declares", "date": f"2026-06-0{i}"}
                 for i in range(1, gerrit.DECL_MAX + 2)]
@@ -5049,7 +5049,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
     def test_a_crowd_never_displaces_a_cl_that_names_the_fact(self):
         """Demoting them is only safe while they cannot outrank real
         evidence, so the one `exact` still retires all eleven."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         hits = [{"match": "declares", "date": f"2026-06-0{i}"}
                 for i in range(1, gerrit.DECL_MAX + 2)]
@@ -5065,7 +5065,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
         The cap still takes the newest, because that is what a cap should
         keep; only the surviving order changes.
         """
-        from chromedrift.enrich.gerrit import _prune
+        from chromiumdiff.enrich.gerrit import _prune
 
         kept = _prune([{"match": "exact", "date": "2026-06-01"},
                        {"match": "exact", "date": "2026-04-01"}])
@@ -5073,7 +5073,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
                          ["2026-04-01", "2026-06-01"])
 
     def test_the_cap_keeps_the_newest_of_a_long_chain(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         chain = [{"match": "exact", "date": f"2026-06-{i + 1:02d}"}
                  for i in range(gerrit.KEEP_MAX + 4)]
@@ -5084,7 +5084,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
 
     def test_a_footer_that_is_not_a_public_issue_is_not_offered_as_one(self):
         """Measured over 62 real CLs: 2 point at Google's internal tracker."""
-        from chromedrift.enrich.gerrit import bugs_in
+        from chromiumdiff.enrich.gerrit import bugs_in
 
         self.assertEqual(
             bugs_in("Subject\n\nBug: 40123456, b/999888777\n"
@@ -5096,7 +5096,7 @@ class TestProvenanceStopsAtEvidence(unittest.TestCase):
 
     def test_closing_an_issue_is_not_the_same_claim_as_citing_one(self):
         """Chromium writes both, 575 `Bug:` to 34 `Fixed:` in a real sample."""
-        from chromedrift.enrich.gerrit import bugs_in
+        from chromiumdiff.enrich.gerrit import bugs_in
 
         self.assertNotIn("closes", bugs_in("s\n\nBug: 40123456\n")[0])
         self.assertTrue(bugs_in("s\n\nFixed: 40123456\n")[0]["closes"])
@@ -5114,7 +5114,7 @@ class TestTheThirdEvidenceTierIsFree(unittest.TestCase):
     """
 
     def test_a_description_naming_the_identifier_is_evidence(self):
-        from chromedrift.enrich.gerrit import _match_message
+        from chromiumdiff.enrich.gerrit import _match_message
 
         cl = {"subject": "Enable AndroidCaptureKeyEvents by default",
               "revisions": {"r": {"commit": {"message": "body\n"}}}}
@@ -5122,7 +5122,7 @@ class TestTheThirdEvidenceTierIsFree(unittest.TestCase):
         self.assertFalse(_match_message(cl, {"SomethingElse"}))
 
     def test_it_ranks_under_the_line_and_over_the_neighbourhood(self):
-        from chromedrift.enrich.gerrit import _prune
+        from chromiumdiff.enrich.gerrit import _prune
 
         kept = _prune([{"match": "declares", "date": "2026-07-01"},
                        {"match": "described", "date": "2026-05-01"},
@@ -5147,7 +5147,7 @@ class TestABudgetBuysTheMostRowsItCan(unittest.TestCase):
     SERVED = {"autofill": 16, "extension": 1, "runtime": 1, "content": 5}
 
     def test_the_worst_trade_is_the_first_one_dropped(self):
-        from chromedrift.enrich.gerrit import spend_order
+        from chromiumdiff.enrich.gerrit import spend_order
 
         read, skipped = spend_order(self.COST, self.SERVED, budget=200)
         self.assertEqual(read, ["autofill", "content"])
@@ -5155,7 +5155,7 @@ class TestABudgetBuysTheMostRowsItCan(unittest.TestCase):
         self.assertTrue(any(s.startswith("runtime") for s in skipped))
 
     def test_no_budget_reads_everything(self):
-        from chromedrift.enrich.gerrit import spend_order
+        from chromiumdiff.enrich.gerrit import spend_order
 
         read, skipped = spend_order(self.COST, self.SERVED, budget=0)
         self.assertEqual(sorted(read), sorted(self.COST))
@@ -5164,14 +5164,14 @@ class TestABudgetBuysTheMostRowsItCan(unittest.TestCase):
     def test_a_file_is_taken_whole_or_not_at_all(self):
         """Half a file's CLs would make "no CL edits this line" depend on
         which half, which is a claim this stage must never make by accident."""
-        from chromedrift.enrich.gerrit import spend_order
+        from chromiumdiff.enrich.gerrit import spend_order
 
         read, _ = spend_order(self.COST, self.SERVED, budget=200)
         self.assertEqual(sum(self.COST[p] for p in read), 199)
 
     def test_a_file_nobody_looked_at_says_so(self):
-        from chromedrift.report.html import _to_rows
-        from chromedrift.model import Change, Finding, Report
+        from chromiumdiff.report.html import _to_rows
+        from chromiumdiff.model import Change, Finding, Report
 
         def report(diffs_read):
             block = {"candidates": 500, "changes": [
@@ -5216,7 +5216,7 @@ class TestTheProvenanceWindowIsTakenFromTheTags(unittest.TestCase):
                        "committer": {"time": "Mon Jun 29 18:02:11 2026"}}
 
     def _window(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         lookup = {"148": self.FROM_TAG, "a" * 40: self.BRANCH_POINT,
                   "151": self.TO_TAG, "b" * 40: self.TO_BRANCH_POINT}
@@ -5250,7 +5250,7 @@ class TestTheProvenanceWindowIsTakenFromTheTags(unittest.TestCase):
         self.assertEqual(self._window()[2], "2026-08-11")
 
     def test_a_target_tag_with_no_branch_point_keeps_the_old_ceiling(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         bare = {"message": "Incrementing VERSION to 151.0.7922.138\n",
                 "committer": {"time": "Mon Aug 10 22:57:55 2026"}}
@@ -5276,8 +5276,8 @@ class TestAFailedFetchIsNeverReadAsNoEvidence(unittest.TestCase):
     """
 
     def test_a_failure_is_counted_rather_than_swallowed(self):
-        import chromedrift.enrich.gerrit as gerrit
-        from chromedrift.acquire import AcquireError
+        import chromiumdiff.enrich.gerrit as gerrit
+        from chromiumdiff.acquire import AcquireError
 
         gerrit._failures.__init__()
         real = gerrit._http_get
@@ -5295,8 +5295,8 @@ class TestAFailedFetchIsNeverReadAsNoEvidence(unittest.TestCase):
 
     def test_rate_limiting_is_retried_on_its_own_ladder(self):
         """The generic 1.5/3/6s backoff is too short for a per-minute limiter."""
-        import chromedrift.enrich.gerrit as gerrit
-        from chromedrift.acquire import AcquireError
+        import chromiumdiff.enrich.gerrit as gerrit
+        from chromiumdiff.acquire import AcquireError
 
         gerrit._failures.__init__()
         calls = []
@@ -5330,7 +5330,7 @@ class TestTheSearchProvesItsOwnCompleteness(unittest.TestCase):
     """
 
     def _run(self, pages):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         real = gerrit._page
         gerrit._page = lambda path, after, before, start, *a, **k: (
@@ -5342,7 +5342,7 @@ class TestTheSearchProvesItsOwnCompleteness(unittest.TestCase):
             gerrit._page = real
 
     def test_a_window_at_the_cap_is_split_rather_than_believed(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         def pages(after, before):
             """Whole window: capped. Either half: 400, which the cap hid."""
@@ -5356,7 +5356,7 @@ class TestTheSearchProvesItsOwnCompleteness(unittest.TestCase):
         self.assertGreater(len(rows), gerrit.PAGE_CAP)
 
     def test_a_single_day_still_at_the_cap_is_reported_as_partial(self):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         rows, truncated = self._run(
             lambda a, b: [{"_number": i} for i in range(gerrit.PAGE_CAP)])
@@ -5372,7 +5372,7 @@ class TestProvenanceRidesOnlyOnTheRowsItExplains(unittest.TestCase):
     """
 
     def _report(self, enriched):
-        from chromedrift.model import Change, Finding, Report
+        from chromiumdiff.model import Change, Finding, Report
 
         findings = []
         for i, enrich in enumerate(enriched):
@@ -5385,14 +5385,14 @@ class TestProvenanceRidesOnlyOnTheRowsItExplains(unittest.TestCase):
                       summary={}, meta={"platform": "windows"})
 
     def test_a_row_with_no_cl_carries_no_denominator(self):
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.report.html import _to_rows
 
         rows = _to_rows(self._report([None]), "windows")
         self.assertNotIn("cl_pool", rows[0])
         self.assertNotIn("cls", rows[0])
 
     def test_a_row_with_a_cl_carries_the_pool_it_was_picked_from(self):
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.report.html import _to_rows
 
         rows = _to_rows(self._report([{"gerrit": {
             "candidates": 62,
@@ -5406,7 +5406,7 @@ class TestProvenanceRidesOnlyOnTheRowsItExplains(unittest.TestCase):
     def test_a_restricted_issue_is_flagged_in_the_payload(self):
         """70 of 236 issues a real report links answer 403; an unmarked link
         to one reads as a broken tool rather than as a closed door."""
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.report.html import _to_rows
 
         rows = _to_rows(self._report([{"gerrit": {
             "candidates": 3,
@@ -5417,8 +5417,8 @@ class TestProvenanceRidesOnlyOnTheRowsItExplains(unittest.TestCase):
         self.assertEqual(rows[0]["cls"][0]["b"], [{"i": "9", "f": 1, "r": 1}])
 
     def test_the_markdown_prints_the_pool_and_the_strength(self):
-        from chromedrift.report.markdown import _provenance_lines
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.report.markdown import _provenance_lines
+        from chromiumdiff.model import Change, Finding
 
         finding = Finding(
             change=Change(change_type="modified", kind="base_feature",
@@ -5444,8 +5444,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
     """
 
     def _dir(self):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         report = Report(from_ref="a", to_ref="b", summary={},
                         meta={"platform": "windows"},
@@ -5465,7 +5465,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
     def _server(self):
         import threading
         from http.server import ThreadingHTTPServer
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
         handler = type("_B", (serve_mod._Handler,), {"state": state})
@@ -5517,7 +5517,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         """
         import re
 
-        from chromedrift.report.html import PROVENANCE_KEYS
+        from chromiumdiff.report.html import PROVENANCE_KEYS
 
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(root, "tests", "js", "report_dom.js")
@@ -5537,7 +5537,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         """
         import shutil
 
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         directory = self._dir()
         lines = []
@@ -5567,16 +5567,16 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         # `report` writes to stdout unless `--out` says otherwise: the reader
         # got a report in the terminal and two files as stale as before.
         printed = [ln.strip() for ln in lines
-                   if "python3 -m chromedrift report" in ln]
+                   if "python3 -m chromiumdiff report" in ln]
         self.assertEqual(1, len(printed), text)
-        argv = printed[0].split()[3:]           # drop `python3 -m chromedrift`
+        argv = printed[0].split()[3:]           # drop `python3 -m chromiumdiff`
         md = os.path.join(directory, "report.md")
         html = os.path.join(directory, "report.html")
         for path in (md, html):
             if os.path.exists(path):
                 os.remove(path)
 
-        from chromedrift import cli
+        from chromiumdiff import cli
         self.assertEqual(0, cli.main(argv))
         for path in (md, html):
             self.assertTrue(os.path.exists(path),
@@ -5593,7 +5593,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
             self.assertEqual(self._get(base, f"/api/issue?id={bad}")[0], 400, bad)
 
     def _state_with(self, changes, before_main=""):
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         state = serve_mod._State(self._dir(), tempfile.mkdtemp(), budget=1)
         state._before_main = before_main
@@ -5639,8 +5639,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         """`enrich` has taken a `refresh` since it was written and no caller
         ever set it. Re-asking a row still reads the HTTP cache, so a bad
         response cached once is a bad answer for ever; this is the way past."""
-        from chromedrift import serve as serve_mod
-        from chromedrift.enrich import gerrit
+        from chromiumdiff import serve as serve_mod
+        from chromiumdiff.enrich import gerrit
 
         seen = {}
         real = gerrit.enrich
@@ -5665,7 +5665,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
     def test_a_stale_block_is_dropped_rather_than_written_over(self):
         """`enrich` reuses the block it finds, so a key an older run set and
         this one does not would survive and read as part of the new answer."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         state, finding = self._state_with(
             [{"number": 1, "date": "2026-05-01"}])          # no `at` -> stale
@@ -5687,8 +5687,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         wrote once -- before any CL existed to group on. Re-rendering after a
         session of lookups would print the run's groups over the lookups'
         findings."""
-        from chromedrift import cluster, serve as serve_mod
-        from chromedrift.enrich import gerrit
+        from chromiumdiff import cluster, serve as serve_mod
+        from chromiumdiff.enrich import gerrit
 
         real = gerrit.enrich
         gerrit.enrich = lambda *a, **k: {"available": False}
@@ -5707,8 +5707,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         Gerrit anything -- so the rule that joins findings sharing a CL could
         never fire at all. A lookup is the moment its evidence arrives.
         """
-        from chromedrift import cluster, serve as serve_mod
-        from chromedrift.enrich import gerrit
+        from chromiumdiff import cluster, serve as serve_mod
+        from chromiumdiff.enrich import gerrit
 
         seen = []
         real_enrich, real_annotate = gerrit.enrich, cluster.annotate
@@ -5729,8 +5729,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         a row citing six issues used to spend twelve requests before the
         reader had decided which CL mattered.
         """
-        from chromedrift import serve as serve_mod
-        from chromedrift.enrich import gerrit
+        from chromiumdiff import serve as serve_mod
+        from chromiumdiff.enrich import gerrit
 
         seen = {}
         real = gerrit.enrich
@@ -5751,8 +5751,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         """One list, in the renderer. Two lists drifted the first time a key
         was renamed -- `issue` became `issues` and the server went on filtering
         for `issue`, so every lookup dropped the issue history in silence."""
-        from chromedrift.report import html as html_report
-        from chromedrift import serve as serve_mod
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff import serve as serve_mod
         import inspect
 
         source = inspect.getsource(serve_mod._State._payload)
@@ -5763,7 +5763,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
     def test_a_lookup_survives_the_session_that_made_it(self):
         """Minutes of clicking must not be lost to a closed terminal, or the
         live path is strictly worse than baking the answers in."""
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         directory = self._dir()
         state = serve_mod._State(directory, tempfile.mkdtemp(), budget=1)
@@ -5782,7 +5782,7 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
         self.assertIn(b"7885356" if False else b'"n": 1', reloaded.page())
 
     def test_saving_can_be_declined(self):
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         directory = self._dir()
         state = serve_mod._State(directory, tempfile.mkdtemp(), budget=1,
@@ -5795,8 +5795,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
     def test_the_page_is_static_until_something_answers(self):
         """A report mailed to somebody must behave as it always did, so live
         mode starts off and is turned on only by a reply."""
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("var LIVE=false", page)
@@ -5815,8 +5815,8 @@ class TestTheEvidenceFilterAppearsWhenItCanFilter(unittest.TestCase):
     """
 
     def _page(self, enriched):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         findings = []
         for i, block in enumerate(enriched):
@@ -5861,8 +5861,8 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
     """
 
     def _page(self, n=400):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         findings = [
             Finding(change=Change(change_type="modified", kind="base_feature",
@@ -5892,7 +5892,7 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
     def test_one_reader_for_the_payload_and_it_rehydrates(self):
         """Every other reader goes through this, so none of them can drift
         into parsing the interned form as if it were the plain one."""
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
 
         rows = html_report.payload_of(self._page(5))
         self.assertEqual(len(rows), 5)
@@ -5903,7 +5903,7 @@ class TestThePayloadStopsRepeatingItself(unittest.TestCase):
     def test_a_field_that_is_nearly_unique_is_left_alone(self):
         """A table of 2,986 distinct `what` strings is the same bytes plus an
         index, so pooling it would cost rather than save."""
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
 
         rows = html_report.payload_of(self._page(5))
         self.assertNotIn("what", html_report._POOLED)
@@ -5923,7 +5923,7 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
     """
 
     def _finding(self, block):
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.model import Change, Finding
 
         return Finding(
             change=Change(change_type="modified", kind="base_feature",
@@ -5939,8 +5939,8 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
     def test_the_number_opened_reaches_the_row(self):
         """Set by the enricher under `candidates_read` and never mapped, so
         the panel's own guard on it could not fire on any row ever built."""
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
 
         row = html_report._to_rows(
             Report(from_ref="a", to_ref="b",
@@ -5950,8 +5950,8 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
         self.assertEqual(row["cl_match"], 15)
 
     def test_a_list_that_was_cut_says_so_in_both_reports(self):
-        from chromedrift.model import Report
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
 
         line = [l for l in md_report._provenance_lines(self._finding(self.BLOCK))
                 if "merged CLs" in l][0]
@@ -5962,8 +5962,8 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
     def test_the_enricher_records_the_cut_it_made(self):
         """Asserted through `enrich`, because the block above is hand-built
         and a hand-built block cannot notice the line that fills it."""
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding
 
         n = gerrit.KEEP_MAX + 4
         cls = [{"_number": 100 + i, "subject": f"CL {i}",
@@ -5990,7 +5990,7 @@ class TestARowCountsWhatItActuallyDid(unittest.TestCase):
                          "what matched")
 
     def test_a_list_that_was_not_cut_claims_no_cut(self):
-        from chromedrift.report import markdown as md_report
+        from chromiumdiff.report import markdown as md_report
 
         whole = dict(self.BLOCK, matched=None, candidates_read=None,
                      changes=self.BLOCK["changes"][:2])
@@ -6011,12 +6011,12 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
     """
 
     def _blocks(self, content):
-        from chromedrift.enrich.gerrit import _blocks
+        from chromiumdiff.enrich.gerrit import _blocks
 
         return _blocks({"content": content})
 
     def test_context_is_not_a_change(self):
-        from chromedrift.enrich.gerrit import CONTEXT
+        from chromiumdiff.enrich.gerrit import CONTEXT
 
         self.assertEqual(self._blocks([{"ab": ["  int a;", "  int b;"]}]),
                          [("  int a;", CONTEXT), ("  int b;", CONTEXT)])
@@ -6025,7 +6025,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         """The whole of `introduced` rests on this. Flattened into one
         "changed" flag, the direction an edit went is gone, and a CL that took
         the new value *out* reads exactly like the one that put it in."""
-        from chromedrift.enrich.gerrit import ADDED, REMOVED
+        from chromiumdiff.enrich.gerrit import ADDED, REMOVED
 
         self.assertEqual(
             self._blocks([{"a": ["  Vector2d x;"], "b": ["  Vector2dF x;"]}]),
@@ -6036,7 +6036,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         lines are the same content differing only inside the line. Read as
         changed, a CL that reformats a file becomes an `exact` match for every
         declaration in it -- 49 such blocks in one real sample."""
-        from chromedrift.enrich.gerrit import CONTEXT
+        from chromiumdiff.enrich.gerrit import CONTEXT
 
         seq = self._blocks([{"a": ["  int kFoo;"], "b": ["    int kFoo;"],
                              "common": True}])
@@ -6046,7 +6046,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         """`{"skip": N}` is N unchanged lines Gerrit did not send. Dropped,
         the file silently shortens and every line after it moves -- which
         moves what counts as inside a declaration."""
-        from chromedrift.enrich.gerrit import CONTEXT
+        from chromiumdiff.enrich.gerrit import CONTEXT
 
         seq = self._blocks([{"ab": ["  a"]}, {"skip": 40}, {"ab": ["  b"]}])
         self.assertEqual(len(seq), 42)
@@ -6069,9 +6069,9 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         import shutil
         import tempfile
 
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         cls = [{"_number": 100, "subject": "s", "id": "i0",
                 "current_revision": "r",
@@ -6123,8 +6123,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         shape as `candidates_read`, in the commit that fixed
         `candidates_read`. `PROVENANCE_KEYS` is the thread meant to catch
         that, and it only holds if a new key is put on it."""
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         finding = Finding(
             change=Change(change_type="modified", kind="base_feature",
@@ -6143,8 +6143,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         """Asserted through `enrich`, because the block above is hand-built
         and testing the mapping is not testing the thing that fills it -- the
         same gap this key fell into in the first place."""
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding
 
         cls = [{"_number": 100, "subject": "s",
                 "submitted": "2026-05-01 00:00:00.000000000"}]
@@ -6177,7 +6177,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         Asserted against a constant, which is the whole test: a salted hash
         cannot produce one twice.
         """
-        from chromedrift.enrich.gerrit import _slug
+        from chromiumdiff.enrich.gerrit import _slug
 
         long = ("third_party/blink/renderer/modules/" + "x" * 100
                 + "/feature.idl")
@@ -6196,7 +6196,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         first, and the empty string sorts before every inverted date -- so a
         CL Gerrit returned without `submitted` or `updated` led every list it
         appeared in, on the strength of knowing nothing about it."""
-        from chromedrift.enrich.gerrit import _neg_date
+        from chromiumdiff.enrich.gerrit import _neg_date
 
         dates = ["2026-04-01", "", "2026-06-01"]
         self.assertEqual(sorted(dates, key=_neg_date),
@@ -6216,8 +6216,8 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         import shutil
         import tempfile
 
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding
 
         urls = []
         cls = [{"_number": 100 + i, "subject": "s", "id": f"i{i}",
@@ -6260,9 +6260,9 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         import shutil
         import tempfile
 
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         cls = [{"_number": 100, "subject": "s", "id": "i0",
                 "current_revision": "r",
@@ -6311,7 +6311,7 @@ class TestGerritsDiffIsReadAsGerritMeansIt(unittest.TestCase):
         every member of that interface read as removed at the old path with
         nothing to say so. `moved` exists for exactly that, and it is reached
         only if the rename is followed."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         old, new = "a/old.idl", "a/new.idl"
         docs = {old: {"content": [{"ab": ["interface Foo {};"]}]},
@@ -6346,8 +6346,8 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
     """
 
     def _tokens(self, deltas):
-        from chromedrift.enrich.gerrit import delta_tokens
-        from chromedrift.model import Change
+        from chromiumdiff.enrich.gerrit import delta_tokens
+        from chromiumdiff.model import Change
 
         return delta_tokens(Change(change_type="modified", kind="mojo_field",
                                    key="k", name="k", deltas=deltas))
@@ -6392,7 +6392,7 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
     DELTA = {"type": ["gfx.mojom.Vector2d", "gfx.mojom.Vector2dF"]}
 
     def _hit(self, seq, **kw):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         return gerrit._match(
             gerrit._Scanned(seq),
@@ -6401,7 +6401,7 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
                "lost": self._tokens(self.DELTA)[1], **kw})
 
     def test_the_cl_that_added_the_value_is_the_one_named(self):
-        from chromedrift.enrich.gerrit import ADDED
+        from chromiumdiff.enrich.gerrit import ADDED
 
         self.assertEqual(
             self._hit([("  gfx.mojom.Vector2dF border_offset;", ADDED)]),
@@ -6416,8 +6416,8 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
         only asked "did this value appear anywhere on either side" would pass
         here, and did.
         """
-        from chromedrift.enrich import gerrit
-        from chromedrift.enrich.gerrit import ADDED, REMOVED
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.enrich.gerrit import ADDED, REMOVED
 
         gained, lost = self._tokens({"type": ["Vector2d", "PointF"]})
         self.assertEqual((gained, lost), ({"PointF"}, {"Vector2d"}))
@@ -6433,8 +6433,8 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
         """The other direction does count. A CL that took the before-state out
         of this declaration performed the transition the finding records, and
         for a removal there is no after-state to add."""
-        from chromedrift.enrich import gerrit
-        from chromedrift.enrich.gerrit import REMOVED
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.enrich.gerrit import REMOVED
 
         gained, lost = self._tokens({"type": ["Vector2d", "PointF"]})
         self.assertEqual(gerrit._match(
@@ -6446,7 +6446,7 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
         unknown verdict last, `enrich` indexed the table and would have raised,
         and the markdown report defaulted to zero -- the strongest rank there
         is -- so an unrecognised verdict printed as a citation."""
-        from chromedrift.enrich.gerrit import CITES, _STRENGTH, strength
+        from chromiumdiff.enrich.gerrit import CITES, _STRENGTH, strength
 
         self.assertGreater(strength("bogus"), max(_STRENGTH.values()))
         self.assertGreaterEqual(strength("bogus"), CITES)
@@ -6456,7 +6456,7 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
     def test_the_value_must_land_inside_this_declaration(self):
         """Present in the diff is not present in the declaration. A file of
         nothing but declarations always carries the type name somewhere."""
-        from chromedrift.enrich.gerrit import ADDED, CONTEXT
+        from chromiumdiff.enrich.gerrit import ADDED, CONTEXT
 
         self.assertNotEqual(
             self._hit([("  gfx.mojom.Vector2dF something_else;", ADDED),
@@ -6466,7 +6466,7 @@ class TestTheChangeItselfIsTheEvidence(TestProvenanceStopsAtEvidence):
     def test_it_outranks_every_other_verdict(self):
         """It is the only one whose answer is the change rather than a
         neighbour of it, so nothing may sort above it."""
-        from chromedrift.enrich.gerrit import _STRENGTH
+        from chromiumdiff.enrich.gerrit import _STRENGTH
 
         self.assertEqual(min(_STRENGTH, key=_STRENGTH.get), "introduced")
         self.assertLess(_STRENGTH["introduced"], _STRENGTH["exact"])
@@ -6488,7 +6488,7 @@ class TestADeltaHasToShowTheDelta(unittest.TestCase):
            "Client> client, AILanguageModelCreateOptions options")
 
     def test_two_sides_sharing_a_prefix_do_not_come_out_equal(self):
-        from chromedrift.report.html import _trim_pair
+        from chromiumdiff.report.html import _trim_pair
 
         old, new = _trim_pair(self.SIG + ")",
                               self.SIG + ", pending_remote<on_device_model."
@@ -6501,7 +6501,7 @@ class TestADeltaHasToShowTheDelta(unittest.TestCase):
     def test_what_the_change_did_is_written_with_the_marks_already_in_use(self):
         """One side empty is an addition or a removal, not an arrow out of
         nothing. `DeviceAttributeResult result →` trailed into a blank."""
-        from chromedrift.report.html import _delta_pair
+        from chromiumdiff.report.html import _delta_pair
 
         self.assertEqual(_delta_pair("DeviceAttributeResult result", "", 34),
                          "\u2212 DeviceAttributeResult result")
@@ -6516,8 +6516,8 @@ class TestADeltaHasToShowTheDelta(unittest.TestCase):
         helper was never the thing that was wrong -- the call site was. The
         payload is where the two sides became equal, and every reader of it
         downstream inherited that."""
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         finding = Finding(
             change=Change(change_type="modified", kind="mojo_method",
@@ -6541,7 +6541,7 @@ class TestADeltaHasToShowTheDelta(unittest.TestCase):
         self.assertTrue(row["moved"].startswith("+ "), row["moved"])
 
     def test_a_short_pair_is_left_alone(self):
-        from chromedrift.report.html import _delta_pair, _trim_pair
+        from chromiumdiff.report.html import _delta_pair, _trim_pair
 
         self.assertEqual(_trim_pair("100", "109"), ("100", "109"))
         self.assertEqual(_delta_pair("100", "109", 34), "100 → 109")
@@ -6556,8 +6556,8 @@ class TestThePanelSaysWhatTheReaderCannotSee(unittest.TestCase):
     """
 
     def _page(self):
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
 
         return html_report.render(Report(from_ref="a", to_ref="b"))
 
@@ -6572,8 +6572,8 @@ class TestThePanelSaysWhatTheReaderCannotSee(unittest.TestCase):
         """
         import re
 
-        from chromedrift.model import BUCKET_ORDER, Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import BUCKET_ORDER, Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         sizes = {"breaking": 1, "behaviour": 2, "new": 4, "housekeeping": 8}
         findings = [
@@ -6638,8 +6638,8 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         messages returns. Every one of the three is a separate question, and
         the tests below turn them on one at a time.
         """
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding
 
         finding = Finding(
             change=Change(change_type="modified", kind=kind, key=key,
@@ -6682,8 +6682,8 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         a click, would have paid for every issue on the row while showing
         none of them. `None` is the way to say "no limit".
         """
-        from chromedrift.enrich import gerrit
-        from chromedrift.model import Change, Finding
+        from chromiumdiff.enrich import gerrit
+        from chromiumdiff.model import Change, Finding
 
         cl = {"_number": 100, "subject": "CL 100",
               "submitted": "2026-05-10 00:00:00.000000000",
@@ -6729,7 +6729,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         not identify anything" and it is still what the badge says; the row no
         longer goes empty over it.
         """
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         block, _ = self._enrich(pool=gerrit.DECL_MAX + 2, diff=self.BODY_EDITED)
         self.assertEqual(len(block["changes"]), gerrit.DECL_MAX + 2)
@@ -6740,7 +6740,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         last word on a line. This one is not a citation -- it is the sequence
         the declaration passed through to reach the state the report found --
         and a history read backwards is not a history."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         block, _ = self._enrich(pool=gerrit.DECL_MAX + 2, diff=self.BODY_EDITED)
         dates = [c["date"] for c in block["changes"]]
@@ -6751,7 +6751,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         """"No CL among the 13 read of the 13 that touched this file edits a
         line carrying this identifier" is true and leaves the reader exactly
         where they started. The 13 are still the only candidates there are."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         block, _ = self._enrich(pool=5, diff=self.UNRELATED)
         self.assertEqual({c["match"] for c in block["changes"]}, {"touched"})
@@ -6770,8 +6770,8 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
     def test_a_name_too_short_to_search_for_still_answers(self):
         """`url`, `id`, `name`: under four characters the token set is empty
         and the diff loop skips the finding entirely."""
-        from chromedrift.enrich.gerrit import container_for, tokens_for
-        from chromedrift.model import Change
+        from chromiumdiff.enrich.gerrit import container_for, tokens_for
+        from chromiumdiff.model import Change
 
         change = Change(change_type="modified", kind="mojo_field", key="url",
                         name="url", paths=["f.mojom"])
@@ -6795,7 +6795,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
     def test_a_lead_never_outranks_a_weaker_verdict_that_names_the_fact(self):
         """`described` is the weakest verdict that names the fact, and it is
         still stronger than any number of leads."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         block, _ = self._enrich(pool=6, subject="Rename kFoo to kBar")
         self.assertEqual({c["match"] for c in block["changes"]}, {"described"})
@@ -6821,7 +6821,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         """Asserted on the query string, because everything else here stubs
         the search. Widening that never reaches the wire would leave every
         test in this class passing and the tool unchanged."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         pinned = gerrit._query("a/b.cc", "2026-04-06", "2026-08-11")
         self.assertIn('file:"a/b.cc"', pinned)
@@ -6846,7 +6846,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         """Same file, same window, different question, different answer. The
         key carried only the path, so the second search would have been served
         the first one's empty list."""
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         seen = []
         real = gerrit._get_json
@@ -6930,7 +6930,7 @@ class TestALookupAlwaysAnswers(unittest.TestCase):
         covered the product: what matters is that no combination of pool size,
         diff shape and budget produces an empty row while a candidate exists.
         """
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         diffs = {"nothing matches": self.UNRELATED,
                  "declaration edited": self.BODY_EDITED,
@@ -6960,8 +6960,8 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
     """
 
     def _row(self, match):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report.html import _to_rows
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report.html import _to_rows
 
         report = Report(
             from_ref="a", to_ref="b", summary={}, meta={"platform": "windows"},
@@ -6984,9 +6984,9 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         """`weak` rather than a corner of `cl`: a reader filtering for rows
         that are explained must not be handed rows that merely list
         candidates."""
-        from chromedrift.report import html as html_report
+        from chromiumdiff.report import html as html_report
 
-        from chromedrift.model import Report
+        from chromiumdiff.model import Report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("var WEAK={crowded:1,touched:1}", page)
@@ -7001,8 +7001,8 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         same claim. `touched` is a lead and says so. `crowded` is every CL that
         edited the declaration, which is that declaration's history -- so it is
         headed as one, ordered forward, and never called a citation either."""
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("Leads, not ", page)
@@ -7015,8 +7015,8 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         """`report.md` has no badge colour, no row state and no panel. The
         line a reader copies into a ticket is the whole of what travels, so
         the heading carries the disclaimer there."""
-        from chromedrift.model import BUCKET_BREAKING, Change, Finding, Report
-        from chromedrift.report import markdown as md
+        from chromiumdiff.model import BUCKET_BREAKING, Change, Finding, Report
+        from chromiumdiff.report import markdown as md
 
         def rendered(match):
             report = Report(
@@ -7055,8 +7055,8 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         the file on any branch, the commit messages -- and saying otherwise
         invites a reader to conclude Chromium changed on its own.
         """
-        from chromedrift.model import Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
 
         page = html_report.render(Report(from_ref="a", to_ref="b"))
         self.assertIn("This lookup found nothing", page)
@@ -7070,8 +7070,8 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         """"3 of 62 merged CLs touched this file" is a claim about the file
         search. A CL reached by its commit message was not in that 62 and
         printing it there would invent a count nobody measured."""
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
 
         report = Report(
             from_ref="a", to_ref="b", summary={}, meta={"platform": "windows"},
@@ -7103,9 +7103,9 @@ class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
     """
 
     def _state(self, budget):
-        from chromedrift.model import Change, Finding, Report
-        from chromedrift.report import html as html_report
-        from chromedrift import serve as serve_mod
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
+        from chromiumdiff import serve as serve_mod
 
         report = Report(from_ref="a", to_ref="b", summary={},
                         meta={"platform": "windows"},
@@ -7123,7 +7123,7 @@ class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
         return serve_mod._State(tmp, tempfile.mkdtemp(), budget=budget)
 
     def _resolve(self, budget=1, pool=5, state=None):
-        from chromedrift.enrich import gerrit
+        from chromiumdiff.enrich import gerrit
 
         state = state or self._state(budget)
         rows = [{"_number": 200 + i, "subject": f"CL {200 + i}",
@@ -7157,7 +7157,7 @@ class TestClickingARowThroughTheServerAnswers(unittest.TestCase):
         and the floor has to reach the file and not only the response --
         otherwise a reopened report is silent again on every row the floor
         answered."""
-        from chromedrift import serve as serve_mod
+        from chromiumdiff import serve as serve_mod
 
         state = self._state(budget=1)
         self.assertTrue(self._resolve(state=state)["cls"])
@@ -7183,9 +7183,9 @@ class TestPrintedCommandsExist(unittest.TestCase):
     """
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    SKIP = {".git", ".chromedrift-cache", "out", "__pycache__", "node_modules"}
+    SKIP = {".git", ".chromiumdiff-cache", "out", "__pycache__", "node_modules"}
     # How the project writes a command: run it, or quote it in backticks.
-    COMMAND = re.compile(r"(?:python3 -m chromedrift|`chromedrift)\s+([a-z]+)"
+    COMMAND = re.compile(r"(?:python3 -m chromiumdiff|`chromiumdiff)\s+([a-z]+)"
                          r"((?:\s+[^`\n|)]*)?)")
     # A command longer than a line is still one command. Shell wraps with a
     # backslash; Python wraps by putting the next piece of the string on the
@@ -7198,9 +7198,9 @@ class TestPrintedCommandsExist(unittest.TestCase):
 
     # Inside a fenced block the prefix is often dropped, because the block
     # already says it is a shell. Prose never does that, so a fence is what
-    # separates `chromedrift figures ...` the command from "chromedrift does".
+    # separates `chromiumdiff figures ...` the command from "chromiumdiff does".
     FENCE = re.compile(r"^\s*```")
-    BARE = re.compile(r"^(\s*\$?\s*)chromedrift(\s+[a-z]+)")
+    BARE = re.compile(r"^(\s*\$?\s*)chromiumdiff(\s+[a-z]+)")
 
     def _logical_lines(self, path, text):
         """Yield (line number, command text) with wrapped lines put back."""
@@ -7213,7 +7213,7 @@ class TestPrintedCommandsExist(unittest.TestCase):
             if self.FENCE.match(buf):
                 fenced = not fenced
             elif fenced:
-                buf = self.BARE.sub(r"\1python3 -m chromedrift\2", buf, count=1)
+                buf = self.BARE.sub(r"\1python3 -m chromiumdiff\2", buf, count=1)
             while i + 1 < len(lines):
                 nxt = lines[i + 1]
                 if self.SHELL_WRAP.search(buf):
@@ -7248,7 +7248,7 @@ class TestPrintedCommandsExist(unittest.TestCase):
     def _parser_shape(self):
         import argparse
 
-        from chromedrift import cli
+        from chromiumdiff import cli
         parser = cli.build_parser()
         shape = {}
         for action in parser._actions:
@@ -7310,7 +7310,7 @@ class TestPrintedCommandsExist(unittest.TestCase):
     def test_the_disk_note_and_the_readme_agree(self):
         # Measured on a clean fetch, so the two places that quote it must not
         # drift apart the way the two of them already had.
-        from chromedrift import cli
+        from chromiumdiff import cli
         readme = os.path.join(self.ROOT, "README.md")
         with open(readme, encoding="utf-8") as fh:
             rows = [ln for ln in fh if "Free disk" in ln]

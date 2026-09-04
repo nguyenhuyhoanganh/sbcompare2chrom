@@ -5,7 +5,7 @@ description: Compares two Chromium versions - feature flags, web APIs, prefs, sw
 
 # Analyzing Chromium uprevs
 
-Run `chromedrift` over two Chromium versions, then classify what it found and
+Run `chromiumdiff` over two Chromium versions, then classify what it found and
 report it per owner. The tool ranks; deciding what a change means for a
 particular product is the job this skill describes.
 
@@ -38,7 +38,7 @@ questions to them is the failure this skill prevents.
 
 ```
 - [ ] 1. Confirm platform and exact versions
-- [ ] 2. Run chromedrift
+- [ ] 2. Run chromiumdiff
 - [ ] 3. Read the report in order
 - [ ] 4. Classify each finding by owner
 - [ ] 5. Report per owner, with limits
@@ -59,9 +59,9 @@ Ask for anything missing.
 ### Step 2: Run
 
 ```bash
-python3 -m chromedrift check          # verify machine, network, cache
+python3 -m chromiumdiff check          # verify machine, network, cache
 
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151
 ```
 
@@ -86,7 +86,7 @@ sent. Serving the directory changes who asks — the page calls localhost, and
 Python asks Gerrit:
 
 ```
-python3 -m chromedrift serve out          # prints http://127.0.0.1:8787/
+python3 -m chromiumdiff serve out          # prints http://127.0.0.1:8787/
 ```
 
 Offer this whenever someone asks why a row changed, what a flag was for, or
@@ -122,10 +122,10 @@ read a fraction of the other. Neither is a bug to work around: check that
 surface, wrong as a release gate — Chromium is not organised by product, so a
 change affecting downloads can live in `content/` and match no partition.
 
-Also: `chromedrift report <report.json> --format both --out <dir>/report`
+Also: `chromiumdiff report <report.json> --format both --out <dir>/report`
 re-renders without re-running, and writes the files rather than printing
-them; `chromedrift catalog <ref>` measures what the target set is
-missing; `chromedrift figures <report.json>` writes the measurements the
+them; `chromiumdiff catalog <ref>` measures what the target set is
+missing; `chromiumdiff figures <report.json>` writes the measurements the
 project's own documents quote, which is how they stay true.
 
 ### Step 3: Read the report in order
@@ -169,7 +169,7 @@ reach `report.md` and `report.html` only on a re-render, which `serve` does not
 do for you — it prints the command when you stop it:
 
 ```bash
-python3 -m chromedrift report out/report.json --format both --out out/report
+python3 -m chromiumdiff report out/report.json --format both --out out/report
 ```
 
 Do that before quoting a report to anyone: what you found by clicking is in

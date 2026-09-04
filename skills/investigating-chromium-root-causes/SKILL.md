@@ -91,7 +91,7 @@ What a `serve` session finds is saved to `report.json` and nowhere else.
 re-render before handing either to anyone:
 
 ```bash
-python3 -m chromedrift report out/M148_to_M151/report.json --format both --out out/M148_to_M151/report
+python3 -m chromiumdiff report out/M148_to_M151/report.json --format both --out out/M148_to_M151/report
 ```
 
 That is also what puts the groupings in: findings sharing a CL are joined when
@@ -99,9 +99,9 @@ the lookup brings the CL in, and `report.md` names the group in each finding's
 own section — the part a reader pastes into a ticket.
 
 It needs network access to `chromium-review.googlesource.com`. `python3 -m
-chromedrift check` verifies that host.
+chromiumdiff check` verifies that host.
 
-**Serving is the alternative, not the requirement.** `python3 -m chromedrift
+**Serving is the alternative, not the requirement.** `python3 -m chromiumdiff
 serve <dir>` gives a human the same lookup by clicking a row. Offer it when a
 person will be reading; use the script when you are.
 

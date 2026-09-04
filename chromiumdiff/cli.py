@@ -37,7 +37,7 @@ from .score import Scope, score_all, summarize_findings
 from .snapshot import build_snapshot
 from .targets import partition_names
 
-DEFAULT_CACHE = os.environ.get("CHROMEDRIFT_CACHE", ".chromedrift-cache")
+DEFAULT_CACHE = os.environ.get("CHROMIUMDIFF_CACHE", ".chromiumdiff-cache")
 
 
 def _log(msg: str) -> None:
@@ -67,7 +67,7 @@ def cmd_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_diff(args: argparse.Namespace) -> int:
+def cmd_compare(args: argparse.Namespace) -> int:
     old = build_snapshot(args.from_ref, args.cache, args.target_set,
                          platform=PLATFORM,
                          local_src=args.from_src or args.local_src,
@@ -247,7 +247,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"  {html_path}")
     print(f"  {json_path}")
     print()
-    print(f"  why each row changed:  python3 -m chromedrift serve {out_dir}")
+    print(f"  why each row changed:  python3 -m chromiumdiff serve {out_dir}")
     return 0
 
 
@@ -404,7 +404,7 @@ def cmd_catalog(args: argparse.Namespace) -> int:
         for entry in missing[: args.limit]:
             print(f"  {entry.path}")
         print("\nAdd the ones that matter to WEBUI_SURFACES or the target list "
-              "in chromedrift/targets.py.")
+              "in chromiumdiff/targets.py.")
 
     if args.out:
         write_json(args.out, report.to_dict())
@@ -424,7 +424,7 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
     corrected only because a test happened to look at it, and four of the
     wrong ones had been written by the same hand that was correcting them.
 
-    So the figures become an artifact. `chromedrift figures` writes it from a
+    So the figures become an artifact. `chromiumdiff figures` writes it from a
     report, the documents quote it, and a test holds the documents to it
     without needing anyone to have run the tool.
     """
@@ -628,7 +628,7 @@ def _milestone_span(start: Optional[int], end: Optional[int],
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="chromedrift",
+        prog="chromiumdiff",
         description="Compare two Chromium versions and rank what changed: "
                     "feature flags, web APIs, preferences, command-line "
                     "switches, Mojo interfaces and the chrome:// surfaces.",
@@ -704,12 +704,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("ref", help="milestone (143), version (143.0.7499.40) or git ref")
     p.set_defaults(func=cmd_snapshot)
 
-    p = sub.add_parser("diff", parents=[cache, which_files, two_checkouts],
-                       help="semantic diff between two refs")
+    p = sub.add_parser("compare", parents=[cache, which_files, two_checkouts],
+                       help="semantic comparison between two refs")
     p.add_argument("from_ref", metavar="FROM")
     p.add_argument("to_ref", metavar="TO")
     p.add_argument("--out", help="write changes JSON here")
-    p.set_defaults(func=cmd_diff)
+    p.set_defaults(func=cmd_compare)
 
     p = sub.add_parser("run",
                        parents=[cache, which_files, two_checkouts],
@@ -785,11 +785,11 @@ def _force_utf8_io() -> None:
     On Windows, Python only uses UTF-8 for a real console; the moment output is
     redirected to a file or a pipe it falls back to the ANSI code page, which
     for most installs is cp1252.  Reports contain arrows and em-dashes, so
-    `chromedrift report ... > report.md` dies with
+    `chromiumdiff report ... > report.md` dies with
 
         'charmap' codec can't encode character '\\u2192'
 
-    and so does `chromedrift check`, whose own output uses an em-dash -- which
+    and so does `chromiumdiff check`, whose own output uses an em-dash -- which
     would make the very first command a Windows user runs the one that fails.
     """
     for stream in (sys.stdout, sys.stderr):
@@ -810,7 +810,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 130
     except Exception as exc:
         _log(f"error: {exc}")
-        if os.environ.get("CHROMEDRIFT_DEBUG"):
+        if os.environ.get("CHROMIUMDIFF_DEBUG"):
             raise
         return 1
 

@@ -1,10 +1,10 @@
-# Bộ tài liệu giải thích ChromeDrift
+# Bộ tài liệu giải thích ChromiumDiff
 
-## ChromeDrift là gì, trong ba câu
+## ChromiumDiff là gì, trong ba câu
 
-Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một lần, team phải chuyển nền Chromium sang một version mới hơn — đây là việc mà tài liệu này gọi là `uprev`. ChromeDrift là một công cụ đọc mã nguồn Chromium ở hai version, tìm ra những **khai báo** đã thay đổi (feature flag, Web API, IPC contract, preference key, trang `chrome://`...), rồi xếp chúng thành một danh sách có thứ tự ưu tiên, có lý do và có vị trí `file:dòng` để người đọc mở source kiểm tra lại.
+Samsung Browser được xây trên mã nguồn Chromium. Vài milestone một lần, team phải chuyển nền Chromium sang một version mới hơn — đây là việc mà tài liệu này gọi là `uprev`. ChromiumDiff là một công cụ đọc mã nguồn Chromium ở hai version, tìm ra những **khai báo** đã thay đổi (feature flag, Web API, IPC contract, preference key, trang `chrome://`...), rồi xếp chúng thành một danh sách có thứ tự ưu tiên, có lý do và có vị trí `file:dòng` để người đọc mở source kiểm tra lại.
 
-Điều quan trọng cần nhớ ngay từ đầu: ChromeDrift **chỉ đọc Chromium gốc**. Nó không đọc mã nguồn Samsung, nên nó không thể nói "Samsung sẽ bị lỗi ở đâu". Nó chỉ nói "Chromium đã đổi những gì, và team nào nên kiểm tra trước".
+Điều quan trọng cần nhớ ngay từ đầu: ChromiumDiff **chỉ đọc Chromium gốc**. Nó không đọc mã nguồn Samsung, nên nó không thể nói "Samsung sẽ bị lỗi ở đâu". Nó chỉ nói "Chromium đã đổi những gì, và team nào nên kiểm tra trước".
 
 ## Bộ tài liệu này gồm những gì
 
@@ -12,8 +12,8 @@ Bảy tài liệu dưới đây trả lời bảy nhóm câu hỏi độc lập 
 
 | # | Tài liệu | Trả lời câu hỏi |
 |---|---|---|
-| 1 | [Thuật ngữ dùng trong ChromeDrift](<01 - Thuật ngữ ChromeDrift.md>) | Những từ trong báo cáo có nghĩa là gì? |
-| 2 | [ChromeDrift lấy source Chromium như thế nào](<02 - Cách lấy source Chromium.md>) | Công cụ tải code từ đâu, tải bao nhiêu, và làm sao biết đã tải đúng? |
+| 1 | [Thuật ngữ dùng trong ChromiumDiff](<01 - Thuật ngữ ChromiumDiff.md>) | Những từ trong báo cáo có nghĩa là gì? |
+| 2 | [ChromiumDiff lấy source Chromium như thế nào](<02 - Cách lấy source Chromium.md>) | Công cụ tải code từ đâu, tải bao nhiêu, và làm sao biết đã tải đúng? |
 | 3 | [Chín nhóm file và bộ lọc](<03 - Chín nhóm file và bộ lọc.md>) | Vì sao chỉ đọc 9 nhóm file, và một file phải qua bao nhiêu lớp lọc? |
 | 4 | [Fact và cách trích xuất](<04 - Fact và cách trích xuất.md>) | Một khai báo trong source biến thành dữ liệu so sánh được bằng cách nào? |
 | 5 | [So sánh, chấm điểm và phân loại](<05 - Cách so sánh, chấm điểm và phân loại.md>) | Vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm? |
@@ -22,9 +22,9 @@ Bảy tài liệu dưới đây trả lời bảy nhóm câu hỏi độc lập 
 
 Sáu tài liệu đầu nói về việc **cái gì đã đổi** — đó là phần công cụ trả lời được chỉ bằng hai cây source. Tài liệu thứ bảy là phần còn lại: nó hỏi Gerrit, review server của chính Chromium, để tìm ra CL đã tạo ra thay đổi và issue đứng sau CL đó. Nó cần mạng và được tách thành một lệnh riêng, vì một báo cáo vẫn đáng đọc khi không có nó.
 
-Ngoài ra còn một tài liệu tổng quan dài hơn, dùng khi cần trình bày toàn bộ project trong một buổi họp: [ChromeDrift và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromeDrift cho việc nâng phiên bản Chromium.md>). Nội dung của nó bao trùm sáu phần trên, nhưng đi kèm số liệu chạy thật, kịch bản demo và phần hỏi đáp.
+Ngoài ra còn một tài liệu tổng quan dài hơn, dùng khi cần trình bày toàn bộ project trong một buổi họp: [ChromiumDiff và kế hoạch nâng phiên bản Chromium](<Tổng quan ChromiumDiff cho việc nâng phiên bản Chromium.md>). Nội dung của nó bao trùm sáu phần trên, nhưng đi kèm số liệu chạy thật, kịch bản demo và phần hỏi đáp.
 
-Kèm theo bộ tài liệu là một sơ đồ luồng: [Luồng xử lý của ChromeDrift](flow.html) — mở thẳng trong trình duyệt, không cần mạng. Nó gom cả năm chặng của công cụ vào một hình, dùng khi cần định vị nhanh chặng đang nói tới nằm ở đâu.
+Kèm theo bộ tài liệu là một sơ đồ luồng: [Luồng xử lý của ChromiumDiff](flow.html) — mở thẳng trong trình duyệt, không cần mạng. Nó gom cả năm chặng của công cụ vào một hình, dùng khi cần định vị nhanh chặng đang nói tới nằm ở đâu.
 
 ## Nên đọc phần nào
 
@@ -48,4 +48,4 @@ Nhiều thuật ngữ trong project không có từ tiếng Việt tương đư�
 - **Kèm giải thích ngắn trong ngoặc ở lần dùng đầu tiên** của mỗi tài liệu.
 - **Dịch sang tiếng Việt** khi từ tiếng Anh không phải tên riêng của khái niệm — ví dụ "khai báo" thay cho "declaration", "phiên bản" thay cho "version" trong văn xuôi thông thường.
 
-Toàn bộ định nghĩa được gom trong [phần 1](<01 - Thuật ngữ ChromeDrift.md>); khi gặp một từ lạ, tra ở đó trước.
+Toàn bộ định nghĩa được gom trong [phần 1](<01 - Thuật ngữ ChromiumDiff.md>); khi gặp một từ lạ, tra ở đó trước.

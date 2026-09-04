@@ -1,4 +1,4 @@
-# ChromeDrift Code Review, Testing, and Project Audit
+# ChromiumDiff Code Review, Testing, and Project Audit
 
 > Initial assessment: August 21, 2026  
 > Follow-up review: August 22, 2026  
@@ -11,7 +11,7 @@
 
 ## 1. Start here if you are not deeply technical
 
-ChromeDrift is designed to answer a question like this:
+ChromiumDiff is designed to answer a question like this:
 
 > “When Chromium moves from version A to version B, which technical declarations changed, and which changes should the product team investigate first?”
 
@@ -19,7 +19,7 @@ The tool already does many things well. It reads Chromium source, extracts tens 
 
 The most important conclusion from this review is:
 
-> **ChromeDrift meets its goal as an early-warning radar: it detects a useful subset of noteworthy changes so that people can investigate them before an uprev. The project neither needs to prove, nor currently claims to prove, that it finds 100% of all changes or can automatically declare an uprev safe.**
+> **ChromiumDiff meets its goal as an early-warning radar: it detects a useful subset of noteworthy changes so that people can investigate them before an uprev. The project neither needs to prove, nor currently claims to prove, that it finds 100% of all changes or can automatically declare an uprev safe.**
 
 The project owner clarified that an **automated release gate is not part of the current acceptance criteria**. Older passages saying the project “does not yet meet release-gate requirements” should therefore be read as usage boundaries, not as a project-failure verdict. The correct standard for the current baseline is:
 
@@ -43,8 +43,8 @@ For the early-detection goal, the current baseline is **good enough to use now, 
 
 In plain language:
 
-- If ChromeDrift reports a dangerous change, open the source and verify it. The warning may be correct, but it can also be a false alarm.
-- If ChromeDrift reports nothing dangerous, that still does not prove the uprev is safe. The tool may not have downloaded the file, the parser may not understand the syntax, or two different declarations may have been collapsed into one.
+- If ChromiumDiff reports a dangerous change, open the source and verify it. The warning may be correct, but it can also be a false alarm.
+- If ChromiumDiff reports nothing dangerous, that still does not prove the uprev is safe. The tool may not have downloaded the file, the parser may not understand the syntax, or two different declarations may have been collapsed into one.
 - M151 `wide` coverage is currently `8,295 / 8,366 (99%)`, leaving 71 files. This is file-scope coverage, not parser or product completeness. The raw M151 inventory still contains 85 callback definitions, 144 typedefs, 200 `includes` relations, 18 Mojo `feature` blocks, and hundreds of Mojo constants without corresponding fact kinds. For the current goal, documenting this known scope is enough; there is no need to implement every extractor immediately.
 - A score of `75` does not mean “a 75% chance of failure.” It is a manually assigned weight used to order the report.
 
@@ -83,7 +83,7 @@ Use this reading path:
 
 Imagine that we want to compare two supermarkets, A and B.
 
-ChromeDrift follows a process much like this:
+ChromiumDiff follows a process much like this:
 
 1. A **target** is the list of areas employees are instructed to inventory.
 2. An **extractor** is an employee trained to read a particular kind of shelf: beverages, food, or electronics.
@@ -93,7 +93,7 @@ ChromeDrift follows a process much like this:
 6. The **score** assigns a review priority to each difference.
 7. The **report** presents those differences so a person can decide what to inspect first.
 
-Historically, ChromeDrift's problems resembled these situations:
+Historically, ChromiumDiff's problems resembled these situations:
 
 - The target list forgot several warehouses but still claimed the inventory was 100% complete.
 - An employee recognized labels only in the form `Name(...)`, so labels written as `Name@0(...)` were missed.
@@ -205,12 +205,12 @@ After matching the two sides, the tool compares only attributes designated as me
 
 Score and bucket are related, but they are not the same concept.
 
-## 4. How ChromeDrift runs, step by step
+## 4. How ChromiumDiff runs, step by step
 
 Assume this command:
 
 ```bash
-python3 -m chromedrift run 148.0.7778.217 151.0.7922.138 \
+python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
   --target-set wide \
   --no-enrich
 ```
@@ -551,7 +551,7 @@ BASE_FEATURE(kExample, "Example", base::FEATURE_DISABLED_BY_DEFAULT);
 
 The two declarations share a feature key but differ because they target different platforms.
 
-ChromeDrift historically deduplicated by keeping the fact with the lowest `(path, line)`. This was deterministic but not semantic. It was equivalent to resolving contradictory documents by keeping the one stored in the alphabetically earlier drawer.
+ChromiumDiff historically deduplicated by keeping the fact with the lowest `(path, line)`. This was deterministic but not semantic. It was equivalent to resolving contradictory documents by keeping the one stored in the alphabetically earlier drawer.
 
 At the M151 schema-28 baseline before `46dae58`:
 
@@ -1200,7 +1200,7 @@ The history is a straight line of 66 commits with no merge commits, produced mai
 
 | # | Commit | Decision recorded in the commit message | Relevance to this review |
 |---:|---|---|---|
-| 1 | `d9fca08` | Created ChromeDrift; download a small tarball rather than a full checkout, normalize before diffing, and make stages deterministic before allowing AI to judge a shortlist. | Established a sound semantic-diff foundation, although several current parser grammars also began here. |
+| 1 | `d9fca08` | Created ChromiumDiff; download a small tarball rather than a full checkout, normalize before diffing, and make stages deterministic before allowing AI to judge a shortlist. | Established a sound semantic-diff foundation, although several current parser grammars also began here. |
 | 2 | `bdeccf3` | Rewrote the README from scratch to explain why Chromium diffs are hard to read. | Documentation was treated as part of the product from the beginning. |
 | 3 | `85b4b29` | Removed the top-findings cap; route by product/infra/platform because feature-based scope hid 1,802 of 2,226 findings. | The author measured and avoided filtering out high-severity rows. |
 | 4 | `47e6dae` | Added WebUI routes, controls, and gates, plus union-find clustering by declared edges rather than name similarity. | The intent is correct; the implementation in the same commit contradicts it for Blink `base_feature:none`. |
@@ -1483,7 +1483,7 @@ INCOMPLETE — FOR MANUAL TRIAGE ONLY
 
 ## 22. How to use the project safely in its current state
 
-If ChromeDrift must be used now:
+If ChromiumDiff must be used now:
 
 1. Always provide a full version or commit SHA; avoid raw branches.
 2. Use a fresh cache directory for each important audit instead of relying entirely on `--refresh`.
@@ -1575,7 +1575,7 @@ Yes. The pipeline, Fact model, and reporting are a useful foundation. Treat it a
 
 ## 24. Conclusion at this audit stage
 
-ChromeDrift answers this question reasonably well:
+ChromiumDiff answers this question reasonably well:
 
 > “Among the source files I downloaded and the parser understood, which declarations appear to have changed?”
 
@@ -1591,11 +1591,11 @@ The three main reasons are:
 
 After reading the entire commit history, the fairest description is:
 
-> ChromeDrift has stronger engineering discipline and design rationale than a typical prototype. Precisely because the core is designed to stop at evidence, it is useful for manual review but cannot yet serve as a release gate on its own.
+> ChromiumDiff has stronger engineering discipline and design rationale than a typical prototype. Precisely because the core is designed to stop at evidence, it is useful for manual review but cannot yet serve as a release gate on its own.
 
 The practical decision at this stage was:
 
-- Use ChromeDrift to build an inventory and prioritize manual review: **Yes**.
+- Use ChromiumDiff to build an inventory and prioritize manual review: **Yes**.
 - Use `default` to conclude that a release is safe: **No**.
 - Use the then-current `wide` mode as an automated release gate: **No**.
 - Continue investing in the project: **Yes—the existing foundation is good enough to improve incrementally rather than rewrite from scratch**.
@@ -1604,23 +1604,23 @@ The practical decision at this stage was:
 
 Important locations referenced in this document:
 
-- Target and coverage rules: [`chromedrift/targets.py`](../chromedrift/targets.py)
-- Ref resolution and local materialization: [`chromedrift/acquire.py`](../chromedrift/acquire.py)
-- Snapshots/cache: [`chromedrift/snapshot.py`](../chromedrift/snapshot.py)
-- Extractor registry and error handling: [`chromedrift/extract/__init__.py`](../chromedrift/extract/__init__.py)
-- Base-feature extraction: [`chromedrift/extract/base_features.py`](../chromedrift/extract/base_features.py)
-- Mojo extraction: [`chromedrift/extract/mojom.py`](../chromedrift/extract/mojom.py)
-- WebIDL extraction: [`chromedrift/extract/web_idl.py`](../chromedrift/extract/web_idl.py)
-- Platform parsing: [`chromedrift/extract/_cpp.py`](../chromedrift/extract/_cpp.py)
-- Constant classification: [`chromedrift/extract/constants.py`](../chromedrift/extract/constants.py)
-- WebUI routes/gates: [`chromedrift/extract/webui_routes.py`](../chromedrift/extract/webui_routes.py), [`chromedrift/extract/webui_gates.py`](../chromedrift/extract/webui_gates.py)
-- Fact dedupe: [`chromedrift/model.py`](../chromedrift/model.py)
-- Diff and severity signals: [`chromedrift/diff.py`](../chromedrift/diff.py)
-- Scoring and coverage adjustment: [`chromedrift/score.py`](../chromedrift/score.py)
-- Clustering: [`chromedrift/cluster.py`](../chromedrift/cluster.py)
-- Reference closure: [`chromedrift/catalog.py`](../chromedrift/catalog.py)
-- HTML reporting: [`chromedrift/report/html.py`](../chromedrift/report/html.py)
-- CLI and report loading: [`chromedrift/cli.py`](../chromedrift/cli.py)
+- Target and coverage rules: [`chromiumdiff/targets.py`](../chromiumdiff/targets.py)
+- Ref resolution and local materialization: [`chromiumdiff/acquire.py`](../chromiumdiff/acquire.py)
+- Snapshots/cache: [`chromiumdiff/snapshot.py`](../chromiumdiff/snapshot.py)
+- Extractor registry and error handling: [`chromiumdiff/extract/__init__.py`](../chromiumdiff/extract/__init__.py)
+- Base-feature extraction: [`chromiumdiff/extract/base_features.py`](../chromiumdiff/extract/base_features.py)
+- Mojo extraction: [`chromiumdiff/extract/mojom.py`](../chromiumdiff/extract/mojom.py)
+- WebIDL extraction: [`chromiumdiff/extract/web_idl.py`](../chromiumdiff/extract/web_idl.py)
+- Platform parsing: [`chromiumdiff/extract/_cpp.py`](../chromiumdiff/extract/_cpp.py)
+- Constant classification: [`chromiumdiff/extract/constants.py`](../chromiumdiff/extract/constants.py)
+- WebUI routes/gates: [`chromiumdiff/extract/webui_routes.py`](../chromiumdiff/extract/webui_routes.py), [`chromiumdiff/extract/webui_gates.py`](../chromiumdiff/extract/webui_gates.py)
+- Fact dedupe: [`chromiumdiff/model.py`](../chromiumdiff/model.py)
+- Diff and severity signals: [`chromiumdiff/diff.py`](../chromiumdiff/diff.py)
+- Scoring and coverage adjustment: [`chromiumdiff/score.py`](../chromiumdiff/score.py)
+- Clustering: [`chromiumdiff/cluster.py`](../chromiumdiff/cluster.py)
+- Reference closure: [`chromiumdiff/catalog.py`](../chromiumdiff/catalog.py)
+- HTML reporting: [`chromiumdiff/report/html.py`](../chromiumdiff/report/html.py)
+- CLI and report loading: [`chromiumdiff/cli.py`](../chromiumdiff/cli.py)
 - Test suite: [`tests/`](../tests/)
 
 ## 26. Follow-up review of commit `46dae58`
@@ -2066,7 +2066,7 @@ Both methods retain the same name, parameters, and response, and neither Fact ha
 implicit method reorder changes: []
 ```
 
-In plain terms, the new commit checks seat numbers when they are printed on the ticket. When the theater numbers seats from their order in the row, ChromeDrift does not store that order, so swapping two seats appears to be no change.
+In plain terms, the new commit checks seat numbers when they are printed on the ticket. When the theater numbers seats from their order in the row, ChromiumDiff does not store that order, so swapping two seats appears to be no change.
 
 This was not an assumption unique to the review. Official Mojom documentation says implicit ordinals are assigned by lexical position and explicit ordinals must be used consistently in a declaration; see [Mojom IDL documentation](https://chromium.googlesource.com/chromium/src/+/master/mojo/public/tools/bindings/README.md).
 
@@ -2084,7 +2084,7 @@ or lexical position, when absent
 + GN target configuration
 ```
 
-ChromeDrift saw only the first line.
+ChromiumDiff saw only the first line.
 
 #### Measurement on real M148 → M151 data
 
@@ -2382,7 +2382,7 @@ AllowedContext   18 occurrences / 9 files
 RequireContext   20 occurrences / 16 files
 ```
 
-Mojom documentation uses `[Stable]` to identify types/interfaces suitable for independently updated, version-skewed binaries. That evidence is highly relevant when deciding which implicit-ordinal changes deserve stronger warnings, yet ChromeDrift discarded it at the container level.
+Mojom documentation uses `[Stable]` to identify types/interfaces suitable for independently updated, version-skewed binaries. That evidence is highly relevant when deciding which implicit-ordinal changes deserve stronger warnings, yet ChromiumDiff discarded it at the container level.
 
 One real M148 → M151 finding was misclassified:
 
@@ -3882,7 +3882,7 @@ Tests should cover JSON **and** Markdown/HTML for a group with four or five vari
 Regenerating with:
 
 ```bash
-chromedrift figures out/report.json --wide <wide-report.json>
+chromiumdiff figures out/report.json --wide <wide-report.json>
 ```
 
 produced exactly the committed `docs/figures.json`. Selected current metrics were not stale:
@@ -4010,7 +4010,7 @@ A concrete historical false negative:
 ```text
 M143 → M147
 typedef LanguageModelMessageValue changed underlying union
-ChromeDrift rows mentioning that identity: 0
+ChromiumDiff rows mentioning that identity: 0
 ```
 
 The member signatures kept using the alias name, so the allowlist comparison never saw the underlying type change.
@@ -4438,7 +4438,7 @@ From here, reopen the audit only when a real uprev produces one of three kinds o
 
 The audit was closed at `a4f13ec` on the understanding that it would reopen when a real uprev produced evidence. It is reopened here for a different reason: a substantial new stage was added, and it is the first stage in the tool that fetches from a third party and asserts a causal claim.
 
-`chromedrift/enrich/gerrit.py` (1,559 lines) and `chromedrift/serve.py` (255 lines) answer a question the two trees cannot: *who made this change, and what were they fixing.* This section reviews that stage and nothing else; the earlier verdicts on extraction, diffing and scoring are unchanged.
+`chromiumdiff/enrich/gerrit.py` (1,559 lines) and `chromiumdiff/serve.py` (255 lines) answer a question the two trees cannot: *who made this change, and what were they fixing.* This section reviews that stage and nothing else; the earlier verdicts on extraction, diffing and scoring are unchanged.
 
 ### 34.1. What the stage does, and why the design is sound
 
@@ -4519,7 +4519,7 @@ Each is a one-line condition. Each can be reverted today with the suite green. T
 
 `gerrit.enrich()` has exactly one production caller: `serve._State.resolve`, which passes `top=1`, silences the log with `log=lambda m: None`, and discards the return value. `cmd_run` never calls it.
 
-The consequence is that the module's run-level disclosure is computed and thrown away. `enrich()` returns `failed_fetches`, `incomplete_files`, `capped_files`, `issues_restricted`, `findings_leads_only`, `files_left_to_descriptions` — none of these names appears anywhere else in `chromedrift/`. The ten `log()` lines that report them, including
+The consequence is that the module's run-level disclosure is computed and thrown away. `enrich()` returns `failed_fetches`, `incomplete_files`, `capped_files`, `issues_restricted`, `findings_leads_only`, `files_left_to_descriptions` — none of these names appears anywhere else in `chromiumdiff/`. The ten `log()` lines that report them, including
 
 ```
 ! gerrit: N fetch(es) failed and were read as no evidence; a finding may

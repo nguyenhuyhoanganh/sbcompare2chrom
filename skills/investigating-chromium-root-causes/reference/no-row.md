@@ -85,7 +85,7 @@ being unreachable. Nothing was established at all — this is not a result.
 
 > "The lookup failed before it established anything. Retry."
 
-Verify the host: `python3 -m chromedrift check`.
+Verify the host: `python3 -m chromiumdiff check`.
 
 ### B3. The diff budget declined the file
 
@@ -155,7 +155,7 @@ The script tells you. If you are reading a raw block instead, in
 | A3, A4 | read the two versions of the file; the tool will not help |
 | A5 | report it, with the coverage figure |
 | B1 | run the lookup |
-| B2 | `python3 -m chromedrift check`, then retry |
+| B2 | `python3 -m chromiumdiff check`, then retry |
 | B3 | retry with `--budget 0` |
 | B4 | retry; the cache keeps the successful half |
 | B5 | report the number, and read the CLs you did get |

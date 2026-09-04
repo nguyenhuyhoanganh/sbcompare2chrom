@@ -4,9 +4,9 @@ Tài liệu này trả lời hai câu hỏi: **công cụ đọc những loại 
 
 ## Trước hết, sửa một cách gọi chưa chính xác
 
-Người ta hay nói "ChromeDrift đọc 9 loại file". Cách gọi đó gây hiểu nhầm.
+Người ta hay nói "ChromiumDiff đọc 9 loại file". Cách gọi đó gây hiểu nhầm.
 
-Chính xác thì ChromeDrift có **9 extractor** — tức 9 bộ đọc, mỗi bộ phụ trách một nguồn sự thật. Quan hệ giữa extractor và file không phải một-một:
+Chính xác thì ChromiumDiff có **9 extractor** — tức 9 bộ đọc, mỗi bộ phụ trách một nguồn sự thật. Quan hệ giữa extractor và file không phải một-một:
 
 - một extractor có thể đọc nhiều dạng tên file, và tạo ra nhiều loại `Fact`;
 - ngược lại, một file C++ có thể được hơn một extractor cùng đọc.

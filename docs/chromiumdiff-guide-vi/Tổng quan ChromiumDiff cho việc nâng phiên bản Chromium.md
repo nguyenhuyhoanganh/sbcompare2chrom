@@ -1,4 +1,4 @@
-# ChromeDrift: bản trình bày kỹ thuật cho kế hoạch nâng phiên bản Chromium nền của Samsung Browser trên Windows
+# ChromiumDiff: bản trình bày kỹ thuật cho kế hoạch nâng phiên bản Chromium nền của Samsung Browser trên Windows
 
 ## Cách đọc tài liệu này
 
@@ -21,14 +21,14 @@
 
 Các phần cần tra cứu riêng đã được tách thành một bộ tài liệu ngắn hơn:
 
-- [Thuật ngữ dùng trong ChromeDrift](<01 - Thuật ngữ ChromeDrift.md>)
+- [Thuật ngữ dùng trong ChromiumDiff](<01 - Thuật ngữ ChromiumDiff.md>)
 - [Cách lấy source tree, thư mục và file](<02 - Cách lấy source Chromium.md>)
 - [9 nhóm nguồn khai báo và các bộ lọc](<03 - Chín nhóm file và bộ lọc.md>)
 - [Fact và ví dụ đầu vào → JSON cho đủ 16 loại](<04 - Fact và cách trích xuất.md>)
 - [So sánh, chấm điểm, bucket và owner](<05 - Cách so sánh, chấm điểm và phân loại.md>)
 - [Skill, agent và nội dung dành cho từng team](<06 - Skill và cách hỗ trợ từng nhóm.md>)
 
-**Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `uprev`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromeDrift.md>).
+**Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `uprev`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromiumDiff.md>).
 
 ## 1. Bài toán cần giải quyết
 
@@ -45,7 +45,7 @@ Samsung Browser được phát triển từ mã nguồn Chromium. Mỗi lần ch
 
 Một Git diff thô không trả lời tốt các câu hỏi này, vì nó trộn thay đổi cú pháp, refactor, chuyển file, dọn code và thay đổi contract thật vào cùng một danh sách dài.
 
-ChromeDrift làm khác: nó đọc các khai báo quan trọng, chuyển mỗi khai báo thành một object chuẩn hoá gọi là `Fact`, so sánh các `Fact` giữa hai phiên bản, rồi xếp thứ tự để team biết nên điều tra gì trước.
+ChromiumDiff làm khác: nó đọc các khai báo quan trọng, chuyển mỗi khai báo thành một object chuẩn hoá gọi là `Fact`, so sánh các `Fact` giữa hai phiên bản, rồi xếp thứ tự để team biết nên điều tra gì trước.
 
 ### Giá trị thật nằm ở đâu
 
@@ -67,13 +67,13 @@ Giao cho đúng owner: IPC / Web Platform / Browser C++ / WebUI / Config
 Danh sách việc thật cho đợt nâng phiên bản
 ```
 
-Điểm thuyết phục nhất là **thời điểm**: ChromeDrift đưa việc phát hiện lên trước lúc merge. Ba ví dụ về những thứ bình thường chỉ lộ ra rất muộn:
+Điểm thuyết phục nhất là **thời điểm**: ChromiumDiff đưa việc phát hiện lên trước lúc merge. Ba ví dụ về những thứ bình thường chỉ lộ ra rất muộn:
 
 - một C++ symbol đổi tên, vốn chỉ lộ khi build;
 - một thay đổi trong Mojo IPC contract, có thể chỉ lộ khi chạy;
 - một feature bị đổi tên, khiến server không còn bật đúng feature đó cho người dùng — và không có gì báo lỗi cả.
 
-ChromeDrift biến các trường hợp này thành từng finding, kèm vị trí `path:line`, giá trị trước và sau, cùng lý do vì sao cần xem sớm.
+ChromiumDiff biến các trường hợp này thành từng finding, kèm vị trí `path:line`, giá trị trước và sau, cùng lý do vì sao cần xem sớm.
 
 ## 2. Tool trả lời gì, và không trả lời gì
 
@@ -81,7 +81,7 @@ Phần này nên đọc kỹ trước khi trình bày công cụ cho người kh
 
 ### 2.1. Tool trả lời được
 
-ChromeDrift so sánh **mã nguồn Chromium gốc ở hai phiên bản** và trả lời:
+ChromiumDiff so sánh **mã nguồn Chromium gốc ở hai phiên bản** và trả lời:
 
 - Khai báo nào được thêm, bị bỏ, hoặc thay đổi về mặt ý nghĩa?
 - Thay đổi đó thuộc nhóm nào: feature, Web API, Mojo, pref, hay WebUI?
@@ -93,7 +93,7 @@ ChromeDrift so sánh **mã nguồn Chromium gốc ở hai phiên bản** và tr�
 
 ### 2.2. Tool chưa thể tự trả lời
 
-ChromeDrift không biết:
+ChromiumDiff không biết:
 
 - Samsung Browser có đang dùng symbol, pref, switch hoặc Mojo API đó hay không.
 - Samsung có sửa riêng phần implementation liên quan hay không.
@@ -108,11 +108,11 @@ Vì vậy, câu **sai** là: *"276 Breaking nghĩa là Samsung có 276 bug."*
 
 Câu **đúng** là:
 
-> "Chromium gốc có 276 thay đổi về API, IPC hoặc cấu trúc dữ liệu cần đối chiếu với Samsung Browser. ChromeDrift đã phân loại, xếp thứ tự và chỉ ra vị trí khai báo; bước tiếp theo là tìm nơi Samsung đang sử dụng và giao cho owner xác nhận ảnh hưởng."
+> "Chromium gốc có 276 thay đổi về API, IPC hoặc cấu trúc dữ liệu cần đối chiếu với Samsung Browser. ChromiumDiff đã phân loại, xếp thứ tự và chỉ ra vị trí khai báo; bước tiếp theo là tìm nơi Samsung đang sử dụng và giao cho owner xác nhận ảnh hưởng."
 
 ## 3. Luồng end-to-end
 
-Công cụ được chạy bằng `python3 -m chromedrift`. Nhìn theo đường đi của dữ liệu, toàn bộ luồng gồm chín chặng:
+Công cụ được chạy bằng `python3 -m chromiumdiff`. Nhìn theo đường đi của dữ liệu, toàn bộ luồng gồm chín chặng:
 
 ```text
 Đầu vào
@@ -219,7 +219,7 @@ Tình huống xấu nhất rất dễ xảy ra: nếu vô tình dùng cùng mộ
 
 Một bộ source Chromium đầy đủ gồm repository chính cộng rất nhiều dependency. Trong quy trình Chromium thông thường, `gclient sync` là lệnh dùng để đồng bộ lượng dữ liệu này — và vì vậy việc tải có thể rất lớn và mất nhiều thời gian.
 
-ChromeDrift không build Chromium. Nó chỉ đọc những file chứa các khai báo mà nó biết cách phân tích: feature flag, pref, Web API, Mojo interface. Vì vậy nó chỉ tải phần source cần thiết.
+ChromiumDiff không build Chromium. Nó chỉ đọc những file chứa các khai báo mà nó biết cách phân tích: feature flag, pref, Web API, Mojo interface. Vì vậy nó chỉ tải phần source cần thiết.
 
 Các file đã tải vẫn được đặt đúng vị trí tương đối như trong repository Chromium. Ví dụ, file nằm ở `chrome/browser/...` trên Chromium cũng nằm ở `chrome/browser/...` trong cache. Việc giữ nguyên đường dẫn không phải để cho gọn — nó giúp các bộ đọc xác định đúng loại file và đúng component.
 
@@ -245,7 +245,7 @@ Khi giải nén archive của một thư mục con, công cụ dùng danh sách 
 
 Đây mới chỉ là bộ lọc thô, mục đích là giảm dữ liệu trên ổ đĩa. Sau đó từng extractor còn kiểm tra đường dẫn bằng `applies_to`; chỉ file vượt qua bước này mới thật sự được phân tích. **Vì vậy một file được giữ lại sau khi giải nén chưa chắc tạo ra `Fact`.**
 
-Bộ lọc cũng không khẳng định các file bị bỏ là "không quan trọng". Nó chỉ nói rằng ChromeDrift hiện chưa có parser đủ tin cậy cho chúng. Ví dụ: giữ toàn bộ implementation TypeScript trong khi không có parser tương ứng chỉ làm tăng dung lượng mà không tạo thêm finding nào.
+Bộ lọc cũng không khẳng định các file bị bỏ là "không quan trọng". Nó chỉ nói rằng ChromiumDiff hiện chưa có parser đủ tin cậy cho chúng. Ví dụ: giữ toàn bộ implementation TypeScript trong khi không có parser tương ứng chỉ làm tăng dung lượng mà không tạo thêm finding nào.
 
 ### 5.3. Làm sao biết quá trình tải không bị sai hoặc thiếu?
 
@@ -262,7 +262,7 @@ Bảy lớp bảo vệ chính:
 ### 5.4. Cache layout và ý nghĩa
 
 ```text
-.chromedrift-cache/
+.chromiumdiff-cache/
   listings/      # danh sách đường dẫn của từng Git ref
   trees/         # các file source đã tải
   snapshots/     # các Fact đã chuẩn hoá
@@ -326,7 +326,7 @@ Hệ quả cần nhớ: **đọc được 99% số file ứng viên không có n
 
 ## 7. Tool đọc những loại file nào, và mỗi loại dùng để làm gì?
 
-ChromeDrift không chọn file chỉ vì đuôi file "có vẻ quan trọng". Mỗi loại file được chọn vì nó là **nơi Chromium khai báo một thông tin có thể so sánh giữa hai version**: feature nào tồn tại, API có hình dạng gì, IPC truyền dữ liệu ra sao, pref dùng key nào, hoặc WebUI control phụ thuộc feature nào.
+ChromiumDiff không chọn file chỉ vì đuôi file "có vẻ quan trọng". Mỗi loại file được chọn vì nó là **nơi Chromium khai báo một thông tin có thể so sánh giữa hai version**: feature nào tồn tại, API có hình dạng gì, IPC truyền dữ liệu ra sao, pref dùng key nào, hoặc WebUI control phụ thuộc feature nào.
 
 ### 7.1. Hai lớp quyết định một file có thực sự được phân tích hay không
 
@@ -1271,7 +1271,7 @@ Cách đọc: ưu tiên thay đổi về type, ordinal và signature. Sau đó t
 
 ### 20.1. Phần tool chạy theo quy tắc cố định
 
-Python code trong `chromedrift/` chịu trách nhiệm sáu việc:
+Python code trong `chromiumdiff/` chịu trách nhiệm sáu việc:
 
 - Xác định chính xác version.
 - Lấy danh sách file và tải source.
@@ -1280,7 +1280,7 @@ Python code trong `chromedrift/` chịu trách nhiệm sáu việc:
 - So sánh, tạo signal, và tính severity/score.
 - Gom nhóm finding, bổ sung ngữ cảnh, và tạo report.
 
-**Không bước nào trong số này gọi LLM.** Với cùng một snapshot và cùng một version code của ChromeDrift, kết quả report là như nhau.
+**Không bước nào trong số này gọi LLM.** Với cùng một snapshot và cùng một version code của ChromiumDiff, kết quả report là như nhau.
 
 ### 20.2. Skill `analyzing-chromium-uprevs`
 
@@ -1319,7 +1319,7 @@ Agent có thể hỗ trợ tìm kiếm và tóm tắt, nhưng owner kỹ thuật
 Lệnh đã kiểm chứng:
 
 ```bash
-python3 -m chromedrift run \
+python3 -m chromiumdiff run \
   148.0.7778.217 151.0.7922.138 \
   --out out/M148_to_M151 \
   --no-enrich
@@ -1382,14 +1382,14 @@ Cần đọc thận trọng: **không phải cứ thấy finding này là phải
 
 ## 22. Từ report thành dự đoán công việc Samsung
 
-Report của ChromeDrift mới chỉ mô tả thay đổi từ Chromium gốc. Muốn dự đoán công việc thật của Samsung, cần nối report với bằng chứng từ source và config của Samsung, theo quy trình năm bước sau.
+Report của ChromiumDiff mới chỉ mô tả thay đổi từ Chromium gốc. Muốn dự đoán công việc thật của Samsung, cần nối report với bằng chứng từ source và config của Samsung, theo quy trình năm bước sau.
 
 ### Bước 1 — Chạy `wide` trên hai version đầy đủ
 
 Khi đánh giá toàn bộ một đợt nâng phiên bản, đừng giới hạn công cụ vào một subsystem nhỏ. Lưu cả ba định dạng JSON, Markdown và HTML cùng với tài liệu lập kế hoạch.
 
 ```bash
-python3 -m chromedrift run \
+python3 -m chromiumdiff run \
   148.0.7778.217 151.0.7922.138 \
   --target-set wide \
   --out out/M148_to_M151_wide
@@ -1440,7 +1440,7 @@ Một finding chỉ trở thành đầu việc khi có **ít nhất một** bằ
 - Config ngoài source đang dùng feature name hoặc param cũ.
 - Sản phẩm có kế hoạch sử dụng API hoặc UI mới.
 
-Chỉ sau đó team mới ước lượng phần sửa build, sửa code, phạm vi QA, chuyển config hoặc công việc phía sản phẩm. **Score của ChromeDrift không thay thế bước ước lượng này.**
+Chỉ sau đó team mới ước lượng phần sửa build, sửa code, phạm vi QA, chuyển config hoặc công việc phía sản phẩm. **Score của ChromiumDiff không thay thế bước ước lượng này.**
 
 ## 23. Làm sao tin report đúng?
 
@@ -1534,7 +1534,7 @@ Vì vậy, dù bộ `wide` đọc 99% file ứng viên, điều đó **không** 
 
 ### 24.3. Không đọc implementation body
 
-Nếu Chromium chỉ đổi logic bên trong một function mà giữ nguyên khai báo, ChromeDrift sẽ không phát hiện được.
+Nếu Chromium chỉ đổi logic bên trong một function mà giữ nguyên khai báo, ChromiumDiff sẽ không phát hiện được.
 
 ### 24.4. Không parse BUILD.gn
 
@@ -1662,7 +1662,7 @@ So sánh coverage của `default` và `wide`, và mở vị trí source của m�
 
 Git diff cho biết dòng text nào đổi, nhưng không phân biệt được refactor với thay đổi contract. Release notes chỉ chọn một số thay đổi đáng chú ý cho người dùng cuối.
 
-ChromeDrift tập trung vào các khai báo kỹ thuật: nó chuẩn hoá khác biệt cú pháp, xác định trạng thái trên Windows, phát hiện đổi tên, và giữ vị trí source để kiểm tra lại.
+ChromiumDiff tập trung vào các khai báo kỹ thuật: nó chuẩn hoá khác biệt cú pháp, xác định trạng thái trên Windows, phát hiện đổi tên, và giữ vị trí source để kiểm tra lại.
 
 ### "Version lấy từ đâu?"
 
@@ -1914,7 +1914,7 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 
 ```text
 [ ] Ghi version FROM/TO đầy đủ bốn phần
-[ ] Chạy chromedrift check
+[ ] Chạy chromiumdiff check
 [ ] Chạy bộ wide cho lần lập kế hoạch chính thức
 [ ] Kiểm tra coverage của bản cũ, bản mới và từng nhóm file
 [ ] Xác nhận missing_targets = 0 và out_of_scope_files = 0
@@ -1932,7 +1932,7 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 
 ## 30. Kết luận đề xuất
 
-ChromeDrift đáng dùng vì nó giải đúng một phần việc đang tốn thời gian và dễ sai trong mỗi đợt nâng phiên bản Chromium:
+ChromiumDiff đáng dùng vì nó giải đúng một phần việc đang tốn thời gian và dễ sai trong mỗi đợt nâng phiên bản Chromium:
 
 - Chuyển các khai báo trong source thành `Fact` ổn định, để so sánh được giữa hai version.
 - Tách bạch bốn nhóm: thay đổi có thể phá contract, thay đổi hành vi, phần mới xuất hiện, và phần chỉ dọn code.
@@ -1943,7 +1943,7 @@ ChromeDrift đáng dùng vì nó giải đúng một phần việc đang tốn t
 
 Đề nghị hợp lý **không phải** là "dùng tool làm release gate ngay". Đề nghị là:
 
-> **Thử ChromeDrift như một lớp phát hiện sớm trước khi merge một phiên bản Chromium thật: chạy `wide`, đối chiếu finding với Samsung source và config, rồi đo xem bao nhiêu finding trở thành đầu việc.**
+> **Thử ChromiumDiff như một lớp phát hiện sớm trước khi merge một phiên bản Chromium thật: chạy `wide`, đối chiếu finding với Samsung source và config, rồi đo xem bao nhiêu finding trở thành đầu việc.**
 
 Nếu lần thử cho thấy công cụ tìm được công việc liên quan tới C++ symbol, config hoặc IPC **trước khi merge**, và giảm được thời gian đọc Git diff, thì giá trị của project đã được chứng minh.
 
@@ -1953,24 +1953,24 @@ Kết quả đó cũng chính là dữ liệu cần thiết để xây một cá
 
 Dành cho người muốn tự đọc code thay vì tin tài liệu:
 
-- CLI và orchestration: `chromedrift/cli.py`
-- Xác định version, Gitiles/local source, cache marker: `chromedrift/acquire.py`
-- Dựng snapshot, cache và meta: `chromedrift/snapshot.py`
-- Target set, discovery, coverage, partition: `chromedrift/targets.py`
-- Điều kiện thuộc sản phẩm, dùng chung: `chromedrift/eligibility.py`
-- Registry extractor và việc đóng dấu platform: `chromedrift/extract/__init__.py`
-- Bộ đánh giá platform cho C++/GRIT/Mojo: `chromedrift/extract/_cpp.py`
-- Chín extractor: `chromedrift/extract/*.py`
-- Schema của Fact/Snapshot/Change/Finding/Report: `chromedrift/model.py`
-- So sánh ngữ nghĩa, signal, bucket, owner: `chromedrift/diff.py`
-- Các modifier khi chấm điểm: `chromedrift/score.py`
-- Reference closure và kiểm tra phạm vi: `chromedrift/catalog.py`
-- Gom nhóm các thay đổi liên quan: `chromedrift/cluster.py`
-- Ngữ cảnh từ Chromestatus: `chromedrift/enrich/chromestatus.py`
-- Câu chữ của report, Markdown và HTML: `chromedrift/report/`
+- CLI và orchestration: `chromiumdiff/cli.py`
+- Xác định version, Gitiles/local source, cache marker: `chromiumdiff/acquire.py`
+- Dựng snapshot, cache và meta: `chromiumdiff/snapshot.py`
+- Target set, discovery, coverage, partition: `chromiumdiff/targets.py`
+- Điều kiện thuộc sản phẩm, dùng chung: `chromiumdiff/eligibility.py`
+- Registry extractor và việc đóng dấu platform: `chromiumdiff/extract/__init__.py`
+- Bộ đánh giá platform cho C++/GRIT/Mojo: `chromiumdiff/extract/_cpp.py`
+- Chín extractor: `chromiumdiff/extract/*.py`
+- Schema của Fact/Snapshot/Change/Finding/Report: `chromiumdiff/model.py`
+- So sánh ngữ nghĩa, signal, bucket, owner: `chromiumdiff/diff.py`
+- Các modifier khi chấm điểm: `chromiumdiff/score.py`
+- Reference closure và kiểm tra phạm vi: `chromiumdiff/catalog.py`
+- Gom nhóm các thay đổi liên quan: `chromiumdiff/cluster.py`
+- Ngữ cảnh từ Chromestatus: `chromiumdiff/enrich/chromestatus.py`
+- Câu chữ của report, Markdown và HTML: `chromiumdiff/report/`
 - Playbook cho người và agent: `skills/analyzing-chromium-uprevs/`
 - Tests: `tests/test_extract.py`, `tests/test_pipeline.py`, `tests/js/report_dom.js`
-- Audit kỹ thuật chi tiết và lịch sử: `docs/ChromeDrift Project Audit.md`
+- Audit kỹ thuật chi tiết và lịch sử: `docs/ChromiumDiff Project Audit.md`
 
 ## Phụ lục: thuật ngữ riêng của Chromium
 

@@ -203,7 +203,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #        - `DISCOVERY_ROOTS` was the fourteen roots the fetch targets happen to
 #          live under, so the denominator was chosen by the same list it was
 #          grading. `wide` scored 1,039 of 1,039 and reported **100%**, while
-#          `chromedrift catalog`, which walks the real tree, counted 1,192
+#          `chromiumdiff catalog`, which walks the real tree, counted 1,192
 #          files the same rule says can declare. The 153 in the gap could never
 #          appear as missed however wide the run: `base/base_switches.h`,
 #          `base/features.cc`, `cc/base/features.cc`, `device/fido/public/

@@ -157,7 +157,7 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
         # against itself produced 68 changes out of nothing, the largest a
         # `web_api_signature_change` at severity 50.
         dirnames[:] = sorted(d for d in dirnames
-                             if d not in (".git", "__pycache__", ".chromedrift"))
+                             if d not in (".git", "__pycache__", ".chromiumdiff"))
         for filename in sorted(filenames):
             abs_path = os.path.join(dirpath, filename)
             rel_path = os.path.relpath(abs_path, root).replace(os.sep, "/")

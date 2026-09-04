@@ -23,8 +23,8 @@ Usage:
     --find TOKEN   mark every diff line containing TOKEN (repeatable)
     --context N    context lines around a marked line (default 3; 0 for all)
     --files        list the files the CL touches and stop
-    --cache DIR    cache directory (default: $CHROMEDRIFT_CACHE or
-                   .chromedrift-cache, matching the rest of the tool)
+    --cache DIR    cache directory (default: $CHROMIUMDIFF_CACHE or
+                   .chromiumdiff-cache, matching the rest of the tool)
 
 Exit codes: 0 printed, 1 no such CL or no such file in it, 2 unusable input.
 """
@@ -42,9 +42,9 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 try:
-    from chromedrift.enrich import gerrit
+    from chromiumdiff.enrich import gerrit
 except ImportError as exc:
-    print(f"cannot import chromedrift ({exc}). Run this from the chromedrift "
+    print(f"cannot import chromiumdiff ({exc}). Run this from the chromiumdiff "
           f"repository, or set PYTHONPATH to its root.", file=sys.stderr)
     sys.exit(2)
 
@@ -132,8 +132,8 @@ def main() -> int:
     ap.add_argument("--find", action="append", default=[], metavar="TOKEN")
     ap.add_argument("--context", type=int, default=3)
     ap.add_argument("--files", action="store_true")
-    ap.add_argument("--cache", default=os.environ.get("CHROMEDRIFT_CACHE",
-                                                      ".chromedrift-cache"))
+    ap.add_argument("--cache", default=os.environ.get("CHROMIUMDIFF_CACHE",
+                                                      ".chromiumdiff-cache"))
     args = ap.parse_args()
     if not args.number.isdigit():
         print("the CL number is a number", file=sys.stderr)

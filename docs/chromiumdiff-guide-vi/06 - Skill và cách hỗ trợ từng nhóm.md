@@ -1,6 +1,6 @@
 # 6. Skill và agent hỗ trợ từng team như thế nào
 
-Câu hỏi mà tài liệu này trả lời: **có thể giao cho một AI agent đọc báo cáo ChromeDrift rồi tự tạo ra danh sách việc riêng cho từng team không?**
+Câu hỏi mà tài liệu này trả lời: **có thể giao cho một AI agent đọc báo cáo ChromiumDiff rồi tự tạo ra danh sách việc riêng cho từng team không?**
 
 ## Trả lời trực tiếp
 
@@ -10,7 +10,7 @@ Nhưng câu trả lời có **hai mức**, và trộn hai mức này lại là s
 
 | Có trong tay | Agent trả lời được tới đâu |
 |---|---|
-| Chỉ có hai version Chromium và báo cáo ChromeDrift | **Upstream đã đổi gì, vì sao đáng chú ý, và team nào nên xem** |
+| Chỉ có hai version Chromium và báo cáo ChromiumDiff | **Upstream đã đổi gì, vì sao đáng chú ý, và team nào nên xem** |
 | Có thêm source Samsung, build config, patch và cấu hình/rollout bên ngoài | **Samsung đang phụ thuộc ở chỗ nào, file nào cần sửa, test nào cần chạy** |
 
 Không có source và config của Samsung mà vẫn nói "Samsung chắc chắn bị ảnh hưởng" là **vượt quá bằng chứng đang có**.
@@ -20,7 +20,7 @@ Không có source và config của Samsung mà vẫn nói "Samsung chắc chắn
 Ba từ này hay bị dùng lẫn lộn. Chúng là ba lớp xếp chồng, mỗi lớp làm một việc:
 
 ```text
-ChromeDrift tool
+ChromiumDiff tool
   lấy source → trích Fact → so sánh → sinh signal → chấm điểm → xuất báo cáo
         │
         ▼
@@ -70,7 +70,7 @@ Skill **không** thêm dữ liệu nào. Nó chỉ giúp agent dùng dữ liệu
 
 Agent có thể:
 
-- chạy ChromeDrift và đọc cả ba dạng JSON/HTML/Markdown;
+- chạy ChromiumDiff và đọc cả ba dạng JSON/HTML/Markdown;
 - nhóm finding theo team, theo signal, theo màn hình hoặc theo chuỗi feature;
 - mở đúng `path:line` phía upstream và đọc code xung quanh;
 - tìm identifier, chuỗi, pref, route trong cây source Samsung;
@@ -119,7 +119,7 @@ Nếu chỉ có báo cáo mà không có ba trường về source và config, v�
 
 | Mức | Bằng chứng đang có | Cách viết |
 |---|---|---|
-| Upstream fact | Chỉ có ChromeDrift và source Chromium | "Upstream đã đổi…" |
+| Upstream fact | Chỉ có ChromiumDiff và source Chromium | "Upstream đã đổi…" |
 | Đã tìm thấy tham chiếu ở Samsung | Tìm thấy đúng symbol, chuỗi hoặc đường dẫn trong source Samsung | "Samsung đang tham chiếu tại…" |
 | Có khả năng bị ảnh hưởng | Tham chiếu nằm trên luồng build/runtime phù hợp, nhưng chưa test | "Có khả năng phải sửa hoặc kiểm thử…" |
 | Đã xác nhận bị ảnh hưởng | Build, test hoặc tái hiện đã xác nhận | "Đã xác nhận ảnh hưởng…" |
@@ -218,7 +218,7 @@ Với mỗi màn hình bị ảnh hưởng:
 - accessibility, tên và tương tác bàn phím, khi loại control thay đổi;
 - test về visual và layout cho danh sách rút gọn đã xác định.
 
-Một giới hạn cần nhắc lại ở đây: ChromeDrift không render giao diện. Vì vậy ảnh chụp màn hình dùng để **xác nhận danh sách rút gọn**, chứ không dùng để tự khám phá ra toàn bộ thay đổi.
+Một giới hạn cần nhắc lại ở đây: ChromiumDiff không render giao diện. Vì vậy ảnh chụp màn hình dùng để **xác nhận danh sách rút gọn**, chứ không dùng để tự khám phá ra toàn bộ thay đổi.
 
 ### Mẫu đầu ra dành riêng cho WebUI
 
@@ -246,7 +246,7 @@ Một giới hạn cần nhắc lại ở đây: ChromeDrift không render giao 
 
 ## Đội WebNative / Browser C++ cần biết gì
 
-Trước hết, một lưu ý về tên gọi: **`WebNative` không phải một owner chuẩn trong ChromeDrift.** Trong phần này, nó được hiểu là team làm phần C++ backend và native integration của browser — bao gồm việc đấu nối feature, pref/switch, và phần C++ đứng sau WebUI.
+Trước hết, một lưu ý về tên gọi: **`WebNative` không phải một owner chuẩn trong ChromiumDiff.** Trong phần này, nó được hiểu là team làm phần C++ backend và native integration của browser — bao gồm việc đấu nối feature, pref/switch, và phần C++ đứng sau WebUI.
 
 Nếu nội bộ Samsung dùng từ "WebNative" cho một phạm vi khác, cần ánh xạ lại owner trước khi cho agent chạy.
 
@@ -398,7 +398,7 @@ Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_inte
 
 ## Câu hỏi agent trả lời được và chưa trả lời được
 
-### Trả lời được chỉ từ báo cáo ChromeDrift
+### Trả lời được chỉ từ báo cáo ChromiumDiff
 
 - Feature upstream nào đổi mặc định trên Windows?
 - Khai báo Web API, Mojo, pref, switch hoặc WebUI nào đã đổi?
@@ -434,7 +434,7 @@ Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_inte
 
 ```text
 Phân tích uprev Chromium <from_full_version> → <to_full_version> trên Windows.
-Chạy ChromeDrift target-set wide. Chỉ lập report cho WebUI, nhưng kéo thêm
+Chạy ChromiumDiff target-set wide. Chỉ lập report cho WebUI, nhưng kéo thêm
 base_feature và pref liên quan bằng route/control/gate chain. Với mỗi screen:
 nói upstream đổi gì, Windows user có thấy khác không, Samsung source có reference
 ở đâu, việc cần sửa hoặc test, và phần nào chưa xác minh. Không gọi một route
@@ -445,7 +445,7 @@ removed là user-visible change trước khi kiểm tra guard và backing featur
 
 ```text
 Phân tích uprev Chromium <from_full_version> → <to_full_version> trên Windows.
-Chạy ChromeDrift target-set wide. Tạo queue Browser C++/WebNative gồm feature
+Chạy ChromiumDiff target-set wide. Tạo queue Browser C++/WebNative gồm feature
 state/param, pref, switch, C++ symbol và Mojo có Samsung reference. Tách rõ
 build work, runtime behaviour, stored-profile migration và external config.
 Flag retired phải đọc prior Windows state. Mọi kết luận Samsung bị ảnh hưởng

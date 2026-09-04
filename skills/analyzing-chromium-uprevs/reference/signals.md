@@ -215,6 +215,6 @@ severity 35 — Preference no longer in the file we read — it may have been
 ```
 
 Argue with the score when it is wrong. To change the ranking permanently, edit
-`SIGNAL_SEVERITY`, `BASE_SEVERITY` or `SIGNAL_BUCKET` in `chromedrift/diff.py`,
-or the two constants in `chromedrift/score.py`. All of them are plain data, not
+`SIGNAL_SEVERITY`, `BASE_SEVERITY` or `SIGNAL_BUCKET` in `chromiumdiff/diff.py`,
+or the two constants in `chromiumdiff/score.py`. All of them are plain data, not
 logic.

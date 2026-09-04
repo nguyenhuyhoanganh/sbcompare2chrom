@@ -77,7 +77,7 @@ size. Record them; do not promote them to capability.
 
 ## Current tool coverage
 
-`chromedrift` covers flags, Blink runtime features, Web IDL, Mojo, switches,
+`chromiumdiff` covers flags, Blink runtime features, Web IDL, Mojo, switches,
 prefs, chrome://flags metadata, **and the desktop WebUI surfaces**: page routes,
 controls and visibility gates.
 

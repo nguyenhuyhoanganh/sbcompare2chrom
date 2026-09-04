@@ -400,7 +400,7 @@ def serve(directory: str, cache_dir: str, port: int = 8787,
             # `--out` is not optional here: without it `report` writes to
             # stdout, which prints a report to the terminal and leaves the two
             # files exactly as stale as they were.
-            say(f"    python3 -m chromedrift report "
+            say(f"    python3 -m chromiumdiff report "
                 f"{os.path.join(state.directory, 'report.json')} "
                 f"--format both --out "
                 f"{os.path.join(state.directory, 'report')}")

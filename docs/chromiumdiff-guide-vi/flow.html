@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Luồng xử lý của ChromeDrift</title>
+<title>Luồng xử lý của ChromiumDiff</title>
 <style>
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0}
@@ -116,9 +116,9 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
 
 <div class="wrap">
 
-<a class="back" href="README.md">← Bộ tài liệu giải thích ChromeDrift</a>
+<a class="back" href="README.md">← Bộ tài liệu giải thích ChromiumDiff</a>
 
-<p class="eyebrow">ChromeDrift · luồng xử lý</p>
+<p class="eyebrow">ChromiumDiff · luồng xử lý</p>
 <h1>Từ hai phiên bản Chromium đến một danh sách đã xếp hạng</h1>
 <p class="lede">Năm cách vẽ cùng một luồng, xếp theo mức chi tiết tăng dần. Hình đầu để <strong>định vị</strong>, hình cuối để trả lời <strong>công cụ này làm gì cho tôi</strong>. Không cần đọc hết — chọn hình hợp với câu hỏi đang có.</p>
 
@@ -348,7 +348,7 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
 
 <figure>
   <div class="figbody w620">
-    <svg viewBox="0 0 900 812" role="img" aria-label="Luồng ChromeDrift: hai ref Chromium mỗi bên đi qua acquire và extract để thành Snapshot được cache; sau ranh giới cache, hai Snapshot vào diff sinh Change, rồi score sinh Finding có điểm, rồi cluster gom mảnh, rồi chromestatus bổ sung ngữ cảnh, cuối cùng sinh ba file báo cáo và dừng ở bằng chứng.">
+    <svg viewBox="0 0 900 812" role="img" aria-label="Luồng ChromiumDiff: hai ref Chromium mỗi bên đi qua acquire và extract để thành Snapshot được cache; sau ranh giới cache, hai Snapshot vào diff sinh Change, rồi score sinh Finding có điểm, rồi cluster gom mảnh, rồi chromestatus bổ sung ngữ cảnh, cuối cùng sinh ba file báo cáo và dừng ở bằng chứng.">
       <defs>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
           <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/>
@@ -499,7 +499,7 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
         <text class="ts dim" x="192" y="210" text-anchor="end">3</text>
         <rect class="box" x="200" y="178" width="600" height="56" rx="3"/>
         <text class="tb" x="218" y="200">acquire</text>
-        <text class="tm dim" x="218" y="218">tarball theo thư mục từ Gitiles → .chromedrift-cache/trees/,</text>
+        <text class="tm dim" x="218" y="218">tarball theo thư mục từ Gitiles → .chromiumdiff-cache/trees/,</text>
         <text class="tm dim" x="218" y="230">hoặc đọc thẳng từ LocalSource</text>
         <line class="ln" x1="500" y1="234" x2="500" y2="252" marker-end="url(#v3a)"/>
 
@@ -627,7 +627,7 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
         <text class="ts dim" x="20" y="470">Chiều rộng thanh không vẽ theo tỉ lệ — khoảng cách giữa 498 082 và 126 là bốn bậc, vẽ đúng tỉ lệ thì bốn thanh cuối biến mất.</text>
       </svg>
   </div>
-  <figcaption><b>Hình 5</b>Hình duy nhất mang số đo chạy thật, đo trên cặp <code>148.0.7778.217 → 151.0.7922.138</code>. Mỗi con số gắn <code>data-figure</code> ghi rõ nó lấy từ khoá nào trong <code>docs/figures.json</code>, trừ số file của cả cây do <code>chromedrift catalog</code> đo. Đây là số duy trì bằng tay: chạy lại trên cặp phiên bản khác thì phải sửa lại hình.</figcaption>
+  <figcaption><b>Hình 5</b>Hình duy nhất mang số đo chạy thật, đo trên cặp <code>148.0.7778.217 → 151.0.7922.138</code>. Mỗi con số gắn <code>data-figure</code> ghi rõ nó lấy từ khoá nào trong <code>docs/figures.json</code>, trừ số file của cả cây do <code>chromiumdiff catalog</code> đo. Đây là số duy trì bằng tay: chạy lại trên cặp phiên bản khác thì phải sửa lại hình.</figcaption>
 </figure>
 
 <footer>
