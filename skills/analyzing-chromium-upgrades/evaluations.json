@@ -1,0 +1,98 @@
+{
+  "_comment": "Scenarios this skill must pass. Each was built from a real M148 -> M151 run; no harness ships with the project, so run them by hand against a fresh agent with the skill loaded. The point of each is the failure it catches, named in `catches`. Scenarios assert what the agent must do, not the figures of one run -- a number appears only where the number is the thing being got right.",
+  "evaluations": [
+    {
+      "skills": [
+        "analyzing-chromium-upgrades"
+      ],
+      "query": "Did WebRTCColorAccuracy change between M148 and M151, and did BrowsingHistoryActorIntegrationM3?",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Answering from `default_state`, which is the wrong population and is wrong in opposite directions on these two flags.",
+      "expected_behavior": [
+        "Reads `platform_state.windows` for both flags and says that is the field it read",
+        "Reports WebRTCColorAccuracy as a real change on Windows even though `default_state` is identical on both sides, so an answer taken from `default_state` would have said nothing changed",
+        "Reports BrowsingHistoryActorIntegrationM3 as no change on Windows even though `default_state` flips, so an answer taken from `default_state` would have invented a change users never see",
+        "Does not treat the two as the same kind of answer merely because both are filed under Behaviour change",
+        "States that the comparison is Windows and that there is no --platform flag to change it"
+      ]
+    },
+    {
+      "skills": [
+        "analyzing-chromium-upgrades"
+      ],
+      "query": "Write up the coverage this M148 -> M151 run achieved for the ticket.",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Quoting the worked example printed in SKILL.md as if it were this run's measurement.",
+      "expected_behavior": [
+        "Quotes the coverage recorded in this report's own `meta.coverage`, and not the worked example in SKILL.md, which is a different run and a different figure",
+        "Names where the number came from, so a reader can check it against the report rather than the document",
+        "Says that coverage changes the answer and not merely the confidence: on a partial read a removal is penalised and filed as Housekeeping rather than Breaking",
+        "States that `Breaking: 0` on a default run is not a clean bill of health"
+      ]
+    },
+    {
+      "skills": [
+        "analyzing-chromium-upgrades"
+      ],
+      "query": "I opened out/M148_to_M151/report.html and clicked a row to see why it changed. Nothing happens. Is the lookup broken?",
+      "files": [
+        "out/M148_to_M151/report.html"
+      ],
+      "catches": "Declaring a working feature broken, or starting to debug it, instead of recognising the file:// origin.",
+      "expected_behavior": [
+        "Identifies the cause as the file:// origin: the page may not call chromium-review.googlesource.com, and the browser blocks the request before it is sent",
+        "Does not report a bug in the tool, and does not begin debugging the page or the network",
+        "Gives `python3 -m chromiumdiff serve` and explains that serving changes who asks -- the page calls localhost and Python asks Gerrit",
+        "Offers to start the server and hand over the URL rather than leaving the user to it",
+        "Notes that lookups are written back to report.json and reach report.md and report.html only on a re-render, and gives the report command that does it"
+      ]
+    },
+    {
+      "skills": [
+        "analyzing-chromium-upgrades"
+      ],
+      "query": "The report says AckCopyOutputRequestEarlyForViewTransition was removed. Which capability did we lose?",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Reading a retired flag as a lost feature, which is the most common wrong conclusion on this surface.",
+      "expected_behavior": [
+        "Reads the state the flag held before deletion rather than the deletion alone",
+        "Reports `flag_retired_on`: the feature shipped and the behaviour is now permanent and can no longer be turned off, so no capability was lost",
+        "Explains that this is why the row is Housekeeping rather than Breaking, instead of treating the bucket as a mistake",
+        "States the two things that do break: anything naming the symbol no longer builds, and any override setting the flag from outside the binary is silently dead",
+        "Treats it as one of a large class of retirements on this pair, most of which had shipped, rather than as an isolated event"
+      ]
+    },
+    {
+      "skills": [
+        "analyzing-chromium-upgrades"
+      ],
+      "query": "DebuggingFeaturesRequested scores low, so it is low priority. Can I close it?",
+      "files": [
+        "out/M148_to_M151/report.json"
+      ],
+      "catches": "Reading the score as the verdict, when the score is the severity after a deduction that says the run never settled the question.",
+      "expected_behavior": [
+        "Quotes the sentence in `reasons` rather than the number, and notes that nothing raises a score, so a score below its severity always carries one",
+        "Reports the deduction as an unconfirmed removal, and repeats the reason's own point that the run read very little of that surface at the newer version, so `gone` may mean `moved into a file we never opened`",
+        "Says the low score records low confidence in the removal, not low consequence, and so does not support closing it",
+        "Names `--target-set wide` as the step that settles it, and notes that every removed pref key on this run is `pref_left_scan`, so none of them is a confirmed deletion"
+      ]
+    }
+  ],
+  "_ran": {
+    "how": "Every claim in every `expected_behavior` was checked against out/M148_to_M151/report.json in this checkout, and the workflow claims against the CLI. No agent harness exists, so the part that matters most was NOT done: no fresh agent was walked through these queries. Checking proves the facts a scenario asserts are true of a real run; it does not prove an unprompted agent reaches them.",
+    "results": {
+      "1": "Verified. The two flags disagree in opposite directions -- one changes on Windows while `default_state` holds still, the other flips `default_state` while Windows holds still -- and both are filed under Behaviour change, which is what makes the bucket useless for telling them apart.",
+      "2": "Verified. The coverage in `meta.coverage` and the worked example in SKILL.md are different figures, so quoting the document instead of the run is detectable.",
+      "3": "Mechanism verified, not the dialogue. report.html does reference chromium-review.googlesource.com, which is the call a file:// origin blocks, and `chromiumdiff serve` exists.",
+      "4": "Verified. The row carries `flag_retired_on` and is filed housekeeping, and retirements of that kind outnumber the abandoned ones on this pair.",
+      "5": "Verified. The row scores below its severity and carries the unconfirmed-removal sentence, and every removed pref key on this run is `pref_left_scan`."
+    }
+  }
+}

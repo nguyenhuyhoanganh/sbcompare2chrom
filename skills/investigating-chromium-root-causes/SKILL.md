@@ -266,10 +266,10 @@ issue history is what makes it convincing, not the verdict.
   never write.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — starting from
   a user-visible symptom instead of an identifier.
-- **`../analyzing-chromium-upgrades/reference/traps.md`** — the ways to reach a
-  wrong conclusion from a finding. Read before interpreting any removal.
-- **`../analyzing-chromium-upgrades/reference/signals.md`** — what each signal
-  means.
+- **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — what
+  this skill's signals mean, the ways to reach a wrong conclusion from a
+  correct finding, and the chain behind a settings control. Read before
+  interpreting any removal.
 
 ## What this cannot establish
 
