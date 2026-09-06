@@ -258,7 +258,7 @@ A WebAuthn message field stopped being nullable. Nothing in Chromium warns about
 
 Preferences and switches fail the same way, one step further out. Chromium **ignores a command-line switch it does not recognise** — no warning, no error, no log line — so a launch script keeps starting the browser exactly as before and the flag it passes stops doing anything at all.
 
-For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these surfaces, and the per-owner decision procedure in the skill branches on the surface before it asks anything.
+For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these surfaces, and the decision procedure in the skill branches on the declaration's kind before it asks anything.
 
 
 ### Assembling the fragments into one story
@@ -626,22 +626,6 @@ Additions are not discounted. An addition is a thing seen rather than a thing no
 
 **Nothing raises a score.** Severity is the ceiling — the most this kind of change can cost — and the adjustments only take away, each with a sentence beside it. So a reader who understands the signal table understands the ranking, and every point of difference between the two numbers can be argued with.
 
-### The five owners
-
-The leading signal also decides **whose desk a finding lands on**, which is the axis that decides whether a reader keeps reading. The bucket says how bad and the consequence group says what kind of consequence; neither says whether a row is yours.
-
-| Owner | What it holds | M148 → M151 | of which Breaking |
-|---|---|---:|---:|
-| Process boundaries | Mojo interfaces, methods, structs, fields, enums | 339 | **126** |
-| Web platform | Blink IDL and the runtime flags gating it | 719 | 94 |
-| Browser C++ | feature flags, prefs, switches, chrome://flags entries | **1,157** | **2** |
-| WebUI front-end | routes, templates, the booleans gating them | 277 | 1 |
-| Outside the repository | Finch configs, launch scripts, automation, policy | 530 | 53 |
-
-The two middle columns point opposite ways, which is the reason to split at all: the longest list carries two of the 276 Breaking rows and the second shortest carries 126.
-
-Routing is by surface, except where the fix is somewhere other than the declaration. A renamed C++ constant stops the build and is fixed in the file beside it; a renamed Finch string compiles perfectly and is fixed in a server-side config nobody can see from this repository. Those are one event to a diff and two jobs on two desks, and only the second can sit unnoticed for a milestone — so eight signals override their surface and route to **Outside the repository**, which owns nothing and is where the silent failures collect.
-
 ### The four buckets
 
 The leading signal also decides which bucket a finding is filed under, so a row is filed under the sentence it was ranked by.
@@ -790,14 +774,6 @@ The report groups its filter by *what a change means*, rather than presenting si
 On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as sixteen kinds of "feature" is the most common misreading.
 
 The three groups appear in two places in `report.html`: as a sub-line under each row's `Surface` column, and as the option groups of the `All surfaces` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Surface` column renders empty.
-
-### And an `All owners` filter, because "is this mine" is a different question
-
-A group tells a reader what kind of consequence a change has. It does not tell them whether to keep reading, and a 3,000-row report is read by several people who each own a fifth of it. So `report.html` carries a fifth dropdown, `All owners`, and `report.md` opens with a **Who has to do something** section: a count per owner across the four buckets, then the top rows of each owner's actual list.
-
-The section is placed before *What happened* on purpose. It is the first question a reader has and the cheapest one to answer, and answering it first means four people can each read a fifth of a report instead of one person reading all of it badly.
-
-`summary.by_owner` in `report.json` carries the same counts for scripting. All three go through `owner_of` and nothing computes an owner locally — a test renders both formats and asserts the three agree, because one fact derived in three places is exactly the shape that has drifted here before.
 
 ### Context from chromestatus
 
@@ -1252,11 +1228,11 @@ chromiumdiff/
   targets.py      declares which files to fetch and why; partitions; coverage rules
   snapshot.py     combines fetch + extract into one cached snapshot
   extract/        the extractors, and the C++/GRIT/mojom condition scanner
-  diff.py         semantic comparison, labelling, severity, bucketing, ownership
+  diff.py         semantic comparison, labelling, severity, bucketing
   cluster.py      assemble scattered fragments into one story
   score.py        the two run-dependent adjustments, and the reasons
   catalog.py      measure what the target set is missing; check reference closure
-  model.py        shared data structures, the four buckets, the five owners, JSON read/write
+  model.py        shared data structures, the four buckets, JSON read/write
   eligibility.py  one policy for what is product code, shared by discovery and extraction
   jsonc.py        hand-written JSON5 reader
   report/         markdown + self-contained HTML dashboard;

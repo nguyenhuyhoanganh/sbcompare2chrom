@@ -35,10 +35,9 @@ import json
 import re
 from typing import List
 
-from ..diff import SIGNAL_LABELS, owner_of
+from ..diff import SIGNAL_LABELS
 from ..model import (BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER, KIND_GROUPS,
-                     KIND_LABELS, OWNER_LABELS, OWNER_ORDER, Report,
-                     group_of)
+                     KIND_LABELS, Report, group_of)
 from .markdown import TITLE, display_name
 from . import wording as surfaces
 
@@ -496,7 +495,7 @@ const PAGE=200;
 const q=document.getElementById('q'),x=document.getElementById('x'),
 fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
-fo=document.getElementById('fo'),fp=document.getElementById('fp'),
+fp=document.getElementById('fp'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
@@ -594,7 +593,7 @@ function picked(el){
 var SEL={b:[],k:[],g:[],o:[],p:[]},EXCL=[];
 
 function readFilters(){
-  SEL={b:picked(fb),k:picked(fk),g:picked(fg),o:picked(fo),p:picked(fp)};
+  SEL={b:picked(fb),k:picked(fk),g:picked(fg),p:picked(fp)};
   EXCL=terms(x&&x.value);
 }
 
@@ -603,7 +602,7 @@ function readFilters(){
    Untouched it says what the single select said, so a report nobody has
    filtered reads exactly as it did before. */
 function pickLabels(){
-  [fb,fk,fg,fo,fp].forEach(function(el){
+  [fb,fk,fg,fp].forEach(function(el){
     if(!el)return;
     var on=Array.prototype.slice.call(el.querySelectorAll('input:checked'));
     var sum=el.querySelector('summary');
@@ -637,7 +636,6 @@ function match(f,t){
   if(SEL.b.length&&SEL.b.indexOf(f.bucket)<0)return false;
   if(SEL.k.length&&SEL.k.indexOf(f.kind)<0)return false;
   if(SEL.g.length&&SEL.g.indexOf(f.group)<0)return false;
-  if(SEL.o.length&&SEL.o.indexOf(f.owner)<0)return false;
   for(var i=0;i<EXCL.length;i++)if(hasTerm(f,EXCL[i]))return false;
   if(!t)return true;
   if(f._hay===undefined)f._hay=hayOf(f).toLowerCase();
@@ -1112,12 +1110,12 @@ document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',
    each card carries the filter it stands for. */
 document.querySelectorAll('[data-set]').forEach(function(el){
   el.addEventListener('click',function(){
-    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg,fo:fo}[p[0]];
+    var p=el.dataset.set.split(':'),sel={fb:fb,fk:fk,fg:fg}[p[0]];
     if(!sel)return;
     /* A card is one bucket, so it replaces the filters rather than adding to
        them: it is a way to see what that count counted, and leaving another
        filter on would show fewer rows than the number that was clicked. */
-    [fb,fk,fg,fo,fp].forEach(clearPick);
+    [fb,fk,fg,fp].forEach(clearPick);
     setPick(sel,p.slice(1).join(':'));
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
@@ -1127,7 +1125,7 @@ q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);
    keystrokes and each one would otherwise re-filter three thousand rows. */
 if(x)x.addEventListener('input',()=>{clearTimeout(timer);
   timer=setTimeout(apply,140);});
-[fb,fk,fg,fo,fp].forEach(function(el){
+[fb,fk,fg,fp].forEach(function(el){
   if(!el)return;
   el.addEventListener('change',apply);
   var clear=el.querySelector('.clear');
@@ -1135,7 +1133,7 @@ if(x)x.addEventListener('input',()=>{clearTimeout(timer);
 /* Clicking away closes whichever picker is open, which is what the control it
    replaces did and what anyone expects of something shaped like a dropdown. */
 document.addEventListener('click',function(e){
-  [fb,fk,fg,fo,fp].forEach(function(el){
+  [fb,fk,fg,fp].forEach(function(el){
     if(el&&el.open&&!el.contains(e.target))el.open=false;});});
 apply();
 """
@@ -1272,11 +1270,6 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # list of sixteen kinds reads as sixteen kinds of "feature", and
             # two thirds of them are not features at all.
             "group": group_of(change.kind),
-            # Whose desk it lands on. The third axis and the only one that
-            # answers "is this mine": measured M148 -> M151, the longest list
-            # holds 2 of the 315 Breaking rows and the second shortest holds
-            # 126, so length and urgency point opposite ways.
-            "owner": owner_of(change),
             # Six rather than three: an overloaded member is declared several
             # times, and the row is about the set. Three cut off the very
             # declaration an overload had been removed from.
@@ -1425,7 +1418,7 @@ def _issue_payload(issue) -> dict:
 #
 # `what` and `paths` are deliberately absent: they are near-unique per row, so
 # a table of them is the same bytes plus an index.
-_POOLED = ("reasons", "signals", "where", "group", "owner")
+_POOLED = ("reasons", "signals", "where", "group")
 
 
 _PAYLOAD_RE = None  # compiled on first use by `payload_of`
@@ -1843,7 +1836,6 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 {_picker("fb", "All buckets", [(None, [(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER])])}
 {_picker("fk", "All surfaces", surface_groups)}
 {_picker("fg", "All consequences", [(None, [(g, g) for g in groups])])}
-{_picker("fo", "All owners", [(None, [(o, OWNER_LABELS[o]) for o in OWNER_ORDER])])}
 {provenance_filter}
 <span class="muted" id="cnt"></span>
 </div>

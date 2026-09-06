@@ -113,7 +113,7 @@ class Pick extends El {
     values = values.filter(Boolean);
     // A value the fixture invents is a box the page would have rendered, so
     // the double grows one rather than refusing. The harness picks rows by
-    // owner, and those owners are made up per assertion.
+    // kind, and those kinds are made up per assertion.
     values.forEach(v => {
       if (!this.boxes.some(b => b.value === v))
         this.boxes.push(Pick.box(v));
@@ -135,7 +135,6 @@ class Pick extends El {
 els.fb = new Pick('fb', ['breaking', 'behaviour', 'new', 'housekeeping']);
 els.fk = new Pick('fk', ['base_feature', 'mojo_method', 'pref']);
 els.fg = new Pick('fg', ['External contracts', 'Behaviour switches']);
-els.fo = new Pick('fo', ['ipc', 'native', 'webplatform', 'budget']);
 els.fp = new Pick('fp', ['exact', 'cl', 'weak', 'none', 'skipped']);
 
 global.document = {
@@ -166,10 +165,10 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'],
     areas: [], deltas: [['default_state', 'disabled', 'enabled']],
     reasons: ['base severity 75'], moved: 'disabled -> enabled',
-    // The routing axis. A retired flag routes away from its own surface --
-    // it is a config job, not a C++ one -- and every tenth row here is Mojo
-    // so the filter has two values to tell apart.
-    owner: i % 10 === 0 ? 'ipc' : 'config',
+    // Every tenth row is Mojo so the surfaces filter has two values to
+    // tell apart, and each assertion below invents its own kind to isolate
+    // the rows it is about.
+    kind: i % 10 === 0 ? 'mojo_method' : 'base_feature',
   };
   // Provenance, in the three shapes the page must tell apart. 30 rows each,
   // so a filter that quietly lumps two of them together shows up as a count.
@@ -183,14 +182,14 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
                  b: [] }];
   }
   // Found by searching commit messages, because nothing touched the file.
-  // Its own owner so the harness can isolate it: the file's denominator is
+  // Its own kind so the harness can isolate it: the file's denominator is
   // the thing being asserted, and it must not be printed for these.
-  // The floor reached over diffs nobody opened. Its own owner, because the
+  // The floor reached over diffs nobody opened. Its own kind, because the
   // assertion is that this row keeps a way out that the other weak rows do
   // not need: nothing here was searched, so a lookup can still answer it.
   if (prov === 7) {
     row.cl_pool = 147; row.cl_files = 1; row.no_diffs = 1;
-    row.owner = 'budget';
+    row.kind = 'budget';
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
                  m: 'touched', b: [] }];
   }
@@ -209,13 +208,13 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     // A fragment of a larger change. Read alone it is a 15-point "New
     // surface" row, and that bucket's sentence -- nothing switches it on --
     // is false of it: the feature it belongs to does, from another row.
-    row.score = 15; row.bucket = 'new'; row.owner = 'frag';
+    row.score = 15; row.bucket = 'new'; row.kind = 'frag';
     row.grp = { n: 'CastStreamingMaxVideoBitrate', c: 2, t: 55 };
   }
   if (prov === 14 || prov === 15) {
     // Two rows one lookup will join. Nothing happens to the second on screen,
     // and a panel open on it must still stop saying what stopped being true.
-    row.cl_pool = 5; row.cl_files = 1; row.owner = 'pair';
+    row.cl_pool = 5; row.cl_files = 1; row.kind = 'pair';
     row.id = prov === 14 ? 'base_feature:Joined' : 'base_feature:Sibling';
     row.cls = [{ n: 8800002 + prov, d: '2026-06-01', s: 's', m: 'exact', b: [] }];
   }
@@ -223,14 +222,14 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
     // Already resolved and not in a group. Looking up a *different* row is
     // what joins them, so this row gains a group without its own CLs
     // changing -- and it is not the row being looked at when that happens.
-    row.cl_pool = 5; row.cl_files = 1; row.owner = 'joined';
+    row.cl_pool = 5; row.cl_files = 1; row.kind = 'joined';
     row.id = 'base_feature:Joined2';
     row.cls = [{ n: 8800001, d: '2026-06-01', s: 'a subject', m: 'exact', b: [] }];
   }
   if (prov === 11) {
     // Baked too, but the server agrees with what is stored -- so nothing
     // repaints and what is asserted is the panel as it was first drawn.
-    row.cl_pool = 5; row.cl_files = 1; row.owner = 'agrees';
+    row.cl_pool = 5; row.cl_files = 1; row.kind = 'agrees';
     row.id = 'base_feature:Agrees';
     row.cls = [{ n: 8800000, d: '2026-06-01', s: 'a subject', m: 'exact',
                  b: [{ i: '500975618' }] }];
@@ -240,7 +239,7 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   if (prov === 10) {
     // A row a run baked an issue history into. Served, the chip is the way to
     // see one, and rendering the baked list too puts it on the page twice.
-    row.cl_pool = 5; row.cl_files = 1; row.owner = 'baked';
+    row.cl_pool = 5; row.cl_files = 1; row.kind = 'baked';
     row.id = 'base_feature:Baked';
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject', m: 'exact',
                  b: [{ i: '500975618' }] }];
@@ -249,13 +248,13 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   }
   if (prov === 8) {
     row.cl_pool = 13; row.cl_files = 1; row.cl_failed = 2;
-    row.owner = 'flaky';
+    row.kind = 'flaky';
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
                  m: 'exact', b: [] }];
   }
   if (prov === 6) {
     row.cl_pool = 0; row.cl_files = 1; row.cl_by_message = 1;
-    row.owner = 'msg';
+    row.kind = 'msg';
     row.cls = [{ n: 7700000 + i, d: '2026-06-01', s: 'a subject',
                  m: 'described', b: [] }];
   }
@@ -278,7 +277,7 @@ global.window.__FINDINGS__.push(...[
   ['SqlDiskCacheSynchronousOff', 'settings must not reach this'],
   ['CookiesEnabled', 'cookie only reaches it with a star'],
 ].map(([name, why], i) => ({
-  id: 'base_feature:' + name, name, kind: 'base_feature', owner: 'excl',
+  id: 'base_feature:' + name, name, kind: 'excl',
   bucket: i % 2 ? 'breaking' : 'housekeeping', score: 50,
   change_type: 'modified', what: name, why: 'flag_retired_on',
   where: 'content/public/common', signals: ['flag_retired_on'],
@@ -385,16 +384,6 @@ out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
 els.fb.tick();
 els.fb.listeners['change'].forEach(f => f());
 
-// The owner filter narrows to exactly the rows carrying that owner. It is a
-// fifth dropdown over the same `match`, so an unwired one would silently show
-// everything rather than error.
-els.fo.tick('ipc');
-els.fo.listeners['change'].forEach(f => f());
-out.ownerFilterCount = els.cnt.textContent;
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
-out.allOwnersRestores = els.cnt.textContent;
-
 // Type a word one character at a time; only the debounced tail should run.
 // Counting DOM rebuilds is the measure that matters: the row count after
 // filtering happens to be a full page either way, so it cannot tell a
@@ -467,8 +456,8 @@ out.weakDetailBadge = /ev-touched/.test(weakHtml);
 // its remedy with it, because both the sentence and the button lived in the
 // branch that runs only when there are no CLs at all.
 els.q.value = '';
-els.fo.tick('budget');
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick('budget');
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const budgetRow = new El('tr');
 budgetRow.className = 'row'; budgetRow.dataset.i = '0';
@@ -493,8 +482,8 @@ out.budgetRowRemedyMatchesTheMode = !/--click-budget/.test(budgetHtml);
 // rows are cited -- left in place it filters out the thing being asserted.
 els.fp.value = '';
 els.fp.listeners['change'].forEach(f => f());
-els.fo.value = 'flaky';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'flaky';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const flakyRow = new El('tr');
 flakyRow.className = 'row'; flakyRow.dataset.i = '0';
@@ -505,12 +494,12 @@ out.aCitedRowStillWarns = /class="warn"/.test(flakyHtml);
 out.theWarningNamesTheCount = /2 requests to Gerrit failed/.test(flakyHtml);
 // ...and it does not swallow the answer it qualifies.
 out.theCitationSurvivesTheWarning = /7700\d{3}/.test(flakyHtml);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';
 els.fp.listeners['change'].forEach(f => f());
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 els.fp.value = 'weak';
 els.fp.listeners['change'].forEach(f => f());
 
@@ -528,10 +517,10 @@ byEvidence('');
 
 // A CL reached by its commit message never entered the file search, so the
 // panel must not print "N of M merged CLs touched this file" over it. The
-// fixture gives those rows their own owner because that count is exactly what
+// fixture gives those rows their own kind because that count is exactly what
 // is under test and it has to be isolated to be seen.
-els.fo.value = 'msg';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'msg';
+els.fk.listeners['change'].forEach(f => f());
 out.messageRowCount = els.cnt.textContent;
 detailRows = [];
 const msgRow = new El('tr');
@@ -542,8 +531,8 @@ const msgHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.messageDetailSaysHow = msgHtml.includes('found by commit message');
 out.messageDetailHidesTheDenominator = !/merged CLs touched/.test(msgHtml);
 out.messageDetailListsTheCl = /7700\d{3}/.test(msgHtml);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // An issue opens where the reader asked for it, and a second one does not
 // close the first. The whole point of putting the control on the CL is that
@@ -581,8 +570,8 @@ out.theClosedChipIsNoLongerMarked = !a.classList.contains('on');
 // A baked issue list belongs to the file on a disk. Served, the chip is the
 // way to see one, and rendering both puts the same issue on the page twice --
 // once before the reader has touched it, and again under the CL when they do.
-els.fo.value = 'baked';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'baked';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const bakedRow = new El('tr');
 bakedRow.className = 'row'; bakedRow.dataset.i = '0';
@@ -597,22 +586,22 @@ out.openingAResolvedRowVerifiesIt = asked.some(u => /api\/why/.test(u));
 // The verified answer replaces the stored one rather than merging over it. A
 // key the old lookup set and the new one does not -- a baked `issues` list
 // outliving a lookup that no longer fetches one -- has to go with it.
-const bakedFinding = global.window.__FINDINGS__.find(r => r.owner === 'baked');
+const bakedFinding = global.window.__FINDINGS__.find(r => r.kind === 'baked');
 out.whatWasAsked = asked.filter(u => /api\/why/.test(u));
 out.theVerifiedAnswerReplacesTheStoredOne =
   !!bakedFinding && !bakedFinding.issues && bakedFinding.cls[0].n === 9000001;
 const afterVerify = detailRows.length ? detailRows[0].innerHTML : '';
 out.thePanelRepaintsWithIt = /9000001/.test(afterVerify);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // A baked issue list belongs to the file on a disk. Served, the chip is the
 // way to see one, and rendering both puts the same issue on the page twice --
 // once before the reader has touched it, and again under the CL when they do.
 // Asserted on the row whose verification agrees with what is stored, so what
 // is on screen is the panel as it was first drawn rather than a repaint.
-els.fo.value = 'agrees';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'agrees';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const agreeRow = new El('tr');
 agreeRow.className = 'row'; agreeRow.dataset.i = '0';
@@ -621,14 +610,14 @@ els.tb.listeners['click'].forEach(
 const agreeHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.servedRowHidesTheBakedIssue = !/prov iss/.test(agreeHtml);
 out.anAgreeingAnswerDoesNotRepaint = /8800000/.test(agreeHtml);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // The run already works out which findings are fragments of one change and
 // `report.md` prints the groups; the table did not, so a row read alone gave
 // no sign that it was one.
-els.fo.value = 'frag';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'frag';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const fragRow = new El('tr');
 fragRow.className = 'row'; fragRow.dataset.i = '0';
@@ -639,14 +628,14 @@ out.aFragmentSaysSo = /Part of a larger change/.test(fragHtml);
 out.aFragmentNamesItsGroup = /CastStreamingMaxVideoBitrate/.test(fragHtml);
 // And points at the row worth reading first, which is the whole use of it.
 out.aFragmentNamesTheHeaviest = /scores <b>55<\/b>/.test(fragHtml);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // A row can gain a group without its own CLs changing: the lookup that joins
 // them is on another row. Left out of the signature, the answer was assigned
 // and the repaint skipped, and the panel said nothing until a page reload.
-els.fo.value = 'joined';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'joined';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const joinedRow = new El('tr');
 joinedRow.className = 'row'; joinedRow.dataset.i = '0';
@@ -654,14 +643,14 @@ els.tb.listeners['click'].forEach(
   f => f({ target: { closest: q => (q === 'tr.row-t' ? joinedRow : null) } }));
 const joinedHtml = detailRows.length ? detailRows[0].innerHTML : '';
 out.aRowJoinedByAnotherLookupRepaints = /Part of a larger change/.test(joinedHtml);
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // A lookup joins two rows and only one is the row asked about. 23 rows open,
 // one button pressed, one panel updated and the rest stale is what this stops.
 // Driven through the real filter, because `view` belongs to the page script.
-els.fo.value = 'pair';
-els.fo.listeners['change'].forEach(f => f());
+els.fk.value = 'pair';
+els.fk.listeners['change'].forEach(f => f());
 detailRows = [];
 const heads = [0, 1].map(i => {
   const h = new El('tr'); h.className = 'row'; h.dataset.i = String(i);
@@ -686,8 +675,8 @@ out.theSiblingRowGetsTheGroupInItsData = (() => {
   const sib = global.window.__FINDINGS__.find(r => r.id === 'base_feature:Sibling');
   return !!(sib && sib.grp && sib.grp.c === 2);
 })();
-els.fo.tick();
-els.fo.listeners['change'].forEach(f => f());
+els.fk.tick();
+els.fk.listeners['change'].forEach(f => f());
 
 // A panel above the clicked row grows by the line it just gained, and
 // everything below slides down by that much -- including the button the
@@ -714,8 +703,8 @@ out.theClickedRowIsPinned = scroller.scrollTop === 37;
    its `hasTerm` is out of scope and the only way to ask what a term excludes
    is to type it and read the count. */
 const excludeNames = () => {
-  els.fo.tick('excl');
-  els.fo.listeners['change'].forEach(f => f());
+  els.fk.tick('excl');
+  els.fk.listeners['change'].forEach(f => f());
   return els.tb.innerHTML;
 };
 const typeExclude = v => {
@@ -744,7 +733,7 @@ typeExclude('');
 
 /* Two buckets at once. A single select could hold one, so the union is the
    whole point: 40 breaking rows plus the four the fixture files elsewhere. */
-els.fo.tick();
+els.fk.tick();
 els.fb.tick('breaking');
 els.fb.listeners['change'].forEach(f => f());
 out.oneBucket = els.cnt.textContent;

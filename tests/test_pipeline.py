@@ -369,112 +369,6 @@ struct Handset {
         self.assertEqual(findings[0].bucket, "new")
 
 
-class TestOwnership(unittest.TestCase):
-    """Every finding lands on exactly one desk, and the tables say which.
-
-    The third axis, and the one that decides whether a reader keeps reading.
-    It is derived in `Report.by_owner` and nowhere else on purpose: the failure
-    this project keeps having is one fact derived twice, and an owner computed
-    once in the markdown renderer and once in the HTML one would drift the same
-    way the reason strings did.
-    """
-
-    def test_every_kind_has_an_owner(self):
-        """A kind added without one would silently be filed as Browser C++."""
-        from chromiumdiff.model import ALL_KINDS, KIND_OWNERS
-        self.assertEqual(sorted(KIND_OWNERS), sorted(ALL_KINDS))
-
-    def test_every_owner_named_is_a_real_owner(self):
-        from chromiumdiff.diff import SIGNAL_OWNERS
-        from chromiumdiff.model import KIND_OWNERS, OWNER_ORDER
-        for source in (KIND_OWNERS, SIGNAL_OWNERS):
-            for key, owner in source.items():
-                self.assertIn(owner, OWNER_ORDER, key)
-
-    def test_every_owner_is_reachable_and_says_what_it_means(self):
-        """Reachable from one table or the other, not necessarily both.
-
-        `config` has no surface of its own -- nothing is *declared* outside the
-        repository -- so it is reached only by signal. An owner reachable from
-        neither would be a name in the report legend that no row can carry.
-        """
-        from chromiumdiff.diff import SIGNAL_OWNERS
-        from chromiumdiff.model import (KIND_OWNERS, OWNER_LABELS,
-                                       OWNER_MEANINGS, OWNER_ORDER)
-        reachable = set(KIND_OWNERS.values()) | set(SIGNAL_OWNERS.values())
-        self.assertEqual(sorted(reachable), sorted(OWNER_ORDER))
-        for owner in OWNER_ORDER:
-            self.assertTrue(OWNER_LABELS.get(owner), owner)
-            self.assertTrue(OWNER_MEANINGS.get(owner), owner)
-
-    def test_a_signal_overrides_the_surface_it_was_declared_on(self):
-        """A renamed Finch string is a config job, not a C++ one.
-
-        Both of these are `base_feature`, whose surface owner is Browser C++.
-        One stops the build and is fixed in the file beside it; the other
-        compiles and is fixed in a server-side config nobody can see from here.
-        """
-        from chromiumdiff.diff import owner_of
-        from chromiumdiff.model import OWNER_CONFIG, OWNER_NATIVE
-        renamed = diff_snapshots(
-            snap("148.0.0.0", [feature("OldName", "enabled", var="kThing")]),
-            snap("151.0.0.0", [feature("NewName", "enabled", var="kThing")]))
-        lead = [c for c in renamed
-                if "feature_string_renamed" in c.signals]
-        self.assertTrue(lead)
-        self.assertEqual(owner_of(lead[0]), OWNER_CONFIG)
-
-        flipped = diff_snapshots(
-            snap("148.0.0.0", [feature("Thing", "disabled")]),
-            snap("151.0.0.0", [feature("Thing", "enabled")]))[0]
-        self.assertEqual(owner_of(flipped), OWNER_NATIVE)
-
-    def test_both_renderers_and_the_summary_agree_on_who_owns_what(self):
-        """Three consumers of one derivation, which is where drift starts.
-
-        `report.md` prints a per-owner table, `report.html` filters on an
-        `owner` field baked into its data, and `summary.by_owner` is what a
-        script reads. All three go through `owner_of`; a fourth answer computed
-        locally in any of them would be the reason two people disagree about
-        whose row it is.
-        """
-        import re
-
-        from chromiumdiff.report import html as html_report
-        from chromiumdiff.report import markdown as md_report
-        from chromiumdiff.model import OWNER_LABELS
-
-        findings = score_all(diff_snapshots(
-            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
-            snap("151.0.0.0", [feature("A", "enabled"), feature("C", "enabled")])))
-        report = Report(from_ref="a", to_ref="b", findings=findings,
-                        summary=summarize_findings(findings))
-
-        counted = report.summary["by_owner"]
-        text = md_report.render(report)
-        for owner, total in counted.items():
-            if not total:
-                continue
-            row = re.search(rf"^\| {re.escape(OWNER_LABELS[owner])} \|.*\| (\d+) \|$",
-                            text, re.M)
-            self.assertIsNotNone(row, OWNER_LABELS[owner])
-            self.assertEqual(int(row.group(1)), total, owner)
-
-        rows = html_report.payload_of(html_report.render(report))
-        from collections import Counter
-        self.assertEqual(Counter(r["owner"] for r in rows),
-                         Counter({k: v for k, v in counted.items() if v}))
-
-    def test_the_owner_counts_partition_the_report(self):
-        """Each tally adds up to the total, so the counts are the report."""
-        from chromiumdiff.model import OWNER_ORDER
-        findings = score_all(diff_snapshots(
-            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
-            snap("151.0.0.0", [feature("A", "enabled"), feature("C", "enabled")])))
-        summary = summarize_findings(findings)
-        self.assertEqual(sum(summary["by_owner"].values()), len(findings))
-        self.assertEqual(sorted(summary["by_owner"]), sorted(OWNER_ORDER))
-
 
 class TestWebApiGates(unittest.TestCase):
     """The three-stage rule, applied to the surface that carries 14,549 facts.
@@ -801,7 +695,7 @@ class TestEveryFilterOffersWhatItFilters(unittest.TestCase):
         """The shape the defect had: a list holding only its own reset."""
         import re
         page = self._page()
-        for ident in ("fb", "fk", "fg", "fo"):
+        for ident in ("fb", "fk", "fg"):
             block = re.search(r'id="%s".*?</details>' % ident, page, re.S)
             self.assertIsNotNone(block, ident)
             self.assertIn("checkbox", block.group(0),
@@ -901,11 +795,9 @@ class TestHtmlReportScales(unittest.TestCase):
 
         # 2. Detail markup -- half the old payload -- is built on expand only.
         # 300 of the 3,000 fixture rows are `ipc`; the rest are `config`.
-        self.assertIn("300", out["ownerFilterCount"])
         # Read from the fixture rather than written down: rows get added to it
         # for new filters, and a hand-copied total makes an unrelated test the
         # thing that fails.
-        self.assertIn(str(out["total"]), out["allOwnersRestores"])
 
         self.assertEqual(out["detailsBuiltUpfront"], 0)
         self.assertEqual(out["detailsAfterClick"], 1)

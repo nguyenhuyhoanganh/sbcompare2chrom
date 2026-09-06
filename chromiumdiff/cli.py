@@ -418,7 +418,7 @@ FIGURES_PATH = "docs/figures.json"
 def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
     """Every number the shipped documents quote, taken from a real run.
 
-    The documents state measurements -- bucket counts, owner totals, coverage,
+    The documents state measurements -- bucket counts, coverage,
     the share of findings with no signal -- and every one of them was being
     kept up to date by hand. Six times in one working session a figure was
     corrected only because a test happened to look at it, and four of the
@@ -428,19 +428,7 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
     report, the documents quote it, and a test holds the documents to it
     without needing anyone to have run the tool.
     """
-    from .diff import SIGNAL_OWNERS, SIGNAL_SEVERITY, leading_signal
-    from .model import KIND_OWNERS, OWNER_NATIVE
-
-    def owner_of_finding(finding):
-        lead = leading_signal(finding.change)
-        return (SIGNAL_OWNERS.get(lead)
-                or KIND_OWNERS.get(finding.change.kind, OWNER_NATIVE))
-
-    breaking_by_owner: dict = {}
-    for finding in report.findings:
-        if finding.bucket == "breaking":
-            owner = owner_of_finding(finding)
-            breaking_by_owner[owner] = breaking_by_owner.get(owner, 0) + 1
+    from .diff import SIGNAL_SEVERITY, leading_signal
 
     # What the CL-and-issue stage found, over whatever rows the report has had
     # resolved. Every figure here moved when the candidate window was
@@ -493,8 +481,6 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
         "total": summary.get("total"),
         "not_in_build": summary.get("not_in_build"),
         "buckets": summary.get("by_bucket") or {},
-        "owners": summary.get("by_owner") or {},
-        "breaking_by_owner": breaking_by_owner,
         "no_signal": sum(1 for f in report.findings
                          if not f.change.signals),
         "coverage": {"default": {k: v for k, v in (coverage.get("to") or {}).items()
@@ -535,7 +521,6 @@ def cmd_figures(args: argparse.Namespace) -> int:
     for key in ("total", "not_in_build", "no_signal"):
         print(f"    {key}: {figures[key]}")
     print(f"    buckets: {figures['buckets']}")
-    print(f"    owners: {figures['owners']}")
     prov = figures.get("provenance")
     if prov:
         print(f"    provenance: {prov['rows_named_by_a_verdict']} of "

@@ -25,9 +25,6 @@ from typing import Dict, List, Optional, Tuple
 from .extract._cpp import PLATFORM
 from .extract.blink_runtime import status_rank
 from .model import (
-    OWNER_NATIVE,
-    OWNER_CONFIG,
-    KIND_OWNERS,
     ADDED,
     BUCKET_BEHAVIOUR,
     BUCKET_BREAKING,
@@ -913,47 +910,6 @@ def bucket_of(change: Change) -> str:
         if bucket:
             return bucket
     return NO_SIGNAL_BUCKET.get(change.change_type, BUCKET_HOUSEKEEPING)
-
-
-# Signals whose fix is not where the declaration is. Everything else is owned
-# by the surface it was declared on, which `KIND_OWNERS` decides.
-#
-# The test is where the edit has to happen, not what broke. A renamed C++
-# constant stops the build and is fixed in the file next to it; a renamed Finch
-# string compiles perfectly and is fixed in a server-side config nobody can
-# see from this repository. Those are the same event to a diff and two
-# different jobs, and only the second one can sit unnoticed for a milestone.
-SIGNAL_OWNERS = {
-    "feature_string_renamed": OWNER_CONFIG,
-    "switch_renamed": OWNER_CONFIG,
-    "param_removed": OWNER_CONFIG,
-    "param_rewired": OWNER_CONFIG,
-    # A retired flag changes nothing in the binary and silently kills any
-    # override that was setting it from outside -- which is the only reason
-    # anyone needs to know, and it is not a C++ job.
-    "flag_retired_on": OWNER_CONFIG,
-    "flag_retired_off": OWNER_CONFIG,
-    "killswitch_retired": OWNER_CONFIG,
-    # The one thing in Housekeeping about work that has not happened yet.
-    "flag_expiring": OWNER_CONFIG,
-    # And its quieter half: a removal date moving is scheduling news for
-    # whoever depends on being able to set the flag, which is never the person
-    # who owns the file it is declared in.
-    "flag_expiry_moved": OWNER_CONFIG,
-}
-
-
-def owner_of(change: Change) -> str:
-    """Whose desk this lands on.
-
-    Same shape as `bucket_of`, and for the same reason: the signal is the
-    precise statement and the kind is the fallback, so a row is routed by what
-    happened rather than by which file it was found in.
-    """
-    lead = leading_signal(change)
-    if lead in SIGNAL_OWNERS:
-        return SIGNAL_OWNERS[lead]
-    return KIND_OWNERS.get(change.kind, OWNER_NATIVE)
 
 
 def _arity_range(signature: str):
