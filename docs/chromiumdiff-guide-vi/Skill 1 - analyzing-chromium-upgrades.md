@@ -256,11 +256,11 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 1. **Lần theo guard để ra flag của nó.** Một control hay một trang biến mất thường là đã chuyển ra sau một guard khác, và thay đổi mà người dùng thấy đã xảy ra vào lúc flag đó lật. Bẫy 2 và 6 trong [reference/traps.md](reference/traps.md).
 
-**Sửa ở ngoài repository** — nhánh này không theo `kind` mà theo signal. Tám signal dưới đây đều biên dịch bình thường rồi ngừng hoạt động ngoài thực địa, và chỗ phải sửa là Finch config, script khởi chạy hoặc automation chứ không phải file khai báo:
+**Sửa ở ngoài repository** — nhánh này không theo `kind` mà theo signal. Chín signal dưới đây đều biên dịch bình thường rồi ngừng hoạt động ngoài thực địa, và chỗ phải sửa là Finch config, script khởi chạy hoặc automation chứ không phải file khai báo:
 
-`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiry_moved`
+`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved`
 
-1. **Luôn có việc phải làm nếu cái tên cũ còn xuất hiện ở đâu đó.** Bốn signal đầu làm chết thứ đang set giá trị từ bên ngoài; bốn signal sau là flag bị gỡ, làm mọi override đặt từ bên ngoài mất tác dụng mà không có gì báo.
+1. **Luôn có việc phải làm nếu cái tên cũ còn xuất hiện ở đâu đó.** Bốn signal đầu làm chết thứ đang set giá trị từ bên ngoài. Ba signal tiếp theo là flag bị gỡ, làm mọi override đặt từ bên ngoài mất tác dụng mà không có gì báo. Hai signal cuối là lịch xoá: một flag có ngày hết hạn nghĩa là override đặt lên nó cũng có hạn.
 2. Công cụ không nhìn thấy bất kỳ nơi nào trong số đó. Đây là danh sách những thứ cần kiểm tra, không phải danh sách những thứ đã hỏng.
 
 Ý nghĩa từng signal: **[reference/signals.md](reference/signals.md)**.

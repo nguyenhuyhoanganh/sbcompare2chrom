@@ -19,7 +19,6 @@ from . import wording as surfaces
 from ..model import (
     BUCKET_BEHAVIOUR,
     BUCKET_BREAKING,
-    BUCKET_HOUSEKEEPING,
     BUCKET_LABELS,
     BUCKET_MEANINGS,
     BUCKET_NEW,

@@ -781,13 +781,13 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <b>One bucket moves with the coverage, deliberately.</b>
       <code>pref_left_scan</code> means “deleted, or moved out of the files we
       read”, and which of those it is depends entirely on how much of the tree the
-      run covered. Measured on M148 → M151, <code>--target-set default</code> files 139
-      of these under Housekeeping at 20 points, while <code>wide</code> puts 171
-      under Breaking at 35. A rule that gave the same answer either way would
+      run covered. Measured on M148 → M151, <code>--target-set default</code> finds 139 of
+      these and <code>wide</code> finds 171 — but only 30 are in the Windows
+      build at all, and it is those 30 that move from Housekeeping at 20 points
+      to Breaking at 35. The rest score 0 either way. A rule that gave the same answer either way would
       be wrong in one of the two directions.
     </div>
 
-    <h3 class="sub">And a third axis: whose desk it lands on</h3>
     <h3 class="sub">One table, and every row says what it is</h3>
     <p>
       The four buckets above are the reading order, not a severity order — a

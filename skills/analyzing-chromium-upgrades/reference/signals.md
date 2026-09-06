@@ -116,9 +116,10 @@ non-ChromeOS `pref_names.h` files.
 read the whole tree can call a disappearance a disappearance, so they are filed
 under **Breaking** at full severity. A run that did not is filed under
 **Housekeeping** with 15 points off, and the finding says so in its own
-reasons. Measured on the same pair of versions: `default` reads 43% of the tree
-and produces 139 of these in Housekeeping at 20 points; `wide` reads 99% and
-produces 171 in Breaking at 35.
+reasons. Measured on the same pair of versions: `default` reads 43% of the tree and
+finds 139 of these, `wide` reads 99% and finds 171. Only 30 are in the Windows
+build on either side, and it is those 30 that move from Housekeeping at 20
+points to Breaking at 35; the rest score 0 whichever set is used.
 
 Resolve one by searching the current Chromium tree for the key string. Found
 elsewhere means it moved and there is nothing to do; genuinely absent means

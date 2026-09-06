@@ -932,11 +932,12 @@ Nhắc lại điều dễ bị nói quá nhất: `Breaking` mô tả **loại th
 | `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | Features, prefs, switches | Fork có reference symbol, override default, hoặc persist key không? |
 | `webui_*` (3 kind) | Route/control/gate | Samsung có patch, custom screen, custom control hoặc backing pref không? |
 
-Nhóm thứ năm không theo `kind` mà theo signal. Tám signal sau đều biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, nên chỗ phải sửa là config phía server, script khởi động hoặc automation:
+Nhóm thứ năm không theo `kind` mà theo signal. Chín signal sau đều biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, nên chỗ phải sửa là config phía server, script khởi động hoặc automation:
 
 ```text
 feature_string_renamed   switch_renamed        param_removed        param_rewired
-flag_retired_on          flag_retired_off      killswitch_retired   flag_expiry_moved
+flag_retired_on          flag_retired_off      killswitch_retired
+flag_expiring            flag_expiry_moved
 ```
 
 Ví dụ rõ nhất: feature name được khai báo trong C++, nhưng khi tên đó đổi, hệ thống phía server đang dùng tên cũ cũng phải cập nhật — và không có gì báo lỗi cho tới khi ai đó nhận ra thử nghiệm không còn chạy.

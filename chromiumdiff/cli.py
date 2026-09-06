@@ -428,8 +428,6 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
     report, the documents quote it, and a test holds the documents to it
     without needing anyone to have run the tool.
     """
-    from .diff import SIGNAL_SEVERITY, leading_signal
-
     # What the CL-and-issue stage found, over whatever rows the report has had
     # resolved. Every figure here moved when the candidate window was
     # corrected, and every document quoting one had to be re-measured by hand

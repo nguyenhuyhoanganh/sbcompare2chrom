@@ -179,7 +179,7 @@ Every surface is one or the other:
 | Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
 | Preferences, command-line switches | nothing | **Yes** |
 
-Both halves are large, and the second carries the higher severities: at M148 → M151, **220 of the 276 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with **Who has to do something**, and the first list in it is Mojo.
+Both halves are large, and the second carries the higher severities: at M148 → M151, **220 of the 276 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with the per-bucket counts, and Breaking is the first list of rows it prints.
 
 ---
 

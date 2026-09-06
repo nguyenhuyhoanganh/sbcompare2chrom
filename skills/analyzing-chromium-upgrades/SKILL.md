@@ -256,11 +256,11 @@ Read the finding's `change.kind`, branch on the table below, then ask that branc
 
 1. **Follow the guard to its flag.** A control or page that vanished usually moved behind a different guard, and the user-visible change happened when that flag flipped. Traps 2 and 6 in [reference/traps.md](reference/traps.md).
 
-**Fixed outside the repository** — this branch keys on the signal rather than the kind. All eight below compile perfectly and stop working in the field, and the edit that fixes them is in a Finch config, a launch script or automation rather than in the declaring file:
+**Fixed outside the repository** — this branch keys on the signal rather than the kind. All nine below compile perfectly and stop working in the field, and the edit that fixes them is in a Finch config, a launch script or automation rather than in the declaring file:
 
-`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiry_moved`
+`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved`
 
-1. **Always actionable if the old name appears anywhere.** The first four kill whatever was setting the value from outside; the last four are retired flags, which silently make every external override a no-op.
+1. **Always actionable if the old name appears anywhere.** The first four kill whatever was setting the value from outside. The next three are retired flags, which silently make every external override a no-op. The last two are scheduling: a flag with a deletion date is an override with a deadline.
 2. The tool cannot see any of those places. This is a list of things to check, not a list of things that broke.
 
 Signal meanings: **[reference/signals.md](reference/signals.md)**.

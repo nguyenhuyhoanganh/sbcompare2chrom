@@ -359,7 +359,7 @@ Nhóm này vẫn có thể sinh ra đầu việc — thường là dọn cấu h
 
 ## Bước 6 — Những signal phải sửa ở ngoài repository
 
-Phần lớn finding được sửa ngay tại file khai báo mà nó trỏ tới. Tám signal dưới đây thì không: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và chỗ phải sửa là Finch config, script khởi động hoặc automation.
+Phần lớn finding được sửa ngay tại file khai báo mà nó trỏ tới. Chín signal dưới đây thì không: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và chỗ phải sửa là Finch config, script khởi động hoặc automation.
 
 ```text
 feature_string_renamed
@@ -369,6 +369,7 @@ param_rewired
 flag_retired_on
 flag_retired_off
 killswitch_retired
+flag_expiring
 flag_expiry_moved
 ```
 

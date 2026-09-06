@@ -385,7 +385,7 @@ File `flag-metadata.json` chủ yếu cho ChromiumDiff biết ai là owner upstr
 
 Những thứ ảnh hưởng tới browser nhưng không nằm trong mã nguồn Chromium đang được quét: cấu hình Finch/rollout, script khởi động, automation, deployment cho doanh nghiệp, và backend chứa policy.
 
-Tám signal — `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiry_moved` — đều thuộc nhóm này: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và việc xác minh phải diễn ra ở một nguồn khác chứ không tìm trong Chromium được.
+Chín signal — `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved` — đều thuộc nhóm này: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và việc xác minh phải diễn ra ở một nguồn khác chứ không tìm trong Chromium được.
 
 ## Nhóm 5 — Dữ liệu bên trong ChromiumDiff
 
