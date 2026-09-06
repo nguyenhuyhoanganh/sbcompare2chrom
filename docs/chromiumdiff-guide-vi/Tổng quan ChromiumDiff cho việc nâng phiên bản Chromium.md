@@ -1737,7 +1737,7 @@ Ví dụ: source có feature tên `NewDownloadUI` và param `button_style=compac
 
 **Vì sao điều này nguy hiểm khi upgrade:** nếu Chromium đổi tên `NewDownloadUI` hoặc bỏ param `button_style`, source vẫn build bình thường, trong khi server vẫn gửi tên cũ. Browser không tìm thấy feature tương ứng và âm thầm dùng trạng thái mặc định — không có lỗi nào được báo.
 
-Vì config trên server không nằm trong source Chromium, report giao các finding này cho nhóm `Outside the repository`.
+Vì config trên server không nằm trong source Chromium, những finding này mang signal `feature_string_renamed` hoặc `param_removed` — nhóm phải sửa ngoài repository, xem mục 14.
 
 Samsung Browser có thể không dùng Finch trực tiếp. Khi đó, đừng đi tìm một hệ thống có đúng tên "Finch"; hãy tìm **nơi Samsung đang quyết định bật/tắt feature cho từng nhóm người dùng**. Nơi đó có thể là hệ thống thử nghiệm A/B, file cấu hình trên server, policy, automation, hoặc script thêm cờ `--...` khi khởi động browser.
 

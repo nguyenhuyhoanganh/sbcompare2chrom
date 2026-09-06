@@ -329,7 +329,7 @@ WebNative cần nhận các finding `webui_gate` và pref liên quan tới nhữ
 - policy handler hoặc data source đổi;
 - route/control cần một data key mới.
 
-Đây là vùng giao nhau giữa WebUI front-end và Browser C++. Cách xử lý đúng: báo cáo chỉ định **một team chính và một team phối hợp**, chứ không đẩy cùng một task vào hai backlog mà không phân định ranh giới.
+Đây là vùng giao nhau giữa team WebUI và team làm phần C++ của browser. Cách xử lý đúng: báo cáo chỉ định **một team chính và một team phối hợp**, chứ không đẩy cùng một task vào hai backlog mà không phân định ranh giới.
 
 ### 6. Kế hoạch test cho Browser C++ / WebNative
 
