@@ -25,6 +25,12 @@ Gần như mọi câu trả lời sai ở đây đều là một trong ba câu n
 
 **Không có gì ở đây chạm tới câu hỏi 3.** Công cụ so Chromium với Chromium. Hãy nói rõ điều đó, mọi lần, thay vì để một câu trả lời tự tin cho câu 2 bị đọc thành câu trả lời cho câu 3.
 
+## Trước khi bắt đầu
+
+Chạy mọi lệnh **từ thư mục gốc của repo `chromiumdiff`**: mọi đường dẫn dưới đây đều tương đối so với gốc repo, và `python3 -m chromiumdiff` cần import được package nên ở thư mục khác nó báo `No module named chromiumdiff`.
+
+Một **finding** là một dòng của báo cáo — một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`. Nghĩa của từng signal nằm ở **[reference/reading-a-finding.md](reference/reading-a-finding.md)**.
+
 ## Quy trình
 
 ```
@@ -64,6 +70,8 @@ Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, script sẽ
 | `--budget N` | 600 | một file khai báo quá đông CL bị từ chối; nâng nó lên |
 | `--save` | tắt | muốn ghi câu trả lời ngược vào `report.json` |
 | `--json` | tắt | cần khối dữ liệu thô thay vì văn xuôi |
+| `--issues N` | 6 | số issue script đi lấy về cùng lúc; hạ xuống nếu chỉ cần CL |
+| `--limit N` | 15 | số dòng in ra khi tìm kiếm khớp nhiều kết quả |
 
 Những gì một phiên `serve` tìm được chỉ được lưu vào `report.json` chứ không vào đâu khác. `report.md` và `report.html` trên đĩa vẫn là những gì lần chạy đã ghi ra, nên hãy render lại trước khi đưa bất kỳ file nào trong hai file đó cho ai:
 
@@ -96,7 +104,7 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
 Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
 
 1. **Tiêu đề của issue.** Thường chính là lỗi thật, gói trong một dòng.
-2. **Những CL khác cùng dẫn issue đó.** Bấm vào chip issue trên CL mà bạn cho là đúng; lịch sử sẽ mở ra ngay dưới nó, và một issue thứ hai mở ra dưới issue thứ nhất chứ không thay thế nó. Đây là lịch sử sửa lỗi — hình dạng của vấn đề, gồm cả việc nó có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
+2. **Những CL khác cùng dẫn issue đó.** `why.py` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi — hình dạng của vấn đề, gồm cả việc nó có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
 3. **Chính lời văn và chính bản diff của CL**, mỗi khi câu trả lời có trọng lượng — và luôn luôn phải đọc trước khi trích một CL vào ticket, mỗi khi verdict là `declares` hoặc `described`, và mỗi khi tiêu đề đọc lên có vẻ không liên quan tới finding:
 
    ```bash
@@ -116,16 +124,16 @@ Trước khi viết câu trả lời, đem khẳng định đó đối chiếu v
 
 - **Ngày tháng có khớp không, ở cả hai đầu?** Một CL được merge trước điểm rẽ nhánh của version *from* thì có mặt trong cả hai cây và không thể giải thích một sự khác biệt. Một CL được merge sau điểm rẽ nhánh của version *to* thì hoàn toàn không có trong cây đã phát hành — `Cr-Branched-From` trong mỗi tag cho cả hai mốc ngày. Phần tra cứu ép cả hai điều kiện, và một dòng đã serve nhưng được ghi theo cửa sổ cũ và rộng hơn sẽ bị nhận ra và hỏi lại chứ không phục vụ nguyên trạng — nên một ngày vượt quá điểm rẽ nhánh của version đích trên một dòng đã serve là dấu hiệu của chuyện khác, và đáng báo lại.
 - **Chiều có khớp không?** Một flag đi từ `enabled → disabled` thì không được giải thích bởi một CL có tiêu đề "Enable …". Kiểm tra xem phần chênh lệch thật sự đi theo chiều nào.
-- **CL nói về fact này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff là thứ khép lại chuyện đó, và bốn câu hỏi khép lại bản diff: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `cl.py` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa chính là cách một lần format lại biến thành bằng chứng.
-- **Cơ chế đó có với tới triệu chứng không?** Một lần lật flag giải thích được thay đổi hành vi trên đúng platform mà flag đã lật. Đọc `platform_state.windows`, không bao giờ đọc `default_state`.
-- **Đây là nguyên nhân, hay chỉ là một bước trong câu chuyện?** Launch → revert → reland là một fact và nhiều CL. CL cũ nhất là nơi câu chuyện bắt đầu; CL mới nhất là nơi nó đang đứng. Báo cáo cả hai.
+- **CL nói về khai báo này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff là thứ khép lại chuyện đó, và bốn câu hỏi khép lại bản diff: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `cl.py` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa chính là cách một lần format lại biến thành bằng chứng.
+- **Cơ chế đó có với tới triệu chứng không?** Một lần lật flag giải thích được thay đổi hành vi trên đúng platform mà flag đã lật. Đọc `change.before.platform_state.windows` và `change.after.platform_state.windows`; ngay cạnh chúng có `default_state` — đó là mặc định chung của Chromium, không phải của Windows.
+- **Đây là nguyên nhân, hay chỉ là một bước trong câu chuyện?** Launch → revert → reland là một thay đổi và nhiều CL. CL cũ nhất là nơi câu chuyện bắt đầu; CL mới nhất là nơi nó đang đứng. Báo cáo cả hai.
 
 Nếu một phép kiểm tra không đạt thì CL là bối cảnh, không phải nguyên nhân. Hãy nói rõ nó là cái nào.
 
 ### Bước 6: Trả lời ở đúng nấc bạn đạt tới
 
 ```markdown
-**What changed:** [fact đó, kèm `path:line`, và đi theo chiều nào]
+**What changed:** [khai báo đó, kèm `path:line`, và đi theo chiều nào]
 **Why:** [lỗi mà issue mô tả, gói trong một câu, rồi tới CL đã hành động lên nó]
 **The history:** [launch/revert/reland và mọi lần merge ngược, cũ nhất trước]
 **Confidence:** [một dòng lấy từ bảng dưới đây, có gọi tên verdict]

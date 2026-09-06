@@ -35,6 +35,12 @@ the failure this skill exists to prevent.
 Chromium. Say so, every time, rather than letting a confident answer to 2 read
 as an answer to 3.
 
+## Before you start
+
+Run every command **from the root of the `chromiumdiff` repository**: every path below is relative to that root, and `python3 -m chromiumdiff` has to import the package, so anywhere else it reports `No module named chromiumdiff`.
+
+A **finding** is one row of the report — an element of the `findings` array in `report.json`. Inside it, `change` holds the declaration that moved: `kind`, `signals`, `locations`, `before`, `after`. What each signal means is in **[reference/reading-a-finding.md](reference/reading-a-finding.md)**.
+
 ## Workflow
 
 ```
@@ -85,6 +91,8 @@ what is stored. Options:
 | `--budget N` | 600 | a busy declaration file was declined; raise it |
 | `--save` | off | you want the answer written back into `report.json` |
 | `--json` | off | you need the raw block rather than prose |
+| `--issues N` | 6 | how many issues the script fetches with the CLs; lower it if you only want the reviews |
+| `--limit N` | 15 | how many rows are printed when the search matches several |
 
 What a `serve` session finds is saved to `report.json` and nowhere else.
 `report.md` and `report.html` on disk are still what the run wrote, so
@@ -125,9 +133,10 @@ both `LEAD ONLY` for that reason.
 Work outward in this order, and stop as soon as the answer is sufficient:
 
 1. **The issue title.** Usually the actual defect, in one line.
-2. **The other CLs citing that issue.** Click the issue chip on the CL you
-   think is the right one; the history opens under it, and a second issue
-   opens under the first rather than replacing it. This is the fix history —
+2. **The other CLs citing that issue.** `why.py` fetches these and prints them
+   beside the CLs — up to six by default, changed with `--issues`. There is
+   nothing to click: clicking is the served page's path, where the issue chip
+   opens the history under the CL. This is the fix history —
    the shape of the problem, including whether it was serious enough to merge
    back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
    that, and it is strong evidence the bug hurt real users.
@@ -169,7 +178,7 @@ confident wrong answer.
   a served row means something else, and is worth reporting.
 - **Does the direction fit?** A flag going `enabled → disabled` is not explained
   by a CL titled "Enable …". Check which way the delta actually went.
-- **Is the CL about this fact, or about the file?** A file touched by a rename,
+- **Is the CL about this declaration, or about the file?** A file touched by a rename,
   a reformat and the real change reports all three. `introduced` and `exact`
   discriminate; `declares` does not, on its own. The diff settles it, and four
   questions settle the diff: does a removed line carry the finding's
@@ -180,9 +189,11 @@ confident wrong answer.
   an edit is how a reformat becomes evidence.
 - **Does the mechanism reach the symptom?** A flag flip explains a behaviour
   change on the platform where the flag flipped. Read
-  `platform_state.windows`, never `default_state`.
+  `change.before.platform_state.windows` and
+  `change.after.platform_state.windows`; beside them sits `default_state`,
+  which is Chromium's overall default rather than the Windows one.
 - **Is this the cause, or a step in the story?** Launch → revert → reland is one
-  fact and several CLs. The oldest CL is where it starts; the newest is where it
+  change and several CLs. The oldest CL is where it starts; the newest is where it
   currently stands. Report both.
 
 If a check fails, the CL is context, not cause. Say which.
@@ -190,7 +201,7 @@ If a check fails, the CL is context, not cause. Say which.
 ### Step 6: Answer at the rung you reached
 
 ```markdown
-**What changed:** [the fact, with `path:line`, and which direction]
+**What changed:** [the declaration, with `path:line`, and which direction]
 **Why:** [the issue's defect in one sentence, then the CL that acted on it]
 **The history:** [launch/revert/reland and any merge-backs, oldest first]
 **Confidence:** [one line from the table below, with the verdict named]
