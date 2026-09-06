@@ -13,7 +13,7 @@ Việc của skill này là kiểm lại phân loại đó bằng ngữ cảnh m
 
 ## Từ vựng
 
-Năm từ dưới đây xuất hiện khắp phần còn lại của skill và trong `report.json`.
+Những từ dưới đây xuất hiện khắp phần còn lại của skill và trong `report.json`.
 
 - **finding và change** — `finding` là một dòng của báo cáo, một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`.
 - **signal** — nhãn mô tả vì sao thay đổi này quan trọng, kèm một mức nghiêm trọng sàn. Một finding có thể mang nhiều signal; signal có sàn cao nhất là signal quyết định, và báo cáo vừa gom nhóm vừa đặt tiêu đề cho finding theo chính nó. Nằm ở `change.signals`. Nghĩa của từng signal: **[reference/signals.md](reference/signals.md)**.

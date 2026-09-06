@@ -4913,3 +4913,53 @@ What is left is the same shape as the last three rounds, one layer further out: 
 Neither is a code change.
 
 > **Reviewed at `1a3ceb8`, schema 40. The page sweep holds and the filter fix is right; the filter's name and its README definition still describe the narrower set it selected before, and are contradicted by the run's own headline example.**
+
+## 38. Review of `2f5d015` … `388d965` — removing the owner axis
+
+Three commits on `feat/drop-owner-routing`. The first removes `owner`, the second repairs two references that outlived it, the third adds Vietnamese drafts of both skills. Net across the branch: 15 files, +595 / −508.
+
+### 38.1. The axis, and why it went
+
+`owner` routed every finding to one of five desks — Process boundaries, Web platform, Browser C++, WebUI front-end, Outside the repository — and both renderers led with it. `report.md` opened on **Who has to do something**; `report.html` carried an `All owners` picker; `summary.by_owner` and `figures.breaking_by_owner` carried the counts.
+
+The reason given for removing it is not that the routing was wrong but that it is **Chromium's** division of work, and the reader's division is not required to match. A reader who is not shaped like one of those five had two options, and both were bad: accept a slice cut for someone else, or read all of it.
+
+The page had already outgrown the axis. `report.html` carries multi-select pickers over bucket, surface and consequence group plus a free-text exclude box, so a reader selects rows in whatever combination they want. Five fixed desks was a coarser version of a control already present, maintained across seven places that a test class existed to hold in agreement.
+
+Cost of keeping it, measured: constants and meanings in `model.py` (75 lines), an override table and `owner_of` in `diff.py` (38), a count in the summary, two keys in `figures.json`, a 62-line section in the markdown renderer, a picker and a payload field in the HTML, and `TestOwnership` (107 lines, 6 tests).
+
+### 38.2. Four other things are also called `owner`
+
+The word is overloaded in this codebase, and a sweep that treated every occurrence as the axis would have broken four unrelated features. Each site was read rather than matched:
+
+| Site | What `owner` means there |
+|---|---|
+| `extract/base_features.py` | the `base::Feature` a `FeatureParam` belongs to; it forms the fact key `Feature/param` |
+| `cluster.py`, `catalog.py`, `report/wording.py` | the same owning feature — used to union a cluster, to count `param_owner` gaps, and to print *"param X of FeatureY"* |
+| `extract/flags_metadata.py` | Chromium's own `owners` field in flag metadata, a list of addresses |
+| `enrich/gerrit.py` | a label recording which fetch failed |
+| `acquire.py`, `agent/engine.py`, two tests | milestone metadata, a parent object, and prose |
+
+All kept. After the removal the code holds no team-owner reference and 650 tests pass.
+
+### 38.3. What the removal broke, and what found it
+
+Nothing in the suite failed after the axis was gone, and three references to it survived anyway. All three were found by reading every remaining occurrence, not by a test and not by a grep for the constant names.
+
+1. **`agent/briefing.py`** told an agent that `R.summary` carries `by_owner`. The briefing is the page an agent reads before writing its first query, so the first query would have failed on a missing key. This is the same shape as the findings in §30 and §37: the code moved and the words about it did not.
+2. **`flow.html`** hung two numbers off `breaking_by_owner.*`, a key `chromiumdiff figures` no longer writes. `f129d60` had already removed the tests that held documents to that artifact, so nothing was watching. Every remaining `data-figure` in the file was checked against `docs/figures.json` by hand and resolves.
+3. The Vietnamese skill draft still sent a reader to *"Bước 5, phần Browser C++"* — a branch renamed in the same change.
+
+The lesson is the one this project keeps relearning at one layer further out each time. §37 closed on *"a change that is correct in the code and not carried into the words about it"*. Removing an axis is that hazard at its largest, because the axis appears in prose in more places than it appears in code.
+
+### 38.4. One thing had to move rather than go
+
+`SIGNAL_OWNERS` mapped eight signals to `Outside the repository` — `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiry_moved`. That table was not a routing decision. It recorded that a renamed Finch string compiles perfectly and stops working in a config invisible from this repository, which is a fact about those signals and the most valuable sentence on the axis.
+
+It was copied into the skill before the table was deleted. Losing it would have been the real cost of this change, and it is the one part of the removal that had to be paid for rather than simply subtracted.
+
+### 38.5. Verdict
+
+The removal is complete in code, tests, `README.md`, `docs/pipeline.html`, `docs/figures.json` and `flow.html`. The seven documents of the Vietnamese guide still describe the axis in roughly 145 lines and are the remaining work; the audit itself is left alone, being a dated record.
+
+> **Reviewed at `388d965`. The axis is gone from the code and the artifacts, the four unrelated meanings of the word survive intact, and the one fact worth keeping was moved before the table holding it was deleted. Three stale references survived the suite and were caught by reading; the Vietnamese guide has not been swept yet.**

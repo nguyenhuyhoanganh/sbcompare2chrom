@@ -22,19 +22,19 @@ to a few dozen rows instead of three thousand.
 
 Counts are from one real M148 → M151 run, to show where the mass sits.
 
-| Symptom sounds like | Surface | `kind` to search | Rows |
-|---|---|---|---|
-| A feature turned on or off; behaviour differs with no UI change | Browser C++ | `base_feature` | 507 |
-| A knob inside a feature moved (timeout, threshold, variant) | Browser C++ | `feature_param` | 184 |
-| A web page stopped working; a JS API is missing or new | Web platform | `idl_member`, `idl_interface` | 477 |
-| A web feature is present but inert, or shipped to everyone | Web platform | `blink_runtime_feature` | 285 |
-| Two processes disagree; a renderer crashes on a message; out-of-tree code fails to build | IPC | `mojo_method`, `mojo_field`, `mojo_struct`, `mojo_enum`, `mojo_interface` | 339 |
-| A setting is not remembered; a profile value is ignored | Browser C++ | `pref` | 163 |
-| A launch script or automation flag stopped taking effect | Outside repo | `switch` | 7 |
-| A `chrome://flags` entry vanished or is scheduled to | Housekeeping | `flag_entry` | 783 |
-| A control disappeared from a settings screen | WebUI | `webui_control` | 100 |
-| A settings page or subpage is gone or moved | WebUI | `webui_route` | 8 |
-| A screen renders but a section is hidden | WebUI | `webui_gate` | 169 |
+| Symptom sounds like | `kind` to search | Rows |
+|---|---|---|
+| A feature turned on or off; behaviour differs with no UI change | `base_feature` | 507 |
+| A knob inside a feature moved (timeout, threshold, variant) | `feature_param` | 184 |
+| A web page stopped working; a JS API is missing or new | `idl_member`, `idl_interface` | 477 |
+| A web feature is present but inert, or shipped to everyone | `blink_runtime_feature` | 285 |
+| Two processes disagree; a renderer crashes on a message; out-of-tree code fails to build | `mojo_method`, `mojo_field`, `mojo_struct`, `mojo_enum`, `mojo_interface` | 339 |
+| A setting is not remembered; a profile value is ignored | `pref` | 163 |
+| A launch script or automation flag stopped taking effect | `switch` | 7 |
+| A `chrome://flags` entry vanished or is scheduled to | `flag_entry` | 783 |
+| A control disappeared from a settings screen | `webui_control` | 100 |
+| A settings page or subpage is gone or moved | `webui_route` | 8 |
+| A screen renders but a section is hidden | `webui_gate` | 169 |
 
 Search within one kind by passing the prefix:
 

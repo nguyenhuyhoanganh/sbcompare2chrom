@@ -25,7 +25,7 @@ Các phần cần tra cứu riêng đã được tách thành một bộ tài li
 - [Cách lấy source tree, thư mục và file](<02 - Cách lấy source Chromium.md>)
 - [9 nhóm nguồn khai báo và các bộ lọc](<03 - Chín nhóm file và bộ lọc.md>)
 - [Fact và ví dụ đầu vào → JSON cho đủ 16 loại](<04 - Fact và cách trích xuất.md>)
-- [So sánh, chấm điểm, bucket và owner](<05 - Cách so sánh, chấm điểm và phân loại.md>)
+- [So sánh, chấm điểm và phân loại bucket](<05 - Cách so sánh, chấm điểm và phân loại.md>)
 - [Skill, agent và nội dung dành cho từng team](<06 - Skill và cách hỗ trợ từng nhóm.md>)
 
 **Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `upgrade`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromiumDiff.md>).
@@ -60,7 +60,7 @@ Những thay đổi thực sự về hành vi hoặc contract
         ↓
 Breaking / Behaviour change / New surface / Housekeeping
         ↓
-Giao cho đúng owner: IPC / Web Platform / Browser C++ / WebUI / Config
+Lọc đúng phần mình cần: theo kind, theo bucket, hoặc theo nhóm hậu quả
         ↓
 Đối chiếu tên liên quan trong Samsung source và cấu hình ngoài repository
         ↓
@@ -88,7 +88,7 @@ ChromiumDiff so sánh **mã nguồn Chromium gốc ở hai phiên bản** và tr
 - Bản build Windows có chứa khai báo đó ở cả phiên bản cũ lẫn phiên bản mới không?
 - Loại thay đổi này thường có hậu quả gì?
 - Bằng chứng của chính lần chạy này có đủ để tin một kết luận "đã biến mất" không?
-- Owner nào phù hợp nhất để kiểm tra trước?
+- Loại khai báo nào, và team nào nên xem trước?
 - File nào, dòng nào là bằng chứng cho finding?
 
 ### 2.2. Tool chưa thể tự trả lời
@@ -152,7 +152,7 @@ Công cụ được chạy bằng `python3 -m chromiumdiff`. Nhìn theo đườn
                  ▼
 6. Chấm điểm ưu tiên
   severity → điều chỉnh theo Windows và coverage → điểm cuối
-  xếp vào bucket và chọn owner
+  xếp vào bucket
                  │
                  ▼
 7. Bổ sung ngữ cảnh
@@ -906,7 +906,7 @@ Leading signal quyết định ba việc:
 
 1. Đặt severity.
 2. Chọn bucket.
-3. Có thể chuyển finding sang owner khác, nếu nơi cần sửa không phải nơi khai báo nằm.
+3. Cho biết nơi cần sửa không phải nơi khai báo nằm, khi đó là trường hợp phải sửa ngoài repository.
 
 Nếu không suy ra được signal cụ thể nào, công cụ dùng mức điểm nền từ `BASE_SEVERITY[(kind, direction)]`. Điểm nền này chỉ là phương án dự phòng, và **không** được phép ghi đè severity của một signal rõ ràng hơn.
 
@@ -921,19 +921,25 @@ Nếu không suy ra được signal cụ thể nào, công cụ dùng mức đi�
 
 Nhắc lại điều dễ bị nói quá nhất: `Breaking` mô tả **loại thay đổi trong Chromium gốc**, không có nghĩa Samsung Browser chắc chắn bị lỗi. Chỉ sau khi tìm thấy nơi Samsung đang dùng contract đó mới có thể kết luận về ảnh hưởng.
 
-## 14. Owner routing
+## 14. Đọc một finding theo loại khai báo của nó
 
-| Owner key | Label trong report | Surface | Câu hỏi tiếp theo |
-|---|---|---|---|
-| `ipc` | Process boundaries | Mojo interface/method/data | Samsung có custom caller/implementation/peer nào không? |
-| `webplatform` | Web platform | Blink runtime + Web IDL | API có reachable không, site hoặc feature Samsung có dùng không? |
-| `native` | Browser C++ | Features, prefs, switches | Fork có reference symbol, override default, hoặc persist key không? |
-| `webui` | WebUI front-end | Route/control/gate | Samsung có patch, custom screen, custom control hoặc backing pref không? |
-| `config` | Outside the repository | Tên feature và giá trị mà server dùng để bật/tắt thử nghiệm, script khởi động, lịch hết hạn | Tìm trong config/automation/policy ngoài source tree |
+`change.kind` quyết định câu hỏi phải hỏi tiếp. Năm nhóm dưới đây phủ hết mười sáu `kind`:
 
-Loại `Fact` quyết định owner mặc định. Nhưng một số signal sẽ **chuyển owner**, vì nơi cần sửa khác với nơi khai báo nằm.
+| Nhóm `kind` | Bề mặt | Câu hỏi tiếp theo |
+|---|---|---|
+| `mojo_*` (5 kind) | Mojo interface/method/data | Samsung có custom caller/implementation/peer nào không? |
+| `idl_*`, `blink_runtime_feature` | Blink runtime + Web IDL | API có reachable không, site hoặc feature Samsung có dùng không? |
+| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | Features, prefs, switches | Fork có reference symbol, override default, hoặc persist key không? |
+| `webui_*` (3 kind) | Route/control/gate | Samsung có patch, custom screen, custom control hoặc backing pref không? |
 
-Ví dụ rõ nhất: feature name được khai báo trong C++, nhưng khi tên đó đổi, hệ thống phía server đang dùng tên cũ cũng phải cập nhật. Vì vậy finding này được giao cho owner `config`, chứ không chỉ cho team C++.
+Nhóm thứ năm không theo `kind` mà theo signal. Tám signal sau đều biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, nên chỗ phải sửa là config phía server, script khởi động hoặc automation:
+
+```text
+feature_string_renamed   switch_renamed        param_removed        param_rewired
+flag_retired_on          flag_retired_off      killswitch_retired   flag_expiry_moved
+```
+
+Ví dụ rõ nhất: feature name được khai báo trong C++, nhưng khi tên đó đổi, hệ thống phía server đang dùng tên cũ cũng phải cập nhật — và không có gì báo lỗi cho tới khi ai đó nhận ra thử nghiệm không còn chạy.
 
 ## 15. Severity và score khác nhau như thế nào?
 
@@ -1146,7 +1152,7 @@ findings[]
 Phần `summary` chứa:
 
 - Tổng số thay đổi, và số lượng theo từng loại `Fact` cùng hướng thay đổi.
-- Số lượng theo bucket, theo owner, theo nhóm hậu quả, và theo leading signal.
+- Số lượng theo bucket, theo nhóm hậu quả, và theo leading signal.
 - Số finding không nằm trong Windows build.
 - Tóm tắt các nhóm finding liên quan.
 - Thông tin Chromestatus theo milestone, nếu được bật.
@@ -1175,16 +1181,16 @@ reasons[]
 enrichment
 ```
 
-**Một giới hạn hiện tại cần biết:** phần tổng hợp đã có số lượng theo owner, và bản HTML/Markdown cũng hiển thị owner — nhưng từng finding trong `report.json` chưa chứa trực tiếp trường này.
+**Một điểm cần biết khi viết script:** `change.kind` và `bucket` nằm sẵn trong từng finding của `report.json`, nên lọc theo chúng là đọc thẳng. Nhóm hậu quả được tính từ `kind` lúc render, và `summary.by_group` giữ số đếm tương ứng. chứa trực tiếp trường này.
 
-Hệ quả thực tế: một script đọc JSON muốn lọc theo owner phải dùng lại hàm mapping của project. Roadmap nên bổ sung `owner` vào từng finding, để JSON tự đủ thông tin mà không cần gọi ngược vào code.
+Hệ quả thực tế: một script đọc JSON lọc thẳng theo `change.kind` hoặc `bucket`, không cần gọi lại hàm nào của project. mà không cần gọi ngược vào code.
 
 ### 19.2. `report.md`: bản đọc nhanh để đưa vào ticket hoặc wiki
 
 Bản Markdown được sắp xếp theo đúng thứ tự nên đọc:
 
 1. Số lượng và ý nghĩa của bốn bucket.
-2. Owner nào có việc cần kiểm tra.
+2. Phần nào thuộc về team mình.
 3. Loại thay đổi nào đã xảy ra, nhóm theo leading signal.
 4. WebUI page nào có thay đổi.
 5. Các finding có liên quan với nhau.
@@ -1220,7 +1226,6 @@ Bốn dropdown lọc theo giá trị chính xác và kết hợp với nhau bằ
 - Bucket.
 - Surface hoặc fact kind.
 - Nhóm hậu quả.
-- Owner.
 
 Ô tìm kiếm không phân biệt chữ hoa chữ thường, và kiểm tra bảy trường:
 
@@ -1236,31 +1241,30 @@ Hai chi tiết về hành vi của dashboard: khi bấm vào thẻ tổng hợp 
 
 ### 19.5. Ví dụ filter theo team
 
-**Owner WebUI**
+**Lọc cho team WebUI**
 
 ```text
-Owner = WebUI front-end
-Surface = WebUI page/control/gate
+Surface = webui_route / webui_control / webui_gate
 Search = settings hoặc downloads
 Bucket = Behaviour change / Breaking
 ```
 
 Cách đọc: xem route guard, biểu thức của gate, loại control và pref binding **cùng nhau**. Không kết luận chỉ từ một dòng route.
 
-**Owner Browser C++**
+**Lọc cho team Browser C++**
 
 ```text
-Owner = Browser C++
+Surface = base_feature / feature_param / pref / switch / flag_entry
 Bucket = Breaking hoặc Behaviour change
 Search symbol/pref/switch đang patch trong Samsung
 ```
 
 Cách đọc: luôn phân biệt hai trường hợp — tên feature dùng bên ngoài bị đổi, hay chỉ C++ symbol bị đổi; pref key bị đổi, hay chỉ C++ constant bị đổi.
 
-**Owner IPC**
+**Lọc cho team IPC**
 
 ```text
-Owner = Process boundaries
+Surface = mojo_interface / mojo_method / mojo_struct / mojo_field / mojo_enum
 Bucket = Breaking
 Sort score descending
 ```
@@ -1287,12 +1291,12 @@ Python code trong `chromiumdiff/` chịu trách nhiệm sáu việc:
 Skill là checklist hướng dẫn engineer hoặc coding agent **đọc và xử lý** report. Nó không tham gia vào việc trích xuất dữ liệu. Nội dung chính:
 
 - Chốt version chính xác và chọn bộ file phù hợp.
-- Đọc report theo owner và bucket.
+- Đọc report theo bucket, rồi lọc theo phần mình phụ trách.
 - Không nhầm việc dọn flag thành việc xoá feature.
 - Lần từ WebUI guard tới feature flag đứng sau nó.
 - Kiểm tra một Web API có thật sự tiếp cận được không.
 - Kiểm tra nơi Samsung source hoặc cấu hình ngoài repository đang sử dụng tên đó.
-- Ghi kết luận theo owner, và nêu rõ giới hạn của bằng chứng.
+- Ghi kết luận theo team, và nêu rõ giới hạn của bằng chứng.
 
 Nói gọn lại thành một câu:
 
@@ -1339,17 +1343,17 @@ Snapshot và report ở bộ `default`:
 | Not in Windows build | 187 |
 | Clusters | 72, cluster lớn nhất 7 finding |
 
-Số lượng theo owner:
+Số lượng theo loại khai báo:
 
-| Owner | Total | Breaking |
+| Nhóm `kind` | Total | Breaking |
 |---|---:|---:|
-| Process boundaries | 339 | 126 |
-| Web platform | 719 | 94 |
-| Browser C++ | 1,157 | 2 |
-| WebUI front-end | 277 | 1 |
-| Outside repository | 530 | 53 |
+| `mojo_*` | 339 | 126 |
+| `idl_*`, `blink_runtime_feature` | 719 | 94 |
+| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | 1,157 | 2 |
+| `webui_*` | 277 | 1 |
+| phải sửa ngoài repository (theo signal) | 530 | 53 |
 
-**Bảng thứ hai là lập luận mạnh nhất cho việc phải lọc theo owner và bucket.** Browser C++ có nhiều finding nhất — 1.157 — nhưng chỉ có 2 finding Breaking. Ngược lại, IPC chỉ có 339 finding, nhưng 126 trong số đó là Breaking.
+**Bảng thứ hai là lập luận mạnh nhất cho việc phải lọc trước khi đọc.** Nhóm flag/pref/switch có nhiều finding nhất — 1.157 — nhưng chỉ có 2 finding Breaking. Ngược lại, IPC chỉ có 339 finding, nhưng 126 trong số đó là Breaking.
 
 Nếu chỉ nhìn tổng số dòng, hoặc nhìn kích thước Git diff, team sẽ dồn công sức vào đúng khu vực ít rủi ro nhất.
 
@@ -1395,7 +1399,7 @@ python3 -m chromiumdiff run \
   --out out/M148_to_M151_wide
 ```
 
-### Bước 2 — Phân loại theo owner, không theo file
+### Bước 2 — Phân loại theo loại khai báo, không theo file
 
 Thứ tự ưu tiên:
 
@@ -1505,7 +1509,7 @@ Toàn bộ test chạy được không cần mạng. Test suite kiểm tra:
 - Phạm vi của từng bộ file, cache cũ, và chế độ partition/`complete`.
 - Cách tính coverage và cách hạ độ tin cậy khi kết luận một đối tượng đã biến mất.
 - So sánh `Fact`, đổi tên, overload, Mojo ordinal và data type.
-- Cách tính score, chọn bucket và chọn owner.
+- Cách tính score và chọn bucket.
 - Gom nhóm finding, kiểm tra liên kết, và từ chối snapshot chênh lệch bất thường.
 - Render Markdown/HTML, hiệu năng DOM và các ranh giới XSS.
 - Documentation figures và source map.
@@ -1580,7 +1584,7 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 | Cách sử dụng | Có nên dùng? | Điều kiện |
 |---|---|---|
 | Phát hiện sớm trước khi nâng phiên bản | Rất phù hợp | Version chính xác, có report và biết rõ phạm vi đã đọc |
-| Chia triage theo owner | Rất phù hợp | Dùng bộ lọc owner và bucket |
+| Chia triage theo từng team | Rất phù hợp | Dùng bộ lọc kind và bucket |
 | Tạo danh sách symbol/config cần tìm | Rất phù hợp | Giữ key và `path:line` làm bằng chứng |
 | Dự báo vùng build/test có rủi ro | Phù hợp | Phải bổ sung thông tin về nơi Samsung đang sử dụng |
 | Tự động ước lượng effort | Chưa đủ | Cần dữ liệu về patch, reference và config của Samsung |
@@ -1594,14 +1598,13 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 - Ghi version Chromium hiện tại và version mục tiêu bằng đầy đủ bốn phần trong ticket.
 - Chạy `wide` một lần cho mỗi cặp version chính thức.
 - Lưu `report.json`, `report.md`, `report.html` và cả lệnh đã chạy.
-- Tạo checklist cho từng owner, từ hai bucket Breaking và Behaviour change.
+- Tạo checklist cho từng team, từ hai bucket Breaking và Behaviour change.
 - Dùng key và symbol trong report làm đầu vào cho `rg` khi tìm trong Samsung source và config.
 
 ### Giai đoạn 2 — Thêm bằng chứng từ phía Samsung
 
 - Viết một bộ quét Samsung source, ghi lại: symbol nào khớp, file nào Samsung đã patch, và team nào sở hữu patch đó.
 - Chuẩn bị đầu vào riêng cho repository hoặc file mà server Samsung dùng để quyết định feature nào được bật cho nhóm người dùng nào, cùng các script và automation liên quan.
-- Ghi trực tiếp `owner` vào từng finding trong JSON.
 - Thêm trạng thái sau khi đối chiếu với Samsung, và thêm trường effort — tách riêng khỏi score của Chromium gốc.
 
 ### Giai đoạn 3 — Hardening
@@ -1622,7 +1625,7 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 
 **Phút 2–5: pipeline**
 
-Trình bày sơ đồ: version → source → `Fact` → so sánh → score → owner/report. Nhấn mạnh hai điểm: source được lấy từ Git tag chính xác, và bước trích xuất không dùng AI.
+Trình bày sơ đồ: version → source → `Fact` → so sánh → score → bucket → report. Nhấn mạnh hai điểm: source được lấy từ Git tag chính xác, và bước trích xuất không dùng AI.
 
 **Phút 5–9: một fact và một diff**
 
@@ -1632,7 +1635,7 @@ Mở một object `base_feature` để giải thích cách chuẩn hoá. Sau đ�
 
 Trình bày nhóm Local Network Access. Ví dụ này cho thấy nếu chỉ nhìn dòng route bị xoá thì sẽ kết luận sai; phải đọc cùng feature flag và gate liên quan.
 
-**Phút 12–15: thu hẹp report theo owner**
+**Phút 12–15: thu hẹp report theo phần mình cần**
 
 Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Breaking, trong khi Browser C++ có 1.157 finding nhưng chỉ 2 Breaking.
 
@@ -1810,15 +1813,15 @@ Vì project hiện chưa đọc Samsung source. Nếu tự cộng điểm cho "�
 
 Hướng đúng là bổ sung kết quả tìm kiếm trong Samsung source và config, rồi mới tạo một điểm số riêng cho sản phẩm.
 
-### "Owner được quyết định thế nào?"
+### "Làm sao biết một finding thuộc phần nào?"
 
-Loại `Fact` quyết định owner mặc định. Nếu nơi cần sửa khác với nơi khai báo nằm, leading signal sẽ chuyển finding sang owner phù hợp.
+`change.kind` cho biết đó là loại khai báo gì, và đó là trục để lọc. Riêng tám signal có nơi cần sửa khác với nơi khai báo nằm — chúng phải sửa ngoài repository, xem mục 14.
 
 Ví dụ: feature name nằm trong C++, nhưng server đang dùng chính tên đó để bật thử nghiệm — nên team quản lý server config cũng phải kiểm tra.
 
 ### "WebUI được filter ra sao?"
 
-Dashboard có bộ lọc riêng cho bucket, loại `Fact`, nhóm hậu quả và owner. Các bộ lọc kết hợp bằng AND. Ô tìm kiếm kiểm tra tên, mô tả, đường dẫn source, signal và tên WebUI page.
+Dashboard có bộ lọc riêng cho bucket, loại `Fact`, nhóm hậu quả và mức bằng chứng, cộng một ô loại trừ theo từ khoá. Các bộ lọc kết hợp bằng AND. Ô tìm kiếm kiểm tra tên, mô tả, đường dẫn source, signal và tên WebUI page.
 
 ### "Một toggle đổi thành dropdown được phát hiện thế nào?"
 
@@ -1896,7 +1899,7 @@ Có. Bốn nguồn chính: thay đổi chỉ nằm trong thân function, cú ph�
 
 ### "Vậy tại sao vẫn hữu ích?"
 
-Vì công cụ phát hiện sớm nhiều nhóm rủi ro khó thấy nếu chỉ dựa vào compiler hoặc release notes, đồng thời thu hẹp một Git diff rất lớn thành danh sách có owner, có lý do và có vị trí source.
+Vì công cụ phát hiện sớm nhiều nhóm rủi ro khó thấy nếu chỉ dựa vào compiler hoặc release notes, đồng thời thu hẹp một Git diff rất lớn thành danh sách có phân loại, có lý do và có vị trí source.
 
 Và quan trọng không kém: những phần chưa đọc được cũng được ghi rõ, thay vì bị che đi.
 
@@ -1919,7 +1922,7 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 [ ] Kiểm tra coverage của bản cũ, bản mới và từng nhóm file
 [ ] Xác nhận missing_targets = 0 và out_of_scope_files = 0
 [ ] Ghi số liên kết chưa tìm thấy đầu còn lại vào phần giới hạn
-[ ] Phân loại Breaking theo owner
+[ ] Phân loại Breaking theo loại khai báo
 [ ] Phân loại Behaviour change trên Windows
 [ ] Trong Housekeeping, lọc riêng flag sắp hết hạn và config cũ cần dọn
 [ ] Tìm trong Samsung source: key, biến cũ/mới, pref/switch string và tên đầy đủ của Mojo object
@@ -1938,7 +1941,7 @@ ChromiumDiff đáng dùng vì nó giải đúng một phần việc đang tốn 
 - Tách bạch bốn nhóm: thay đổi có thể phá contract, thay đổi hành vi, phần mới xuất hiện, và phần chỉ dọn code.
 - Xác định thay đổi có nằm trong Windows build hay không.
 - Đo coverage và hạ độ tin cậy khi chưa đủ bằng chứng để kết luận một đối tượng đã biến mất.
-- Giao finding cho đúng owner và giữ vị trí source để kiểm tra lại.
+- Giao finding cho đúng team và giữ vị trí source để kiểm tra lại.
 - Cung cấp checklist để engineer hoặc agent đối chiếu với Samsung source.
 
 Đề nghị hợp lý **không phải** là "dùng tool làm release gate ngay". Đề nghị là:
@@ -1962,7 +1965,7 @@ Dành cho người muốn tự đọc code thay vì tin tài liệu:
 - Bộ đánh giá platform cho C++/GRIT/Mojo: `chromiumdiff/extract/_cpp.py`
 - Chín extractor: `chromiumdiff/extract/*.py`
 - Schema của Fact/Snapshot/Change/Finding/Report: `chromiumdiff/model.py`
-- So sánh ngữ nghĩa, signal, bucket, owner: `chromiumdiff/diff.py`
+- So sánh ngữ nghĩa, signal, bucket: `chromiumdiff/diff.py`
 - Các modifier khi chấm điểm: `chromiumdiff/score.py`
 - Reference closure và kiểm tra phạm vi: `chromiumdiff/catalog.py`
 - Gom nhóm các thay đổi liên quan: `chromiumdiff/cluster.py`

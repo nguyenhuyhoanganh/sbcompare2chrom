@@ -38,7 +38,7 @@ Nếu chỉ có thời gian cho một vòng đọc ngắn, đây là lộ trình
 | Người viết thêm extractor cho công cụ | 3 → 4 → 5 | Biết bộ lọc, biết cấu trúc dữ liệu, biết thay đổi nào tạo ra tín hiệu gì |
 | Team WebUI | Mục WebUI trong phần 3 → phần 6 | Biết công cụ đọc được gì trong `chrome://settings` và cần kiểm tra gì |
 | Team Browser C++ / native | Các mục `base_feature`, `feature_param`, `pref`, `switch` trong phần 4 → phần 5 → phần 6 | Biết feature flag và pref key được theo dõi ra sao |
-| Team IPC/Mojo hoặc Web Platform | Nhóm Fact tương ứng trong phần 4 → phần signal và owner trong phần 5 | Biết contract nào được theo dõi và thay đổi nào bị coi là nguy hiểm |
+| Team IPC/Mojo hoặc Web Platform | Nhóm Fact tương ứng trong phần 4 → phần signal và bucket trong phần 5 | Biết contract nào được theo dõi và thay đổi nào bị coi là nguy hiểm |
 
 ## Quy ước dùng trong cả bộ tài liệu
 

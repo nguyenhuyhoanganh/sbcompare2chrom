@@ -19,14 +19,13 @@ Nếu chỉ đọc được mười dòng, hãy đọc mười dòng này. Chún
 | `signal` | Nhãn mô tả chính xác chuyện gì đã xảy ra, ví dụ `pref_renamed` (preference key đã bị đổi tên) |
 | `score` | Điểm ưu tiên từ 0 đến 100 để biết nên xem thay đổi nào trước — **không phải** xác suất có bug |
 | `bucket` | Bốn nhóm hậu quả: Breaking / Behaviour change / New surface / Housekeeping |
-| `owner` | Team kỹ thuật nên kiểm tra thay đổi này đầu tiên |
 
 Luồng chạy nối các từ trên lại thành một chuỗi:
 
 ```text
 Chromium version cũ  ──┐
                        ├──► Fact ──► Snapshot ──┐
-Chromium version mới ──┘                        ├──► Change ──► signal ──► score + bucket + owner ──► báo cáo
+Chromium version mới ──┘                        ├──► Change ──► signal ──► score + bucket ──► báo cáo
                                                 ┘
 ```
 
@@ -386,7 +385,7 @@ File `flag-metadata.json` chủ yếu cho ChromiumDiff biết ai là owner upstr
 
 Những thứ ảnh hưởng tới browser nhưng không nằm trong mã nguồn Chromium đang được quét: cấu hình Finch/rollout, script khởi động, automation, deployment cho doanh nghiệp, và backend chứa policy.
 
-Trong báo cáo, owner `config` được hiển thị bằng nhãn `Outside the repository`, để nhắc người đọc rằng việc xác minh phải diễn ra ở một nguồn khác, không tìm trong Chromium được.
+Tám signal — `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiry_moved` — đều thuộc nhóm này: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và việc xác minh phải diễn ra ở một nguồn khác chứ không tìm trong Chromium được.
 
 ## Nhóm 5 — Dữ liệu bên trong ChromiumDiff
 
@@ -466,7 +465,7 @@ Kết quả cho thấy một `Fact` khác nhau giữa hai snapshot. Một `Chang
 
 `leading signal` là signal có severity cao nhất trong số đó. Nếu có hai signal bằng điểm, công cụ chọn theo thứ tự tên, để kết quả luôn giống nhau ở mọi lần chạy.
 
-Leading signal quan trọng vì nó quyết định ba thứ: severity, bucket, và đôi khi cả việc chuyển finding sang owner khác.
+Leading signal quan trọng vì nó quyết định hai thứ: severity và bucket.
 
 ### Severity và score
 
@@ -487,12 +486,6 @@ Cách phân loại bản chất của một finding. Có đúng bốn nhóm:
 | `Behaviour change` | Bản build Windows sẽ hành xử khác đi |
 | `New surface` | Có API, trang hoặc control mới xuất hiện — nhưng sự tồn tại của khai báo không tự động bật một hành vi nào |
 | `Housekeeping` | Dọn flag, đổi lịch xoá, chuyển khai báo sang file khác, hoặc bằng chứng chưa đủ để kết luận là breaking |
-
-### Owner
-
-Khu vực nên nhận finding đầu tiên. Có năm giá trị: `Process boundaries`, `Web platform`, `Browser C++`, `WebUI front-end` và `Outside the repository`.
-
-Lưu ý: đây là routing theo **bề mặt kỹ thuật và nơi cần sửa**, không phải tên một cá nhân, và cũng không phải file CODEOWNERS của Chromium.
 
 ### Finding
 
@@ -526,7 +519,7 @@ Cùng một dữ liệu, ba định dạng cho ba mục đích:
 |---|---|
 | JSON | Cần dữ liệu đầy đủ cho automation hoặc cho agent xử lý |
 | Markdown | Cần review, lưu lại làm artifact, hoặc dán vào ticket |
-| HTML | Cần duyệt và lọc tương tác theo bucket, owner, kind, điểm số và từ khoá |
+| HTML | Cần duyệt và lọc tương tác theo bucket, kind, nhóm hậu quả, mức bằng chứng và từ khoá |
 
 ## Nhóm 6 — Truy nguyên thay đổi
 
@@ -630,7 +623,6 @@ Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bà
 | "`removed` nghĩa là upstream đã xoá" | Khi coverage chưa đủ, rất có thể khai báo chỉ chuyển sang một file chưa được đọc |
 | "`Breaking` nghĩa là Samsung chắc chắn hỏng" | Nó nói đây là **loại** contract change cần đối chiếu với cách Samsung đang dùng |
 | "Score 80 nghĩa là 80% có bug" | Score là thứ tự ưu tiên tính theo rule, không phải xác suất |
-| "Owner là người chắc chắn sẽ sửa" | Owner là hàng đợi kiểm tra đầu tiên; sau khi tra cứu thực tế, việc có thể chuyển sang team khác |
 | "`wide` nghĩa là toàn bộ implementation của Chromium" | `wide` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
 | "Finch chính là command-line switch" | Finch là cấu hình/rollout từ phía server; switch là tham số truyền vào lúc khởi động process |
 | "`chrome://flags` là toàn bộ hệ thống feature flag" | Nó chỉ là giao diện và metadata cho một phần flag; `base::Feature` và Blink runtime flag là các lớp khác |

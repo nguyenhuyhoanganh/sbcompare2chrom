@@ -1,4 +1,4 @@
-# 5. Cơ chế so sánh, chấm điểm, bucket và owner
+# 5. Cơ chế so sánh, chấm điểm và phân loại bucket
 
 Tài liệu này giải thích vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm, và vì sao một finding lại được giao cho team này chứ không phải team kia.
 
@@ -12,7 +12,6 @@ Tài liệu này giải thích vì sao một thay đổi được 80 điểm cò
 | `severity` | Nếu bằng chứng đầy đủ, loại thay đổi này đáng được xem sớm đến đâu? |
 | `score` | Sau khi xét bản build Windows và độ đầy đủ của lần đọc, thứ tự ưu tiên cuối cùng là bao nhiêu? |
 | `bucket` | Đây là contract bị phá, hành vi thay đổi, bề mặt mới, hay chỉ là dọn dẹp? |
-| `owner` | Khu vực kỹ thuật nào nên kiểm tra finding này trước? |
 
 Ba điều `score` **không** phải: không phải xác suất, không phải công sức, không phải mức chắc chắn Samsung có bug.
 
@@ -43,7 +42,6 @@ chọn leading signal
         │
         ├── quyết định severity
         ├── quyết định bucket ban đầu
-        └── có thể chuyển owner
         │
         ▼
 bước chấm điểm
@@ -251,7 +249,7 @@ Ngược lại, một trường hợp đổi tên đã ghép được bằng sym
 | `flag_expiring` | 45 | Housekeeping | Flag dự kiến bị xoá trước hoặc trong vòng hai milestone sau milestone đích |
 | `flag_expiry_moved` | 10 | Housekeeping | Lịch xoá đổi, nhưng hành vi lúc chạy chưa đổi |
 
-`flag_expiring` nằm ở Housekeeping xét theo bản chất thay đổi trong source, nhưng owner của nó được chuyển sang `config`, để người đang phụ thuộc vào flag đó kịp lên kế hoạch. Nói cách khác: **Housekeeping không đồng nghĩa với "không bao giờ có việc gì".**
+`flag_expiring` nằm ở Housekeeping xét theo bản chất thay đổi trong source, nhưng phần phải xử lý nằm ngoài repository, để người đang phụ thuộc vào flag đó kịp lên kế hoạch. Nói cách khác: **Housekeeping không đồng nghĩa với "không bao giờ có việc gì".**
 
 ## Bước 4 — Score được tính thế nào
 
@@ -359,23 +357,9 @@ Upstream dọn flag, chuyển khai báo sang file khác, đổi lịch, hoặc b
 
 Nhóm này vẫn có thể sinh ra đầu việc — thường là dọn cấu hình cũ hoặc lập kế hoạch cho tương lai.
 
-## Bước 6 — Owner được phân loại thế nào
+## Bước 6 — Những signal phải sửa ở ngoài repository
 
-Owner là routing theo bề mặt kỹ thuật hoặc theo nơi cần sửa. Nó **không** phải file CODEOWNERS của Chromium.
-
-### Owner mặc định theo `kind`
-
-| Owner trong báo cáo | Các loại `Fact` |
-|---|---|
-| `Process boundaries` (`ipc`) | 5 loại `Fact` Mojo |
-| `Web platform` (`webplatform`) | Blink runtime, IDL interface và member |
-| `Browser C++` (`native`) | base feature, FeatureParam, pref, switch, flags metadata |
-| `WebUI front-end` (`webui`) | route, control, visibility gate |
-| `Outside the repository` (`config`) | Chỉ đến từ signal override, không có `kind` nào mặc định về đây |
-
-### Những signal chuyển owner sang `config`
-
-Các signal sau luôn được route sang `Outside the repository`, vì phần sửa hoặc dọn dẹp chính nằm ngoài các file khai báo của Chromium:
+Phần lớn finding được sửa ngay tại file khai báo mà nó trỏ tới. Tám signal dưới đây thì không: chúng biên dịch bình thường rồi ngừng có tác dụng ngoài thực địa, và chỗ phải sửa là Finch config, script khởi động hoặc automation.
 
 ```text
 feature_string_renamed
@@ -385,23 +369,24 @@ param_rewired
 flag_retired_on
 flag_retired_off
 killswitch_retired
-flag_expiring
 flag_expiry_moved
 ```
 
+Công cụ không nhìn thấy bất kỳ nơi nào trong số đó, nên đây là danh sách cần đi kiểm tra chứ không phải danh sách đã hỏng.
+
 ### Các cặp ví dụ quan trọng
 
-Bảng này cho thấy vì sao hai signal nghe rất giống nhau lại đi về hai owner khác nhau:
+Bảng này cho thấy vì sao hai signal nghe rất giống nhau lại đòi hai chỗ sửa hoàn toàn khác:
 
-| Signal | Nơi cần sửa | Owner |
-|---|---|---|
-| `switch_renamed` | Script khởi động bên ngoài phải đổi | `config` |
-| `switch_symbol_renamed` | Chuỗi CLI vẫn giữ; chỉ tham chiếu C++ của Samsung phải đổi | Browser C++ |
-| `feature_string_renamed` | Cấu hình Finch / feature config phải đổi | `config` |
-| `feature_symbol_renamed` | Tham chiếu C++ phải đổi | Browser C++ |
-| `pref_renamed` | Cần migration, đăng ký lại, hoặc đọc fallback trong code browser | Browser C++ |
+| Signal | Nơi cần sửa |
+|---|---|
+| `switch_renamed` | Script khởi động bên ngoài phải đổi — build không báo gì |
+| `switch_symbol_renamed` | Chuỗi CLI vẫn giữ; chỉ tham chiếu C++ phải đổi — build sẽ báo |
+| `feature_string_renamed` | Cấu hình Finch / feature config phải đổi — build không báo gì |
+| `feature_symbol_renamed` | Tham chiếu C++ phải đổi — build sẽ báo |
+| `pref_renamed` | Cần migration, đăng ký lại, hoặc đọc fallback trong code browser |
 
-Nhắc lại một lần nữa: owner là **nơi kiểm tra đầu tiên**. Sau khi tra cứu thực tế xem Samsung đang dùng ở đâu, một finding hoàn toàn có thể cần nhiều team cùng làm.
+Điểm chung của ba dòng "build không báo gì": chúng là loại hỏng duy nhất có thể nằm im suốt một milestone.
 
 ## Sáu ví dụ chấm điểm đầy đủ
 
@@ -417,7 +402,6 @@ có trong build Windows: có
 vấn đề coverage: không
 score: 75
 bucket: Behaviour change
-owner: Browser C++
 ```
 
 **Việc tiếp theo:** tìm bản vá và các tham chiếu tới feature này trong code Samsung, kiểm tra xem có override từ Finch không, rồi chạy test cho các luồng chịu ảnh hưởng.
@@ -430,7 +414,6 @@ direction: modified
 signal: ipc_signature_change
 severity/score: 80
 bucket: Breaking
-owner: Process boundaries
 ```
 
 **Việc tiếp theo:** tìm cả phía gọi lẫn phía hiện thực trong code Samsung, kiểm tra generated binding và khả năng tương thích version, rồi chạy test runtime đi qua đúng ranh giới process đó.
@@ -470,7 +453,7 @@ lý do: có thể khoá này chỉ chuyển sang một file mà target set chưa
 signal: flag_retired_on
 severity/score: 35
 bucket: Housekeeping
-owner: Outside the repository
+sửa ở: ngoài repository
 ```
 
 **Không nên** mở bug với tiêu đề "hành vi vừa được bật" — vì nó đã bật từ lâu rồi. Việc đúng là đi tìm xem cấu hình rollout của Samsung còn đang set flag đó không, vì override đó từ nay sẽ không còn tác dụng.
@@ -491,7 +474,7 @@ Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh 
 
 - `Fact` và `Change` là JSON cố định, không phụ thuộc LLM.
 - Mỗi score đều có `reasons`: severity đến từ signal nào, bị trừ điểm vì lý do gì.
-- Bảng signal, bảng bucket, các rule chuyển owner và danh sách thuộc tính được so đều nằm tập trung trong code, không rải rác.
+- Bảng signal, bảng bucket và danh sách thuộc tính được so đều nằm tập trung trong code, không rải rác.
 - Có test bảo đảm bảng severity của signal và bảng bucket dùng chung một tập khoá; một signal không thể lặng lẽ rơi vào bucket mặc định mà không bị phát hiện.
 - Cùng một cây source phải tạo ra cùng một thứ tự `Fact`; bước loại trùng không phụ thuộc thứ tự file mà hệ điều hành trả về.
 - Bước so sánh từ chối chạy khi hai bên dùng target set khác nhau, hoặc khi số `Fact` lệch nhau bất thường.
@@ -533,27 +516,27 @@ Tóm lại: báo cáo là **bằng chứng đã xếp hạng và đầu vào cho
 }
 ```
 
-Một giới hạn cần biết: owner hiện được **tính** từ `Change` lúc render hoặc lúc tổng hợp, chứ không được lưu lặp lại trong từng finding của JSON. Vì vậy nếu một script automation cần lọc theo owner, nó phải gọi lại cùng hàm `owner_of(change)` của project, hoặc dùng dữ liệu của các dòng đã render trong HTML.
+Một điểm cần biết khi viết script: `change.kind` và `bucket` nằm sẵn trong từng finding của JSON, nên lọc theo chúng là đọc thẳng. Nhóm hậu quả thì được tính từ `kind` lúc render, và `summary.by_group` giữ số đếm tương ứng.
 
 ### Bộ lọc trong bản HTML
 
-Bản HTML có năm bộ lọc độc lập cộng một ô tìm kiếm:
+Bản HTML có bốn bộ lọc độc lập, cộng một ô tìm kiếm và một ô loại trừ:
 
 - **Bucket**: Breaking / Behaviour / New surface / Housekeeping.
 - **Surface hoặc kind**: 16 loại `Fact`, được gom thành ba nhóm — Behaviour switches, External contracts, UI and scheduling.
 - **Nhóm hậu quả**: chính ba nhóm vừa nêu.
-- **Owner**: IPC, Web Platform, Browser C++, WebUI, Outside repository.
 - **Bằng chứng CL**: dòng này đã tra được CL chưa, và ở mức nào. Bộ lọc này chỉ hiện khi báo cáo có dữ liệu tra cứu; [phần 7](<07 - Truy nguyên CL và issue.md>) giải thích năm trạng thái của nó.
+- **Ô loại trừ**: gõ một hoặc nhiều từ khoá để bỏ hẳn những dòng khớp chúng.
 - **Ô tìm kiếm**: khớp với tên, `kind` thô, phần mô tả, tên màn hình hoặc thư mục, signal, đường dẫn, và phần tóm tắt từ ChromeStatus.
 
-Các bộ lọc kết hợp với nhau bằng **AND**. Ô tìm kiếm không thay thế được bộ lọc owner hoặc kind — nó thu hẹp thêm, chứ không thay thế.
+Các bộ lọc kết hợp với nhau bằng **AND**. Ô tìm kiếm không thay thế được bộ lọc kind — nó thu hẹp thêm, chứ không thay thế.
 
 Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đề cột để đổi cách sắp. Chỉ 200 dòng đầu được render, để báo cáo lớn vẫn phản hồi nhanh; nút `Show more` mở thêm chứ không làm mất dữ liệu. Bấm vào một dòng sẽ mở ra: signal, vị trí source, các delta chính, lý do chấm điểm, phần enrichment, và — nếu đã tra cứu — CL cùng issue đứng sau thay đổi.
 
 ### Luồng triage đề xuất
 
 1. Kiểm tra ref của hai bên, target set, coverage, missing target và lỗi trích xuất.
-2. Lọc theo owner của team mình.
+2. Lọc theo phần mình quan tâm — kind, bucket hoặc nhóm hậu quả.
 3. Xử lý các finding Breaking điểm cao trước — nhưng đọc signal chứ đừng chỉ nhìn con số.
 4. Xem Behaviour change, tập trung vào các luồng mà Samsung có tuỳ biến riêng.
 5. Xem New surface để lập backlog cho việc test và cân nhắc adopt.

@@ -43,7 +43,7 @@ webui_route:settings/LOCAL_NETWORK
 
 | Trường | Dùng để làm gì | Có được đem đi so sánh không? |
 |---|---|---|
-| `kind` | Chọn ngữ nghĩa, bảng thuộc tính, signal và owner | Là một phần của UID |
+| `kind` | Chọn ngữ nghĩa, bảng thuộc tính và signal | Là một phần của UID |
 | `key` | Ghép cùng một khai báo giữa hai version | Là phần chính của UID |
 | `name` | Hiển thị cho người đọc | Không |
 | `path` | Dẫn tới bằng chứng, và phát hiện khai báo bị chuyển file | Đường dẫn khác nhau tạo ra delta `path` |
@@ -767,4 +767,4 @@ Vì sao tính cố định này quan trọng đến vậy: cùng một cây sour
 - nội dung giao diện sau khi render;
 - lời giải thích do AI sinh ra.
 
-Cách hình dung đúng: `Fact` là **lớp bằng chứng**. `Change` và `signal` trả lời câu hỏi *upstream đã đổi gì*. Còn việc đối chiếu với source và cấu hình của Samsung để biến nó thành một đầu việc là trách nhiệm của skill, của agent và của owner — không phải của lớp dữ liệu này.
+Cách hình dung đúng: `Fact` là **lớp bằng chứng**. `Change` và `signal` trả lời câu hỏi *upstream đã đổi gì*. Còn việc đối chiếu với source và cấu hình của Samsung để biến nó thành một đầu việc là trách nhiệm của skill, của agent và của người đọc báo cáo — không phải của lớp dữ liệu này.

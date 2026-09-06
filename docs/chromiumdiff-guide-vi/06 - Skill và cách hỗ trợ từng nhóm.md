@@ -25,7 +25,7 @@ ChromiumDiff tool
         │
         ▼
 Skill analyzing-chromium-upgrades
-  quy định cách đọc báo cáo, các bẫy cần tránh, và câu hỏi đúng cho từng owner
+  quy định cách đọc báo cáo, các bẫy cần tránh, và câu hỏi đúng cho từng loại khai báo
         │
         ▼
 Agent
@@ -46,7 +46,7 @@ Tool tạo ra bằng chứng cố định — chạy lại lần nào cũng ra n
 - `Fact` trước và sau;
 - `Change`, signal, severity, score, bucket;
 - vị trí `path:line`;
-- owner routing ban đầu.
+- gợi ý loại khai báo nào cần hỏi câu gì.
 
 Điểm cần nhấn mạnh: tool **không** dùng agent để quyết định một `Fact` là gì hay một score là bao nhiêu.
 
@@ -57,7 +57,7 @@ Skill là playbook cho agent. Nó buộc agent tuân theo chín quy tắc:
 - dùng full version chính xác, không dùng milestone mơ hồ cho kết luận chính thức;
 - dùng trạng thái trên Windows, không dùng trạng thái global hay default;
 - chọn `wide` khi câu hỏi ở mức release;
-- đọc báo cáo theo owner và theo signal, thay vì nhìn tổng số dòng;
+- đọc báo cáo theo bucket và theo signal, thay vì nhìn tổng số dòng;
 - phân biệt ba việc rất khác nhau: code của feature đã được đưa vào, feature thật sự đã được bật, và flag sau đó bị dọn đi;
 - không áp dụng vòng đời của flag cho Mojo, pref hay switch, vì các contract đó không có gate;
 - kiểm tra coverage trước khi gọi một khai báo là đã bị xoá;
@@ -107,8 +107,8 @@ Nếu chỉ có báo cáo mà không có ba trường về source và config, v�
 
 1. Xác nhận `from_ref`, `to_ref`, platform và target set.
 2. Đọc coverage theo từng surface, danh sách missing target và lỗi trích xuất.
-3. Xem số lượng finding theo owner, để biết team nào có việc.
-4. Trong mỗi owner, đi theo thứ tự: Breaking → Behaviour change → New surface.
+3. Lọc lấy phần team mình quan tâm — theo `kind`, theo bucket, hoặc theo nhóm hậu quả.
+4. Trong phần đã lọc, đi theo thứ tự: Breaking → Behaviour change → New surface.
 5. Với Housekeeping, chỉ đọc kỹ các signal liên quan tới cấu hình và lịch trình — `flag_expiring`, các flag bị dọn, và các trường hợp đổi tên.
 6. Mở từng finding có khả năng liên quan tới Samsung, đọc `locations`, `deltas`, `signals`, `reasons`.
 7. Tìm trong source và config của Samsung, **rồi mới** gắn nhãn mức độ ảnh hưởng.
@@ -142,7 +142,7 @@ Từ `webui_route`, agent lấy ra năm thứ:
 
 **Việc agent cần làm:**
 
-1. Lọc owner `WebUI front-end` và kind `webui_route`.
+1. Lọc kind `webui_route`, `webui_control` và `webui_gate`.
 2. Gom theo `surface` và theo trang.
 3. Lần theo guard sang `webui_gate`.
 4. Xem `base_feature` đứng sau đang BẬT hay TẮT trên Windows, ở cả hai version.
@@ -195,7 +195,7 @@ Nếu chỉ đọc route và control mà không lần theo chuỗi trên, rất 
 
 ### 4. Pref nào ảnh hưởng tới giao diện
 
-Team WebUI không nên chỉ xem owner `webui`. Các finding `pref_renamed`, `pref_symbol_renamed` và `build_gate_changed` thuộc về Browser C++ nhưng có thể ảnh hưởng trực tiếp tới control trong Settings.
+Team WebUI không nên chỉ xem ba kind `webui_*`. Các finding `pref_renamed`, `pref_symbol_renamed` và `build_gate_changed` thuộc về Browser C++ nhưng có thể ảnh hưởng trực tiếp tới control trong Settings.
 
 Agent nên ghép theo `webui_control.attrs.pref`, rồi tìm năm thứ:
 
@@ -246,9 +246,9 @@ Một giới hạn cần nhắc lại ở đây: ChromiumDiff không render giao
 
 ## Đội WebNative / Browser C++ cần biết gì
 
-Trước hết, một lưu ý về tên gọi: **`WebNative` không phải một owner chuẩn trong ChromiumDiff.** Trong phần này, nó được hiểu là team làm phần C++ backend và native integration của browser — bao gồm việc đấu nối feature, pref/switch, và phần C++ đứng sau WebUI.
+Trước hết, một lưu ý về tên gọi: **`WebNative` không phải một khái niệm của ChromiumDiff.** Trong phần này, nó được hiểu là team làm phần C++ backend và native integration của browser — bao gồm việc đấu nối feature, pref/switch, và phần C++ đứng sau WebUI.
 
-Nếu nội bộ Samsung dùng từ "WebNative" cho một phạm vi khác, cần ánh xạ lại owner trước khi cho agent chạy.
+Nếu nội bộ Samsung dùng từ "WebNative" cho một phạm vi khác, cần ánh xạ lại danh sách `kind` tương ứng trước khi cho agent chạy.
 
 ### 1. Feature nào thực sự đổi hành vi trên Windows
 
@@ -306,7 +306,7 @@ Quy tắc phân chia: **đổi tên chuỗi** thuộc phía cấu hình và scri
 
 ### 4. Mojo nào chạm vào code riêng của Samsung
 
-Mojo được route về owner `Process boundaries`, nhưng WebNative thường vẫn phải tham gia nếu Samsung có phía gọi hoặc phía hiện thực bằng native code.
+Mojo nằm ở năm kind `mojo_*`, nhưng WebNative thường vẫn phải tham gia nếu Samsung có phía gọi hoặc phía hiện thực bằng native code.
 
 Sáu bước agent cần làm:
 
@@ -329,7 +329,7 @@ WebNative cần nhận các finding `webui_gate` và pref liên quan tới nhữ
 - policy handler hoặc data source đổi;
 - route/control cần một data key mới.
 
-Đây là vùng giao nhau giữa WebUI front-end và Browser C++. Cách xử lý đúng: báo cáo chỉ định **một owner chính và một owner phối hợp**, chứ không đẩy cùng một task vào hai backlog mà không phân định ranh giới.
+Đây là vùng giao nhau giữa WebUI front-end và Browser C++. Cách xử lý đúng: báo cáo chỉ định **một team chính và một team phối hợp**, chứ không đẩy cùng một task vào hai backlog mà không phân định ranh giới.
 
 ### 6. Kế hoạch test cho Browser C++ / WebNative
 
@@ -402,7 +402,7 @@ Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_inte
 
 - Feature upstream nào đổi mặc định trên Windows?
 - Khai báo Web API, Mojo, pref, switch hoặc WebUI nào đã đổi?
-- Loại hậu quả là gì, và owner kỹ thuật nào phù hợp?
+- Loại hậu quả là gì, và team nào phù hợp để xem trước?
 - Finding nào có bằng chứng "đã bị xoá" còn yếu vì coverage?
 - Route và control nào cùng liên quan tới một gate hoặc một pref?
 - Flag nào đã bị dọn hoặc sắp hết hạn, cần owner của config xem?

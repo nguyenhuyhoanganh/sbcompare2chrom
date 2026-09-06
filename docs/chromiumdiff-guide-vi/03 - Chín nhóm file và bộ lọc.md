@@ -323,7 +323,7 @@ Nếu một flag mà Samsung đang override sắp hết hạn trong milestone đ
 }
 ```
 
-Trường `owners` ở đây là người liên hệ phía upstream của metadata này; nó **khác** với owner routing trong báo cáo. Và file này cũng không chứng minh được Samsung có dùng flag hay không.
+Trường `owners` ở đây là người liên hệ phía upstream của chính entry metadata này, không liên quan gì tới cách báo cáo phân loại finding. Và file này cũng không chứng minh được Samsung có dùng flag hay không.
 
 ## 7. `webui_routes` — danh mục trang và trang con
 
