@@ -155,7 +155,52 @@ The three files carry three different things, and **signal ids are only in `repo
 | whether the run confirmed the absence | its own *Unconfirmed* section | badge on the row, `All coverage` filter | `unconfirmed`, and `summary.unconfirmed` |
 | `platform_state`, score, severity, `path:line` | yes | yes | yes |
 
-**Filtering or branching on a signal means reading `report.json`.** `report.md` is the artifact for a reader, `report.html` plus `serve` is the one for someone clicking.
+**Filtering or branching on a signal means querying `report.json` with a program.** `report.md` is the artifact for a reader, `report.html` plus `serve` is the one for someone clicking.
+
+#### Only one of these fits in a context window
+
+Measured on the M148 → M151 run in this repository:
+
+| Artifact | Size | ≈ tokens | Read it how |
+|---|---:|---:|---|
+| `report.md` | 133 KB | **38k** | whole, top to bottom |
+| `report.html` | 1.5 MB | 427k | in a browser, never in context |
+| `report.json` | 4.2 MB | **1,193k** | only through a program |
+
+A `wide` run doubles the last one to about 2,032k. So `report.json` does not go into context — not with `cat`, not with `Read`, not by pasting a section of it. **Run Python over it and print the answer**, which is the only part that costs anything:
+
+```python
+import json, collections
+R = json.load(open("out/M148_to_M151/report.json"))
+F = R["findings"]
+# Print the answer, never F itself.
+print(collections.Counter(f["bucket"] for f in F))
+print([f["change"]["name"] for f in F
+       if "pref_left_scan" in f["change"]["signals"]][:20])
+```
+
+`grep` on it is worse than useless: the file is written on one line, so any match returns the whole 4 MB.
+
+#### A reading order that costs about 24k
+
+`report.md` is ordered so the first sections are the ones to write from. Read in this order and stop when the question is answered:
+
+| Read | ≈ tokens | What it gives |
+|---|---:|---|
+| Header, *What kind of change*, *What happened* | 2k | the counts, and every signal group at once |
+| *Related changes, grouped* | 1k | the items to write, already assembled |
+| *What changed on each screen* | 2k | the per-screen items |
+| *Compatibility break* | 12k | the rows to read closely |
+| *Behaviour change* | 7k | as above |
+
+That is the whole story of a 3,022-finding run for about 24k, leaving the budget for the reasoning. The remaining sections — *New declarations*, *Scheduled*, *Unconfirmed* — are about 2k each and are read when the question calls for them.
+
+**Where `report.md` truncates, go to the program, not to the file.** Bucket tables stop at 40 rows and each screen at 12, and both say how many are hidden. One query returns the rest:
+
+```python
+[f["change"]["name"] for f in F
+ if f["bucket"] == "contract" and f["change"]["kind"].startswith("mojo_")]
+```
 
 Fetched Chromium source lives in `.chromiumdiff-cache/` at the repository root, moved with `--cache` or the `CHROMIUMDIFF_CACHE` environment variable. It is regenerable — deleting it only makes the next run slower. `check` prints the cache directory, the free space and what a version pair costs.
 
@@ -271,17 +316,22 @@ Signal meanings: **[reference/signals.md](reference/signals.md)**.
 
 ### Step 6: Write the report around what the reader asked for
 
-Question 3 decides the layout — group by what the reader named, and say what you filtered to. The template below is the default when they named nothing: grouped by the branches of step 5.
+Question 3 decides the layout — group by what the reader named, and say what you filtered to.
+
+**When they named nothing, group by what happened, not by how the tool found it.** A bucket, a score band and a fact kind are all properties of the machinery. Grouping by any of them takes a change that arrived as seven fragments and files the flag under one heading and the pages under another, which is the state the fragments were in before `cluster.py` gathered them.
 
 ```markdown
 ## Overall risk
-[One sentence on risk, and which branch carries most of it.]
+[One sentence: what this upgrade does, and where the work is.]
 
-## Mojo — N to look at
-## Web platform — N
-## Flags, prefs and switches — N
-## chrome:// pages — N
-[Skip a section with nothing in Compatibility break or Behaviour change, and say so.]
+## What happened
+[One item per thing that happened, heaviest consequence first.]
+
+### <what a person calls it> — <the movement, in a few words>
+[What moved, read from the fragments together. Name every identifier someone
+would grep for.]
+**Check:** [what to go and look at, and where — including outside this
+repository.]
 
 ## Fixed outside the repository — N
 [Always present, always last, even when filtered: a renamed flag or switch kills the override of anyone who set it, not of one team.]
@@ -290,14 +340,59 @@ Question 3 decides the layout — group by what the reader named, and say what y
 [web_api_added_live only. Product input, not a blocker.]
 
 ## Limits
-[Coverage figure the run printed, target set, partitions, exact versions.]
+[Coverage figure the run printed, target set, partitions, exact versions, and `summary.unconfirmed`.]
 ```
 
-Every finding needs three parts: **what moved**, **whether users see a difference**, **what someone must do**. The middle part decides priority and a raw diff cannot supply it.
+#### What counts as one item
 
-Bad: *"`LocalNetworkAccessChecksSplitPermissions` was removed in M151."*
+In this order, so nothing is written twice:
 
-Good: *"Local Network Access moved to split permissions. The flag was ENABLED at M148, so users saw this before our current base; M151 only retires the flag. No behavioural change. Action: update any reference to `kLocalNetworkAccessChecksSplitPermissions` or the `/localNetworkAccess` route."*
+1. **A block of `## Related changes, grouped`.** Already one item. `report.md` prints every fragment with what it moved; `summary.clusters` in the JSON holds them all.
+2. **A screen and a direction.** Five pages arriving on `settings` is one item, not five. `## What changed on each screen` has them, truncated at twelve — take the rest from `report.json` when the screen has more.
+3. **A row that stands alone.** One Mojo signature, one renamed pref. Its own item only if no cluster claimed it.
+
+#### Reading a block into one sentence
+
+The fragments contradict each other apart and agree together, so read every one of them before writing. Two attributes carry the direction: **the gate a page sits behind**, and **the state a flag held when it was removed**.
+
+Worked, from the M148 → M151 block:
+
+```
+- `−` SITE_SETTINGS_LOCAL_NETWORK_ACCESS · WebUI page · 55
+  - route: localNetworkAccess
+  - guards: enableLocalNetworkAccessSetting
+- `~` enableLocalNetworkAccessSetting · WebUI visibility gate · 45
+  - features: −kLocalNetworkAccessChecksSplitPermissions
+- `~` SITE_SETTINGS_LOCAL_NETWORK · WebUI page · 45
+  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
+- `~` SITE_SETTINGS_LOOPBACK_NETWORK · WebUI page · 45
+  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
+- `−` enableLocalNetworkAccessSplitPermissions · WebUI visibility gate · 40
+- `−` LocalNetworkAccessChecksSplitPermissions · Chromium feature flag · 20
+  - default_state: enabled
+- `−` label:siteSettingsLocalNetworkAccess · WebUI control · 20
+```
+
+The flag was **enabled** before it was removed, so the split was already what users had; the experimental gate is gone and the two split pages moved onto the gate the combined page used; the combined page and its control went with it. One movement, not seven facts:
+
+> **Local Network Access — the split shipped, the combined page is gone.**
+> The page `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) and its control `siteSettingsLocalNetworkAccess` are removed. `SITE_SETTINGS_LOCAL_NETWORK` and `SITE_SETTINGS_LOOPBACK_NETWORK` moved off the experimental gate `enableLocalNetworkAccessSplitPermissions` onto `enableLocalNetworkAccessSetting`, and both that gate and `LocalNetworkAccessChecksSplitPermissions` — which was **enabled** at M148 — are retired. Users saw the split before this upgrade; M151 removes the machinery.
+> **Check:** anything linking to `chrome://settings/localNetworkAccess`; any use of the string `siteSettingsLocalNetworkAccess`; any Finch config setting `kLocalNetworkAccessChecksSplitPermissions`.
+
+And a screen group, from the same run:
+
+> **Five new settings pages.** `/ai/suggestions` and `/ai/skills` behind `showAiPage`, `/autofill/suggestionsFromGemini` and `/shopping` behind `enableYourSavedInfoSettingsPage`, and `inlineCueMenu` behind **no gate at all**.
+> **Check:** `inlineCueMenu` is the one that is reachable the day the version is adopted. Quote a route exactly as `report.json` holds it — four of these five carry a leading `/` and that one does not.
+
+#### What every item has to carry
+
+**What moved**, **whether anyone sees a difference**, **what someone must do**. The middle part decides priority and a raw diff cannot supply it.
+
+Bad: *"`LocalNetworkAccessChecksSplitPermissions` was removed in M151."* — one fragment of seven, and it reads as a lost feature.
+
+Also bad: *"12 changes to chrome:// pages, 3 Compatibility break."* — a count is not a thing that happened.
+
+**Stop at what the evidence shows.** Write what moved and what to check; do not write that something is a bug. The tool has one Chromium version and another, and no knowledge of what this product patches or ships.
 
 ## Reference
 

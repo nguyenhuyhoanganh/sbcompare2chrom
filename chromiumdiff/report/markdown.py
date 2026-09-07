@@ -144,7 +144,7 @@ def render(report: Report, platform: str = "windows",
 
     out.append(_render_stories(report))
     out.append(_render_screens(report))
-    out.append(_render_clusters(summary))
+    out.append(_render_clusters(report, summary))
     out.append(_render_milestone_brief(summary))
 
     # -- buckets --------------------------------------------------------
@@ -297,27 +297,104 @@ def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> st
     return "\n".join(out)
 
 
-def _render_clusters(summary: dict) -> str:
-    """Related findings, grouped into one story each.
+# What a cluster member moved, in the attributes a reader reasons over. The
+# gate a page sits behind, the flags a gate reads, and the state a flag held
+# are what turn a list of fragments into a direction; the rest identify what
+# moved. `expression` is deliberately absent -- it is the raw C++ condition,
+# and `features` names the same flags in the form a reader greps for.
+_STORY_ATTRS = ("route", "parent", "guards", "features", "condition",
+                "default_state", "windows_status", "signature", "pref",
+                "label", "control", "screen")
+
+
+def _attr(value) -> str:
+    """A list reads as a list, not as a Python repr."""
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value)
+    return str(value)
+
+
+def _member_move(change) -> List[str]:
+    """What this fragment moved, in the direction it moved.
+
+    Only a modification has two sides worth printing. On an addition or a
+    removal the marker already says which way it went, so `guards:
+    enableLocalNetworkAccessSetting` on a `-` row reads as the gate the page
+    was behind -- where `enableLocalNetworkAccessSetting -> None` spends half
+    the line saying what the marker said.
+    """
+    before = getattr(change, "before", None) or {}
+    after = getattr(change, "after", None) or {}
+    out = []
+    for key in _STORY_ATTRS:
+        was, now = before.get(key), after.get(key)
+        if was == now or (not was and not now):
+            continue
+        if was and now:
+            # Two lists print as what left and what arrived, never as both
+            # lists side by side. A gate's `features` shares a long prefix
+            # with itself, so truncating both halves at one width rendered
+            # `kLocalNetworkAccessChecks, kLocalNetworkAcc… →
+            # kLocalNetworkAccessChecks, kLocalNetworkAcc…` -- two ellipses
+            # hiding the one flag that left, which was the whole row.
+            if isinstance(was, (list, tuple)) and isinstance(now, (list, tuple)):
+                gone = [v for v in was if v not in now]
+                came = [v for v in now if v not in was]
+                moved = ([f"−{v}" for v in gone] + [f"+{v}" for v in came])
+                out.append(f"{key}: {_cell(', '.join(moved), 92)}")
+            else:
+                out.append(f"{key}: {_cell(_attr(was), 44)} → "
+                           f"{_cell(_attr(now), 44)}")
+        else:
+            out.append(f"{key}: {_cell(_attr(was if was else now), 92)}")
+    return out
+
+
+def _render_clusters(report: Report, summary: dict, limit: int = 12) -> str:
+    """Related findings, grouped into one story each -- and told, not named.
 
     Read individually, the fragments of one Chromium change contradict each
-    other -- a page removed here, a page added there. Grouped, they read as
-    what actually happened.
+    other: a page removed here, a page added there. Grouped, they read as what
+    actually happened.
+
+    This printed the label, the fragment count and the kinds, which names the
+    story without telling it. The evidence that makes it a story -- what each
+    fragment moved from and to -- was only in `report.json`, so the reader who
+    stops at `report.md` got seven rows of Local Network Access identifiers and
+    no way to see that the split-permissions experiment had shipped and taken
+    the combined page with it.
+
+    Whoever reads this next has to write one sentence per group. The material
+    for that sentence is every member's move, together, which is what is
+    printed here.
     """
-    rows = (summary or {}).get("clusters") or []
-    rows = [r for r in rows if r.get("size", 0) > 1][:12]
+    rows = [r for r in ((summary or {}).get("clusters") or [])
+            if r.get("size", 0) > 1][:limit]
     if not rows:
         return ""
+    by_uid = {f.uid: f for f in report.findings}
     out = ["## Related changes, grouped", "",
-           "Each row is one Chromium change arriving across several kinds. "
-           "Read the group, not the individual rows.", "",
-           "| Top score | Story | Fragments | Surfaces |",
-           "|---:|---|---:|---|"]
+           "Each block is one Chromium change arriving across several kinds. "
+           "Read the block, not the rows: the fragments contradict each other "
+           "apart and agree together. `report.json` holds the rest.", ""]
     for r in rows:
-        kinds = ", ".join(KIND_LABELS.get(k, k) for k in r.get("kinds", []))
-        out.append(f"| {r.get('top_score', 0)} | `{_cell(r.get('label', ''), 44)}` "
-                   f"| {r.get('size', 0)} | {_cell(kinds, 70)} |")
-    out.append("")
+        out.append(f"### {_esc(r.get('label', ''))} — "
+                   f"{r.get('size', 0)} fragments, top score "
+                   f"{r.get('top_score', 0)}")
+        out.append("")
+        for uid in r.get("members", []):
+            finding = by_uid.get(uid)
+            if finding is None:
+                continue
+            change = finding.change
+            mark = wording.MARK.get(change.change_type, "?")
+            out.append(
+                f"- `{mark}` **{_esc(display_name(change))}** "
+                f"· {KIND_LABELS.get(change.kind, change.kind)} "
+                f"· score {finding.score}")
+            for move in _member_move(change):
+                out.append(f"  - {_esc(move)}")
+        out.append("")
     return "\n".join(out)
 
 

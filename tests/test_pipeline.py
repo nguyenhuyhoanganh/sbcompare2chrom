@@ -1602,6 +1602,69 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
         self.assertNotIn("grp", row)
 
 
+class TestAClusterIsToldNotNamed(unittest.TestCase):
+    """`report.md` has to carry what a group means, not just that it is one.
+
+    The section printed the label, the fragment count and the kinds. That names
+    the story and does not tell it: at M148 -> M151 a reader saw
+    `SITE_SETTINGS_LOCAL_NETWORK_ACCESS | 7 | ...` and had no way to see that
+    the split-permissions experiment had shipped and taken the combined page
+    with it. The evidence -- what each fragment moved from and to -- was only
+    in `report.json`, and the skill's own template then split the group back
+    apart, filing the flag under one heading and the pages under another.
+    """
+
+    def _report(self):
+        from chromiumdiff.model import Change, Finding, Report
+        page = Finding(
+            change=Change(change_type="removed", kind="webui_route",
+                          key="settings/COMBINED", name="COMBINED",
+                          before={"route": "localNetworkAccess",
+                                  "guards": ["gateA"], "screen": "settings"}),
+            score=55, bucket="behaviour")
+        gate = Finding(
+            change=Change(change_type="modified", kind="webui_gate",
+                          key="ui/gateA", name="gateA",
+                          before={"features": ["kChecks", "kWarn", "kSplit"]},
+                          after={"features": ["kChecks", "kWarn"]}),
+            score=45, bucket="behaviour")
+        return Report(
+            from_ref="a", to_ref="b", findings=[page, gate],
+            summary={"clusters": [{
+                "id": "settings/COMBINED", "label": "COMBINED", "size": 2,
+                "top_score": 55, "kinds": ["webui_route", "webui_gate"],
+                "buckets": ["behaviour"],
+                "members": ["webui_route:settings/COMBINED", "webui_gate:ui/gateA"],
+            }]})
+
+    def _section(self):
+        from chromiumdiff.report import markdown as md_report
+        page = md_report.render(self._report())
+        body = page.split("## Related changes, grouped", 1)[1]
+        return body.split("\n## ", 1)[0]
+
+    def test_every_member_appears_with_what_it_moved(self):
+        section = self._section()
+        self.assertIn("COMBINED", section)
+        self.assertIn("gateA", section)
+        # The gate a removed page sat behind is the row a reader acts on.
+        self.assertIn("guards: gateA", section)
+        self.assertIn("route: localNetworkAccess", section)
+
+    def test_a_list_shows_what_left_rather_than_both_lists(self):
+        """Two lists sharing a long prefix truncate to the same visible text,
+        so printing both sides hid the one entry that moved -- which was the
+        whole row."""
+        section = self._section()
+        self.assertIn("features: \u2212kSplit", section)
+        self.assertNotIn("kChecks, kWarn, kSplit \u2192", section)
+
+    def test_a_removed_row_does_not_spell_out_None(self):
+        """The marker already says which way it went."""
+        section = self._section()
+        self.assertNotIn("None", section)
+
+
 class TestClustering(unittest.TestCase):
     """One Chromium change arrives as fragments; they must read as one story."""
 

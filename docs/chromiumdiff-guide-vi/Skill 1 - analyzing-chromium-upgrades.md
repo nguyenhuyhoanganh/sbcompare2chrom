@@ -155,7 +155,52 @@ Ba file mang ba thứ khác nhau, và **id của signal chỉ có trong `report.
 | lần chạy có xác nhận được sự vắng mặt không | mục *Unconfirmed* riêng | badge trên dòng, ô lọc `All coverage` | `unconfirmed`, và `summary.unconfirmed` |
 | `platform_state`, score, severity, `path:line` | có | có | có |
 
-**Lọc hay rẽ nhánh theo signal thì phải đọc `report.json`.** `report.md` là bản cho người đọc, `report.html` cộng `serve` là bản cho người bấm chuột.
+**Lọc hay rẽ nhánh theo signal thì phải truy vấn `report.json` bằng một chương trình.** `report.md` là bản cho người đọc, `report.html` cộng `serve` là bản cho người bấm chuột.
+
+#### Chỉ một trong ba file lọt vào context
+
+Đo trên lần chạy M148 → M151 trong repository này:
+
+| Artifact | Dung lượng | ≈ token | Đọc thế nào |
+|---|---:|---:|---|
+| `report.md` | 133 KB | **38k** | đọc trọn, từ trên xuống |
+| `report.html` | 1,5 MB | 427k | mở bằng browser, không bao giờ đưa vào context |
+| `report.json` | 4,2 MB | **1.193k** | chỉ qua chương trình |
+
+Một lần chạy `wide` nâng con số cuối lên khoảng 2.032k. Nên `report.json` **không** vào context — không `cat`, không `Read`, không dán một đoạn của nó. **Chạy Python trên nó và chỉ in ra câu trả lời**, vì chỉ phần đó mới tốn context:
+
+```python
+import json, collections
+R = json.load(open("out/M148_to_M151/report.json"))
+F = R["findings"]
+# In câu trả lời, đừng bao giờ in F.
+print(collections.Counter(f["bucket"] for f in F))
+print([f["change"]["name"] for f in F
+       if "pref_left_scan" in f["change"]["signals"]][:20])
+```
+
+`grep` trên nó còn tệ hơn vô dụng: file ghi trên **một dòng**, nên mọi match đều trả về nguyên 4 MB.
+
+#### Thứ tự đọc tốn khoảng 24k
+
+`report.md` được xếp sao cho các mục đầu chính là thứ để viết báo cáo. Đọc theo thứ tự này và dừng khi đã đủ trả lời:
+
+| Đọc | ≈ token | Cho biết |
+|---|---:|---|
+| Header, *What kind of change*, *What happened* | 2k | các con số đếm, và mọi nhóm signal cùng lúc |
+| *Related changes, grouped* | 1k | các mục cần viết, đã gom sẵn |
+| *What changed on each screen* | 2k | các mục theo từng màn hình |
+| *Compatibility break* | 12k | những dòng phải đọc kỹ |
+| *Behaviour change* | 7k | như trên |
+
+Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 24k, phần còn lại của ngân sách dành cho việc suy luận. Các mục còn lại — *New declarations*, *Scheduled*, *Unconfirmed* — mỗi mục khoảng 2k, đọc khi câu hỏi cần tới.
+
+**Chỗ nào `report.md` cắt bớt thì quay sang chương trình, đừng mở file.** Bảng theo bucket dừng ở 40 dòng, mỗi màn hình dừng ở 12, và cả hai đều ghi rõ còn ẩn bao nhiêu. Một truy vấn là ra phần còn lại:
+
+```python
+[f["change"]["name"] for f in F
+ if f["bucket"] == "contract" and f["change"]["kind"].startswith("mojo_")]
+```
 
 Source Chromium tải về nằm trong `.chromiumdiff-cache/` ở gốc repo, đổi được bằng `--cache` hoặc biến môi trường `CHROMIUMDIFF_CACHE`. Nó tái tạo được — xoá đi chỉ làm lần chạy sau chậm lại. `check` in ra thư mục cache, chỗ trống còn lại và ước lượng dung lượng một cặp version cần.
 
@@ -271,17 +316,21 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 ### Bước 6: Viết báo cáo theo đúng thứ user quan tâm
 
-Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, và ghi rõ đã lọc theo cái gì. Mẫu dưới đây là mặc định khi user không nêu gì: gom theo nhánh của Bước 5.
+Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, và ghi rõ đã lọc theo cái gì.
+
+**Khi user không nêu gì, gom theo chuyện đã xảy ra, không gom theo cách công cụ tìm ra nó.** Bucket, khoảng điểm và loại khai báo đều là thuộc tính của bộ máy. Gom theo bất kỳ cái nào trong ba cái đó sẽ lấy một thay đổi vốn đến dưới dạng bảy mảnh rồi xếp flag vào một mục còn các trang vào mục khác — tức là trả các mảnh về đúng trạng thái trước khi `cluster.py` gom chúng lại.
 
 ```markdown
 ## Overall risk
-[Một câu về mức rủi ro, và nhánh nào chiếm phần lớn rủi ro đó.]
+[Một câu: đợt nâng này làm gì, và phần việc nằm ở đâu.]
 
-## Mojo — N to look at
-## Web platform — N
-## Flags, prefs and switches — N
-## chrome:// pages — N
-[Bỏ qua mục không có gì trong Compatibility break hay Behaviour change, và nói rõ là đã bỏ.]
+## What happened
+[Mỗi mục là một chuyện đã xảy ra, hậu quả nặng nhất trước.]
+
+### <tên mà một người sẽ gọi nó> — <chuyển động, trong vài chữ>
+[Cái gì đã dịch chuyển, đọc từ các mảnh gộp lại. Nêu đủ mọi identifier mà
+người ta sẽ đi grep.]
+**Cần kiểm:** [phải đi xem cái gì, ở đâu — kể cả ngoài repository này.]
 
 ## Fixed outside the repository — N
 [Luôn có mặt, luôn ở cuối, kể cả khi đã lọc: một tên flag hay switch bị đổi làm chết override của bất kỳ ai đặt nó, không riêng ai.]
@@ -290,14 +339,59 @@ Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, v
 [Chỉ `web_api_added_live`. Đây là đầu vào cho sản phẩm, không phải thứ chặn release.]
 
 ## Limits
-[Con số coverage mà lần chạy đã in ra, target set, partition, version chính xác.]
+[Con số coverage mà lần chạy đã in ra, target set, partition, version chính xác, và `summary.unconfirmed`.]
 ```
 
-Mỗi finding cần ba phần: **cái gì đã dịch chuyển**, **người dùng có thấy khác đi không**, **ai đó phải làm gì**. Phần ở giữa quyết định độ ưu tiên, và một bản diff thô không cung cấp được nó.
+#### Thế nào là một mục
 
-Sai: *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."*
+Theo thứ tự này, để không viết trùng:
 
-Đúng: *"Local Network Access đã chuyển sang cơ chế split permissions. Flag này đã ENABLED từ M148, nên người dùng đã thấy điều này từ trước bản nền hiện tại của chúng ta; M151 chỉ cho flag nghỉ hưu. Không có thay đổi hành vi. Việc cần làm: cập nhật mọi chỗ còn tham chiếu tới `kLocalNetworkAccessChecksSplitPermissions` hoặc route `/localNetworkAccess`."*
+1. **Một khối trong `## Related changes, grouped`.** Đã là một mục sẵn. `report.md` in từng mảnh kèm thứ nó đã dịch chuyển; `summary.clusters` trong JSON giữ đủ.
+2. **Một màn hình cộng một hướng.** Năm trang mới trên `settings` là **một** mục, không phải năm. `## What changed on each screen` có sẵn, cắt ở 12 dòng — phần còn lại lấy từ `report.json` bằng truy vấn.
+3. **Một dòng đứng một mình.** Một Mojo signature, một pref bị đổi tên. Chỉ thành mục riêng khi không cluster nào nhận nó.
+
+#### Đọc một khối thành một câu
+
+Các mảnh tách ra thì mâu thuẫn nhau, gộp lại thì thống nhất — nên đọc hết rồi mới viết. Hai thuộc tính mang hướng: **gate mà một trang nằm sau**, và **trạng thái flag đang giữ lúc bị xoá**.
+
+Làm mẫu, từ khối M148 → M151:
+
+```
+- `−` SITE_SETTINGS_LOCAL_NETWORK_ACCESS · WebUI page · 55
+  - route: localNetworkAccess
+  - guards: enableLocalNetworkAccessSetting
+- `~` enableLocalNetworkAccessSetting · WebUI visibility gate · 45
+  - features: −kLocalNetworkAccessChecksSplitPermissions
+- `~` SITE_SETTINGS_LOCAL_NETWORK · WebUI page · 45
+  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
+- `~` SITE_SETTINGS_LOOPBACK_NETWORK · WebUI page · 45
+  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
+- `−` enableLocalNetworkAccessSplitPermissions · WebUI visibility gate · 40
+- `−` LocalNetworkAccessChecksSplitPermissions · Chromium feature flag · 20
+  - default_state: enabled
+- `−` label:siteSettingsLocalNetworkAccess · WebUI control · 20
+```
+
+Flag đang **enabled** trước khi bị xoá, nghĩa là bản split đã là thứ người dùng đang thấy; gate thử nghiệm biến mất và hai trang split chuyển sang đúng gate mà trang gộp từng dùng; trang gộp và control của nó đi theo. **Một chuyển động, không phải bảy sự kiện rời:**
+
+> **Local Network Access — bản split đã ship, trang gộp biến mất.**
+> Trang `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) và control `siteSettingsLocalNetworkAccess` bị xoá. `SITE_SETTINGS_LOCAL_NETWORK` và `SITE_SETTINGS_LOOPBACK_NETWORK` rời gate thử nghiệm `enableLocalNetworkAccessSplitPermissions` sang `enableLocalNetworkAccessSetting`; cả gate đó lẫn `LocalNetworkAccessChecksSplitPermissions` — vốn đang **enabled** ở M148 — đều được cho nghỉ. Người dùng đã thấy bản split từ trước đợt nâng này; M151 chỉ dọn phần máy móc.
+> **Cần kiểm:** chỗ nào link tới `chrome://settings/localNetworkAccess`; chỗ nào dùng chuỗi `siteSettingsLocalNetworkAccess`; Finch config nào đang set `kLocalNetworkAccessChecksSplitPermissions`.
+
+Và một mục theo màn hình, cùng lần chạy đó:
+
+> **Năm trang settings mới.** `/ai/suggestions` và `/ai/skills` sau `showAiPage`, `/autofill/suggestionsFromGemini` và `/shopping` sau `enableYourSavedInfoSettingsPage`, và `inlineCueMenu` **không có gate nào**.
+> **Cần kiểm:** `inlineCueMenu` là trang duy nhất với tới được ngay ngày adopt version. Trích route đúng y như `report.json` giữ — bốn trong năm cái có dấu `/` ở đầu, cái còn lại thì không.
+
+#### Mỗi mục bắt buộc phải có gì
+
+**Cái gì đã dịch chuyển**, **có ai thấy khác đi không**, **ai đó phải làm gì**. Phần ở giữa quyết định độ ưu tiên, và một bản diff thô không cung cấp được nó.
+
+Sai: *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."* — một mảnh trong bảy, và đọc lên thành mất tính năng.
+
+Cũng sai: *"12 thay đổi ở chrome:// pages, 3 cái Compatibility break."* — một con số đếm không phải một chuyện đã xảy ra.
+
+**Dừng ở chỗ bằng chứng cho phép.** Viết cái gì đã dịch chuyển và phải kiểm gì; đừng viết rằng cái đó là bug. Công cụ chỉ có một version Chromium và một version nữa, và không biết gì về việc sản phẩm này đang patch hay ship cái gì.
 
 ## Tài liệu tham chiếu
 
