@@ -33,7 +33,7 @@ reads as lost capability.
 the flag held *just before* deletion says which outcome that was.
 
 **Evidence:** M148 → M151 Windows removed 154 flags: 72 that had shipped, 60
-abandoned, 22 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 170 of which had
+abandoned, 22 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 167 of which had
 been `stable`.
 
 **Check:** read the prior state. `flag_retired_on` means behaviour is now

@@ -235,9 +235,9 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 This is not an isolated case:
 
 - **M148 → M151, Windows:** 154 flags removed — 72 that had shipped, 60 that were abandoned, 22 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 154 "feature lost" makes most of the alert list a false alarm.
-- **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
+- **M139 → M143, web layer:** of 202 features that "disappeared", 167 were already stable — the flag was cleaned up after the feature shipped successfully.
 
-A tool that puts 170 false alarms at the top of its first run is not usable.
+A tool that puts 167 false alarms at the top of its first run is not usable.
 
 ---
 
@@ -822,7 +822,7 @@ Measured over the top 150 findings of a real M148 → M151 run: **37 CLs earn `i
 
 So there is no radius. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 337 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
 
-Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` across 206 CLs. **147 of the 150 are named by a verdict; 3 hold leads only**, and the first working version of this managed 115.
+Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` — 206 citations across 129 CLs. **147 of the 150 are named by a verdict; 3 hold leads only**, and the first working version of this managed 115.
 
 **A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one change. Two rules used to cut that list without saying so:
 
@@ -920,7 +920,7 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 **A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and a network failure must never be reported as "no CL found".
 
-**About a third of issue links do not open.** Of the 39 distinct issues the looked-up rows of a real M148 → M151 run link, **13 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a restricted issue, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may have access.
+**Nearly half of issue links do not open.** Of the 97 distinct issues the top 150 findings of a real M148 → M151 run link, **44 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a restricted issue, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may have access.
 
 **An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the issue opens, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
 

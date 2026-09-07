@@ -272,9 +272,9 @@ Mỗi issue mở ra trong khối riêng, thụt vào dưới đúng CL của nó
 
 Mở file từ đĩa thì không có gì để hỏi, nên chip quay về đúng cái link tracker như cũ.
 
-### Khoảng một phần ba link issue không mở được
+### Gần một nửa link issue không mở được
 
-Đo trên 39 issue phân biệt mà các dòng đã tra cứu của một lần chạy M148 → M151 liên kết tới: **13 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
+Đo trên 97 issue phân biệt mà top 150 finding của một lần chạy M148 → M151 liên kết tới: **44 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
 
 Một link chết không được đánh dấu sẽ bị đọc thành **công cụ hỏng**, thay vì thành một issue bị hạn chế. Nên mọi issue được liên kết đều bị thăm dò một lần và cái bị hạn chế được đánh dấu `RESTRICTED` ngay tại chỗ. Link vẫn **được giữ lại**, vì người đọc báo cáo có thể có quyền truy cập.
 

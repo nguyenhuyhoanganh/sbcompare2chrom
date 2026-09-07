@@ -160,8 +160,8 @@ stop as soon as the answer is sufficient:
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** is how to read
    both, and what each level of evidence lets you claim.
 
-**A restricted issue is normal, not a failure.** About a third answer HTTP 403 — 13
-of the 39 issues cited by the looked-up rows of an M148 → M151 run — security,
+**A restricted issue is normal, not a failure.** Nearly half answer HTTP 403 — 44
+of the 97 issues the top 150 findings of an M148 → M151 run cite — security,
 abuse, or Google-internal components. The
 CLs stay public and their subjects say what the issue was about. Report the fix history and
 note the closed door; do not report the tool as broken.

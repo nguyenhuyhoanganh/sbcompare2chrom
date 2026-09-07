@@ -549,7 +549,7 @@ Một mục trong bug tracker của Chromium, tại `issues.chromium.org`. CL gh
 
 Hai dạng được hiển thị **tách nhau**, vì tham chiếu và đóng là hai khẳng định khác nhau.
 
-Khoảng **ba trong mười** issue được liên kết trả về HTTP 403 — bị giới hạn cho tài khoản Google, thường vì chúng nằm trong component security hoặc nội bộ. Đó là chuyện bình thường, không phải lỗi công cụ, và các CL thì vẫn đọc được.
+Gần **một nửa** số issue được liên kết trả về HTTP 403 — bị giới hạn cho tài khoản Google, thường vì chúng nằm trong component security hoặc nội bộ. Đó là chuyện bình thường, không phải lỗi công cụ, và các CL thì vẫn đọc được.
 
 ### Điểm nhánh (branch point) và `Cr-Branched-From`
 

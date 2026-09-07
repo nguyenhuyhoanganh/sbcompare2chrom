@@ -117,7 +117,7 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
    **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi mảng sản phẩm đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Gần một nửa trả về HTTP 403 — 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
 
 ### Bước 5: Kiểm tra khẳng định nhân quả với triệu chứng
 

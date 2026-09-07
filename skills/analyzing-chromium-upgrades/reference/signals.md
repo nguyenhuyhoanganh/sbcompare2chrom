@@ -69,7 +69,7 @@ Measured evidence for why this distinction exists:
   `flag_retired_on`, 60 `flag_retired_off`, and 22 `feature_deleted` whose
   prior state could not be read. Labelling all 154 "feature deleted" makes
   132 of them false alarms.
-- **M139 → M143, Blink**: of 202 runtime features that disappeared, **170 had
+- **M139 → M143, Blink**: of 202 runtime features that disappeared, **167 had
   been `stable`** — retired after shipping, not removed capability.
 
 That is also why all three retirements are filed under **Upstream cleanup**

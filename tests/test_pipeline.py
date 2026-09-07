@@ -1658,10 +1658,9 @@ class TestTheSummaryTalliesSayWhatTheyCover(unittest.TestCase):
     direction for the rest.
 
     Both readings have been made from this one shape: the sum read as the
-    total, and the keys counted as the groups. The second put "38 distinct
-    leading signals" in the skill where the four buckets above Upstream
-    cleanup hold 37 and 718 rows carry none, because a set built over
-    `leading_signal` holds the empty string as a member.
+    total, and the keys counted as the groups. A set built over
+    `leading_signal` holds the empty string as a member, so counting its keys
+    counts one group that is not a signal.
     """
 
     def _findings(self):
@@ -1697,8 +1696,7 @@ class TestTheSummaryTalliesSayWhatTheyCover(unittest.TestCase):
                          "the empty leading signal must not count as a signal")
 
     def test_it_holds_on_a_real_report(self):
-        """The fixture cannot produce the proportion a real run does: a third
-        of an M148 -> M151 report carries no signal."""
+        """The fixture cannot produce every shape a real run does."""
         import glob
         from chromiumdiff.model import read_report
         paths = sorted(glob.glob("out/*/report.json"))
@@ -1710,8 +1708,9 @@ class TestTheSummaryTalliesSayWhatTheyCover(unittest.TestCase):
                              summary["total"], path)
             self.assertEqual(sum(summary["by_group"].values()),
                              summary["total"], path)
-            self.assertLess(sum(summary["by_signal"].values()),
-                            summary["total"], path)
+            # No assertion on how far `by_signal` falls short: that is a
+            # property of the report, not of the code. What the code promises
+            # is that the empty lead is never counted as a signal.
             self.assertNotIn("", summary["by_signal"], path)
 
 
