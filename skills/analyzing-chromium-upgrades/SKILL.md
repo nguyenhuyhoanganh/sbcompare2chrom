@@ -281,7 +281,7 @@ Do that before quoting a report to anyone: what you found by clicking is in the 
 
 `--click-budget N` caps diffs read per row (default 600), `--no-save` leaves the file alone. An issue's history is not fetched with the row: click the issue on the CL you believe, and it opens under that CL.
 
-**A restricted issue is normal and not a failure.** Around four in ten linked issues answer HTTP 403 — they sit in a security, abuse or Google-internal tracker component. The panel says so and keeps the link, because the reader may be the one person who can open it. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
+**A restricted issue is normal and not a failure.** 44 of the 97 issues the top 150 findings of an M148 → M151 run link to answer HTTP 403 — they sit in a security, abuse or Google-internal tracker component. The panel says so and keeps the link, because the reader may be the one person who can open it. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
 
 **Finding no CL means this search found none, not that Chromium did not change.** The two trees differ, so something landed. The file is asked three ways — on main, then off it for merge-backs, then the whole window's commit messages — and if all three miss, the CL is recorded under a name or path this report does not hold. Say that; do not report that a declaration changed by itself.
 

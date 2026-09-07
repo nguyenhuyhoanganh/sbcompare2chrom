@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng về những gì đã dịch chuyển, định tuyến tới team sẽ phải sửa từng mục. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
+description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng về những gì đã dịch chuyển. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
 ---
 
 # Phân tích một đợt nâng version Chromium
@@ -28,7 +28,7 @@ Những từ dưới đây xuất hiện khắp phần còn lại của skill v�
 | **Scheduled** | Một cái ngày, không phải một sự kiện. Chromium đã lên lịch xoá hoặc dời lịch. Chưa có gì xảy ra |
 | **Upstream cleanup** | Chromium dọn thứ đã ngã ngũ, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì quan sát được đã dịch chuyển |
 
-- **unconfirmed** — một boolean trên finding, bật khi lần chạy này chưa đọc đủ cây source để xác nhận sự vắng mặt mà dòng đó dựa vào. Không phải bucket: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ `wide`. Những dòng mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, *không* phải vì nhẹ — trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. `summary.unconfirmed` đếm chúng: 31 ở M148 → M151 với bộ `default`, 0 với bộ `wide`.
+- **unconfirmed** — một boolean trên finding, bật khi lần chạy này chưa đọc đủ cây source để xác nhận sự vắng mặt mà dòng đó dựa vào. Không phải bucket: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ `wide`. Những dòng mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, *không* phải vì nhẹ — trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. Cờ được bật ở **mọi** dòng bị trừ 15 điểm, nên nó không chỉ nằm trong Upstream cleanup: `summary.unconfirmed` đếm 303 dòng ở M148 → M151 với bộ `default` và 0 với bộ `wide`, trong đó 120 dòng nằm ở Compatibility break.
 
 ## Hai nhóm khai báo
 
@@ -277,7 +277,7 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 `--click-budget N` giới hạn số diff đọc cho mỗi dòng (mặc định 600), `--no-save` thì không đụng vào file. Lịch sử của một issue không được tải về cùng với dòng: bấm vào issue trên CL mà bạn tin, nó sẽ mở ra ngay dưới CL đó.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng bốn trong mười issue được dẫn trả về HTTP 403 — chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel nói rõ điều đó và vẫn giữ link, vì người đọc có thể chính là người duy nhất mở được. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới trả về HTTP 403 — chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel nói rõ điều đó và vẫn giữ link, vì người đọc có thể chính là người duy nhất mở được. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
 
 **Không tìm thấy CL nào chỉ có nghĩa là lần tìm này không thấy, không có nghĩa là Chromium không đổi.** Hai cây source khác nhau, nghĩa là đã có gì đó vào cây. File được hỏi theo ba cách — trên nhánh main, rồi ngoài main để bắt các bản merge-back, rồi toàn bộ commit message trong khoảng thời gian đó — và nếu cả ba đều trượt thì CL được ghi dưới một cái tên hoặc một đường dẫn mà báo cáo này không giữ. Hãy nói đúng như vậy; đừng báo cáo rằng một khai báo tự nó đổi.
 
@@ -408,7 +408,7 @@ Cũng sai: *"12 thay đổi ở chrome:// pages, 3 cái Compatibility break."* �
 Nêu những điều này trong mọi báo cáo. Một báo cáo sạch không có nghĩa là một đợt nâng version sạch.
 
 - **Liệu có phần nào trong đó chạm tới một sản phẩm cụ thể hay không.** Công cụ so Chromium với Chromium. Tìm identifier mà một finding dẫn ra trong cây source của chính mình mới là bước trả lời câu "cái này có ảnh hưởng tới mình không".
-- **Thay đổi chỉ nằm ở phần cài đặt.** Nó đọc khai báo. Hành vi đổi bên trong thân một hàm thì nó không thấy.
+- **Thay đổi chỉ nằm ở phần hiện thực.** Nó đọc khai báo. Hành vi đổi bên trong thân một hàm thì nó không thấy.
 - **Năm loại khai báo mà nó không biến thành fact**, ngay trong những file mà nó vẫn đọc đầy đủ. Đo ở M151: 85 định nghĩa `callback` của Web IDL, 144 `typedef`, 200 quan hệ `Interface includes Mixin`, 18 khối `feature` của Mojo và 311 hằng số Mojo. Ví dụ thật không tạo ra dòng nào: `typedef LanguageModelMessageValue` đổi union nền của nó ở M143 → M147, và hằng số Mojo `kWebNNDirectML` biến mất ở M151. **"Đọc 99% số file" là phát biểu về file, không phải về ngữ pháp.**
 - **Bất cứ thứ gì nằm ngoài repository** — config Finch, script khởi chạy, test automation, enterprise policy, metadata trên store.
 - **IDL của Chrome Extensions và MIDL.** Chỉ có `.idl` của riêng Blink được đọc.

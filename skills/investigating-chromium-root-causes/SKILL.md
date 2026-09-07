@@ -154,13 +154,13 @@ Work outward in this order, and stop as soon as the answer is sufficient:
    `[area] what`, and the area is the author's word for the surface, not the
    identifier — `[sub apps] change web api` is the CL behind
    `SubAppsServiceRemoveResult.manifest_id`. Measured over 84 Mojo and Web IDL
-   rows, the full message names the identifier in 39; reading the rest, all
+   rows of a real M148 → M151 run, the full message names the identifier in 39; reading the rest, all
    but five are unmistakable in the author's vocabulary.
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** is how to read
    both, and what each level of evidence lets you claim.
 
-**A restricted issue is normal, not a failure.** Around four in ten linked
-issues answer HTTP 403 — security, abuse, or Google-internal components. The
+**A restricted issue is normal, not a failure.** 44 of the 97 issues the top 150 findings
+of an M148 → M151 run link to answer HTTP 403 — security, abuse, or Google-internal components. The
 CLs stay public and their subjects carry the story. Report the fix history and
 note the closed door; do not report the tool as broken.
 

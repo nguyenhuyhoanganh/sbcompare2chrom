@@ -19,7 +19,7 @@ Gần như mọi câu trả lời sai ở đây đều là một trong ba câu n
 | 2 | Vì sao Chromium đổi nó? | CL, và **issue** mà CL đó dẫn |
 | 3 | Vì sao bản build *của mình* hỏng? | cây source của mình, đọc đối chiếu với 1 và 2 |
 
-**Một signal không phải một nguyên nhân.** `ipc_signature_change` nói rằng một hình dạng đã dịch chuyển. Nó không nói vì sao có người dịch chuyển nó, và nó không bao giờ nói triệu chứng của bạn đến từ đó. Báo cáo một signal như nguyên nhân gốc là trả lời câu 2 bằng bằng chứng của câu 1.
+**Một signal không phải một nguyên nhân.** `ipc_signature_change` nói rằng một hình dạng đã dịch chuyển. Nó không nói vì sao có người dịch chuyển nó, và nó không bao giờ nói triệu chứng của bạn đến từ đó. Báo cáo một signal như nguyên nhân gốc là trả lời câu 2 bằng bằng chứng của câu 1, và đó chính là sai lầm mà skill này tồn tại để ngăn.
 
 **Một CL không phải là lỗi.** CL nói *đã làm gì*. Issue nói *cái gì đã sai*. Người hỏi "lỗi thật sự là gì" là đang hỏi về issue.
 
@@ -116,7 +116,7 @@ Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
    **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi bề mặt đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng bốn trong mười issue được dẫn trả về HTTP 403 — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới trả về HTTP 403 — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
 
 ### Bước 5: Kiểm tra khẳng định nhân quả
 
