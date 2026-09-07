@@ -33,7 +33,7 @@ Users experience a difference. This is the short list that matters.
 | `web_api_removed_gated` | Removed while still behind a closed runtime flag — no page could call it, so this is the web API spelling of `flag_retired_off`. 32 of 77 removals at M148 → M151 |
 | `web_api_overload_removed` | A member kept its name and lost one of the argument lists it accepted. Deduplication used to hide this — the surviving declaration was unchanged, so nothing was reported |
 | `web_api_overload_shadowed` | A member gained an overload taking an argument count another already took. Web IDL resolves by count first, so a call that used to reach the older one can now reach the new one — nothing removed, nothing edited at the call site |
-| `web_api_overload_added` | A member gained an argument list. Every existing call still matches the overload it always did, so this is new surface |
+| `web_api_overload_added` | A member gained an argument list. Every existing call still matches the overload it always did, so this is purely additive |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
 | `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
 | `ipc_ordinal_changed` | A Mojo method's explicit ordinal moved. The far side routes by that number, so the message now reaches a different method or none — no build error, no signature change |
@@ -65,9 +65,10 @@ flag from outside the binary — a server-side Finch config, an
 
 Measured evidence for why this distinction exists:
 
-- **M148 → M151, Windows**: 90 `base::Feature` flags removed, split exactly
-  45 `flag_retired_on` / 45 `flag_retired_off`. Labelling all 90 "feature
-  deleted" makes half the list false alarms.
+- **M148 → M151, Windows**: 154 `base::Feature` flags removed — 72
+  `flag_retired_on`, 60 `flag_retired_off`, and 22 `feature_deleted` whose
+  prior state could not be read. Labelling all 154 "feature deleted" makes
+  132 of them false alarms.
 - **M139 → M143, Blink**: of 202 runtime features that disappeared, **170 had
   been `stable`** — retired after shipping, not removed capability.
 

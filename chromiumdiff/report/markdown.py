@@ -4,7 +4,7 @@ Ordered by what a reader needs first -- the five counts, then what happened,
 then the rows.  Every finding shows the reasons behind its score, because a
 list that cannot be argued with is a list that gets ignored.
 
-Nothing here states a verdict.  The report carries evidence and a rank; the
+Nothing here draws a conclusion.  The report carries evidence and a rank; the
 judgement is made by whoever reads it, which is why the score reasoning and the
 declaring lines are always present rather than summarized away.
 """
@@ -411,9 +411,11 @@ def _render_clusters(report: Report, summary: dict, limit: int = 12) -> str:
     printed here.
     """
     # Every block whose fragments disagree gets printed, however many that
-    # is; the flat ones fill whatever room is left. A fixed twelve cut 12 of
-    # the 24 contradictory blocks on a wide run, and those are the only ones
-    # that mislead when read apart.
+    # is; the flat ones fill whatever room is left. A wide run at M148 -> M151
+    # has 16 of them and a fixed twelve cut 4, and those are the only ones
+    # that mislead when read apart. (The 24 this comment first quoted was
+    # measured before the `score > 0` filter in `cluster.summarize` lowered
+    # every spread -- the same commit made both changes.)
     every = [r for r in ((summary or {}).get("clusters") or [])
              if r.get("size", 0) > 1]
     telling = [r for r in every if r.get("spread", 0) >= 5]
@@ -718,7 +720,7 @@ def _render_provenance(report: Report) -> str:
     lines += _tree_coverage_lines(report)
     lines += _missing_target_lines(report)
     lines.append(
-        "- No verdict is computed here. Every row above is extracted evidence "
+        "- No conclusion is drawn here. Every row above is extracted evidence "
         "and a deterministic rank; deciding what it means for the product is "
         "the reader's job."
     )

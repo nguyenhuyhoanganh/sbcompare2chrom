@@ -45,7 +45,7 @@
       "catches": "Grepping the report for the words of the complaint, finding nothing, and reporting that nothing changed.",
       "expected_behavior": [
         "Does not conclude from an empty text search that nothing changed",
-        "Maps the symptom to a surface before searching, reaching webui_control, webui_gate or pref rather than searching for the phrase 'downloads page'",
+        "Maps the symptom to a kind before searching, reaching webui_control, webui_gate or pref rather than searching for the phrase 'downloads page'",
         "Follows the chain from the control to the pref or gate and then to the base::Feature behind it, rather than stopping at the WebUI row",
         "If no row accounts for it, distinguishes the five causes in reference/no-row.md Part A -- in particular naming coverage as a candidate -- instead of reporting an absence as a fact about Chromium"
       ]

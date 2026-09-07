@@ -1648,6 +1648,73 @@ class TestEveryFindingIsAccountedFor(unittest.TestCase):
             self.assertEqual(covered, len(report.findings), path)
 
 
+class TestTheSummaryTalliesSayWhatTheyCover(unittest.TestCase):
+    """`by_bucket` and `by_group` partition the findings; `by_signal` does not.
+
+    A finding can carry no signal at all, and `leading_signal` returns "" for
+    it. So the signal tally sums to the findings that have one, and its key
+    count is the distinct leading signals -- which is not the number of groups
+    the report prints, because *What happened* falls back to the kind and the
+    direction for the rest.
+
+    Both readings have been made from this one shape: the sum read as the
+    total, and the keys counted as the groups. The second put "38 distinct
+    leading signals" in the skill where the four buckets above Upstream
+    cleanup hold 37 and 718 rows carry none, because a set built over
+    `leading_signal` holds the empty string as a member.
+    """
+
+    def _findings(self):
+        from chromiumdiff.model import Change, Finding
+        signalled = [
+            Finding(change=Change(change_type="modified", kind="base_feature",
+                                  key=f"f/{i}", name=f"n{i}", paths=["f.cc"],
+                                  signals=["default_flip_on"]),
+                    score=20, bucket="behaviour")
+            for i in range(3)]
+        bare = [
+            Finding(change=Change(change_type="added", kind="base_feature",
+                                  key=f"b/{i}", name=f"m{i}", paths=["f.cc"]),
+                    score=20, bucket="added")
+            for i in range(2)]
+        return signalled + bare
+
+    def test_bucket_and_group_partition_and_signal_does_not(self):
+        summary = summarize_findings(self._findings())
+        self.assertEqual(sum(summary["by_bucket"].values()), summary["total"])
+        self.assertEqual(sum(summary["by_group"].values()), summary["total"])
+        self.assertEqual(sum(summary["by_signal"].values()), 3,
+                         "by_signal tallies only the findings carrying one")
+
+    def test_no_signal_is_not_a_signal(self):
+        from chromiumdiff.diff import leading_signal
+        from chromiumdiff.model import Change
+        bare = Change(change_type="added", kind="base_feature", key="k",
+                      name="n", paths=["f.cc"])
+        self.assertEqual(leading_signal(bare), "",
+                         "a change with no signal has no leading signal")
+        self.assertNotIn("", summarize_findings(self._findings())["by_signal"],
+                         "the empty leading signal must not count as a signal")
+
+    def test_it_holds_on_a_real_report(self):
+        """The fixture cannot produce the proportion a real run does: a third
+        of an M148 -> M151 report carries no signal."""
+        import glob
+        from chromiumdiff.model import read_report
+        paths = sorted(glob.glob("out/*/report.json"))
+        if not paths:
+            self.skipTest("no report on this machine")
+        for path in paths:
+            summary = summarize_findings(read_report(path).findings)
+            self.assertEqual(sum(summary["by_bucket"].values()),
+                             summary["total"], path)
+            self.assertEqual(sum(summary["by_group"].values()),
+                             summary["total"], path)
+            self.assertLess(sum(summary["by_signal"].values()),
+                            summary["total"], path)
+            self.assertNotIn("", summary["by_signal"], path)
+
+
 class TestABucketTableShowsEverySignal(unittest.TestCase):
     """The table's job is identifiers to go and grep, and it does that for no
     signal it never shows.

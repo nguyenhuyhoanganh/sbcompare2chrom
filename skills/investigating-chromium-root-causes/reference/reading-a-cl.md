@@ -49,7 +49,7 @@ exists to prevent.
 This is the single most common reason a correct CL looks wrong.
 
 Chromium subjects are written `[area] what changed`, and the area is the
-author's name for the surface — the product, the team, the shorthand — not the
+author's name for the product area — the team, the shorthand — not the
 identifier the report holds. Searching the subject for the identifier and
 finding nothing means almost nothing.
 

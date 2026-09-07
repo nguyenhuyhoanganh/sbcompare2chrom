@@ -632,7 +632,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="chromiumdiff",
         description="Compare two Chromium versions and rank what changed: "
                     "feature flags, web APIs, preferences, command-line "
-                    "switches, Mojo interfaces and the chrome:// surfaces.",
+                    "switches, Mojo interfaces and the chrome:// screens.",
     )
     parser.add_argument("--version", action="version", version=__version__)
 

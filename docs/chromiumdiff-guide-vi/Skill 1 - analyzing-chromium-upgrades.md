@@ -72,12 +72,12 @@ Không có giai đoạn nào. Khai báo là contract, và nó đổi ngay lúc v
 
 Đây là tính chất của bảng signal, không phải của một lần chạy: mọi signal `ipc_*`, `pref_*`, `switch_*` và `param_*` — phần lớn những signal đưa một finding vào Compatibility break — chỉ phát sinh từ khai báo nhóm 2. Nhóm 1 chỉ vào được Compatibility break trong vài trường hợp hiếm, ví dụ một `base::Feature` bị đổi tên hoặc một `webui_control` trỏ sang pref khác, chứ không phải qua việc một flag lật.
 
-Số cụ thể đổi theo từng cặp version, nên đừng mang con số của cặp này sang cặp khác. Ở M148 → M151 chẳng hạn: 181 trong 276 dòng Compatibility break là nhóm 2, 94 dòng Web IDL tuỳ vào `[RuntimeEnabled]`, 1 dòng thuộc nhóm 1. **Thứ không đổi là mặc định: đọc Compatibility break thì hỏi câu của nhóm 2 trước.**
+Số cụ thể đổi theo từng cặp version, nên đừng mang con số của cặp này sang cặp khác. Ở M148 → M151 chẳng hạn: 181 trong 276 dòng Compatibility break là nhóm 2, 93 dòng Web IDL tuỳ vào `[RuntimeEnabled]`, 2 dòng thuộc nhóm 1. **Thứ không đổi là mặc định: đọc Compatibility break thì hỏi câu của nhóm 2 trước.**
 
 ## Quy trình
 
 ```
-- [ ] 1. Hỏi user: so hai version nào, cần đọc kỹ tới mức nào
+- [ ] 1. Hỏi user ba câu: so hai version nào, đọc kỹ tới mức nào, cần phần nào
 - [ ] 2. Chạy chromiumdiff
 - [ ] 3. Đọc báo cáo theo đúng thứ tự
 - [ ] 4. Hỏi vì sao một dòng lại đổi — khi có người hỏi; render lại sau đó
@@ -85,7 +85,7 @@ Số cụ thể đổi theo từng cặp version, nên đừng mang con số c�
 - [ ] 6. Viết báo cáo theo đúng thứ user quan tâm, kèm phần giới hạn
 ```
 
-### Bước 1: Hỏi user, rồi mới chạy
+### Bước 1: Hỏi user ba câu
 
 **Hỏi user ba câu dưới đây trước khi chạy bất cứ thứ gì.**
 
@@ -117,7 +117,7 @@ Nếu người đọc là người thật, **đưa thẳng trang `serve` cho h�
 
 **Còn thiếu gì khác thì hỏi user, đừng tự điền.**
 
-### Bước 2: Chạy
+### Bước 2: Chạy chromiumdiff
 
 Chạy mọi lệnh **từ thư mục gốc của repo `chromiumdiff`**: `python3 -m chromiumdiff` cần import được package, đứng ở thư mục khác nó báo `No module named chromiumdiff`. Mọi đường dẫn dưới đây đều tương đối so với gốc repo.
 
@@ -193,7 +193,11 @@ print([f["change"]["name"] for f in F
 | *Compatibility break* | 18k | những dòng phải đọc kỹ — mọi signal trong bucket đều có dòng |
 | *Behaviour change* | 11k | như trên |
 
-Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 34k, phần còn lại của ngân sách dành cho việc suy luận. Các mục còn lại — *New declarations*, *Scheduled*, *Unconfirmed* — mỗi mục khoảng 2k, đọc khi câu hỏi cần tới.
+Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 34k, phần còn lại của ngân sách dành cho việc suy luận.
+
+**Có một mục nằm ngay trên đường đọc đó nhưng không thuộc về nó.** `report.md` in *What Chromium says shipped in this window* giữa *Related changes, grouped* và *Compatibility break* — 8k, 78 feature từ chromestatus trải M149–M151 ở cặp này, gói trong một khối `<details>`. Đó là lời của chính Chromium về cửa sổ version, và không khớp với dòng nào trong báo cáo, nên đọc nó để **giải thích** một thay đổi đã có người hỏi, đừng đọc để **tìm ra** thay đổi. Đi ngang qua nó.
+
+Các mục còn lại đọc khi câu hỏi cần tới: *New declarations*, *Scheduled* và *Unconfirmed* mỗi mục 2k–3k, và *How this was produced* dưới 1k — đây chính là chỗ lấy phần **Limits** của Bước 6, vì nó mang con số coverage của cả hai ref, target set và version chính xác.
 
 **Chỗ nào `report.md` cắt bớt thì quay sang chương trình, đừng mở file.** Bảng theo bucket mang **mọi signal** của bucket đó — mỗi signal vài dòng cao điểm nhất, signal nặng nhất trước — rồi mới dừng; mỗi màn hình dừng ở 12. Cả hai đều ghi rõ còn ẩn bao nhiêu. Một truy vấn là ra phần còn lại:
 
@@ -228,13 +232,13 @@ coverage: reads N of M files in this tree that could declare (P% of files)
 
 `--partition settings` (lặp lại được: `downloads`, `bookmarks`, `history`, `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`) chỉ tải và quét những đường dẫn source đã liệt kê sẵn cho một tính năng. Đúng khi đang soi một tính năng, sai khi dùng làm cổng chặn release — Chromium không tổ chức source theo tính năng, nên một thay đổi ảnh hưởng tới downloads có thể nằm trong `content/` và không khớp partition nào.
 
-Hai lệnh phụ: `chromiumdiff catalog <ref>` đo xem target set đang bỏ sót những gì; `chromiumdiff figures <report.json>` ghi ra các con số mà chính tài liệu của project trích dẫn, và đó là cách chúng luôn đúng. Lệnh render lại báo cáo nằm ở Bước 4, chỗ nói vì sao cần nó.
+Hai lệnh phụ: `python3 -m chromiumdiff catalog <ref>` đo xem target set đang bỏ sót những gì; `python3 -m chromiumdiff figures <report.json>` ghi ra các con số mà chính tài liệu của project trích dẫn, và đó là cách chúng luôn đúng. Lệnh render lại báo cáo nằm ở Bước 4, chỗ nói vì sao cần nó.
 
 ### Bước 3: Đọc báo cáo theo đúng thứ tự
 
 Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
 
-Danh sách dài thì **phủ hết theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 38 leading signal khác nhau, nên xem mỗi nhóm signal một lần là đã phủ hết. `report.md` được dựng đúng theo cách đó — bảng của mỗi bucket mang **mọi** signal của bucket, nặng nhất trước.
+Danh sách dài thì **phủ hết theo nhóm**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng gom thành 47 nhóm, nên xem mỗi nhóm một lần là đã phủ hết. 37 trong 47 nhóm là một leading signal. 10 nhóm còn lại là kind cộng hướng thay đổi: 718 dòng — toàn bộ nằm ở New declarations — **không mang signal nào cả**, nên không nhóm signal nào chạm tới chúng. *What happened* dựng trên 47 nhóm; bảng của mỗi bucket dựng trên 37, mang **mọi** signal của bucket, nặng nhất trước.
 
 **Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — và một mục lấy tên signal, tên bucket hay khoảng điểm làm tiêu đề chính là hình dạng mà skill này sinh ra để tránh.
 
@@ -245,9 +249,16 @@ Danh sách dài thì **phủ hết theo signal**, đừng cắt bớt: ở cặp
 3. **Compatibility break**, rồi **Behaviour change**, rồi **New declarations**. Mỗi bucket có một bảng riêng trong `report.md`.
 4. **Scheduled** — cũng có bảng. Đọc như danh sách của milestone sau, không phải của milestone này: chưa có gì trong đó xảy ra. Đây cũng không phải bucket "điểm thấp": ở M148 → M151 nó lên tới 45 điểm, cao hơn mọi dòng trong New declarations, vì `flag_expiring` là một cái xoá Chromium đã cam kết.
 5. **Unconfirmed** — có mục riêng trong `report.md`, và ô lọc `All coverage` trong `report.html`. Đây là những mục bị xoá mà lần chạy này không xác nhận được. Phần lớn giữ nguyên bucket và chỉ mất 15 điểm; riêng `pref_left_scan` và `switch_left_scan` còn bị chuyển sang Upstream cleanup — nằm ở đó vì **thiếu bằng chứng**, *không* phải vì nhẹ. Bước 5, nhánh *Flag, pref và switch*, nói phải làm gì với chúng. 303 dòng ở M148 → M151 với bộ `default`, 120 trong số đó ở Compatibility break; một lần chạy `wide` không có dòng nào.
-6. **Upstream cleanup**: bỏ qua. Nó cố ý không có bảng — đây là bucket lớn nhất trong mọi báo cáo, và khi Scheduled với Unconfirmed đã tách ra thì phần còn lại không cần làm gì. Ở M148 → M151 nó chỉ lên tới 35 điểm.
+6. **Upstream cleanup**: lấy các flag bị gỡ ra khỏi nó trước, rồi mới bỏ qua phần còn lại. Nó cố ý không có bảng — đây là bucket lớn nhất trong mọi báo cáo, và khi Scheduled với Unconfirmed đã tách ra thì phần còn lại không phải đọc từng dòng. Ở M148 → M151 nó chỉ lên tới 35 điểm.
 
-Flag bị gỡ nằm ở Upstream cleanup, và đó là cố ý: ở M148 → M151 có 132 flag như vậy, 72 flag đã từng ship và 60 flag bị bỏ, không cái nào người dùng thấy được. Báo cáo một trong số đó như một tính năng bị mất là sai — đọc [reference/traps.md](reference/traps.md) trước khi kết luận.
+   **Ba signal "flag bị gỡ" nằm ở đây, và Bước 6 bắt buộc phải có chúng.** Ở M148 → M151 với bộ `default` là 175 dòng: 132 dòng `flag_retired_on` và `flag_retired_off` — 72 đã từng ship, 60 bị bỏ — cộng 43 dòng `killswitch_retired`. 169 trong số tên đó **không xuất hiện ở bất kỳ đâu trong `report.md`**, vì bucket không có bảng còn dòng trong *What happened* chỉ mang số đếm và một câu, không mang identifier. Truy vấn chúng ra trước khi viết:
+
+   ```python
+   RETIRED = {"flag_retired_on", "flag_retired_off", "killswitch_retired"}
+   [f["change"]["name"] for f in F if set(f["change"]["signals"]) & RETIRED]
+   ```
+
+   Không cái nào trong đó đổi hành vi, nên báo cáo một cái như một tính năng bị mất là sai — đọc [reference/traps.md](reference/traps.md) trước khi kết luận. Nhưng mỗi cái đều biến một override từ bên ngoài thành vô tác dụng, và đó chính là lý do nhánh *Fixed outside the repository* ở Bước 5 và mục cùng tên ở Bước 6 tồn tại.
 
 ### Bước 4: Hỏi vì sao một dòng lại đổi
 
@@ -277,7 +288,7 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 `--click-budget N` giới hạn số diff đọc cho mỗi dòng (mặc định 600), `--no-save` thì không đụng vào file. Lịch sử của một issue không được tải về cùng với dòng: bấm vào issue trên CL mà bạn tin, nó sẽ mở ra ngay dưới CL đó.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới trả về HTTP 403 — chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel nói rõ điều đó và vẫn giữ link, vì người đọc có thể chính là người duy nhất mở được. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới, con số `docs/figures.json` đang giữ — vì chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel nói rõ điều đó và vẫn giữ link, vì người đọc có thể chính là người duy nhất mở được. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
 
 **Không tìm thấy CL nào chỉ có nghĩa là lần tìm này không thấy, không có nghĩa là Chromium không đổi.** Hai cây source khác nhau, nghĩa là đã có gì đó vào cây. File được hỏi theo ba cách — trên nhánh main, rồi ngoài main để bắt các bản merge-back, rồi toàn bộ commit message trong khoảng thời gian đó — và nếu cả ba đều trượt thì CL được ghi dưới một cái tên hoặc một đường dẫn mà báo cáo này không giữ. Hãy nói đúng như vậy; đừng báo cáo rằng một khai báo tự nó đổi.
 

@@ -258,7 +258,7 @@ A WebAuthn message field stopped being nullable. Nothing in Chromium warns about
 
 Preferences and switches fail the same way, one step further out. Chromium **ignores a command-line switch it does not recognise** — no warning, no error, no log line — so a launch script keeps starting the browser exactly as before and the flag it passes stops doing anything at all.
 
-For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these surfaces, and the decision procedure in the skill branches on the declaration's kind before it asks anything.
+For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these kinds, and the decision procedure in the skill branches on the declaration's kind before it asks anything.
 
 
 ### Assembling the fragments into one story
@@ -293,7 +293,7 @@ Each arrow is a real field. The seventh fragment — `blink_runtime LocalNetwork
 
 A shared CL is the same evidence recorded somewhere else: the author wrote one change and it landed across several declarations, and the CL number is Chromium saying so. With the top 150 resolved it reaches **84** of them and takes the whole report to 261. Measured on that run, **9 of the 20 highest-scoring rows** are a second or fifth telling of a change already on screen — one CL introducing a mixin takes 14 rows, `[sub apps] change web api` takes 7 across three kinds.
 
-Only the CL, never the issue: one issue on that run carries 24 CLs across unrelated surfaces. Only verdicts that name the fact, never `crowded` or `touched`, which name the declaring file — `about_flags.cc` alone would put five hundred findings in one group. And the grouping runs where its evidence arrives, which is a lookup: `run` asks Gerrit nothing, so on a report nobody has looked anything up in this arrow is silent and the other four are the whole of it.
+Only the CL, never the issue: one issue on that run carries 24 CLs across unrelated areas. Only verdicts that name the fact, never `crowded` or `touched`, which name the declaring file — `about_flags.cc` alone would put five hundred findings in one group. And the grouping runs where its evidence arrives, which is a lookup: `run` asks Gerrit nothing, so on a report nobody has looked anything up in this arrow is silent and the other four are the whole of it.
 
 The report has a *Related changes, grouped* section ordered by the highest score in each cluster, and every finding's own section says whether it is a fragment and what the heaviest thing in its group scores — because that section is what a reader pastes into a ticket, and the table is not.
 
@@ -485,7 +485,7 @@ coverage: reads 8295 of 8366 files in this tree that could declare (99% of files
 
 Fourteen files went the other way, excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree, which the platform rule had been missing by one suffix. They are binaries that ship beside the browser rather than being it, so their switches reach none of our users — the same reason `content/shell/` has always been excluded.
 
-Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's product surface, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
+Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's own code, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
 
 That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared by `wide` and `--complete`, because both ask the same question: which filename shapes can an extractor read.
 

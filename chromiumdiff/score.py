@@ -10,8 +10,9 @@ run rather than on the change:
   * **Did this run read enough of the tree to believe a removal?**  A removal
     is an inference from absence, and absence from a tree the run read a
     part of is a much weaker claim than absence from one it read all of.
-    Measured M148 -> M151 on the default set: of 141 preference keys that
-    vanished, 100 had simply moved into a file the run never opened.
+    Measured M148 -> M151: the default set reports 139 preference keys gone
+    and the wide run still holds 29 of them, so those 29 had simply moved
+    into a file the default run never opened.
 
 Both are facts about Chromium and about this run.  Neither needs a description
 of who is reading, which is the whole reason the scoring could be rebuilt at
@@ -62,8 +63,8 @@ CONFIRMING_COVERAGE = 0.95
 #
 # The size of the step is a plateau, not a derivation. Re-scored against the
 # real M148 -> M151 default run at 0, 5, 10, 15, 20, 25, 30 and 45: every
-# value from 10 up produces the same top 276 rows, the same 69 swaps against
-# no penalty at all. The two bounds hold across that whole range rather than
+# value from 10 up produces the same top 276 rows, the same 67 swaps against
+# no penalty at all -- 67 Blink runtime features. The two bounds hold across that whole range rather than
 # picking a point in it -- a modification is never penalised, so any step
 # sorts an unconfirmed removal below one of the same weight, and all 67
 # unconfirmed Mojo removals stay in the top half at every value up to 30.
@@ -308,8 +309,8 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # decides the filing as well as the number. `pref_left_scan` says
         # "deleted, or moved out of the files we read" in its own label; on a
         # partial run the second reading is the likelier one, and 139 of these
-        # at the top of an M148 -> M151 report -- roughly 100 of which had
-        # simply moved -- is how a list stops being read.
+        # at the top of an M148 -> M151 report -- 29 of which the wide run
+        # shows had simply moved -- is how a list stops being read.
         #
         # Only these two move bucket. Every row in this branch already carries
         # `unconfirmed`; the bucket says what the evidence supports, the flag
@@ -357,11 +358,18 @@ def score_all(changes: Sequence[Change],
 
 
 def summarize_findings(findings: Sequence[Finding]) -> Dict[str, object]:
-    """The counts a report header needs, each of them a partition of the whole.
+    """The counts a report header needs, and what each of them covers.
 
-    Every finding appears in exactly one bucket, one group and one
-    signal tally, so each of these adds up to the total and a reader can treat
-    the counts as the report rather than as highlights.
+    `by_bucket` and `by_group` are partitions: every finding is in exactly one
+    bucket and one group, so each adds up to the total and a reader can treat
+    them as the report rather than as highlights.
+
+    `by_signal` is not, and reading it as one has gone wrong twice. A finding
+    can carry no signal at all -- 981 of 3,022 at M148 -> M151 -- so the sum
+    is the findings that carry one, and the number of keys is the distinct
+    leading signals, not the number of groups the report prints. *What
+    happened* falls back to the kind and the direction for the rest, which is
+    why that section partitions and this tally does not.
     """
     by_bucket: Dict[str, int] = {b: 0 for b in BUCKET_ORDER}
     by_group: Dict[str, int] = {}

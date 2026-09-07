@@ -17,7 +17,10 @@ Check them by hand.
 5. **Check every "skip X" against what it hides.** "Skip Housekeeping" hid
    the unconfirmed removals a later step requires. That bucket was split for
    this reason, so check the instruction against the bucket's real contents,
-   not against its name.
+   not against its name. Splitting it did not settle the instruction: the
+   same skip then hid the 175 retired flags, which the *Fixed outside the
+   repository* step calls always actionable and 169 of which appear nowhere
+   in `report.md`. Re-read every skip after every change to what it skips.
 6. **Define each term before first use, and drop terms the agent never sees.**
    `fact` appears nowhere in its input or its output.
 7. **One word, one meaning per file.** `verdict` was both a provenance label
@@ -32,7 +35,13 @@ Check them by hand.
    pair it came from or come from `docs/figures.json`. Measure with the
    function the code measures with: counting `signals[0]` where the report
    uses `leading_signal` gave 19 signals where there are 18, and 39 where
-   there are 38, twice, and both numbers looked right.
+   there are 38, twice, and both numbers looked right. Then check the
+   function's empty answer. `leading_signal` returns `""` for a change with
+   no signal, so a set built over it holds the empty string and 37 signals
+   count as 38 — the third wrong number on that line, written by the fix for
+   the second. `TestTheSummaryTalliesSayWhatTheyCover` holds the shape:
+   `by_bucket` and `by_group` partition the findings and `by_signal` does
+   not.
 
 Two more, cheap to avoid: write where a field *is* rather than what does not
 exist, and do not state a prohibition the code does not enforce.

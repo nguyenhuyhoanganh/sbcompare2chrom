@@ -52,7 +52,7 @@ Mọi thứ phía sau đều tra theo `uid` = `kind:key`, ví dụ `base_feature
 
 Nếu yêu cầu nêu ra nhiều thứ, làm từng thứ một. Một câu trả lời gộp sẽ che mất bằng chứng nào thuộc về khẳng định nào.
 
-### Bước 2: Lấy dòng tương ứng
+### Bước 2: Lấy dòng tương ứng, hoặc xác định là không có dòng nào
 
 ```bash
 python3 skills/investigating-chromium-root-causes/scripts/why.py \
@@ -72,6 +72,7 @@ Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, script sẽ
 | `--json` | tắt | cần khối dữ liệu thô thay vì văn xuôi |
 | `--issues N` | 6 | số issue script đi lấy về cùng lúc; hạ xuống nếu chỉ cần CL |
 | `--limit N` | 15 | số dòng in ra khi tìm kiếm khớp nhiều kết quả |
+| `--cache DIR` | `.chromiumdiff-cache` ở gốc repo, hoặc `CHROMIUMDIFF_CACHE` | source đã tải nằm ở chỗ khác |
 
 Những gì một phiên `serve` tìm được chỉ được lưu vào `report.json` chứ không vào đâu khác. `report.md` và `report.html` trên đĩa vẫn là những gì lần chạy đã ghi ra, nên hãy render lại trước khi đưa bất kỳ file nào trong hai file đó cho ai:
 
@@ -99,9 +100,9 @@ Nó cần truy cập mạng tới `chromium-review.googlesource.com`. `python3 -
 
 Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nhân. Chính vì vậy script gắn nhãn `LEAD ONLY` cho cả hai.
 
-### Bước 4: Đọc bằng chứng, đừng đọc bản tóm tắt của nó
+### Bước 4: Đọc chính lời văn và chính bản diff của CL, và issue đứng sau nó
 
-Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
+**Đọc chính bằng chứng, đừng đọc bản tóm tắt của nó.** Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
 
 1. **Tiêu đề của issue.** Thường chính là lỗi thật, gói trong một dòng.
 2. **Những CL khác cùng dẫn issue đó.** `why.py` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi — hình dạng của vấn đề, gồm cả việc nó có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
@@ -116,9 +117,9 @@ Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
    **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi bề mặt đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới trả về HTTP 403 — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới, con số `docs/figures.json` đang giữ — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
 
-### Bước 5: Kiểm tra khẳng định nhân quả
+### Bước 5: Kiểm tra khẳng định nhân quả với triệu chứng
 
 Trước khi viết câu trả lời, đem khẳng định đó đối chiếu với những điểm sau. Mỗi điểm đều đã từng tạo ra một câu trả lời sai mà tự tin.
 
@@ -130,7 +131,7 @@ Trước khi viết câu trả lời, đem khẳng định đó đối chiếu v
 
 Nếu một phép kiểm tra không đạt thì CL là bối cảnh, không phải nguyên nhân. Hãy nói rõ nó là cái nào.
 
-### Bước 6: Trả lời ở đúng nấc bạn đạt tới
+### Bước 6: Trả lời ở đúng nấc bằng chứng mà bạn thật sự đạt tới
 
 ```markdown
 **What changed:** [khai báo đó, kèm `path:line`, và đi theo chiều nào]

@@ -20,8 +20,8 @@ it was handled. Expect them; check for them before reporting any removal.
 - 13. A Mojo method's implicit ordinal is not compared, on purpose
 
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
-7 and 8 about running the tool. The rest are the other surfaces, which carry
-the highest severities the tool reports: at M148 → M151, 220 of the 276
+7 and 8 about running the tool. The rest are Mojo and the web platform, which carry
+the highest severities the tool reports: at M148 → M151, 219 of the 276
 Compatibility break rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature
@@ -280,9 +280,9 @@ break** row says a contract moved, not that anyone had signed it.
 
 ## 11. A new web API can be unreachable
 
-**Symptom:** 347 rows of new web API surface, read as 347 new capabilities.
+**Symptom:** 347 rows of new web API declarations, read as 347 new capabilities.
 
-**Reality:** this is trap 1 on a different surface. Blink gates IDL members
+**Reality:** this is trap 1 on a different kind. Blink gates IDL members
 with `[RuntimeEnabled=Foo]`, and `Foo` moves through the same three stages a
 `base::Feature` does. The attribute alone settles nothing — a gate whose flag
 already reached stable is an open gate.
@@ -307,7 +307,7 @@ because nothing broke.
 No warning, no error, no log line. A launch script, a test runner or an
 enterprise deployment keeps starting the browser exactly as before, and the
 flag it passes silently stops doing anything. This is the same failure mode as
-`feature_string_renamed`, on a surface people rarely check.
+`feature_string_renamed`, in a place people rarely check.
 
 A removed preference is different: the key in a user's `Preferences` file stays
 on disk. Whether that matters depends on whether Chromium wrote a migration for
@@ -316,8 +316,9 @@ it, in `chrome/browser/prefs/browser_prefs.cc`.
 **Check:** for a switch, search launch scripts and test automation for the
 string — the tool cannot see either. For a pref, `browser_prefs.cc` is read on
 a `wide` run and not on a `default` one, so run `wide` before concluding a key
-was dropped without a migration. And read trap 2 first: on a `default` run,
-100 of 141 vanished keys at M148 → M151 had simply moved.
+was dropped without a migration. And read trap 2 first: at M148 → M151 the
+`default` run reports 139 keys gone and `wide` still holds 29 of them, so
+those 29 had simply moved into a file `default` never opened.
 
 ## 13. A Mojo member's implicit ordinal, and where it is compared
 

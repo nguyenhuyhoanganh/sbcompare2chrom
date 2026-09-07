@@ -9,7 +9,7 @@ subject reads as unrelated it is the evidence that settles it.
 Two things it prints that a subject line does not carry:
 
 - **The full commit message.** Chromium subjects are `[area] what`, and the
-  area is the author's word for the surface, not the identifier's. A CL titled
+  area is the author's word for the product area, not the identifier's. A CL titled
   "[sub apps] change web api" is the CL behind
   `SubAppsServiceRemoveResult.manifest_id` and says nothing that matches it.
   The body and the footers usually do.

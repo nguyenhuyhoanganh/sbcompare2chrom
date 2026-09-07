@@ -14,8 +14,8 @@ The report is indexed by **declaration name**. Nobody named a declaration
 "downloads page lost its toggle". Searching for the words in a complaint returns
 nothing, and that nothing means only that the complaint was phrased in English.
 
-So the first move is never a search. It is deciding **which surface** the symptom
-lives on, because the surface names the `kind`, and the `kind` narrows the search
+So the first move is never a search. It is deciding **which kind of declaration** the
+symptom lives on, because the kind narrows the search
 to a few dozen rows instead of three thousand.
 
 ## The routing table
@@ -70,7 +70,7 @@ at all — see `no-row.md`, Part A.
 
 ## The three-hop chain behind a settings screen
 
-A WebUI symptom almost never has its cause on the WebUI surface. The chain runs:
+A WebUI symptom almost never has its cause in a WebUI declaration. The chain runs:
 
 ```
 control on the screen   →   the pref or gate it is bound to   →   the base::Feature behind that

@@ -59,7 +59,7 @@
       "files": [
         "out/M148_to_M151/report.json"
       ],
-      "catches": "Reading a retired flag as a lost feature, which is the most common wrong conclusion on this surface.",
+      "catches": "Reading a retired flag as a lost feature, which is the most common wrong conclusion on this kind.",
       "expected_behavior": [
         "Reads the state the flag held before deletion rather than the deletion alone",
         "Reports `flag_retired_on`: the feature shipped and the behaviour is now permanent and can no longer be turned off, so no capability was lost",

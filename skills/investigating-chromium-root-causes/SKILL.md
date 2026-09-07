@@ -63,12 +63,12 @@ Everything downstream is keyed by `uid` = `kind:key`, for example
 **Given a symptom** ("downloads page lost a toggle", "extension pages hang") —
 the report is indexed by declaration name, not by symptom. Grepping it for the
 words in the complaint finds nothing and means nothing. Map the symptom to a
-surface first: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
+kind first: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
 
 If the request names several things, do them one at a time. A batch answer
 hides which evidence belongs to which claim.
 
-### Step 2: Get the row
+### Step 2: Get the row, or establish there is none
 
 ```bash
 python3 skills/investigating-chromium-root-causes/scripts/why.py \
@@ -93,6 +93,7 @@ what is stored. Options:
 | `--json` | off | you need the raw block rather than prose |
 | `--issues N` | 6 | how many issues the script fetches with the CLs; lower it if you only want the reviews |
 | `--limit N` | 15 | how many rows are printed when the search matches several |
+| `--cache DIR` | `.chromiumdiff-cache` at the repository root, or `CHROMIUMDIFF_CACHE` | the fetched source lives somewhere else |
 
 What a `serve` session finds is saved to `report.json` and nowhere else.
 `report.md` and `report.html` on disk are still what the run wrote, so
@@ -128,9 +129,10 @@ person will be reading; use the script when you are.
 Quoting `crowded` or `touched` as the cause invents a cause. The script labels
 both `LEAD ONLY` for that reason.
 
-### Step 4: Read the evidence, not the summary of it
+### Step 4: Read the CL's own words and its own diff, and the issue behind it
 
-Work outward in this order, and stop as soon as the answer is sufficient:
+**Read the evidence, not a summary of it.** Work outward in this order, and
+stop as soon as the answer is sufficient:
 
 1. **The issue title.** Usually the actual defect, in one line.
 2. **The other CLs citing that issue.** `why.py` fetches these and prints them
@@ -151,7 +153,7 @@ Work outward in this order, and stop as soon as the answer is sufficient:
    ```
 
    **Do not judge relevance from the subject.** Chromium subjects are
-   `[area] what`, and the area is the author's word for the surface, not the
+   `[area] what`, and the area is the author's word for the product area, not the
    identifier — `[sub apps] change web api` is the CL behind
    `SubAppsServiceRemoveResult.manifest_id`. Measured over 84 Mojo and Web IDL
    rows of a real M148 → M151 run, the full message names the identifier in 39; reading the rest, all
@@ -159,12 +161,13 @@ Work outward in this order, and stop as soon as the answer is sufficient:
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** is how to read
    both, and what each level of evidence lets you claim.
 
-**A restricted issue is normal, not a failure.** 44 of the 97 issues the top 150 findings
-of an M148 → M151 run link to answer HTTP 403 — security, abuse, or Google-internal components. The
+**A restricted issue is normal, not a failure.** About a third answer HTTP 403 — 13
+of the 39 issues cited by the looked-up rows of an M148 → M151 run, the figure
+`docs/figures.json` carries — security, abuse, or Google-internal components. The
 CLs stay public and their subjects carry the story. Report the fix history and
 note the closed door; do not report the tool as broken.
 
-### Step 5: Test the causal claim
+### Step 5: Test the causal claim against the symptom
 
 Before writing an answer, put the claim against these. Each one has produced a
 confident wrong answer.
@@ -198,7 +201,7 @@ confident wrong answer.
 
 If a check fails, the CL is context, not cause. Say which.
 
-### Step 6: Answer at the rung you reached
+### Step 6: Answer at the evidence rung you actually reached
 
 ```markdown
 **What changed:** [the declaration, with `path:line`, and which direction]

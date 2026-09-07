@@ -72,12 +72,12 @@ Getting this group wrong produces: a conclusion that nothing happened, while som
 
 This is a property of the signal table rather than of one run: every `ipc_*`, `pref_*`, `switch_*` and `param_*` signal — most of what files a finding under Compatibility break — comes only from a group 2 declaration. Group 1 reaches it in a few rare cases, a renamed `base::Feature` or a `webui_control` repointed at another pref, but never through a flag being flipped.
 
-The counts move with the version pair, so do not carry one pair's numbers to another. At M148 → M151, for instance: 181 of 276 Compatibility break rows are group 2, 94 are Web IDL and depend on `[RuntimeEnabled]`, 1 is group 1. **What does not move is the default: reading Compatibility break, ask the group 2 question first.**
+The counts move with the version pair, so do not carry one pair's numbers to another. At M148 → M151, for instance: 181 of 276 Compatibility break rows are group 2, 93 are Web IDL and depend on `[RuntimeEnabled]`, 2 are group 1. **What does not move is the default: reading Compatibility break, ask the group 2 question first.**
 
 ## Workflow
 
 ```
-- [ ] 1. Ask the reader: which two versions, and how deep a read
+- [ ] 1. Ask the reader three things: which two versions, how deep a read, which part they want
 - [ ] 2. Run chromiumdiff
 - [ ] 3. Read the report in order
 - [ ] 4. Ask why a row changed — when someone asks; re-render afterwards
@@ -85,7 +85,7 @@ The counts move with the version pair, so do not carry one pair's numbers to ano
 - [ ] 6. Write the report around what the reader asked for, with limits
 ```
 
-### Step 1: Ask, then run
+### Step 1: Ask the reader three things
 
 **Ask the three questions below before running anything.**
 
@@ -117,7 +117,7 @@ If the reader is a person, **hand them the `serve` URL**: the page has up to fiv
 
 **Anything else missing, ask; do not fill it in.**
 
-### Step 2: Run
+### Step 2: Run chromiumdiff
 
 Run every command **from the root of the `chromiumdiff` repository**: `python3 -m chromiumdiff` has to import the package, and anywhere else it reports `No module named chromiumdiff`. Every path below is relative to that root.
 
@@ -193,7 +193,11 @@ print([f["change"]["name"] for f in F
 | *Compatibility break* | 18k | the rows to read closely — every signal in the bucket has one |
 | *Behaviour change* | 11k | as above |
 
-That is the whole story of a 3,022-finding run for about 34k, leaving the budget for the reasoning. The remaining sections — *New declarations*, *Scheduled*, *Unconfirmed* — are about 2k each and are read when the question calls for them.
+That is the whole story of a 3,022-finding run for about 34k, leaving the budget for the reasoning.
+
+**One section sits on that path and is not part of it.** `report.md` prints *What Chromium says shipped in this window* between *Related changes, grouped* and *Compatibility break* — 8k, 78 chromestatus features across M149–M151 on this pair, folded into a `<details>` block. It is Chromium's own prose about the window and it is matched to no row, so read it to explain a change someone has already asked about, never to find one. Step over it on the way down.
+
+The rest are read when the question calls for them: *New declarations*, *Scheduled* and *Unconfirmed* at 2k to 3k each, and *How this was produced* at under 1k — which is where step 6's **Limits** come from, because it holds the coverage figure for both refs, the target set and the exact versions.
 
 **Where `report.md` truncates, query rather than open the file.** A bucket table gives each signal in that bucket its top few rows, heaviest signal first, then stops. Each screen stops at 12. Both print how many are hidden. One query returns the rest:
 
@@ -230,13 +234,13 @@ Measured on M148 → M151: `default` finds 139 `pref_left_scan` rows, `wide` fin
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`, `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`) fetches and scans only the source paths listed for one feature. Right while looking at one feature, wrong as a release gate — Chromium does not organise its source by feature, so a change affecting downloads can live in `content/` and match no partition.
 
-Two side commands: `chromiumdiff catalog <ref>` measures what the target set is missing; `chromiumdiff figures <report.json>` writes the measurements the project's own documents quote, which is how they stay true. The re-render command is in step 4, beside the reason you need it.
+Two side commands: `python3 -m chromiumdiff catalog <ref>` measures what the target set is missing; `python3 -m chromiumdiff figures <report.json>` writes the measurements the project's own documents quote, which is how they stay true. The re-render command is in step 4, beside the reason you need it.
 
 ### Step 3: Read the report in order
 
 The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
 
-When the list is long, **cover it by signal** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows but only 38 distinct leading signals, so reading each signal group once covers all of them. `report.md` is built that way: a bucket table carries every signal in the bucket, heaviest first.
+When the list is long, **cover it by group** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows in 47 groups, so reading each group once covers all of them. 37 of the 47 are a leading signal. The other 10 are a kind and a direction: 718 of those rows — every one of them in New declarations — carry no signal at all, so no signal group reaches them. *What happened* is built on the 47; a bucket table is built on the 37, carrying every signal in its bucket, heaviest first.
 
 **That is how you read, not how you write.** Signal, bucket and score band are properties of the machinery. The report you hand back groups by what happened — step 6 — and a section headed by a signal name, a bucket name or a score range is the shape this skill exists to avoid.
 
@@ -249,9 +253,16 @@ Read by bucket, in this order.
 5. **Unconfirmed** — its own table in `report.md`, and the `All coverage` filter in `report.html`. These are removals this run could not confirm. Most keep their bucket and lose 15 points. The `pref_left_scan` and `switch_left_scan` ones also move to Upstream cleanup, where they sit because the evidence is short, **not because they are minor**. Step 5, the *Flags, prefs and switches* branch, says what to do with them.
 
    303 of them at M148 → M151 on the default set, 120 of those in Compatibility break. A `wide` run has none.
-6. **Upstream cleanup**: skip. It has no table on purpose — it is the largest bucket in every report and, once Scheduled and Unconfirmed are out of it, the one where nothing needs doing. At M148 → M151 it tops out at 35.
+6. **Upstream cleanup**: take the retired flags out of it, then skip the rest. It has no table on purpose — it is the largest bucket in every report and, once Scheduled and Unconfirmed are out of it, nothing left in it is read row by row. At M148 → M151 it tops out at 35.
 
-Retired flags are in Upstream cleanup, and deliberately: at M148 → M151 there were 132 of them, 72 that had shipped and 60 abandoned, none user-visible. Reporting one as a lost feature is wrong — read [reference/traps.md](reference/traps.md) before concluding.
+   **The three retirement signals sit here, and step 6 requires them.** At M148 → M151 on the default set that is 175 rows: 132 `flag_retired_on` and `flag_retired_off` — 72 that had shipped, 60 abandoned — plus 43 `killswitch_retired`. 169 of those names appear nowhere in `report.md`, because the bucket has no table and the *What happened* row carries a count and a sentence rather than identifiers. Query them before writing:
+
+   ```python
+   RETIRED = {"flag_retired_on", "flag_retired_off", "killswitch_retired"}
+   [f["change"]["name"] for f in F if set(f["change"]["signals"]) & RETIRED]
+   ```
+
+   None of them changed behaviour, so reporting one as a lost feature is wrong — read [reference/traps.md](reference/traps.md) before concluding. Every one of them turns an external override into a no-op, which is what step 5's *Fixed outside the repository* branch and step 6's section of the same name exist for.
 
 ### Step 4: Ask why a row changed
 
@@ -281,7 +292,7 @@ Do that before quoting a report to anyone: what you found by clicking is in the 
 
 `--click-budget N` caps diffs read per row (default 600), `--no-save` leaves the file alone. An issue's history is not fetched with the row: click the issue on the CL you believe, and it opens under that CL.
 
-**A restricted issue is normal and not a failure.** 44 of the 97 issues the top 150 findings of an M148 → M151 run link to answer HTTP 403 — they sit in a security, abuse or Google-internal tracker component. The panel says so and keeps the link, because the reader may be the one person who can open it. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
+**A restricted issue is normal and not a failure.** About a third answer HTTP 403 — 13 of the 39 issues cited by the looked-up rows of an M148 → M151 run, the figure `docs/figures.json` carries — because they sit in a security, abuse or Google-internal tracker component. The panel says so and keeps the link, because the reader may be the one person who can open it. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
 
 **Finding no CL means this search found none, not that Chromium did not change.** The two trees differ, so something landed. The file is asked three ways — on main, then off it for merge-backs, then the whole window's commit messages — and if all three miss, the CL is recorded under a name or path this report does not hold. Say that; do not report that a declaration changed by itself.
 

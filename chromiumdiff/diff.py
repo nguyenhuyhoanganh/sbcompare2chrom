@@ -516,9 +516,10 @@ SIGNAL_BUCKET: Dict[str, str] = {
     #
     # The three retirements belong here and it is the single most consequential
     # row in this table. A retired flag is Chromium deleting a switch it no
-    # longer needs *after* the outcome settled -- 90 of them at M148 -> M151,
-    # split 45/45 -- and none of them changes behaviour. Filing them as
-    # breakage is how half a report becomes false alarms.
+    # longer needs *after* the outcome settled -- 175 of them at M148 -> M151
+    # on the default set, 72 shipped and 60 abandoned plus 43 kill-switches --
+    # and none of them changes behaviour. Filing them as breakage is how half
+    # a report becomes false alarms.
     "flag_retired_on": BUCKET_CLEANUP,
     "flag_retired_off": BUCKET_CLEANUP,
     "killswitch_retired": BUCKET_CLEANUP,
@@ -1245,9 +1246,9 @@ def _base_feature_signals(change: Change, old_fact: Optional[Fact],
         # deletes the flag once the outcome is settled, so the state it held
         # just before deletion says which outcome that was.
         #
-        # Measured on M148 -> M151 for Windows: 90 flags removed, split exactly
-        # 45/45 between the two cases. Labelling all 90 "feature deleted" makes
-        # half the list false alarms.
+        # Measured on M148 -> M151 for Windows: 154 flags removed -- 72 retired
+        # on, 60 retired off, and 22 whose prior state could not be read.
+        # Labelling all 154 "feature deleted" makes 132 of them false alarms.
         #
         # Neither case changes behaviour on its own: the feature simply becomes
         # unconditional. What stops working is anything that was setting the

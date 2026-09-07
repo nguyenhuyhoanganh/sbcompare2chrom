@@ -30,7 +30,7 @@ finding is wrong.
 | `chrome/browser/resources/settings/<page>/` templates | Each control, its type (`settings-toggle-button`, `settings-dropdown-menu`, `cr-radio-group`), and its `pref="{{prefs.x.y}}"` binding |
 | `chrome/browser/ui/webui/settings/settings_ui.cc` | Maps each `loadTimeData` key to the `base::Feature` behind it |
 | `chrome/browser/resources/settings/page_visibility.ts` | Per-page visibility keys (24 at both M148 and M151). **Not fetched by the tool** — read it by hand when a page's presence is the question |
-| `chrome/common/pref_names.h` | Backing prefs. Already covered by the tool: 786 keys at M148, 684 at M151 |
+| `chrome/common/pref_names.h` | Backing prefs. Already covered by the tool: 785 keys at M148, 683 at M151 |
 
 The chain is:
 
@@ -84,7 +84,8 @@ controls and visibility gates.
 The same three extractors read every `chrome://` screen, not only settings.
 Eight are tracked by default — settings, history, downloads, bookmarks,
 extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
-per version. Measured at M151: 108 routes, 884 controls, 764 gates.
+per version. Measured at M151 on the default target set: 108 routes, 971
+controls across those eight screens, 764 gates.
 
 Related fragments are grouped into one story by `cluster.py`, using links the
 data declares (a route names its guard, a guard names its features) rather than
