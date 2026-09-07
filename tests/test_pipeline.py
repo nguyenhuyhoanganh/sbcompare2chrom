@@ -1602,6 +1602,52 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
         self.assertNotIn("grp", row)
 
 
+class TestEveryFindingIsAccountedFor(unittest.TestCase):
+    """No change may fall outside every group the reader is shown.
+
+    A table cannot name 3,022 identifiers, and a report that tried would be
+    the flat list this report exists instead of. What it can do is account for
+    all of them: *What happened* is a partition, so a reader who has read it
+    has seen a count covering every finding, and knows what to query for the
+    rows behind any one of them.
+
+    Held on the counts rather than on the rows, because that is the property
+    -- the sum of the group sizes is the number of findings, with nothing
+    dropped and nothing counted twice.
+    """
+
+    def test_the_story_groups_partition_the_findings(self):
+        from chromiumdiff.model import KIND_GROUPS, Change, Finding
+        from chromiumdiff.report import wording
+        kinds = ["base_feature", "mojo_method", "webui_route", "pref",
+                 "idl_member", "flag_entry"]
+        findings = [
+            Finding(change=Change(change_type=d, kind=k, key=f"{k}/{i}",
+                                  name=f"n{i}", paths=["f.cc"]),
+                    score=20, bucket="added")
+            for i, k in enumerate(kinds)
+            for d in ("added", "removed", "modified")]
+        covered = sum(len(s.items) for group, group_kinds in KIND_GROUPS
+                      for s in wording.build_stories(findings, group_kinds))
+        self.assertEqual(covered, len(findings),
+                         "a finding fell outside every story group")
+
+    def test_it_holds_on_a_real_report(self):
+        """The fixture cannot produce the shapes a real run does -- an
+        overload set moving, a guard changing, a flag with no signal at all."""
+        import glob
+        from chromiumdiff.model import KIND_GROUPS, read_report
+        from chromiumdiff.report import wording
+        paths = sorted(glob.glob("out/*/report.json"))
+        if not paths:
+            self.skipTest("no report on this machine")
+        for path in paths:
+            report = read_report(path)
+            covered = sum(len(s.items) for group, kinds in KIND_GROUPS
+                          for s in wording.build_stories(report.findings, kinds))
+            self.assertEqual(covered, len(report.findings), path)
+
+
 class TestABucketTableShowsEverySignal(unittest.TestCase):
     """The table's job is identifiers to go and grep, and it does that for no
     signal it never shows.
@@ -1611,7 +1657,7 @@ class TestABucketTableShowsEverySignal(unittest.TestCase):
     score 80, covering 2 of the bucket's 11 signals: a reader going top to
     bottom saw forty Mojo signature changes and not one of the 45 removed web
     APIs at severity 70, nor either renamed preference constant that stops code
-    compiling. Behaviour change showed 1 signal of 19, with all 129
+    compiling. Behaviour change showed 1 signal of 18, with all 129
     `web_api_shipped` rows absent.
 
     The skill tells its reader that when a list is long you group by signal

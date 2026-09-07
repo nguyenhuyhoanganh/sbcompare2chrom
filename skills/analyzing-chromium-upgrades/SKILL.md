@@ -195,7 +195,7 @@ print([f["change"]["name"] for f in F
 
 That is the whole story of a 3,022-finding run for about 34k, leaving the budget for the reasoning. The remaining sections — *New declarations*, *Scheduled*, *Unconfirmed* — are about 2k each and are read when the question calls for them.
 
-**Where `report.md` truncates, go to the program, not to the file.** A bucket table carries every signal in that bucket — its top few rows each, heaviest signal first — and then stops; each screen stops at 12. Both say how many are hidden. One query returns the rest:
+**Where `report.md` truncates, query rather than open the file.** A bucket table gives each signal in that bucket its top few rows, heaviest signal first, then stops. Each screen stops at 12. Both print how many are hidden. One query returns the rest:
 
 ```python
 [f["change"]["name"] for f in F
@@ -222,7 +222,9 @@ Offer this whenever someone asks why a row changed, what a flag was for, or whic
 coverage: reads N of M files in this tree that could declare (P% of files)
 ```
 
-**Coverage changes the answer, not just the confidence.** A removal is an inference from absence, so on a partial read it loses 15 points, is filed as Upstream cleanup rather than a Compatibility break, and carries `unconfirmed`. Measured on M148 → M151: `default` finds 139 `pref_left_scan` rows and `wide` finds 171 — but only 30 of them are in the Windows build at all, and it is those 30 that move from Upstream cleanup at 20 points to Compatibility break at 35 when the run is `wide`. The rest score 0 either way. **`Compatibility break: 0` on a default run does not mean nothing is broken** — read `summary.unconfirmed` before saying it does.
+**Coverage changes the answer, not just the confidence.** A removal is an inference from absence. On a partial read it loses 15 points, carries `unconfirmed`, and — for `pref_left_scan` and `switch_left_scan` — is filed as Upstream cleanup rather than a Compatibility break.
+
+Measured on M148 → M151: `default` finds 139 `pref_left_scan` rows, `wide` finds 171. Only 30 of them are in the Windows build at all. Those 30 move from Upstream cleanup at 20 points to Compatibility break at 35 when the run is `wide`; the rest score 0 either way. **`Compatibility break: 0` on a default run does not mean nothing is broken** — read `summary.unconfirmed` before saying it does.
 
 **Two error messages, one cause.** `cannot diff snapshots built from different target sets` and `cannot diff: X holds N facts against Y's M` both say one side read a fraction of the other. Neither is a bug to work around: check that `--local-src` / `--from-src` / `--to-src` points at a full Chromium `src/`.
 
@@ -234,7 +236,7 @@ Two side commands: `chromiumdiff catalog <ref>` measures what the target set is 
 
 The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
 
-When the list is long, **cover it by signal** rather than truncating: at that pair, the four buckets above Upstream cleanup are 2,287 rows but only 39 distinct leading signals, so looking at each signal group once covers all of it. `report.md` is built that way — a bucket table carries every signal in the bucket, its heaviest first.
+When the list is long, **cover it by signal** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows but only 39 distinct leading signals, so reading each signal group once covers all of them. `report.md` is built that way: a bucket table carries every signal in the bucket, heaviest first.
 
 **That is how you read, not how you write.** Signal, bucket and score band are properties of the machinery. The report you hand back groups by what happened — step 6 — and a section headed by a signal name, a bucket name or a score range is the shape this skill exists to avoid.
 
@@ -244,7 +246,9 @@ Read by bucket, in this order.
 2. **What happened** — every finding grouped under the signal that set its severity, so a report of thousands of rows collapses to a few dozen groups.
 3. **Compatibility break**, then **Behaviour change**, then **New declarations**. Each has a table in `report.md`.
 4. **Scheduled** — also a table. Read it as next milestone's list, not this one's: nothing in it has happened. It is not the "low score" bucket either. At M148 → M151 it tops out at 45, above every row in New declarations, because `flag_expiring` is a deletion Chromium has committed to.
-5. **Unconfirmed** — its own table in `report.md`, and the `All coverage` filter in `report.html`. These are removals this run could not confirm. Most keep their bucket and only lose 15 points; the `pref_left_scan` and `switch_left_scan` ones also move to Upstream cleanup, where they sit because the evidence is short, **not because they are minor**. Step 5, the *Flags, prefs and switches* branch, says what to do with them. 303 of them at M148 → M151 on the default set, 120 of those in Compatibility break; a `wide` run has none.
+5. **Unconfirmed** — its own table in `report.md`, and the `All coverage` filter in `report.html`. These are removals this run could not confirm. Most keep their bucket and lose 15 points. The `pref_left_scan` and `switch_left_scan` ones also move to Upstream cleanup, where they sit because the evidence is short, **not because they are minor**. Step 5, the *Flags, prefs and switches* branch, says what to do with them.
+
+   303 of them at M148 → M151 on the default set, 120 of those in Compatibility break. A `wide` run has none.
 6. **Upstream cleanup**: skip. It has no table on purpose — it is the largest bucket in every report and, once Scheduled and Unconfirmed are out of it, the one where nothing needs doing. At M148 → M151 it tops out at 35.
 
 Retired flags are in Upstream cleanup, and deliberately: at M148 → M151 there were 132 of them, 72 that had shipped and 60 abandoned, none user-visible. Reporting one as a lost feature is wrong — read [reference/traps.md](reference/traps.md) before concluding.
@@ -320,7 +324,7 @@ Signal meanings: **[reference/signals.md](reference/signals.md)**.
 
 Question 3 decides the layout — group by what the reader named, and say what you filtered to.
 
-**When they named nothing, group by what happened, not by how the tool found it.** A bucket, a score band and a fact kind are all properties of the machinery. Grouping by any of them takes a change that arrived as seven fragments and files the flag under one heading and the pages under another, which is the state the fragments were in before `cluster.py` gathered them.
+**When they named nothing, group by what happened, not by how the tool found it.** A bucket, a score band and a fact kind are all properties of the machinery. Group by any of them and a change that arrived as seven fragments goes back under several headings — the flag beneath one, the pages beneath another. That is the state `cluster.py` had already undone.
 
 ```markdown
 ## Overall risk
@@ -349,7 +353,9 @@ repository.]
 
 In this order, so nothing is written twice:
 
-1. **A block of `## Related changes, grouped`.** Already one item. `report.md` prints the first twelve, ordered by `spread` — how many consequence groups, buckets and directions the fragments fall across, which is how much the grouping tells you that the rows do not. The blocks holding both a removal and an addition come first, because those are the ones that mislead when read apart. `summary.clusters` in the JSON holds every block with its `spread` and `directions`.
+1. **A block of `## Related changes, grouped`.** Already one item.
+
+   Blocks are ordered by `spread`: how many consequence groups, buckets and directions the fragments fall across. That measures how much the grouping tells you that the rows do not. A block holding both a removal and an addition comes first, because that is the pair that misleads when read apart. Every block whose fragments disagree is printed, however many there are — 9 at M148 → M151 on the default set, 16 on the wide one. `summary.clusters` in the JSON holds all of them, each with its `spread` and `directions`.
 2. **A screen and a direction.** Five pages arriving on `settings` is one item, not five. `## What changed on each screen` has them, truncated at twelve — take the rest from `report.json` when the screen has more.
 3. **A row that stands alone.** One Mojo signature, one renamed pref. Its own item only if no cluster claimed it.
 
@@ -375,7 +381,9 @@ Worked, from the M148 → M151 block:
 - `−` label:siteSettingsLocalNetworkAccess · WebUI control · 20
 ```
 
-The flag was **enabled** before it was removed, so the split was already what users had; the experimental gate is gone and the two split pages moved onto the gate the combined page used; the combined page and its control went with it. One movement, not seven facts:
+Three things follow, in order. The flag was **enabled** before it was removed, so users already had the split. The experimental gate is gone, and the two split pages moved onto the gate the combined page had used. The combined page and its control went with it.
+
+That is one movement, not seven facts:
 
 > **Local Network Access — the split shipped, the combined page is gone.**
 > The page `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) and its control `siteSettingsLocalNetworkAccess` are removed. `SITE_SETTINGS_LOCAL_NETWORK` and `SITE_SETTINGS_LOOPBACK_NETWORK` moved off the experimental gate `enableLocalNetworkAccessSplitPermissions` onto `enableLocalNetworkAccessSetting`, and both that gate and `LocalNetworkAccessChecksSplitPermissions` — which was **enabled** at M148 — are retired. Users saw the split before this upgrade; M151 removes the machinery.

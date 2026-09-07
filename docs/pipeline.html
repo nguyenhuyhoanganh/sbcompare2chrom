@@ -1655,6 +1655,33 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       seeing this since M148</b> because the matching flag was already on then, and
       the only thing to do is update one stale route reference.
     </div>
+    <h3 class="sub">Which groups get printed, and in what order</h3>
+    <p>
+      A run produces more groups than a report can print — <b>72</b> on the default
+      target set, <b>159</b> on the wide one. Which ones a reader sees is decided by
+      <code>spread</code>: how many consequence groups, buckets and directions the
+      fragments fall across. That measures how much the grouping says that the rows
+      do not. A group of additions in one bucket in one kind group is a list, and
+      the per-screen section already prints it; a group holding a removal and an
+      addition across two kind groups is the case this stage exists for.
+    </p>
+    <p>
+      Every group whose fragments disagree is printed, however many there are —
+      <b>9</b> at M148 → M151 on the default set and <b>16</b> on the wide one — and
+      flat groups fill whatever room is left. <code>report.md</code> prints each
+      fragment with what it moved, so the evidence behind the sentence is in the
+      file rather than only in the JSON.
+    </p>
+    <div class="warnbox" style="margin-top:13px">
+      Ordering by score put the wrong groups first. A flag flipping on scores 75
+      and a WebUI route tops out at 55, so a page story cannot win that
+      comparison: the twelve printed were mostly a flag and its parameters — a
+      grouping the flag's own row already carries — while the arrival of an AI
+      section with two pages under it sat 23rd of 25 and was cut. <code>spread</code>
+      also ignores members scoring zero, because a finding is in Upstream cleanup
+      <i>because</i> it scores zero, and counting its bucket counts a fact about the
+      build rather than about the change.
+    </div>
   </div>
 </section>
 
@@ -1701,6 +1728,15 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       in every report and the one nothing in it needs doing about. It is still in
       <code>report.json</code> and still in the sortable table in
       <code>report.html</code> — printed, not omitted, just not printed first.
+    </div>
+    <div class="note" style="margin-top:13px">
+      Each of those tables carries <b>every signal in its bucket</b>, giving each
+      one its highest-scoring few rows, heaviest signal first. Taking the top rows
+      by score instead filled the Compatibility break table with 40 rows that were
+      all score 80: <b>2 of the bucket's 11 signals</b>, so a reader going top to
+      bottom saw forty Mojo signature changes and not one of the 45 removed web
+      APIs. Behaviour change showed <b>1 signal of 18</b>. A table's job is
+      identifiers to go and look up, and it does that for no signal it never shows.
     </div>
   </div>
 </section>

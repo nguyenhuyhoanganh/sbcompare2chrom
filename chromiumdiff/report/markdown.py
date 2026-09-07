@@ -116,7 +116,7 @@ def _covering(findings: Sequence[Finding], per_signal: int = 3,
     reader going top to bottom saw forty Mojo signature changes and not one of
     the 45 removed web APIs -- severity 70 -- nor either of the two renamed
     preference constants that stop code compiling. Behaviour change was worse:
-    40 rows, 1 signal of 19, and all 129 `web_api_shipped` rows absent.
+    40 rows, 1 signal of 18, and all 129 `web_api_shipped` rows absent.
 
     The *What happened* section already counts every signal. What a table adds
     is identifiers to go and grep, and it adds nothing for a signal it never
