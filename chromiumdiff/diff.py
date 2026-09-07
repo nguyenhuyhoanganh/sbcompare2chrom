@@ -26,10 +26,11 @@ from .extract._cpp import PLATFORM
 from .extract.blink_runtime import status_rank
 from .model import (
     ADDED,
+    BUCKET_ADDED,
     BUCKET_BEHAVIOUR,
-    BUCKET_BREAKING,
-    BUCKET_HOUSEKEEPING,
-    BUCKET_NEW,
+    BUCKET_CLEANUP,
+    BUCKET_CONTRACT,
+    BUCKET_SCHEDULED,
     KIND_BASE_FEATURE,
     KIND_BLINK_RUNTIME,
     KIND_FEATURE_PARAM,
@@ -432,45 +433,51 @@ SIGNAL_LABELS: Dict[str, str] = {
 # no description of who is reading. So the classification is a property of the
 # change, and a finding is filed under the same sentence it is ranked by.
 #
+# All five are on that one axis. Nothing here is decided by whether a run read
+# enough of the tree to be sure -- that is the finding's `unconfirmed` field,
+# because the same change carries it on one run and not on another.
+#
 # A test holds this table to exactly the keys of SIGNAL_SEVERITY, because a
 # signal with no bucket would silently fall through to the direction rule and
 # be filed by "something was removed" rather than by what the removal was.
 SIGNAL_BUCKET: Dict[str, str] = {
-    # -- Breaking: something outside the binary stops working, silently.
-    "ipc_signature_change": BUCKET_BREAKING,
-    "ipc_removed": BUCKET_BREAKING,
+    # -- Compatibility break: a contract outside the binary no longer holds,
+    #    and the build says nothing.
+    "ipc_signature_change": BUCKET_CONTRACT,
+    "ipc_removed": BUCKET_CONTRACT,
     # The data half of the same boundary, and the same bucket for the same
     # reason: a field read as a different type on the far side fails exactly
     # the way a moved method parameter does, and nothing warns either.
-    "ipc_shape_changed": BUCKET_BREAKING,
-    "ipc_ordinal_changed": BUCKET_BREAKING,
-    "ipc_enum_changed": BUCKET_BREAKING,
+    "ipc_shape_changed": BUCKET_CONTRACT,
+    "ipc_ordinal_changed": BUCKET_CONTRACT,
+    "ipc_enum_changed": BUCKET_CONTRACT,
     # Not breaking: what an older peer sees changes, but every byte on the
     # wire is still read as the thing it is.
     "ipc_field_annotated": BUCKET_BEHAVIOUR,
     "ipc_stability_changed": BUCKET_BEHAVIOUR,
-    "web_api_removed": BUCKET_BREAKING,
-    "web_api_unshipped": BUCKET_BREAKING,
-    "web_api_signature_change": BUCKET_BREAKING,
-    "web_api_overload_removed": BUCKET_BREAKING,
-    "web_api_overload_added": BUCKET_NEW,
+    "web_api_removed": BUCKET_CONTRACT,
+    "web_api_unshipped": BUCKET_CONTRACT,
+    "web_api_signature_change": BUCKET_CONTRACT,
+    "web_api_overload_removed": BUCKET_CONTRACT,
+    "web_api_overload_added": BUCKET_ADDED,
     "web_api_overload_shadowed": BUCKET_BEHAVIOUR,
-    "pref_renamed": BUCKET_BREAKING,
-    "pref_symbol_renamed": BUCKET_BREAKING,
-    "switch_renamed": BUCKET_BREAKING,
-    "switch_symbol_renamed": BUCKET_BREAKING,
-    "feature_string_renamed": BUCKET_BREAKING,
-    "feature_symbol_renamed": BUCKET_BREAKING,
-    "param_rewired": BUCKET_BREAKING,
-    "param_removed": BUCKET_BREAKING,
+    "pref_renamed": BUCKET_CONTRACT,
+    "pref_symbol_renamed": BUCKET_CONTRACT,
+    "switch_renamed": BUCKET_CONTRACT,
+    "switch_symbol_renamed": BUCKET_CONTRACT,
+    "feature_string_renamed": BUCKET_CONTRACT,
+    "feature_symbol_renamed": BUCKET_CONTRACT,
+    "param_rewired": BUCKET_CONTRACT,
+    "param_removed": BUCKET_CONTRACT,
     # The control still exists and writes somewhere else, so the value the
     # user already set is stranded -- the same consequence as a renamed key.
-    "ui_control_repointed": BUCKET_BREAKING,
+    "ui_control_repointed": BUCKET_CONTRACT,
     # Deletion or move; the run's own coverage decides which is the likelier
-    # reading, and the scoring stage moves these to housekeeping when the run
-    # did not read enough of the tree to tell. See score.py.
-    "pref_left_scan": BUCKET_BREAKING,
-    "switch_left_scan": BUCKET_BREAKING,
+    # reading, and the scoring stage moves these to cleanup -- and marks them
+    # `unconfirmed` -- when the run did not read enough of the tree to tell.
+    # See score.py.
+    "pref_left_scan": BUCKET_CONTRACT,
+    "switch_left_scan": BUCKET_CONTRACT,
 
     # -- Behaviour: the Windows build behaves differently.
     "enabled_by_default": BUCKET_BEHAVIOUR,
@@ -495,36 +502,45 @@ SIGNAL_BUCKET: Dict[str, str] = {
     "ui_gate_changed": BUCKET_BEHAVIOUR,
     "ui_gate_removed": BUCKET_BEHAVIOUR,
 
-    # -- New surface: something exists that did not, and nothing is on by it.
-    "web_api_added": BUCKET_NEW,
-    "web_api_added_live": BUCKET_NEW,
-    "web_api_added_gated": BUCKET_NEW,
-    "web_api_removed_gated": BUCKET_HOUSEKEEPING,
-    "ui_page_added": BUCKET_NEW,
-    "ui_control_added": BUCKET_NEW,
-    "ui_gate_added": BUCKET_NEW,
+    # -- New declarations: something exists that did not, and nothing is on
+    #    by it.
+    "web_api_added": BUCKET_ADDED,
+    "web_api_added_live": BUCKET_ADDED,
+    "web_api_added_gated": BUCKET_ADDED,
+    "web_api_removed_gated": BUCKET_CLEANUP,
+    "ui_page_added": BUCKET_ADDED,
+    "ui_control_added": BUCKET_ADDED,
+    "ui_gate_added": BUCKET_ADDED,
 
-    # -- Housekeeping: Chromium tidying up after itself, and scheduling.
+    # -- Upstream cleanup: Chromium tidying up after itself.
     #
     # The three retirements belong here and it is the single most consequential
     # row in this table. A retired flag is Chromium deleting a switch it no
     # longer needs *after* the outcome settled -- 90 of them at M148 -> M151,
     # split 45/45 -- and none of them changes behaviour. Filing them as
     # breakage is how half a report becomes false alarms.
-    "flag_retired_on": BUCKET_HOUSEKEEPING,
-    "flag_retired_off": BUCKET_HOUSEKEEPING,
-    "killswitch_retired": BUCKET_HOUSEKEEPING,
-    "experimental_dropped": BUCKET_HOUSEKEEPING,
-    "declaration_moved": BUCKET_HOUSEKEEPING,
-    "flag_expiring": BUCKET_HOUSEKEEPING,
-    "flag_expiry_moved": BUCKET_HOUSEKEEPING,
-    "web_api_status_moved": BUCKET_HOUSEKEEPING,
-    "runtime_flag_rewired": BUCKET_HOUSEKEEPING,
+    "flag_retired_on": BUCKET_CLEANUP,
+    "flag_retired_off": BUCKET_CLEANUP,
+    "killswitch_retired": BUCKET_CLEANUP,
+    "experimental_dropped": BUCKET_CLEANUP,
+    "declaration_moved": BUCKET_CLEANUP,
+    "web_api_status_moved": BUCKET_CLEANUP,
+    "runtime_flag_rewired": BUCKET_CLEANUP,
     # The tool reads the loadTimeData key, never the display string -- that
     # lives in a .grd it does not open. So a relabelled control may or may not
     # be visible to anyone, and at severity 20 it does not belong in a bucket
     # people read line by line.
-    "ui_control_relabelled": BUCKET_HOUSEKEEPING,
+    "ui_control_relabelled": BUCKET_CLEANUP,
+
+    # -- Scheduled: a date, not an event.
+    #
+    # These two are the only rows in a report about work that has *not*
+    # happened. 302 of 3,022 findings at M148 -> M151 -- a tenth of the report
+    # -- and reading them as cleanup gets the tense wrong in both directions:
+    # `flag_expiring` is a deletion coming in the next milestone or two, and
+    # `flag_expiry_moved` is one that just stopped coming.
+    "flag_expiring": BUCKET_SCHEDULED,
+    "flag_expiry_moved": BUCKET_SCHEDULED,
 }
 
 # When a change carries no signal, the direction is the whole story and it
@@ -532,8 +548,8 @@ SIGNAL_BUCKET: Dict[str, str] = {
 # something says otherwise; the two removals that are *not* -- a feature
 # parameter and a preference -- have signals of their own above.
 NO_SIGNAL_BUCKET = {
-    ADDED: BUCKET_NEW,
-    REMOVED: BUCKET_HOUSEKEEPING,
+    ADDED: BUCKET_ADDED,
+    REMOVED: BUCKET_CLEANUP,
     MODIFIED: BUCKET_BEHAVIOUR,
 }
 
@@ -909,7 +925,7 @@ def bucket_of(change: Change) -> str:
         bucket = SIGNAL_BUCKET.get(lead)
         if bucket:
             return bucket
-    return NO_SIGNAL_BUCKET.get(change.change_type, BUCKET_HOUSEKEEPING)
+    return NO_SIGNAL_BUCKET.get(change.change_type, BUCKET_CLEANUP)
 
 
 def _arity_range(signature: str):

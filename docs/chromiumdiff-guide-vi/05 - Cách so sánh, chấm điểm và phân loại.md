@@ -158,11 +158,11 @@ Năm bảng dưới đây liệt kê toàn bộ signal, kèm severity, bucket v�
 | `default_flip_on` | 60 | Behaviour change | Khai báo mặc định chuyển sang BẬT |
 | `default_flip_off` | 50 | Behaviour change | Khai báo mặc định chuyển sang TẮT |
 | `feature_deleted` | 65 | Behaviour change | Feature bị xoá, nhưng không đọc được trạng thái trước đó của nó |
-| `flag_retired_on` | 35 | Housekeeping | Feature đã ship; flag bị dọn nên hành vi BẬT trở thành cố định |
-| `flag_retired_off` | 30 | Housekeeping | Feature chưa ship; cả flag lẫn code bị bỏ, không bật lại được nữa |
+| `flag_retired_on` | 35 | Upstream cleanup | Feature đã ship; flag bị dọn nên hành vi BẬT trở thành cố định |
+| `flag_retired_off` | 30 | Upstream cleanup | Feature chưa ship; cả flag lẫn code bị bỏ, không bật lại được nữa |
 | `new_feature_on_by_default` | 55 | Behaviour change | Feature mới xuất hiện và BẬT ngay |
-| `feature_string_renamed` | 75 | Breaking | Tên dùng cho Finch và `--enable-features` đã đổi; cấu hình cũ **im lặng** mất tác dụng |
-| `feature_symbol_renamed` | 60 | Breaking | C++ symbol đổi; code downstream tham chiếu tới nó có thể không compile được |
+| `feature_string_renamed` | 75 | Compatibility break | Tên dùng cho Finch và `--enable-features` đã đổi; cấu hình cũ **im lặng** mất tác dụng |
+| `feature_symbol_renamed` | 60 | Compatibility break | C++ symbol đổi; code downstream tham chiếu tới nó có thể không compile được |
 
 Vì sao `flag_retired_on/off` **không** được xếp vào Behaviour change: việc bật hoặc tắt đã xảy ra từ một release trước rồi. Release này chỉ dọn đi cái công tắc. Nhưng vẫn phải đi tìm và xoá mọi override còn sót ở bên ngoài repository, vì chúng đã không còn tác dụng.
 
@@ -171,23 +171,23 @@ Vì sao `flag_retired_on/off` **không** được xếp vào Behaviour change: v
 | Signal | Severity | Bucket | Cách đọc |
 |---|---:|---|---|
 | `web_api_shipped` | 65 | Behaviour change | Blink runtime feature đạt stable trên Windows |
-| `web_api_unshipped` | 70 | Breaking | API bị rút khỏi stable |
-| `web_api_removed` | 70 | Breaking | Interface hoặc member đang dùng được bị xoá |
-| `web_api_added` | 30 | New surface | API mới, công cụ chưa xác định được gate đang mở hay đóng |
-| `web_api_added_live` | 35 | New surface | API mới, và trang web có thể gọi ngay |
-| `web_api_added_gated` | 20 | New surface | API mới, nhưng runtime gate còn đóng |
-| `web_api_removed_gated` | 30 | Housekeeping | API bị xoá khi chưa trang nào tiếp cận được |
-| `killswitch_retired` | 35 | Housekeeping | Blink flag ở trạng thái stable bị xoá; API trở thành vĩnh viễn |
-| `experimental_dropped` | 20 | Housekeeping | Runtime flag experimental hoặc test bị bỏ |
-| `web_api_signature_change` | 50 | Breaking | Signature hoặc loại member đã đổi |
-| `web_api_overload_removed` | 60 | Breaking | Một danh sách tham số của member bị mất |
-| `web_api_overload_added` | 25 | New surface | Có overload mới, không đụng tới số tham số đã có |
+| `web_api_unshipped` | 70 | Compatibility break | API bị rút khỏi stable |
+| `web_api_removed` | 70 | Compatibility break | Interface hoặc member đang dùng được bị xoá |
+| `web_api_added` | 30 | New declarations | API mới, công cụ chưa xác định được gate đang mở hay đóng |
+| `web_api_added_live` | 35 | New declarations | API mới, và trang web có thể gọi ngay |
+| `web_api_added_gated` | 20 | New declarations | API mới, nhưng runtime gate còn đóng |
+| `web_api_removed_gated` | 30 | Upstream cleanup | API bị xoá khi chưa trang nào tiếp cận được |
+| `killswitch_retired` | 35 | Upstream cleanup | Blink flag ở trạng thái stable bị xoá; API trở thành vĩnh viễn |
+| `experimental_dropped` | 20 | Upstream cleanup | Runtime flag experimental hoặc test bị bỏ |
+| `web_api_signature_change` | 50 | Compatibility break | Signature hoặc loại member đã đổi |
+| `web_api_overload_removed` | 60 | Compatibility break | Một danh sách tham số của member bị mất |
+| `web_api_overload_added` | 25 | New declarations | Có overload mới, không đụng tới số tham số đã có |
 | `web_api_overload_shadowed` | 45 | Behaviour change | Overload mới trùng số tham số với overload cũ; lời gọi có thể được phân giải sang hàm khác |
 | `web_api_exposure_changed` | 45 | Behaviour change | `Exposed`, extended attribute hoặc runtime gate đã đổi |
 | `web_api_shape_changed` | 45 | Behaviour change | Quan hệ kế thừa hoặc giá trị enum đã đổi |
-| `web_api_status_moved` | 25 | Housekeeping | Chuyển qua lại giữa test và experimental, nhưng chưa lên stable |
+| `web_api_status_moved` | 25 | Upstream cleanup | Chuyển qua lại giữa test và experimental, nhưng chưa lên stable |
 | `origin_trial_change` | 35 | Behaviour change | Tên trial, OS, quyền cho bên thứ ba hoặc quyền truy cập đã đổi |
-| `runtime_flag_rewired` | 30 | Housekeeping | Base feature, dependency hoặc quyền public/internal đổi, nhưng mức expose trên Windows chưa đổi |
+| `runtime_flag_rewired` | 30 | Upstream cleanup | Base feature, dependency hoặc quyền public/internal đổi, nhưng mức expose trên Windows chưa đổi |
 
 Với Web IDL, `added` và `removed` còn phải hỏi thêm runtime gate. Nếu member có `[RuntimeEnabled=Foo]` và `Foo` đang stable, API được coi là tiếp cận được. Còn nếu chính flag đó chưa được snapshot đọc tới, công cụ dùng signal "chưa kết luận được" thay vì đoán bừa.
 
@@ -195,11 +195,11 @@ Với Web IDL, `added` và `removed` còn phải hỏi thêm runtime gate. Nếu
 
 | Signal | Severity | Bucket | Cách đọc |
 |---|---:|---|---|
-| `ipc_signature_change` | 80 | Breaking | Params hoặc response của một Mojo method đã đổi |
-| `ipc_removed` | 75 | Breaking | Interface, method hoặc khai báo dữ liệu bị xoá |
-| `ipc_shape_changed` | 80 | Breaking | Kiểu hoặc ordinal của field, position trong container stable, hoặc struct đổi thành union |
-| `ipc_ordinal_changed` | 80 | Breaking | Ordinal trên wire của method, hoặc position trong container stable, đã đổi |
-| `ipc_enum_changed` | 55 | Breaking | Giá trị enum đổi; một peer cũ có thể từ chối giá trị lạ |
+| `ipc_signature_change` | 80 | Compatibility break | Params hoặc response của một Mojo method đã đổi |
+| `ipc_removed` | 75 | Compatibility break | Interface, method hoặc khai báo dữ liệu bị xoá |
+| `ipc_shape_changed` | 80 | Compatibility break | Kiểu hoặc ordinal của field, position trong container stable, hoặc struct đổi thành union |
+| `ipc_ordinal_changed` | 80 | Compatibility break | Ordinal trên wire của method, hoặc position trong container stable, đã đổi |
+| `ipc_enum_changed` | 55 | Compatibility break | Giá trị enum đổi; một peer cũ có thể từ chối giá trị lạ |
 | `ipc_field_annotated` | 35 | Behaviour change | Giá trị mặc định hoặc `[MinVersion]` của field đã đổi |
 | `ipc_stability_changed` | 40 | Behaviour change | `[Stable]` mới xuất hiện, hoặc vừa biến mất |
 
@@ -209,17 +209,17 @@ Một quy tắc phòng nhiễu đáng chú ý: `position` chỉ được coi là
 
 | Signal | Severity | Bucket | Cách đọc |
 |---|---:|---|---|
-| `pref_renamed` | 70 | Breaking | Giá trị đang lưu ở khoá cũ có thể bị bỏ rơi |
-| `switch_renamed` | 60 | Breaking | Tham số khởi động hoặc automation cũ mất tác dụng |
-| `pref_left_scan` | 35 | Ban đầu là Breaking | Không còn thấy pref này; có thể đã bị xoá, cũng có thể chỉ chuyển ra khỏi các file đã đọc |
-| `switch_left_scan` | 30 | Ban đầu là Breaking | Không còn thấy switch này; có thể đã bị xoá, cũng có thể chỉ chuyển chỗ |
-| `pref_symbol_renamed` | 55 | Breaking | Pref key giữ nguyên, nhưng hằng C++ đã đổi |
-| `switch_symbol_renamed` | 45 | Breaking | Chuỗi switch giữ nguyên, nhưng hằng C++ đã đổi |
+| `pref_renamed` | 70 | Compatibility break | Giá trị đang lưu ở khoá cũ có thể bị bỏ rơi |
+| `switch_renamed` | 60 | Compatibility break | Tham số khởi động hoặc automation cũ mất tác dụng |
+| `pref_left_scan` | 35 | Ban đầu là Compatibility break | Không còn thấy pref này; có thể đã bị xoá, cũng có thể chỉ chuyển ra khỏi các file đã đọc |
+| `switch_left_scan` | 30 | Ban đầu là Compatibility break | Không còn thấy switch này; có thể đã bị xoá, cũng có thể chỉ chuyển chỗ |
+| `pref_symbol_renamed` | 55 | Compatibility break | Pref key giữ nguyên, nhưng hằng C++ đã đổi |
+| `switch_symbol_renamed` | 45 | Compatibility break | Chuỗi switch giữ nguyên, nhưng hằng C++ đã đổi |
 | `param_default_changed` | 40 | Behaviour change | Giá trị mặc định của một FeatureParam đã đổi |
-| `param_removed` | 35 | Breaking | Cấu hình nào vẫn tiếp tục đặt param này sẽ im lặng mất tác dụng |
-| `param_rewired` | 35 | Breaking | Kiểu hoặc feature sở hữu param đã đổi |
+| `param_removed` | 35 | Compatibility break | Cấu hình nào vẫn tiếp tục đặt param này sẽ im lặng mất tác dụng |
+| `param_rewired` | 35 | Compatibility break | Kiểu hoặc feature sở hữu param đã đổi |
 
-Hai signal `pref_left_scan` và `switch_left_scan` có thể bị bước chấm điểm hạ xuống Housekeeping, nếu coverage không đủ để xác nhận rằng khai báo thật sự đã bị xoá.
+Hai signal `pref_left_scan` và `switch_left_scan` có thể bị bước chấm điểm hạ xuống Upstream cleanup **và gắn cờ `unconfirmed`**, nếu coverage không đủ để xác nhận rằng khai báo thật sự đã bị xoá.
 
 Ngược lại, một trường hợp đổi tên đã ghép được bằng symbol là bằng chứng mạnh hơn hẳn, nên nó không bị hạ theo rule này.
 
@@ -228,28 +228,28 @@ Ngược lại, một trường hợp đổi tên đã ghép được bằng sym
 | Signal | Severity | Bucket | Cách đọc |
 |---|---:|---|---|
 | `ui_page_removed` | 55 | Behaviour change | Route hoặc trang bị xoá |
-| `ui_page_added` | 40 | New surface | Route hoặc trang mới |
+| `ui_page_added` | 40 | New declarations | Route hoặc trang mới |
 | `ui_page_regated` | 45 | Behaviour change | Guard quyết định trang có hiển thị hay không đã đổi |
 | `ui_page_moved` | 30 | Behaviour change | URL hoặc route cha đã đổi |
 | `ui_control_type_changed` | 45 | Behaviour change | Loại control đổi, ví dụ dropdown thành toggle |
-| `ui_control_repointed` | 50 | Breaking | Control vẫn còn đó, nhưng bắt đầu ghi sang một pref khác |
+| `ui_control_repointed` | 50 | Compatibility break | Control vẫn còn đó, nhưng bắt đầu ghi sang một pref khác |
 | `ui_control_removed` | 35 | Behaviour change | Control bị xoá khỏi template |
-| `ui_control_added` | 25 | New surface | Control mới |
+| `ui_control_added` | 25 | New declarations | Control mới |
 | `ui_gate_changed` | 45 | Behaviour change | Biểu thức C++ hoặc feature đứng sau một khoá `loadTimeData` đã đổi |
 | `ui_gate_removed` | 40 | Behaviour change | Điều kiện hiển thị bị bỏ; phần được guard có thể trở thành luôn hiện, cũng có thể biến mất theo |
-| `ui_gate_added` | 25 | New surface | Có điều kiện hiển thị mới |
-| `ui_control_relabelled` | 20 | Housekeeping | Khoá i18n của nhãn đã đổi; công cụ chưa đọc chuỗi hiển thị nên chưa biết người dùng có thấy khác không |
+| `ui_gate_added` | 25 | New declarations | Có điều kiện hiển thị mới |
+| `ui_control_relabelled` | 20 | Upstream cleanup | Khoá i18n của nhãn đã đổi; công cụ chưa đọc chuỗi hiển thị nên chưa biết người dùng có thấy khác không |
 
 ### Build, chuyển chỗ và lịch trình
 
 | Signal | Severity | Bucket | Cách đọc |
 |---|---:|---|---|
 | `build_gate_changed` | 35 | Behaviour change | Khai báo có thể vào hoặc ra khỏi binary Windows |
-| `declaration_moved` | 25 | Housekeeping | Vẫn là khai báo đó, nhưng đã chuyển sang file khác |
-| `flag_expiring` | 45 | Housekeeping | Flag dự kiến bị xoá trước hoặc trong vòng hai milestone sau milestone đích |
-| `flag_expiry_moved` | 10 | Housekeeping | Lịch xoá đổi, nhưng hành vi lúc chạy chưa đổi |
+| `declaration_moved` | 25 | Upstream cleanup | Vẫn là khai báo đó, nhưng đã chuyển sang file khác |
+| `flag_expiring` | 45 | Scheduled | Flag dự kiến bị xoá trước hoặc trong vòng hai milestone sau milestone đích |
+| `flag_expiry_moved` | 10 | Scheduled | Lịch xoá đổi, nhưng hành vi lúc chạy chưa đổi |
 
-`flag_expiring` nằm ở Housekeeping xét theo bản chất thay đổi trong source, nhưng phần phải xử lý nằm ngoài repository, để người đang phụ thuộc vào flag đó kịp lên kế hoạch. Nói cách khác: **Housekeeping không đồng nghĩa với "không bao giờ có việc gì".**
+`flag_expiring` có bucket riêng — **Scheduled** — chính vì lý do này: nó nói về một cái ngày chứ không phải một sự kiện, phần phải xử lý nằm ngoài repository, và người đang phụ thuộc vào flag đó cần kịp lên kế hoạch. Gộp nó vào Upstream cleanup là sai thì quá khứ: nó nói về việc **chưa** xảy ra.
 
 ## Bước 4 — Score được tính thế nào
 
@@ -261,7 +261,7 @@ severity = severity(leading signal)
 
 nếu khai báo không được compile vào Windows ở MỌI bên mà nó tồn tại:
     score = 0
-    bucket = Housekeeping
+    bucket = Upstream cleanup
     dừng lại
 
 score = severity
@@ -279,11 +279,13 @@ nếu kết luận dựa trên sự vắng mặt, VÀ coverage của surface đ�
 
 nếu leading signal là pref_left_scan hoặc switch_left_scan
    và sự vắng mặt chưa được xác nhận:
-    bucket = Housekeeping
+    bucket = Upstream cleanup
+    unconfirmed = true
 
 nếu một khai báo mới không chứng minh được là vắng mặt ở bên cũ,
    vì bên cũ có lỗ hổng nghiêm trọng:
-    bucket = Housekeeping
+    bucket = Upstream cleanup
+    unconfirmed = true
 
 score = clamp(score, 0, 100)
 ```
@@ -329,13 +331,15 @@ Mức phạt là một con số cố định `15`, không nhân theo phần tră
 
 Leading signal quyết định bucket. Nếu không có signal nào, quy tắc dự phòng là:
 
-- `added` → New surface;
-- `removed` → Housekeeping;
+- `added` → New declarations;
+- `removed` → Upstream cleanup;
 - `modified` → Behaviour change.
 
-Ý nghĩa của bốn bucket:
+Không có quy tắc dự phòng nào dẫn tới Scheduled hoặc Compatibility break: cả hai đều đòi một signal cụ thể nói ra điều đó.
 
-### Breaking
+Ý nghĩa của năm bucket:
+
+### Compatibility break
 
 Một contract nằm bên ngoài binary có thể ngừng hoạt động mà không được compiler hay runtime báo sớm: dữ liệu trong profile, script khởi động, cấu hình Finch, một website đang chạy, hoặc một process ở đầu kia.
 
@@ -345,17 +349,27 @@ Cần đọc cho đúng: đây **không** phải khẳng định Samsung chắc 
 
 Bản build Windows sẽ làm hoặc sẽ expose một thứ khác sau khi upgrade. Sẽ có người dùng, website hoặc luồng test quan sát thấy khác đi.
 
-### New surface
+### New declarations
 
-Có một khai báo, API, trang hoặc control mới tồn tại.
+Có một khai báo, API, trang hoặc control tồn tại ở version mới mà version cũ không có.
 
 Việc nó tồn tại **không** tự chứng minh rằng Samsung cần adopt nó, và cũng không chứng minh feature đã được BẬT.
 
-### Housekeeping
+### Scheduled
 
-Upstream dọn flag, chuyển khai báo sang file khác, đổi lịch, hoặc bằng chứng chưa đủ để gọi là breaking.
+Upstream đã lên lịch xoá một `chrome://flags` entry, hoặc dời cái lịch đó. Đây là phần **duy nhất** của báo cáo nói về việc chưa xảy ra: đọc nó như danh sách của milestone sau, không phải của milestone này.
 
-Nhóm này vẫn có thể sinh ra đầu việc — thường là dọn cấu hình cũ hoặc lập kế hoạch cho tương lai.
+### Upstream cleanup
+
+Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì quan sát được thay đổi.
+
+Đây là bucket lớn nhất trong mọi báo cáo và là bucket không cần đọc từng dòng — trừ những dòng mang cờ `unconfirmed`.
+
+### `unconfirmed` không phải bucket thứ sáu
+
+Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal sẽ `unconfirmed` ở bộ `default` và không ở bộ `wide`. Vì vậy nó là một field trên finding, không phải một bucket.
+
+Những dòng đó nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì nhỏ: trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. `report.md` dành cho chúng một mục riêng, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng — 303 ở bộ `default` tại M148 → M151, **0 ở bộ `wide`**, trong đó 120 dòng nằm ở Compatibility break. Cờ này được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở những dòng bị đổi bucket.
 
 ## Bước 6 — Những signal phải sửa ở ngoài repository
 
@@ -414,7 +428,7 @@ kind: mojo_method
 direction: modified
 signal: ipc_signature_change
 severity/score: 80
-bucket: Breaking
+bucket: Compatibility break
 ```
 
 **Việc tiếp theo:** tìm cả phía gọi lẫn phía hiện thực trong code Samsung, kiểm tra generated binding và khả năng tương thích version, rồi chạy test runtime đi qua đúng ranh giới process đó.
@@ -438,7 +452,7 @@ severity: 35
 coverage của surface: dưới 95%
 mức phạt: -15
 score: 20
-bucket: Housekeeping thay vì Breaking
+bucket: Upstream cleanup thay vì Compatibility break, unconfirmed = true
 lý do: có thể khoá này chỉ chuyển sang một file mà target set chưa đọc
 ```
 
@@ -453,7 +467,7 @@ lý do: có thể khoá này chỉ chuyển sang một file mà target set chưa
 ```text
 signal: flag_retired_on
 severity/score: 35
-bucket: Housekeeping
+bucket: Upstream cleanup
 sửa ở: ngoài repository
 ```
 
@@ -464,7 +478,7 @@ sửa ở: ngoài repository
 ```text
 platform_state.windows: not_compiled → not_compiled
 score: 0
-bucket: Housekeeping
+bucket: Upstream cleanup
 ```
 
 Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh tranh thứ tự ưu tiên với công việc thuộc Windows.
@@ -523,8 +537,8 @@ Một điểm cần biết khi viết script: `change.kind` và `bucket` nằm s
 
 Bản HTML có bốn bộ lọc độc lập, cộng một ô tìm kiếm và một ô loại trừ:
 
-- **Bucket**: Breaking / Behaviour / New surface / Housekeeping.
-- **Surface hoặc kind**: 16 loại `Fact`, được gom thành ba nhóm — Behaviour switches, External contracts, UI and scheduling.
+- **Bucket**: Compatibility break / Behaviour change / New declarations / Scheduled / Upstream cleanup.
+- **Surface hoặc kind**: 16 loại `Fact`, được gom thành ba nhóm — Feature switches, External contracts, UI and scheduling.
 - **Nhóm hậu quả**: chính ba nhóm vừa nêu.
 - **Bằng chứng CL**: dòng này đã tra được CL chưa, và ở mức nào. Bộ lọc này chỉ hiện khi báo cáo có dữ liệu tra cứu; [phần 7](<07 - Truy nguyên CL và issue.md>) giải thích năm trạng thái của nó.
 - **Ô loại trừ**: gõ một hoặc nhiều từ khoá để bỏ hẳn những dòng khớp chúng.
@@ -538,9 +552,10 @@ Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đ
 
 1. Kiểm tra ref của hai bên, target set, coverage, missing target và lỗi trích xuất.
 2. Lọc theo phần mình quan tâm — kind, bucket hoặc nhóm hậu quả.
-3. Xử lý các finding Breaking điểm cao trước — nhưng đọc signal chứ đừng chỉ nhìn con số.
+3. Xử lý các finding Compatibility break điểm cao trước — nhưng đọc signal chứ đừng chỉ nhìn con số.
 4. Xem Behaviour change, tập trung vào các luồng mà Samsung có tuỳ biến riêng.
-5. Xem New surface để lập backlog cho việc test và cân nhắc adopt.
-6. Cuối cùng xử lý phần Housekeeping thuộc về cấu hình — flag hết hạn, flag bị dọn. Không bỏ qua cả bucket này.
+5. Xem New declarations để lập backlog cho việc test và cân nhắc adopt.
+6. Xem Scheduled như danh sách của milestone sau.
+7. Trước khi đóng Upstream cleanup, đọc mục *Unconfirmed* — hoặc bật bộ lọc *All coverage* trong HTML. Bỏ qua phần còn lại.
 
 Với những dòng cần quyết định chứ không chỉ cần ghi nhận, còn một bước nữa: chạy `chromiumdiff serve` và mở dòng đó ra để xem CL nào đã tạo ra thay đổi và issue nào đứng sau nó. Điểm số nói dòng này đáng xem sớm đến đâu; CL nói người upstream đang sửa cái gì, và đó thường mới là thứ quyết định Samsung có phải làm gì hay không. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).

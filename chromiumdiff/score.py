@@ -34,8 +34,8 @@ from typing import Dict, List, Optional, Sequence
 from .diff import bucket_of, leading_signal, SIGNAL_LABELS
 from .model import (
     ADDED,
-    BUCKET_HOUSEKEEPING,
-    BUCKET_NEW,
+    BUCKET_ADDED,
+    BUCKET_CLEANUP,
     BUCKET_ORDER,
     KIND_LABELS,
     REMOVED,
@@ -256,7 +256,7 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     # not compete for attention, and it is filed where nothing needs doing.
     if _not_in_build(change):
         finding.score = 0
-        finding.bucket = BUCKET_HOUSEKEEPING
+        finding.bucket = BUCKET_CLEANUP
         finding.reasons = reasons + [
             f"0 — not compiled into the {PLATFORM} build on either side of "
             f"this change, so nothing it does reaches our users"
@@ -268,8 +268,8 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
 
     # Both directions rest on an absence. A removal is "not in the new side";
     # an addition is "not in the old side", and a run whose *old* snapshot was
-    # short of targets invents New surface exactly as readily as a short new
-    # one invents removals. An overload disappearing is a MODIFIED change and
+    # short of targets invents New declarations exactly as readily as a short
+    # new one invents removals. An overload disappearing is a MODIFIED change and
     # was slipping past this for the same reason.
     # An overload set moving is a MODIFIED change resting on an absence, and
     # which side depends on which way it moved: an entry gone is an absence
@@ -285,6 +285,14 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
                         or (direction == ADDED and scope.from_incomplete))
     if rests_on_absence and not scope.confirms_absence(change.kind, direction):
         score -= UNCONFIRMED_PENALTY
+        # The flag is set wherever the deduction is, not only where the filing
+        # also moves. The two are the same fact -- this run did not read enough
+        # of the tree to confirm the absence the row rests on -- and scoping the
+        # flag to the two `*_left_scan` signals made it name 31 of the 303 rows
+        # that took the penalty at M148 -> M151, while the field's own meaning
+        # covered all of them. The 120 it left out sit in Compatibility break,
+        # where a reader most wants to know the evidence is short.
+        finding.unconfirmed = True
         gap = scope.gap_for(direction)
         if gap:
             why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {gap}, so this "
@@ -302,9 +310,13 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # partial run the second reading is the likelier one, and 139 of these
         # at the top of an M148 -> M151 report -- roughly 100 of which had
         # simply moved -- is how a list stops being read.
+        #
+        # Only these two move bucket. Every row in this branch already carries
+        # `unconfirmed`; the bucket says what the evidence supports, the flag
+        # says the evidence is short, and they are not the same statement.
         if leading_signal(change) in UNCONFIRMED_SIGNALS:
-            bucket = BUCKET_HOUSEKEEPING
-            why += "; filed as housekeeping rather than breaking"
+            bucket = BUCKET_CLEANUP
+            why += "; filed as upstream cleanup rather than a compatibility break"
         # `wide` widens what is fetched. It cannot conjure a target the
         # source does not have or make a file parse, so the advice is only
         # offered when reading more would actually settle the question.
@@ -313,11 +325,11 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         else:
             reasons.append(why + " — --target-set wide settles it")
 
-    if (direction == ADDED and bucket == BUCKET_NEW
+    if (direction == ADDED and bucket == BUCKET_ADDED
             and scope.from_incomplete):
-        # "New surface" asserts the thing was not there before, and docking
-        # the score for doubt about that while keeping the label said two
-        # different things on one row.
+        # "New declarations" asserts the thing was not there before, and
+        # docking the score for doubt about that while keeping the label said
+        # two different things on one row.
         #
         # Only for a hole -- a target the old side did not have, a file that
         # would not parse -- and never for partial coverage. An addition is a
@@ -325,10 +337,11 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # does not make it any less present in the version being adopted;
         # applying coverage doubt here emptied the bucket entirely, which is
         # the failure this scoring was rebuilt to remove.
-        bucket = BUCKET_HOUSEKEEPING
+        bucket = BUCKET_CLEANUP
+        finding.unconfirmed = True
         reasons.append(
-            "filed as housekeeping rather than new surface: this run cannot "
-            "show it was absent before")
+            "filed as upstream cleanup rather than a new declaration: this "
+            "run cannot show it was absent before")
 
     finding.score = max(0, min(100, score))
     finding.bucket = bucket
@@ -370,4 +383,9 @@ def summarize_findings(findings: Sequence[Finding]) -> Dict[str, object]:
         # the report prints beside it is exactly true whatever else the
         # scoring does.
         "not_in_build": sum(1 for f in findings if _not_in_build(f.change)),
+        # Not a partition -- an `unconfirmed` finding is already counted in
+        # its bucket. It is here because it is the one number that says how
+        # much of this report is limited by what the run read rather than by
+        # what Chromium did, and `wide` is expected to drive it to zero.
+        "unconfirmed": sum(1 for f in findings if f.unconfirmed),
     }

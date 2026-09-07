@@ -32,6 +32,8 @@ img,svg{max-width:100%}
   --clay-soft:#F5DDD7;
   --brass:#8A6A34;
   --brass-soft:#EFE4CE;
+  --iris:#6B5AA6;
+  --iris-soft:#E4DFF2;
   --shadow:0 1px 2px rgba(16,24,25,.06),0 8px 24px -12px rgba(16,24,25,.18);
   --r:14px;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
@@ -53,6 +55,8 @@ img,svg{max-width:100%}
     --clay-soft:#3A1F18;
     --brass:#CBA96A;
     --brass-soft:#332917;
+    --iris:#B3A2E0;
+    --iris-soft:#251F38;
     --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
   }
 }
@@ -71,6 +75,8 @@ img,svg{max-width:100%}
   --clay-soft:#3A1F18;
   --brass:#CBA96A;
   --brass-soft:#332917;
+  --iris:#B3A2E0;
+  --iris-soft:#251F38;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
 }
 
@@ -382,10 +388,11 @@ h3.sub{font-size:.94rem;font-weight:640;margin:22px 0 9px}
 /* Inside a table cell the pill is inline, and a two-word label wrapping splits
    the background across two boxes with the corners in the wrong places. */
 td .bucket{display:inline-block;margin-top:0;white-space:nowrap}
-.b-quiet{background:var(--panel);color:var(--muted)}
-.b-new{background:var(--flow-soft);color:var(--flow)}
+.b-cleanup{background:var(--panel);color:var(--muted)}
+.b-added{background:var(--flow-soft);color:var(--flow)}
 .b-behaviour{background:var(--brass-soft);color:var(--brass)}
-.b-breaking{background:var(--clay-soft);color:var(--clay)}
+.b-contract{background:var(--clay-soft);color:var(--clay)}
+.b-scheduled{background:var(--iris-soft);color:var(--iris)}
 .reasons{margin-top:13px;display:grid;gap:5px;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
 .reasons div{background:var(--panel-2);border-radius:7px;padding:6px 10px}
 
@@ -707,7 +714,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
           <tr>
             <td class="mono"><b>added</b></td>
             <td>Present on the right, absent on the left</td>
-            <td>Chromium added it. New surface — nothing is switched on by it on its own.</td>
+            <td>Chromium added it. A new declaration — nothing is switched on by its existence.</td>
           </tr>
           <tr>
             <td class="mono"><b>removed</b></td>
@@ -730,22 +737,31 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       keys that vanished, 100 had simply moved into a file the run never opened.
     </div>
 
-    <h3 class="sub">The four buckets in the report</h3>
+    <h3 class="sub">The five buckets in the report</h3>
     <p>
       Every finding lands in one bucket, and the bucket is decided by the
       <b>leading signal</b> — the same one that set the severity. So a row is filed
       under the sentence it was ranked by, rather than under a sentence chosen
       separately from the ranking.
     </p>
+    <p>
+      All five answer one question: <b>what kind of thing happened</b>. The four
+      they replaced did not. <i>Breaking</i> and <i>Behaviour change</i> named a
+      consequence, <i>New surface</i> named a direction, and <i>Housekeeping</i>
+      named upstream's motive — three axes, so <code>web_api_added_live</code>
+      and <code>web_api_shipped</code> sat in different buckets while saying the
+      same thing about the Windows build, and <i>New surface</i> used the word
+      the <i>Surface</i> column beside it uses for a fact kind.
+    </p>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Bucket</th><th>Means</th><th>How to read it</th></tr></thead>
         <tbody>
           <tr>
-            <td><span class="bucket b-breaking">Breaking</span></td>
-            <td>Something outside the binary stops working, silently: stored user
-                data, launch scripts, Finch configs, live websites, the other
-                process</td>
+            <td><span class="bucket b-contract">Compatibility break</span></td>
+            <td>A contract outside the binary no longer holds, and nothing at
+                build time warns you: stored user data, launch scripts, Finch
+                configs, live websites, the other process</td>
             <td>Find every place that names it</td>
           </tr>
           <tr>
@@ -755,23 +771,30 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
             <td>Confirm what the difference is</td>
           </tr>
           <tr>
-            <td><span class="bucket b-new">New surface</span></td>
-            <td>Surface that did not exist before. Nothing is switched on by it on
-                its own</td>
+            <td><span class="bucket b-added">New declarations</span></td>
+            <td>A declaration exists in the new version that did not exist in the
+                old. Nothing is switched on by its existence</td>
             <td>Input to a product decision, not a risk</td>
           </tr>
           <tr>
-            <td><span class="bucket b-quiet">Housekeeping</span></td>
-            <td>Chromium tidying up after itself, and scheduling. Nothing
-                observable moved, or the tool cannot tell that anything did</td>
+            <td><span class="bucket b-scheduled">Scheduled</span></td>
+            <td>A removal date, not a removal. Chromium has scheduled something
+                for deletion or moved the date. Nothing has happened yet</td>
+            <td>Next milestone's list, not this one's</td>
+          </tr>
+          <tr>
+            <td><span class="bucket b-cleanup">Upstream cleanup</span></td>
+            <td>Chromium removed or moved something whose outcome was already
+                settled, or the declaration is not in the Windows build on either
+                side. Nothing observable moved</td>
             <td>Do not read line by line</td>
           </tr>
         </tbody>
       </table>
     </div>
     <div class="warnbox" style="margin-top:13px">
-      <b>A retired flag is Housekeeping, and that is the most consequential row in
-      the table.</b> M148 → M151 removes 90 <code>base::Feature</code> flags, split
+      <b>A retired flag is Upstream cleanup, and that is the most consequential
+      row in the table.</b> M148 → M151 removes 90 <code>base::Feature</code> flags, split
       72 that had shipped and 60 that were abandoned, and not one of them
       changes what a user sees. Filed as breakage they are 90 rows at the top of the
       report of which none is actionable — which is how a triage tool becomes one
@@ -783,15 +806,31 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       read”, and which of those it is depends entirely on how much of the tree the
       run covered. Measured on M148 → M151, <code>--target-set default</code> finds 139 of
       these and <code>wide</code> finds 171 — but only 30 are in the Windows
-      build at all, and it is those 30 that move from Housekeeping at 20 points
-      to Breaking at 35. The rest score 0 either way. A rule that gave the same answer either way would
-      be wrong in one of the two directions.
+      build at all, and it is those 30 that move from Upstream cleanup at 20
+      points to Compatibility break at 35. The rest score 0 either way. A rule
+      that gave the same answer either way would be wrong in one of the two
+      directions.
+    </div>
+    <div class="note" style="margin-top:13px">
+      <b>That move is not a bucket, and there is no sixth one.</b> Whether a run
+      confirmed the absence a row rests on is a property of the <i>run</i>: the
+      same removal is unconfirmed on <code>default</code> and confirmed on
+      <code>wide</code>. So the finding carries <code>unconfirmed</code> as a
+      field — an outlined badge beside the bucket pill in
+      <code>report.html</code> with an <i>All coverage</i> filter over it, a
+      section of its own in <code>report.md</code>, and
+      <code>summary.unconfirmed</code> in the JSON. It is set wherever the
+      −15 is, not only where the filing moves: <b>303 rows</b> at M148 → M151 on
+      the default set and <b>0 on the wide one</b>, 120 of them in Compatibility
+      break. That number says how much of a report is limited by what the run
+      read rather than by what Chromium did.
     </div>
 
     <h3 class="sub">One table, and every row says what it is</h3>
     <p>
-      The four buckets above are the reading order, not a severity order — a
-      Housekeeping row can outscore a New surface one. <code>report.html</code>
+      The five buckets above are the reading order, not a severity order — at
+      M148 → M151 a Scheduled row reaches 45, above every row in New
+      declarations. <code>report.html</code>
       is <b>a single table</b>, filterable and sortable. Two other layouts were tried on
       top of it and both were worse — recorded here so nobody goes back.
     </p>
@@ -1380,7 +1419,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       is adopted. Nothing warns you either — both ends of a Mojo interface are
       generated from the same file, so a changed signature never breaks the build,
       and Chromium ignores an unrecognised command-line switch without a word.
-      Measured on M148 → M151: <b>220 of the 276 Breaking rows are Mojo or web
+      Measured on M148 → M151: <b>220 of the 276 Compatibility break rows are Mojo or web
       API</b>, and none of them is answered by “did the flag state change”.
     </div>
     <div class="tablewrap">
@@ -1516,7 +1555,8 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       The bucket does not come from the score. It comes from the leading signal,
       the same one that set the severity, so a row is filed under the sentence it
       was ranked by. The one exception is above: an unconfirmed disappearance
-      moves to Housekeeping, because on a partial read that is what it is.
+      moves to Upstream cleanup and is marked <code>unconfirmed</code>, because
+      on a partial read that is what it is.
     </div>
 
     <h3 class="sub">Where the severity comes from</h3>
@@ -1646,7 +1686,7 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       <div class="card">
         <h3 class="sub" style="margin-top:0">Everything is analysed; nothing is cut</h3>
         <p style="font-size:.87rem;margin:0">
-          The JSON always holds <b>every</b> finding, Housekeeping included, and the
+          The JSON always holds <b>every</b> finding, Upstream cleanup included, and the
           two rendered files are views of it. Narrowing before the analysis is how a
           report loses its top: the most severe items are usually shared plumbing —
           Mojo signature changes — which belongs to no product feature and is the
@@ -1655,8 +1695,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       </div>
     </div>
     <div class="warnbox" style="margin-top:14px">
-      <code>report.md</code> gives a table to Breaking, Behaviour change and New
-      surface, and deliberately none to <b>Housekeeping</b>: it is the largest bucket
+      <code>report.md</code> gives a table to Compatibility break, Behaviour
+      change, New declarations and Scheduled, and deliberately none to
+      <b>Upstream cleanup</b>: it is the largest bucket
       in every report and the one nothing in it needs doing about. It is still in
       <code>report.json</code> and still in the sortable table in
       <code>report.html</code> — printed, not omitted, just not printed first.
@@ -1798,9 +1839,9 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
       matters, run <code>wide</code>.
     </p>
     <div class="warnbox" style="margin-top:14px">
-      So <code>Breaking: 0</code> <b>never means “this upgrade carries no risk”.</b> It
+      So <code>Compatibility break: 0</code> <b>never means “this upgrade carries no risk”.</b> It
       means “nothing was found within the scope that was scanned” — and on the default
-      set an unconfirmed disappearance is filed under Housekeeping by design, so some
+      set an unconfirmed disappearance is filed under Upstream cleanup by design, so some
       of what would be breaking is not counted there at all. Every report should
       restate the coverage figure the run printed.
     </div>
@@ -1972,10 +2013,10 @@ inline constexpr char <b>kPromptForDownload</b>[] = <span class="g">"download.pr
     scoreval.textContent=score;
 
     /* Bucket comes from the signal, not from the score -- the one
-       exception being the zero case, which is filed as housekeeping
+       exception being the zero case, which is filed as upstream cleanup
        because it cannot reach anybody. This mirrors score.py. */
     var b,cls;
-    if(zeroed){ b="Housekeeping"; cls="b-quiet"; }
+    if(zeroed){ b="Upstream cleanup"; cls="b-cleanup"; }
     else { b="Behaviour change"; cls="b-behaviour"; }
     bucketlbl.textContent=b;
     bucketlbl.className="bucket "+cls;

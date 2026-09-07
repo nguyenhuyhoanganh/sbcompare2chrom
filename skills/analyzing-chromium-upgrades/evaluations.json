@@ -30,8 +30,8 @@
       "expected_behavior": [
         "Quotes the coverage recorded in this report's own `meta.coverage`, and not the worked example in SKILL.md, which is a different run and a different figure",
         "Names where the number came from, so a reader can check it against the report rather than the document",
-        "Says that coverage changes the answer and not merely the confidence: on a partial read a removal is penalised and filed as Housekeeping rather than Breaking",
-        "States that `Breaking: 0` on a default run is not a clean bill of health"
+        "Says that coverage changes the answer and not merely the confidence: on a partial read a removal is penalised, filed as Upstream cleanup rather than a Compatibility break, and marked `unconfirmed`",
+        "States that `Compatibility break: 0` on a default run is not a clean bill of health, and reads `summary.unconfirmed` before saying otherwise"
       ]
     },
     {
@@ -63,7 +63,7 @@
       "expected_behavior": [
         "Reads the state the flag held before deletion rather than the deletion alone",
         "Reports `flag_retired_on`: the feature shipped and the behaviour is now permanent and can no longer be turned off, so no capability was lost",
-        "Explains that this is why the row is Housekeeping rather than Breaking, instead of treating the bucket as a mistake",
+        "Explains that this is why the row is Upstream cleanup rather than a Compatibility break, instead of treating the bucket as a mistake",
         "States the two things that do break: anything naming the symbol no longer builds, and any override setting the flag from outside the binary is silently dead",
         "Treats it as one of a large class of retirements on this pair, most of which had shipped, rather than as an isolated event"
       ]
@@ -91,7 +91,7 @@
       "1": "Verified. The two flags disagree in opposite directions -- one changes on Windows while `default_state` holds still, the other flips `default_state` while Windows holds still -- and both are filed under Behaviour change, which is what makes the bucket useless for telling them apart.",
       "2": "Verified. The coverage in `meta.coverage` and the worked example in SKILL.md are different figures, so quoting the document instead of the run is detectable.",
       "3": "Mechanism verified, not the dialogue. report.html does reference chromium-review.googlesource.com, which is the call a file:// origin blocks, and `chromiumdiff serve` exists.",
-      "4": "Verified. The row carries `flag_retired_on` and is filed housekeeping, and retirements of that kind outnumber the abandoned ones on this pair.",
+      "4": "Verified. The row carries `flag_retired_on` and is filed under Upstream cleanup, and retirements of that kind outnumber the abandoned ones on this pair.",
       "5": "Verified. The row scores below its severity and carries the unconfirmed-removal sentence, and every removed pref key on this run is `pref_left_scan`."
     }
   }

@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from chromiumdiff.diff import diff_snapshots
 from chromiumdiff.extract import mojom
-from chromiumdiff.model import (ADDED, BUCKET_HOUSEKEEPING, Fact, REMOVED,
+from chromiumdiff.model import (ADDED, BUCKET_CLEANUP, Fact, REMOVED,
                                Report, Snapshot)
 from chromiumdiff.score import (Scope, score_all, score_change,
                                summarize_findings)
@@ -124,7 +124,7 @@ class TestDiffSemantics(unittest.TestCase):
             self.assertNotIn("feature_deleted", c.signals)
             self.assertLess(c.severity, 65)
 
-    def test_a_retired_flag_is_housekeeping_not_breakage(self):
+    def test_a_retired_flag_is_cleanup_not_breakage(self):
         """The single most consequential row in the bucket table.
 
         90 flags are retired in a real M148 -> M151, split 45/45, and not one
@@ -135,7 +135,7 @@ class TestDiffSemantics(unittest.TestCase):
         old = snap("148.0.0.0", [feature("Shipped", "enabled")])
         new = snap("151.0.0.0", [])
         change = diff_snapshots(old, new, platform="windows")[0]
-        self.assertEqual(score_change(change).bucket, "housekeeping")
+        self.assertEqual(score_change(change).bucket, "cleanup")
 
     def test_experimental_reaching_stable_is_shipped(self):
         old = snap("139.0.0.0", [blink("Api", "experimental")])
@@ -273,7 +273,7 @@ struct Handset {
                                 snap("151.0.0.0", []))[0]
         finding = score_change(change)
         self.assertEqual(finding.score, 0)
-        self.assertEqual(finding.bucket, BUCKET_HOUSEKEEPING)
+        self.assertEqual(finding.bucket, BUCKET_CLEANUP)
         self.assertIn("not compiled into the windows build",
                       " ".join(finding.reasons))
 
@@ -310,7 +310,7 @@ struct Handset {
                                 platform="windows")[0]
         finding = score_change(change)
         self.assertEqual(finding.score, 0)
-        self.assertEqual(finding.bucket, "housekeeping")
+        self.assertEqual(finding.bucket, "cleanup")
 
     def test_leaving_our_build_keeps_its_full_weight(self):
         """The case the old rule scored *down*.
@@ -350,7 +350,7 @@ struct Handset {
         partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
         self.assertEqual(score_change(change, partial).score, change.severity)
 
-    def test_an_unconfirmed_disappearance_is_filed_as_housekeeping(self):
+    def test_an_unconfirmed_disappearance_is_filed_as_cleanup(self):
         """`pref_left_scan` says "deleted, or moved"; coverage says which."""
         key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
                    attrs={"var": "kAB"})
@@ -359,14 +359,19 @@ struct Handset {
         self.assertIn("pref_left_scan", change.signals)
         partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
         whole = Scope({"to": {"candidates": 1164, "read": 1164}}, to_ref="151")
-        self.assertEqual(score_change(change, partial).bucket, "housekeeping")
-        self.assertEqual(score_change(change, whole).bucket, "breaking")
+        self.assertEqual(score_change(change, partial).bucket, "cleanup")
+        self.assertEqual(score_change(change, whole).bucket, "contract")
+        # The bucket says what the evidence supports; the flag says the
+        # evidence is short. Without the second one the row is unreachable:
+        # it sits in the one bucket `report.md` gives no table to.
+        self.assertTrue(score_change(change, partial).unconfirmed)
+        self.assertFalse(score_change(change, whole).unconfirmed)
 
-    def test_new_capability_is_new_surface_not_breakage(self):
+    def test_new_capability_is_a_new_declaration_not_breakage(self):
         old = snap("139.0.0.0", [])
         new = snap("143.0.0.0", [blink("NewApi", "test")])
         findings = score_all(diff_snapshots(old, new))
-        self.assertEqual(findings[0].bucket, "new")
+        self.assertEqual(findings[0].bucket, "added")
 
 
 
@@ -425,7 +430,7 @@ class TestWebApiGates(unittest.TestCase):
         self.assertNotIn("web_api_added_live", change.signals)
         self.assertNotIn("web_api_added_gated", change.signals)
 
-    def test_removing_what_no_page_could_reach_is_housekeeping(self):
+    def test_removing_what_no_page_could_reach_is_cleanup(self):
         """32 of 77 removals at M148 -> M151. They were all Breaking."""
         old = snap("148.0.0.0", [self._flag("Later", "experimental"),
                                  self._idl("gone", runtime="Later")])
@@ -433,7 +438,7 @@ class TestWebApiGates(unittest.TestCase):
         change = [c for c in diff_snapshots(old, new)
                   if c.key == "Widget.gone"][0]
         self.assertIn("web_api_removed_gated", change.signals)
-        self.assertEqual(score_change(change).bucket, BUCKET_HOUSEKEEPING)
+        self.assertEqual(score_change(change).bucket, BUCKET_CLEANUP)
 
 
 class TestEverySignalIsClassified(unittest.TestCase):
@@ -484,6 +489,195 @@ class TestEverySignalIsClassified(unittest.TestCase):
                               name="k")
                 self.assertIn(bucket_of(bare), BUCKET_ORDER,
                               f"{kind}/{direction}")
+
+    def test_a_bucket_name_means_nothing_else_on_the_page(self):
+        """One word, one meaning.
+
+        `report.html` prints a Surface column holding a fact kind and offers
+        an "All surfaces" filter over those kinds. While a bucket was called
+        `new` and labelled "New surface", the same word named a bucket on the
+        triage card, a fact kind in the column beside it, and the filter over
+        that column -- three different things on one screen.
+        """
+        from chromiumdiff.model import (ALL_KINDS, BUCKET_LABELS, BUCKET_ORDER,
+                                       KIND_GROUPS, KIND_LABELS)
+        taken = {w for kind in ALL_KINDS
+                 for w in KIND_LABELS[kind].lower().split()}
+        taken |= {w for name, _ in KIND_GROUPS for w in name.lower().split()}
+        taken -= {"and", "of", "a", "the"}
+        for bucket in BUCKET_ORDER:
+            for word in BUCKET_LABELS[bucket].lower().split():
+                self.assertNotIn(word, taken,
+                                 f"{BUCKET_LABELS[bucket]!r} reuses a word "
+                                 f"that names a fact kind or a kind group")
+
+
+class TestScheduledIsItsOwnBucket(unittest.TestCase):
+    """A date is not an event.
+
+    `flag_expiring` and `flag_expiry_moved` are the only rows in a report
+    about work that has *not* happened -- 302 of 3,022 findings at M148 ->
+    M151, a tenth of it. Filed as cleanup they read as work that happened and
+    did not matter, which is the opposite of what they say, and the only way
+    to reach them was to filter `report.json` by signal id.
+    """
+
+    def _tables(self):
+        from chromiumdiff.diff import SIGNAL_BUCKET
+        return SIGNAL_BUCKET
+
+    def test_the_two_scheduling_signals_are_scheduled(self):
+        from chromiumdiff.model import BUCKET_SCHEDULED
+        buckets = self._tables()
+        self.assertEqual(buckets["flag_expiring"], BUCKET_SCHEDULED)
+        self.assertEqual(buckets["flag_expiry_moved"], BUCKET_SCHEDULED)
+
+    def test_nothing_else_is(self):
+        """A signal about something that already happened does not belong
+        here, and the bucket is worth nothing if it fills up."""
+        from chromiumdiff.model import BUCKET_SCHEDULED
+        buckets = self._tables()
+        self.assertEqual(
+            sorted(s for s, b in buckets.items() if b == BUCKET_SCHEDULED),
+            ["flag_expiring", "flag_expiry_moved"])
+
+    def test_a_flag_scheduled_for_deletion_lands_there(self):
+        from chromiumdiff.model import BUCKET_SCHEDULED
+        # Far enough out that it is not also `flag_expiring`, which fires at
+        # target + 2 and would file the row under its own severity.
+        old = snap("148.0.0.0", [Fact(kind="flag_entry", key="f", name="f",
+                                      path="flags.cc",
+                                      attrs={"expiry_milestone": 150})])
+        new = snap("151.0.0.0", [Fact(kind="flag_entry", key="f", name="f",
+                                      path="flags.cc",
+                                      attrs={"expiry_milestone": 160})])
+        change = diff_snapshots(old, new, platform="windows")[0]
+        self.assertIn("flag_expiry_moved", change.signals)
+        self.assertEqual(score_change(change).bucket, BUCKET_SCHEDULED)
+
+
+class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
+    """Whether a run confirmed an absence is a property of the run.
+
+    The same change carries it on a default run and not on a wide one, so it
+    cannot be a bucket -- buckets are decided by the change. It is a field so
+    a reader can filter for it: the rows that carry it sit in Upstream
+    cleanup, the one bucket `report.md` gives no table to.
+    """
+
+    def _unconfirmed_pref(self):
+        key = Fact(kind="pref", key="a.b", name="a.b", path="pref_names.h",
+                   attrs={"var": "kAB"})
+        change = diff_snapshots(snap("148.0.0.0", [key]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        return score_change(change, partial)
+
+    def test_it_survives_a_round_trip_through_json(self):
+        from chromiumdiff.model import Finding
+        finding = self._unconfirmed_pref()
+        self.assertTrue(finding.unconfirmed)
+        self.assertTrue(Finding.from_dict(finding.to_dict()).unconfirmed)
+
+    def test_a_confirmed_finding_says_so(self):
+        from chromiumdiff.model import Finding
+        change = diff_snapshots(snap("148.0.0.0", []),
+                                snap("151.0.0.0", [feature("New", "enabled")]),
+                                platform="windows")[0]
+        finding = score_change(change)
+        self.assertFalse(finding.unconfirmed)
+        self.assertFalse(Finding.from_dict(finding.to_dict()).unconfirmed)
+
+    def test_the_summary_counts_them(self):
+        from chromiumdiff.score import summarize_findings
+        summary = summarize_findings([self._unconfirmed_pref()])
+        self.assertEqual(summary["unconfirmed"], 1)
+
+    def test_the_markdown_report_gives_them_a_section(self):
+        """They are in the bucket with no table, so without this the only way
+        to reach them is to know which signal ids to grep `report.json` for."""
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
+        page = md_report.render(Report(from_ref="a", to_ref="b",
+                                       findings=[self._unconfirmed_pref()]))
+        self.assertIn("## Unconfirmed (1)", page)
+        self.assertIn("--target-set wide", page)
+
+    def test_the_html_row_carries_the_flag_and_offers_the_filter(self):
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
+        page = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=[self._unconfirmed_pref()]),
+                                  "windows")
+        self.assertEqual([r.get("unc") for r in html_report.payload_of(page)],
+                         [1])
+        self.assertIn('id="fu"', page)
+
+    def test_the_flag_is_set_wherever_the_deduction_is(self):
+        """One fact, said twice, and the two must agree.
+
+        The flag was set only where the filing *also* moved -- the two
+        `*_left_scan` signals -- so it named 31 of the 303 rows that took the
+        penalty at M148 -> M151, while the field's own meaning covers all of
+        them. The 120 it left out sit in Compatibility break, where a reader
+        most wants to know the evidence is short.
+        """
+        from chromiumdiff.model import Fact
+        # A removed Mojo method: penalised for the unconfirmed absence, and
+        # NOT one of the two signals that move bucket.
+        method = Fact(kind="mojo_method", key="Widget.Ping", name="Ping",
+                      path="widget.mojom", attrs={"signature": "Ping()"})
+        change = diff_snapshots(snap("148.0.0.0", [method]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        finding = score_change(change, partial)
+        docked = [r for r in finding.reasons if r.startswith("-15 unconfirmed")]
+        self.assertTrue(docked, finding.reasons)
+        self.assertTrue(finding.unconfirmed)
+        # The bucket does not move: only `pref_left_scan` and
+        # `switch_left_scan` do that.
+        self.assertEqual(finding.bucket, "contract")
+
+    def test_nothing_carries_the_flag_without_the_deduction(self):
+        """The other direction of the same invariant."""
+        change = diff_snapshots(snap("148.0.0.0", []),
+                                snap("151.0.0.0", [feature("New", "enabled")]),
+                                platform="windows")[0]
+        finding = score_change(change)
+        self.assertFalse(any(r.startswith("-15 unconfirmed")
+                             for r in finding.reasons))
+        self.assertFalse(finding.unconfirmed)
+
+    def test_no_two_filters_share_a_label(self):
+        """A control row where two pickers both say "All evidence" is one
+        word naming two things, the same defect as a bucket called "New
+        surface" beside a Surface column.
+
+        The provenance filter renders on every page -- hidden until a lookup
+        lands, but present -- so this holds whether or not one has.
+        """
+        import re
+
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import html as html_report
+        page = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=[self._unconfirmed_pref()]),
+                                  "windows")
+        labels = re.findall(r'data-all="([^"]+)"', page)
+        self.assertEqual(sorted(labels), sorted(set(labels)), labels)
+
+    def test_a_report_with_nothing_unconfirmed_offers_no_filter(self):
+        """An empty control reads as a broken one, and its absence on a wide
+        run is itself the answer: no row rests on a hole."""
+        from chromiumdiff.model import Change, Finding, Report
+        from chromiumdiff.report import html as html_report
+        finding = Finding(change=Change(change_type="added", kind="pref",
+                                        key="a.b", name="a.b",
+                                        paths=["pref_names.h"]),
+                          score=10, bucket="added")
+        page = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=[finding]), "windows")
+        self.assertNotIn('id="fu"', page)
 
 
 class TestPartitions(unittest.TestCase):
@@ -726,7 +920,7 @@ class TestHtmlReportScales(unittest.TestCase):
                                   key=f"Feature{i}", name=f"Feature{i}",
                                   signals=["flag_retired_on"],
                                   paths=[f"content/f{i}.cc"]),
-                    score=100 - i % 100, bucket="housekeeping",
+                    score=100 - i % 100, bucket="cleanup",
                     reasons=["base severity 75"])
             for i in range(n)]
         return Report(from_ref="a", to_ref="b", findings=findings)
@@ -917,10 +1111,14 @@ class TestHtmlReportScales(unittest.TestCase):
         # hold. Within a filter the choices are OR; the count is the union.
         self.assertIn("of 43", out["oneBucket"])
         self.assertIn("of 2978", out["twoBuckets"])
-        self.assertEqual("Breaking", out["oneBucketLabel"])
+        # The harness renders an option's label by capitalising its value,
+        # so this is the `contract` box, not the page's "Compatibility
+        # break". What is asserted is the rule -- first choice by name --
+        # not the wording, which the page looks up from BUCKET_LABELS.
+        self.assertEqual("Contract", out["oneBucketLabel"])
         # Named plus a count, because three labels do not fit a control that
         # is one line tall.
-        self.assertEqual("Breaking +1", out["twoBucketsLabel"])
+        self.assertEqual("Contract +1", out["twoBucketsLabel"])
         # Nothing ticked reads as it always did.
         self.assertTrue(out["noBucketLabel"].startswith("All"))
 
@@ -1240,7 +1438,7 @@ class TestTheMarkdownCarriesTheGroup(unittest.TestCase):
         return Finding(
             change=Change(change_type="modified", kind="mojo_method", key=key,
                           name=key.split(".")[-1], signals=["ipc_signature_change"]),
-            score=score, bucket="breaking", reasons=["severity 80"],
+            score=score, bucket="contract", reasons=["severity 80"],
             enrichment={"cluster": group} if group else {})
 
     def _detail(self, finding):
@@ -1290,7 +1488,7 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
             change=Change(change_type="added", kind="feature_param",
                           key="CastStreamingMaxVideoBitrate/max_bitrate_mbps",
                           name="max_bitrate_mbps"),
-            score=15, bucket="new",
+            score=15, bucket="added",
             enrichment={"cluster": {"id": "x", "label": "CastStreamingMaxVideoBitrate",
                                     "size": 2, "kinds": [], "top_score": 55,
                                     "members": ["base_feature:CastStreamingMaxVideoBitrate",
@@ -1312,7 +1510,7 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
         finding = Finding(
             change=Change(change_type="added", kind="feature_param",
                           key="A/b", name="b"),
-            score=15, bucket="new",
+            score=15, bucket="added",
             enrichment={"cluster": {"id": "x", "label": "A", "size": 1,
                                     "kinds": [], "top_score": 15}})
         row = _to_rows(Report(from_ref="a", to_ref="b", summary={}, meta={},
@@ -1337,7 +1535,7 @@ class TestClustering(unittest.TestCase):
         return Finding(
             change=Change(change_type="modified", kind=kind, key=key,
                           name=key.split(".")[-1]),
-            score=score, bucket="breaking",
+            score=score, bucket="contract",
             enrichment={"gerrit": {"changes": cls}})
 
     def test_one_cl_across_several_declarations_is_one_story(self):
@@ -1633,7 +1831,7 @@ class TestNoVerdictStage(unittest.TestCase):
         change.deltas = {"default": ["https://x.test/a", "https://x.test/b"]}
         text = html_report.render(
             Report(from_ref="a", to_ref="b",
-                   findings=[Finding(change=change, score=40, bucket="housekeeping")]))
+                   findings=[Finding(change=change, score=40, bucket="cleanup")]))
         markup = text.split("window.__FINDINGS__")[0]
         targets = re.findall(r'(?:src|href|action)\s*=\s*["\']([^"\']*)',
                              markup)
@@ -3289,7 +3487,7 @@ class TestTheReportSaysWhatChangedOnEachScreen(unittest.TestCase):
         from chromiumdiff.report import markdown as md_report
         flag = Change(change_type="added", kind="base_feature", key="F", name="F")
         report = Report(from_ref="a", to_ref="b",
-                        findings=[Finding(change=flag, score=20, bucket="housekeeping")])
+                        findings=[Finding(change=flag, score=20, bucket="cleanup")])
         self.assertNotIn("What changed on each screen", md_report.render(report))
 
 
@@ -3400,7 +3598,7 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
         for text in (md, html_text):
             self.assertIn("Now ON by default on Windows", text)
         # The markdown groups by consequence and says what the group means.
-        self.assertIn("Behaviour switches", md)
+        self.assertIn("Feature switches", md)
         self.assertIn("moves behaviour on its own", md)
         # The page carries it per row, in the What happened column.
         self.assertIn("What happened", html_text)
@@ -3419,7 +3617,7 @@ class TestTheReportSaysWhatHappened(unittest.TestCase):
                     score=75, bucket="behaviour"),
             Finding(change=self._change(key="b", kind="flag_entry",
                                         change_type="removed"),
-                    score=30, bucket="housekeeping")])
+                    score=30, bucket="cleanup")])
         text = html_report.render(report)
         rows = json.loads(re.search(r"window\.__FINDINGS__=(\[.*?\]);\n",
                                     text, re.S).group(1))
@@ -3560,7 +3758,7 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
         self.assertEqual(change.signals, ["ipc_ordinal_changed"])
         finding = score_change(change)
         self.assertEqual(finding.score, 80)
-        self.assertEqual(finding.bucket, "breaking")
+        self.assertEqual(finding.bucket, "contract")
 
     def test_the_row_says_what_moved(self):
         """A reader must not have to open the mojom to see it."""
@@ -3642,13 +3840,13 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         self.assertTrue(new_hole.confirms_absence("switch", ADDED))
         self.assertEqual(score_change(removed, old_hole).score,
                          score_change(removed, Scope(self.FULL, "r")).score)
-        self.assertEqual(score_change(added, new_hole).bucket, "new")
+        self.assertEqual(score_change(added, new_hole).bucket, "added")
 
     def test_an_unconfirmed_addition_is_not_called_new_surface(self):
         """The label asserts it was not there before. That is the doubt."""
         scope = Scope(self.FULL, "r", from_incomplete="2 targets missing")
         finding = score_change(self._switch_change("added"), scope)
-        self.assertEqual(finding.bucket, "housekeeping")
+        self.assertEqual(finding.bucket, "cleanup")
         self.assertIn("cannot show it was absent before",
                       " ".join(finding.reasons))
 
@@ -4241,7 +4439,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         self.assertEqual(change.signals, ["web_api_overload_removed"])
         finding = score_change(change)
         self.assertEqual(finding.score, 60)
-        self.assertEqual(finding.bucket, "breaking")
+        self.assertEqual(finding.bucket, "contract")
 
     def test_filling_a_gap_below_the_existing_counts_is_new_surface(self):
         """A call at that count used to throw, so no call changes target."""
@@ -4251,7 +4449,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
             self._snap("151.0.0.0", "Promise<R> install(); " + narrow))
             if c.kind == "idl_member"][0]
         self.assertEqual(change.signals, ["web_api_overload_added"])
-        self.assertEqual(score_change(change).bucket, "new")
+        self.assertEqual(score_change(change).bucket, "added")
 
     def test_a_longer_overload_captures_calls_that_were_being_clamped(self):
         """A second version of the same wrong claim, caught the same way.
@@ -4750,6 +4948,58 @@ class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
         cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
         with open(out, encoding="utf-8") as fh:
             self.assertEqual(json.load(fh)["coverage"]["wide"]["read"], 8295)
+
+    def test_the_same_holds_for_the_provenance_block(self):
+        """Lookups are lazy, so a freshly produced report has none of them --
+        and `figures` is normally run on exactly such a report.
+
+        Only `coverage.wide` was carried, so re-running the command after the
+        bucket split deleted a block six figures in the documents cite. The
+        same failure, one field over.
+        """
+        import argparse
+
+        from chromiumdiff.cli import cmd_figures
+        from chromiumdiff.model import write_json
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out = os.path.join(tmp, "figures.json")
+        report = os.path.join(tmp, "report.json")
+        write_json(report, self._report([]).to_dict())
+        write_json(out, {"provenance": {"rows": 65, "rows_named_by_a_verdict": 65,
+                                       "rows_leads_only": 0,
+                                       "cls_cited": 81, "verdicts": {},
+                                       "issues_linked": 39,
+                                       "issues_restricted": 13}})
+        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
+        with open(out, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["provenance"]["rows"], 65)
+
+    def test_a_fresh_measurement_wins_over_a_carried_one(self):
+        """Carrying forward is a floor, not a preference. A report that *has*
+        been looked up in must overwrite the block, or the figures freeze at
+        whatever the first run happened to measure."""
+        import argparse
+
+        from chromiumdiff.cli import cmd_figures
+        from chromiumdiff.model import write_json
+
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        out = os.path.join(tmp, "figures.json")
+        report = os.path.join(tmp, "report.json")
+        rows = [self._finding("A", [{"match": "exact", "number": 1,
+                                     "bugs": []}])]
+        write_json(report, self._report(rows).to_dict())
+        write_json(out, {"provenance": {"rows": 65, "rows_named_by_a_verdict": 65,
+                                       "rows_leads_only": 0,
+                                       "cls_cited": 81, "verdicts": {},
+                                       "issues_linked": 39,
+                                       "issues_restricted": 13}})
+        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
+        with open(out, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["provenance"]["rows"], 1)
 
 
 class TestEveryFlagIsActedOn(unittest.TestCase):
@@ -6573,19 +6823,25 @@ class TestThePanelSaysWhatTheReaderCannotSee(unittest.TestCase):
 
     def test_the_triage_is_read_in_severity_order(self):
         """The order down the page is the reader's working order, and it is
-        the one thing worth encoding about four counts.
+        the one thing worth encoding about the counts.
 
-        Asserted with housekeeping largest and breaking smallest, so ordering
-        by count and ordering by severity give opposite answers. A summary
-        that sorted itself by size would put the bucket you look at last at
-        the top.
+        Asserted with cleanup largest and contract smallest, so ordering by
+        count and ordering by severity give opposite answers. A summary that
+        sorted itself by size would put the bucket you look at last at the
+        top.
+
+        Sizes are built from BUCKET_ORDER rather than written out, because a
+        literal list of bucket names goes stale silently: the version of this
+        test that named "new" kept passing after that bucket was split into
+        "added" and "scheduled", asserting an order over a card that no longer
+        rendered.
         """
         import re
 
         from chromiumdiff.model import BUCKET_ORDER, Change, Finding, Report
         from chromiumdiff.report import html as html_report
 
-        sizes = {"breaking": 1, "behaviour": 2, "new": 4, "housekeeping": 8}
+        sizes = {b: 2 ** i for i, b in enumerate(BUCKET_ORDER)}
         findings = [
             Finding(change=Change(change_type="modified", kind="base_feature",
                                   key=f"{bucket}/{i}", name=f"k{i}",
@@ -6599,8 +6855,8 @@ class TestThePanelSaysWhatTheReaderCannotSee(unittest.TestCase):
                           r'([\d,]+)</span>', page)
         self.assertEqual([b for b, _ in rows], list(BUCKET_ORDER),
                          "the largest bucket may not float to the top")
-        self.assertEqual(dict(rows)["housekeeping"], "8")
-        self.assertEqual(dict(rows)["breaking"], "1")
+        for bucket, n in sizes.items():
+            self.assertEqual(dict(rows)[bucket], f"{n:,}", bucket)
 
 
 class TestALookupAlwaysAnswers(unittest.TestCase):
@@ -7027,7 +7283,7 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
         """`report.md` has no badge colour, no row state and no panel. The
         line a reader copies into a ticket is the whole of what travels, so
         the heading carries the disclaimer there."""
-        from chromiumdiff.model import BUCKET_BREAKING, Change, Finding, Report
+        from chromiumdiff.model import BUCKET_CONTRACT, Change, Finding, Report
         from chromiumdiff.report import markdown as md
 
         def rendered(match):
@@ -7037,7 +7293,7 @@ class TestALeadIsNeverPrintedAsACitation(unittest.TestCase):
                 findings=[Finding(
                     change=Change(change_type="modified", kind="base_feature",
                                   key="kFoo", name="kFoo", paths=["f.cc"]),
-                    score=90, bucket=BUCKET_BREAKING,
+                    score=90, bucket=BUCKET_CONTRACT,
                     enrichment={"gerrit": {
                         "candidates": 9, "diffs_read": True,
                         "changes": [{"number": 7700001, "date": "2026-06-01",

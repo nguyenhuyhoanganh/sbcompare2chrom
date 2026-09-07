@@ -71,8 +71,9 @@ browser and speaks the same interface, an install can end up part-updated so
 two versions run side by side, or there is out-of-tree code implementing the
 interface, which is the usual case.
 
-Say which of those applies before calling it a runtime break. A **Breaking**
-row says a contract moved, not that anyone had signed it.
+Say which of those applies before calling it a runtime break. A
+**Compatibility break** row says a contract moved, not that anyone had signed
+it.
 
 ### A removed switch fails silently; a removed pref may orphan data
 

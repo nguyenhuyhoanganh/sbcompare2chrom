@@ -168,7 +168,7 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
 
 <figure>
   <div class="figbody w720">
-    <svg viewBox="0 0 900 1042" role="img" aria-label="Xương sống sáu khối theo chiều dọc, mỗi khối kèm một diagram phụ bên phải: ghim phiên bản, hai nguồn lấy source, chín extractor gộp thành ba nhóm, hai nửa có cổng và không có cổng, thang điểm chỉ trừ, và ba trục phân loại.">
+    <svg viewBox="0 0 900 1056" role="img" aria-label="Xương sống sáu khối theo chiều dọc, mỗi khối kèm một diagram phụ bên phải: ghim phiên bản, hai nguồn lấy source, chín extractor gộp thành ba nhóm, hai nửa có cổng và không có cổng, thang điểm chỉ trừ, và ba trục phân loại.">
         <defs>
           <marker id="v5a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,1 L9,5 L0,9 z" fill="currentColor" opacity=".55"/></marker>
@@ -319,11 +319,12 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
 
         <!-- ======= S6: ba trục + dừng ======= -->
         <text class="tl dim" x="256" y="892">mỗi dòng mang ba nhãn trực giao</text>
-        <text class="ts" x="256" y="914" fill="var(--accent)">bucket — tệ đến mức nào</text>
-        <text class="ts dim" x="256" y="932">Breaking</text>
+        <text class="ts" x="256" y="914" fill="var(--accent)">bucket — loại chuyện gì đã xảy ra</text>
+        <text class="ts dim" x="256" y="932">Compatibility break</text>
         <text class="ts dim" x="256" y="946">Behaviour change</text>
-        <text class="ts dim" x="256" y="960">New surface</text>
-        <text class="ts dim" x="256" y="974">Housekeeping</text>
+        <text class="ts dim" x="256" y="960">New declarations</text>
+        <text class="ts dim" x="256" y="974">Scheduled</text>
+        <text class="ts dim" x="256" y="988">Upstream cleanup</text>
 
         <text class="ts" x="462" y="914" fill="var(--accent)">group — loại hậu quả</text>
         <text class="ts dim" x="462" y="932">công tắc</text>
@@ -336,8 +337,8 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
         <text class="ts dim" x="662" y="960">route · control · gate</text>
         <text class="ts dim" x="662" y="974">người đọc lọc theo trục nào cũng được</text>
 
-        <line x1="256" y1="996" x2="870" y2="996" stroke="var(--stop)" stroke-width="1.5"/>
-        <text class="ts" x="563" y="1014" text-anchor="middle" fill="var(--stop)">dừng ở bằng chứng — không kết luận “điều này có nghĩa gì với sản phẩm”</text>
+        <line x1="256" y1="1010" x2="870" y2="1010" stroke="var(--stop)" stroke-width="1.5"/>
+        <text class="ts" x="563" y="1028" text-anchor="middle" fill="var(--stop)">dừng ở bằng chứng — không kết luận “điều này có nghĩa gì với sản phẩm”</text>
       </svg>
   </div>
   <figcaption><b>Hình 2</b>Cột trái đọc một mình vẫn là hình 1. Sáu hình bên phải là thứ hình 1 buộc phải giấu: vì sao một số milestone không chỉ ra được một bản build, vì sao không cần checkout 100 GB, chín extractor gộp lại thành ba nhóm hậu quả nào, câu hỏi chia đôi mọi thay đổi, thang điểm chỉ trừ chứ không cộng, và ba nhãn trực giao mà mỗi dòng mang theo.</figcaption>
@@ -588,7 +589,7 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
 
 <figure>
   <div class="figbody w620">
-    <svg viewBox="0 0 900 476" role="img" aria-label="Phễu thu hẹp: 498082 file trong cây Chromium, còn 8366 file ứng viên, 3677 file đọc thật, 3022 thay đổi ngữ nghĩa, 276 dòng Breaking, 126 dòng thuộc process boundaries.">
+    <svg viewBox="0 0 900 476" role="img" aria-label="Phễu thu hẹp: 498082 file trong cây Chromium, còn 8366 file ứng viên, 3677 file đọc thật, 3022 thay đổi ngữ nghĩa, 276 dòng Compatibility break, 126 dòng thuộc process boundaries.">
         <text class="tl dim" x="20" y="22">số lượng</text>
         <text class="tl dim" x="250" y="22">còn lại sau mỗi bước thu hẹp</text>
 
@@ -613,10 +614,10 @@ footer{margin-top:36px;font-size:13px;color:var(--faint);max-width:70ch}
         <text class="t" x="266" y="276">thay đổi ngữ nghĩa</text>
         <text class="ts dim" x="262" y="309">bucket — cái nào làm hỏng thứ bên ngoài binary</text>
 
-        <text class="tnum" data-figure="buckets.breaking" x="234" y="346" text-anchor="end">276</text>
+        <text class="tnum" data-figure="buckets.contract" x="234" y="346" text-anchor="end">276</text>
         <rect x="250" y="320" width="180" height="42" rx="3" fill="var(--surface-2)" stroke="var(--stop)" stroke-width="1.5"/>
-        <text class="t" x="266" y="346" fill="var(--stop)">Breaking</text>
-        <text class="ts dim" x="262" y="379">người đọc tự lọc tiếp — bucket, surface, nhóm hậu quả, bằng chứng</text>
+        <text class="t" x="266" y="346" fill="var(--stop)">Compatibility break</text>
+        <text class="ts dim" x="262" y="379">người đọc tự lọc tiếp — bucket, surface, nhóm hậu quả, coverage, bằng chứng</text>
 
         <line class="dash" x1="20" y1="450" x2="880" y2="450"/>
         <text class="ts dim" x="20" y="470">Chiều rộng thanh không vẽ theo tỉ lệ — khoảng cách giữa 498 082 và 126 là bốn bậc, vẽ đúng tỉ lệ thì bốn thanh cuối biến mất.</text>

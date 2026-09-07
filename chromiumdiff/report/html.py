@@ -36,20 +36,23 @@ import re
 from typing import List
 
 from ..diff import SIGNAL_LABELS
-from ..model import (BUCKET_LABELS, BUCKET_MEANINGS, BUCKET_ORDER, KIND_GROUPS,
+from ..model import (BUCKET_CLEANUP, BUCKET_LABELS, BUCKET_MEANINGS,
+                     BUCKET_ORDER, KIND_GROUPS,
                      KIND_LABELS, Report, group_of)
 from .markdown import TITLE, display_name
 from . import wording as surfaces
 
 _CSS = """
 /* One accent, one radius, one spacing rhythm, and no shadows at all. The
-   palette is neutral-warm rather than blue-grey so the four bucket colours --
+   palette is neutral-warm rather than blue-grey so the five bucket colours --
    which are the only saturated things on the page -- carry all of the meaning
-   and none of the decoration. */
+   and none of the decoration. Each token is named after the bucket it paints,
+   so a rule that wants "the colour of Scheduled" cannot reach for a hex that
+   happens to match today. */
 :root{
 --bg:#faf9f7;--fg:#191817;--muted:#6c6a64;--faint:#9c9992;
 --line:#e7e4de;--line2:#d9d5cd;--card:#fff;--sunk:#f5f3ef;
---brk:#c0392f;--beh:#a06a10;--new-b:#2c6b45;--hk:#77746d;
+--con:#c0392f;--beh:#a06a10;--add:#2c6b45;--sch:#6b5aa6;--cln:#77746d;
 --accent:#2f5fa8;--accent-soft:#eaf0fb;
 /* One radius, and it is small, because nothing on this page is a card. A
    14px corner with a drop shadow under it is the shape of a thing that floats
@@ -63,13 +66,13 @@ color-scheme:light;
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
 --bg:#141413;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
---brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
+--con:#f0857a;--beh:#e3ae57;--add:#7fc79b;--sch:#b3a2e0;--cln:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 color-scheme:dark;}}
 :root[data-theme=dark]{
 --bg:#141413;--fg:#eeece7;--muted:#a19e96;--faint:#78756e;
 --line:#2e2d2a;--line2:#3b3a36;--card:#1d1c1b;--sunk:#232220;
---brk:#f0857a;--beh:#e3ae57;--new-b:#7fc79b;--hk:#a19e96;
+--con:#f0857a;--beh:#e3ae57;--add:#7fc79b;--sch:#b3a2e0;--cln:#a19e96;
 --accent:#7fa9e8;--accent-soft:#1c2433;
 color-scheme:dark;}
 
@@ -106,14 +109,14 @@ color:var(--muted)}
 .lede b{color:var(--fg);font-weight:600}
 
 /* -- triage ladder ------------------------------------------------------- */
-/* Four counts. The only thing worth encoding about them is the order, because
-   the order is the reader's working order: 276 Breaking is the morning's job
-   whatever the other three say.
-   Two earlier versions encoded the wrong things. Four cards in a grid said
+/* Five counts. The only thing worth encoding about them is the order, because
+   the order is the reader's working order: 276 Compatibility break is the
+   morning's job whatever the other four say.
+   Two earlier versions encoded the wrong things. Cards in a grid said
    "peers", when this is a ladder -- and it put 276 in one box and 1,240 in
    another, where the eye cannot compare them. Adding a proportional bar fixed
-   the comparison and made it worse: the bar is longest on Housekeeping, so the
-   heaviest mark on the page pointed at the bucket that matters least. A
+   the comparison and made it worse: the bar is longest on Upstream cleanup, so
+   the heaviest mark on the page pointed at the bucket that matters least. A
    summary for triage cannot give its loudest signal to the thing you look at
    last.
    So: no bar, no box. Figures in one right-aligned column so they compare
@@ -121,7 +124,7 @@ color:var(--muted)}
    the bucket means -- which is the part a reader actually needs and the part
    the cards had shrunk to a caption. */
 .cards{border-top:1px solid var(--line)}
-.card{--c:var(--hk);display:grid;
+.card{--c:var(--cln);display:grid;
 grid-template-columns:6ch minmax(0,1fr);
 grid-template-areas:"n l" "n m";
 column-gap:20px;row-gap:2px;
@@ -135,10 +138,11 @@ font-variant-numeric:tabular-nums}
 .card .l{grid-area:l;align-self:center;font-size:.87rem;font-weight:620}
 .card .m{grid-area:m;max-width:82ch;color:var(--muted);font-size:.79rem;
 line-height:1.5}
-.card.breaking{--c:var(--brk)}
+.card.contract{--c:var(--con)}
 .card.behaviour{--c:var(--beh)}
-.card.new{--c:var(--new-b)}
-.card.housekeeping{--c:var(--hk)}
+.card.added{--c:var(--add)}
+.card.scheduled{--c:var(--sch)}
+.card.cleanup{--c:var(--cln)}
 
 /* -- filter row ---------------------------------------------------------- */
 /* The header, the triage and the filter row cost 660px of a 900px laptop
@@ -204,7 +208,7 @@ margin-top:4px;padding:7px 8px 3px;cursor:pointer}
    than a phrase, and it sits beside search because they are the same kind of
    question asked in opposite directions. */
 #x{flex:0 1 250px;min-width:150px}
-#x:not(:placeholder-shown){border-color:var(--brk)}
+#x:not(:placeholder-shown){border-color:var(--con)}
 #cnt{margin-left:auto;font-size:.82rem;color:var(--faint);
 font-variant-numeric:tabular-nums}
 
@@ -257,7 +261,17 @@ tbody tr.det td{background:var(--sunk);font-size:.85rem}
 
 .score{font-variant-numeric:tabular-nums;font-weight:650;letter-spacing:-.015em;
 font-size:.95rem;color:var(--muted)}
-.s-hi{color:var(--brk)}.s-mid{color:var(--beh)}
+.s-hi{color:var(--con)}.s-mid{color:var(--beh)}
+
+/* -- unconfirmed badge ---------------------------------------------------- */
+/* Not a bucket colour, because it is not a bucket. It marks a row whose
+   absence this run could not confirm, and those rows sit in Upstream cleanup
+   only because the evidence is short -- on a `wide` run they are compatibility
+   breaks. Outlined rather than filled so it reads as an annotation on the row
+   rather than a second classification of it. */
+.unc{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:var(--r1);
+font-size:.65rem;font-weight:660;letter-spacing:.02em;text-transform:uppercase;
+color:var(--beh);border:1px solid color-mix(in srgb,var(--beh) 45%,transparent)}
 
 /* Squared off. A capsule is the shape of a button on a phone, and none of
    these are buttons -- they are labels on a line of data. `999px` was on five
@@ -265,16 +279,17 @@ font-size:.95rem;color:var(--muted)}
 .pill{display:inline-block;padding:2px 7px;border-radius:var(--r1);font-size:.71rem;
 font-weight:600;letter-spacing:.01em;white-space:nowrap;
 background:color-mix(in srgb,currentColor 13%,transparent)}
-.b-breaking{color:var(--brk)}.b-behaviour{color:var(--beh)}
-.b-new{color:var(--new-b)}.b-housekeeping{color:var(--hk)}
+.b-contract{color:var(--con)}.b-behaviour{color:var(--beh)}
+.b-added{color:var(--add)}.b-scheduled{color:var(--sch)}
+.b-cleanup{color:var(--cln)}
 
 .mk{font-weight:700;padding-right:6px;font-variant-numeric:tabular-nums}
 /* The marker takes the bucket colour rather than a copy of it. There were
    six tokens here carrying three values -- `--new`/`--chg`/`--gone` held the
-   same hex as `--new-b`/`--beh`/`--brk` in all three themes, and existed only
+   same hex as `--add`/`--beh`/`--con` in all three themes, and existed only
    to feed these three rules. Tuning one for contrast would have left the
    other behind and drifted the `+ ~ -` markers off the buckets they name. */
-.mk-added{color:var(--new-b)}.mk-removed{color:var(--brk)}
+.mk-added{color:var(--add)}.mk-removed{color:var(--con)}
 .mk-modified{color:var(--beh)}
 .where{color:var(--muted);font-size:.815rem;line-height:1.45}
 .grp{font-size:.715rem;color:var(--faint);margin-top:3px}
@@ -326,7 +341,7 @@ text-transform:uppercase;color:var(--muted)}
 tr.row-t td:first-child{position:relative}
 tr.p-exact td:first-child::before,tr.p-cl td:first-child::before{
 content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;
-background:var(--new-b)}
+background:var(--add)}
 tr.p-cl td:first-child::before{background:var(--accent)}
 tr.p-skipped td:first-child::before{content:"";position:absolute;left:0;
 top:6px;bottom:6px;width:3px;background:var(--line2)}
@@ -449,12 +464,12 @@ padding:1px 6px;border-radius:var(--r1);white-space:nowrap}
    *is* the change -- and it turned a list of six verdicts into one shout and
    five whispers. The ladder is already written down; the badge does not have
    to perform it. */
-.ev-introduced{color:var(--new-b);
-background:color-mix(in srgb,var(--new-b) 18%,transparent)}
-.ev-exact{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 13%,transparent)}
+.ev-introduced{color:var(--add);
+background:color-mix(in srgb,var(--add) 18%,transparent)}
+.ev-exact{color:var(--add);background:color-mix(in srgb,var(--add) 13%,transparent)}
 /* A pure rename changes no line, so it gets its own badge rather than
    borrowing one that claims a line was edited. */
-.ev-moved{color:var(--new-b);background:color-mix(in srgb,var(--new-b) 10%,transparent)}
+.ev-moved{color:var(--add);background:color-mix(in srgb,var(--add) 10%,transparent)}
 /* Between the two: the author's own words, but not the declaring line. */
 .ev-described{color:var(--accent);background:var(--accent-soft)}
 .ev-declares{color:var(--beh);background:color-mix(in srgb,var(--beh) 15%,transparent)}
@@ -495,7 +510,7 @@ const PAGE=200;
 const q=document.getElementById('q'),x=document.getElementById('x'),
 fb=document.getElementById('fb'),
 fk=document.getElementById('fk'),fg=document.getElementById('fg'),
-fp=document.getElementById('fp'),
+fp=document.getElementById('fp'),fu=document.getElementById('fu'),
 tb=document.getElementById('tb'),cnt=document.getElementById('cnt'),
 more=document.getElementById('more');
 let sortKey='score',sortDir=-1,shown=PAGE,view=DATA;
@@ -590,10 +605,10 @@ function picked(el){
     .map(function(i){return i.value;});
 }
 
-var SEL={b:[],k:[],g:[],o:[],p:[]},EXCL=[];
+var SEL={b:[],k:[],g:[],o:[],p:[],u:[]},EXCL=[];
 
 function readFilters(){
-  SEL={b:picked(fb),k:picked(fk),g:picked(fg),p:picked(fp)};
+  SEL={b:picked(fb),k:picked(fk),g:picked(fg),p:picked(fp),u:picked(fu)};
   EXCL=terms(x&&x.value);
 }
 
@@ -602,7 +617,7 @@ function readFilters(){
    Untouched it says what the single select said, so a report nobody has
    filtered reads exactly as it did before. */
 function pickLabels(){
-  [fb,fk,fg,fp].forEach(function(el){
+  [fb,fk,fg,fp,fu].forEach(function(el){
     if(!el)return;
     var on=Array.prototype.slice.call(el.querySelectorAll('input:checked'));
     var sum=el.querySelector('summary');
@@ -628,11 +643,14 @@ function provPasses(f,want){
   return want==='cl' ? (st==='cl'||st==='exact') : st===want;
 }
 
-/* Within one filter the choices are OR -- Breaking *or* Behaviour change --
-   and between filters they stay AND, which is what the single selects did and
-   the only reading that lets the four narrow each other. */
+/* Within one filter the choices are OR -- Compatibility break *or* Behaviour
+   change -- and between filters they stay AND, which is what the single
+   selects did and the only reading that lets them narrow each other. */
 function match(f,t){
   if(SEL.p.length&&!SEL.p.some(function(v){return provPasses(f,v);}))return false;
+  /* Evidence, not classification: it crosses the bucket filter rather than
+     competing with it, so "Upstream cleanup + unconfirmed" is askable. */
+  if(SEL.u.length&&SEL.u.indexOf(f.unc?'y':'n')<0)return false;
   if(SEL.b.length&&SEL.b.indexOf(f.bucket)<0)return false;
   if(SEL.k.length&&SEL.k.indexOf(f.kind)<0)return false;
   if(SEL.g.length&&SEL.g.indexOf(f.group)<0)return false;
@@ -644,7 +662,7 @@ function match(f,t){
 /* Built only when a row is actually expanded. This was half the payload. */
 /* A row that is one fragment of a larger change says so, and says what the
    largest thing in that change scores. Read alone a parameter of an enabled
-   feature is a 15-point "New surface" row, and the sentence that bucket
+   feature is a 15-point "New declarations" row, and the sentence that bucket
    carries -- nothing switches it on -- is false of it: the feature does, from
    another row in the same report. */
 function groupNote(f){
@@ -971,7 +989,10 @@ function rowHtml(f,i){
   var sb=f.score>=70?' s-hi':(f.score>=45?' s-mid':'');
   return '<tr class="row-t p-'+provState(f)+'" data-i="'+i+'">'+
     '<td class="score'+sb+'">'+f.score+'</td>'+
-    '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span></td>'+
+    '<td><span class="pill b-'+f.bucket+'">'+esc(bucketLabel(f))+'</span>'+
+      (f.unc?'<span class="unc" title="This run did not read enough of the '+
+        'tree to confirm the absence this row rests on">unconfirmed</span>':'')+
+      '</td>'+
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
     '<td class="where">'+brk(f.where||'')+'</td>'+
@@ -1115,7 +1136,7 @@ document.querySelectorAll('[data-set]').forEach(function(el){
     /* A card is one bucket, so it replaces the filters rather than adding to
        them: it is a way to see what that count counted, and leaving another
        filter on would show fewer rows than the number that was clicked. */
-    [fb,fk,fg,fp].forEach(clearPick);
+    [fb,fk,fg,fp,fu].forEach(clearPick);
     setPick(sel,p.slice(1).join(':'));
     apply();});});
 /* Debounced: typing "network" used to run the whole pipeline seven times. */
@@ -1125,7 +1146,7 @@ q.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,140);
    keystrokes and each one would otherwise re-filter three thousand rows. */
 if(x)x.addEventListener('input',()=>{clearTimeout(timer);
   timer=setTimeout(apply,140);});
-[fb,fk,fg,fp].forEach(function(el){
+[fb,fk,fg,fp,fu].forEach(function(el){
   if(!el)return;
   el.addEventListener('change',apply);
   var clear=el.querySelector('.clear');
@@ -1133,7 +1154,7 @@ if(x)x.addEventListener('input',()=>{clearTimeout(timer);
 /* Clicking away closes whichever picker is open, which is what the control it
    replaces did and what anyone expects of something shaped like a dropdown. */
 document.addEventListener('click',function(e){
-  [fb,fk,fg,fp].forEach(function(el){
+  [fb,fk,fg,fp,fu].forEach(function(el){
     if(el&&el.open&&!el.contains(e.target))el.open=false;});});
 apply();
 """
@@ -1257,6 +1278,9 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             "kind": change.kind,
             "change_type": change.change_type,
             "bucket": finding.bucket,
+            # 1 rather than true, and omitted when false: this is one key on
+            # every row of the largest object in the file.
+            **({"unc": 1} if finding.unconfirmed else {}),
             "score": finding.score,
             "signals": [SIGNAL_LABELS.get(s, s) for s in change.signals],
             # A row used to show an identifier and leave the reader to work out
@@ -1300,7 +1324,7 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
         # The run already works out which findings are fragments of one
         # change, and `report.md` prints the groups. The table did not, so a
         # row read alone gave no sign that it was a fragment -- a feature's
-        # parameter scores 15 in "New surface", whose whole meaning is that
+        # parameter scores 15 in "New declarations", whose whole meaning is that
         # nothing switches it on, while the feature it belongs to sits at 55
         # in the same report with the flag already flipped. The reader had to
         # notice the shared prefix and go looking.
@@ -1757,9 +1781,30 @@ def _embed(value) -> str:
             .replace("\u2029", "\\u2029"))
 
 
+def _unconfirmed_filter(rows) -> str:
+    """The coverage filter, offered only when there is something to filter.
+
+    A run that read the whole tree confirms every absence it reports, so this
+    control has nothing in it and is dropped rather than shown empty -- and
+    the reader of a `wide` report learns from its absence that no row is
+    resting on a hole.
+
+    "All coverage" rather than "All evidence": the provenance filter beside it
+    is already called that, and two controls in one row under one label is the
+    same defect as one word naming two things in a table.
+    """
+    n = sum(1 for r in rows if r.get("unc"))
+    if not n:
+        return ""
+    return _picker("fu", "All coverage",
+                   [(None, [("y", f"Unconfirmed ({n})"),
+                            ("n", "Confirmed")])])
+
+
 def render(report: Report, platform: str = "windows") -> str:
     rows = _to_rows(report, platform)
     provenance_filter = _provenance_filter(rows)
+    unconfirmed_filter = _unconfirmed_filter(rows)
     # After the filter is built, because that reads `cl_pool`, and before the
     # payload is embedded, because that is what shrinks.
     # Read before interning, not after. `_intern` replaces every pooled value
@@ -1836,6 +1881,7 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 {_picker("fb", "All buckets", [(None, [(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER])])}
 {_picker("fk", "All surfaces", surface_groups)}
 {_picker("fg", "All consequences", [(None, [(g, g) for g in groups])])}
+{unconfirmed_filter}
 {provenance_filter}
 <span class="muted" id="cnt"></span>
 </div>

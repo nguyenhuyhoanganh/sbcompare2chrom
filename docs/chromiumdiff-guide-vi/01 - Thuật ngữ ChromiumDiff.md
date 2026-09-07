@@ -18,7 +18,7 @@ Nếu chỉ đọc được mười dòng, hãy đọc mười dòng này. Chún
 | `Change` | Kết quả so sánh một `Fact` giữa hai snapshot: được thêm, bị bỏ, hay bị sửa |
 | `signal` | Nhãn mô tả chính xác chuyện gì đã xảy ra, ví dụ `pref_renamed` (preference key đã bị đổi tên) |
 | `score` | Điểm ưu tiên từ 0 đến 100 để biết nên xem thay đổi nào trước — **không phải** xác suất có bug |
-| `bucket` | Bốn nhóm hậu quả: Breaking / Behaviour change / New surface / Housekeeping |
+| `bucket` | Năm nhóm, trả lời một câu hỏi duy nhất — *loại chuyện gì đã xảy ra*: Compatibility break / Behaviour change / New declarations / Scheduled / Upstream cleanup |
 
 Luồng chạy nối các từ trên lại thành một chuỗi:
 
@@ -482,10 +482,11 @@ Cách phân loại bản chất của một finding. Có đúng bốn nhóm:
 
 | Bucket | Nghĩa |
 |---|---|
-| `Breaking` | Một contract bên ngoài binary có thể ngừng hoạt động mà không có cảnh báo rõ ràng nào |
+| `Compatibility break` | Một contract bên ngoài binary không còn giữ nguyên, và build không cảnh báo gì |
 | `Behaviour change` | Bản build Windows sẽ hành xử khác đi |
-| `New surface` | Có API, trang hoặc control mới xuất hiện — nhưng sự tồn tại của khai báo không tự động bật một hành vi nào |
-| `Housekeeping` | Dọn flag, đổi lịch xoá, chuyển khai báo sang file khác, hoặc bằng chứng chưa đủ để kết luận là breaking |
+| `New declarations` | Có khai báo tồn tại ở version mới mà version cũ không có — nhưng sự tồn tại của khai báo không tự động bật một hành vi nào |
+| `Scheduled` | Một cái **ngày**, không phải một sự kiện: upstream đã lên lịch xoá hoặc dời lịch. Chưa có gì xảy ra |
+| `Upstream cleanup` | Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc khai báo không nằm trong build Windows ở cả hai phía |
 
 ### Finding
 
@@ -621,7 +622,7 @@ Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bà
 | "Feature đã được khai báo nghĩa là đã bật" | Khai báo chỉ nói code và flag có tồn tại; còn bật hay không phải xem mặc định, trạng thái theo platform, trạng thái runtime và gate |
 | "File đã tải nghĩa là file đã được đọc" | File còn phải qua phạm vi target, qua rule loại trừ, rồi qua `applies_to()` mới thật sự được parse |
 | "`removed` nghĩa là upstream đã xoá" | Khi coverage chưa đủ, rất có thể khai báo chỉ chuyển sang một file chưa được đọc |
-| "`Breaking` nghĩa là Samsung chắc chắn hỏng" | Nó nói đây là **loại** contract change cần đối chiếu với cách Samsung đang dùng |
+| "`Compatibility break` nghĩa là Samsung chắc chắn hỏng" | Nó nói đây là **loại** contract change cần đối chiếu với cách Samsung đang dùng |
 | "Score 80 nghĩa là 80% có bug" | Score là thứ tự ưu tiên tính theo rule, không phải xác suất |
 | "`wide` nghĩa là toàn bộ implementation của Chromium" | `wide` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
 | "Finch chính là command-line switch" | Finch là cấu hình/rollout từ phía server; switch là tham số truyền vào lúc khởi động process |

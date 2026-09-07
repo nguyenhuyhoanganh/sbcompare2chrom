@@ -22,7 +22,7 @@ it was handled. Expect them; check for them before reporting any removal.
 Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
 7 and 8 about running the tool. The rest are the other surfaces, which carry
 the highest severities the tool reports: at M148 → M151, 220 of the 276
-Breaking rows are Mojo or web API.
+Compatibility break rows are Mojo or web API.
 
 ## 1. Retired flag read as removed feature
 
@@ -38,8 +38,8 @@ been `stable`.
 
 **Check:** read the prior state. `flag_retired_on` means behaviour is now
 permanent and unremovable; `flag_retired_off` means the code is gone. Neither
-changes behaviour at this upgrade — which is why both are filed under
-Housekeeping — but both break the build of anything naming the symbol, and both
+changes behaviour at this upgrade — which is why both are filed under Upstream
+cleanup — but both break the build of anything naming the symbol, and both
 silently kill any override that was setting the flag from outside the binary.
 
 ## 2. Declaration moved, not removed
@@ -275,8 +275,8 @@ outside this tree**, not a runtime break — unless one of these is true:
   usual case and the reason the severity is what it is
 
 **Check:** say which of those applies before calling it a runtime break. The
-tool cannot tell — it compares Chromium against Chromium, and a **Breaking**
-row says a contract moved, not that anyone had signed it.
+tool cannot tell — it compares Chromium against Chromium, and a **Compatibility
+break** row says a contract moved, not that anyone had signed it.
 
 ## 11. A new web API can be unreachable
 

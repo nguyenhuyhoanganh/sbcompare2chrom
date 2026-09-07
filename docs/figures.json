@@ -3,14 +3,16 @@
   "refs/tags/148.0.7778.217",
   "refs/tags/151.0.7922.138"
  ],
- "schema": 40,
+ "schema": 41,
  "total": 3022,
  "not_in_build": 187,
+ "unconfirmed": 303,
  "buckets": {
-  "breaking": 276,
+  "contract": 276,
   "behaviour": 469,
-  "new": 1240,
-  "housekeeping": 1037
+  "added": 1240,
+  "scheduled": 302,
+  "cleanup": 735
  },
  "no_signal": 981,
  "coverage": {

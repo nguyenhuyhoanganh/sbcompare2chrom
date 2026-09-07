@@ -5,7 +5,7 @@ what actually happened. Read this column first.
 
 One of them is the **leading signal** — the one with the highest severity — and
 it does two jobs: it sets the finding's severity, and it decides which of the
-four buckets the finding is filed under. So the sentence a row is filed by is
+five buckets the finding is filed under. So the sentence a row is filed by is
 always the sentence it was ranked by.
 
 ## Contents
@@ -71,9 +71,10 @@ Measured evidence for why this distinction exists:
 - **M139 → M143, Blink**: of 202 runtime features that disappeared, **170 had
   been `stable`** — retired after shipping, not removed capability.
 
-That is also why all three retirements are filed under **Housekeeping** rather
-than under Breaking. It is the single most consequential row in the bucket
-table: put them in Breaking and half of it is noise on every run.
+That is also why all three retirements are filed under **Upstream cleanup**
+rather than under Compatibility break. It is the single most consequential row
+in the bucket table: put them in Compatibility break and half of it is noise on
+every run.
 `feature_deleted` is the exception and goes to **Behaviour change**, precisely
 because the tool could not read the prior state and so cannot rule one out.
 
@@ -114,12 +115,13 @@ non-ChromeOS `pref_names.h` files.
 
 **How much of the tree the run read decides how these are filed.** A run that
 read the whole tree can call a disappearance a disappearance, so they are filed
-under **Breaking** at full severity. A run that did not is filed under
-**Housekeeping** with 15 points off, and the finding says so in its own
+under **Compatibility break** at full severity. A run that did not is filed
+under **Upstream cleanup** with 15 points off and carries `unconfirmed`, and
+the finding says so in its own
 reasons. Measured on the same pair of versions: `default` reads 43% of the tree and
 finds 139 of these, `wide` reads 99% and finds 171. Only 30 are in the Windows
-build on either side, and it is those 30 that move from Housekeeping at 20
-points to Breaking at 35; the rest score 0 whichever set is used.
+build on either side, and it is those 30 that move from Upstream cleanup at 20
+points to Compatibility break at 35; the rest score 0 whichever set is used.
 
 Resolve one by searching the current Chromium tree for the key string. Found
 elsewhere means it moved and there is nothing to do; genuinely absent means
@@ -141,7 +143,7 @@ either outcome until you have looked.
 | `ui_gate_changed` / `ui_gate_removed` / `ui_gate_added` | The condition deciding a page's visibility moved, went away, or appeared |
 | `new_feature_on_by_default` | New flag, already on |
 | `param_default_changed` | A feature parameter default moved; behaviour tuning |
-| `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — **the one thing in Housekeeping worth looking up on purpose**, because it is about work that has not happened yet rather than work that has |
+| `flag_expiring` | chrome://flags entry scheduled for removal in an upcoming milestone — filed under **Scheduled**, because it is about work that has not happened yet rather than work that has |
 | `flag_expiry_moved` | The removal date moved further out. Scheduling on a settings page, not a feature change — the largest single group in most reports |
 | `build_gate_changed` | The `#if` or GRIT `<if>` around a declaration moved, so it may no longer be in the binary we ship |
 | `origin_trial_change` | Origin trial wiring changed: who may turn the feature on from outside the binary |
@@ -165,17 +167,18 @@ report writes them as one — *New feature flag*, *Removed chrome://flags entry*
 
 ## Bucket meanings
 
-Four buckets, decided by the leading signal, and every one of them is a
+Five buckets, decided by the leading signal, and every one of them is a
 statement about the change rather than about the reader.
 
 | Bucket | Meaning | Action |
 |---|---|---|
-| Breaking | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | Find every place that names it |
+| Compatibility break | A contract outside the binary no longer holds, and nothing at build time warns you: stored user data, launch scripts, Finch configs, live websites, the other process | Find every place that names it |
 | Behaviour change | The Windows build behaves differently. Someone can see a difference | Confirm what the difference is |
-| New surface | Surface that did not exist before. Nothing is switched on by it on its own | Product input, not a blocker |
-| Housekeeping | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | Do not read line by line; filter it for `flag_expiring` |
+| New declarations | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence | Product input, not a blocker |
+| Scheduled | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet | Plan for the next milestone; nothing to do in this one |
+| Upstream cleanup | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | Do not read line by line; filter it for `unconfirmed` |
 
-Two rules make these hold together, and both are tested:
+Three rules make these hold together, and all three are tested:
 
 - **Every signal names exactly one bucket**, so nothing falls through to a
   default. A signal missing from the table would be filed by "something was
@@ -184,6 +187,31 @@ Two rules make these hold together, and both are tested:
   sets the severity and picks the bucket, so a row cannot be headlined *Flag
   scheduled for removal* while having been ranked as *Shipped, then flag
   retired*.
+- **A bucket name means nothing else on the page.** The `Surface` column holds
+  a fact kind and the `All surfaces` filter selects one, so no bucket may be
+  called *New surface*; the `Feature switches` group is a set of fact kinds, so
+  no bucket may be called *Behaviour switches*.
+
+## Evidence is not a bucket
+
+Whether the run confirmed the absence a finding rests on is a property of the
+**run**, not of the change: the same removal is unconfirmed on a `default` run
+and confirmed on a `wide` one. So it is a field, `unconfirmed`, and not a sixth
+bucket.
+
+Every row carries it in `report.json`. `report.html` shows it as an outlined
+badge beside the bucket pill with an `All evidence` filter over it, offered
+only when at least one row has it. `report.md` gives them a section of their
+own, because they sit in Upstream cleanup and that is the one bucket with no
+table.
+
+It is set wherever the 15-point deduction is, not only where the filing moves,
+so it is not confined to Upstream cleanup: 303 rows carry it at M148 → M151 on
+the default target set and **0 on the wide one**, 120 of them in Compatibility
+break. That number is the answer to "how much of this report is limited by what
+the run read rather than by what Chromium did".
+
+`summary.unconfirmed` in `report.json` holds the count.
 
 ## Scoring
 
@@ -210,9 +238,10 @@ has a sentence beside it on the finding:
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
+-15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
-    housekeeping rather than breaking — --target-set wide settles it
+    upstream cleanup rather than a compatibility break — --target-set wide
+    settles it
 ```
 
 Argue with the score when it is wrong. To change the ranking permanently, edit

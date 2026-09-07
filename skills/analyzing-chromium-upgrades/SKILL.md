@@ -18,14 +18,17 @@ These words run through the rest of the skill and through `report.json`.
 - **finding and change** — a `finding` is one row of the report, an element of the `findings` array in `report.json`. Inside it, `change` holds the declaration that moved: `kind`, `signals`, `locations`, `before`, `after`.
 - **signal** — a label saying why this change matters, carrying a severity floor. A finding may hold several; the one with the highest floor decides, and the report both groups and headlines the finding by it. In `change.signals`. What each one means: **[reference/signals.md](reference/signals.md)**.
 - **severity and score** — severity is what that kind of change costs, decided by the signal. Score is severity after two deductions: not in the Windows build on either side → 0; unconfirmed removal → −15. Nothing raises a score, so a score below its severity always carries a sentence in `reasons` — quote the sentence, not the number.
-- **bucket** — what kind of thing happened, decided by the same signal. There are exactly four, and every finding is in one:
+- **bucket** — what kind of thing happened, decided by the same signal. There are exactly five, and every finding is in one:
 
 | Bucket | Means |
 |---|---|
-| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process |
+| **Compatibility break** | A contract outside the binary no longer holds, and nothing at build time warns you: stored user data, launch scripts, Finch configs, live websites, the other process |
 | **Behaviour change** | The Windows build behaves differently after this. Someone can see the difference |
-| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own |
-| **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did |
+| **New declarations** | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence |
+| **Scheduled** | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet |
+| **Upstream cleanup** | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved |
+
+- **unconfirmed** — a boolean on the finding, true when this run did not read enough of the tree to confirm the absence the row rests on. Not a bucket: the same change carries it on a `default` run and not on a `wide` one. Rows carrying it sit in Upstream cleanup because the evidence is short, **not because they are minor** — on a wide run they are compatibility breaks worth 15 more points. It is set wherever the −15 is, so it is not confined to Upstream cleanup: `summary.unconfirmed` counts 303 at M148 → M151 on the default set and 0 on the wide one, and 120 of those sit in Compatibility break.
 
 ## Two groups of declaration
 
@@ -65,11 +68,11 @@ There are no stages. The declaration is the contract, and it changes the moment 
 
 Getting this group wrong produces: a conclusion that nothing happened, while something broke and nobody was told.
 
-### Reading Breaking, default to the group 2 question
+### Reading Compatibility break, default to the group 2 question
 
-This is a property of the signal table rather than of one run: every `ipc_*`, `pref_*`, `switch_*` and `param_*` signal — most of what files a finding under Breaking — comes only from a group 2 declaration. Group 1 reaches Breaking in a few rare cases, a renamed `base::Feature` or a `webui_control` repointed at another pref, but never through a flag being flipped.
+This is a property of the signal table rather than of one run: every `ipc_*`, `pref_*`, `switch_*` and `param_*` signal — most of what files a finding under Compatibility break — comes only from a group 2 declaration. Group 1 reaches it in a few rare cases, a renamed `base::Feature` or a `webui_control` repointed at another pref, but never through a flag being flipped.
 
-The counts move with the version pair, so do not carry one pair's numbers to another. At M148 → M151, for instance: 181 of 276 Breaking rows are group 2, 94 are Web IDL and depend on `[RuntimeEnabled]`, 1 is group 1. **What does not move is the default: reading Breaking, ask the group 2 question first.**
+The counts move with the version pair, so do not carry one pair's numbers to another. At M148 → M151, for instance: 181 of 276 Compatibility break rows are group 2, 94 are Web IDL and depend on `[RuntimeEnabled]`, 1 is group 1. **What does not move is the default: reading Compatibility break, ask the group 2 question first.**
 
 ## Workflow
 
@@ -104,11 +107,11 @@ Ask in terms they can answer, then map it onto one of the three axes the report 
 
 | Reader says | Filter on |
 |---|---|
-| "only what breaks" | bucket `Breaking` |
+| "only what breaks" | bucket `contract` (**Compatibility break**) |
 | "the Mojo side", "web APIs", "the settings pages" | `change.kind` |
 | "what switches behaviour", "contracts with the outside" | consequence group — the *What happened* section of `report.md` |
 
-If the reader is a person, **hand them the `serve` URL**: the page has four multi-select filters (bucket, surface, consequences, evidence) plus a box for terms to exclude. They will pick faster than any question gets asked.
+If the reader is a person, **hand them the `serve` URL**: the page has up to five multi-select filters — bucket, surface, consequences, coverage, evidence — plus a box for terms to exclude. Coverage appears only when some row is unconfirmed, evidence only once a CL has been looked up. They will pick faster than any question gets asked.
 
 **The platform is always Windows.** The tool always compares for Windows and no option changes that — `meta.platform` in `report.json` records `windows`. A flag's state is at `change.before.platform_state.windows` and `change.after.platform_state.windows`. Beside them sits `default_state`: that is Chromium's overall default rather than the Windows one, and reading it by mistake is the most common error at this step.
 
@@ -149,6 +152,7 @@ The three files carry three different things, and **signal ids are only in `repo
 |---|---|---|---|
 | signal ids (`pref_left_scan`, `ipc_shape_changed`…) | absent — it prints labels, e.g. *Mojo data shape changed (ABI)* | only inside the filter | `change.signals` |
 | a row's bucket | implied by the section | yes | `bucket` |
+| whether the run confirmed the absence | its own *Unconfirmed* section | badge on the row, `All coverage` filter | `unconfirmed`, and `summary.unconfirmed` |
 | `platform_state`, score, severity, `path:line` | yes | yes | yes |
 
 **Filtering or branching on a signal means reading `report.json`.** `report.md` is the artifact for a reader, `report.html` plus `serve` is the one for someone clicking.
@@ -165,7 +169,7 @@ python3 -m chromiumdiff serve out/M148_to_M151     # prints http://127.0.0.1:878
 
 Offer this whenever someone asks why a row changed, what a flag was for, or which review to read. You can start it yourself and hand over the URL. Opening `report.html` directly and concluding the lookup is broken is wrong: it does not run because of `file://`, not because of a fault.
 
-**The tool does not conclude for you.** It stops at extracted evidence and a deterministic rank. It knows nothing about what anyone patches, ships or overrides: a **Breaking** row says a contract moved, not that anyone was relying on it.
+**The tool does not conclude for you.** It stops at extracted evidence and a deterministic rank. It knows nothing about what anyone patches, ships or overrides: a **Compatibility break** row says a contract moved, not that anyone was relying on it.
 
 **Every run prints the coverage it achieved.** Quote that number in the report; never quote one from this file.
 
@@ -173,7 +177,7 @@ Offer this whenever someone asks why a row changed, what a flag was for, or whic
 coverage: reads N of M files in this tree that could declare (P% of files)
 ```
 
-**Coverage changes the answer, not just the confidence.** A removal is an inference from absence, so on a partial read it loses 15 points and a `pref_left_scan` is filed as Housekeeping rather than Breaking. Measured on M148 → M151: `default` finds 139 of these and `wide` finds 171 — but only 30 of them are in the Windows build at all, and it is those 30 that move from Housekeeping at 20 points to Breaking at 35 when the run is `wide`. The rest score 0 either way. **`Breaking: 0` on a default run does not mean nothing is broken.**
+**Coverage changes the answer, not just the confidence.** A removal is an inference from absence, so on a partial read it loses 15 points, is filed as Upstream cleanup rather than a Compatibility break, and carries `unconfirmed`. Measured on M148 → M151: `default` finds 139 `pref_left_scan` rows and `wide` finds 171 — but only 30 of them are in the Windows build at all, and it is those 30 that move from Upstream cleanup at 20 points to Compatibility break at 35 when the run is `wide`. The rest score 0 either way. **`Compatibility break: 0` on a default run does not mean nothing is broken** — read `summary.unconfirmed` before saying it does.
 
 **Two error messages, one cause.** `cannot diff snapshots built from different target sets` and `cannot diff: X holds N facts against Y's M` both say one side read a fraction of the other. Neither is a bug to work around: check that `--local-src` / `--from-src` / `--to-src` points at a full Chromium `src/`.
 
@@ -183,20 +187,20 @@ Two side commands: `chromiumdiff catalog <ref>` measures what the target set is 
 
 ### Step 3: Read the report in order
 
-The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Breaking row the run could not confirm loses 15 points and drops below thousands of New surface and Housekeeping rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Breaking rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
+The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
 
-When the list is long, **group by signal** rather than truncating: at that pair, Breaking plus Behaviour change plus New surface is nearly 2,000 rows but only about 40 distinct signals. Looking at each signal group once covers all of it.
+When the list is long, **group by signal** rather than truncating: at that pair, the four buckets above Upstream cleanup are 2,287 rows but only 39 distinct leading signals. Looking at each signal group once covers all of it.
 
 Read by bucket, in this order.
 
 1. **What kind of change** — the per-bucket counts at the top of `report.md`. Start here; it says how long each list is.
 2. **What happened** — every finding grouped under the signal that set its severity, so a report of thousands of rows collapses to a few dozen groups.
-3. **Breaking**, then **Behaviour change**, then **New surface**.
-4. **Housekeeping**: skip, except for two filters to run before closing it. This is not the "low score" bucket — at M148 → M151 it holds rows at 45, above every row in New surface. Neither id below appears in `report.md`; filter on `report.json` or with the `report.html` filter.
-   - `flag_expiring` — `chrome://flags` entries Chromium has scheduled for deletion, the only rows about work that has not happened yet.
-   - `pref_left_scan` and `switch_left_scan` — removals this run could not confirm. They are in Housekeeping because they are **unconfirmed**, not because they are minor. Step 5, the *Flags, prefs and switches* branch, says what to do with them.
+3. **Compatibility break**, then **Behaviour change**, then **New declarations**. Each has a table in `report.md`.
+4. **Scheduled** — also a table. Read it as next milestone's list, not this one's: nothing in it has happened. It is not the "low score" bucket either. At M148 → M151 it tops out at 45, above every row in New declarations, because `flag_expiring` is a deletion Chromium has committed to.
+5. **Unconfirmed** — its own table in `report.md`, and the `All coverage` filter in `report.html`. These are removals this run could not confirm. Most keep their bucket and only lose 15 points; the `pref_left_scan` and `switch_left_scan` ones also move to Upstream cleanup, where they sit because the evidence is short, **not because they are minor**. Step 5, the *Flags, prefs and switches* branch, says what to do with them. 303 of them at M148 → M151 on the default set, 120 of those in Compatibility break; a `wide` run has none.
+6. **Upstream cleanup**: skip. It has no table on purpose — it is the largest bucket in every report and, once Scheduled and Unconfirmed are out of it, the one where nothing needs doing. At M148 → M151 it tops out at 35.
 
-Retired flags are in Housekeeping too, and deliberately: at M148 → M151 there were 132 of them, 72 that had shipped and 60 abandoned, none user-visible. Reporting one as a lost feature is wrong — read [reference/traps.md](reference/traps.md) before concluding.
+Retired flags are in Upstream cleanup, and deliberately: at M148 → M151 there were 132 of them, 72 that had shipped and 60 abandoned, none user-visible. Reporting one as a lost feature is wrong — read [reference/traps.md](reference/traps.md) before concluding.
 
 ### Step 4: Ask why a row changed
 
@@ -277,7 +281,7 @@ Question 3 decides the layout — group by what the reader named, and say what y
 ## Web platform — N
 ## Flags, prefs and switches — N
 ## chrome:// pages — N
-[Skip a section with nothing in Breaking or Behaviour change, and say so.]
+[Skip a section with nothing in Compatibility break or Behaviour change, and say so.]
 
 ## Fixed outside the repository — N
 [Always present, always last, even when filtered: a renamed flag or switch kills the override of anyone who set it, not of one team.]

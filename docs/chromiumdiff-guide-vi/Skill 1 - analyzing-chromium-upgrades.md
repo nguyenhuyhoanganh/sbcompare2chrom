@@ -18,14 +18,17 @@ Những từ dưới đây xuất hiện khắp phần còn lại của skill v�
 - **finding và change** — `finding` là một dòng của báo cáo, một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`.
 - **signal** — nhãn mô tả vì sao thay đổi này quan trọng, kèm một mức nghiêm trọng sàn. Một finding có thể mang nhiều signal; signal có sàn cao nhất là signal quyết định, và báo cáo vừa gom nhóm vừa đặt tiêu đề cho finding theo chính nó. Nằm ở `change.signals`. Nghĩa của từng signal: **[reference/signals.md](reference/signals.md)**.
 - **severity và score** — severity là cái giá của loại thay đổi đó, do signal quyết định. score là severity sau hai khoản trừ: không có trong bản build Windows ở cả hai phía → 0; xoá chưa được xác nhận → −15. Không có gì làm tăng score, nên score thấp hơn severity luôn kèm một câu trong `reasons` — trích câu đó, đừng trích con số.
-- **bucket** — loại chuyện đã xảy ra, suy ra từ signal quyết định. Có đúng bốn bucket và mỗi finding thuộc đúng một:
+- **bucket** — loại chuyện đã xảy ra, suy ra từ signal quyết định. Có đúng năm bucket và mỗi finding thuộc đúng một:
 
 | Bucket | Nghĩa là |
 |---|---|
-| **Breaking** | Một thứ bên ngoài binary ngừng hoạt động, và không có gì cảnh báo: dữ liệu người dùng đã lưu, script khởi chạy, Finch config, website đang chạy thật, process ở đầu bên kia |
+| **Compatibility break** | Một contract bên ngoài binary không còn giữ nguyên, và không có gì ở khâu build cảnh báo: dữ liệu người dùng đã lưu, script khởi chạy, Finch config, website đang chạy thật, process ở đầu bên kia |
 | **Behaviour change** | Bản build Windows chạy khác đi sau thay đổi này. Có người nhìn thấy được sự khác biệt |
-| **New surface** | Bề mặt trước đây chưa có. Bản thân nó không tự bật cái gì lên |
-| **Housekeeping** | Chromium tự dọn dẹp, và lên lịch xoá. Không có gì quan sát được đã dịch chuyển, hoặc công cụ không nhận ra được là có |
+| **New declarations** | Có khai báo ở version mới mà version cũ không có. Bản thân nó không tự bật cái gì lên |
+| **Scheduled** | Một cái ngày, không phải một sự kiện. Chromium đã lên lịch xoá hoặc dời lịch. Chưa có gì xảy ra |
+| **Upstream cleanup** | Chromium dọn thứ đã ngã ngũ, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì quan sát được đã dịch chuyển |
+
+- **unconfirmed** — một boolean trên finding, bật khi lần chạy này chưa đọc đủ cây source để xác nhận sự vắng mặt mà dòng đó dựa vào. Không phải bucket: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ `wide`. Những dòng mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, *không* phải vì nhẹ — trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. `summary.unconfirmed` đếm chúng: 31 ở M148 → M151 với bộ `default`, 0 với bộ `wide`.
 
 ## Hai nhóm khai báo
 
@@ -65,11 +68,11 @@ Không có giai đoạn nào. Khai báo là contract, và nó đổi ngay lúc v
 
 Đọc sai ở nhóm này ra kết quả: kết luận không có gì xảy ra, trong khi có thứ đã hỏng mà không ai được báo.
 
-### Đọc Breaking thì mặc định hỏi câu của nhóm 2
+### Đọc Compatibility break thì mặc định hỏi câu của nhóm 2
 
-Đây là tính chất của bảng signal, không phải của một lần chạy: mọi signal `ipc_*`, `pref_*`, `switch_*` và `param_*` — phần lớn những signal đưa một finding vào Breaking — chỉ phát sinh từ khai báo nhóm 2. Nhóm 1 chỉ vào được Breaking trong vài trường hợp hiếm, ví dụ một `base::Feature` bị đổi tên hoặc một `webui_control` trỏ sang pref khác, chứ không phải qua việc một flag lật.
+Đây là tính chất của bảng signal, không phải của một lần chạy: mọi signal `ipc_*`, `pref_*`, `switch_*` và `param_*` — phần lớn những signal đưa một finding vào Compatibility break — chỉ phát sinh từ khai báo nhóm 2. Nhóm 1 chỉ vào được Compatibility break trong vài trường hợp hiếm, ví dụ một `base::Feature` bị đổi tên hoặc một `webui_control` trỏ sang pref khác, chứ không phải qua việc một flag lật.
 
-Số cụ thể đổi theo từng cặp version, nên đừng mang con số của cặp này sang cặp khác. Ở M148 → M151 chẳng hạn: 181 trong 276 dòng Breaking là nhóm 2, 94 dòng Web IDL tuỳ vào `[RuntimeEnabled]`, 1 dòng thuộc nhóm 1. **Thứ không đổi là mặc định: đọc Breaking thì hỏi câu của nhóm 2 trước.**
+Số cụ thể đổi theo từng cặp version, nên đừng mang con số của cặp này sang cặp khác. Ở M148 → M151 chẳng hạn: 181 trong 276 dòng Compatibility break là nhóm 2, 94 dòng Web IDL tuỳ vào `[RuntimeEnabled]`, 1 dòng thuộc nhóm 1. **Thứ không đổi là mặc định: đọc Compatibility break thì hỏi câu của nhóm 2 trước.**
 
 ## Quy trình
 
@@ -104,11 +107,11 @@ Hỏi bằng thứ user nói được, rồi ánh xạ sang một trong ba trụ
 
 | User nói | Lọc theo |
 |---|---|
-| "chỉ quan tâm cái gì hỏng" | bucket `Breaking` |
+| "chỉ quan tâm cái gì hỏng" | bucket `contract` (**Compatibility break**) |
 | "phần Mojo / IPC", "web API", "trang settings" | `change.kind` |
 | "cái gì bật tắt hành vi", "contract với bên ngoài" | nhóm kind — mục *What happened* của `report.md` |
 
-Nếu người đọc là người thật, **đưa thẳng trang `serve` cho họ**: nó có bốn ô lọc chọn nhiều giá trị cùng lúc (bucket, surface, consequences, evidence) cộng một ô nhập từ khoá cần loại bỏ. Họ tự chọn nhanh hơn mọi cách hỏi.
+Nếu người đọc là người thật, **đưa thẳng trang `serve` cho họ**: nó có tối đa năm ô lọc chọn nhiều giá trị cùng lúc — bucket, surface, consequences, coverage, evidence — cộng một ô nhập từ khoá cần loại bỏ. Ô coverage chỉ hiện khi có dòng `unconfirmed`, ô evidence chỉ hiện sau khi đã tra CL. Họ tự chọn nhanh hơn mọi cách hỏi.
 
 **Platform luôn là Windows.** Công cụ luôn so cho Windows và không tuỳ chọn nào đổi được điều đó — `meta.platform` trong `report.json` ghi lại là `windows`. Trạng thái của một flag nằm ở `change.before.platform_state.windows` và `change.after.platform_state.windows`. Ngay cạnh chúng có `default_state`: đó là mặc định chung của Chromium, không phải của Windows, và đọc nhầm sang nó là lỗi hay gặp nhất ở bước này.
 
@@ -149,6 +152,7 @@ Ba file mang ba thứ khác nhau, và **id của signal chỉ có trong `report.
 |---|---|---|---|
 | id signal (`pref_left_scan`, `ipc_shape_changed`…) | không có — chỉ in nhãn chữ, ví dụ *Mojo data shape changed (ABI)* | chỉ nằm trong ô lọc | `change.signals` |
 | bucket của từng dòng | ngầm theo tên mục | có | `bucket` |
+| lần chạy có xác nhận được sự vắng mặt không | mục *Unconfirmed* riêng | badge trên dòng, ô lọc `All coverage` | `unconfirmed`, và `summary.unconfirmed` |
 | `platform_state`, score, severity, `path:line` | có | có | có |
 
 **Lọc hay rẽ nhánh theo signal thì phải đọc `report.json`.** `report.md` là bản cho người đọc, `report.html` cộng `serve` là bản cho người bấm chuột.
@@ -165,7 +169,7 @@ python3 -m chromiumdiff serve out/M148_to_M151     # in ra http://127.0.0.1:8787
 
 Hãy đề xuất cách này mỗi khi có người hỏi vì sao một dòng đổi, một flag để làm gì, hoặc nên đọc review nào. Bạn có thể tự khởi động nó rồi đưa URL cho họ. Mở thẳng `report.html` rồi kết luận phần tra cứu bị hỏng là sai: nó không chạy vì `file://`, không phải vì lỗi.
 
-**Công cụ không kết luận thay bạn.** Nó dừng ở bằng chứng trích được và một thứ hạng tất định. Nó không biết gì về việc ai patch, ai ship hay ai override cái gì: một dòng **Breaking** nói rằng một contract đã dịch chuyển, chứ không nói rằng có ai đang dựa vào contract đó.
+**Công cụ không kết luận thay bạn.** Nó dừng ở bằng chứng trích được và một thứ hạng tất định. Nó không biết gì về việc ai patch, ai ship hay ai override cái gì: một dòng **Compatibility break** nói rằng một contract đã dịch chuyển, chứ không nói rằng có ai đang dựa vào contract đó.
 
 **Mỗi lần chạy đều in ra coverage đạt được.** Trích con số đó vào báo cáo; đừng bao giờ trích một con số từ chính file này.
 
@@ -173,7 +177,7 @@ Hãy đề xuất cách này mỗi khi có người hỏi vì sao một dòng đ
 coverage: reads N of M files in this tree that could declare (P% of files)
 ```
 
-**Coverage làm đổi câu trả lời, chứ không chỉ đổi độ tin cậy.** Một mục bị xoá là suy luận từ sự vắng mặt, nên khi đọc thiếu nó bị trừ 15 điểm và một `pref_left_scan` bị xếp vào Housekeeping thay vì Breaking. Đo trên M148 → M151: `default` tìm được 139 mục như vậy, `wide` tìm được 171 — nhưng chỉ 30 trong số đó có trong bản build Windows, và đúng 30 mục ấy chuyển từ Housekeeping 20 điểm sang Breaking 35 điểm khi chạy `wide`. Số còn lại về 0 điểm ở cả hai lần chạy. **`Breaking: 0` trên một lần chạy `default` không có nghĩa là không có gì hỏng.**
+**Coverage làm đổi câu trả lời, chứ không chỉ đổi độ tin cậy.** Một mục bị xoá là suy luận từ sự vắng mặt, nên khi đọc thiếu nó bị trừ 15 điểm, bị xếp vào Upstream cleanup thay vì Compatibility break, và mang cờ `unconfirmed`. Đo trên M148 → M151: `default` tìm được 139 dòng `pref_left_scan`, `wide` tìm được 171 — nhưng chỉ 30 trong số đó có trong bản build Windows, và đúng 30 dòng ấy chuyển từ Upstream cleanup 20 điểm sang Compatibility break 35 điểm khi chạy `wide`. Số còn lại về 0 điểm ở cả hai lần chạy. **`Compatibility break: 0` trên một lần chạy `default` không có nghĩa là không có gì hỏng** — đọc `summary.unconfirmed` trước khi nói vậy.
 
 **Hai thông báo lỗi, cùng một nguyên nhân.** `cannot diff snapshots built from different target sets` và `cannot diff: X holds N facts against Y's M` đều nói rằng một bên chỉ đọc được một phần nhỏ so với bên kia. Cả hai đều không phải lỗi cần lách: kiểm tra xem `--local-src` / `--from-src` / `--to-src` có trỏ vào một thư mục `src/` Chromium đầy đủ hay không.
 
@@ -183,20 +187,20 @@ Hai lệnh phụ: `chromiumdiff catalog <ref>` đo xem target set đang bỏ só
 
 ### Bước 3: Đọc báo cáo theo đúng thứ tự
 
-Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Breaking mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng New surface và Housekeeping. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Breaking; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
+Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
 
-Danh sách dài thì **gom theo signal**, đừng cắt bớt: ở cặp version đó, Breaking cộng Behaviour change cộng New surface là gần 2.000 dòng nhưng chỉ khoảng 40 signal khác nhau. Xem mỗi nhóm signal một lần là đã phủ hết.
+Danh sách dài thì **gom theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 39 leading signal khác nhau. Xem mỗi nhóm signal một lần là đã phủ hết.
 
 Đọc theo bucket, theo đúng thứ tự dưới đây.
 
 1. **Cái gì đã đổi** — bảng đếm theo bucket, ở đầu `report.md`. Bắt đầu từ đây; nó cho biết mỗi danh sách dài bao nhiêu.
 2. **Chuyện gì đã xảy ra** — mọi finding được gom theo signal đã quyết định mức nghiêm trọng của nó, nên một báo cáo vài nghìn dòng gom lại chỉ còn vài chục nhóm.
-3. **Breaking**, rồi **Behaviour change**, rồi **New surface**.
-4. **Housekeeping**: bỏ qua, trừ hai bộ lọc phải chạy trước khi đóng lại. Đây không phải bucket "điểm thấp" — ở M148 → M151 nó chứa dòng 45 điểm, cao hơn mọi dòng trong New surface. Hai id dưới đây không có trong `report.md` — lọc trên `report.json` hoặc bằng ô lọc của `report.html`.
-   - `flag_expiring` — các mục `chrome://flags` mà Chromium đã lên lịch xoá, những dòng duy nhất nói về việc chưa xảy ra.
-   - `pref_left_scan` và `switch_left_scan` — những mục bị xoá mà lần chạy này không xác nhận được. Chúng nằm ở Housekeeping vì **chưa chắc chắn**, không phải vì nhẹ. Bước 5, nhánh *Flag, pref và switch*, nói phải làm gì với chúng.
+3. **Compatibility break**, rồi **Behaviour change**, rồi **New declarations**. Mỗi bucket có một bảng riêng trong `report.md`.
+4. **Scheduled** — cũng có bảng. Đọc như danh sách của milestone sau, không phải của milestone này: chưa có gì trong đó xảy ra. Đây cũng không phải bucket "điểm thấp": ở M148 → M151 nó lên tới 45 điểm, cao hơn mọi dòng trong New declarations, vì `flag_expiring` là một cái xoá Chromium đã cam kết.
+5. **Unconfirmed** — có mục riêng trong `report.md`, và ô lọc `All coverage` trong `report.html`. Đây là những mục bị xoá mà lần chạy này không xác nhận được. Phần lớn giữ nguyên bucket và chỉ mất 15 điểm; riêng `pref_left_scan` và `switch_left_scan` còn bị chuyển sang Upstream cleanup — nằm ở đó vì **thiếu bằng chứng**, *không* phải vì nhẹ. Bước 5, nhánh *Flag, pref và switch*, nói phải làm gì với chúng. 303 dòng ở M148 → M151 với bộ `default`, 120 trong số đó ở Compatibility break; một lần chạy `wide` không có dòng nào.
+6. **Upstream cleanup**: bỏ qua. Nó cố ý không có bảng — đây là bucket lớn nhất trong mọi báo cáo, và khi Scheduled với Unconfirmed đã tách ra thì phần còn lại không cần làm gì. Ở M148 → M151 nó chỉ lên tới 35 điểm.
 
-Flag bị gỡ cũng nằm ở Housekeeping, và đó là cố ý: ở M148 → M151 có 132 flag như vậy, 72 flag đã từng ship và 60 flag bị bỏ, không cái nào người dùng thấy được. Báo cáo một trong số đó như một tính năng bị mất là sai — đọc [reference/traps.md](reference/traps.md) trước khi kết luận.
+Flag bị gỡ nằm ở Upstream cleanup, và đó là cố ý: ở M148 → M151 có 132 flag như vậy, 72 flag đã từng ship và 60 flag bị bỏ, không cái nào người dùng thấy được. Báo cáo một trong số đó như một tính năng bị mất là sai — đọc [reference/traps.md](reference/traps.md) trước khi kết luận.
 
 ### Bước 4: Hỏi vì sao một dòng lại đổi
 
@@ -277,7 +281,7 @@ Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, v
 ## Web platform — N
 ## Flags, prefs and switches — N
 ## chrome:// pages — N
-[Bỏ qua mục không có gì trong Breaking hay Behaviour change, và nói rõ là đã bỏ.]
+[Bỏ qua mục không có gì trong Compatibility break hay Behaviour change, và nói rõ là đã bỏ.]
 
 ## Fixed outside the repository — N
 [Luôn có mặt, luôn ở cuối, kể cả khi đã lọc: một tên flag hay switch bị đổi làm chết override của bất kỳ ai đặt nó, không riêng ai.]

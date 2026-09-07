@@ -383,7 +383,15 @@ from typing import Any, Dict, Iterable, List, Optional
 #      one Behaviour row per member: three files at M143 -> M147 produced 32
 #      container rows and 164 members repeating them, 11% of that bucket for
 #      one upstream annotation edit.
-SCHEMA_VERSION = 40
+#  41: five buckets, renamed, and a finding records whether the run confirmed
+#      the absence it rests on. Version 40's four names sat on three different
+#      axes -- two consequences, one direction, one motive -- and the fourth,
+#      `housekeeping`, held five states at once: upstream cleanup (542 rows at
+#      M148 -> M151), removals no signal could characterise (220), declarations
+#      absent from the Windows build on both sides (187), deletions Chromium
+#      has only scheduled (57), and removals this run could not confirm (31).
+#      A version 40 `bucket` value does not name the same set of findings.
+SCHEMA_VERSION = 41
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -463,7 +471,13 @@ KIND_LABELS = {
 # Measured on a real M139 -> M143 report: 3,120 findings split 34% / 35% / 30%,
 # so two thirds of a report is *not* about features being turned on or off.
 # A flat kind list hides that, which is why the report groups its filter.
-KIND_GROUP_SWITCH = "Behaviour switches"
+#
+# The first group was called "Behaviour switches", which put the word
+# "Behaviour" on a kind-group filter and on a bucket pill in the same table
+# row, naming two different things. These three kinds are feature switches --
+# a base::Feature, one of its parameters, and a Blink runtime flag -- so the
+# name says what they are and the collision goes.
+KIND_GROUP_SWITCH = "Feature switches"
 KIND_GROUP_CONTRACT = "External contracts"
 KIND_GROUP_SURFACE = "UI and scheduling"
 
@@ -669,9 +683,9 @@ class Change:
 # Findings (a change, ranked)
 # ---------------------------------------------------------------------------
 
-# Four buckets, and every one of them is decidable from the change itself.
+# Five buckets, and every one of them is decidable from the change itself.
 #
-# The previous four -- Must fix / Needs review / New opportunity / FYI -- asked
+# The first four -- Must fix / Needs review / New opportunity / FYI -- asked
 # "what does this cost *us*", which needs a description of what "us" is. That
 # description came from a profile naming a second, modified tree, and with
 # that gone the question has no answer: `Must fix` required symbol evidence, so it
@@ -679,35 +693,52 @@ class Change:
 # of 2,800 findings on a real M148 -> M151 run. A bucket that cannot be filled
 # and a bucket that takes half the report are the same failure.
 #
-# These four answer the question the tool can actually answer -- **what kind of
-# thing happened** -- and they come from the signal that set the severity, so a
-# finding is filed under the sentence it is ranked by.
-BUCKET_BREAKING = "breaking"
+# The four that replaced them -- Breaking / Behaviour change / New surface /
+# Housekeeping -- answered the question the tool can answer, but not on one
+# axis: two named a consequence, `New surface` named a direction, and
+# `Housekeeping` named upstream's motive. So `web_api_added_live` and
+# `web_api_shipped` landed in different buckets (175 and 129 rows at M148 ->
+# M151) while saying the same thing about the Windows build, and `New surface`
+# collided with the report's own `Surface` column, which means a fact kind.
+# `Housekeeping` held five states at once and every document had to undo it in
+# prose: it is not the low-score bucket, and the removals in it are unconfirmed
+# rather than minor.
+#
+# These five are one question -- **what kind of thing happened** -- and they
+# come from the signal that set the severity, so a finding is filed under the
+# sentence it is ranked by.
+BUCKET_CONTRACT = "contract"
 BUCKET_BEHAVIOUR = "behaviour"
-BUCKET_NEW = "new"
-BUCKET_HOUSEKEEPING = "housekeeping"
+BUCKET_ADDED = "added"
+BUCKET_SCHEDULED = "scheduled"
+BUCKET_CLEANUP = "cleanup"
 
-BUCKET_ORDER = [BUCKET_BREAKING, BUCKET_BEHAVIOUR, BUCKET_NEW,
-                BUCKET_HOUSEKEEPING]
+BUCKET_ORDER = [BUCKET_CONTRACT, BUCKET_BEHAVIOUR, BUCKET_ADDED,
+                BUCKET_SCHEDULED, BUCKET_CLEANUP]
 
 BUCKET_LABELS = {
-    BUCKET_BREAKING: "Breaking",
+    BUCKET_CONTRACT: "Compatibility break",
     BUCKET_BEHAVIOUR: "Behaviour change",
-    BUCKET_NEW: "New surface",
-    BUCKET_HOUSEKEEPING: "Housekeeping",
+    BUCKET_ADDED: "New declarations",
+    BUCKET_SCHEDULED: "Scheduled",
+    BUCKET_CLEANUP: "Upstream cleanup",
 }
 
 BUCKET_MEANINGS = {
-    BUCKET_BREAKING: "Something outside the binary stops working, and nothing "
-                     "warns you: stored user data, launch scripts, Finch "
-                     "configs, live websites, the other process.",
+    BUCKET_CONTRACT: "A contract outside the binary no longer holds, and "
+                     "nothing at build time warns you: stored user data, "
+                     "launch scripts, Finch configs, live websites, the other "
+                     "process.",
     BUCKET_BEHAVIOUR: "The Windows build behaves differently after this. "
                       "Someone can see a difference.",
-    BUCKET_NEW: "Surface that did not exist before. Nothing is switched on by "
-                "it on its own.",
-    BUCKET_HOUSEKEEPING: "Chromium tidying up after itself, and scheduling. "
-                         "Nothing observable moved, or the tool cannot tell "
-                         "that anything did.",
+    BUCKET_ADDED: "A declaration exists in the new version that did not exist "
+                  "in the old. Nothing is switched on by its existence.",
+    BUCKET_SCHEDULED: "A removal date, not a removal. Chromium has scheduled "
+                      "something for deletion or moved the date. Nothing has "
+                      "happened yet.",
+    BUCKET_CLEANUP: "Chromium removed or moved something whose outcome was "
+                    "already settled, or the declaration is not in the "
+                    "Windows build on either side. Nothing observable moved.",
 }
 
 
@@ -724,7 +755,17 @@ class Finding:
     change: Change
     reasons: List[str] = field(default_factory=list)
     score: int = 0
-    bucket: str = BUCKET_HOUSEKEEPING
+    bucket: str = BUCKET_CLEANUP
+    # True when the finding rests on an absence this run did not read enough of
+    # the tree to confirm. It is a property of the *run*, not of the change, so
+    # it cannot be a bucket -- the same change on a `wide` run carries it and
+    # scores 15 points higher. It is a field rather than a sentence in
+    # ``reasons`` because a reader has to be able to filter for these: 303 of
+    # them at M148 -> M151 on the default target set and 0 on the wide one.
+    # Set wherever the 15-point deduction is, so it is not confined to one
+    # bucket -- 120 of those 303 are in Compatibility break, where a reader
+    # most wants to know the evidence is short.
+    unconfirmed: bool = False
     enrichment: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -737,6 +778,7 @@ class Finding:
             "reasons": self.reasons,
             "score": self.score,
             "bucket": self.bucket,
+            "unconfirmed": self.unconfirmed,
             "enrichment": self.enrichment,
         }
 
@@ -746,7 +788,8 @@ class Finding:
             change=Change.from_dict(d["change"]),
             reasons=d.get("reasons", []) or [],
             score=d.get("score", 0),
-            bucket=d.get("bucket", BUCKET_HOUSEKEEPING),
+            bucket=d.get("bucket", BUCKET_CLEANUP),
+            unconfirmed=bool(d.get("unconfirmed", False)),
             enrichment=d.get("enrichment", {}) or {},
         )
 

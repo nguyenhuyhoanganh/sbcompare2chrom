@@ -108,8 +108,8 @@ Nếu chỉ có báo cáo mà không có ba trường về source và config, v�
 1. Xác nhận `from_ref`, `to_ref`, platform và target set.
 2. Đọc coverage theo từng surface, danh sách missing target và lỗi trích xuất.
 3. Lọc lấy phần team mình quan tâm — theo `kind`, theo bucket, hoặc theo nhóm hậu quả.
-4. Trong phần đã lọc, đi theo thứ tự: Breaking → Behaviour change → New surface.
-5. Với Housekeeping, chỉ đọc kỹ các signal liên quan tới cấu hình và lịch trình — `flag_expiring`, các flag bị dọn, và các trường hợp đổi tên.
+4. Trong phần đã lọc, đi theo thứ tự: Compatibility break → Behaviour change → New declarations → Scheduled.
+5. Với Upstream cleanup, bỏ qua — trừ mục *Unconfirmed* trong `report.md`, là những removal lần chạy này chưa xác nhận được. Chúng nằm ở đó vì **thiếu bằng chứng**, không phải vì nhỏ.
 6. Mở từng finding có khả năng liên quan tới Samsung, đọc `locations`, `deltas`, `signals`, `reasons`.
 7. Tìm trong source và config của Samsung, **rồi mới** gắn nhãn mức độ ảnh hưởng.
 

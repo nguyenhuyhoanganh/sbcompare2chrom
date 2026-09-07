@@ -144,8 +144,8 @@ Results land in `out/M148_to_M151/`:
 
 | File | Size | Use it for |
 |---|---|---|
-| `report.md` | ~118 KB | Pasting into Jira, Confluence, a merge request |
-| `report.html` | ~2.0 MB | Opening in a browser; filterable and sortable, fully self-contained |
+| `report.md` | ~126 KB | Pasting into Jira, Confluence, a merge request |
+| `report.html` | ~1.5 MB | Opening in a browser; filterable and sortable, fully self-contained |
 | `report.json` | ~4.2 MB | Scripts, dashboards, comparing across cycles |
 
 `report.html` loads no external resources, so it works on an air-gapped network and can be attached to an email.
@@ -179,7 +179,7 @@ Every surface is one or the other:
 | Mojo | nothing. `[EnableIf]` decides which *platform* compiles it, not who can see it | **Yes** |
 | Preferences, command-line switches | nothing | **Yes** |
 
-Both halves are large, and the second carries the higher severities: at M148 → M151, **220 of the 276 Breaking rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with the per-bucket counts, and Breaking is the first list of rows it prints.
+Both halves are large, and the second carries the higher severities: at M148 → M151, **220 of the 276 Compatibility break rows are Mojo or web API**. The report is ordered to keep them apart — `report.md` opens with the per-bucket counts, and Compatibility break is the first list of rows it prints.
 
 ---
 
@@ -617,38 +617,46 @@ The words *every side* carry the whole rule. A declaration that **enters or leav
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
+-15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
-    housekeeping rather than breaking — --target-set wide settles it
+    upstream cleanup rather than a compatibility break — --target-set wide
+    settles it
 ```
 
 Additions are not discounted. An addition is a thing seen rather than a thing not seen, and "it may have existed in a file we did not open" does not make it any less present in the version being adopted. The asymmetry is the documented failure mode of this tool, not a hypothetical one: what goes wrong on a partial read is removals reading as deletions.
 
 **Nothing raises a score.** Severity is the ceiling — the most this kind of change can cost — and the adjustments only take away, each with a sentence beside it. So a reader who understands the signal table understands the ranking, and every point of difference between the two numbers can be argued with.
 
-### The four buckets
+### The five buckets
 
 The leading signal also decides which bucket a finding is filed under, so a row is filed under the sentence it was ranked by.
 
 | Bucket | Meaning | M148 → M151 |
 |---|---|---:|
-| **Breaking** | Something outside the binary stops working, and nothing warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 276 |
+| **Compatibility break** | A contract outside the binary no longer holds, and nothing at build time warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 276 |
 | **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 469 |
-| **New surface** | Surface that did not exist before. Nothing is switched on by it on its own | 1,240 |
-| **Housekeeping** | Chromium tidying up after itself, and scheduling. Nothing observable moved, or the tool cannot tell that anything did | 1,037 |
+| **New declarations** | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence | 1,240 |
+| **Scheduled** | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet | 302 |
+| **Upstream cleanup** | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | 735 |
 
-Two placements are worth arguing about explicitly, because both are the difference between a report people read and a report people stop opening:
+All five answer one question — what kind of thing happened — and that matters more than the wording. The four they replaced did not: **Breaking** and **Behaviour change** named a consequence, **New surface** named a direction, and **Housekeeping** named upstream's motive. Reading across three axes has consequences a reader meets immediately. `web_api_added_live` (175 rows) sat in New surface and `web_api_shipped` (129) in Behaviour change while both say the same thing about the Windows build. **New surface** used the word the `Surface` column beside it uses for a fact kind. And **Housekeeping** held five states at once — 542 real cleanups, 220 removals no signal could characterise, 187 declarations absent from the Windows build on both sides, 57 deletions Chromium has only scheduled, and 31 removals the run could not confirm — so every document had to explain in prose that it is not the low-score bucket.
 
-**Retired flags are Housekeeping, not Breaking.** At M148 → M151, 154 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
+Three placements are worth arguing about explicitly, because each is the difference between a report people read and a report people stop opening:
 
-**An unconfirmed disappearance moves bucket with the coverage.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
+**Retired flags are Upstream cleanup, not a compatibility break.** At M148 → M151, 154 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
+
+**A date is not an event.** `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and there are 302 of them — a tenth of the report. Filed as cleanup they read as work that happened and did not matter, which is the opposite of what they say.
+
+**An unconfirmed disappearance moves bucket with the coverage, and says so on the row.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
 
 | | Coverage | `pref_left_scan` | Bucket | Score |
 |---|---:|---:|---|---:|
-| `default` | 5% | 139 | Housekeeping | 20 |
-| `wide` | 100% | 171 | **Breaking** | **35** |
+| `default` | 5% | 139 | Upstream cleanup | 20 |
+| `wide` | 100% | 171 | **Compatibility break** for the 30 in the Windows build | **35** |
 
 A rule that produced the same answer either way would be wrong in one of the two directions, and the honest thing is for the report to say which run it is.
+
+That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows on the default run and 0 on the wide run**, and 120 of the 303 are in Compatibility break, where a reader most wants to know the evidence is short. `summary.unconfirmed` is the number to read — it says how much of a report is limited by what the run read rather than by what Chromium did.
 
 ### Changing the ranking
 
@@ -658,20 +666,23 @@ A rule that produced the same answer either way would be wrong in one of the two
 
 ## 8. Reading the report
 
-### The four counts at the top
+### The five counts at the top
 
 ```
-Breaking             276   ← something outside the binary stops working, silently
-Behaviour change     469   ← the Windows build behaves differently
-New surface         1240   ← surface that did not exist. Nothing is on by it
-Housekeeping        1037   ← Chromium tidying up after itself
+Compatibility break   276   ← a contract outside the binary no longer holds, silently
+Behaviour change      469   ← the Windows build behaves differently
+New declarations     1240   ← exists now, did not before. Nothing is on by it
+Scheduled             302   ← a date, not an event. Nothing has happened yet
+Upstream cleanup      735   ← Chromium tidying up after itself
 ```
 
-Read in that order. `report.md` gives the first three a table each and deliberately gives Housekeeping none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
+Read in that order. `report.md` gives the first four a table each and deliberately gives Upstream cleanup none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
 
-One thing inside Housekeeping is worth filtering for on purpose. `flag_expiring` rows are `chrome://flags` entries Chromium has scheduled for deletion in the next milestone or two — 57 of them at M148 → M151 — and they are the only rows in the report about work that has *not* happened yet. Everything else in the bucket is about work that has, and did not matter.
+Scheduled does get a table, and that is the point of it being its own bucket. `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and while they were filed as cleanup the only way to reach them was to filter `report.json` by signal id.
 
-What decides a bucket, and the two placements worth arguing about, are in §7.
+`report.md` also gives a table to whatever carries **`unconfirmed`** — every row this run did not read enough of the tree to confirm. 303 of them on the default run, 0 on the wide one. The 163 that sit in Upstream cleanup are there because the evidence is short, not because they are minor.
+
+What decides a bucket, and the three placements worth arguing about, are in §7.
 
 `report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is the shape that reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
 
@@ -696,9 +707,9 @@ The marker at the start of the cell: `+` new, `~` changed, `−` gone.
 
 The "what happened" sentence is **the label of the signal that set the severity** for that finding, not the first signal in the list. Pick the wrong one and a row carries one sentence while being ranked by another. A finding with no signal at all — something that just appeared, with no default to move — uses its direction and kind as the sentence (`New feature flag`, `Removed chrome://flags entry`), so every row has one.
 
-### Four clickable triage cards
+### Five clickable triage cards
 
-The four cards at the top are filters: click one and the table below filters to that bucket. The number on the card and the number of filtered rows always match — a test holds that.
+The five cards at the top are filters: click one and the table below filters to that bucket. The number on the card and the number of filtered rows always match — a test holds that.
 
 ### What changed on each screen
 
@@ -739,9 +750,10 @@ severity 75 — Now ON by default on Windows
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 1% of that surface at refs/tags/151.0.7922.138,
+-15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
-    housekeeping rather than breaking — --target-set wide settles it
+    upstream cleanup rather than a compatibility break — --target-set wide
+    settles it
 ```
 
 A web API removed on the same run keeps its full 70, because the surface it
@@ -752,14 +764,14 @@ A ranking nobody can argue with is a ranking that gets ignored the first time it
 
 ### Analyse everything, render at read time
 
-`report.json` always holds every finding, including Housekeeping, and the two rendered files are views of it:
+`report.json` always holds every finding, including Upstream cleanup, and the two rendered files are views of it:
 
 ```bash
 python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138
 python3 -m chromiumdiff report out/report.json --format both --out out/again
 ```
 
-Size is not the constraint: the whole of an upgrade is about 4 MB of JSON and `report.md` is about 118 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
+Size is not the constraint: the whole of an upgrade is about 4 MB of JSON and `report.md` is about 126 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
 
 ### Sixteen fact kinds, three meaning groups
 
@@ -767,7 +779,7 @@ The report groups its filter by *what a change means*, rather than presenting si
 
 | Group | Contains | A change here means |
 |---|---|---|
-| Behaviour switches | feature flag, feature param, Blink runtime | Behaviour itself changed |
+| Feature switches | feature flag, feature param, Blink runtime | Behaviour itself changed |
 | External contracts | pref, switch, Web IDL, and all five Mojo kinds | Something outside the binary breaks, silently: stored user data, launch scripts, live websites, the other process |
 | UI and scheduling | WebUI route/control/gate, `chrome://flags` | What the user sees changed, or the date something is scheduled for removal moved |
 
@@ -1136,7 +1148,7 @@ python3 -m chromiumdiff snapshot 151.0.7922.138
 | `! <ref>: N target(s) absent from that source` | Files the target set asked for were not in that tree | Normal for an older milestone, where Chromium had not created the file yet. Not normal for a local checkout — there it means the tree is partial, and each absent target is a whole file's declarations missing from the comparison |
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `Breaking: 0` on a default run | Normal, and not a clean bill of health | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Housekeeping there by design. Run `--target-set wide` before concluding anything |
+| `Compatibility break: 0` on a default run | Normal, and not a clean bill of health | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Run `--target-set wide` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMIUMDIFF_CACHE=C:\cdcache` |
@@ -1168,11 +1180,15 @@ python3 -m chromiumdiff run "$FROM" "$TO" \
   --out "reports/${FROM}_to_${TO}"
 
 # Block the merge until someone has looked at the breaking changes
-BREAKING=$(python3 -c "import json,sys; \
-  print(json.load(open(sys.argv[1]))['summary']['by_bucket'].get('breaking', 0))" \
+BREAKS=$(python3 -c "import json,sys; \
+  print(json.load(open(sys.argv[1]))['summary']['by_bucket'].get('contract', 0))" \
   "reports/${FROM}_to_${TO}/report.json")
-[ "$BREAKING" -eq 0 ] || { echo "$BREAKING breaking changes to triage"; exit 1; }
+[ "$BREAKS" -eq 0 ] || { echo "$BREAKS compatibility breaks to triage"; exit 1; }
 ```
+
+On a `wide` run `summary.unconfirmed` is 0, so a non-zero value there says the
+run read less of the tree than it was asked to and some removals were filed
+as cleanup for want of evidence.
 
 ---
 
@@ -1232,7 +1248,7 @@ chromiumdiff/
   cluster.py      assemble scattered fragments into one story
   score.py        the two run-dependent adjustments, and the reasons
   catalog.py      measure what the target set is missing; check reference closure
-  model.py        shared data structures, the four buckets, JSON read/write
+  model.py        shared data structures, the five buckets, JSON read/write
   eligibility.py  one policy for what is product code, shared by discovery and extraction
   jsonc.py        hand-written JSON5 reader
   report/         markdown + self-contained HTML dashboard;

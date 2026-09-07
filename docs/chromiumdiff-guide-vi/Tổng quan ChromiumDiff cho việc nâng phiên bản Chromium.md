@@ -58,7 +58,7 @@ Những khai báo có ý nghĩa đối với việc tích hợp browser
         ↓
 Những thay đổi thực sự về hành vi hoặc contract
         ↓
-Breaking / Behaviour change / New surface / Housekeeping
+Compatibility break / Behaviour change / New declarations / Scheduled / Upstream cleanup
         ↓
 Lọc đúng phần mình cần: theo kind, theo bucket, hoặc theo nhóm hậu quả
         ↓
@@ -104,7 +104,7 @@ ChromiumDiff không biết:
 
 ### Cách phát biểu đúng
 
-Vì vậy, câu **sai** là: *"276 Breaking nghĩa là Samsung có 276 bug."*
+Vì vậy, câu **sai** là: *"276 Compatibility break nghĩa là Samsung có 276 bug."*
 
 Câu **đúng** là:
 
@@ -496,7 +496,7 @@ Thông tin quan trọng nhất là milestone hết hạn, vì nó giúp dự đo
 - feature có thể đã bật mặc định từ trước, và Chromium chỉ đang dọn nút thử nghiệm;
 - đổi `expiry_milestone` thường chỉ là đổi lịch, không phải đổi hành vi.
 
-Vì vậy finding từ file này chủ yếu phục vụ việc lập kế hoạch và nằm ở nhóm Housekeeping — trừ khi có thêm signal từ chính khai báo feature.
+Vì vậy finding từ file này chủ yếu phục vụ việc lập kế hoạch. `flag_expiring` và `flag_expiry_moved` nằm ở nhóm **Scheduled** — chúng nói về một cái ngày, không phải một sự kiện; phần còn lại nằm ở Upstream cleanup, trừ khi có thêm signal từ chính khai báo feature.
 
 ### 7.9. Ba loại file của WebUI
 
@@ -914,12 +914,13 @@ Nếu không suy ra được signal cụ thể nào, công cụ dùng mức đi�
 
 | Bucket | Ý nghĩa phía upstream | Cách team Samsung nên đọc |
 |---|---|---|
-| Breaking | API, IPC hoặc key bên ngoài binary có thể không còn tương thích | Tìm nơi Samsung sử dụng; chỉ trở thành blocker khi có sử dụng thật |
+| Compatibility break | API, IPC hoặc key bên ngoài binary có thể không còn tương thích | Tìm nơi Samsung sử dụng; chỉ trở thành blocker khi có sử dụng thật |
 | Behaviour change | Hành vi mặc định trên Windows đã đổi | Xác nhận patch, test hoặc hành vi sản phẩm nào đang phụ thuộc hành vi cũ |
-| New surface | Có API, feature hoặc control mới xuất hiện | Có thể là cơ hội sản phẩm hoặc vùng cần test thêm; không mặc định là blocker |
-| Housekeeping | Dọn code, cập nhật lịch, hoặc bằng chứng chưa đủ mạnh | Không cần đọc từng dòng; nhưng nên lọc riêng flag sắp hết hạn và config cũ cần dọn |
+| New declarations | Có khai báo, API, feature hoặc control mới xuất hiện | Có thể là cơ hội sản phẩm hoặc vùng cần test thêm; không mặc định là blocker |
+| Scheduled | Upstream đã lên lịch xoá, hoặc dời lịch. Chưa có gì xảy ra | Danh sách cho milestone sau, không phải milestone này |
+| Upstream cleanup | Dọn code, hoặc khai báo không nằm trong build Windows ở cả hai phía | Không cần đọc từng dòng; chỉ đọc mục *Unconfirmed* trước khi đóng lại |
 
-Nhắc lại điều dễ bị nói quá nhất: `Breaking` mô tả **loại thay đổi trong Chromium gốc**, không có nghĩa Samsung Browser chắc chắn bị lỗi. Chỉ sau khi tìm thấy nơi Samsung đang dùng contract đó mới có thể kết luận về ảnh hưởng.
+Nhắc lại điều dễ bị nói quá nhất: `Compatibility break` mô tả **loại thay đổi trong Chromium gốc**, không có nghĩa Samsung Browser chắc chắn bị lỗi. Chỉ sau khi tìm thấy nơi Samsung đang dùng contract đó mới có thể kết luận về ảnh hưởng.
 
 ## 14. Đọc một finding theo loại khai báo của nó
 
@@ -988,7 +989,7 @@ Hai tính chất đi cùng nhau: công cụ **không bao giờ cộng điểm v�
 
 Score chỉ bằng 0 khi khai báo có trạng thái `not_compiled` ở **tất cả các phiên bản mà nó tồn tại**. Ba trường hợp:
 
-- Chỉ dành cho Android ở cả bản cũ lẫn bản mới → score 0, bucket Housekeeping.
+- Chỉ dành cho Android ở cả bản cũ lẫn bản mới → score 0, bucket Upstream cleanup.
 - Có trong Windows build ở bản cũ nhưng bị loại ở bản mới → giữ nguyên severity, vì chính việc bị loại là thay đổi cần xem.
 - Bắt đầu được đưa vào Windows build ở bản mới → cũng giữ nguyên severity.
 
@@ -1001,7 +1002,7 @@ Vì vậy coverage được xét riêng cho **từng nhóm file**. Hai con số 
 - Với Web IDL, bộ `default` đọc **2.166 trên 2.170** file ứng viên ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
 - Với pref và switch, bộ `default` chỉ đọc **9 trên 529** file ứng viên. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
 
-Ngưỡng xác nhận hiện là **95%**. Nếu coverage thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" bị trừ 15 điểm. Riêng pref và switch chưa xác nhận được sẽ bị đưa về Housekeeping, vì kết luận an toàn lúc này chỉ là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*.
+Ngưỡng xác nhận hiện là **95%**. Nếu coverage thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" bị trừ 15 điểm. Riêng pref và switch chưa xác nhận được sẽ bị đưa về Upstream cleanup **và mang cờ `unconfirmed`**, vì kết luận an toàn lúc này chỉ là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: 303 ở bộ `default`, **0 ở bộ `wide`**. Cờ được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở pref và switch bị đổi bucket.
 
 Chiều ngược lại thì khác: một khai báo nhìn thấy rõ ở bản mới **không** bị trừ điểm chỉ vì coverage ở bản cũ thấp. Công cụ chỉ hạ độ tin cậy khi bản cũ có lỗi chắc chắn — thiếu file mục tiêu, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
 
@@ -1013,7 +1014,7 @@ Chiều ngược lại thì khác: một khai báo nhìn thấy rõ ở bản m�
 severity 80: ipc_shape_changed
 Windows: có trong build
 delta nhìn thấy ở cả hai phía, không dựa trên absence
-score = 80, bucket = Breaking
+score = 80, bucket = Compatibility break
 ```
 
 **Feature flag LNA bị remove trong default run**
@@ -1023,7 +1024,7 @@ prior Windows state = enabled
 signal = flag_retired_on, severity 35
 feature-file coverage tại TO ≈ 12%
 removal chưa confirm → -15
-score = 20, bucket vẫn Housekeeping
+score = 20, bucket = Upstream cleanup, unconfirmed = true
 ```
 
 Với bộ `wide`, gần như toàn bộ file feature đều được đọc. Nếu không có lỗi tải hoặc lỗi parser, khoản trừ do thiếu coverage sẽ được bỏ đi.
@@ -1032,7 +1033,7 @@ Với bộ `wide`, gần như toàn bộ file feature đều được đọc. N�
 
 ```text
 platform_state.windows = not_compiled ở cả hai phía
-score = 0, bucket = Housekeeping
+score = 0, bucket = Upstream cleanup
 ```
 
 ## 16. Coverage được đo ra sao?
@@ -1190,16 +1191,16 @@ Hệ quả thực tế: một script đọc JSON lọc thẳng theo `change.kind
 
 Bản Markdown được sắp xếp theo đúng thứ tự nên đọc:
 
-1. Số lượng và ý nghĩa của bốn bucket.
+1. Số lượng và ý nghĩa của năm bucket.
 2. Phần nào thuộc về team mình.
 3. Loại thay đổi nào đã xảy ra, nhóm theo leading signal.
 4. WebUI page nào có thay đổi.
 5. Các finding có liên quan với nhau.
-6. Chi tiết theo thứ tự Breaking → Behaviour change → New surface.
+6. Chi tiết theo thứ tự Compatibility break → Behaviour change → New declarations → Scheduled, rồi tới mục *Unconfirmed*.
 7. Lý do chấm điểm.
 8. Nguồn dữ liệu, coverage và các file bị thiếu.
 
-Markdown **không** in toàn bộ bảng Housekeeping, vì đây thường là nhóm lớn nhất và ít cần đọc từng dòng. Dữ liệu đầy đủ vẫn nằm trong JSON và HTML.
+Markdown **không** in toàn bộ bảng Upstream cleanup, vì đây thường là nhóm lớn nhất và ít cần đọc từng dòng. Dữ liệu đầy đủ vẫn nằm trong JSON và HTML.
 
 ### 19.3. `report.html`: dashboard để triage
 
@@ -1247,7 +1248,7 @@ Hai chi tiết về hành vi của dashboard: khi bấm vào thẻ tổng hợp 
 ```text
 Surface = webui_route / webui_control / webui_gate
 Search = settings hoặc downloads
-Bucket = Behaviour change / Breaking
+Bucket = Behaviour change / Compatibility break
 ```
 
 Cách đọc: xem route guard, biểu thức của gate, loại control và pref binding **cùng nhau**. Không kết luận chỉ từ một dòng route.
@@ -1256,7 +1257,7 @@ Cách đọc: xem route guard, biểu thức của gate, loại control và pref
 
 ```text
 Surface = base_feature / feature_param / pref / switch / flag_entry
-Bucket = Breaking hoặc Behaviour change
+Bucket = Compatibility break hoặc Behaviour change
 Search symbol/pref/switch đang patch trong Samsung
 ```
 
@@ -1266,7 +1267,7 @@ Cách đọc: luôn phân biệt hai trường hợp — tên feature dùng bên
 
 ```text
 Surface = mojo_interface / mojo_method / mojo_struct / mojo_field / mojo_enum
-Bucket = Breaking
+Bucket = Compatibility break
 Sort score descending
 ```
 
@@ -1337,24 +1338,25 @@ Snapshot và report ở bộ `default`:
 | Facts FROM | 28,507 |
 | Facts TO | 29,138 |
 | Semantic changes | 3,022 |
-| Breaking | 276 |
+| Compatibility break | 276 |
 | Behaviour change | 469 |
-| New surface | 1,240 |
-| Housekeeping | 1,037 |
+| New declarations | 1,240 |
+| Scheduled | 302 |
+| Upstream cleanup | 735 |
 | Not in Windows build | 187 |
 | Clusters | 72, cluster lớn nhất 7 finding |
 
 Số lượng theo loại khai báo:
 
-| Nhóm `kind` | Total | Breaking |
+| Nhóm `kind` | Total | Compatibility break |
 |---|---:|---:|
 | `mojo_*` | 339 | 126 |
-| `idl_*`, `blink_runtime_feature` | 719 | 94 |
-| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | 1,157 | 2 |
+| `idl_*`, `blink_runtime_feature` | 762 | 94 |
+| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | 1,644 | 55 |
 | `webui_*` | 277 | 1 |
 | phải sửa ngoài repository (theo signal) | 530 | 53 |
 
-**Bảng thứ hai là lập luận mạnh nhất cho việc phải lọc trước khi đọc.** Nhóm flag/pref/switch có nhiều finding nhất — 1.157 — nhưng chỉ có 2 finding Breaking. Ngược lại, IPC chỉ có 339 finding, nhưng 126 trong số đó là Breaking.
+**Bảng thứ hai là lập luận mạnh nhất cho việc phải lọc trước khi đọc.** Nhóm flag/pref/switch có nhiều finding nhất — 1.644 — nhưng chỉ 55 trong số đó là Compatibility break, tức 3%. Ngược lại, IPC chỉ có 339 finding, nhưng 126 trong số đó là Compatibility break, tức 37%.
 
 Nếu chỉ nhìn tổng số dòng, hoặc nhìn kích thước Git diff, team sẽ dồn công sức vào đúng khu vực ít rủi ro nhất.
 
@@ -1366,7 +1368,7 @@ Tên dùng để lưu thiết lập `default_apps` giữ nguyên, nhưng C++ con
 kPreinstalledApps → kPreinstalledExtensions
 signal: pref_symbol_renamed
 severity/score: 55
-bucket: Breaking
+bucket: Compatibility break
 ```
 
 Đọc finding này: dữ liệu người dùng **không** mất, vì pref key `default_apps` vẫn giữ nguyên. Nhưng nếu Samsung code còn dùng symbol `prefs::kPreinstalledApps`, nó sẽ lỗi build sau khi merge Chromium mới.
@@ -1404,12 +1406,14 @@ python3 -m chromiumdiff run \
 
 Thứ tự ưu tiên:
 
-1. Breaking thuộc IPC.
-2. Breaking thuộc Web Platform.
-3. Breaking thuộc Config.
+1. Compatibility break thuộc IPC.
+2. Compatibility break thuộc Web Platform.
+3. Compatibility break thuộc Config.
 4. Behaviour change trên Windows.
-5. New surface có liên quan tới roadmap sản phẩm.
-6. Housekeeping — chỉ lọc phần hết hạn và phần override cần dọn.
+5. New declarations có liên quan tới roadmap sản phẩm.
+6. Scheduled — danh sách cho milestone sau.
+7. Unconfirmed — removal chưa xác nhận được; chạy `wide` để giải quyết.
+8. Upstream cleanup — bỏ qua.
 
 ### Bước 3 — Tìm nơi Samsung đang sử dụng
 
@@ -1599,7 +1603,7 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 - Ghi version Chromium hiện tại và version mục tiêu bằng đầy đủ bốn phần trong ticket.
 - Chạy `wide` một lần cho mỗi cặp version chính thức.
 - Lưu `report.json`, `report.md`, `report.html` và cả lệnh đã chạy.
-- Tạo checklist cho từng team, từ hai bucket Breaking và Behaviour change.
+- Tạo checklist cho từng team, từ hai bucket Compatibility break và Behaviour change.
 - Dùng key và symbol trong report làm đầu vào cho `rg` khi tìm trong Samsung source và config.
 
 ### Giai đoạn 2 — Thêm bằng chứng từ phía Samsung
@@ -1638,7 +1642,7 @@ Trình bày nhóm Local Network Access. Ví dụ này cho thấy nếu chỉ nh�
 
 **Phút 12–15: thu hẹp report theo phần mình cần**
 
-Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Breaking, trong khi Browser C++ có 1.157 finding nhưng chỉ 2 Breaking.
+Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Compatibility break, trong khi Browser C++ có 1.644 finding nhưng chỉ 55 Compatibility break.
 
 **Phút 15–18: độ tin cậy và giới hạn**
 
@@ -1792,9 +1796,9 @@ Không. `Removed` trước hết chỉ có nghĩa là công cụ thấy đối t
 
 Công cụ kiểm tra coverage của đúng nhóm file, cùng các lỗi tải và lỗi parser, trước khi coi đó là xoá thật. Với pref và switch, bộ `default` đọc quá ít file nên **không** được dùng để xác nhận việc xoá.
 
-### "Breaking có chắc Samsung break không?"
+### "Compatibility break có chắc Samsung break không?"
 
-Không. `Breaking` chỉ nói rằng Chromium gốc đã thay đổi một contract có khả năng ảnh hưởng tới code bên ngoài.
+Không. `Compatibility break` chỉ nói rằng Chromium gốc đã thay đổi một contract có khả năng ảnh hưởng tới code bên ngoài.
 
 Chỉ khi tìm thấy Samsung source hoặc config đang dùng contract đó, mới có thể coi đây là blocker của Samsung.
 
@@ -1806,7 +1810,7 @@ Không. Severity và score chỉ tạo ra thứ tự ưu tiên điều tra. Scor
 
 Nghĩa là khai báo đó không được đưa vào Windows build ở cả hai phiên bản, theo bằng chứng hiện có.
 
-Vẫn có thể xem nó trong nhóm Housekeeping nếu cần phân tích đa nền tảng, nhưng nó không nên chiếm ưu tiên của một đợt nâng phiên bản cho Windows.
+Vẫn có thể xem nó trong nhóm Upstream cleanup nếu cần phân tích đa nền tảng, nhưng nó không nên chiếm ưu tiên của một đợt nâng phiên bản cho Windows.
 
 ### "Tại sao score chỉ trừ mà không cộng theo Samsung patch?"
 
@@ -1923,9 +1927,9 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 [ ] Kiểm tra coverage của bản cũ, bản mới và từng nhóm file
 [ ] Xác nhận missing_targets = 0 và out_of_scope_files = 0
 [ ] Ghi số liên kết chưa tìm thấy đầu còn lại vào phần giới hạn
-[ ] Phân loại Breaking theo loại khai báo
+[ ] Phân loại Compatibility break theo loại khai báo
 [ ] Phân loại Behaviour change trên Windows
-[ ] Trong Housekeeping, lọc riêng flag sắp hết hạn và config cũ cần dọn
+[ ] Đọc bucket Scheduled cho milestone sau, và mục Unconfirmed trước khi đóng Upstream cleanup
 [ ] Tìm trong Samsung source: key, biến cũ/mới, pref/switch string và tên đầy đủ của Mojo object
 [ ] Kiểm tra nơi server bật/tắt feature, cùng script và automation ngoài source repo
 [ ] Ghi trạng thái sau khi đối chiếu và owner thực tế
@@ -1939,7 +1943,7 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 ChromiumDiff đáng dùng vì nó giải đúng một phần việc đang tốn thời gian và dễ sai trong mỗi đợt nâng phiên bản Chromium:
 
 - Chuyển các khai báo trong source thành `Fact` ổn định, để so sánh được giữa hai version.
-- Tách bạch bốn nhóm: thay đổi có thể phá contract, thay đổi hành vi, phần mới xuất hiện, và phần chỉ dọn code.
+- Tách bạch năm nhóm: thay đổi có thể phá contract, thay đổi hành vi, phần mới xuất hiện, phần mới chỉ được lên lịch, và phần chỉ dọn code.
 - Xác định thay đổi có nằm trong Windows build hay không.
 - Đo coverage và hạ độ tin cậy khi chưa đủ bằng chứng để kết luận một đối tượng đã biến mất.
 - Giao finding cho đúng team và giữ vị trí source để kiểm tra lại.

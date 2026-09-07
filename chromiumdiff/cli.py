@@ -29,7 +29,7 @@ from . import catalog, cluster
 from .diff import diff_snapshots, summarize
 from . import serve as serve_mod
 from .enrich import chromestatus, gerrit
-from .model import (BUCKET_HOUSEKEEPING, BUCKET_LABELS, BUCKET_ORDER,
+from .model import (BUCKET_CLEANUP, BUCKET_LABELS, BUCKET_ORDER,
                     SCHEMA_VERSION, Report, read_json, write_json)
 from .report import html as html_report
 from .report import markdown as md_report
@@ -158,7 +158,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     finding_summary = summarize_findings(findings)
     finding_summary["clusters"] = cluster.summarize(clusters)
     for bucket in BUCKET_ORDER:
-        _log(f"    {BUCKET_LABELS[bucket]:18s} "
+        _log(f"    {BUCKET_LABELS[bucket]:19s} "
              f"{finding_summary['by_bucket'].get(bucket, 0):5d}")
 
     milestone_brief: List[dict] = []
@@ -166,7 +166,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         _log("[5/5] chromestatus enrichment")
         milestones = _milestone_span(old.milestone, new.milestone)
         chromestatus.enrich(
-            [f for f in findings if f.bucket != BUCKET_HOUSEKEEPING],
+            [f for f in findings if f.bucket != BUCKET_CLEANUP],
             milestones, args.cache, refresh=args.refresh, log=_log)
         # Per-finding matching is weak by nature (prose names vs identifiers),
         # so the shipped-feature list is carried whole as well. It is the one
@@ -241,7 +241,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print()
     print(f"{old.ref} -> {new.ref}")
     for bucket in BUCKET_ORDER:
-        print(f"  {BUCKET_LABELS[bucket]:18s} {counts.get(bucket, 0):5d}")
+        print(f"  {BUCKET_LABELS[bucket]:19s} {counts.get(bucket, 0):5d}")
     print()
     print(f"  {md_path}")
     print(f"  {html_path}")
@@ -478,6 +478,7 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
         "schema": SCHEMA_VERSION,
         "total": summary.get("total"),
         "not_in_build": summary.get("not_in_build"),
+        "unconfirmed": summary.get("unconfirmed"),
         "buckets": summary.get("by_bucket") or {},
         "no_signal": sum(1 for f in report.findings
                          if not f.change.signals),
@@ -499,24 +500,35 @@ def cmd_figures(args: argparse.Namespace) -> int:
     report = Report.from_dict(read_json(args.report))
     wide = Report.from_dict(read_json(args.wide)) if args.wide else None
     figures = measured_figures(report, wide)
-    # A `wide` run is expensive and rarely on disk, so this is usually invoked
-    # without one -- and dropping the section that needed it would silently
-    # delete a real measurement, which is the failure this artifact exists to
-    # prevent. What cannot be recomputed is carried forward instead, and said
-    # out loud so nobody reads a stale figure as a fresh one.
-    if wide is None and os.path.exists(args.out):
+    # Two sections need something this invocation may not have: `coverage.wide`
+    # needs a wide run, and `provenance` needs a report someone has looked CLs
+    # up in -- and lookups are lazy, so a freshly produced report has none.
+    # Dropping either would silently delete a real measurement, which is the
+    # failure this artifact exists to prevent. What cannot be recomputed is
+    # carried forward instead, and said out loud so nobody reads a stale figure
+    # as a fresh one.
+    #
+    # `provenance` was not carried, and re-running `figures` after the bucket
+    # split deleted a block the documents cite.
+    previous: dict = {}
+    if os.path.exists(args.out):
         try:
             previous = read_json(args.out)
         except (OSError, ValueError):
             previous = {}
+    if wide is None:
         kept = (previous.get("coverage") or {}).get("wide")
         if kept:
             figures["coverage"]["wide"] = kept
             print(f"  kept coverage.wide from {args.out} "
                   f"(re-run with --wide to remeasure it)")
+    if "provenance" not in figures and previous.get("provenance"):
+        figures["provenance"] = previous["provenance"]
+        print(f"  kept provenance from {args.out} (look CLs up with "
+              f"`serve`, then re-run to remeasure it)")
     write_json(args.out, figures)
     print(f"  figures -> {args.out}")
-    for key in ("total", "not_in_build", "no_signal"):
+    for key in ("total", "not_in_build", "unconfirmed", "no_signal"):
         print(f"    {key}: {figures[key]}")
     print(f"    buckets: {figures['buckets']}")
     prov = figures.get("provenance")

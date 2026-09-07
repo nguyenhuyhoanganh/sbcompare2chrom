@@ -132,9 +132,13 @@ class Pick extends El {
     return on.length ? on[0].value : '';
   }
 }
-els.fb = new Pick('fb', ['breaking', 'behaviour', 'new', 'housekeeping']);
+els.fb = new Pick('fb', ['contract', 'behaviour', 'added', 'scheduled',
+  'cleanup']);
+// Evidence, not classification: it crosses the bucket filter rather than
+// competing with it, so "cleanup + unconfirmed" is askable.
+els.fu = new Pick('fu', ['y', 'n']);
 els.fk = new Pick('fk', ['base_feature', 'mojo_method', 'pref']);
-els.fg = new Pick('fg', ['External contracts', 'Behaviour switches']);
+els.fg = new Pick('fg', ['External contracts', 'Feature switches']);
 els.fp = new Pick('fp', ['exact', 'cl', 'weak', 'none', 'skipped']);
 
 global.document = {
@@ -159,7 +163,7 @@ const N = 3000;
 global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   const row = {
     name: 'Feature' + i, kind: 'base_feature',
-    bucket: i < 40 ? 'breaking' : 'housekeeping', score: i % 10 === 0 ? 0 : 100 - (i % 100),
+    bucket: i < 40 ? 'contract' : 'cleanup', score: i % 10 === 0 ? 0 : 100 - (i % 100),
     change_type: 'modified', what: 'feature flag Feature' + i,
     why: 'flag_retired_on', where: 'content/public/common',
     signals: ['flag_retired_on'], paths: ['content/f' + i + '.cc'],
@@ -206,9 +210,9 @@ global.window = { __FINDINGS__: Array.from({ length: N }, (_, i) => {
   // reach while it lived inside the empty panel's innermost branch.
   if (prov === 12) {
     // A fragment of a larger change. Read alone it is a 15-point "New
-    // surface" row, and that bucket's sentence -- nothing switches it on --
-    // is false of it: the feature it belongs to does, from another row.
-    row.score = 15; row.bucket = 'new'; row.kind = 'frag';
+    // declarations" row, and that bucket's sentence -- nothing switches it on
+    // -- is false of it: the feature it belongs to does, from another row.
+    row.score = 15; row.bucket = 'added'; row.kind = 'frag';
     row.grp = { n: 'CastStreamingMaxVideoBitrate', c: 2, t: 55 };
   }
   if (prov === 14 || prov === 15) {
@@ -278,14 +282,15 @@ global.window.__FINDINGS__.push(...[
   ['CookiesEnabled', 'cookie only reaches it with a star'],
 ].map(([name, why], i) => ({
   id: 'base_feature:' + name, name, kind: 'excl',
-  bucket: i % 2 ? 'breaking' : 'housekeeping', score: 50,
+  bucket: i % 2 ? 'contract' : 'cleanup', score: 50,
   change_type: 'modified', what: name, why: 'flag_retired_on',
   where: 'content/public/common', signals: ['flag_retired_on'],
   paths: ['content/' + name + '.cc'], reasons: [why],
 })));
 
 global.window.__KINDS__ = { base_feature: 'Chromium feature flag' };
-global.window.__BUCKETS__ = { breaking: 'Breaking', housekeeping: 'Housekeeping' };
+global.window.__BUCKETS__ = { contract: 'Compatibility break',
+  cleanup: 'Upstream cleanup', added: 'New declarations' };
 global.window.__STORIES__ = { flag_retired_on: 'Shipped, then flag retired' };
 // The renderer's own list, as the page embeds it.
 global.window.__PROVKEYS__ = ['cls', 'cl_pool', 'cl_files', 'cl_read',
@@ -373,11 +378,11 @@ out.everyRowStatesItsPath =
 // And no cell is dressed differently from the one holding the same value.
 out.noCellIsMarkedAsARepeat = !/\brep\b/.test(els.tb.innerHTML);
 
-// A zero score has to render as 0. Filtering to breaking puts all 40 of them
+// A zero score has to render as 0. Filtering to contract puts all 40 of them
 // on one page, four of which score zero. The script is eval'd, so its own
 // functions are out of scope here -- everything goes through the DOM, as the
 // listeners above do.
-els.fb.tick('breaking');
+els.fb.tick('contract');
 els.fb.listeners['change'].forEach(f => f());
 out.zeroRendersAsZero = /class="score[^"]*">0</.test(els.tb.innerHTML);
 out.undefinedAfterFilter = /undefined/.test(els.tb.innerHTML);
@@ -732,13 +737,13 @@ out.exclCount = els.cnt.textContent;
 typeExclude('');
 
 /* Two buckets at once. A single select could hold one, so the union is the
-   whole point: 40 breaking rows plus the four the fixture files elsewhere. */
+   whole point: 40 contract rows plus the four the fixture files elsewhere. */
 els.fk.tick();
-els.fb.tick('breaking');
+els.fb.tick('contract');
 els.fb.listeners['change'].forEach(f => f());
 out.oneBucket = els.cnt.textContent;
 out.oneBucketLabel = els.fb.querySelector('summary').textContent;
-els.fb.tick('breaking', 'housekeeping');
+els.fb.tick('contract', 'cleanup');
 els.fb.listeners['change'].forEach(f => f());
 out.twoBuckets = els.cnt.textContent;
 out.twoBucketsLabel = els.fb.querySelector('summary').textContent;

@@ -1,6 +1,6 @@
 """Markdown report: the artifact a team pastes into a ticket or a wiki.
 
-Ordered by what a reader needs first -- the four counts, then what happened,
+Ordered by what a reader needs first -- the five counts, then what happened,
 then the rows.  Every finding shows the reasons behind its score, because a
 list that cannot be argued with is a list that gets ignored.
 
@@ -17,12 +17,14 @@ from ..diff import SIGNAL_LABELS
 from ..enrich.gerrit import CITES as _CITES, strength as _strength
 from . import wording as surfaces
 from ..model import (
+    BUCKET_ADDED,
     BUCKET_BEHAVIOUR,
-    BUCKET_BREAKING,
+    BUCKET_CLEANUP,
+    BUCKET_CONTRACT,
     BUCKET_LABELS,
     BUCKET_MEANINGS,
-    BUCKET_NEW,
     BUCKET_ORDER,
+    BUCKET_SCHEDULED,
     KIND_GROUP_MEANINGS,
     KIND_GROUPS,
     KIND_LABELS,
@@ -146,10 +148,14 @@ def render(report: Report, platform: str = "windows",
     out.append(_render_milestone_brief(summary))
 
     # -- buckets --------------------------------------------------------
-    # Housekeeping is deliberately not given a table. It is the largest bucket
-    # in every report and the one nothing in it needs doing about; a reader
-    # who wants it has `report.json` and the sortable table in `report.html`.
-    for bucket in (BUCKET_BREAKING, BUCKET_BEHAVIOUR, BUCKET_NEW):
+    # Upstream cleanup is deliberately not given a table. It is the largest
+    # bucket in every report and the one nothing in it needs doing about; a
+    # reader who wants it has `report.json` and the sortable table in
+    # `report.html`. Scheduled does get one: it is a tenth of the report, it
+    # is the only part about work that has not happened, and until it was its
+    # own bucket a reader had to filter `report.json` by signal id to find it.
+    for bucket in (BUCKET_CONTRACT, BUCKET_BEHAVIOUR, BUCKET_ADDED,
+                   BUCKET_SCHEDULED):
         findings = report.by_bucket(bucket)
         if not findings:
             continue
@@ -170,13 +176,48 @@ def render(report: Report, platform: str = "windows",
             out.append(f"| … | _{len(findings) - detail_limit} more_ | | | |")
         out.append("")
 
-        if bucket in (BUCKET_BREAKING, BUCKET_BEHAVIOUR):
+        if bucket in (BUCKET_CONTRACT, BUCKET_BEHAVIOUR):
             out.append(_render_details(findings[:detail_limit], platform))
+
+    out.append(_render_unconfirmed(report, platform, detail_limit))
 
     # -- appendix -------------------------------------------------------
     out.append("## How this was produced")
     out.append("")
     out.append(_render_provenance(report))
+    return "\n".join(out)
+
+
+def _render_unconfirmed(report: Report, platform: str,
+                        detail_limit: int) -> str:
+    """The removals this run could not confirm.
+
+    Every one of them is filed under Upstream cleanup, which has no table, and
+    markdown cannot be filtered -- so without this section the only way to
+    reach them is to open `report.json` and know which signal ids to look for.
+    They are there because the evidence is short, not because they are minor:
+    the same rows on a run that read the whole tree are compatibility breaks
+    worth 15 more points.
+    """
+    findings = [f for f in report.findings if f.unconfirmed]
+    if not findings:
+        return ""
+    out = [f"## Unconfirmed ({len(findings)})", "",
+           f"Filed under {BUCKET_LABELS[BUCKET_CLEANUP]} because this run did "
+           f"not read enough of the tree to tell a deletion from a move, not "
+           f"because nothing happened. Re-run with `--target-set wide` to "
+           f"settle them.", "",
+           "| Score | What changed | Surface | Where |",
+           "|---:|---|---|---|"]
+    for finding in findings[:detail_limit]:
+        out.append(
+            f"| {finding.score} | {_esc(surfaces.describe(finding.change))} "
+            f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
+            f"| `{_esc(_location(finding))}` |"
+        )
+    if len(findings) > detail_limit:
+        out.append(f"| … | _{len(findings) - detail_limit} more_ | | |")
+    out.append("")
     return "\n".join(out)
 
 

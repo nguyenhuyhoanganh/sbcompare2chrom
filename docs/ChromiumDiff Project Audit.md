@@ -7,6 +7,16 @@
 > History reviewed through that baseline: all 92 of 92 commits, from `d9fca08` through `1a3ceb8`, including subjects, bodies, and the diffs behind the major decisions.  
 > Scope: all Python source, extractors, targets, caching, snapshots, diffing, scoring, reports, tests, and the cached M130/M136/M139/M143/M147/M148/M151 data available in the project.
 
+> **Vocabulary note, added after this baseline:** schema `41` replaced the four
+> buckets this report reads throughout — Breaking, Behaviour change, New
+> surface, Housekeeping — with five: **Compatibility break**, **Behaviour
+> change**, **New declarations**, **Scheduled**, **Upstream cleanup**. The
+> `Behaviour switches` kind group became `Feature switches`, and whether a run
+> confirmed an absence became a field, `unconfirmed`, rather than a move to
+> Housekeeping alone. Every bucket name below is the schema-40 name and is left
+> as it stood, because this report is a record of what was reviewed rather than
+> a description of the current tool. §7 of `README.md` carries the current set.
+
 > **How to read this version of the report:** The original analysis has been retained to show where each issue came from. The review of `8ced148` is in Section 27, `b844108` in Section 28, `5edc91e`/`a88f5fc` in Section 29, `cd1ee05` through `0933dcd` in Section 30, `843dd96`/`bee9e7d` in Section 31, and `f56bafa` in Section 32. The closure review of `a4f13ec` is in Section 33. The review of the provenance stage added in `ab0eb47` through `25745ed` is in Section 34, the review of the commit answering it, `71cba61`, is in Section 35, the review of `f6ab1c2` is in Section 36, and the review of the page sweep in `1a3ceb8` is in **Section 37**, which supersedes earlier verdicts. Earlier sections preserve the reasoning as it stood at each baseline.
 
 ## 1. Start here if you are not deeply technical
