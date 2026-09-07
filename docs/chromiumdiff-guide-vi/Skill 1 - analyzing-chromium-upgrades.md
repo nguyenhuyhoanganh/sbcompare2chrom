@@ -346,7 +346,7 @@ người ta sẽ đi grep.]
 
 Theo thứ tự này, để không viết trùng:
 
-1. **Một khối trong `## Related changes, grouped`.** Đã là một mục sẵn. `report.md` in từng mảnh kèm thứ nó đã dịch chuyển; `summary.clusters` trong JSON giữ đủ.
+1. **Một khối trong `## Related changes, grouped`.** Đã là một mục sẵn. `report.md` in 12 khối đầu, xếp theo `spread` — số nhóm hậu quả, số bucket và số hướng mà các mảnh trải qua, tức mức độ mà việc gom nói thêm được điều các dòng riêng không nói. Khối vừa có xoá vừa có thêm đứng trước, vì đó chính là loại gây hiểu sai khi đọc rời. `summary.clusters` trong JSON giữ đủ mọi khối kèm `spread` và `directions`.
 2. **Một màn hình cộng một hướng.** Năm trang mới trên `settings` là **một** mục, không phải năm. `## What changed on each screen` có sẵn, cắt ở 12 dòng — phần còn lại lấy từ `report.json` bằng truy vấn.
 3. **Một dòng đứng một mình.** Một Mojo signature, một pref bị đổi tên. Chỉ thành mục riêng khi không cluster nào nhận nó.
 

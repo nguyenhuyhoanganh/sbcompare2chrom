@@ -36,6 +36,7 @@ from .model import (
     KIND_WEBUI_GATE,
     KIND_WEBUI_ROUTE,
     Finding,
+    group_of,
 )
 
 
@@ -288,17 +289,43 @@ def annotate(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
 
 
 def summarize(clusters: Dict[str, List[Finding]], limit: int = 25) -> List[dict]:
-    """Cluster overview for the report, heaviest first."""
+    """Cluster overview for the report, most contradictory first.
+
+    Ordered by how much the grouping tells a reader that the rows do not,
+    because only the first twelve are printed and the ordering decides which.
+
+    Sorting by `top_score` ordered them by the machinery's severity instead,
+    and a page story cannot win that: a flag flipping on scores 75 while a
+    WebUI route tops out at 55. At M148 -> M151 the twelve printed were mostly
+    a flag and its parameters -- a grouping whose whole content the flag's own
+    row already carries -- while `showAiPage`, which is the arrival of an AI
+    section with two pages under it, sat at 23rd and was cut.
+
+    `spread` counts the ways the fragments disagree when read apart: how many
+    consequence groups they fall in, how many buckets, and how many directions.
+    A cluster of additions in one bucket in one group is a list, and the
+    per-screen section already prints it. A cluster holding a removal and an
+    addition across two groups is the case this module exists for -- one row
+    says a page went, another says a page came, and only together do they say
+    the page moved.
+    """
     rows = []
     for root, members in clusters.items():
+        groups = {group_of(m.change.kind) for m in members} - {""}
+        buckets = {m.bucket for m in members}
+        directions = {m.change.change_type for m in members}
         rows.append({
             "id": root,
             "label": cluster_label(members),
             "size": len(members),
             "top_score": max(m.score for m in members),
             "kinds": sorted({m.change.kind for m in members}),
-            "buckets": sorted({m.bucket for m in members}),
+            "buckets": sorted(buckets),
+            "directions": sorted(directions),
+            # Published so a reader can see why a block is where it is, and
+            # sort on it themselves.
+            "spread": len(groups) + len(buckets) + len(directions),
             "members": [m.uid for m in sorted(members, key=lambda x: -x.score)],
         })
-    rows.sort(key=lambda r: (-r["top_score"], -r["size"]))
+    rows.sort(key=lambda r: (-r["spread"], -r["size"], -r["top_score"]))
     return rows[:limit] if limit else rows

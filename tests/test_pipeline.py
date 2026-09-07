@@ -1602,6 +1602,60 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
         self.assertNotIn("grp", row)
 
 
+class TestClusterOrderPutsTheStoriesFirst(unittest.TestCase):
+    """Only the first twelve blocks are printed, so the ordering decides which.
+
+    Sorting by `top_score` ordered them by the machinery's severity, and a page
+    story cannot win that: a flag flipping on scores 75, a WebUI route tops out
+    at 55. At M148 -> M151 that filled the twelve with a flag and its
+    parameters -- a grouping the flag's own row already carries -- and cut
+    `showAiPage`, the arrival of an AI section with two pages under it, at
+    23rd of 25.
+    """
+
+    def _cluster(self, findings):
+        from chromiumdiff import cluster
+        return cluster.summarize({"root": findings})[0]
+
+    def _f(self, kind, key, direction, score, bucket):
+        from chromiumdiff.model import Change, Finding
+        return Finding(change=Change(change_type=direction, kind=kind,
+                                     key=key, name=key.split("/")[-1]),
+                       score=score, bucket=bucket)
+
+    def test_spread_counts_the_ways_the_fragments_disagree(self):
+        # One direction, one bucket, one consequence group: a list.
+        flat = self._cluster([self._f("base_feature", "A", "added", 20, "added"),
+                              self._f("feature_param", "A/p", "added", 15, "added")])
+        # A removal and an addition across two groups: the case clustering
+        # exists for -- one row says a page went, another says one came.
+        story = self._cluster([self._f("webui_route", "s/OLD", "removed", 55, "behaviour"),
+                               self._f("base_feature", "F", "removed", 20, "cleanup"),
+                               self._f("webui_route", "s/NEW", "added", 40, "added")])
+        self.assertLess(flat["spread"], story["spread"])
+
+    def test_the_story_outranks_the_higher_scoring_list(self):
+        """The whole defect in one assertion: the list scores higher."""
+        from chromiumdiff import cluster
+        flat = {"flat": [self._f("base_feature", "A", "modified", 75, "behaviour"),
+                         self._f("feature_param", "A/p", "modified", 40, "behaviour")]}
+        story = {"story": [self._f("webui_route", "s/OLD", "removed", 55, "behaviour"),
+                           self._f("base_feature", "F", "removed", 20, "cleanup"),
+                           self._f("webui_route", "s/NEW", "added", 40, "added")]}
+        rows = cluster.summarize({**flat, **story})
+        self.assertEqual(rows[0]["id"], "story",
+                         "a grouping that only repeats a row it already has "
+                         "must not outrank one that contradicts itself apart")
+        self.assertGreater(rows[1]["top_score"], rows[0]["top_score"])
+
+    def test_directions_and_spread_reach_the_json(self):
+        """A reader has to be able to see why a block is where it is."""
+        row = self._cluster([self._f("webui_route", "s/OLD", "removed", 55, "behaviour"),
+                             self._f("webui_route", "s/NEW", "added", 40, "added")])
+        self.assertEqual(row["directions"], ["added", "removed"])
+        self.assertIn("spread", row)
+
+
 class TestAClusterIsToldNotNamed(unittest.TestCase):
     """`report.md` has to carry what a group means, not just that it is one.
 

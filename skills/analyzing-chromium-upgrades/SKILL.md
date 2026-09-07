@@ -347,7 +347,7 @@ repository.]
 
 In this order, so nothing is written twice:
 
-1. **A block of `## Related changes, grouped`.** Already one item. `report.md` prints every fragment with what it moved; `summary.clusters` in the JSON holds them all.
+1. **A block of `## Related changes, grouped`.** Already one item. `report.md` prints the first twelve, ordered by `spread` — how many consequence groups, buckets and directions the fragments fall across, which is how much the grouping tells you that the rows do not. The blocks holding both a removal and an addition come first, because those are the ones that mislead when read apart. `summary.clusters` in the JSON holds every block with its `spread` and `directions`.
 2. **A screen and a direction.** Five pages arriving on `settings` is one item, not five. `## What changed on each screen` has them, truncated at twelve — take the rest from `report.json` when the screen has more.
 3. **A row that stands alone.** One Mojo signature, one renamed pref. Its own item only if no cluster claimed it.
 
