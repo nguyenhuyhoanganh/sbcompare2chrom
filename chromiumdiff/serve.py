@@ -38,7 +38,7 @@ from typing import Dict, List, Optional
 
 from . import cluster
 from .enrich import gerrit
-from .model import Finding, Report
+from .model import Finding, Report, read_report
 from .report import html as html_report
 
 # Enrichment mutates module-level state in `enrich.gerrit` (the failure
@@ -83,8 +83,7 @@ class _State:
         # only caller `enrich`'s `refresh` has ever had.
         self.refresh = refresh
         self.json_path = os.path.join(self.directory, "report.json")
-        with open(self.json_path, encoding="utf-8") as fh:
-            self.report: Report = Report.from_dict(json.load(fh))
+        self.report: Report = read_report(self.json_path)
         self.by_uid: Dict[str, Finding] = {f.uid: f for f in self.report.findings}
         self.resolved = 0
         self.restaled = 0

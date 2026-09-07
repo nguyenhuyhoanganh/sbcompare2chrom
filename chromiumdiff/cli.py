@@ -30,7 +30,8 @@ from .diff import diff_snapshots, summarize
 from . import serve as serve_mod
 from .enrich import chromestatus, gerrit
 from .model import (BUCKET_CLEANUP, BUCKET_LABELS, BUCKET_ORDER,
-                    SCHEMA_VERSION, Report, read_json, write_json)
+                    SCHEMA_VERSION, Report, read_json, read_report,
+                    write_json)
 from .report import html as html_report
 from .report import markdown as md_report
 from .score import Scope, score_all, summarize_findings
@@ -497,8 +498,8 @@ def measured_figures(report: Report, wide: Optional[Report] = None) -> dict:
 
 
 def cmd_figures(args: argparse.Namespace) -> int:
-    report = Report.from_dict(read_json(args.report))
-    wide = Report.from_dict(read_json(args.wide)) if args.wide else None
+    report = read_report(args.report)
+    wide = read_report(args.wide) if args.wide else None
     figures = measured_figures(report, wide)
     # Two sections need something this invocation may not have: `coverage.wide`
     # needs a wide run, and `provenance` needs a report someone has looked CLs
@@ -543,7 +544,7 @@ def cmd_figures(args: argparse.Namespace) -> int:
 
 
 def cmd_report(args: argparse.Namespace) -> int:
-    report = Report.from_dict(read_json(args.report))
+    report = read_report(args.report)
     platform = report.meta.get("platform", PLATFORM)
 
     if args.format in ("md", "both"):

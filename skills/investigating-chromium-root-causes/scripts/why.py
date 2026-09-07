@@ -45,7 +45,7 @@ if _ROOT not in sys.path:
 
 try:
     from chromiumdiff.enrich import gerrit
-    from chromiumdiff.model import Report
+    from chromiumdiff.model import Report, read_report
 except ImportError as exc:  # a checkout this script was copied out of
     print(f"cannot import chromiumdiff ({exc}). Run this from the "
           f"chromiumdiff repository, or set PYTHONPATH to its root.",
@@ -84,8 +84,10 @@ def load(path: str):
               file=sys.stderr)
         sys.exit(2)
     try:
-        with open(json_path, encoding="utf-8") as fh:
-            return Report.from_dict(json.load(fh)), json_path
+        # `read_report`, not `Report.from_dict`: it refuses a report written by
+        # a build whose bucket ids differ from this one's, which otherwise
+        # renders as a report with most of its findings missing from the counts.
+        return read_report(json_path), json_path
     except (OSError, ValueError, KeyError) as exc:
         print(f"{json_path} is not a readable chromiumdiff report ({exc})",
               file=sys.stderr)

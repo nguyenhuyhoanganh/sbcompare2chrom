@@ -868,6 +868,38 @@ def read_json(path: str) -> Any:
         return json.load(fh)
 
 
+def read_report(path: str) -> "Report":
+    """Load a `report.json`, refusing one this build cannot read.
+
+    `snapshot.py` has always checked the schema stamp and rebuilt a stale
+    cache. Nothing checked it on the way in here, and the four commands that
+    load a report -- `report`, `figures`, `serve`, and the skill's `why.py` --
+    each called `Report.from_dict` straight on the parsed file.
+
+    What that produced is not an error but a wrong report. Rendering a
+    version 40 file after the buckets were renamed printed `Compatibility
+    break 0`, `New declarations 0` and `Upstream cleanup 0`, because those
+    findings carry the ids `breaking`, `new` and `housekeeping`, which no
+    longer name a bucket. 2,553 of 3,022 findings left the counts, and the one
+    line the reader is told never to misread -- a zero in the first bucket --
+    was printed as a measurement.
+
+    The check lives here, at the file boundary, rather than in
+    `Report.from_dict`: a dict built in memory has no stamp to check, and four
+    copies of the same guard is how one of them ends up weaker than the rest.
+    """
+    d = read_json(path)
+    found = d.get("schema") if isinstance(d, dict) else None
+    if found != SCHEMA_VERSION:
+        raise ValueError(
+            f"{path} is schema {found!r}, and this build reads "
+            f"{SCHEMA_VERSION}. Its findings do not mean what this build "
+            f"thinks they mean. Re-run: python3 -m chromiumdiff run FROM TO "
+            f"--out <dir>"
+        )
+    return Report.from_dict(d)
+
+
 # Kinds where two declarations of one name are the language working rather
 # than an accident. Web IDL overloads a member by argument list, so
 # `Navigator.install()` and `Navigator.install(InstallParams)` are two real

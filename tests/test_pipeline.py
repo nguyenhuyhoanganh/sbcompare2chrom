@@ -4954,6 +4954,78 @@ class TestAChainReadsInTheOrderItHappened(unittest.TestCase):
         self.assertIn(self.RELAND[2], self._order(hits))
 
 
+class TestAStaleReportIsRefused(unittest.TestCase):
+    """A schema stamp nothing checks is a stamp that does nothing.
+
+    `snapshot.py` has checked it since schema 2 and rebuilds a stale cache.
+    Nothing checked it on a `report.json`, and the four commands that load one
+    -- `report`, `figures`, `serve`, and the skill's `why.py` -- each called
+    `Report.from_dict` on the parsed file.
+
+    That does not fail; it renders a wrong report. A version 40 file put
+    through this build printed `Compatibility break 0`, `New declarations 0`
+    and `Upstream cleanup 0`, because its findings carry `breaking`, `new` and
+    `housekeeping`, which no longer name buckets: 2,553 of 3,022 findings left
+    the counts, and a zero in the first bucket -- the one number every document
+    says never to read as "nothing is broken" -- was printed as a measurement.
+    """
+
+    def _write(self, schema):
+        from chromiumdiff.model import Change, Finding, Report, write_json
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = os.path.join(tmp, "report.json")
+        report = Report(from_ref="a", to_ref="b", findings=[
+            Finding(change=Change(change_type="removed", kind="pref",
+                                  key="a.b", name="a.b"),
+                    score=35, bucket="contract")])
+        blob = report.to_dict()
+        blob["schema"] = schema
+        write_json(path, blob)
+        return path
+
+    def test_a_current_report_loads(self):
+        from chromiumdiff.model import SCHEMA_VERSION, read_report
+        report = read_report(self._write(SCHEMA_VERSION))
+        self.assertEqual(report.bucket_counts()["contract"], 1)
+
+    def test_an_older_one_is_refused_by_number(self):
+        from chromiumdiff.model import SCHEMA_VERSION, read_report
+        with self.assertRaises(ValueError) as caught:
+            read_report(self._write(SCHEMA_VERSION - 1))
+        # Both numbers, because "stale" without them leaves the reader to
+        # guess whether their file or their build is the old one.
+        message = str(caught.exception)
+        self.assertIn(str(SCHEMA_VERSION - 1), message)
+        self.assertIn(str(SCHEMA_VERSION), message)
+        self.assertIn("chromiumdiff run", message)
+
+    def test_a_file_with_no_stamp_is_refused_too(self):
+        """Every report this tool writes carries one, so a file without it was
+        not written by this tool."""
+        from chromiumdiff.model import read_report, write_json
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        path = os.path.join(tmp, "report.json")
+        write_json(path, {"from_ref": "a", "to_ref": "b", "findings": []})
+        with self.assertRaises(ValueError):
+            read_report(path)
+
+    def test_every_command_that_loads_a_report_goes_through_it(self):
+        """One guard, not four. Four copies is how one of them ends up
+        weaker than the rest -- which is what happened to the shadow
+        analysis, and is written up in `meaningful_attrs`."""
+        import re
+        loaders = ["chromiumdiff/cli.py", "chromiumdiff/serve.py",
+                   "skills/investigating-chromium-root-causes/scripts/why.py"]
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        for rel in loaders:
+            text = open(os.path.join(root, rel), encoding="utf-8").read()
+            self.assertNotIn("Report.from_dict(", text,
+                             f"{rel} loads a report without the schema check; "
+                             f"use model.read_report")
+
+
 class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
     """Every figure this stage produces moved when the window was corrected.
 
