@@ -182,7 +182,7 @@ Manifest còn cho biết thêm bốn thứ: base feature nào đứng sau runtim
 }
 ```
 
-Trên Windows, feature này được coi là `stable`. Không được lấy giá trị `default` để suy ngược ra trạng thái Windows — đây chính là loại nhầm lẫn mà việc tách riêng trạng thái theo platform sinh ra để phòng.
+Trên Windows, feature này được coi là `stable`. Không được lấy giá trị `default` để suy ngược ra trạng thái Windows — đây chính là loại nhầm lẫn mà việc tách riêng trạng thái theo platform ngăn được.
 
 Manifest nói về gate và trạng thái; còn hình dạng cụ thể của method và attribute mà JavaScript nhìn thấy thì đến từ Web IDL.
 
@@ -262,7 +262,7 @@ module network.mojom;
 
 Identity của method này là `network.mojom.Probe.Start`; còn signature và ordinal là các thuộc tính được đem đi so sánh.
 
-Công cụ chưa tìm mọi chỗ gọi và mọi phần hiện thực trong code Samsung. Nó chỉ chỉ ra rằng contract phía upstream đã đổi.
+Công cụ chưa tìm mọi chỗ gọi và mọi phần hiện thực trong code Samsung. Nó chỉ ra rằng contract phía upstream đã đổi.
 
 ## 5. `constants` — pref key và command-line switch
 
@@ -374,7 +374,7 @@ Mọi custom element (tag có dấu `-` trong tên) đều được xét. Nó đ
 2. Là một tag cấu trúc đã biết, ví dụ `settings-subpage`, `settings-section`, `downloads-item`.
 3. Tag chứa một đoạn mang tính tương tác — `button`, `toggle`, `checkbox`, `radio`, `input`, `select`, `slider`, `menu`, `row`... — **và** có identity ổn định nhờ `id` hoặc nhãn.
 
-Rule này dựa trên **hình dạng** thay vì một danh sách tag đóng, vì danh sách đóng rất nhanh lỗi thời. Những element không có pref, không có id và không có nhãn thường bị bỏ qua, vì cách duy nhất để nhận diện chúng là theo vị trí — mà vị trí thì đổi liên tục mỗi khi template được sắp xếp lại.
+Rule này dựa trên **đặc điểm của element** thay vì một danh sách tag đóng, vì danh sách đóng rất nhanh lỗi thời. Những element không có pref, không có id và không có nhãn thường bị bỏ qua, vì cách duy nhất để nhận diện chúng là theo vị trí — mà vị trí thì đổi liên tục mỗi khi template được sắp xếp lại.
 
 Binding tới pref được hiểu ở cả Polymer lẫn Lit:
 

@@ -12,15 +12,15 @@
 
 The report is indexed by **declaration name**. Nobody named a declaration
 "downloads page lost its toggle". Searching for the words in a complaint returns
-nothing, and that nothing means only that the complaint was phrased in English.
+nothing, which only tells you the complaint was written in English.
 
-So the first move is never a search. It is deciding **which kind of declaration** the
-symptom lives on, because the kind narrows the search
-to a few dozen rows instead of three thousand.
+So the first move is never a search. It is deciding **which kind of
+declaration** the symptom belongs to, because the kind narrows the search to a
+few dozen rows instead of three thousand.
 
 ## The routing table
 
-Counts are from one real M148 → M151 run, to show where the mass sits.
+Counts are from one real M148 → M151 run, to show how many rows each kind has.
 
 | Symptom sounds like | `kind` to search | Rows |
 |---|---|---|
@@ -49,8 +49,8 @@ screen, then re-run with its full uid.
 
 Three moves, in order. Stop at the first that produces a name.
 
-1. **Read the symptom for a proper noun.** Product features carry their flag
-   name closely — "back/forward cache", "local network access", "autofill AI".
+1. **Read the symptom for a proper noun.** A product feature's name is usually close to its
+   flag name — "back/forward cache", "local network access", "autofill AI".
    Search that.
 
 2. **Find the code that renders it, then read what gates it.** For a UI symptom

@@ -17,7 +17,7 @@ một Fact  →  file khai báo nó
           →  footer `Bug:` của các CL đó, và mọi CL khác cite cùng issue
 ```
 
-Bước thứ ba là toàn bộ giá trị. Ba bước còn lại đều rẻ và đều hiển nhiên; bước ba là bước biến một danh sách vô dụng thành một câu trả lời.
+Bước thứ ba là bước quyết định: ba bước còn lại đều rẻ và hiển nhiên, còn bước ba biến một danh sách dài thành một câu trả lời.
 
 Kết quả trên một dòng báo cáo trông như sau:
 
@@ -40,11 +40,11 @@ File khai báo là **tài sản chung**. Đo trên khoảng giữa hai điểm n
 | `third_party/blink/.../runtime_enabled_features.json5` | 337 |
 | `content/public/common/content_features.cc` | 62 |
 
-Đưa cho người đọc 500 CL cho một cái flag còn tệ hơn không đưa gì — nó biến một câu trả lời thành một việc phải làm. Vì vậy file **chỉ sinh ra ứng viên**, và ứng viên sau đó bị lọc bằng câu hỏi: *diff của chính CL đó, trên chính file đó, có nhắc tới identifier này không?*
+Đưa cho người đọc 500 CL cho một cái flag còn tệ hơn không đưa gì. Vì vậy file **chỉ sinh ra ứng viên**, và ứng viên sau đó bị lọc bằng câu hỏi: *diff của chính CL đó, trên chính file đó, có nhắc tới identifier này không?*
 
 Với `AndroidCaptureKeyEvents`: 62 ứng viên, sống sót đúng một.
 
-Panel in cả mẫu số cùng với CL, vì `1 of 62` mới là thứ làm cho con số 1 có ý nghĩa. Một CL trong 62 là một trích dẫn; một CL trong 1 có thể chỉ là file đó vắng người.
+Panel in cả mẫu số cùng với CL, vì `1 of 62` mới là thứ làm cho con số 1 có ý nghĩa. Một CL trong 62 là một trích dẫn; một CL trong 1 có thể chỉ vì gần như không ai chạm vào file đó.
 
 ## Toàn bộ luồng, nhìn từ trên xuống
 
@@ -159,13 +159,13 @@ struct TokenError {
 
 Nó không bao giờ viết chuỗi `blink.mojom.TokenError.url`, còn `url` thì quá ngắn để tìm. Hệ quả trước khi có verdict này: 10 diff được đọc để tìm một chuỗi **không thể xuất hiện trong bất kỳ diff nào**, và kết quả được báo là *"không CL nào sửa dòng mang identifier này"* — đúng về mặt kỹ thuật, và sai lệch nghiêm trọng về mặt ý nghĩa.
 
-Câu trả lời vốn đã nằm sẵn trong báo cáo và chưa bao giờ được tiêu. Một `Change` không chỉ gọi tên declaration — nó ghi lại **hai trạng thái** của declaration đó:
+Câu trả lời vốn đã nằm sẵn trong báo cáo và chưa bao giờ được dùng tới. Một `Change` không chỉ gọi tên declaration — nó ghi lại **hai trạng thái** của declaration đó:
 
 ```json
 {"type": ["array<url.mojom.Url>", "array<network.mojom.LinkHeader>"]}
 ```
 
-Và CL đã làm ra thay đổi đó, theo định nghĩa, là CL có diff **thêm vào** một dòng chứa `array<network.mojom.LinkHeader>`, nằm bên trong declaration đó — hoặc **xoá đi** dòng chứa `array<url.mojom.Url>`. Cả hai phía đều tính, vì cả hai đều *là* thay đổi đang diễn ra: một phép đổi tên làm trong một CL thì thêm và xoá cùng lúc, làm trong hai CL thì không. `blink.mojom.AIManagerCreateClientError` đi từ `kUnsupportedPerformancePreference` sang `kIncompatiblePreferenceOptions` qua **hai CL cách nhau hai ngày**, và CL đầu chỉ xoá tên cũ — không dòng nào ở đâu mang giá trị cuối cho tới CL thứ hai. Chỉ hỏi về dòng thêm thì CL đầu bị gọi là hàng xóm, mà nó không phải. Mọi verdict khác hỏi *"CL này có chạm vào thứ đó không"* — câu mà bất kỳ CL nào reformat file cũng thoả mãn. `introduced` hỏi *"CL này có đặt giá trị mới vào đó không"*.
+Và CL đã làm ra thay đổi đó, theo định nghĩa, là CL có diff **thêm vào** một dòng chứa `array<network.mojom.LinkHeader>`, nằm bên trong declaration đó — hoặc **xoá đi** dòng chứa `array<url.mojom.Url>`. Cả hai phía đều tính, vì cả hai đều *là* thay đổi đang diễn ra: một phép đổi tên làm trong một CL thì thêm và xoá cùng lúc, làm trong hai CL thì không. `blink.mojom.AIManagerCreateClientError` đi từ `kUnsupportedPerformancePreference` sang `kIncompatiblePreferenceOptions` qua **hai CL cách nhau hai ngày**, và CL đầu chỉ xoá tên cũ — không dòng nào ở đâu mang giá trị cuối cho tới CL thứ hai. Chỉ hỏi về dòng thêm thì CL đầu bị coi là không liên quan, trong khi nó có liên quan. Mọi verdict khác hỏi *"CL này có chạm vào thứ đó không"* — câu mà bất kỳ CL nào reformat file cũng thoả mãn. `introduced` hỏi *"CL này có đặt giá trị mới vào đó không"*.
 
 Ba điều kiện làm cho nó không sinh ra kết quả rác:
 
@@ -215,7 +215,7 @@ Con số "150 trên 150 dòng đều có CL" là phép đo của **một lát c�
 
 Bốn trong năm trường hợp đó **vốn đã cầm sẵn các CL ứng viên**. Chỉ thiếu cách trình bày — và `crowded` với `touched` chính là cách trình bày đó.
 
-Đánh đổi ở đây được nói thẳng, vì nó là một quyết định có thể tranh luận. `crowded` trước đây **bị bỏ**: 11 CL cùng sửa `ai_manager.mojom` và không cái nào chỉ ra được `AIManager.CreateLanguageModel`, nên bốn câu trả lời sai đầy tự tin tệ hơn không có câu nào. Lập luận đó **vẫn đúng**, và vẫn là lý do badge không phải `declares`. Cái nó *kết luận* sai là: nó đáp lại một người vừa bấm vào dòng bằng sự im lặng, về một declaration mà 11 CL đã sửa thật. Đưa ra 11 CL đó và nói rõ chúng là gì thì nhiều hơn hẳn việc không đưa gì — **miễn là không có gì ở chúng đọc ra như một trích dẫn**.
+Đánh đổi ở đây được nói thẳng, vì nó là một quyết định có thể tranh luận. `crowded` trước đây **bị bỏ**: 11 CL cùng sửa `ai_manager.mojom` và không cái nào chỉ ra được `AIManager.CreateLanguageModel`, nên bốn câu trả lời sai đầy tự tin tệ hơn không có câu nào. Lập luận đó **vẫn đúng**, và vẫn là lý do badge không phải `declares`. Cái nó *kết luận* sai là: nó không trả lời gì cho người vừa bấm vào dòng, về một declaration mà 11 CL đã sửa thật. Đưa ra 11 CL đó và nói rõ chúng là gì thì nhiều hơn hẳn việc không đưa gì — **miễn là không có gì ở chúng đọc ra như một trích dẫn**.
 
 Nên có **ba lớp** giữ cho manh mối không bị nhầm thành trích dẫn, vì một lớp là không đủ cho thứ người ta lướt qua:
 
@@ -231,9 +231,9 @@ Hai verdict yếu **không dùng chung câu đó**, vì chúng không phải cù
 | Là gì | manh mối | **lịch sử** của declaration đó |
 | Trình bày | mới nhất trước, tối đa 3 | **cũ trước**, tiêu đề *"How it got here"* |
 
-`touched` đọc ứng viên từ **danh sách tìm kiếm** chứ không từ diff, và đó chính là ý nghĩa của nó: file không sinh ra gì khác là file chưa ai đọc.
+`touched` đọc ứng viên từ **danh sách tìm kiếm** chứ không từ diff, và đó chính là ý nghĩa của nó: một file không sinh ra verdict nào khác là file chưa có diff nào được đọc.
 
-Và có một trường hợp riêng phải tách ra: **một dòng bị ngân sách diff từ chối không phải là một dòng đã được tìm.** Đổ manh mối vào đó làm nó *đọc ra* như đã tìm hết, đồng thời lấy luôn lối thoát của nó — vì câu gợi ý khắc phục và nút tra cứu đều nằm trong nhánh chỉ chạy khi không có CL nào cả. Kết quả là đúng cái dòng còn trả lời được lại thành cái dòng không hỏi được nữa. Giờ nó nói `Not looked up — 147 CLs touched this file, more than the run's diff budget would read` và **giữ lại cái nút**.
+Và có một trường hợp riêng phải tách ra: **một dòng bị ngân sách diff từ chối không phải là một dòng đã được tìm.** Đổ manh mối vào đó làm nó *đọc ra* như đã tìm hết, đồng thời lấy luôn lối thoát của nó — vì câu gợi ý khắc phục và nút tra cứu đều nằm trong nhánh chỉ chạy khi không có CL nào cả. Kết quả là dòng còn trả lời được lại mất luôn cách để hỏi. Giờ nó nói `Not looked up — 147 CLs touched this file, more than the run's diff budget would read` và **giữ lại cái nút**.
 
 ### Kết quả đo được của cả bước 3
 
@@ -272,11 +272,11 @@ Mỗi issue mở ra trong khối riêng, thụt vào dưới đúng CL của nó
 
 Mở file từ đĩa thì không có gì để hỏi, nên chip quay về đúng cái link tracker như cũ.
 
-### Hơn bốn trong mười link issue không mở được
+### Khoảng một phần ba link issue không mở được
 
-Đo trên 39 issue phân biệt mà các dòng đã tra cứu của một lần chạy M148 → M151 liên kết tới, theo `docs/figures.json`: **13 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
+Đo trên 39 issue phân biệt mà các dòng đã tra cứu của một lần chạy M148 → M151 liên kết tới: **13 cái trả HTTP 403** — bị hạn chế cho tài khoản Google, vì chúng nằm trong component security, abuse, hoặc nội bộ.
 
-Một link chết không được đánh dấu đọc ra như một **công cụ hỏng**, chứ không phải như một **cánh cửa đóng**. Nên mọi issue được liên kết đều bị thăm dò một lần và cái bị hạn chế được đánh dấu `RESTRICTED` ngay tại chỗ. Link vẫn **được giữ lại**, vì người đọc báo cáo có thể chính là người mở được nó.
+Một link chết không được đánh dấu sẽ bị đọc thành **công cụ hỏng**, thay vì thành một issue bị hạn chế. Nên mọi issue được liên kết đều bị thăm dò một lần và cái bị hạn chế được đánh dấu `RESTRICTED` ngay tại chỗ. Link vẫn **được giữ lại**, vì người đọc báo cáo có thể có quyền truy cập.
 
 Điều quan trọng cần nói với người triage: **CL vẫn đọc được dù issue không mở.** CL nằm trên Gerrit, chúng công khai, và tiêu đề của chúng mang theo phần lớn nội dung mà issue nói tới.
 
@@ -385,7 +385,7 @@ Mở từ đĩa thì trang nằm trên origin `file://`, và `chromium-review.go
 | JSONP (`?callback=`) | bị bỏ qua; JSON có tiền tố XSSI trả về nguyên vẹn, nên thẻ `<script>` chỉ nhận được syntax error |
 | Dùng gitiles thay Gerrit | không có header, và `+log` theo path cùng `+blame` trả 401 |
 
-Cách giải **không phải là đánh bại quy tắc origin, mà là rời khỏi nó.** Phục vụ trang qua `http://127.0.0.1` thì trang có một origin nói chuyện được với một thứ, và thứ đó là chính process Python này — vốn đã biết cách hỏi Gerrit:
+Cách giải là **đổi bên đi hỏi**, chứ không tìm cách vượt qua quy tắc origin. Phục vụ trang qua `http://127.0.0.1` thì trang có một origin nói chuyện được với một thứ, và thứ đó là chính process Python này — vốn đã biết cách hỏi Gerrit:
 
 ```text
 trước:   trình duyệt ──✗──→ chromium-review
@@ -411,11 +411,11 @@ Hoá đơn được quyết định bởi **file khai báo bận đến đâu**,
 | Ba file bận nhất | 662 · 500 · 337 CL |
 | Trần mặc định mỗi cú click | 600 diff |
 
-Trần 600 được đặt hào phóng có chủ ý. Ngân sách của một lần chạy được rải lên hàng trăm dòng chưa ai hỏi; một cú click là **một dòng có người hỏi**, nên từ chối nó để người đọc không còn chỗ nào đi — bấm lại chỉ nhận đúng lời từ chối đó.
+Trần 600 được đặt rộng có chủ ý. Ngân sách của một lần chạy được rải lên hàng trăm dòng chưa ai hỏi; một cú click là **một dòng có người hỏi**, nên từ chối nó sẽ khiến người đọc không còn cách nào khác: bấm lại cũng chỉ nhận đúng lời từ chối đó.
 
 Mọi thứ được cache **vĩnh viễn**, vì một CL đã merge thì không đổi nữa. Dòng thứ hai trong cùng file là tức thì, và dòng cũ mở lại ngày mai cũng vậy.
 
-**Câu trả lời cũ được hỏi lại, không phục vụ lại.** Không tra lại chính là thứ làm cú bấm thứ hai vào một dòng trở nên tức thì — và cái giá của nó là một report sống lâu hơn cái bug nó được sinh ra dưới. Hai lỗi đã biết đều **nhìn thấy được ngay trong dữ liệu đã lưu**, nên không cần cờ hay số phiên bản: một CL không có dấu thời gian submit là CL từng bị sắp theo ngày, và một CL có ngày sau khi bản đích tách nhánh thì không nằm trong cây đó.
+**Câu trả lời cũ được hỏi lại, không phục vụ lại.** Không tra lại chính là thứ làm cú bấm thứ hai vào một dòng trở nên tức thì — và cái giá của nó là một report vẫn giữ câu trả lời cũ sau khi lỗi sinh ra nó đã được sửa. Hai lỗi đã biết đều **nhìn thấy được ngay trong dữ liệu đã lưu**, nên không cần cờ hay số phiên bản: một CL không có dấu thời gian submit là CL từng bị sắp theo ngày, và một CL có ngày sau khi bản đích tách nhánh thì không nằm trong cây đó.
 
 **Phép kiểm chạy lúc bạn mở dòng ra.** Một dòng đã có CL thì không hiện nút tra cứu, nên nếu không kiểm ở đây thì không có gì trên trang gọi được server về nó nữa — câu trả lời sai sẽ được phục vụ mãi. Mở dòng là một round trip tới localhost; server trả lại đúng cái nó đang giữ nếu còn tốt, không tốn request Gerrit nào. Dòng **chưa** tra thì không tự hỏi: tra một dòng tốn request thật, và đó là việc của cái nút.
 
@@ -460,7 +460,7 @@ Trang gọi `/api/ping` **đúng một lần lúc load** và chỉ bật đườ
 
 ## Một CL nối các dòng lại với nhau
 
-Đây là thứ mà việc tra CL cho không, ngoài câu trả lời cho từng dòng.
+Ngoài câu trả lời cho từng dòng, việc tra CL còn cho thêm một thứ nữa.
 
 Một thay đổi của Chromium thường land qua **nhiều khai báo cùng lúc**, và report hiện ra thành nhiều dòng rời. Người đọc mở từng dòng, đọc từng lần, rồi mới nhận ra đó là **một** chuyện.
 
@@ -490,7 +490,7 @@ Tác giả viết **một** thay đổi, nó land qua nhiều khai báo, và **s
 | Trong 150 dòng điểm cao nhất | 6 | **84** |
 | Toàn report | 183 | **261** |
 
-Và nó quan trọng nhất **đúng chỗ người đọc đang nhìn**: trong **20 dòng đầu bảng, 9 dòng** là bản kể lại của một thay đổi đã có trên màn hình. Một CL đưa vào một mixin chiếm **14 dòng**.
+Và nó quan trọng nhất **đúng chỗ người đọc đang nhìn**: trong **20 dòng đầu bảng, 9 dòng** là một thay đổi đã có trên màn hình, xuất hiện lại. Một CL đưa vào một mixin chiếm **14 dòng**.
 
 ### Ba ràng buộc, mỗi cái có lý do đo được
 
@@ -523,7 +523,7 @@ Bảng **không gộp dòng, không giấu dòng, không đổi thứ tự** —
 
 ### Bộ lọc thứ năm trong bảng HTML
 
-Một dòng có CL và một dòng không có CL **trông giống hệt nhau** trong bảng. Vì vậy bảng có thêm một bộ lọc, và năm trạng thái của nó **tách bạch** — gộp chúng lại chính là sai lầm mà cả chặng này tồn tại để tránh:
+Một dòng có CL và một dòng không có CL **trông giống hệt nhau** trong bảng. Vì vậy bảng có thêm một bộ lọc, và năm trạng thái của nó **tách bạch** — gộp chúng lại chính là lỗi mà cả chặng này được viết ra để tránh:
 
 | Trạng thái | Nghĩa |
 |---|---|
@@ -539,7 +539,7 @@ Mỗi CL trên dòng **gọi tên được issue của nó** — footer `Bug:` �
 
 ### Trong `report.md`
 
-Bản Markdown là bản **đi vào ticket**, và nó không có màu badge, không có row state, không có panel để đặt lời cảnh báo. Dòng người đọc copy ra là **toàn bộ thứ đi xa**.
+Bản Markdown là bản **đi vào ticket**, và nó không có màu badge, không có row state, không có panel để đặt lời cảnh báo. Dòng người đọc copy ra là tất cả những gì đi tiếp.
 
 Vì vậy ở đây chính **tiêu đề** thay đổi theo bản chất của câu trả lời:
 
@@ -551,9 +551,9 @@ Vì vậy ở đây chính **tiêu đề** thay đổi theo bản chất của c
 
 Mẫu số, số đã đọc và số bị cắt đều nằm trong dấu ngoặc, vì chúng là **một phần của trích dẫn**, không phải trang trí.
 
-## Sáu cách chặng này từng nói sai, và đã sửa
+## Sáu lỗi từng cho ra câu trả lời sai, và đã sửa
 
-Mỗi cái đều tạo ra một **câu trả lời sai đầy tự tin** thay vì một lỗi — loại khuyết tật duy nhất thực sự quan trọng ở đây, vì nó không để lại dấu vết. Bốn cái đầu được tìm ra bằng cách lấy một finding trả về rỗng rồi đi săn CL của nó bằng tay.
+Mỗi cái đều tạo ra một **câu trả lời sai đầy tự tin** thay vì một lỗi — loại khuyết tật quan trọng nhất ở đây, vì nó không để lại dấu vết. Bốn cái đầu được tìm ra bằng cách lấy một finding trả về rỗng rồi đi săn CL của nó bằng tay.
 
 | Lỗi | Nó gây ra cái gì |
 |---|---|
@@ -567,7 +567,7 @@ Mỗi cái đều tạo ra một **câu trả lời sai đầy tự tin** thay v
 Ngoài ra, hai thứ về mạng được xử lý riêng vì chúng có cùng một hậu quả:
 
 - **HTTP 429 có thang lùi riêng** (5 giây, 20 giây, 60 giây). Thang lùi chung của công cụ là 1,5 / 3 / 6 giây — quá ngắn cho một rate limiter đếm theo phút. Một 429 bị retry quá nhanh trở thành **một fetch âm thầm trả về không có gì**, và "không có gì" ở điểm sử dụng thì **không phân biệt được** với "CL này không nhắc identifier".
-- **Fetch thất bại được đếm và công bố, không bao giờ bị hấp thụ.** Biến một cú vấp mạng thành một câu *"không tìm thấy CL"* đầy tự tin là điều duy nhất chặng này không được phép làm.
+- **Fetch thất bại được đếm và công bố, không bao giờ bị hấp thụ.** Một lỗi mạng không bao giờ được báo thành *"không tìm thấy CL"*.
 
 ## Có thể tin tới đâu, và không nên tin điều gì
 

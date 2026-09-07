@@ -32,7 +32,7 @@ Check them by hand.
    glance. `TestEverySignalIsClassified` holds that, reading the headers and
    filter labels off a rendered page rather than from a list here.
 8. **Re-measure every figure; never copy one.** A figure must name the version
-   pair it came from or come from `docs/figures.json`. Measure with the
+   pair it came from. Measure with the
    function the code measures with: counting `signals[0]` where the report
    uses `leading_signal` gave 19 signals where there are 18, and 39 where
    there are 38, twice, and both numbers looked right. Then check the
@@ -51,6 +51,5 @@ exist, and do not state a prohibition the code does not enforce.
 - Prose states the fact, then the reason. No literary phrasing.
 - Shipped documents are in English. `docs/chromiumdiff-guide-vi/` is the one
   Vietnamese area.
-- A number in prose either names the run it was measured on or comes from
-  `docs/figures.json`.
+- A number in prose names the run it was measured on.
 - Tests assert code-derived facts, not prose.

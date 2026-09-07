@@ -3,8 +3,8 @@
 The target list in `targets.py` is curated by hand, and curation has failed
 twice already: once missing `chrome_features.cc` and 12 other files holding 964
 declarations, once missing Lit templates. Each time the fix was to add more
-files and hope. That is not a method, because it has no endpoint -- there is no
-moment at which you can say the list is complete.
+files, which has no endpoint -- there is no moment at which you can say the
+list is complete.
 
 This module supplies the endpoint. A **blobless clone** downloads Chromium's
 complete file tree without any file contents:

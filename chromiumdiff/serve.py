@@ -11,7 +11,7 @@ route around that was tried and closed:
   No ``Access-Control-Allow-Origin`` on either.
 - An ``OPTIONS`` preflight. HTTP 400.
 
-So the answer is not to defeat the origin but to leave it. Served over
+So the answer is to change which side asks. Served over
 ``http://127.0.0.1`` the page has an origin that can talk to something, and
 that something is this process, which already knows how to ask Gerrit.
 

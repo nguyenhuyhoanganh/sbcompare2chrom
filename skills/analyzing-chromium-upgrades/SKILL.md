@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, chrome:// WebUI screens (routes, controls, visibility gates) - separating real behaviour changes from cleanup, and produces a ranked report of what moved. Use when planning or reviewing a Chromium upgrade such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, chrome:// WebUI screens (routes, controls, visibility gates) - separating real behaviour changes from cleanup, and produces a ranked report of what changed. Use when planning or reviewing a Chromium upgrade such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
 # Analyzing Chromium upgrades
@@ -50,7 +50,7 @@ Code moves through three stages, usually milestones apart:
 2. the flag is switched on — **this is the change**
 3. the flag is deleted — users see nothing
 
-A diff mostly shows stages 1 and 3, which are the two nobody sees.
+A diff mostly shows stages 1 and 3, and neither is visible to a user.
 
 **Do this: read `platform_state.windows` first.** Until you have read the flag state you may not write "X changed".
 
@@ -95,13 +95,13 @@ The counts move with the version pair, so do not carry one pair's numbers to ano
 
 | What the reader needs | Use | Trade |
 |---|---|---|
-| A quick look at what moved | `default` — the tool's default | Reads under half the files. A declaration that "vanished" may only be in a file this run never opened |
+| A quick look at what changed | `default` — the tool's default | Reads under half the files. A declaration that "vanished" may only be in a file this run never opened |
 | To decide whether this upgrade can ship | `wide` | Reads nearly the whole tree. Much heavier to fetch and much slower, and in exchange a removal is worth believing |
 | To know whether the tool runs at all | `minimal` | Reads 3 files. Never use it to answer a question about content |
 
 Costs per level are in the table in step 2.
 
-**Question 3 — which part do they want?** Nobody reads all of it: a version pair produces thousands of rows. Ask what the reader cares about and filter to that instead of handing over the whole report.
+**Question 3 — which part do they want?** A version pair produces thousands of rows, and a reader will not read them all. Ask what the reader cares about and filter to that instead of handing over the whole report.
 
 Ask in terms they can answer, then map it onto one of the three axes the report can filter on:
 
@@ -179,7 +179,7 @@ print([f["change"]["name"] for f in F
        if "pref_left_scan" in f["change"]["signals"]][:20])
 ```
 
-`grep` on it is worse than useless: the file is written on one line, so any match returns the whole 4 MB.
+Do not `grep` it: the file is written on one line, so any match returns the whole 4 MB.
 
 #### A reading order that costs about 34k
 
@@ -218,7 +218,7 @@ python3 -m chromiumdiff serve out/M148_to_M151     # prints http://127.0.0.1:878
 
 Offer this whenever someone asks why a row changed, what a flag was for, or which review to read. You can start it yourself and hand over the URL. Opening `report.html` directly and concluding the lookup is broken is wrong: it does not run because of `file://`, not because of a fault.
 
-**The tool does not conclude for you.** It stops at extracted evidence and a deterministic rank. It knows nothing about what anyone patches, ships or overrides: a **Compatibility break** row says a contract moved, not that anyone was relying on it.
+**The tool draws no conclusion.** It stops at extracted evidence and a deterministic rank. It knows nothing about what anyone patches, ships or overrides: a **Compatibility break** row says a contract moved, not that anyone was relying on it.
 
 **Every run prints the coverage it achieved.** Quote that number in the report; never quote one from this file.
 
@@ -234,15 +234,15 @@ Measured on M148 → M151: `default` finds 139 `pref_left_scan` rows, `wide` fin
 
 `--partition settings` (repeatable: `downloads`, `bookmarks`, `history`, `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`) fetches and scans only the source paths listed for one feature. Right while looking at one feature, wrong as a release gate — Chromium does not organise its source by feature, so a change affecting downloads can live in `content/` and match no partition.
 
-Two side commands: `python3 -m chromiumdiff catalog <ref>` measures what the target set is missing; `python3 -m chromiumdiff figures <report.json>` writes the measurements the project's own documents quote, which is how they stay true. The re-render command is in step 4, beside the reason you need it.
+One side command: `python3 -m chromiumdiff catalog <ref>` measures what the target set is missing. The re-render command is in step 4, beside the reason you need it.
 
 ### Step 3: Read the report in order
 
-The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
+The report arrives sorted by score, highest first. **Score is not a reading order, and not a place to cut the list.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
 
 When the list is long, **cover it by group** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows in 47 groups, so reading each group once covers all of them. 37 of the 47 are a leading signal. The other 10 are a kind and a direction: 718 of those rows — every one of them in New declarations — carry no signal at all, so no signal group reaches them. *What happened* is built on the 47; a bucket table is built on the 37, carrying every signal in its bucket, heaviest first.
 
-**That is how you read, not how you write.** Signal, bucket and score band are properties of the machinery. The report you hand back groups by what happened — step 6 — and a section headed by a signal name, a bucket name or a score range is the shape this skill exists to avoid.
+**That is how you read, not how you write.** Signal, bucket and score band are properties of the machinery. The report you hand back groups by what happened — step 6. Do not head a section with a signal name, a bucket name or a score range.
 
 Read by bucket, in this order.
 
@@ -292,7 +292,7 @@ Do that before quoting a report to anyone: what you found by clicking is in the 
 
 `--click-budget N` caps diffs read per row (default 600), `--no-save` leaves the file alone. An issue's history is not fetched with the row: click the issue on the CL you believe, and it opens under that CL.
 
-**A restricted issue is normal and not a failure.** About a third answer HTTP 403 — 13 of the 39 issues cited by the looked-up rows of an M148 → M151 run, the figure `docs/figures.json` carries — because they sit in a security, abuse or Google-internal tracker component. The panel says so and keeps the link, because the reader may be the one person who can open it. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
+**A restricted issue is normal and not a failure.** About a third answer HTTP 403 — 13 of the 39 issues cited by the looked-up rows of an M148 → M151 run — because they sit in a security, abuse or Google-internal tracker component. The panel records that the issue is restricted and keeps the link, because the reader may have access. **The CLs stay readable either way**: they live on Gerrit, they are public, and their subjects say what the issue was about. Report the fix history rather than only that the issue would not open.
 
 **Finding no CL means this search found none, not that Chromium did not change.** The two trees differ, so something landed. The file is asked three ways — on main, then off it for merge-backs, then the whole window's commit messages — and if all three miss, the CL is recorded under a name or path this report does not hold. Say that; do not report that a declaration changed by itself.
 
@@ -326,7 +326,7 @@ Read the finding's `change.kind`, branch on the table below, then ask that branc
 
 `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved`
 
-1. **Always actionable if the old name appears anywhere.** The first four kill whatever was setting the value from outside. The next three are retired flags, which silently make every external override a no-op. The last two are scheduling: a flag with a deletion date is an override with a deadline.
+1. **Always actionable if the old name appears anywhere.** The first four stop whatever was setting the value from outside. The next three are retired flags, which silently make every external override a no-op. The last two are scheduling: a flag with a deletion date is an override with a deadline.
 2. The tool cannot see any of those places. This is a list of things to check, not a list of things that broke.
 
 Signal meanings: **[reference/signals.md](reference/signals.md)**.
@@ -335,7 +335,7 @@ Signal meanings: **[reference/signals.md](reference/signals.md)**.
 
 Question 3 decides the layout — group by what the reader named, and say what you filtered to.
 
-**When they named nothing, group by what happened, not by how the tool found it.** A bucket, a score band and a fact kind are all properties of the machinery. Group by any of them and a change that arrived as seven fragments goes back under several headings — the flag beneath one, the pages beneath another. That is the state `cluster.py` had already undone.
+**When they named nothing, group by what happened, not by how the tool found it.** A bucket, a score band and a fact kind are all properties of the machinery. Group by any of them and a change that arrived as seven rows goes back under several headings — the flag beneath one, the pages beneath another, which is what `cluster.py` had already put together.
 
 ```markdown
 ## Overall risk
@@ -344,14 +344,14 @@ Question 3 decides the layout — group by what the reader named, and say what y
 ## What happened
 [One item per thing that happened, heaviest consequence first.]
 
-### <what a person calls it> — <the movement, in a few words>
-[What moved, read from the fragments together. Name every identifier someone
+### <what a person calls it> — <the change, in a few words>
+[What changed, read from the rows together. Name every identifier someone
 would grep for.]
 **Check:** [what to go and look at, and where — including outside this
 repository.]
 
 ## Fixed outside the repository — N
-[Always present, always last, even when filtered: a renamed flag or switch kills the override of anyone who set it, not of one team.]
+[Always present, always last, even when filtered: a renamed flag or switch stops the override of anyone who set it, not of one team.]
 
 ## New capability
 [web_api_added_live only. Product input, not a blocker.]
@@ -372,7 +372,7 @@ In this order, so nothing is written twice:
 
 #### Reading a block into one sentence
 
-The fragments contradict each other apart and agree together, so read every one of them before writing. Two attributes carry the direction: **the gate a page sits behind**, and **the state a flag held when it was removed**.
+Read apart, the rows contradict each other, so read all of them before writing. Two attributes carry the direction: **the gate a page sits behind**, and **the state a flag held when it was removed**.
 
 Worked, from the M148 → M151 block:
 
@@ -394,10 +394,10 @@ Worked, from the M148 → M151 block:
 
 Three things follow, in order. The flag was **enabled** before it was removed, so users already had the split. The experimental gate is gone, and the two split pages moved onto the gate the combined page had used. The combined page and its control went with it.
 
-That is one movement, not seven facts:
+Those seven rows are one change, not seven:
 
 > **Local Network Access — the split shipped, the combined page is gone.**
-> The page `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) and its control `siteSettingsLocalNetworkAccess` are removed. `SITE_SETTINGS_LOCAL_NETWORK` and `SITE_SETTINGS_LOOPBACK_NETWORK` moved off the experimental gate `enableLocalNetworkAccessSplitPermissions` onto `enableLocalNetworkAccessSetting`, and both that gate and `LocalNetworkAccessChecksSplitPermissions` — which was **enabled** at M148 — are retired. Users saw the split before this upgrade; M151 removes the machinery.
+> The page `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) and its control `siteSettingsLocalNetworkAccess` are removed. `SITE_SETTINGS_LOCAL_NETWORK` and `SITE_SETTINGS_LOOPBACK_NETWORK` moved off the experimental gate `enableLocalNetworkAccessSplitPermissions` onto `enableLocalNetworkAccessSetting`, and both that gate and `LocalNetworkAccessChecksSplitPermissions` — which was **enabled** at M148 — are retired. Users saw the split before this upgrade; M151 removes what was left of it.
 > **Check:** anything linking to `chrome://settings/localNetworkAccess`; any use of the string `siteSettingsLocalNetworkAccess`; any Finch config setting `kLocalNetworkAccessChecksSplitPermissions`.
 
 And a screen group, from the same run:
@@ -407,13 +407,13 @@ And a screen group, from the same run:
 
 #### What every item has to carry
 
-**What moved**, **whether anyone sees a difference**, **what someone must do**. The middle part decides priority and a raw diff cannot supply it.
+**What changed**, **whether anyone sees a difference**, **what someone must do**. The middle part decides priority and a raw diff cannot supply it.
 
-Bad: *"`LocalNetworkAccessChecksSplitPermissions` was removed in M151."* — one fragment of seven, and it reads as a lost feature.
+Bad: *"`LocalNetworkAccessChecksSplitPermissions` was removed in M151."* — one row of seven, and it reads as a lost feature.
 
 Also bad: *"12 changes to chrome:// pages, 3 Compatibility break."* — a count is not a thing that happened.
 
-**Stop at what the evidence shows.** Write what moved and what to check; do not write that something is a bug. The tool has one Chromium version and another, and no knowledge of what this product patches or ships.
+**Stop at what the evidence shows.** Write what changed and what to check; do not write that something is a bug. The tool has one Chromium version and another, and no knowledge of what this product patches or ships.
 
 ## Reference
 

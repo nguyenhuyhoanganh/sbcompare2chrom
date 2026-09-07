@@ -2,9 +2,9 @@
 
 Tài liệu này giải thích vì sao một thay đổi được 80 điểm còn thay đổi khác được 20 điểm, và vì sao một finding lại được giao cho team này chứ không phải team kia.
 
-## Năm khái niệm không được trộn với nhau
+## Bốn khái niệm không được trộn với nhau
 
-Đây là chỗ hay bị nhầm nhất khi đọc báo cáo. Năm từ dưới đây nghe gần giống nhau nhưng trả lời năm câu hỏi hoàn toàn khác:
+Đây là chỗ hay bị nhầm nhất khi đọc báo cáo. Bốn từ dưới đây nghe gần giống nhau nhưng trả lời bốn câu hỏi hoàn toàn khác:
 
 | Khái niệm | Câu hỏi nó trả lời |
 |---|---|
@@ -249,7 +249,7 @@ Ngược lại, một trường hợp đổi tên đã ghép được bằng sym
 | `flag_expiring` | 45 | Scheduled | Flag dự kiến bị xoá trước hoặc trong vòng hai milestone sau milestone đích |
 | `flag_expiry_moved` | 10 | Scheduled | Lịch xoá đổi, nhưng hành vi lúc chạy chưa đổi |
 
-`flag_expiring` có bucket riêng — **Scheduled** — chính vì lý do này: nó nói về một cái ngày chứ không phải một sự kiện, phần phải xử lý nằm ngoài repository, và người đang phụ thuộc vào flag đó cần kịp lên kế hoạch. Gộp nó vào Upstream cleanup thì sai: Upstream cleanup nói về việc đã xảy ra và hoá ra không quan trọng, còn `flag_expiring` nói về việc **chưa** xảy ra.
+`flag_expiring` có bucket riêng — **Scheduled** — chính vì lý do này: nó nói về một mốc ngày chứ chưa phải một việc đã xảy ra, phần phải xử lý nằm ngoài repository, và người đang phụ thuộc vào flag đó cần kịp lên kế hoạch. Gộp nó vào Upstream cleanup thì sai: Upstream cleanup nói về việc đã xảy ra và hoá ra không quan trọng, còn `flag_expiring` nói về việc **chưa** xảy ra.
 
 ## Bước 4 — Score được tính thế nào
 
@@ -401,7 +401,7 @@ Bảng này cho thấy vì sao hai signal nghe rất giống nhau lại đòi ha
 | `feature_symbol_renamed` | Tham chiếu C++ phải đổi — build sẽ báo |
 | `pref_renamed` | Cần migration, đăng ký lại, hoặc đọc fallback trong code browser |
 
-Điểm chung của ba dòng "build không báo gì": chúng là loại hỏng duy nhất có thể nằm im suốt một milestone.
+Điểm chung của ba dòng "build không báo gì": chúng là loại hỏng duy nhất có thể không lộ ra suốt một milestone.
 
 ## Sáu ví dụ chấm điểm đầy đủ
 
@@ -442,7 +442,7 @@ severity của signal: 35
 score: 35, không phải 75
 ```
 
-Đây là minh hoạ trực tiếp cho rule ở Bước 3: **signal cụ thể thắng điểm nền thô.** Chính vì vậy bảng điểm mới kiểm toán được — mỗi con số truy ngược về đúng một rule.
+Đây là minh hoạ trực tiếp cho rule ở Bước 3: **signal cụ thể được ưu tiên hơn điểm nền thô.** Chính vì vậy bảng điểm mới kiểm toán được — mỗi con số truy ngược về đúng một rule.
 
 ### Ví dụ D — Pref không còn thấy trong lần quét mặc định
 

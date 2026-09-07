@@ -110,7 +110,7 @@ Ba target set phục vụ ba mục đích khác nhau:
 | Target set | Dùng khi | Điều cần nhớ |
 |---|---|---|
 | `minimal` | Smoke test — kiểm tra công cụ và cache còn chạy đúng không | Không bao giờ đủ để kết luận cho một release |
-| `default` | Báo cáo hằng ngày, giữ chi phí ở khoảng 40 MB mỗi version theo thiết kế hiện tại | Được chọn lọc theo các surface có giá trị cao; bắt buộc phải đọc báo cáo coverage kèm theo kết quả |
+| `default` | Báo cáo hằng ngày, giữ chi phí ở khoảng 40 MB mỗi version theo thiết kế hiện tại | Được chọn lọc theo các nhóm khai báo có giá trị cao; bắt buộc phải đọc báo cáo coverage kèm theo kết quả |
 | `wide` | Phân tích ở mức release, hoặc cần xác minh một khai báo có thật sự bị xoá không | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; lớn hơn nhiều nhưng giảm hẳn số kết luận "đã bị xoá" sai |
 
 Ngoài target set, `partition` còn lọc tiếp danh sách target theo khu vực chức năng. Ví dụ `--partition settings` chỉ giữ lại các file lõi cùng những target có tiền tố liên quan tới Settings.
@@ -290,6 +290,6 @@ Việc chỉ tải vừa đủ các file chứa khai báo mang lại ba lợi í
 
 - chạy được **trước khi** Samsung bắt đầu merge, không cần chờ có cây code đã merge;
 - snapshot và cache nhỏ, nên có thể sửa logic so sánh hoặc chấm điểm rồi chạy lại rất nhanh mà không tải lại source;
-- parser tập trung vào nguồn sự thật của từng contract, thay vì bị chôn vùi trong hàng nghìn dòng refactor.
+- parser tập trung vào nguồn sự thật của từng contract, thay vì phải lọc qua hàng nghìn dòng refactor.
 
 Đổi lại, công cụ không phát hiện được mọi thay đổi ở phần implementation. Vì vậy cách mô tả đúng về phạm vi là: *"phủ các surface khai báo đã liệt kê, và đo rõ phần chưa phủ"* — chứ không phải *"phủ toàn bộ thay đổi của Chromium"*.

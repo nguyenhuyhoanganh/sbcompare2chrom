@@ -11,7 +11,7 @@ The whole point of this stage is to answer "what actually changed" rather than
 2. **Platform-aware verdicts.**  A default flip is scored for Windows, the
    one platform this desktop product ships.  Chromium wraps many defaults in
    ``#if BUILDFLAG(IS_WIN)`` chains, so the global value and the shipped value
-   routinely disagree; reading the wrong one inverts the conclusion.
+   routinely disagree; reading the wrong one gives the opposite conclusion.
 
 Rename detection runs as a post-pass for switches and prefs, whose identity is
 the string value itself: a renamed pref would otherwise appear as an unrelated

@@ -9,7 +9,7 @@ the same help: "Mojo method" does not say that a process call is involved, and
 "Preference" does not say that the thing at risk is data already on a user's
 disk.
 
-For the `chrome://` surfaces the identifier was worse than unhelpful. `id:cancelButton` says nothing on its own: it does not say which
+For the `chrome://` screens the identifier gave the reader nothing. `id:cancelButton` says nothing on its own: it does not say which
 page it is on, whether it arrived or vanished, or what kind of control it is --
 and the same loadTimeData key appears nine times because nine different pages
 set it. A reader scanning that list cannot answer the one question they came

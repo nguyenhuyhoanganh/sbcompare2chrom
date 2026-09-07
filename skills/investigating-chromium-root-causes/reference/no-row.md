@@ -2,13 +2,13 @@
 
 ## Contents
 
-- The one sentence you may never write
+- A sentence you may not write
 - Part A — no row in the report at all
 - Part B — a row exists, but no CL
-- Deciding which shape you are in
+- Deciding which case you are in
 - What to do about each
 
-## The one sentence you may never write
+## A sentence you may not write
 
 > *"No CL touched this file, so nothing changed."*
 
@@ -16,7 +16,7 @@ The two trees differ. Something landed. An empty answer is a fact about **this
 search**, never about Chromium, and phrasing it as an absence invites the reader
 to conclude a declaration changed on its own — which cannot happen.
 
-Every shape below has an honest sentence. Use it instead.
+Each case below has a sentence that is true of it. Use that instead.
 
 ## Part A — no row in the report at all
 
@@ -70,7 +70,7 @@ attached, because on a partial read A2 is the more likely explanation.
 ## Part B — a row exists, but no CL
 
 `why.py` printed the finding, then `No CL was tied to this finding.` The script
-names which shape it is. They license very different sentences.
+names which case it is, and they allow very different sentences.
 
 ### B1. Nothing was looked up
 
@@ -118,7 +118,7 @@ the row says so.
 
 ### B6. All three questions were asked and missed
 
-The only shape that is a finished result. The file was asked on `main`, then
+The only case that is a finished result. The file was asked on `main`, then
 with the branch pin removed for merge-backs, then the whole window's commit
 messages were searched for the identifier — and all three missed.
 
@@ -128,16 +128,16 @@ This is a real conclusion, and it is a narrow one:
 > the ones this report holds — a generated file, a path Gerrit indexes
 > differently, a rename, or a third-party roll."
 
-It licenses a next step, not a shrug: search Chromium's git log directly for the
+It points to a next step: search Chromium's git log directly for the
 identifier, or open the declaring file's history on
 `chromium.googlesource.com`.
 
-## Deciding which shape you are in
+## Deciding which case you are in
 
 The script tells you. If you are reading a raw block instead, in
 `enrichment.gerrit`:
 
-| Field | Shape |
+| Field | Case |
 |---|---|
 | block absent | B1 |
 | `diffs_read: false` | B3 |
@@ -148,7 +148,7 @@ The script tells you. If you are reading a raw block instead, in
 
 ## What to do about each
 
-| Shape | Next command |
+| Case | Next command |
 |---|---|
 | A1 | search again by path fragment, or by `kind:` prefix |
 | A2 | re-run the pipeline with `--target-set wide` |

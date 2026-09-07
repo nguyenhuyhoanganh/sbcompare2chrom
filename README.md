@@ -6,8 +6,6 @@ The target product is a Chromium-based desktop browser on Windows, which is why 
 
 **Every measurement below was taken on one pair of versions, M148 → M151, unless the sentence names another. They are evidence for the argument being made, not properties of the tool: the number to trust is the one your own run prints.**
 
-There is exactly one other document: **[docs/pipeline.html](docs/pipeline.html)** — open it in a browser, no network needed — which follows one real change through every stage of the pipeline, with the vocabulary defined and each kind of file explained. This README says what the project is and how to use it; `pipeline.html` says how it works inside.
-
 ---
 
 ## Contents
@@ -212,7 +210,7 @@ Put shortly: **the declaration files tell you what exists; only the gate tells y
 
 Checked against real M148 → M151 data:
 
-**Step 1.** Compare the settings page list, and `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` is gone. Read naively: "Chromium removed the Local Network Access page" — an important privacy page. Enough to alarm the whole team.
+**Step 1.** Compare the settings page list, and `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` is gone. Read naively: "Chromium removed the Local Network Access page" — an important privacy page.
 
 **Step 2.** Read M148 more carefully and there are **two** pages declared at once:
 
@@ -236,18 +234,18 @@ The work required to move to M151 is not "restore a lost feature" — it is: if 
 
 This is not an isolated case:
 
-- **M148 → M151, Windows:** 154 flags removed — 72 that had shipped, 60 that were abandoned, 22 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 145 "feature lost" makes most of the alert list a false alarm.
+- **M148 → M151, Windows:** 154 flags removed — 72 that had shipped, 60 that were abandoned, 22 whose prior state is unreadable. None of the first two groups changes behaviour. Labelling all 154 "feature lost" makes most of the alert list a false alarm.
 - **M139 → M143, web layer:** of 202 features that "disappeared", 170 were already stable — the flag was cleaned up after the feature shipped successfully.
 
-A tool that puts 170 false alarms at the top of the list loses all credibility on its first run.
+A tool that puts 170 false alarms at the top of its first run is not usable.
 
 ---
 
 ### Half two: there is no gate, and nothing warns you
 
-Mojo, preferences and command-line switches have no gate at all. There is no stage A, no remote rollout, no milestone where it quietly becomes true. **The declaration is the contract, and changing it changes the contract on the day you adopt the version.**
+Mojo, preferences and command-line switches have no gate at all. There is no stage A, no remote rollout, and no milestone at which it takes effect. **The declaration is the contract, and changing it changes the contract on the day you adopt the version.**
 
-What makes this half dangerous is not that it is fast. It is that **nothing tells you**:
+This half is dangerous because **nothing tells you**:
 
 ```
 blink.mojom.PublicKeyCredentialRequestOptions.challenge
@@ -258,10 +256,10 @@ A WebAuthn message field stopped being nullable. Nothing in Chromium warns about
 
 Preferences and switches fail the same way, one step further out. Chromium **ignores a command-line switch it does not recognise** — no warning, no error, no log line — so a launch script keeps starting the browser exactly as before and the flag it passes stops doing anything at all.
 
-For this half, the questions from half one are not just unhelpful, they are misleading. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these kinds, and the decision procedure in the skill branches on the declaration's kind before it asks anything.
+For this half the questions from half one give a wrong answer rather than no answer. "Did the flag state change?" has no answer here, and answering "no" reads as "then nothing happened". Traps 9 to 12 are written for these kinds, and the decision procedure in the skill branches on the declaration's kind before it asks anything.
 
 
-### Assembling the fragments into one story
+### Assembling the fragments into one change
 
 One Chromium change does not arrive in one place. The Local Network Access case above produces exactly seven fragments:
 
@@ -275,7 +273,7 @@ base_feature   LocalNetworkAccessChecksSplitPermissions   shipped, then flag ret
 blink_runtime  LocalNetworkAccessSplitPermissions         experimental flag dropped
 ```
 
-Read line by line they contradict each other: one says a page was removed, the next says a page appeared. Read as one group they say something simple and true.
+Read line by line they contradict each other: one says a page was removed, the next says a page appeared. Read as one group they say one thing.
 
 `cluster.py` groups them using **links the data itself declares**, not name similarity:
 
@@ -291,9 +289,9 @@ Each arrow is a real field. The seventh fragment — `blink_runtime LocalNetwork
 
 **The last arrow is the one that reaches the top of the report.** The four above it join on a link Chromium writes *in the source*, and between a `.mojom` and an `.idl` no such link is ever written — so they group a feature with its parameters, which is the bottom of the ranking, and almost nothing else. On the M148 → M151 run they build 72 clusters covering 183 of 3,022 findings, and of the 150 highest-scoring findings they reach **6**.
 
-A shared CL is the same evidence recorded somewhere else: the author wrote one change and it landed across several declarations, and the CL number is Chromium saying so. With the top 150 resolved it reaches **84** of them and takes the whole report to 261. Measured on that run, **9 of the 20 highest-scoring rows** are a second or fifth telling of a change already on screen — one CL introducing a mixin takes 14 rows, `[sub apps] change web api` takes 7 across three kinds.
+A shared CL is the same evidence recorded somewhere else: the author wrote one change and it landed across several declarations, and the CL number is Chromium saying so. With the top 150 resolved it reaches **84** of them and takes the whole report to 261. Measured on that run, **9 of the 20 highest-scoring rows** are a repeat of a change already on screen — one CL introducing a mixin takes 14 rows, `[sub apps] change web api` takes 7 across three kinds.
 
-Only the CL, never the issue: one issue on that run carries 24 CLs across unrelated areas. Only verdicts that name the fact, never `crowded` or `touched`, which name the declaring file — `about_flags.cc` alone would put five hundred findings in one group. And the grouping runs where its evidence arrives, which is a lookup: `run` asks Gerrit nothing, so on a report nobody has looked anything up in this arrow is silent and the other four are the whole of it.
+Only the CL, never the issue: one issue on that run carries 24 CLs across unrelated areas. Only verdicts that name the fact, never `crowded` or `touched`, which name the declaring file — `about_flags.cc` alone would put five hundred findings in one group. And the grouping runs where its evidence arrives, which is a lookup: `run` asks Gerrit nothing, so on a report where nothing has been looked up this arrow contributes nothing and the other four are all there is.
 
 The report has a *Related changes, grouped* section ordered by the highest score in each cluster, and every finding's own section says whether it is a fragment and what the heaviest thing in its group scores — because that section is what a reader pastes into a ticket, and the table is not.
 
@@ -339,9 +337,9 @@ The control's type is the tag name itself — `settings-toggle-button` is a togg
 
 Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unevenly: at M151, settings still has 243 Polymer files against 6 Lit, while extensions is 2 against 33 and print_preview 2 against 32. The extractor reads both dialects.
 
-**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight surfaces the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
+**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight screens the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
-An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is what makes widening free: an element with no preference, no id and no label can only be identified by its position, which churns whenever a template is reordered. The rule beats the list it replaced on every axis — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
+An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is why widening the rule costs nothing: an element with no preference, no id and no label can only be identified by its position, which changes whenever a template is reordered. The rule improves on the list it replaced in every measure — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
 **Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
@@ -367,7 +365,7 @@ Reading naively — take the first value you find — gives "enabled". In this e
 | `IS_ANDROID` … `#else` | `enabled` | **`disabled`** — the naive read is backwards |
 | `ENABLE_PLUGINS` … `#else` | `enabled` | `conditional` — no guess |
 
-The second row is why the tool exists: reading the wrong one is not a small error, it inverts the conclusion. The third row matters too: when the condition depends on a non-platform buildflag, the three-valued evaluator answers "undecidable" rather than guessing.
+The second row is the case the tool is for: reading the wrong one gives the opposite conclusion. The third row matters too: when the condition depends on a non-platform buildflag, the three-valued evaluator answers "undecidable" rather than guessing.
 
 ### The platform is fixed, not an option
 
@@ -383,7 +381,7 @@ eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — no guess
 
 Build conditions are resolved for Windows everywhere they appear, not only in feature macros: an `#if` around a pref or switch constant (115 keys at M151 are not in the Windows build), and a GRIT `<if expr="...">` around a WebUI control (14 controls). One three-valued evaluator, two dialects — `not is_win` and `!BUILDFLAG(IS_WIN)` ask the same question.
 
-Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: of 141 keys that vanished, 100 had simply moved there.
+Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: the default run reports 139 keys gone and the wide run still holds 29 of them, so those 29 had moved rather than been deleted.
 
 ### Comparison by meaning, not by text
 
@@ -406,9 +404,9 @@ Then it attaches a **meaning label** to every change — this is what turns "a l
 | `feature_symbol_renamed` | No, but… | The C++ identifier changed — our build breaks after the merge |
 | `pref_renamed` | No, but… | A settings key changed — every existing user's stored value is orphaned |
 
-Every attribute that gets compared can produce a label like this. That is a rule, not an aspiration: an attribute is in the whitelist because someone decided it means something, so if it moves and the report says nothing, that row is unreadable. Measured M148 → M151, **380 of 709 "modified" changes used to arrive that way**; a test now blocks it, and the same test found nine more attributes drifting out from under it — a `base::Feature`'s build guard among them, 55 rows in M143 → M148.
+Every attribute that gets compared can produce a label like this. This is enforced by a test: an attribute is in the whitelist because a change to it was decided to matter, so if it moves and the report says nothing, that row is unreadable. Measured M148 → M151, **380 of 709 "modified" changes used to arrive that way**; a test now blocks it, and the same test found nine more attributes drifting out from under it — a `base::Feature`'s build guard among them, 55 rows in M143 → M148.
 
-The last four labels are the dangerous kind: **compiles clean, tests green, and breaks in the field** — or breaks the build right after the merge, at the latest possible moment.
+The last four labels are the dangerous kind: they **compile cleanly, pass tests, and fail in the field** — or break the build right after the merge, at the latest possible moment.
 
 `diff.py` also detects renames. For prefs and switches, identity is the string, while the C++ variable name stays put; so a rename shows up as an unrelated removal plus an unrelated addition. Pairing them by variable name reveals what really happened. A real case:
 
@@ -430,7 +428,7 @@ When a pref or switch disappears and cannot be paired, the tool does **not** cla
 
 ### Every run measures it
 
-A hand-written file list is only correct for the version it was written against. Build the list as it stood at M130 and run it at M151, twenty-one milestones later, and it misses 27% of the pref files and 34% of the feature files that exist there. A third of the coverage evaporates over two years, silently — a file nobody listed is a file nobody notices.
+A hand-written file list is only correct for the version it was written against. Build the list as it stood at M130 and run it at M151, twenty-one milestones later, and it misses 27% of the pref files and 34% of the feature files that exist there. A third of the coverage is lost over two years, and nothing reports it: a file nobody listed is a file nobody notices.
 
 So on every run the tool asks that version's own tree what exists, and measures the target set against it. Gitiles returns a recursive listing of a directory in one request, so fourteen roots cost about 24 MB and 21 seconds, cached forever because a tag's tree never changes.
 
@@ -452,7 +450,7 @@ coverage: reads 3677 of 8366 files in this tree that could declare (43% of files
 | `default` | ~40 MB | ~38 MB | under half | Day-to-day work |
 | `wide` | ~337 MB | ~110 MB | **nearly all of them** | The widest read available |
 
-5% sounds terrible, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
+That share looks small, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
 
 | | `default` | `wide` |
 |---|---:|---:|
@@ -544,27 +542,10 @@ python3 -m chromiumdiff compare    # semantic comparison between TWO versions
 python3 -m chromiumdiff run        # the whole pipeline: snapshot → compare → rank → report
 python3 -m chromiumdiff report     # re-render a saved report.json
 python3 -m chromiumdiff catalog    # measure which files the target set is missing
-python3 -m chromiumdiff figures    # write docs/figures.json from a report
 python3 -m chromiumdiff serve      # serve a report where opening a row looks its CL up
 ```
 
-Splitting them up is not decoration. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Being able to re-run the cheap half against a warm cache is the difference between a tool people tune and a tool people run once.
-
-`figures` exists because every measurement in this README and in `pipeline.html` used to be maintained by hand, and six of them were corrected in a single working session — four having been written wrong by the same hand that corrected them. The numbers now live in `docs/figures.json`, written from a real run, so a document quotes one file rather than each carrying its own copy of the measurement.
-
-It covers the CL-and-issue stage too, and that is where it earns its keep: correcting the candidate window moved every figure that stage produces at once — the verdict counts, the CLs cited, the share of issues that answer 403 — and each was found by hand, in a second sweep, because the first one looked for flags and command names and those figures live in prose. Regenerate rather than re-measure:
-
-```bash
-python3 -m chromiumdiff serve out/M148_to_M151     # click rows, or leave it to a run
-python3 -m chromiumdiff figures out/M148_to_M151/report.json
-```
-
-The block carries `rows` beside every count, so a report with three rows resolved cannot read like a run. It is absent entirely on a report nothing has been looked up in — a zero would read as a measurement, and there was none. Anything the command cannot recompute is carried forward and said out loud rather than dropped: `--wide` is expensive and rarely on disk, and silently deleting the coverage figure that needed it is precisely the failure this file exists to prevent.
-
-```bash
-python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 --out out
-python3 -m chromiumdiff figures out/report.json --wide out-wide/report.json
-```
+Splitting them up has a reason. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Re-running the cheap half against a warm cache is what makes the tool worth tuning rather than running once.
 
 `serve` is the only stage that asks a question the two trees cannot answer between them: *who changed this, and what were they fixing.* It is separate from `run` because it needs the network and because a report is worth reading without it. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
 
@@ -574,7 +555,7 @@ Each command accepts only the options it actually uses. `catalog` has no `--loca
 
 ## 7. How a change is ranked
 
-Two numbers travel with every finding, and the gap between them is the point.
+Two numbers travel with every finding. Every point of gap between them has a sentence beside it.
 
 ### Severity: what this kind of change costs
 
@@ -609,7 +590,7 @@ The second and third are not variations on the first. A `.mojom` file has no pre
 
 The directory rule applies only when *every* declaration of a key sits under one, because five keys at M151 sit both inside and outside — and deduplication keeps the copy we do not build.
 
-The words *every side* carry the whole rule. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
+The words *every side* are what the rule turns on. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
 
 **An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read part of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
 
@@ -641,7 +622,7 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 
 All five answer one question — what kind of thing happened — and that matters more than the wording. The four they replaced did not: **Breaking** and **Behaviour change** named a consequence, **New surface** named a direction, and **Housekeeping** named upstream's motive. Three axes produce three concrete problems. `web_api_added_live` (175 rows) sat in New surface and `web_api_shipped` (129) in Behaviour change while both say the same thing about the Windows build. **New surface** used the word the `Surface` column beside it uses for a fact kind. And **Housekeeping** held five states at once — 542 real cleanups, 220 removals no signal could characterise, 187 declarations absent from the Windows build on both sides, 57 deletions Chromium has only scheduled, and 31 removals the run could not confirm — so every document had to explain in prose that it is not the low-score bucket.
 
-Three placements are worth arguing about explicitly, because each is the difference between a report people read and a report people stop opening:
+Three placements are worth arguing about explicitly, because each decides whether the report stays readable:
 
 **Retired flags are Upstream cleanup, not a compatibility break.** At M148 → M151, 154 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
 
@@ -654,7 +635,7 @@ Three placements are worth arguing about explicitly, because each is the differe
 | `default` | 5% | 139 | Upstream cleanup | 20 |
 | `wide` | 100% | 171 | **Compatibility break** for the 30 in the Windows build | **35** |
 
-A rule that produced the same answer either way would be wrong in one of the two directions, and the honest thing is for the report to say which run it is.
+A rule that produced the same answer either way would be wrong in one of the two directions, so the report says which run it is.
 
 That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows on the default run and 0 on the wide run**, and 120 of the 303 are in Compatibility break, the bucket read first. `summary.unconfirmed` counts them: it says how much of a report is limited by what the run read rather than by what Chromium did.
 
@@ -673,10 +654,10 @@ Compatibility break   276   ← a contract outside the binary no longer holds, s
 Behaviour change      469   ← the Windows build behaves differently
 New declarations     1240   ← exists now, did not before. Nothing is on by it
 Scheduled             302   ← a date, not an event. Nothing has happened yet
-Upstream cleanup      735   ← Chromium tidying up after itself
+Upstream cleanup      735   ← removals and moves whose outcome was already settled
 ```
 
-Read in that order. `report.md` gives the first four a table each and deliberately gives Upstream cleanup none: it is the largest bucket in every report and the one nothing in it needs doing about, so `report.json` and the sortable table in `report.html` hold it instead.
+Read in that order. `report.md` gives the first four a table each and deliberately gives Upstream cleanup none: it is the largest bucket in every report and nothing in it needs doing, so `report.json` and the sortable table in `report.html` hold it instead.
 
 Scheduled does get a table, and that is the point of it being its own bucket. `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and while they were filed as cleanup the only way to reach them was to filter `report.json` by signal id.
 
@@ -684,7 +665,7 @@ Scheduled does get a table, and that is the point of it being its own bucket. `f
 
 What decides a bucket, and the three placements worth arguing about, are in §7.
 
-`report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is the shape that reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
+`report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is what reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
 
 Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features, so citing the file leaves the reader to do the finding.
 
@@ -695,7 +676,7 @@ Every finding cites **`path:line`** on both sides, not just a filename. `content
 - **Grouping every finding by signal on one long scrolling page.** It became twenty-one collapsed bars whose titles are near-synonyms in Chromium's own vocabulary: `Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` are three different entries. Eighty bars, three levels deep, before the reader reaches one readable row.
 - **Putting those behind a per-team menu.** The accordion wall went away, and so did the one thing a table is good for: seeing everything at once, sorting it, searching it.
 
-What was missing was never the shape. It was that a row said `id:cancelButton` and left the reader to work out which page, added or removed, what kind of control, and whether it concerns them. So the table keeps its shape and every row carries the answer:
+What was missing was not the layout. It was that a row said `id:cancelButton` and left the reader to work out which page, added or removed, what kind of control, and whether it concerns them. So the table keeps its layout and every row carries the answer:
 
 ```
 ~  feature flag PrefetchPrerenderIntegration — off → on for Windows
@@ -760,7 +741,7 @@ A web API removed on the same run keeps its full 70, because the surface it
 vanished from was read almost completely. The deduction is per surface, not
 per run.
 
-A ranking nobody can argue with is a ranking that gets ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
+A ranking that cannot be checked is ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
 
 ### Analyse everything, render at read time
 
@@ -771,7 +752,7 @@ python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138
 python3 -m chromiumdiff report out/report.json --format both --out out/again
 ```
 
-Size is not the constraint: the whole of an upgrade is about 4 MB of JSON and `report.md` is about 126 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
+Size is not the constraint: the whole of an upgrade is about 4 MB of JSON and `report.md` is about 173 KB. The constraint is human reading time, which is what the buckets and the *What happened* section exist to bound.
 
 ### Sixteen fact kinds, three meaning groups
 
@@ -807,7 +788,7 @@ fact  →  the file that declares it
       →  the Bug: footer, and every other CL citing the same issue
 ```
 
-The middle step is what makes it worth anything. A declaration file is shared: **500 merged CLs touched `chrome/browser/about_flags.cc` between the M148 and M151 branch points**, 337 touched `runtime_enabled_features.json5`, and 62 touched `content_features.cc`. Handing a reader 500 CLs for one flag is worse than handing them none. Filtering those 62 by whether the CL's own diff of that file mentions `AndroidCaptureKeyEvents` leaves exactly one — CL 7885356, *"android: Enable AndroidCaptureKeyEvents by default"* — which is the finding in the author's own words.
+The middle step is what makes the result usable. A declaration file is shared: **500 merged CLs touched `chrome/browser/about_flags.cc` between the M148 and M151 branch points**, 337 touched `runtime_enabled_features.json5`, and 62 touched `content_features.cc`. Handing a reader 500 CLs for one flag is worse than handing them none. Filtering those 62 by whether the CL's own diff of that file mentions `AndroidCaptureKeyEvents` leaves exactly one — CL 7885356, *"android: Enable AndroidCaptureKeyEvents by default"* — which is the finding in the author's own words.
 
 The panel prints the denominator with the CL, because `1 of 62` is what makes the one mean something.
 
@@ -843,10 +824,10 @@ So there is no radius. A declaration's body ends at its own closing delimiter, a
 
 Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` across 206 CLs. **147 of the 150 are named by a verdict; 3 hold leads only**, and the first working version of this managed 115.
 
-**A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one story. Two rules used to cut that list without saying so:
+**A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one change. Two rules used to cut that list without saying so:
 
 - **A strong hit deleted every `declares` beside it**, on the reading that an `exact` match makes them redundant. It does not: a CL that edited the declaration's body without touching the line naming it is a different CL doing different work. The rule threw away 40 CLs across 18 findings. The scarcity test that gives `declares` its meaning still applies — a crowd of them singles nothing out whether or not a strong hit is present.
-- **The cap took the newest eight**, which is right for a citation and backwards for a chain, where the origin is the oldest. `NtpComposebox` lost *"[ntp-composebox] Add feature flag"* — the CL the story starts at — while keeping five reverts of it.
+- **The cap took the newest eight**, which is right for a citation and backwards for a chain, where the origin is the oldest. `NtpComposebox` lost *"[ntp-composebox] Add feature flag"* — the CL the chain starts at — while keeping five reverts of it.
 
 So the cap is twelve, matched to the one the issue block already used; what it cuts is now printed (`15 of 19 merged CLs touched this file, newest 12 shown`) rather than folded into the pool count; and a row holding more than one CL reads oldest-first, which is what the `crowded` branch had already worked out for itself. The 40 is a measurement of one run at one budget, not a property of the tool — a smaller `--click-budget` reads fewer diffs and finds fewer of them.
 
@@ -862,9 +843,9 @@ Four of those five had the candidate CLs already in hand. Only the framing was m
 
 **The two do not share that sentence, because they are not the same claim.** `touched` is a lead: these CLs touched the file and nothing ties any of them to the identifier. `crowded` is every CL that edited *this declaration* — which is that declaration's history, so it is ordered oldest-first, headed **How it got here**, and read as the sequence the fact passed through rather than as one citation that failed to appear.
 
-**And a row the diff budget declined is not a row that was searched.** Its leads sit over diffs nobody opened, so the verdicts that name a fact were never attempted on it. Filling it with `touched` made it *read* as exhausted, and took its way out with it: the remedy sentence and the lookup button both lived in the branch that runs only when there are no CLs at all, so the one row that could still be answered became the one row that could no longer ask. Such a row now says `Nothing here was read — 147 CLs touched this file, more than the run's diff budget would open`, and keeps the button.
+**And a row the diff budget declined is not a row that was searched.** Its leads sit over diffs nobody opened, so the verdicts that name a fact were never attempted on it. Filling it with `touched` made it *read* as exhausted, and took its way out with it: the remedy sentence and the lookup button both lived in the branch that runs only when there are no CLs at all, so the one row that could still be answered lost the way to ask. Such a row now says `Nothing here was read — 147 CLs touched this file, more than the run's diff budget would open`, and keeps the button.
 
-This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader who had asked a question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
+This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader's question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
 
 #### There is no such thing as a change without a CL
 
@@ -918,9 +899,9 @@ What a session resolves is written back to `report.json`, atomically, through a 
 
 Matching is not the bottleneck it was: proving a token *absent* was 83 seconds of the 500-row case, and one search over the joined text settles it before any line is touched. The same work now takes **5.0 seconds** for an identical answer.
 
-### Four ways this quietly lied, and what each cost
+### Six defects that produced a confident wrong answer, and what each cost
 
-Every one of these produced a confident wrong answer rather than an error, which is the only kind of defect that matters here. All four were found by taking a finding that resolved to nothing and hunting its CL by hand.
+Each produced a confident wrong answer rather than an error, which is the kind that matters here. The first four were found by taking a finding that resolved to nothing and hunting its CL by hand.
 
 - **A renamed file answered with no evidence at all.** Gerrit replies to a diff request for the *old* path with `change_type: MODIFIED` and the whole file as one `{"skip": N}` block — no 404, no rename marker. The parser did not handle `skip` and so saw an empty file. Six removed IDL members read as unattributed when one CL plainly explains all of them.
 - **A reformat counted as an edit.** A block marked `{"a": [...], "b": [...], "common": true}` is Gerrit saying these lines are the same content differing only inside the line — a reindent. Counted as changed, a CL that reformats a file becomes an `exact` match for every declaration in it. 49 such blocks in a 2,329-diff sample.
@@ -937,11 +918,11 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 **Gerrit stops at 500 rows for an anonymous query and does not say so** — `start=500` returns an empty page that looks exactly like reaching the end. A window that comes back at the cap is therefore split and asked again until the count is established. Where the per-file ceiling still trims the result, the panel prints both numbers. `chrome/browser/flag-metadata.json` is touched by **662** CLs on this pair and the newest 500 are read, so a row declared in it reads *"3 of 662 merged CLs touched this file · 500 of them read"* — found and opened are different claims, and the gap between them is where a missing CL would be.
 
-**A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and turning a network hiccup into a confident "no CL found" is the one thing this tool is not allowed to do.
+**A failed fetch is counted, never absorbed.** Gerrit rate-limits with HTTP 429, and a diff that came back empty because of one is indistinguishable, at the point of use, from a diff that genuinely does not mention the identifier. Rate limiting gets its own long retry ladder, and a network failure must never be reported as "no CL found".
 
-**Four in ten issue links do not open.** Of the 97 distinct issues the top 150 findings of a real M148 → M151 run link, **44 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a closed door, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may be exactly the person who can open it.
+**About a third of issue links do not open.** Of the 39 distinct issues the looked-up rows of a real M148 → M151 run link, **13 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a restricted issue, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may have access.
 
-**An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the door was open, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
+**An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the issue opens, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
 
 `Fixed:` and `Bug:` are shown apart, because closing an issue and referencing one are different claims — Chromium writes far more of the latter than the former. `revert_of` and `cherry_pick_of_change` come free in the same response and are printed too: 23 of 534 CLs in a real sample are reverts, and they are what makes a flag's launch–revert–reland history readable without diffing subjects by eye.
 
@@ -1149,7 +1130,7 @@ python3 -m chromiumdiff snapshot 151.0.7922.138
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `report.json is schema N, and this build reads M` | The report was written by an older build | Re-run. A report cannot be rebuilt from itself, and the bucket ids in it may no longer name buckets — rendering it anyway printed `Compatibility break 0` and dropped 2,553 of 3,022 findings from the counts |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `Compatibility break: 0` on a default run | Normal, and not a clean bill of health | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Run `--target-set wide` before concluding anything |
+| `Compatibility break: 0` on a default run | Normal, and not evidence that nothing is broken | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Run `--target-set wide` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMIUMDIFF_CACHE=C:\cdcache` |
@@ -1220,7 +1201,7 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
 - No command may accept a flag and then ignore it.
-- The coverage denominator is the tree, not the roots the fetch list happens to live under. A rule that admits a file and a measurement that cannot see it is how a percentage learns to flatter itself.
+- The coverage denominator is the tree, not the roots the fetch list happens to live under. A rule that admits a file while the measurement cannot see it makes the percentage wrong in the flattering direction.
 - Two sides of a comparison must have read comparable amounts. Refusing a truncated tree is the same reasoning as refusing two different target sets, one derivation further along.
 - No display string may hard-code a coverage number — every run measures and prints its own.
 
@@ -1246,7 +1227,7 @@ chromiumdiff/
   snapshot.py     combines fetch + extract into one cached snapshot
   extract/        the extractors, and the C++/GRIT/mojom condition scanner
   diff.py         semantic comparison, labelling, severity, bucketing
-  cluster.py      assemble scattered fragments into one story
+  cluster.py      assemble scattered fragments into one change
   score.py        the two run-dependent adjustments, and the reasons
   catalog.py      measure what the target set is missing; check reference closure
   model.py        shared data structures, the five buckets, JSON read/write
@@ -1277,5 +1258,4 @@ Every stage reads and writes JSON, so any stage can be run, inspected and re-run
 
 ## Further reading
 
-- **[docs/pipeline.html](docs/pipeline.html)** — the pipeline end to end, following one real change. Opens directly in a browser, no network, no server.
 - **[skills/analyzing-chromium-upgrades/SKILL.md](skills/analyzing-chromium-upgrades/SKILL.md)** — the knowledge pack for an agent: the triage procedure, the signal reference, and the traps verified against real data. The valuable part is not how to run the commands, but the knowledge that stops an agent reaching a wrong conclusion.

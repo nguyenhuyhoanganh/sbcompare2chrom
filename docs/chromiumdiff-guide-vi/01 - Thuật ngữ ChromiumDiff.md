@@ -247,7 +247,7 @@ Rendering engine của Chromium, đồng thời là nơi hiện thực phần We
 
 Các API mà website gọi được — DOM, CSS, media, storage, networking...
 
-Cần phân biệt rõ với WebUI: Web Platform là bề mặt dành cho **nội dung web bên ngoài**, còn WebUI là các trang nội bộ của chính browser.
+Cần phân biệt rõ với WebUI: Web Platform là phần dành cho **nội dung web bên ngoài**, còn WebUI là các trang nội bộ của chính browser.
 
 ### Web IDL
 
@@ -283,7 +283,7 @@ WebUI không phải website thông thường, và cũng không phải toàn bộ
 
 ### Route
 
-Định nghĩa một trang hoặc trang con, cùng quan hệ điều hướng giữa chúng, trong một screence WebUI. Một route có tên, có path, có route cha, và có thể được bảo vệ bằng một điều kiện `loadTimeData`.
+Định nghĩa một trang hoặc trang con, cùng quan hệ điều hướng giữa chúng, trong một screen WebUI. Một route có tên, có path, có route cha, và có thể được bảo vệ bằng một điều kiện `loadTimeData`.
 
 ### Control
 
@@ -389,7 +389,7 @@ Chín signal — `feature_string_renamed`, `switch_renamed`, `param_removed`, `p
 
 ## Nhóm 5 — Dữ liệu bên trong ChromiumDiff
 
-Đây là nhóm từ riêng của công cụ. Hiểu nhóm này là hiểu cách đọc báo cáo.
+Đây là nhóm từ riêng của công cụ, và là những gì cần biết để đọc báo cáo.
 
 ### Extractor
 
@@ -478,14 +478,14 @@ Cần nói rõ điều `score` không phải: nó không phải xác suất Sams
 
 ### Bucket
 
-Cách phân loại bản chất của một finding. Có đúng bốn nhóm:
+Cách phân loại bản chất của một finding. Có đúng năm nhóm:
 
 | Bucket | Nghĩa |
 |---|---|
 | `Compatibility break` | Một contract bên ngoài binary không còn giữ nguyên, và build không cảnh báo gì |
 | `Behaviour change` | Bản build Windows sẽ hành xử khác đi |
 | `New declarations` | Có khai báo tồn tại ở version mới mà version cũ không có — nhưng sự tồn tại của khai báo không tự động bật một hành vi nào |
-| `Scheduled` | Một cái **ngày**, không phải một sự kiện: upstream đã lên lịch xoá hoặc dời lịch. Chưa có gì xảy ra |
+| `Scheduled` | Một mốc ngày, chưa phải một việc đã xảy ra: upstream đã lên lịch xoá hoặc dời lịch |
 | `Upstream cleanup` | Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc khai báo không nằm trong build Windows ở cả hai phía |
 
 ### Finding
@@ -499,7 +499,7 @@ Một `Change` sau khi đã được chấm điểm và xếp bucket, kèm theo 
 Hai bước bổ sung ngữ cảnh, không ảnh hưởng tới điểm số:
 
 - `enrichment`: thêm ngữ cảnh từ nguồn ngoài, ví dụ metadata từ ChromeStatus khi được bật.
-- `cluster`: gom các finding có liên quan lại, để người đọc thấy một đợt migration như một câu chuyện liền mạch, thay vì mấy dòng rời rạc không hiểu vì sao lại xuất hiện cùng lúc.
+- `cluster`: gom các finding có liên quan lại, để người đọc thấy một đợt migration như một thay đổi duy nhất, thay vì mấy dòng rời rạc không hiểu vì sao lại xuất hiện cùng lúc.
 
 Việc gom chỉ dựa trên **liên kết mà Chromium tự khai báo**, không suy từ tên giống nhau. Có hai nguồn khai báo:
 
@@ -510,7 +510,7 @@ Việc gom chỉ dựa trên **liên kết mà Chromium tự khai báo**, không
 
 Nguồn thứ hai mới với tới được đỉnh report: giữa một file `.mojom` và một file `.idl`, Chromium **không viết ra liên kết nào trong source cả**. Đo trên M148 → M151: luật trong source gom được 6 trong 150 dòng điểm cao nhất; thêm luật CL thì lên 84.
 
-Nó chỉ chạy khi có dữ liệu tra cứu — `run` không hỏi Gerrit nên luật CL im lặng, chỉ khi bạn bấm tra một dòng thì nhóm mới hình thành. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).
+Nó chỉ chạy khi có dữ liệu tra cứu — `run` không hỏi Gerrit nên luật CL không đóng góp gì, chỉ khi bạn bấm tra một dòng thì nhóm mới hình thành. Xem [phần 7](<07 - Truy nguyên CL và issue.md>).
 
 ### Báo cáo dạng JSON, Markdown và HTML
 

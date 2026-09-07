@@ -12,7 +12,7 @@ it was handled. Expect them; check for them before reporting any removal.
 - 5. Platform-divergent defaults
 - 6. Declarative files declare more than ships
 - 7. Bare milestone numbers drift
-- 8. Mixed target sets and partitions produce plausible nonsense
+- 8. Mixed target sets and partitions produce a result that looks real
 - 9. A platform-gated declaration is not ours, and it may say so only by its path
 - 10. A Mojo ABI break has to break it for somebody
 - 11. A new web API can be unreachable
@@ -40,7 +40,7 @@ been `stable`.
 permanent and unremovable; `flag_retired_off` means the code is gone. Neither
 changes behaviour at this upgrade — which is why both are filed under Upstream
 cleanup — but both break the build of anything naming the symbol, and both
-silently kill any override that was setting the flag from outside the binary.
+silently stop any override that was setting the flag from outside the binary.
 
 ## 2. Declaration moved, not removed
 
@@ -131,8 +131,8 @@ platform-divergent defaults, which is enough that assuming the global default
 is wrong on a regular basis rather than a rare one.
 
 **Check:** read `platform_state.windows`, never `default_state`. The platform is
-fixed to Windows and is not selectable — reading the wrong one does not blur the
-answer, it inverts it, so there is no option to get wrong. A value of
+fixed to Windows and is not selectable — reading the wrong one gives the
+opposite answer, and there is no option to get wrong. A value of
 `conditional` means the guard depends on a non-platform build flag the tool
 cannot decide — report it as undetermined rather than guessing.
 
@@ -172,7 +172,7 @@ file alone. Follow the guard to its flag.
 **Check:** pin full versions for anything recorded in a ticket. Bare milestones
 are for exploration only.
 
-## 8. Mixed target sets and partitions produce plausible nonsense
+## 8. Mixed target sets and partitions produce a result that looks real
 
 **Symptom:** a run reports thousands of additions that look real.
 
@@ -188,9 +188,9 @@ consistent `--target-set` or add `--refresh`.
 
 The same trap applies to `--partition`, which is part of the snapshot cache key
 for exactly this reason: a partitioned snapshot covers a fraction of the surface
-and must never be reused as if it were a full run. A partitioned run is a
-smaller question, not a cheaper answer to the same one — never use one as a
-release gate, and say in the report which partitions were scanned.
+and must never be reused as if it were a full run. A partitioned run answers a
+smaller question; it is not a cheaper way to answer the full one. Never use one
+as a release gate, and say in the report which partitions were scanned.
 
 ## 9. A platform-gated declaration is not ours, and it may say so only by its path
 
@@ -244,9 +244,9 @@ evidence there is, and it is conclusive.
 
 Measured on a wide M148 → M151 run before this was read: **164 findings** were
 declared under one of those directories and not one scored zero, topped by
-`AndroidNewMediaPicker` at 75 points in **Behaviour change**. It bites only on
-`wide`, because the default target set does not fetch those directories — which
-means it bit exactly when the report was being used as a release gate.
+`AndroidNewMediaPicker` at 75 points in **Behaviour change**. It only happens on
+`wide`, because the default target set does not fetch those directories — that
+is, exactly when the report is being used as a release gate.
 
 **Check:** the tool resolves this now, into the same `platform_state` a guard
 produces, and only when *every* declaration of the key is under such a
@@ -276,7 +276,7 @@ outside this tree**, not a runtime break — unless one of these is true:
 
 **Check:** say which of those applies before calling it a runtime break. The
 tool cannot tell — it compares Chromium against Chromium, and a **Compatibility
-break** row says a contract moved, not that anyone had signed it.
+break** row says a contract changed, not that anyone was relying on it.
 
 ## 11. A new web API can be unreachable
 
@@ -351,8 +351,8 @@ the 1,110 shifts is in a stable declaration.
 Outside `[Stable]`, Chromium reorders and inserts freely because both ends of
 the interface are rebuilt together. Reporting those 1,110 would report file
 layout as an ABI event at Mojo severity, every upgrade; recording position only
-where compatibility is promised costs 0 rows today and catches the first one
-that is real.
+where compatibility is promised costs 0 rows today and will catch the first
+real one.
 
 **Check:** if you are in the case trap 10 describes — something ships
 separately, an install can be part-updated, or there is out-of-tree code

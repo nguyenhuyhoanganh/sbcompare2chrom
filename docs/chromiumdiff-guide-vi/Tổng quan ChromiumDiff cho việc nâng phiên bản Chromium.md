@@ -27,6 +27,7 @@ Các phần cần tra cứu riêng đã được tách thành một bộ tài li
 - [Fact và ví dụ đầu vào → JSON cho đủ 16 loại](<04 - Fact và cách trích xuất.md>)
 - [So sánh, chấm điểm và phân loại bucket](<05 - Cách so sánh, chấm điểm và phân loại.md>)
 - [Skill, agent và nội dung dành cho từng team](<06 - Skill và cách hỗ trợ từng nhóm.md>)
+- [Truy nguyên CL và issue](<07 - Truy nguyên CL và issue.md>)
 
 **Về thuật ngữ:** nhiều từ trong tài liệu này được giữ nguyên tiếng Anh vì chúng là tên của một khái niệm kỹ thuật hoặc một chuỗi xuất hiện thật trong công cụ — `Fact`, `signal`, `bucket`, `coverage`, `upgrade`. Mỗi từ như vậy đều có giải thích ngắn ở lần dùng đầu tiên, và toàn bộ định nghĩa được gom trong [phần 1 của bộ tài liệu ngắn](<01 - Thuật ngữ ChromiumDiff.md>).
 
@@ -257,7 +258,7 @@ Bảy lớp bảo vệ chính:
 - File nhỏ được tải song song tối đa tám luồng; archive của thư mục được xử lý tuần tự.
 - Khi giải nén, công cụ chặn mọi đường dẫn có thể ghi file ra ngoài thư mục cache.
 - Cache ghi lại Git ref, bộ file, partition, chế độ `complete` và bộ lọc đuôi file. Khi bất kỳ giá trị nào trong số này đổi, artifact cũ không thể bị dùng nhầm.
-- Schema version `40` buộc snapshot và báo cáo cũ phải được tạo lại khi cấu trúc hoặc ý nghĩa của `Fact` thay đổi.
+- Schema version `42` buộc snapshot và báo cáo cũ phải được tạo lại khi cấu trúc hoặc ý nghĩa của `Fact` thay đổi.
 
 ### 5.4. Cache layout và ý nghĩa
 
@@ -1094,7 +1095,7 @@ Một liên kết chưa tìm thấy đầu còn lại **không** tự động c�
 
 Report ghi rõ con số này để người đọc biết phần ngữ cảnh nào còn thiếu, thay vì âm thầm bỏ qua.
 
-## 17. Gom các finding liên quan thành một câu chuyện
+## 17. Gom các finding liên quan thành một thay đổi
 
 Một thay đổi chức năng trong Chromium thường tạo ra nhiều finding nằm rải rác ở các nhóm khác nhau. Module `cluster.py` gom chúng lại, dựa trên các liên kết rõ ràng mà extractor đã tìm thấy:
 
@@ -1119,7 +1120,7 @@ Từ M148 đến M151, công cụ gom được bảy finding liên quan tới Lo
 
 Đây là ví dụ điển hình cho việc đọc từng dòng sẽ dẫn tới kết luận sai. Nếu chỉ nhìn dòng "route bị xoá", người đọc rất dễ kết luận rằng page đã bị mất.
 
-Nhưng khi đọc cả nhóm cùng với trạng thái cũ của feature flag, bức tranh thật hiện ra: chức năng đã chuyển sang cơ chế split permissions **từ trước**, và M151 chủ yếu chỉ dọn flag cùng route cũ.
+Nhưng khi đọc cả nhóm cùng với trạng thái cũ của feature flag thì thấy đúng bản chất: chức năng đã chuyển sang cơ chế split permissions **từ trước**, và M151 chủ yếu chỉ dọn flag cùng route cũ.
 
 Đây chính là lý do report cần nối các thay đổi liên quan lại với nhau, thay vì chỉ liệt kê từng dòng diff.
 
@@ -1453,7 +1454,7 @@ Chỉ sau đó team mới ước lượng phần sửa build, sửa code, phạm
 
 ## 23. Làm sao tin report đúng?
 
-Không có một con số duy nhất chứng minh report đúng. Độ tin cậy đến từ việc từng bước đều để lại dữ liệu có thể kiểm tra lại. Bảy nhóm bằng chứng dưới đây là những gì có thể mang ra đối chất.
+Không có một con số duy nhất chứng minh report đúng. Độ tin cậy đến từ việc từng bước đều để lại dữ liệu có thể kiểm tra lại. Bảy nhóm bằng chứng dưới đây là những gì có thể đem ra kiểm chứng.
 
 ### 23.1. Source identity
 
@@ -1519,7 +1520,7 @@ Toàn bộ test chạy được không cần mạng. Test suite kiểm tra:
 - Render Markdown/HTML, hiệu năng DOM và các ranh giới XSS.
 - Documentation figures và source map.
 
-Cần phát biểu đúng phạm vi của con số này: test chứng minh code đang tuân theo 368 trường hợp đã được mô tả trong test suite. Nó **không** chứng minh parser hiểu mọi cú pháp Chromium, và cũng không cho biết Samsung đang dùng finding nào.
+Cần phát biểu đúng phạm vi của con số này: test chứng minh code đang tuân theo 548 trường hợp đã được mô tả trong test suite. Nó **không** chứng minh parser hiểu mọi cú pháp Chromium, và cũng không cho biết Samsung đang dùng finding nào.
 
 ## 24. Những giới hạn phải nói thẳng
 

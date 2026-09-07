@@ -5,7 +5,7 @@ description: Lần một thay đổi Chromium ngược về review đã tạo ra
 
 # Truy nguyên nguyên nhân gốc của một thay đổi Chromium
 
-Một báo cáo nói **cái gì đã dịch chuyển**. Skill này trả lời **vì sao nó dịch chuyển, và điều đó có giải thích được thứ mà bạn được hỏi hay không.**
+Một báo cáo nói **cái gì đã đổi**. Skill này trả lời **vì sao nó đổi, và điều đó có giải thích được thứ mà bạn được hỏi hay không.**
 
 Báo cáo không làm được việc đó. Nó so hai cây source, mà cây source không ghi lại ý định: `disabled → enabled` là tất cả những gì một bản diff cho biết. Ý định nằm trên review server của Chromium, và skill này lấy nó về.
 
@@ -19,7 +19,7 @@ Gần như mọi câu trả lời sai ở đây đều là một trong ba câu n
 | 2 | Vì sao Chromium đổi nó? | CL, và **issue** mà CL đó dẫn |
 | 3 | Vì sao bản build *của mình* hỏng? | cây source của mình, đọc đối chiếu với 1 và 2 |
 
-**Một signal không phải một nguyên nhân.** `ipc_signature_change` nói rằng một hình dạng đã dịch chuyển. Nó không nói vì sao có người dịch chuyển nó, và nó không bao giờ nói triệu chứng của bạn đến từ đó. Báo cáo một signal như nguyên nhân gốc là trả lời câu 2 bằng bằng chứng của câu 1, và đó chính là sai lầm mà skill này tồn tại để ngăn.
+**Một signal không phải một nguyên nhân.** `ipc_signature_change` nói rằng một cấu trúc dữ liệu đã đổi. Nó không nói vì sao có người đổi nó, và nó không bao giờ nói triệu chứng của bạn đến từ đó. Báo cáo một signal như nguyên nhân gốc là trả lời câu 2 bằng bằng chứng của câu 1, và đó là lỗi skill này được viết ra để ngăn.
 
 **Một CL không phải là lỗi.** CL nói *đã làm gì*. Issue nói *cái gì đã sai*. Người hỏi "lỗi thật sự là gì" là đang hỏi về issue.
 
@@ -48,7 +48,7 @@ Mọi thứ phía sau đều tra theo `uid` = `kind:key`, ví dụ `base_feature
 
 **Nếu đã có sẵn một finding, một tên flag, hoặc một identifier** — thì bạn đã có nó rồi.
 
-**Nếu chỉ có một triệu chứng** ("trang downloads mất một toggle", "các trang extension bị treo") — báo cáo được đánh chỉ mục theo tên khai báo, không theo triệu chứng. Grep nó bằng chính những từ trong lời phàn nàn thì không tìm ra gì, và cũng không có nghĩa gì. Hãy ánh xạ triệu chứng sang một bề mặt trước: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
+**Nếu chỉ có một triệu chứng** ("trang downloads mất một toggle", "các trang extension bị treo") — báo cáo được đánh chỉ mục theo tên khai báo, không theo triệu chứng. Grep nó bằng chính những từ trong lời phàn nàn thì không tìm ra gì, và cũng không có nghĩa gì. Hãy ánh xạ triệu chứng sang một `kind` trước: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
 
 Nếu yêu cầu nêu ra nhiều thứ, làm từng thứ một. Một câu trả lời gộp sẽ che mất bằng chứng nào thuộc về khẳng định nào.
 
@@ -105,7 +105,7 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
 **Đọc chính bằng chứng, đừng đọc bản tóm tắt của nó.** Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
 
 1. **Tiêu đề của issue.** Thường chính là lỗi thật, gói trong một dòng.
-2. **Những CL khác cùng dẫn issue đó.** `why.py` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi — hình dạng của vấn đề, gồm cả việc nó có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
+2. **Những CL khác cùng dẫn issue đó.** `why.py` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi, gồm cả việc bug có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
 3. **Chính lời văn và chính bản diff của CL**, mỗi khi câu trả lời có trọng lượng — và luôn luôn phải đọc trước khi trích một CL vào ticket, mỗi khi verdict là `declares` hoặc `described`, và mỗi khi tiêu đề đọc lên có vẻ không liên quan tới finding:
 
    ```bash
@@ -114,10 +114,10 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
      7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
    ```
 
-   **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi bề mặt đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
+   **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi mảng sản phẩm đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
    **[reference/reading-a-cl.md](reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới, con số `docs/figures.json` đang giữ — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
 
 ### Bước 5: Kiểm tra khẳng định nhân quả với triệu chứng
 
@@ -125,9 +125,9 @@ Trước khi viết câu trả lời, đem khẳng định đó đối chiếu v
 
 - **Ngày tháng có khớp không, ở cả hai đầu?** Một CL được merge trước điểm rẽ nhánh của version *from* thì có mặt trong cả hai cây và không thể giải thích một sự khác biệt. Một CL được merge sau điểm rẽ nhánh của version *to* thì hoàn toàn không có trong cây đã phát hành — `Cr-Branched-From` trong mỗi tag cho cả hai mốc ngày. Phần tra cứu ép cả hai điều kiện, và một dòng đã serve nhưng được ghi theo cửa sổ cũ và rộng hơn sẽ bị nhận ra và hỏi lại chứ không phục vụ nguyên trạng — nên một ngày vượt quá điểm rẽ nhánh của version đích trên một dòng đã serve là dấu hiệu của chuyện khác, và đáng báo lại.
 - **Chiều có khớp không?** Một flag đi từ `enabled → disabled` thì không được giải thích bởi một CL có tiêu đề "Enable …". Kiểm tra xem phần chênh lệch thật sự đi theo chiều nào.
-- **CL nói về khai báo này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff là thứ khép lại chuyện đó, và bốn câu hỏi khép lại bản diff: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `cl.py` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa chính là cách một lần format lại biến thành bằng chứng.
+- **CL nói về khai báo này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff trả lời được, qua bốn câu hỏi: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `cl.py` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa sẽ biến một lần format lại thành bằng chứng.
 - **Cơ chế đó có với tới triệu chứng không?** Một lần lật flag giải thích được thay đổi hành vi trên đúng platform mà flag đã lật. Đọc `change.before.platform_state.windows` và `change.after.platform_state.windows`; ngay cạnh chúng có `default_state` — đó là mặc định chung của Chromium, không phải của Windows.
-- **Đây là nguyên nhân, hay chỉ là một bước trong câu chuyện?** Launch → revert → reland là một thay đổi và nhiều CL. CL cũ nhất là nơi câu chuyện bắt đầu; CL mới nhất là nơi nó đang đứng. Báo cáo cả hai.
+- **Đây là nguyên nhân, hay chỉ là một bước trong chuỗi?** Launch → revert → reland là một thay đổi và nhiều CL. CL cũ nhất là chỗ bắt đầu; CL mới nhất là trạng thái hiện tại. Báo cáo cả hai.
 
 Nếu một phép kiểm tra không đạt thì CL là bối cảnh, không phải nguyên nhân. Hãy nói rõ nó là cái nào.
 
@@ -146,11 +146,11 @@ Nếu một phép kiểm tra không đạt thì CL là bối cảnh, không ph�
 |---|---|
 | Nguyên nhân là CL N | bản diff cho thấy giá trị trước của finding bị xoá và giá trị sau được thêm, ngay bên trong khai báo |
 | Nhiều khả năng nguyên nhân là CL N | `introduced` hoặc `exact`, ngày tháng và chiều đều khớp, nhưng chưa đọc diff |
-| Có liên quan, chưa chứng minh được là nguyên nhân | `declares` hoặc `described`, hoặc nhiều CL và một câu chuyện |
+| Có liên quan, chưa chứng minh được là nguyên nhân | `declares` hoặc `described`, hoặc nhiều CL cùng một chuỗi |
 | Đây là các ứng viên, không phải nguyên nhân | `crowded` hoặc `touched`, hoặc các phép kiểm tra ở bước 5 không đạt |
 | Chưa xác lập được | lần tra cứu trượt, lỗi, hoặc bị từ chối — nói rõ là trường hợp nào |
 
-Dòng đầu tiên đòi phải có bản diff. Nấc 4 của thang bằng chứng trong [reference/reading-a-cl.md](reference/reading-a-cl.md) là nấc duy nhất cho phép dùng chữ "gây ra"; mọi nấc dưới nó chỉ cho phép "gọi tên", "có chạm vào", hoặc "được tìm thấy nhờ". **Hãy báo cáo nấc cao nhất mà bạn thật sự đạt tới, và nói rõ đó là nấc nào** — một dòng chỉ được trả lời từ verdict rồi viết ra như thể đã đọc diff chính là sai lầm mà skill này tồn tại để ngăn.
+Dòng đầu tiên đòi phải có bản diff. Nấc 4 của thang bằng chứng trong [reference/reading-a-cl.md](reference/reading-a-cl.md) là nấc duy nhất cho phép dùng chữ "gây ra"; mọi nấc dưới nó chỉ cho phép "gọi tên", "có chạm vào", hoặc "được tìm thấy nhờ". **Hãy báo cáo nấc cao nhất mà bạn thật sự đạt tới, và nói rõ đó là nấc nào** — một dòng chỉ được trả lời từ verdict rồi viết ra như thể đã đọc diff là lỗi skill này được viết ra để ngăn.
 
 Đừng bao giờ làm tròn hai mức cuối lên. "Ứng viên" mà viết thành "nguyên nhân" là lỗi nặng nhất có thể mắc ở bước này.
 
@@ -179,14 +179,14 @@ issue 501771345 (RESTRICTED)
 
 **Câu trả lời ngược với những gì báo cáo gợi ý.** Đây không phải một lần ra mắt tính năng. Tính năng vốn đang bật, nó làm treo mọi Promise trên các trang extension sau một lần điều hướng, nó bị tắt đi và được merge ngược về M147 và M148 như một biện pháp khẩn cấp, con bug thật được sửa một cách hẹp, rồi nó mới được bật lại. `disabled → enabled` giữa hai version của chúng ta chính là lần *khôi phục*, và thứ đáng đem đi test là thứ đã hỏng: các trang extension có iframe, và Promise sau khi điều hướng.
 
-Không bản diff nào cho ra được điều đó, và đọc `features.cc` bao nhiêu cũng không ra.
+Một bản diff không cho ra được điều đó, và đọc `features.cc` cũng không.
 
 Độ tin cậy: nhiều khả năng là nguyên nhân — cả hai CL đều là `declares` chứ không phải `exact`, vì phần chỉnh sửa nằm trong thân khai báo chứ không nằm trên dòng đặt tên flag. Thứ làm câu trả lời trở nên thuyết phục là lịch sử issue, không phải verdict.
 
 ## Tài liệu tham chiếu
 
 - **[reference/reading-a-cl.md](reference/reading-a-cl.md)** — thang bằng chứng và mỗi nấc cho phép khẳng định tới đâu; vì sao cách dùng từ của tác giả không phải là identifier; cách đọc một commit message và một bản diff, và bốn câu hỏi mà chỉ bản diff mới trả lời được.
-- **[reference/no-row.md](reference/no-row.md)** — mọi kiểu một lần tra cứu không tìm được gì, mỗi kiểu cho phép nói gì, và một câu duy nhất không bao giờ được viết.
+- **[reference/no-row.md](reference/no-row.md)** — mọi kiểu một lần tra cứu không tìm được gì, mỗi kiểu cho phép nói gì, và câu không được phép viết.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — bắt đầu từ một triệu chứng người dùng thấy được thay vì từ một identifier.
 - **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — các signal của skill này nghĩa là gì, những cách đi tới kết luận sai từ một finding đúng, và chuỗi mắt xích đứng sau một control trong settings. Đọc trước khi diễn giải bất kỳ mục bị xoá nào.
 
@@ -195,6 +195,6 @@ Không bản diff nào cho ra được điều đó, và đọc `features.cc` ba
 Nêu những điều này kèm theo câu trả lời, không phải thay cho câu trả lời.
 
 - **Rằng thay đổi này ảnh hưởng tới một sản phẩm cụ thể.** Ở đây Chromium được so với Chromium. Grep identifier đó trong cây source của chính mình mới là bước trả lời câu ấy, và skill này không làm hộ bạn bước đó.
-- **Rằng một CL có gọi tên thay đổi thì đã gây ra triệu chứng.** Nó chỉ xác lập rằng một CL đã sửa thứ đó trong khoảng thời gian đang xét. Bước 5 chính là khoảng trống, và không phải lúc nào cũng lấp được nó.
+- **Rằng một CL có gọi tên thay đổi thì đã gây ra triệu chứng.** Nó chỉ xác lập rằng một CL đã sửa thứ đó trong khoảng thời gian đang xét. Bước 5 là chỗ còn thiếu, và không phải lúc nào cũng bù được.
 - **Chuyện gì đã xảy ra bên trong thân một hàm.** Chỉ khai báo mà thôi.
 - **Bất cứ thứ gì nằm ngoài repository** — Finch, enterprise policy, script khởi chạy. Một flag đã lật giá trị mặc định vẫn có thể bị override ở đó, và bản override ấy thì ở đây không nhìn thấy được.

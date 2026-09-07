@@ -87,7 +87,7 @@ extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
 per version. Measured at M151 on the default target set: 108 routes, 971
 controls across those eight screens, 764 gates.
 
-Related fragments are grouped into one story by `cluster.py`, using links the
+Related fragments are grouped into one item by `cluster.py`, using links the
 data declares (a route names its guard, a guard names its features) rather than
 name similarity. The Local Network Access migration collapses 7 fragments
 across 4 screens into a single row.

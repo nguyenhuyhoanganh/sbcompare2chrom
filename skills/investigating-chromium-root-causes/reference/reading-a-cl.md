@@ -18,8 +18,8 @@
 asked "does this CL's diff of this file touch this identifier"; it never asked
 "is this the change the finding is about".
 
-Most of the time those coincide. The gap is where wrong answers live, and the
-only thing that closes it is opening the CL.
+Most of the time those coincide. Wrong answers come from the gap between them,
+and only opening the CL closes it.
 
 Do it whenever the answer matters: before quoting a CL in a ticket, whenever
 the verdict is `declares` or `described`, whenever the subject reads as
@@ -41,8 +41,8 @@ Rungs 1 and 2 come from `why.py`. Rungs 3 and 4 need `cl.py`. Rung 5 needs the
 issue chip, or `why.py` on a served report.
 
 **Report the highest rung you actually reached, and say which it is.** A row
-answered at rung 2 and written up as rung 4 is the failure this whole skill
-exists to prevent.
+answered at rung 2 and written up as rung 4 is the error this skill is written
+to prevent.
 
 ## The vocabulary gap: the author's word is not the identifier
 
@@ -55,7 +55,7 @@ finding nothing means almost nothing.
 
 Measured over 84 Mojo and Web IDL rows of a real M148 → M151 run: the CL's
 full commit message contains the identifier in 39. Reading the other 45,
-all but five are unmistakable once the author's vocabulary is allowed:
+all but five are clear once you read them in the author's own words:
 
 | The finding holds | The CL is titled |
 |---|---|
@@ -93,7 +93,7 @@ reliable than reading `Revert "..."` out of a subject.
 
 ## Reading the diff
 
-Gerrit returns a diff as blocks, and the shape matters:
+Gerrit returns a diff as blocks, and the block type matters:
 
 | Block | Means |
 |---|---|
@@ -103,10 +103,10 @@ Gerrit returns a diff as blocks, and the shape matters:
 | `common: true` | **the same content, differing only inside the line** |
 
 The last one is a reindent or a reflow. `cl.py` marks it `~` rather than
-`-`/`+`, because counting it as an edit is how a CL that reformatted a file
-becomes an `exact` match for every declaration in it.
+`-`/`+`, because counting it as an edit would make a CL that reformatted
+a file an `exact` match for every declaration in it.
 
-The two sides are the whole point. A finding records a declaration's before
+Both sides are what you compare. A finding records a declaration's before
 and after; the CL that made that change is the one whose **removed** line
 carries the before and whose **added** line carries the after:
 
@@ -145,8 +145,7 @@ Three yeses and the CL is the cause. One no and it is context — say which.
 
 ## When the diff disproves the CL
 
-This happens and is worth reaching for, because a disproof is a real finding.
-Look for these:
+This happens, and a disproof is a real finding. Look for these:
 
 - **The diff touches a different member of the same struct.** Common on Mojo:
   the CL edited the declaration's body, earned `declares`, and the member it

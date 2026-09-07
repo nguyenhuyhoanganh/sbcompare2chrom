@@ -10,13 +10,13 @@ recording because both were worse. Grouping every finding by signal put
 twenty-one collapsed bars on one page whose titles were near-synonyms in
 Chromium's own vocabulary ("Default flipped on", "Now ON by default on
 Windows", "New feature, on by default" are three different bars). Putting those
-behind a per-team menu fixed the wall and cost the one thing the table is good
-at: you could no longer see everything at once, or sort it, or search it.
+behind a per-team menu removed the accordion and cost the one thing a table is
+good at: you could no longer see everything at once, or sort it, or search it.
 
-What was actually missing was never the shape. It was that a row said
+What was missing was not the layout. It was that a row said
 `id:cancelButton` and left the reader to work out the rest -- which page, which
 direction, what kind of control, whether it matters to us. So the table keeps
-its shape and every row now carries that:
+its layout and every row now carries that:
 
     What            the thing in words, not an identifier: "toggle -- httpsOnly
                     (writes generated.https_first_mode_enabled)"

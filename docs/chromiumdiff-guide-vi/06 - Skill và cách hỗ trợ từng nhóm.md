@@ -234,7 +234,7 @@ Một giới hạn cần nhắc lại ở đây: ChromiumDiff không render giao
 - Tác động dự kiến: ...
 - Test cần chạy: ...
 
-## Bề mặt mới cần cân nhắc
+## Khai báo mới cần cân nhắc
 [Trang hoặc control mới, đang live hay còn bị gate.]
 
 ## Config/pref cần phối hợp với Browser C++
@@ -459,7 +459,7 @@ Trước khi nhận kết luận của agent, tech lead chỉ cần kiểm tra n
 1. **Version và platform** — full version chính xác của cả hai bên, cùng chữ "Windows", được ghi ngay ở đầu báo cáo.
 2. **Phạm vi** — kết luận ở mức release phải dùng `wide`; nếu dùng target set khác, giới hạn của nó phải được nói rõ.
 3. **Bằng chứng cho mọi câu về Samsung** — mọi câu "Samsung dùng…" phải kèm `path:line` phía Samsung, hoặc một nguồn config cụ thể.
-4. **Bằng chứng cho mọi kết luận đã bị xoá** — phải đã đọc coverage và lý do, không suy từ sự vắng mặt một cách mù quáng.
+4. **Bằng chứng cho mọi kết luận đã bị xoá** — phải đã đọc coverage và lý do, không suy trực tiếp từ sự vắng mặt.
 5. **Tách bạch bốn lớp** — báo cáo phải tách rõ: fact phía upstream, tác động lên sản phẩm, hành động, và test. Không trộn cả bốn vào một câu chắc chắn quá mức.
 
-Skill làm cho agent nhất quán hơn, chứ không làm cho agent toàn tri. Giá trị lớn nhất của nó là biến một báo cáo hàng nghìn dòng thành một hàng đợi có bằng chứng cho từng team, đồng thời giữ cho kết luận không đi xa hơn dữ liệu thực sự được cấp.
+Skill làm cho agent nhất quán hơn, chứ không làm cho agent biết mọi thứ. Giá trị lớn nhất của nó là biến một báo cáo hàng nghìn dòng thành một hàng đợi có bằng chứng cho từng team, đồng thời giữ cho kết luận không đi xa hơn dữ liệu thực sự được cấp.

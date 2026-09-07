@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng về những gì đã dịch chuyển. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
+description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng những gì đã đổi. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
 ---
 
 # Phân tích một đợt nâng version Chromium
@@ -25,8 +25,8 @@ Những từ dưới đây xuất hiện khắp phần còn lại của skill v�
 | **Compatibility break** | Một contract bên ngoài binary không còn giữ nguyên, và không có gì ở khâu build cảnh báo: dữ liệu người dùng đã lưu, script khởi chạy, Finch config, website đang chạy thật, process ở đầu bên kia |
 | **Behaviour change** | Bản build Windows chạy khác đi sau thay đổi này. Có người nhìn thấy được sự khác biệt |
 | **New declarations** | Có khai báo ở version mới mà version cũ không có. Bản thân nó không tự bật cái gì lên |
-| **Scheduled** | Một cái ngày, không phải một sự kiện. Chromium đã lên lịch xoá hoặc dời lịch. Chưa có gì xảy ra |
-| **Upstream cleanup** | Chromium dọn thứ đã ngã ngũ, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì quan sát được đã dịch chuyển |
+| **Scheduled** | Một mốc ngày, chưa phải một việc đã xảy ra. Chromium đã lên lịch xoá hoặc dời lịch |
+| **Upstream cleanup** | Chromium dọn thứ đã ngã ngũ, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì người dùng quan sát được thay đổi |
 
 - **unconfirmed** — một boolean trên finding, bật khi lần chạy này chưa đọc đủ cây source để xác nhận sự vắng mặt mà dòng đó dựa vào. Không phải bucket: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ `wide`. Những dòng mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, *không* phải vì nhẹ — trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. Cờ được bật ở **mọi** dòng bị trừ 15 điểm, nên nó không chỉ nằm trong Upstream cleanup: `summary.unconfirmed` đếm 303 dòng ở M148 → M151 với bộ `default` và 0 với bộ `wide`, trong đó 120 dòng nằm ở Compatibility break.
 
@@ -218,7 +218,7 @@ python3 -m chromiumdiff serve out/M148_to_M151     # in ra http://127.0.0.1:8787
 
 Hãy đề xuất cách này mỗi khi có người hỏi vì sao một dòng đổi, một flag để làm gì, hoặc nên đọc review nào. Bạn có thể tự khởi động nó rồi đưa URL cho họ. Mở thẳng `report.html` rồi kết luận phần tra cứu bị hỏng là sai: nó không chạy vì `file://`, không phải vì lỗi.
 
-**Công cụ không kết luận thay bạn.** Nó dừng ở bằng chứng trích được và một thứ hạng tất định. Nó không biết gì về việc ai patch, ai ship hay ai override cái gì: một dòng **Compatibility break** nói rằng một contract đã dịch chuyển, chứ không nói rằng có ai đang dựa vào contract đó.
+**Công cụ không kết luận thay bạn.** Nó dừng ở bằng chứng trích được và một thứ hạng tất định. Nó không biết gì về việc ai patch, ai ship hay ai override cái gì: một dòng **Compatibility break** nói rằng một contract đã đổi, chứ không nói rằng có ai đang dựa vào contract đó.
 
 **Mỗi lần chạy đều in ra coverage đạt được.** Trích con số đó vào báo cáo; đừng bao giờ trích một con số từ chính file này.
 
@@ -232,15 +232,15 @@ coverage: reads N of M files in this tree that could declare (P% of files)
 
 `--partition settings` (lặp lại được: `downloads`, `bookmarks`, `history`, `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`) chỉ tải và quét những đường dẫn source đã liệt kê sẵn cho một tính năng. Đúng khi đang soi một tính năng, sai khi dùng làm cổng chặn release — Chromium không tổ chức source theo tính năng, nên một thay đổi ảnh hưởng tới downloads có thể nằm trong `content/` và không khớp partition nào.
 
-Hai lệnh phụ: `python3 -m chromiumdiff catalog <ref>` đo xem target set đang bỏ sót những gì; `python3 -m chromiumdiff figures <report.json>` ghi ra các con số mà chính tài liệu của project trích dẫn, và đó là cách chúng luôn đúng. Lệnh render lại báo cáo nằm ở Bước 4, chỗ nói vì sao cần nó.
+Một lệnh phụ: `python3 -m chromiumdiff catalog <ref>` đo xem target set đang bỏ sót những gì. Lệnh render lại báo cáo nằm ở Bước 4, chỗ nói vì sao cần nó.
 
 ### Bước 3: Đọc báo cáo theo đúng thứ tự
 
-Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
+Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Điểm không phải thứ tự đọc, và không dùng để quyết định cắt danh sách ở đâu.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
 
 Danh sách dài thì **phủ hết theo nhóm**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng gom thành 47 nhóm, nên xem mỗi nhóm một lần là đã phủ hết. 37 trong 47 nhóm là một leading signal. 10 nhóm còn lại là kind cộng hướng thay đổi: 718 dòng — toàn bộ nằm ở New declarations — **không mang signal nào cả**, nên không nhóm signal nào chạm tới chúng. *What happened* dựng trên 47 nhóm; bảng của mỗi bucket dựng trên 37, mang **mọi** signal của bucket, nặng nhất trước.
 
-**Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — và một mục lấy tên signal, tên bucket hay khoảng điểm làm tiêu đề chính là hình dạng mà skill này sinh ra để tránh.
+**Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — không đặt tiêu đề một mục theo tên signal, tên bucket hay khoảng điểm.
 
 Đọc theo bucket, theo đúng thứ tự dưới đây.
 
@@ -288,7 +288,7 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 `--click-budget N` giới hạn số diff đọc cho mỗi dòng (mặc định 600), `--no-save` thì không đụng vào file. Lịch sử của một issue không được tải về cùng với dòng: bấm vào issue trên CL mà bạn tin, nó sẽ mở ra ngay dưới CL đó.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới, con số `docs/figures.json` đang giữ — vì chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel nói rõ điều đó và vẫn giữ link, vì người đọc có thể chính là người duy nhất mở được. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
+**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Khoảng một phần ba trả về HTTP 403 — 13 trong 39 issue mà các dòng đã tra cứu của một lần chạy M148 → M151 dẫn tới — vì chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel ghi rõ issue bị hạn chế và vẫn giữ link, vì người đọc có thể có quyền truy cập. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
 
 **Không tìm thấy CL nào chỉ có nghĩa là lần tìm này không thấy, không có nghĩa là Chromium không đổi.** Hai cây source khác nhau, nghĩa là đã có gì đó vào cây. File được hỏi theo ba cách — trên nhánh main, rồi ngoài main để bắt các bản merge-back, rồi toàn bộ commit message trong khoảng thời gian đó — và nếu cả ba đều trượt thì CL được ghi dưới một cái tên hoặc một đường dẫn mà báo cáo này không giữ. Hãy nói đúng như vậy; đừng báo cáo rằng một khai báo tự nó đổi.
 
@@ -322,7 +322,7 @@ Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những g
 
 `feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved`
 
-1. **Luôn có việc phải làm nếu cái tên cũ còn xuất hiện ở đâu đó.** Bốn signal đầu làm chết thứ đang set giá trị từ bên ngoài. Ba signal tiếp theo là flag bị gỡ, làm mọi override đặt từ bên ngoài mất tác dụng mà không có gì báo. Hai signal cuối là lịch xoá: một flag có ngày hết hạn nghĩa là override đặt lên nó cũng có hạn.
+1. **Luôn có việc phải làm nếu cái tên cũ còn xuất hiện ở đâu đó.** Bốn signal đầu làm mất tác dụng thứ đang set giá trị từ bên ngoài. Ba signal tiếp theo là flag bị gỡ, làm mọi override đặt từ bên ngoài mất tác dụng mà không có gì báo. Hai signal cuối là lịch xoá: một flag có ngày hết hạn nghĩa là override đặt lên nó cũng có hạn.
 2. Công cụ không nhìn thấy bất kỳ nơi nào trong số đó. Đây là danh sách những thứ cần kiểm tra, không phải danh sách những thứ đã hỏng.
 
 Ý nghĩa từng signal: **[reference/signals.md](reference/signals.md)**.
@@ -340,13 +340,13 @@ Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, v
 ## What happened
 [Mỗi mục là một chuyện đã xảy ra, hậu quả nặng nhất trước.]
 
-### <tên mà một người sẽ gọi nó> — <chuyển động, trong vài chữ>
-[Cái gì đã dịch chuyển, đọc từ các mảnh gộp lại. Nêu đủ mọi identifier mà
+### <tên mà một người sẽ gọi nó> — <thay đổi, trong vài chữ>
+[Cái gì đã đổi, đọc từ các mảnh gộp lại. Nêu đủ mọi identifier mà
 người ta sẽ đi grep.]
 **Cần kiểm:** [phải đi xem cái gì, ở đâu — kể cả ngoài repository này.]
 
 ## Fixed outside the repository — N
-[Luôn có mặt, luôn ở cuối, kể cả khi đã lọc: một tên flag hay switch bị đổi làm chết override của bất kỳ ai đặt nó, không riêng ai.]
+[Luôn có mặt, luôn ở cuối, kể cả khi đã lọc: một tên flag hay switch bị đổi làm mất tác dụng override của bất kỳ ai đặt nó.]
 
 ## New capability
 [Chỉ `web_api_added_live`. Đây là đầu vào cho sản phẩm, không phải thứ chặn release.]
@@ -367,7 +367,7 @@ Theo thứ tự này, để không viết trùng:
 
 #### Đọc một khối thành một câu
 
-Các mảnh tách ra thì mâu thuẫn nhau, gộp lại thì thống nhất — nên đọc hết rồi mới viết. Hai thuộc tính mang hướng: **gate mà một trang nằm sau**, và **trạng thái flag đang giữ lúc bị xoá**.
+Đọc rời từng mảnh thì chúng mâu thuẫn nhau, nên phải đọc hết các mảnh rồi mới viết. Hai thuộc tính mang hướng: **gate mà một trang nằm sau**, và **trạng thái flag đang giữ lúc bị xoá**.
 
 Làm mẫu, từ khối M148 → M151:
 
@@ -387,10 +387,10 @@ Làm mẫu, từ khối M148 → M151:
 - `−` label:siteSettingsLocalNetworkAccess · WebUI control · 20
 ```
 
-Flag đang **enabled** trước khi bị xoá, nghĩa là bản split đã là thứ người dùng đang thấy; gate thử nghiệm biến mất và hai trang split chuyển sang đúng gate mà trang gộp từng dùng; trang gộp và control của nó đi theo. **Một chuyển động, không phải bảy sự kiện rời:**
+Flag đang **enabled** trước khi bị xoá, nghĩa là bản split đã là thứ người dùng đang thấy; gate thử nghiệm bị xoá và hai trang split chuyển sang gate mà trang gộp từng dùng; trang gộp và control của nó bị xoá theo. **Bảy dòng này là một thay đổi, không phải bảy thay đổi:**
 
 > **Local Network Access — bản split đã ship, trang gộp biến mất.**
-> Trang `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) và control `siteSettingsLocalNetworkAccess` bị xoá. `SITE_SETTINGS_LOCAL_NETWORK` và `SITE_SETTINGS_LOOPBACK_NETWORK` rời gate thử nghiệm `enableLocalNetworkAccessSplitPermissions` sang `enableLocalNetworkAccessSetting`; cả gate đó lẫn `LocalNetworkAccessChecksSplitPermissions` — vốn đang **enabled** ở M148 — đều được cho nghỉ. Người dùng đã thấy bản split từ trước đợt nâng này; M151 chỉ dọn phần máy móc.
+> Trang `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) và control `siteSettingsLocalNetworkAccess` bị xoá. `SITE_SETTINGS_LOCAL_NETWORK` và `SITE_SETTINGS_LOOPBACK_NETWORK` rời gate thử nghiệm `enableLocalNetworkAccessSplitPermissions` sang `enableLocalNetworkAccessSetting`; cả gate đó lẫn `LocalNetworkAccessChecksSplitPermissions` — vốn đang **enabled** ở M148 — đều bị retire. Người dùng đã thấy bản split từ trước đợt nâng này; M151 chỉ xoá phần cài đặt còn lại.
 > **Cần kiểm:** chỗ nào link tới `chrome://settings/localNetworkAccess`; chỗ nào dùng chuỗi `siteSettingsLocalNetworkAccess`; Finch config nào đang set `kLocalNetworkAccessChecksSplitPermissions`.
 
 Và một mục theo màn hình, cùng lần chạy đó:
@@ -400,13 +400,13 @@ Và một mục theo màn hình, cùng lần chạy đó:
 
 #### Mỗi mục bắt buộc phải có gì
 
-**Cái gì đã dịch chuyển**, **có ai thấy khác đi không**, **ai đó phải làm gì**. Phần ở giữa quyết định độ ưu tiên, và một bản diff thô không cung cấp được nó.
+**Cái gì đã đổi**, **có ai thấy khác đi không**, **ai đó phải làm gì**. Phần ở giữa quyết định độ ưu tiên, và một bản diff thô không cung cấp được nó.
 
 Sai: *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."* — một mảnh trong bảy, và đọc lên thành mất tính năng.
 
 Cũng sai: *"12 thay đổi ở chrome:// pages, 3 cái Compatibility break."* — một con số đếm không phải một chuyện đã xảy ra.
 
-**Dừng ở chỗ bằng chứng cho phép.** Viết cái gì đã dịch chuyển và phải kiểm gì; đừng viết rằng cái đó là bug. Công cụ chỉ có một version Chromium và một version nữa, và không biết gì về việc sản phẩm này đang patch hay ship cái gì.
+**Dừng ở chỗ bằng chứng cho phép.** Viết cái gì đã đổi và phải kiểm gì; đừng viết rằng cái đó là bug. Công cụ chỉ có một version Chromium và một version nữa, và không biết gì về việc sản phẩm này đang patch hay ship cái gì.
 
 ## Tài liệu tham chiếu
 

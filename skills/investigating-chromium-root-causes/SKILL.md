@@ -5,8 +5,8 @@ description: Traces one Chromium change back to the review that made it and the 
 
 # Investigating Chromium root causes
 
-A report says **what moved**. This answers **why it moved, and whether that
-explains the thing you were asked about.**
+A report says **what changed**. This answers **why it changed, and whether
+that explains the thing you were asked about.**
 
 The report cannot do it. It compares two trees, and a tree holds no intent —
 `disabled → enabled` is the whole of what a diff can say. The intent lives on
@@ -23,10 +23,10 @@ evidence.
 | 2 | Why did Chromium change it? | the CL, and the **issue** the CL cites |
 | 3 | Why does *our* build break? | our tree, read against 1 and 2 |
 
-**A signal is not a cause.** `ipc_signature_change` says a shape moved. It does
-not say why anyone moved it, and it never says your symptom came from it.
-Reporting a signal as a root cause is answering 2 with 1's evidence, and it is
-the failure this skill exists to prevent.
+**A signal is not a cause.** `ipc_signature_change` says a data shape changed. It
+does not say why anyone changed it, and it never says your symptom came from
+it. Reporting a signal as a root cause is answering 2 with 1's evidence, and it
+is the error this skill is written to prevent.
 
 **A CL is not the defect.** The CL says what was *done*. The issue says what was
 *wrong*. Someone asking "what is the actual error" is asking for the issue.
@@ -62,8 +62,8 @@ Everything downstream is keyed by `uid` = `kind:key`, for example
 
 **Given a symptom** ("downloads page lost a toggle", "extension pages hang") —
 the report is indexed by declaration name, not by symptom. Grepping it for the
-words in the complaint finds nothing and means nothing. Map the symptom to a
-kind first: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
+words in the complaint finds nothing and means nothing. Map the symptom to a `kind`
+first: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
 
 If the request names several things, do them one at a time. A batch answer
 hides which evidence belongs to which claim.
@@ -138,9 +138,8 @@ stop as soon as the answer is sufficient:
 2. **The other CLs citing that issue.** `why.py` fetches these and prints them
    beside the CLs — up to six by default, changed with `--issues`. There is
    nothing to click: clicking is the served page's path, where the issue chip
-   opens the history under the CL. This is the fix history —
-   the shape of the problem, including whether it was serious enough to merge
-   back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
+   opens the history under the CL. This is the fix history, including whether the
+   bug was serious enough to merge back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
    that, and it is strong evidence the bug hurt real users.
 3. **The CL's own words and its own diff**, whenever the answer matters — and
    always before quoting a CL in a ticket, whenever the verdict is `declares`
@@ -162,9 +161,9 @@ stop as soon as the answer is sufficient:
    both, and what each level of evidence lets you claim.
 
 **A restricted issue is normal, not a failure.** About a third answer HTTP 403 — 13
-of the 39 issues cited by the looked-up rows of an M148 → M151 run, the figure
-`docs/figures.json` carries — security, abuse, or Google-internal components. The
-CLs stay public and their subjects carry the story. Report the fix history and
+of the 39 issues cited by the looked-up rows of an M148 → M151 run — security,
+abuse, or Google-internal components. The
+CLs stay public and their subjects say what the issue was about. Report the fix history and
 note the closed door; do not report the tool as broken.
 
 ### Step 5: Test the causal claim against the symptom
@@ -183,21 +182,21 @@ confident wrong answer.
   by a CL titled "Enable …". Check which way the delta actually went.
 - **Is the CL about this declaration, or about the file?** A file touched by a rename,
   a reformat and the real change reports all three. `introduced` and `exact`
-  discriminate; `declares` does not, on its own. The diff settles it, and four
-  questions settle the diff: does a removed line carry the finding's
+  discriminate; `declares` does not, on its own. The diff answers it, through four
+  questions: does a removed line carry the finding's
   before-value, does an added line carry the after-value, is the change inside
   the declaration the finding names, and is it more than a reindent? Three
   yeses and the CL is the cause; one no and it is context. Gerrit marks a
   reindent `common: true` and `cl.py` prints it `~`, because counting one as
-  an edit is how a reformat becomes evidence.
+  an edit turns a reformat into evidence.
 - **Does the mechanism reach the symptom?** A flag flip explains a behaviour
   change on the platform where the flag flipped. Read
   `change.before.platform_state.windows` and
   `change.after.platform_state.windows`; beside them sits `default_state`,
   which is Chromium's overall default rather than the Windows one.
-- **Is this the cause, or a step in the story?** Launch → revert → reland is one
-  change and several CLs. The oldest CL is where it starts; the newest is where it
-  currently stands. Report both.
+- **Is this the cause, or one step in a chain?** Launch → revert → reland is one
+  change and several CLs. The oldest CL is where it starts; the newest is the
+  current state. Report both.
 
 If a check fails, the CL is context, not cause. Say which.
 
@@ -216,7 +215,7 @@ If a check fails, the CL is context, not cause. Say which.
 |---|---|
 | The cause is CL N | the diff shows the finding's before-value removed and its after-value added, inside the declaration |
 | The likely cause is CL N | `introduced` or `exact` with a date and direction that fit, but the diff not read |
-| Related, not shown to be the cause | `declares` or `described`, or several CLs and one story |
+| Related, not shown to be the cause | `declares` or `described`, or several CLs in one chain |
 | Candidates, not a cause | `crowded` or `touched`, or the checks in step 5 fail |
 | Not established | the lookup missed, failed, or was declined — say which |
 
@@ -225,7 +224,7 @@ The top row needs the diff. Rung 4 of the evidence ladder in
 supports the word "caused"; everything below it supports "names", "touched",
 or "was found by". **Report the highest rung you actually reached, and say
 which it is** — a row answered from a verdict and written up as though the
-diff had been read is the failure this skill exists to prevent.
+diff had been read is the error this skill is written to prevent.
 
 Never round the last two up. "Candidates" written as "the cause" is the single
 most damaging output available here.
@@ -263,7 +262,7 @@ narrowly, and then it was turned back on. `disabled → enabled` across our two
 versions is the *restoration*, and the thing worth testing is the thing that
 broke: extension pages with iframes, Promises after navigation.
 
-No diff could produce that, and no amount of reading `features.cc` would either.
+A diff cannot produce that, and reading `features.cc` cannot either.
 
 Confidence: likely cause — both CLs are `declares`, not `exact`, because the
 edit is in the declaration's body rather than on the line naming the flag. The
@@ -276,8 +275,8 @@ issue history is what makes it convincing, not the verdict.
   the identifier's; how to read a commit message and a diff, and the four
   questions a diff answers that nothing else does.
 - **[reference/no-row.md](reference/no-row.md)** — every way a lookup comes
-  back empty, what each licenses you to say, and the one sentence you may
-  never write.
+  back empty, what each licenses you to say, and the sentence you may not
+  write.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — starting from
   a user-visible symptom instead of an identifier.
 - **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — what
@@ -293,7 +292,7 @@ State these alongside the answer, not instead of it.
   against Chromium. Grepping your own tree for the identifier is the step that
   answers it, and this skill does not take that step for you.
 - **That a CL naming the change caused the symptom.** It establishes that a CL
-  edited the thing inside the window. Step 5 is the gap, and it does not always
+  edited the thing inside the window. Step 5 is what is missing, and it does not always
   close.
 - **What happened inside a function body.** Declarations only.
 - **Anything outside the repository** — Finch, enterprise policy, launch

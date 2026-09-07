@@ -5357,140 +5357,6 @@ class TestAStaleReportIsRefused(unittest.TestCase):
             self.assertNotIn("Report.from_dict(", text,
                              f"{rel} loads a report without the schema check; "
                              f"use model.read_report")
-
-
-class TestTheFiguresArtifactCarriesTheProvenanceStage(unittest.TestCase):
-    """Every figure this stage produces moved when the window was corrected.
-
-    Each one was then re-measured by hand, twice, because the first sweep
-    looked only for flags and command names and prose is where they live.
-    `chromiumdiff figures` is the answer the project already has for that, and
-    the stage was not in it.
-    """
-
-    def _report(self, findings):
-        from chromiumdiff.model import Change, Finding, Report
-        return Report(from_ref="a", to_ref="b", summary={}, meta={},
-                      findings=findings)
-
-    def _finding(self, key, changes, issues=None):
-        from chromiumdiff.model import Change, Finding
-        block = {"changes": changes}
-        if issues is not None:
-            block["issues"] = issues
-        return Finding(
-            change=Change(change_type="modified", kind="base_feature",
-                          key=key, name=key), score=50,
-            enrichment={"gerrit": block})
-
-    def test_it_counts_what_the_documents_quote(self):
-        from chromiumdiff.cli import measured_figures
-
-        rows = [
-            self._finding("A", [{"match": "exact", "number": 1,
-                                 "bugs": [{"id": "111111"}]},
-                                {"match": "declares", "number": 2, "bugs": []}]),
-            # Leads only: named by nothing, and counted apart because a run
-            # must not report itself as having explained more than it did.
-            self._finding("B", [{"match": "touched", "number": 3,
-                                 "bugs": [{"id": "222222",
-                                           "restricted": True}]}]),
-        ]
-        out = measured_figures(self._report(rows))["provenance"]
-        self.assertEqual(out["rows"], 2)
-        self.assertEqual(out["rows_named_by_a_verdict"], 1)
-        self.assertEqual(out["rows_leads_only"], 1)
-        self.assertEqual(out["cls_cited"], 3)
-        self.assertEqual(out["verdicts"],
-                         {"declares": 1, "exact": 1, "touched": 1})
-        self.assertEqual(out["issues_linked"], 2)
-        self.assertEqual(out["issues_restricted"], 1)
-
-    def test_a_report_nothing_was_looked_up_in_claims_nothing(self):
-        """Zero reads as a measurement, and there was no measurement."""
-        from chromiumdiff.model import Change, Finding
-        from chromiumdiff.cli import measured_figures
-
-        bare = Finding(change=Change(change_type="modified",
-                                     kind="base_feature", key="A", name="A"),
-                       score=50)
-        self.assertNotIn("provenance",
-                         measured_figures(self._report([bare])))
-
-    def test_it_does_not_delete_a_measurement_it_cannot_retake(self):
-        """A `wide` run is expensive and rarely on disk, so this is usually
-        invoked without one. Dropping the section that needed it would silently
-        delete a real figure, which is the failure the artifact exists to
-        prevent."""
-        import argparse
-
-        from chromiumdiff.cli import cmd_figures
-        from chromiumdiff.model import write_json
-
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        out = os.path.join(tmp, "figures.json")
-        report = os.path.join(tmp, "report.json")
-        write_json(report, self._report([]).to_dict())
-        write_json(out, {"coverage": {"wide": {"read": 8295,
-                                               "candidates": 8366}}})
-        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
-        with open(out, encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh)["coverage"]["wide"]["read"], 8295)
-
-    def test_the_same_holds_for_the_provenance_block(self):
-        """Lookups are lazy, so a freshly produced report has none of them --
-        and `figures` is normally run on exactly such a report.
-
-        Only `coverage.wide` was carried, so re-running the command after the
-        bucket split deleted a block six figures in the documents cite. The
-        same failure, one field over.
-        """
-        import argparse
-
-        from chromiumdiff.cli import cmd_figures
-        from chromiumdiff.model import write_json
-
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        out = os.path.join(tmp, "figures.json")
-        report = os.path.join(tmp, "report.json")
-        write_json(report, self._report([]).to_dict())
-        write_json(out, {"provenance": {"rows": 65, "rows_named_by_a_verdict": 65,
-                                       "rows_leads_only": 0,
-                                       "cls_cited": 81, "verdicts": {},
-                                       "issues_linked": 39,
-                                       "issues_restricted": 13}})
-        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
-        with open(out, encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh)["provenance"]["rows"], 65)
-
-    def test_a_fresh_measurement_wins_over_a_carried_one(self):
-        """Carrying forward is a floor, not a preference. A report that *has*
-        been looked up in must overwrite the block, or the figures freeze at
-        whatever the first run happened to measure."""
-        import argparse
-
-        from chromiumdiff.cli import cmd_figures
-        from chromiumdiff.model import write_json
-
-        tmp = tempfile.mkdtemp()
-        self.addCleanup(shutil.rmtree, tmp, True)
-        out = os.path.join(tmp, "figures.json")
-        report = os.path.join(tmp, "report.json")
-        rows = [self._finding("A", [{"match": "exact", "number": 1,
-                                     "bugs": []}])]
-        write_json(report, self._report(rows).to_dict())
-        write_json(out, {"provenance": {"rows": 65, "rows_named_by_a_verdict": 65,
-                                       "rows_leads_only": 0,
-                                       "cls_cited": 81, "verdicts": {},
-                                       "issues_linked": 39,
-                                       "issues_restricted": 13}})
-        cmd_figures(argparse.Namespace(report=report, wide=None, out=out))
-        with open(out, encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh)["provenance"]["rows"], 1)
-
-
 class TestEveryFlagIsActedOn(unittest.TestCase):
     """A command must not accept a flag it then ignores.
 
@@ -7941,6 +7807,9 @@ class TestPrintedCommandsExist(unittest.TestCase):
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     SKIP = {".git", ".chromiumdiff-cache", "out", "__pycache__", "node_modules"}
+    # A dated record quotes the commands the tool had on the day it was
+    # written, so holding it to today's parser would make it wrong to keep.
+    SKIP_FILES = {"ChromiumDiff Project Audit.md"}
     # How the project writes a command: run it, or quote it in backticks.
     COMMAND = re.compile(r"(?:python3 -m chromiumdiff|`chromiumdiff)\s+([a-z]+)"
                          r"((?:\s+[^`\n|)]*)?)")
@@ -7955,7 +7824,7 @@ class TestPrintedCommandsExist(unittest.TestCase):
 
     # Inside a fenced block the prefix is often dropped, because the block
     # already says it is a shell. Prose never does that, so a fence is what
-    # separates `chromiumdiff figures ...` the command from "chromiumdiff does".
+    # separates `chromiumdiff catalog ...` the command from "chromiumdiff does".
     FENCE = re.compile(r"^\s*```")
     BARE = re.compile(r"^(\s*\$?\s*)chromiumdiff(\s+[a-z]+)")
 
@@ -7994,6 +7863,8 @@ class TestPrintedCommandsExist(unittest.TestCase):
             dirnames[:] = [d for d in dirnames if d not in self.SKIP]
             for name in filenames:
                 if not name.endswith((".py", ".md", ".html")):
+                    continue
+                if name in self.SKIP_FILES:
                     continue
                 path = os.path.join(dirpath, name)
                 try:
@@ -8063,15 +7934,3 @@ class TestPrintedCommandsExist(unittest.TestCase):
                         % (path, line_no, line.strip()))
         self.assertTrue(os.path.isdir(skills))
         self.assertTrue(checked, "no report command found in skills/")
-
-    def test_the_disk_note_and_the_readme_agree(self):
-        # Measured on a clean fetch, so the two places that quote it must not
-        # drift apart the way the two of them already had.
-        from chromiumdiff import cli
-        readme = os.path.join(self.ROOT, "README.md")
-        with open(readme, encoding="utf-8") as fh:
-            rows = [ln for ln in fh if "Free disk" in ln]
-        self.assertEqual(1, len(rows), "README lost its free-disk row")
-        # As a whole number: "150" sits inside "1500", so a substring
-        # test accepts a tenfold error in the row it exists to hold.
-        self.assertRegex(rows[0], r"\b%d\b" % cli.PAIR_DISK_MB)

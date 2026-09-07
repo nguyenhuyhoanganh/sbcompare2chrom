@@ -46,7 +46,7 @@ Reading the class as lost capability inverts what it usually means.
 `flag_retired_on` means the behaviour is now permanent and unremovable;
 `flag_retired_off` means the code is gone. Neither changes behaviour at this
 upgrade, but both break the build of anything naming the symbol, and both
-silently kill any override that was setting the flag from outside the binary.
+silently stop any override that was setting the flag from outside the binary.
 
 ### A declaration usually moved rather than went away
 
@@ -72,8 +72,8 @@ two versions run side by side, or there is out-of-tree code implementing the
 interface, which is the usual case.
 
 Say which of those applies before calling it a runtime break. A
-**Compatibility break** row says a contract moved, not that anyone had signed
-it.
+**Compatibility break** row says a contract changed, not that anyone was
+relying on it.
 
 ### A removed switch fails silently; a removed pref may orphan data
 

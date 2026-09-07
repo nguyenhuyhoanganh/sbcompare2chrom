@@ -19,7 +19,7 @@ always the sentence it was ranked by.
 
 ## Behaviour changed
 
-Users experience a difference. This is the short list that matters.
+Users see a difference. This is the short list.
 
 | Signal | Meaning |
 |---|---|
@@ -49,8 +49,8 @@ second says what our users get.
 
 ## Behaviour unchanged (cleanup)
 
-The largest group in a typical report, and the most misread. **None of these
-changes what anybody sees.** They matter only to something that was setting the
+This is the largest group in a typical report and the one most often misread.
+**None of these changes what anybody sees.** They matter only to something that was setting the
 flag from outside the binary — a server-side Finch config, an
 `--enable-features` command line — which silently stops having an effect.
 
@@ -73,21 +73,21 @@ Measured evidence for why this distinction exists:
   been `stable`** — retired after shipping, not removed capability.
 
 That is also why all three retirements are filed under **Upstream cleanup**
-rather than under Compatibility break. It is the single most consequential row
-in the bucket table: put them in Compatibility break and half of it is noise on
-every run.
+rather than under Compatibility break. It is the most consequential row in the
+bucket table: put them in Compatibility break and half of that bucket is noise
+on every run.
 `feature_deleted` is the exception and goes to **Behaviour change**, precisely
 because the tool could not read the prior state and so cannot rule one out.
 
 ## Silent breaks
 
-Compile cleanly, pass tests, fail in the field. The most expensive class to
-discover late, because nothing warns you.
+These compile and pass tests, then fail in the field. Nothing warns you, so
+they are expensive to find late.
 
 | Signal | Meaning |
 |---|---|
 | `feature_string_renamed` | The Finch feature name changed. Server-side field trials and `--enable-features` using the old spelling silently stop matching |
-| `feature_symbol_renamed` | The mirror image: the C++ identifier changed while the feature string held. Code writing `features::kOldName` stops compiling. Loud rather than silent, but only after the merge — which is the point of seeing it now |
+| `feature_symbol_renamed` | The mirror image: the C++ identifier changed while the feature string held. Code writing `features::kOldName` stops compiling. It fails loudly rather than silently, but only after the merge |
 | `pref_renamed` | A preference key changed. Every existing user's stored value is orphaned and the setting quietly resets |
 | `switch_renamed` | Command-line switch renamed. Launch scripts and automation stop taking effect |
 | `pref_symbol_renamed` | The key held; its C++ constant was renamed. Stored values are safe, but code writing `prefs::kOldName` stops compiling after the merge |
@@ -95,7 +95,7 @@ discover late, because nothing warns you.
 | `param_removed` | A feature parameter is gone. Anything still setting it — a Finch config most often — silently stops having an effect |
 | `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
 | `ui_control_repointed` | The control now writes a different preference; the old one is orphaned, exactly as in a rename |
-| `ipc_stability_changed` | A Mojo declaration gained or lost `[Stable]`. Mojo promises wire compatibility for a stable declaration and nothing for the rest, so this is the promise moving rather than the bytes |
+| `ipc_stability_changed` | A Mojo declaration gained or lost `[Stable]`. Mojo promises wire compatibility for a stable declaration and nothing for the rest, so this is the compatibility promise changing, not the bytes |
 | `ipc_field_annotated` | A Mojo field's default value or its `[MinVersion]` annotation moved. Every byte on the wire is still read as the thing it is, but what an **older** peer sees changes — which is why this is a behaviour change rather than a break |
 
 Always check these against things the tool cannot see: Finch configs, launch
@@ -108,7 +108,7 @@ scripts, CI automation, QA harnesses.
 | `pref_left_scan` | A preference key is no longer in any file this run read. It was either deleted — orphaning every user's stored value — or moved into a file outside the scan |
 | `switch_left_scan` | Same, for a command-line switch |
 
-**These two are deliberately uncertain, and the uncertainty is the finding.**
+**These two do not say which of the two happened, and that is what the row reports.**
 Chromium is actively splitting `chrome/common/pref_names.h` apart: 4,322 lines
 at M143, 3,267 at M151. Measured across M143 → M148 → M151 that produced **337
 disappearances**, and on the default target set the tool reads 1 of the ~100
@@ -154,9 +154,9 @@ either outcome until you have looked.
 | `runtime_flag_rewired` | The `base::Feature` behind a Blink flag, what it depends on, or its visibility changed. `base_feature: none` means the C++ flag that controlled it is gone |
 | `ui_control_relabelled` | A control's label key changed. The tool reads the key, never the display string — that lives in a `.grd` it does not open — so it cannot say whether anyone sees a difference |
 
-Everything the comparison treats as meaningful produces one of these rows. That
-is a rule, not an aspiration: an attribute in `MEANINGFUL_ATTRS` was put there
-because someone decided its movement means something, so a change to it that
+Everything the comparison treats as meaningful produces one of these rows. This
+is enforced by a test: an attribute is in `MEANINGFUL_ATTRS` because a change
+to it was decided to matter, so a change to it that
 arrives with a severity and a blank reason column is unreadable — the reader has
 to open the source to find out what moved. Measured M148 → M151, **380 of 709
 modified changes used to arrive that way**; a test now asserts none do.
@@ -190,7 +190,7 @@ Three rules make these hold together, and all three are tested:
   retired*.
 - **No word names two things on the page.** A row shows five naming
   vocabularies side by side — bucket, kind, kind group, column header, filter —
-  so a word used in two of them names two things in one glance. Two nouns are
+  so a word used in two of them names two things at once. Two nouns are
   also spoken for outside those: `surface` is the body of declarations coverage
   is measured over, and `screen` is the `chrome://` screen a WebUI fact sits
   on. Neither may be used as a label.
@@ -218,7 +218,7 @@ the run read rather than by what Chromium did".
 
 ## Scoring
 
-Two numbers, and the gap between them is the whole point.
+Two numbers. Every point of gap between them has a sentence beside it.
 
 **Severity** is what this kind of change costs, and it comes from the leading
 signal. When there is no signal, and only then, it comes from a coarse prior on

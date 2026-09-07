@@ -1,4 +1,4 @@
-"""Group related findings into one story.
+"""Group related findings into one change.
 
 A single Chromium change arrives as scattered fragments across every surface
 the extractors read. The Local Network Access migration between M148 and M151
@@ -13,8 +13,8 @@ produced seven separate findings:
     blink_runtime  LocalNetworkAccessSplitPermissions   dropped
 
 Read as seven lines they contradict each other -- one says a page was removed,
-another says a page appeared. Read as one cluster they say something simple and
-true: the page moved to split permissions, users already had it at M148, and
+another says a page appeared. Read as one cluster they say one thing:
+the page moved to split permissions, users already had it at M148, and
 the only work left is updating a stale route reference.
 
 Grouping uses the links the extractors already captured, not string similarity
