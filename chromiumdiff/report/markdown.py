@@ -15,7 +15,7 @@ from typing import List, Sequence
 
 from ..diff import SIGNAL_LABELS
 from ..enrich.gerrit import CITES as _CITES, strength as _strength
-from . import wording as surfaces
+from . import wording
 from ..model import (
     BUCKET_ADDED,
     BUCKET_BEHAVIOUR,
@@ -133,7 +133,7 @@ def render(report: Report, platform: str = "windows",
     if stats:
         idle = summary.get("not_in_build") or 0
         line = (f"{stats.get('total', 0)} semantic changes across "
-                f"{len(stats.get('by_kind', {}))} surface types.")
+                f"{len(stats.get('by_kind', {}))} kinds of declaration.")
         if idle:
             line += (f" {idle} of them score zero: Chromium's own build "
                      f"conditions keep the declaration out of the {platform} "
@@ -163,11 +163,11 @@ def render(report: Report, platform: str = "windows",
         out.append("")
         out.append(BUCKET_MEANINGS.get(bucket, ""))
         out.append("")
-        out.append("| Score | What changed | Surface | What moved | Where |")
+        out.append("| Score | What changed | Kind | What moved | Where |")
         out.append("|---:|---|---|---|---|")
         for finding in findings[:detail_limit]:
             out.append(
-                f"| {finding.score} | {_esc(surfaces.describe(finding.change))} "
+                f"| {finding.score} | {_esc(wording.describe(finding.change))} "
                 f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
                 f"| {_esc(_state_arrow(finding, platform))} "
                 f"| `{_esc(_location(finding))}` |"
@@ -207,11 +207,11 @@ def _render_unconfirmed(report: Report, platform: str,
            f"not read enough of the tree to tell a deletion from a move, not "
            f"because nothing happened. Re-run with `--target-set wide` to "
            f"settle them.", "",
-           "| Score | What changed | Surface | Where |",
+           "| Score | What changed | Kind | Where |",
            "|---:|---|---|---|"]
     for finding in findings[:detail_limit]:
         out.append(
-            f"| {finding.score} | {_esc(surfaces.describe(finding.change))} "
+            f"| {finding.score} | {_esc(wording.describe(finding.change))} "
             f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
             f"| `{_esc(_location(finding))}` |"
         )
@@ -232,7 +232,7 @@ def _render_stories(report: Report) -> str:
     """
     out: List[str] = []
     for group_name, group_kinds in KIND_GROUPS:
-        stories = surfaces.build_stories(report.findings, group_kinds)
+        stories = wording.build_stories(report.findings, group_kinds)
         if not stories:
             continue
         total = sum(len(s.items) for s in stories)
@@ -267,15 +267,15 @@ def _render_stories(report: Report) -> str:
 def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> str:
     """What changed on each `chrome://` screen.
 
-    The bucket tables answer "what is most severe". Whoever owns a surface
+    The bucket tables answer "what is most severe". Whoever owns a screen
     arrives with a different question -- what is different about my page -- and
     a list of `id:cancelButton` rows cannot answer it: it names neither the
     page, nor the direction, nor what the control is.
     """
-    screens = surfaces.build(report.findings)
+    screens = wording.build(report.findings)
     if not screens:
         return ""
-    totals = surfaces.summarize(screens)
+    totals = wording.summarize(screens)
     out = ["## What changed on each screen", "",
            f"{totals['added']} new · {totals['changed']} changed · "
            f"{totals['removed']} gone, across {totals['screens']} screens. "
@@ -284,8 +284,8 @@ def _render_screens(report: Report, limit: int = 12, per_screen: int = 12) -> st
         out.append(f"**{_esc(screen.name)}** — {screen.headline()}")
         out.append("")
         for finding in screen.sorted_items()[:per_screen]:
-            mark = surfaces.MARK.get(finding.change.change_type, "?")
-            out.append(f"- `{mark}` {_esc(surfaces.describe(finding.change))}")
+            mark = wording.MARK.get(finding.change.change_type, "?")
+            out.append(f"- `{mark}` {_esc(wording.describe(finding.change))}")
         remaining = len(screen.items) - per_screen
         if remaining > 0:
             out.append(f"- … and {remaining} more on this screen")
@@ -309,7 +309,7 @@ def _render_clusters(summary: dict) -> str:
     if not rows:
         return ""
     out = ["## Related changes, grouped", "",
-           "Each row is one Chromium change arriving across several surfaces. "
+           "Each row is one Chromium change arriving across several kinds. "
            "Read the group, not the individual rows.", "",
            "| Top score | Story | Fragments | Surfaces |",
            "|---:|---|---:|---|"]
@@ -429,7 +429,8 @@ def _group_line(finding) -> List[str]:
     This file is the one that travels: a reader pastes a section of it into a
     ticket, and what they paste is the whole of what the next person sees. A
     parameter of an enabled feature reads here as a 15-point row in "New
-    surface" -- a bucket whose meaning is that nothing switches it on -- while
+    declarations" -- a bucket whose meaning is that nothing switches it on --
+    while
     the feature it belongs to sits at 55 in a section further down. The table
     of groups at the top of the report says so, and nobody pastes the table.
     """
@@ -597,7 +598,7 @@ def _render_provenance(report: Report) -> str:
     )
     by_kind = (summary.get("changes") or {}).get("by_kind") or {}
     if by_kind:
-        lines.append("- Changes by surface:")
+        lines.append("- Changes by kind:")
         for kind, counts in by_kind.items():
             lines.append(
                 f"  - {KIND_LABELS.get(kind, kind)}: "

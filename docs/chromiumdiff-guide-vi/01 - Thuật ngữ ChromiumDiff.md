@@ -283,7 +283,7 @@ WebUI không phải website thông thường, và cũng không phải toàn bộ
 
 ### Route
 
-Định nghĩa một trang hoặc trang con, cùng quan hệ điều hướng giữa chúng, trong một surface WebUI. Một route có tên, có path, có route cha, và có thể được bảo vệ bằng một điều kiện `loadTimeData`.
+Định nghĩa một trang hoặc trang con, cùng quan hệ điều hướng giữa chúng, trong một screence WebUI. Một route có tên, có path, có route cha, và có thể được bảo vệ bằng một điều kiện `loadTimeData`.
 
 ### Control
 
@@ -317,7 +317,7 @@ Hệ thống quản lý resource và build của Chromium. Trong phạm vi nhữ
 
 Hai cách Chromium viết template WebUI. Polymer thường dùng file `.html` với binding kiểu `{{prefs.x}}`; Lit thường dùng file `.html.ts` với template literal.
 
-ChromiumDiff hỗ trợ cả hai, vì các surface WebUI đang chuyển từ Polymer sang Lit với tốc độ không đồng đều — cùng một lúc trong Chromium sẽ có cả hai kiểu.
+ChromiumDiff hỗ trợ cả hai, vì các screen WebUI đang chuyển từ Polymer sang Lit với tốc độ không đồng đều — cùng một lúc trong Chromium sẽ có cả hai kiểu.
 
 ## Nhóm 4 — Feature và cấu hình
 

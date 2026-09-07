@@ -169,9 +169,9 @@ This section is why the tool exists. It has two halves, and they go wrong in opp
 
 Between "the code changed" and "someone notices" there is usually something holding the door: a **gate**. Where there is one, the code change and the visible change happen in different milestones, so a diff between two versions shows you the wrong milestone. Where there is none, the code change *is* the change, and it lands the day you adopt the version.
 
-Every surface is one or the other:
+Every kind is one or the other:
 
-| Surface | What holds the door | Code change and user-visible change land together? |
+| Kind | What holds the door | Code change and user-visible change land together? |
 |---|---|---|
 | `base::Feature`, Blink runtime flags | the flag's own default, per platform | No — usually several releases apart |
 | chrome:// screens | a `loadTimeData` boolean, which resolves to a flag | No — same as above |
@@ -313,7 +313,7 @@ Each extractor is two pure functions: "does this file belong to what I read" and
 | `mojom.py` | `.mojom` files | Both halves of the process boundary: the interfaces and their method signatures, and the structs, unions, enums and fields that travel along them |
 | `constants.py` | `*switches.{cc,h}`, `*pref_names.{h,cc}`, `*_prefs.{h,cc}` | Command-line switches and user settings keys |
 | `flags_metadata.py` | `flag-metadata.json` | Which switches are scheduled for removal in an upcoming release |
-| `webui_routes.py` | `route.ts` | The page list of a `chrome://` surface, with its visibility conditions |
+| `webui_routes.py` | `route.ts` | The page list of a `chrome://` screen, with its visibility conditions |
 | `webui_controls.py` | `.html` and `.html.ts` templates | Each control, its type, and the setting it writes |
 | `webui_gates.py` | `*_ui.cc` | The link between a UI condition and a feature switch |
 
@@ -639,7 +639,7 @@ The leading signal also decides which bucket a finding is filed under, so a row 
 | **Scheduled** | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet | 302 |
 | **Upstream cleanup** | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | 735 |
 
-All five answer one question — what kind of thing happened — and that matters more than the wording. The four they replaced did not: **Breaking** and **Behaviour change** named a consequence, **New surface** named a direction, and **Housekeeping** named upstream's motive. Reading across three axes has consequences a reader meets immediately. `web_api_added_live` (175 rows) sat in New surface and `web_api_shipped` (129) in Behaviour change while both say the same thing about the Windows build. **New surface** used the word the `Surface` column beside it uses for a fact kind. And **Housekeeping** held five states at once — 542 real cleanups, 220 removals no signal could characterise, 187 declarations absent from the Windows build on both sides, 57 deletions Chromium has only scheduled, and 31 removals the run could not confirm — so every document had to explain in prose that it is not the low-score bucket.
+All five answer one question — what kind of thing happened — and that matters more than the wording. The four they replaced did not: **Breaking** and **Behaviour change** named a consequence, **New surface** named a direction, and **Housekeeping** named upstream's motive. Three axes produce three concrete problems. `web_api_added_live` (175 rows) sat in New surface and `web_api_shipped` (129) in Behaviour change while both say the same thing about the Windows build. **New surface** used the word the `Surface` column beside it uses for a fact kind. And **Housekeeping** held five states at once — 542 real cleanups, 220 removals no signal could characterise, 187 declarations absent from the Windows build on both sides, 57 deletions Chromium has only scheduled, and 31 removals the run could not confirm — so every document had to explain in prose that it is not the low-score bucket.
 
 Three placements are worth arguing about explicitly, because each is the difference between a report people read and a report people stop opening:
 
@@ -656,7 +656,7 @@ Three placements are worth arguing about explicitly, because each is the differe
 
 A rule that produced the same answer either way would be wrong in one of the two directions, and the honest thing is for the report to say which run it is.
 
-That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows on the default run and 0 on the wide run**, and 120 of the 303 are in Compatibility break, where a reader most wants to know the evidence is short. `summary.unconfirmed` is the number to read — it says how much of a report is limited by what the run read rather than by what Chromium did.
+That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows on the default run and 0 on the wide run**, and 120 of the 303 are in Compatibility break, the bucket read first. `summary.unconfirmed` counts them: it says how much of a report is limited by what the run read rather than by what Chromium did.
 
 ### Changing the ranking
 
@@ -723,7 +723,7 @@ settings › ai_page — 13 new · 1 changed · 5 gone
   − page /localNetworkAccess
 ```
 
-The data for that was already on the facts and simply never displayed: every control carries its surface, page, file, tag and the pref it writes; every route carries its path and guard; every gate carries the handler that sets it. The same loadTimeData key appears once per handler that sets it, so without this column `webuiRefresh2026` shows up as nine identical rows.
+The data for that was already on the facts and simply never displayed: every control carries its screen, page, file, tag and the pref it writes; every route carries its path and guard; every gate carries the handler that sets it. The same loadTimeData key appears once per handler that sets it, so without this column `webuiRefresh2026` shows up as nine identical rows.
 
 ### The table: an identifier is not a description
 
@@ -736,7 +736,7 @@ The table has six columns, and three of them used to be reachable only by expand
 | What | The direction (`+` / `~` / `−`) and the thing **in words**, not a bare identifier: `feature flag AAPMBlocksWebGPU — off → on for Windows` |
 | What happened | The sentence describing what happened |
 | Where | The screen, or the declaring directory |
-| Surface | The fact kind, with its meaning group |
+| Kind | The fact kind, with its meaning group |
 
 The old `Change` column is gone: direction is now a coloured marker at the start of the What cell, because `~` takes one character and a pill took 112px.
 
@@ -785,7 +785,7 @@ The report groups its filter by *what a change means*, rather than presenting si
 
 On a real M139 → M143 report, 3,120 findings split 34% / 35% / 30%. So **two thirds of a report is not about features being turned on or off** — reading it as sixteen kinds of "feature" is the most common misreading.
 
-The three groups appear in two places in `report.html`: as a sub-line under each row's `Surface` column, and as the option groups of the `All surfaces` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Surface` column renders empty.
+The three groups appear in two places in `report.html`: as a sub-line under each row's `Kind` column, and as the option groups of the `All kinds` dropdown. `report.md` orders its sections by them, because markdown is read sequentially and cannot be filtered. A test holds every fact kind to exactly one group — miss one and its `Kind` column renders empty.
 
 ### Context from chromestatus
 
@@ -1020,7 +1020,7 @@ autoOpenDownloads_ = autoOpen;    // autoOpen is runtime state
 
 it **cannot know** when that condition is true — it depends on whether the user has set a file type to auto-open, which is runtime state, not a declaration.
 
-Measured over 332 template files across the eight surfaces: 602 conditional blocks, 460 `hidden="[[...]]"` bindings, and **37% of controls sit inside a conditional block**. So roughly a third of controls have a visibility condition the tool cannot resolve.
+Measured over 332 template files across the eight screens: 602 conditional blocks, 460 `hidden="[[...]]"` bindings, and **37% of controls sit inside a conditional block**. So roughly a third of controls have a visibility condition the tool cannot resolve.
 
 | | |
 |---|---|
@@ -1056,9 +1056,9 @@ Two independent checks, neither of which reads the diff the match was made on. O
 
 ### What can still be extended
 
-The default target set tracks eight `chrome://` surfaces (`wide` reads all 132). Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
+The default target set tracks eight `chrome://` screens (`wide` reads all 132). Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
 
-Adding a surface is one line in `chromiumdiff/targets.py`:
+Adding a screen is one line in `chromiumdiff/targets.py`:
 
 ```python
 WEBUI_SURFACES = (
@@ -1069,7 +1069,7 @@ WEBUI_SURFACES = (
 )
 ```
 
-No new parser needed — the three WebUI extractors are general across surfaces.
+No new parser needed — the three WebUI extractors are general across screens.
 
 ### Adding a new source of truth
 

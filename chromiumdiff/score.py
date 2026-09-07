@@ -291,7 +291,7 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # flag to the two `*_left_scan` signals made it name 31 of the 303 rows
         # that took the penalty at M148 -> M151, while the field's own meaning
         # covered all of them. The 120 it left out sit in Compatibility break,
-        # where a reader most wants to know the evidence is short.
+        # the bucket read first.
         finding.unconfirmed = True
         gap = scope.gap_for(direction)
         if gap:

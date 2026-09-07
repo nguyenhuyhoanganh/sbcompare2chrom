@@ -199,9 +199,9 @@ def screen_of(change) -> Optional[str]:
     """
     if change.kind == KIND_WEBUI_CONTROL:
         for attrs in _both(change):
-            surface, page = attrs.get("surface"), attrs.get("page")
-            if surface:
-                return f"{surface} › {page}" if page and page != surface else surface
+            screen, page = attrs.get("screen"), attrs.get("page")
+            if screen:
+                return f"{screen} › {page}" if page and page != screen else screen
         # Older snapshots kept the location only in the key.
         parts = change.key.split("/")
         if len(parts) >= 2:
@@ -209,19 +209,19 @@ def screen_of(change) -> Optional[str]:
         return None
     if change.kind == KIND_WEBUI_ROUTE:
         for attrs in _both(change):
-            if attrs.get("surface"):
-                return str(attrs["surface"])
+            if attrs.get("screen"):
+                return str(attrs["screen"])
         return "settings"
     if change.kind == KIND_WEBUI_GATE:
         for attrs in _both(change):
             handler = attrs.get("handler")
             if handler:
-                return _surface_from_handler(str(handler))
-        return _surface_from_handler(change.key.split("/")[0])
+                return _screen_from_handler(str(handler))
+        return _screen_from_handler(change.key.split("/")[0])
     return None
 
 
-def _surface_from_handler(handler: str) -> str:
+def _screen_from_handler(handler: str) -> str:
     """`new_tab_page_ui` -> `new_tab_page`, `history_util` -> `history`."""
     for suffix in ("_ui", "_util", "_handler", "_manager",
                    "_localized_strings_provider"):

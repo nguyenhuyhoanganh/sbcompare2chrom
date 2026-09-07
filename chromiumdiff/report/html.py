@@ -40,7 +40,7 @@ from ..model import (BUCKET_CLEANUP, BUCKET_LABELS, BUCKET_MEANINGS,
                      BUCKET_ORDER, KIND_GROUPS,
                      KIND_LABELS, Report, group_of)
 from .markdown import TITLE, display_name
-from . import wording as surfaces
+from . import wording
 
 _CSS = """
 /* One accent, one radius, one spacing rhythm, and no shadows at all. The
@@ -974,7 +974,7 @@ function whatCell(f){
   if(f.moved) out+='<div class="moved">'+brk(f.moved)+'</div>';
   return out;
 }
-function surfaceCell(f){
+function kindCell(f){
   var out=esc(kindLabel(f));
   if(f.group) out+='<div class="grp">'+esc(f.group)+'</div>';
   return out;
@@ -996,7 +996,7 @@ function rowHtml(f,i){
     '<td>'+whatCell(f)+'</td>'+
     '<td>'+esc(whyLabel(f))+'</td>'+
     '<td class="where">'+brk(f.where||'')+'</td>'+
-    '<td class="muted">'+surfaceCell(f)+'</td></tr>';
+    '<td class="muted">'+kindCell(f)+'</td></tr>';
 }
 function paint(){
   const slice=view.slice(0,shown);
@@ -1248,8 +1248,8 @@ def _clip(text: str, limit: int) -> str:
 
 def _where(change) -> str:
     """The screen a change belongs to, or the directory that declares it."""
-    if change.kind in surfaces.WEBUI_KINDS:
-        return surfaces.screen_of(change) or ""
+    if change.kind in wording.WEBUI_KINDS:
+        return wording.screen_of(change) or ""
     path = (change.paths or [""])[0]
     return path.rsplit("/", 1)[0] if "/" in path else path
 
@@ -1288,8 +1288,8 @@ def _to_rows(report: Report, platform: str) -> List[dict]:
             # `what` is the thing in words, `why` is the one sentence saying
             # what happened to it.
             "where": _where(change),
-            "what": surfaces.describe(change),
-            "why": surfaces.story_of(change)[0],
+            "what": wording.describe(change),
+            "why": wording.story_of(change)[0],
             # Which of the three consequence groups the kind belongs to. A flat
             # list of sixteen kinds reads as sixteen kinds of "feature", and
             # two thirds of them are not features at all.
@@ -1718,7 +1718,7 @@ def _picker(ident: str, all_label: str, groups, hidden: bool = False) -> str:
     and is four rows tall in a bar that is one row.
 
     `groups` is a list of `(heading or None, [(value, label), ...])`. The
-    heading is kept because the surfaces list needs it and the `<optgroup>`
+    heading is kept because the kinds list needs it and the `<optgroup>`
     this replaces had it: a flat list of sixteen kinds reads as sixteen kinds
     of feature, and two thirds of them are not features at all.
 
@@ -1824,7 +1824,7 @@ def render(report: Report, platform: str = "windows") -> str:
     # One sentence per story, stored once instead of once per row.
     stories = {}
     for finding in report.findings:
-        key, headline = surfaces.story_of(finding.change)
+        key, headline = wording.story_of(finding.change)
         stories[key] = headline
 
     notes = []
@@ -1842,11 +1842,11 @@ def render(report: Report, platform: str = "windows") -> str:
     # Grouped, because a flat list of sixteen kinds reads as sixteen kinds of
     # "feature" -- and two thirds of them are not features at all. The groups
     # say which is which without needing a legend.
-    surface_groups = []
+    kind_groups = []
     for group_name, group_kinds in KIND_GROUPS:
         present = [k for k in group_kinds if k in kinds]
         if present:
-            surface_groups.append(
+            kind_groups.append(
                 (group_name, [(k, KIND_LABELS.get(k, k)) for k in present]))
 
     stats = summary.get("changes") or {}
@@ -1879,7 +1879,7 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <input type="search" id="q" placeholder="Search name, signal, path, page\u2026">
 <input type="search" id="x" placeholder="Exclude: ai, glic\u2026">
 {_picker("fb", "All buckets", [(None, [(b, BUCKET_LABELS[b]) for b in BUCKET_ORDER])])}
-{_picker("fk", "All surfaces", surface_groups)}
+{_picker("fk", "All kinds", kind_groups)}
 {_picker("fg", "All consequences", [(None, [(g, g) for g in groups])])}
 {unconfirmed_filter}
 {provenance_filter}
@@ -1892,7 +1892,7 @@ generated {html.escape(str(meta.get('generated', '')))}</div>
 <thead><tr>
 <th data-k="score">Score</th><th data-k="bucket">Bucket</th>
 <th data-k="name">What</th><th data-k="why">What happened</th>
-<th data-k="where">Where</th><th data-k="kind">Surface</th>
+<th data-k="where">Where</th><th data-k="kind">Kind</th>
 </tr></thead><tbody id="tb"></tbody></table></div>
 <button id="more" hidden></button>
 <p class="more-note">Rows render a page at a time &mdash; the JSON below holds

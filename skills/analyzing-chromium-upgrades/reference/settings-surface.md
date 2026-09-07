@@ -78,10 +78,10 @@ size. Record them; do not promote them to capability.
 ## Current tool coverage
 
 `chromiumdiff` covers flags, Blink runtime features, Web IDL, Mojo, switches,
-prefs, chrome://flags metadata, **and the desktop WebUI surfaces**: page routes,
+prefs, chrome://flags metadata, **and the desktop WebUI screens**: page routes,
 controls and visibility gates.
 
-The same three extractors read every `chrome://` surface, not only settings.
+The same three extractors read every `chrome://` screen, not only settings.
 Eight are tracked by default — settings, history, downloads, bookmarks,
 extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
 per version. Measured at M151: 108 routes, 884 controls, 764 gates.
@@ -89,9 +89,9 @@ per version. Measured at M151: 108 routes, 884 controls, 764 gates.
 Related fragments are grouped into one story by `cluster.py`, using links the
 data declares (a route names its guard, a guard names its features) rather than
 name similarity. The Local Network Access migration collapses 7 fragments
-across 4 surfaces into a single row.
+across 4 screens into a single row.
 
-Measured at M151, `chrome/browser/resources/` holds **132** surfaces, so the
+Measured at M151, `chrome/browser/resources/` holds **132** screens, so the
 eight tracked are **6%** of them; adding another is one line in `targets.py`.
 Only the declarative parts are read — the route table and the HTML templates,
 not `page_visibility.ts` and not the TypeScript behaviour.

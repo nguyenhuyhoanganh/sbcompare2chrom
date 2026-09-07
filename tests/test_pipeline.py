@@ -490,26 +490,110 @@ class TestEverySignalIsClassified(unittest.TestCase):
                 self.assertIn(bucket_of(bare), BUCKET_ORDER,
                               f"{kind}/{direction}")
 
-    def test_a_bucket_name_means_nothing_else_on_the_page(self):
-        """One word, one meaning.
+    def _one_of_each(self):
+        """One finding, enough to make the page render every control."""
+        from chromiumdiff.model import Change, Finding
+        return Finding(change=Change(change_type="removed", kind="pref",
+                                     key="a.b", name="a.b",
+                                     paths=["pref_names.h"],
+                                     signals=["pref_left_scan"]),
+                       score=20, bucket="cleanup", unconfirmed=True)
 
-        `report.html` prints a Surface column holding a fact kind and offers
-        an "All surfaces" filter over those kinds. While a bucket was called
-        `new` and labelled "New surface", the same word named a bucket on the
-        triage card, a fact kind in the column beside it, and the filter over
-        that column -- three different things on one screen.
+    def test_no_word_names_two_things_on_the_page(self):
+        """One word, one meaning -- across every naming vocabulary at once.
+
+        A row of the table shows five of these side by side, so a word used in
+        two of them names two things in one glance. Two real defects lived
+        here, and an earlier version of this test that checked only the bucket
+        labels caught the first and missed the second:
+
+          - a bucket labelled "New surface" beside a column headed "Surface"
+            holding a fact kind, and an "All surfaces" filter over that column;
+          - a kind group called "Behaviour switches" beside a bucket pill
+            reading "Behaviour change" -- 976 rows against 469, overlapping in
+            313, so the two names select different sets.
+
+        Two overlaps are correct and are allowed: a column header may name the
+        vocabulary it heads (Bucket over bucket labels, Kind over kind labels),
+        and a group may be named after the kinds it contains -- "Feature
+        switches" holds exactly the three kinds whose labels say "feature", and
+        no kind outside it does.
         """
         from chromiumdiff.model import (ALL_KINDS, BUCKET_LABELS, BUCKET_ORDER,
-                                       KIND_GROUPS, KIND_LABELS)
-        taken = {w for kind in ALL_KINDS
-                 for w in KIND_LABELS[kind].lower().split()}
-        taken |= {w for name, _ in KIND_GROUPS for w in name.lower().split()}
-        taken -= {"and", "of", "a", "the"}
-        for bucket in BUCKET_ORDER:
-            for word in BUCKET_LABELS[bucket].lower().split():
-                self.assertNotIn(word, taken,
-                                 f"{BUCKET_LABELS[bucket]!r} reuses a word "
-                                 f"that names a fact kind or a kind group")
+                                       KIND_GROUPS, KIND_LABELS, Report)
+
+        # The column headers and filter labels are read off a rendered page,
+        # not listed here. A copy of them in this file would be a second
+        # derivation of what `html.py` prints, and would go on passing after
+        # that file changed -- which is the failure this whole class exists to
+        # catch.
+        from chromiumdiff.report import html as html_report
+        page = html_report.render(Report(from_ref="a", to_ref="b",
+                                         findings=[self._one_of_each()]),
+                                  "windows")
+        headers = re.findall(r'<th data-k="\w+">([^<]*)</th>', page)
+        filters = re.findall(r'data-all="([^"]+)"', page)
+        self.assertTrue(headers and filters, "nothing to check")
+
+        spaces = {
+            "bucket label": [BUCKET_LABELS[b] for b in BUCKET_ORDER],
+            "kind label": [KIND_LABELS[k] for k in ALL_KINDS],
+            "kind group": [name for name, _ in KIND_GROUPS],
+            "column header": headers,
+            "filter label": filters,
+        }
+        stop = {"a", "an", "the", "of", "and", "or", "to", "in", "on", "by",
+                "it", "is", "for", "its", "no", "not", "this", "that", "all",
+                "what", "happened"}
+        seen = {}
+        for space, names in spaces.items():
+            for name in names:
+                for word in re.findall(r"[a-z]+", name.lower()):
+                    if word in stop:
+                        continue
+                    seen.setdefault(word, set()).add(space)
+
+        # A group named after the kinds it holds is containment, not a clash --
+        # but only while every kind using that word is inside it.
+        contained = set()
+        for name, kinds in KIND_GROUPS:
+            for word in re.findall(r"[a-z]+", name.lower()):
+                if word in stop:
+                    continue
+                users = {k for k in ALL_KINDS
+                         if word in KIND_LABELS[k].lower()}
+                if users and users <= set(kinds):
+                    contained.add(word)
+
+        allowed = [{"column header", "bucket label"},
+                   {"column header", "kind label"},
+                   {"column header", "filter label"},
+                   {"filter label", "kind group"}]
+        for word, used_by in sorted(seen.items()):
+            if len(used_by) == 1 or word in contained or used_by in allowed:
+                continue
+            self.fail(f"{word!r} names {len(used_by)} different things on one "
+                      f"page: {sorted(used_by)}")
+
+        # Two nouns are spoken for outside these vocabularies, so a label using
+        # one is a clash the loop above cannot see -- it compares labels against
+        # labels, and these two live in reason text and in the JSON.
+        #
+        #   surface  the body of declarations coverage is measured over:
+        #            `KIND_SURFACE`, `meta.coverage.*.by_surface`, and "read N%
+        #            of that surface" in 303 reason lines at M148 -> M151.
+        #   screen   the `chrome://` screen a WebUI fact sits on: the `screen`
+        #            field, the Where column, and report.md's "What changed on
+        #            each screen".
+        #
+        # Both were labels here once. `surface` headed the Kind column, named
+        # its filter, and labelled a bucket; `screen` was a second `surface`.
+        for reserved in ("surface", "screen"):
+            for space, names in spaces.items():
+                for name in names:
+                    self.assertNotIn(reserved, name.lower(),
+                                     f"{name!r} ({space}) uses {reserved!r}, "
+                                     f"which already names something else")
 
 
 class TestScheduledIsItsOwnBucket(unittest.TestCase):

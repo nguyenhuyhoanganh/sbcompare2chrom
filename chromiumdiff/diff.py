@@ -535,10 +535,11 @@ SIGNAL_BUCKET: Dict[str, str] = {
     # -- Scheduled: a date, not an event.
     #
     # These two are the only rows in a report about work that has *not*
-    # happened. 302 of 3,022 findings at M148 -> M151 -- a tenth of the report
-    # -- and reading them as cleanup gets the tense wrong in both directions:
-    # `flag_expiring` is a deletion coming in the next milestone or two, and
-    # `flag_expiry_moved` is one that just stopped coming.
+    # happened. 302 of 3,022 findings at M148 -> M151, a tenth of the report.
+    # Filed as cleanup they read as work already done and found not to matter,
+    # which is the opposite of what they say: `flag_expiring` is a deletion
+    # coming in the next milestone or two, and `flag_expiry_moved` is one whose
+    # date just moved further out.
     "flag_expiring": BUCKET_SCHEDULED,
     "flag_expiry_moved": BUCKET_SCHEDULED,
 }
@@ -1458,7 +1459,7 @@ def _detect_repointed_controls(changes: List[Change]) -> List[Change]:
         ident = a.get("element_id") or a.get("label")
         if not ident:
             return None
-        return (a.get("surface", ""), a.get("page", ""), ident)
+        return (a.get("screen", ""), a.get("page", ""), ident)
 
     by_anchor: Dict[tuple, Dict[str, List[Change]]] = {}
     for change in changes:

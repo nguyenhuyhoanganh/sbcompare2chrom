@@ -187,10 +187,12 @@ Three rules make these hold together, and all three are tested:
   sets the severity and picks the bucket, so a row cannot be headlined *Flag
   scheduled for removal* while having been ranked as *Shipped, then flag
   retired*.
-- **A bucket name means nothing else on the page.** The `Surface` column holds
-  a fact kind and the `All surfaces` filter selects one, so no bucket may be
-  called *New surface*; the `Feature switches` group is a set of fact kinds, so
-  no bucket may be called *Behaviour switches*.
+- **No word names two things on the page.** A row shows five naming
+  vocabularies side by side — bucket, kind, kind group, column header, filter —
+  so a word used in two of them names two things in one glance. Two nouns are
+  also spoken for outside those: `surface` is the body of declarations coverage
+  is measured over, and `screen` is the `chrome://` screen a WebUI fact sits
+  on. Neither may be used as a label.
 
 ## Evidence is not a bucket
 

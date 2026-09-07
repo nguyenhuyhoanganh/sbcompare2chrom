@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các surface WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng về những gì đã dịch chuyển, định tuyến tới team sẽ phải sửa từng mục. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
+description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng về những gì đã dịch chuyển, định tuyến tới team sẽ phải sửa từng mục. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
 ---
 
 # Phân tích một đợt nâng version Chromium
@@ -111,7 +111,7 @@ Hỏi bằng thứ user nói được, rồi ánh xạ sang một trong ba trụ
 | "phần Mojo / IPC", "web API", "trang settings" | `change.kind` |
 | "cái gì bật tắt hành vi", "contract với bên ngoài" | nhóm kind — mục *What happened* của `report.md` |
 
-Nếu người đọc là người thật, **đưa thẳng trang `serve` cho họ**: nó có tối đa năm ô lọc chọn nhiều giá trị cùng lúc — bucket, surface, consequences, coverage, evidence — cộng một ô nhập từ khoá cần loại bỏ. Ô coverage chỉ hiện khi có dòng `unconfirmed`, ô evidence chỉ hiện sau khi đã tra CL. Họ tự chọn nhanh hơn mọi cách hỏi.
+Nếu người đọc là người thật, **đưa thẳng trang `serve` cho họ**: nó có tối đa năm ô lọc chọn nhiều giá trị cùng lúc — bucket, kind, consequences, coverage, evidence — cộng một ô nhập từ khoá cần loại bỏ. Ô coverage chỉ hiện khi có dòng `unconfirmed`, ô evidence chỉ hiện sau khi đã tra CL. Họ tự chọn nhanh hơn mọi cách hỏi.
 
 **Platform luôn là Windows.** Công cụ luôn so cho Windows và không tuỳ chọn nào đổi được điều đó — `meta.platform` trong `report.json` ghi lại là `windows`. Trạng thái của một flag nằm ở `change.before.platform_state.windows` và `change.after.platform_state.windows`. Ngay cạnh chúng có `default_state`: đó là mặc định chung của Chromium, không phải của Windows, và đọc nhầm sang nó là lỗi hay gặp nhất ở bước này.
 
@@ -314,7 +314,7 @@ Nêu những điều này trong mọi báo cáo. Một báo cáo sạch không c
 - **Năm loại khai báo mà nó không biến thành fact**, ngay trong những file mà nó vẫn đọc đầy đủ. Đo ở M151: 85 định nghĩa `callback` của Web IDL, 144 `typedef`, 200 quan hệ `Interface includes Mixin`, 18 khối `feature` của Mojo và 311 hằng số Mojo. Ví dụ thật không tạo ra dòng nào: `typedef LanguageModelMessageValue` đổi union nền của nó ở M143 → M147, và hằng số Mojo `kWebNNDirectML` biến mất ở M151. **"Đọc 99% số file" là phát biểu về file, không phải về ngữ pháp.**
 - **Bất cứ thứ gì nằm ngoài repository** — config Finch, script khởi chạy, test automation, enterprise policy, metadata trên store.
 - **IDL của Chrome Extensions và MIDL.** Chỉ có `.idl` của riêng Blink được đọc.
-- **Hành vi của trang.** Chỉ các phần khai báo của một surface WebUI: bảng route và các template HTML, không phải TypeScript.
+- **Hành vi của trang.** Chỉ các phần khai báo của một screen WebUI: bảng route và các template HTML, không phải TypeScript.
 - **Giao diện đã render.** Không ảnh chụp màn hình, không layout, không lỗi hiển thị.
 
 Dùng flag và khai báo để *phát hiện*, đọc code có chủ đích để *giải thích*, ảnh chụp màn hình chỉ để *xác nhận* một danh sách ngắn. Đừng dùng ảnh chụp màn hình để phát hiện thay đổi.

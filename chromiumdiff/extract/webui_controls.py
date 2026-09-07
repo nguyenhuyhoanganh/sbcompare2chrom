@@ -160,7 +160,7 @@ def template_body(text: str, rel_path: str) -> str:
     return head + text[m.end():end]
 
 
-def surface_of(rel_path: str) -> str:
+def screen_of(rel_path: str) -> str:
     """chrome/browser/resources/downloads/foo.html -> downloads"""
     rest = rel_path[len(RESOURCES_DIR):] if rel_path.startswith(RESOURCES_DIR) else rel_path
     parts = rest.split("/")
@@ -168,7 +168,7 @@ def surface_of(rel_path: str) -> str:
 
 
 def page_of(rel_path: str) -> str:
-    """The page within a surface: settings/downloads_page/x.html -> downloads_page"""
+    """The page within a screen: settings/downloads_page/x.html -> downloads_page"""
     rest = rel_path[len(RESOURCES_DIR):] if rel_path.startswith(RESOURCES_DIR) else rel_path
     parts = rest.split("/")
     if len(parts) >= 3:
@@ -209,7 +209,7 @@ def _condition_spans(text: str) -> List[tuple]:
 
 def extract(text: str, rel_path: str) -> List[Fact]:
     masked = _mask_html_comments(template_body(text, rel_path))
-    surface = surface_of(rel_path)
+    screen = screen_of(rel_path)
     page = page_of(rel_path)
     spans = _condition_spans(masked)
 
@@ -284,12 +284,12 @@ def extract(text: str, rel_path: str) -> List[Fact]:
         # the same page and does not churn.
         facts.append(Fact(
             kind=KIND_WEBUI_CONTROL,
-            key=f"{surface}/{page}/{_stem_of(rel_path)}/{ident}",
+            key=f"{screen}/{page}/{_stem_of(rel_path)}/{ident}",
             name=ident,
             path=rel_path,
             line=line_of(masked, m.start()),
             attrs={
-                "surface": surface,
+                "screen": screen,
                 "page": page,
                 "file": _stem_of(rel_path),
                 "control": tag,          # the "dropdown became a toggle" signal

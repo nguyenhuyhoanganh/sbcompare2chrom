@@ -98,7 +98,7 @@ Hai trường hợp cần phân biệt rõ, vì hậu quả ngược nhau:
 
 Pref là một phần trong identity của control. Vì vậy, khi một control vẫn ở nguyên trang và giữ nguyên element id nhưng chuyển sang ghi vào một pref khác, lượt so cơ bản cũng chỉ thấy một `removed` cộng một `added`.
 
-Công cụ ghép lại theo bộ ba `(surface, page, element_id hoặc label)`, và sinh ra signal `ui_control_repointed`.
+Công cụ ghép lại theo bộ ba `(screen, page, element_id hoặc label)`, và sinh ra signal `ui_control_repointed`.
 
 ## Bước 3 — Signal được sinh ra từ hướng thay đổi và delta
 
@@ -249,7 +249,7 @@ Ngược lại, một trường hợp đổi tên đã ghép được bằng sym
 | `flag_expiring` | 45 | Scheduled | Flag dự kiến bị xoá trước hoặc trong vòng hai milestone sau milestone đích |
 | `flag_expiry_moved` | 10 | Scheduled | Lịch xoá đổi, nhưng hành vi lúc chạy chưa đổi |
 
-`flag_expiring` có bucket riêng — **Scheduled** — chính vì lý do này: nó nói về một cái ngày chứ không phải một sự kiện, phần phải xử lý nằm ngoài repository, và người đang phụ thuộc vào flag đó cần kịp lên kế hoạch. Gộp nó vào Upstream cleanup là sai thì quá khứ: nó nói về việc **chưa** xảy ra.
+`flag_expiring` có bucket riêng — **Scheduled** — chính vì lý do này: nó nói về một cái ngày chứ không phải một sự kiện, phần phải xử lý nằm ngoài repository, và người đang phụ thuộc vào flag đó cần kịp lên kế hoạch. Gộp nó vào Upstream cleanup thì sai: Upstream cleanup nói về việc đã xảy ra và hoá ra không quan trọng, còn `flag_expiring` nói về việc **chưa** xảy ra.
 
 ## Bước 4 — Score được tính thế nào
 

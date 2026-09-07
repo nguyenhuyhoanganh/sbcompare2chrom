@@ -736,8 +736,8 @@ Cột bên phải quan trọng hơn vẻ ngoài của nó: nó giải thích vì
 | `switch` | Tên tùy chọn khởi động | Script truyền tên này vào browser dưới dạng `--tên-tùy-chọn` |
 | `pref` | Chuỗi định danh preference | Tên dùng để lưu và đọc lại thiết lập trong hồ sơ người dùng |
 | `flag_entry` | Tên entry trong metadata của `chrome://flags` | Theo dõi đúng entry và milestone hết hạn của nó |
-| `webui_route` | `surface/ROUTE_CONST` | Cùng một route constant có thể xuất hiện ở WebUI page khác |
-| `webui_control` | `surface/page/file/stable-ident` | Tránh trùng tên giữa các page và giữ identity khi migrate Polymer → Lit |
+| `webui_route` | `screen/ROUTE_CONST` | Cùng một route constant có thể xuất hiện ở WebUI page khác |
+| `webui_control` | `screen/page/file/stable-ident` | Tránh trùng tên giữa các page và giữ identity khi migrate Polymer → Lit |
 | `webui_gate` | `handler/data_key` | Cùng một data key có thể được tạo bởi nhiều handler |
 
 ### 9.3. Chuẩn hoá thành Fact diễn ra thế nào?
@@ -852,7 +852,7 @@ Hai rule bổ sung đáng chú ý:
 Sau lượt ghép chính, công cụ tìm thêm các cặp "bị xoá" và "được thêm" có khả năng thực ra là cùng một đối tượng đã đổi tên:
 
 - Pref, switch hoặc base feature có cùng biến C++ nhưng khác string key → **rename**.
-- WebUI control cùng surface/page/id-hoặc-label nhưng khác pref phía sau → **repoint**.
+- WebUI control cùng screen/page/id-hoặc-label nhưng khác pref phía sau → **repoint**.
 
 Đây là bước quan trọng, vì chính cái khoá dùng để nhận diện đối tượng đã thay đổi. Nếu không ghép lại, một pref đổi tên sẽ xuất hiện thành hai dòng trông không liên quan gì tới nhau: một dòng bị xoá và một dòng được thêm.
 

@@ -96,7 +96,7 @@ Snapshot cũ, đánh chỉ mục theo uid      Snapshot mới, đánh chỉ mụ
 Sau lượt ghép cơ bản này, còn hai bước ghép đặc biệt nữa, dành cho các trường hợp mà chính `key` đã thay đổi:
 
 - **Đổi tên pref / switch / feature string**: ghép một `removed` với một `added` nếu biến C++ của chúng giữ nguyên.
-- **WebUI control chuyển pref**: ghép một `removed` với một `added` nếu surface, trang và element id giữ nguyên, chỉ có pref trong khoá là đổi.
+- **WebUI control chuyển pref**: ghép một `removed` với một `added` nếu screen, trang và element id giữ nguyên, chỉ có pref trong khoá là đổi.
 
 ## 16 loại `Fact` và extractor sinh ra chúng
 
@@ -616,7 +616,7 @@ if (loadTimeData.getBoolean('enableLocalNetworkAccessSetting')) {
   "path": "chrome/browser/resources/settings/route.ts",
   "line": 2,
   "attrs": {
-    "surface": "settings",
+    "screen": "settings",
     "route": "localNetwork",
     "parent": "SITE_SETTINGS",
     "route_kind": "child",
@@ -625,7 +625,7 @@ if (loadTimeData.getBoolean('enableLocalNetworkAccessSetting')) {
 }
 ```
 
-Khoá gồm surface cộng tên hằng của route.
+Khoá gồm screen cộng tên hằng của route.
 
 **Thuộc tính được so sánh:** `route`, `parent`, `guards`. Trường `route_kind` được giữ để giải thích, nhưng hiện chưa nằm trong danh sách so sánh.
 
@@ -653,7 +653,7 @@ Khoá gồm surface cộng tên hằng của route.
   "path": "chrome/browser/resources/settings/downloads_page/downloads_page.html",
   "line": 1,
   "attrs": {
-    "surface": "settings",
+    "screen": "settings",
     "page": "downloads_page",
     "file": "downloads_page",
     "control": "settings-toggle-button",
@@ -675,9 +675,9 @@ Control là loại `Fact` khó đặt identity nhất, vì template thay đổi 
 4. khoá nhãn i18n;
 5. tag cộng vị trí — chỉ dùng khi bốn cách trên đều không có.
 
-Khoá còn chứa thêm surface, tên trang và phần gốc của tên file. Chi tiết cuối này có một tác dụng cụ thể: khi một file `.html` được migrate sang `.html.ts`, phần gốc tên file vẫn giữ nguyên, nên việc migrate không tự sinh ra nhiễu.
+Khoá còn chứa thêm screen, tên trang và phần gốc của tên file. Chi tiết cuối này có một tác dụng cụ thể: khi một file `.html` được migrate sang `.html.ts`, phần gốc tên file vẫn giữ nguyên, nên việc migrate không tự sinh ra nhiễu.
 
-**Thuộc tính được so sánh:** `control`, `pref`, `label`, `build_conditions`, `platform_state`. Các trường `surface`, `page`, `file`, `element_id` chủ yếu phục vụ identity, routing và việc phát hiện control chuyển pref.
+**Thuộc tính được so sánh:** `control`, `pref`, `label`, `build_conditions`, `platform_state`. Các trường `screen`, `page`, `file`, `element_id` chủ yếu phục vụ identity, routing và việc phát hiện control chuyển pref.
 
 ## 16. `webui_gate`
 

@@ -1,9 +1,9 @@
-"""Extract the page inventory of a desktop WebUI surface from its route table.
+"""Extract the page inventory of a desktop WebUI screen from its route table.
 
 ``chrome://settings``, ``chrome://history``, ``chrome://downloads``,
 ``chrome://bookmarks``, ``chrome://extensions`` and roughly 130 other
 ``chrome://`` pages are all web pages under ``chrome/browser/resources/``. The
-ones with sub-navigation declare it in a route table, which is the surface's
+ones with sub-navigation declare it in a route table, which is the screen's
 table of contents. Settings has 104 routes at M148 and 108 at M151.
 
 The critical part is not the list but the **guard**. Routes are declared inside
@@ -33,7 +33,7 @@ from typing import List
 
 from ..model import KIND_WEBUI_ROUTE, Fact
 from ._cpp import collapse_ws, line_of, mask_comments
-from .webui_controls import RESOURCES_DIR, surface_of
+from .webui_controls import RESOURCES_DIR, screen_of
 
 ROUTE_FILENAMES = ("route.ts", "routes.ts")
 
@@ -92,19 +92,19 @@ def _guard_stack_at(text: str, index: int) -> List[str]:
 
 def extract(text: str, rel_path: str) -> List[Fact]:
     masked = mask_comments(text)
-    surface = surface_of(rel_path)
+    screen = screen_of(rel_path)
     facts: List[Fact] = []
     for m in _ROUTE_RE.finditer(masked):
         name, parent, route_kind, route = (
             m.group(1), m.group(2) or "", m.group(3), m.group(4))
         facts.append(Fact(
             kind=KIND_WEBUI_ROUTE,
-            key=f"{surface}/{name}",
+            key=f"{screen}/{name}",
             name=name,
             path=rel_path,
             line=line_of(masked, m.start()),
             attrs={
-                "surface": surface,
+                "screen": screen,
                 "route": route,
                 "parent": parent,
                 "route_kind": collapse_ws(route_kind).lower(),

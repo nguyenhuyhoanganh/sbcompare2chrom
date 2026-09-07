@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, chrome:// WebUI surfaces (routes, controls, visibility gates) - separating real behaviour changes from cleanup, and produces a ranked report of what moved. Use when planning or reviewing a Chromium upgrade such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
+description: Compares two Chromium versions - feature flags, web APIs, prefs, switches, Mojo interfaces, chrome:// WebUI screens (routes, controls, visibility gates) - separating real behaviour changes from cleanup, and produces a ranked report of what moved. Use when planning or reviewing a Chromium upgrade such as M148 to M151, when asked what is new, removed, or changed between two Chromium milestones, when asked whether a Chromium change breaks anything, when interpreting a raw Chromium diff, or when deciding what work a rebase requires.
 ---
 
 # Analyzing Chromium upgrades
@@ -111,7 +111,7 @@ Ask in terms they can answer, then map it onto one of the three axes the report 
 | "the Mojo side", "web APIs", "the settings pages" | `change.kind` |
 | "what switches behaviour", "contracts with the outside" | consequence group — the *What happened* section of `report.md` |
 
-If the reader is a person, **hand them the `serve` URL**: the page has up to five multi-select filters — bucket, surface, consequences, coverage, evidence — plus a box for terms to exclude. Coverage appears only when some row is unconfirmed, evidence only once a CL has been looked up. They will pick faster than any question gets asked.
+If the reader is a person, **hand them the `serve` URL**: the page has up to five multi-select filters — bucket, kind, consequences, coverage, evidence — plus a box for terms to exclude. Coverage appears only when some row is unconfirmed, evidence only once a CL has been looked up. They will pick faster than any question gets asked.
 
 **The platform is always Windows.** The tool always compares for Windows and no option changes that — `meta.platform` in `report.json` records `windows`. A flag's state is at `change.before.platform_state.windows` and `change.after.platform_state.windows`. Beside them sits `default_state`: that is Chromium's overall default rather than the Windows one, and reading it by mistake is the most common error at this step.
 
@@ -314,7 +314,7 @@ State these in every report. A clean report does not imply a clean upgrade.
 - **Five classes of declaration it does not turn into facts**, in files it otherwise reads completely. Measured at M151: 85 Web IDL `callback` definitions, 144 `typedef`s, 200 `Interface includes Mixin` relations, 18 Mojo `feature` blocks and 311 Mojo constants. Real examples that produced no row: `typedef LanguageModelMessageValue` changing its underlying union at M143 → M147, and the Mojo constant `kWebNNDirectML` disappearing at M151. **"Reads 99% of the files" is a statement about files, not about grammar.**
 - **Anything outside the repository** — Finch configs, launch scripts, test automation, enterprise policy, store metadata.
 - **Chrome Extensions IDL and MIDL.** Only Blink's own `.idl` is read.
-- **Page behaviour.** Only the declarative parts of a WebUI surface: the route table and the HTML templates, not the TypeScript.
+- **Page behaviour.** Only the declarative parts of a WebUI screen: the route table and the HTML templates, not the TypeScript.
 - **Rendered UI.** No screenshots, no layout, no visual regressions.
 
 Use flags and declarations to *discover*, targeted code reading to *explain*, screenshots only to *confirm* a short list. Do not use screenshots to discover changes.

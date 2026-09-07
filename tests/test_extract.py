@@ -602,7 +602,7 @@ class TestWebUiControls(unittest.TestCase):
 
         The declaring file is in the key as well as the directory, because two
         dialogs in one folder bind the same thing -- so the tail is
-        `<surface>/<directory>/<file>/<ident>`.
+        `<screen>/<directory>/<file>/<ident>`.
         """
         facts = web_ui.extract(
             '<settings-toggle-button pref="{{prefs.a.b}}">',
@@ -636,7 +636,7 @@ class TestWebUiControls(unittest.TestCase):
             web_ui.page_of("chrome/browser/resources/downloads/item.html.ts"),
             "item")
         self.assertEqual(
-            web_ui.surface_of("chrome/browser/resources/downloads/item.html.ts"),
+            web_ui.screen_of("chrome/browser/resources/downloads/item.html.ts"),
             "downloads")
 
 

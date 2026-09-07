@@ -391,7 +391,17 @@ from typing import Any, Dict, Iterable, List, Optional
 #      absent from the Windows build on both sides (187), deletions Chromium
 #      has only scheduled (57), and removals this run could not confirm (31).
 #      A version 40 `bucket` value does not name the same set of findings.
-SCHEMA_VERSION = 41
+#  42: one word, one meaning, for `surface` too. It named four things at once:
+#      the fact kind (the report's own column and filter), the body of
+#      declarations coverage is measured over (`meta.coverage.*.by_surface`,
+#      and "that surface" in 303 reason lines at M148 -> M151), the web API
+#      surface in one signal label, and the `chrome://` screen a WebUI fact
+#      sits on (108 rows). The first is the tool's own `kind`, and the last is
+#      the `screen` that `report.md` already headings by, so both took the name
+#      they already had elsewhere, and `surface` now means one thing.
+#      A version 41 WebUI fact carries `surface` where this one carries
+#      `screen`, so every snapshot is rebuilt.
+SCHEMA_VERSION = 42
 
 # ---------------------------------------------------------------------------
 # Fact kinds.  Each is produced by exactly one extractor.
@@ -763,8 +773,8 @@ class Finding:
     # ``reasons`` because a reader has to be able to filter for these: 303 of
     # them at M148 -> M151 on the default target set and 0 on the wide one.
     # Set wherever the 15-point deduction is, so it is not confined to one
-    # bucket -- 120 of those 303 are in Compatibility break, where a reader
-    # most wants to know the evidence is short.
+    # bucket -- 120 of those 303 are in Compatibility break, the bucket read
+    # first.
     unconfirmed: bool = False
     enrichment: Dict[str, Any] = field(default_factory=dict)
 

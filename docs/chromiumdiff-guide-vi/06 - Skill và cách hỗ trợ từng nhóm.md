@@ -143,7 +143,7 @@ Từ `webui_route`, agent lấy ra năm thứ:
 **Việc agent cần làm:**
 
 1. Lọc kind `webui_route`, `webui_control` và `webui_gate`.
-2. Gom theo `surface` và theo trang.
+2. Gom theo `screen` và theo trang.
 3. Lần theo guard sang `webui_gate`.
 4. Xem `base_feature` đứng sau đang BẬT hay TẮT trên Windows, ở cả hai version.
 5. Tìm hằng route và path trong code WebUI của Samsung và trong các test điều hướng.
