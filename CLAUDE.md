@@ -29,7 +29,10 @@ Check them by hand.
    glance. `TestEverySignalIsClassified` holds that, reading the headers and
    filter labels off a rendered page rather than from a list here.
 8. **Re-measure every figure; never copy one.** A figure must name the version
-   pair it came from or come from `docs/figures.json`.
+   pair it came from or come from `docs/figures.json`. Measure with the
+   function the code measures with: counting `signals[0]` where the report
+   uses `leading_signal` gave 19 signals where there are 18, and 39 where
+   there are 38, twice, and both numbers looked right.
 
 Two more, cheap to avoid: write where a field *is* rather than what does not
 exist, and do not state a prohibition the code does not enforce.

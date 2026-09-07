@@ -36,7 +36,7 @@ import re
 from typing import List
 
 from ..diff import SIGNAL_LABELS
-from ..model import (BUCKET_CLEANUP, BUCKET_LABELS, BUCKET_MEANINGS,
+from ..model import (BUCKET_LABELS, BUCKET_MEANINGS,
                      BUCKET_ORDER, KIND_GROUPS,
                      KIND_LABELS, Report, group_of)
 from .markdown import TITLE, display_name

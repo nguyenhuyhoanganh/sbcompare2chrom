@@ -236,7 +236,7 @@ Two side commands: `chromiumdiff catalog <ref>` measures what the target set is 
 
 The report arrives sorted by score, highest first. **That is not a reading order, and it is not a place to cut.** A Compatibility break row the run could not confirm loses 15 points and drops below thousands of lower-consequence rows. Measured at M148 → M151: reading the top 100 by score misses 232 of 276 Compatibility break rows; reading 500 still misses 55. Score orders rows inside a bucket; it does not decide how far to read.
 
-When the list is long, **cover it by signal** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows but only 39 distinct leading signals, so reading each signal group once covers all of them. `report.md` is built that way: a bucket table carries every signal in the bucket, heaviest first.
+When the list is long, **cover it by signal** rather than truncating. At that pair the four buckets above Upstream cleanup hold 2,287 rows but only 38 distinct leading signals, so reading each signal group once covers all of them. `report.md` is built that way: a bucket table carries every signal in the bucket, heaviest first.
 
 **That is how you read, not how you write.** Signal, bucket and score band are properties of the machinery. The report you hand back groups by what happened — step 6 — and a section headed by a signal name, a bucket name or a score range is the shape this skill exists to avoid.
 

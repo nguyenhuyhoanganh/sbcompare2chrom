@@ -234,7 +234,7 @@ Hai lệnh phụ: `chromiumdiff catalog <ref>` đo xem target set đang bỏ só
 
 Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
 
-Danh sách dài thì **phủ hết theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 39 leading signal khác nhau, nên xem mỗi nhóm signal một lần là đã phủ hết. `report.md` được dựng đúng theo cách đó — bảng của mỗi bucket mang **mọi** signal của bucket, nặng nhất trước.
+Danh sách dài thì **phủ hết theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 38 leading signal khác nhau, nên xem mỗi nhóm signal một lần là đã phủ hết. `report.md` được dựng đúng theo cách đó — bảng của mỗi bucket mang **mọi** signal của bucket, nặng nhất trước.
 
 **Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — và một mục lấy tên signal, tên bucket hay khoảng điểm làm tiêu đề chính là hình dạng mà skill này sinh ra để tránh.
 
