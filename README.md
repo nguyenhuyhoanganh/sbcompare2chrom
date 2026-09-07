@@ -341,7 +341,7 @@ Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unev
 
 An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is why widening the rule costs nothing: an element with no preference, no id and no label can only be identified by its position, which changes whenever a template is reordered. The rule improves on the list it replaced in every measure — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
-**Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 27 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
+**Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 26 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
 ### Why preprocessor conditions have to be read
 
@@ -379,7 +379,7 @@ eval_condition("BUILDFLAG(IS_ANDROID)")      # False  — definitely not us
 eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — no guess
 ```
 
-Build conditions are resolved for Windows everywhere they appear, not only in feature macros: an `#if` around a pref or switch constant (115 keys at M151 are not in the Windows build), and a GRIT `<if expr="...">` around a WebUI control (14 controls). One three-valued evaluator, two dialects — `not is_win` and `!BUILDFLAG(IS_WIN)` ask the same question.
+Build conditions are resolved for Windows everywhere they appear, not only in feature macros: an `#if` around a pref or switch constant (117 keys at M151 are not in the Windows build), and a GRIT `<if expr="...">` around a WebUI control (16 controls). One three-valued evaluator, two dialects — `not is_win` and `!BUILDFLAG(IS_WIN)` ask the same question.
 
 Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: the default run reports 139 keys gone and the wide run still holds 29 of them, so those 29 had moved rather than been deleted.
 
@@ -464,7 +464,7 @@ That share looks small, but **file count is not declaration count**. The hand-pi
 | Mojo struct fields | 3,076 | 13,015 |
 | Mojo enums | 373 | 1,477 |
 | WebUI controls | 971 | 1,431 |
-| **Total facts** | **29,118** | **54,298** |
+| **Total facts** | **29,138** | **54,298** |
 
 So `default` reads under half the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
 

@@ -1518,9 +1518,9 @@ Toàn bộ test chạy được không cần mạng. Test suite kiểm tra:
 - Cách tính score và chọn bucket.
 - Gom nhóm finding, kiểm tra liên kết, và từ chối snapshot chênh lệch bất thường.
 - Render Markdown/HTML, hiệu năng DOM và các ranh giới XSS.
-- Documentation figures và source map.
+- Lệnh in ra trong tài liệu phải là lệnh CLI thật sự nhận.
 
-Cần phát biểu đúng phạm vi của con số này: test chứng minh code đang tuân theo 548 trường hợp đã được mô tả trong test suite. Nó **không** chứng minh parser hiểu mọi cú pháp Chromium, và cũng không cho biết Samsung đang dùng finding nào.
+Cần phát biểu đúng phạm vi: test chứng minh code đang tuân theo đúng những trường hợp đã được viết ra trong test suite. Nó **không** chứng minh parser hiểu mọi cú pháp Chromium, và cũng không cho biết Samsung đang dùng finding nào.
 
 ## 24. Những giới hạn phải nói thẳng
 
@@ -1889,7 +1889,7 @@ Tuy nhiên, nếu đầu vào là một branch còn thay đổi hoặc là sourc
 
 ### "Test xanh chứng minh gì?"
 
-Chứng minh 368 hành vi đã được viết thành test vẫn hoạt động đúng.
+Chứng minh những hành vi đã được viết thành test vẫn hoạt động đúng.
 
 Test **không** chứng minh extractor hiểu mọi cú pháp Chromium, và không cho biết Samsung đang dùng finding nào.
 
