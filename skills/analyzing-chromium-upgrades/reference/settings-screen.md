@@ -1,4 +1,4 @@
-# Settings surface
+# The settings screen
 
 Where settings live, how to compare them, and how large a "feature" should be.
 

@@ -11,7 +11,7 @@ Tài liệu này giải thích vì sao một thay đổi được 80 điểm cò
 | `signal` | Chính xác thì chuyện gì đã xảy ra? |
 | `severity` | Nếu bằng chứng đầy đủ, loại thay đổi này đáng được xem sớm đến đâu? |
 | `score` | Sau khi xét bản build Windows và độ đầy đủ của lần đọc, thứ tự ưu tiên cuối cùng là bao nhiêu? |
-| `bucket` | Đây là contract bị phá, hành vi thay đổi, bề mặt mới, hay chỉ là dọn dẹp? |
+| `bucket` | Đây là contract bị phá, hành vi thay đổi, khai báo mới, lịch xoá, hay chỉ là dọn dẹp? |
 
 Ba điều `score` **không** phải: không phải xác suất, không phải công sức, không phải mức chắc chắn Samsung có bug.
 

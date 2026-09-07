@@ -303,7 +303,7 @@ Good: *"Local Network Access moved to split permissions. The flag was ENABLED at
 
 - **[reference/traps.md](reference/traps.md)** — the ways to reach a wrong conclusion, each one measured against real Chromium data. Read before interpreting any removal; the later traps cover Mojo, web APIs and switches.
 - **[reference/signals.md](reference/signals.md)** — what each signal means.
-- **[reference/settings-surface.md](reference/settings-surface.md)** — the three-hop chain from a settings page to the flag behind it, and how to size a "feature".
+- **[reference/settings-screen.md](reference/settings-screen.md)** — the three-hop chain from a settings page to the flag behind it, and how to size a "feature".
 
 ## What the tool cannot see
 

@@ -391,7 +391,7 @@ Tiền tố `prefs.` là bắt buộc, để không nhầm một property thông
 
 - **Toggle đổi thành dropdown** là thay đổi về cách tương tác và về ngữ nghĩa.
 - **Control chuyển sang pref khác** khiến giá trị cũ bị bỏ lại và pref mới bắt đầu từ mặc định — người dùng mất setting mà không có thông báo.
-- **Control bị thêm hoặc bị bỏ** cho biết bề mặt Settings đã đổi.
+- **Control bị thêm hoặc bị bỏ** cho biết màn hình Settings đã đổi.
 - **Điều kiện GRIT đổi** cho biết control ra hoặc vào bản build Windows.
 
 ### Ví dụ

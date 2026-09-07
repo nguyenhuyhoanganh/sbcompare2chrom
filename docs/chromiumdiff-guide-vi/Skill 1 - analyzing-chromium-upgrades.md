@@ -303,7 +303,7 @@ Sai: *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."*
 
 - **[reference/traps.md](reference/traps.md)** — những con đường dẫn tới kết luận sai, mỗi con đường đều được đo trên dữ liệu Chromium thật. Đọc trước khi diễn giải bất kỳ mục bị xoá nào; các bẫy về sau nói về Mojo, web API và switch.
 - **[reference/signals.md](reference/signals.md)** — mỗi signal nghĩa là gì.
-- **[reference/settings-surface.md](reference/settings-surface.md)** — chuỗi ba chặng từ một trang settings tới flag đứng sau nó, và cách ước lượng quy mô của một "feature".
+- **[reference/settings-screen.md](reference/settings-screen.md)** — chuỗi ba chặng từ một trang settings tới flag đứng sau nó, và cách ước lượng quy mô của một "feature".
 
 ## Những gì công cụ không nhìn thấy
 

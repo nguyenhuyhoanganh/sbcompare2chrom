@@ -477,7 +477,7 @@ CL 7957918  "[sub apps] change web api"
 
 `cluster.py` vốn đã gom nhóm, nhưng chỉ theo **liên kết Chromium tự khai báo trong source**: một `webui_gate` nhắc tên một `base_feature`, một `feature_param` nhắc feature cha, một control nhắc trang nó thuộc về. Comment trong code nói thẳng nguyên tắc — *chỉ nối theo liên kết Chromium thật sự khai báo; suy từ tên giống nhau là đoán mò*.
 
-Nguyên tắc đó **đúng**, nhưng nó giới hạn việc gom vào bề mặt WebUI. Giữa một file `.mojom` và một file `.idl`, **Chromium không viết ra liên kết nào cả**.
+Nguyên tắc đó **đúng**, nhưng nó giới hạn việc gom vào các màn hình WebUI. Giữa một file `.mojom` và một file `.idl`, **Chromium không viết ra liên kết nào cả**.
 
 Hậu quả đo được trên M148 → M151: luật cũ gom được 183 trong 3.022 dòng, mà **143 nhóm trong đó là feature + param của nó** — tức là đáy bảng xếp hạng. Trong 150 dòng điểm cao nhất, nó với tới **6**.
 
