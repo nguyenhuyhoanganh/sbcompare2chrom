@@ -311,9 +311,17 @@ def summarize(clusters: Dict[str, List[Finding]], limit: int = 25) -> List[dict]
     """
     rows = []
     for root, members in clusters.items():
-        groups = {group_of(m.change.kind) for m in members} - {""}
-        buckets = {m.bucket for m in members}
-        directions = {m.change.change_type for m in members}
+        # Spread is measured over the members that can reach our users. A
+        # finding scoring zero is in `cleanup` *because* it scores zero -- the
+        # declaration is not in the Windows build on either side -- so counting
+        # its bucket counts a fact about the build, not about the change. That
+        # inflated seven `ChromeAndroidIdentitySurvey*` clusters to the top of
+        # a wide run: an Android-only flag at 0 beside a new parameter, which
+        # is not two sides of anything.
+        speaking = [m for m in members if m.score > 0] or members
+        groups = {group_of(m.change.kind) for m in speaking} - {""}
+        buckets = {m.bucket for m in speaking}
+        directions = {m.change.change_type for m in speaking}
         rows.append({
             "id": root,
             "label": cluster_label(members),

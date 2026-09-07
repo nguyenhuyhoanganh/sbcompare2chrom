@@ -157,7 +157,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         _log(f"  {len(clusters)} clusters link related findings "
              f"(largest: {biggest} findings)")
     finding_summary = summarize_findings(findings)
-    finding_summary["clusters"] = cluster.summarize(clusters)
+    # Every cluster, not the first 25. They are 66 KB on a wide run
+    # against a 5.8 MB file, and capping them here put 134 of 159
+    # beyond the reach of any query -- including 12 of the 24 whose
+    # fragments contradict each other when read apart, which is the
+    # only kind clustering exists to catch.
+    finding_summary["clusters"] = cluster.summarize(clusters, limit=0)
     for bucket in BUCKET_ORDER:
         _log(f"    {BUCKET_LABELS[bucket]:19s} "
              f"{finding_summary['by_bucket'].get(bucket, 0):5d}")

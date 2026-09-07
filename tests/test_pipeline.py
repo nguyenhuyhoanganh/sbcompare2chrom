@@ -1602,6 +1602,94 @@ class TestAFragmentSaysItIsOne(unittest.TestCase):
         self.assertNotIn("grp", row)
 
 
+class TestABucketTableShowsEverySignal(unittest.TestCase):
+    """The table's job is identifiers to go and grep, and it does that for no
+    signal it never shows.
+
+    A bucket table was the top N by score, and score is not spread evenly
+    across signals. At M148 -> M151 the 40 rows of Compatibility break were all
+    score 80, covering 2 of the bucket's 11 signals: a reader going top to
+    bottom saw forty Mojo signature changes and not one of the 45 removed web
+    APIs at severity 70, nor either renamed preference constant that stops code
+    compiling. Behaviour change showed 1 signal of 19, with all 129
+    `web_api_shipped` rows absent.
+
+    The skill tells its reader that when a list is long you group by signal
+    rather than truncate. The report now does the same.
+    """
+
+    def _rows(self):
+        from chromiumdiff.model import Change, Finding
+        rows = []
+        # A signal with many high-scoring rows, which used to fill the table.
+        for i in range(50):
+            rows.append(Finding(
+                change=Change(change_type="modified", kind="mojo_method",
+                              key=f"I.M{i}", name=f"M{i}", severity=80,
+                              signals=["ipc_signature_change"]),
+                score=80, bucket="contract"))
+        # A rarer, lower-scoring signal that must still get a row.
+        for i in range(3):
+            rows.append(Finding(
+                change=Change(change_type="modified", kind="pref",
+                              key=f"p.{i}", name=f"p{i}", severity=55,
+                              signals=["pref_symbol_renamed"]),
+                score=55, bucket="contract"))
+        return rows
+
+    def test_a_rare_signal_is_not_crowded_out_by_a_common_one(self):
+        from chromiumdiff.diff import leading_signal
+        from chromiumdiff.report.markdown import _covering
+        rows = self._rows()
+        top_by_score = sorted(rows, key=lambda f: -f.score)[:40]
+        self.assertNotIn("pref_symbol_renamed",
+                         {leading_signal(f.change) for f in top_by_score},
+                         "fixture no longer reproduces the defect")
+        self.assertIn("pref_symbol_renamed",
+                      {leading_signal(f.change) for f in _covering(rows, cap=40)})
+
+    def test_the_heavier_signal_still_comes_first(self):
+        from chromiumdiff.diff import leading_signal
+        from chromiumdiff.report.markdown import _covering
+        sel = _covering(self._rows(), cap=40)
+        self.assertEqual(leading_signal(sel[0].change), "ipc_signature_change")
+
+    def test_the_rendered_table_shows_it_too(self):
+        """Asserted on the markdown, not on the selector.
+
+        A version of this class that only called `_covering` passed with the
+        render loop switched back to the top N by score -- the fix was measured
+        at the layer it was written in, not at the layer the defect lived in.
+        """
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
+        page = md_report.render(Report(from_ref="a", to_ref="b",
+                                       findings=self._rows()))
+        table = page.split("## Compatibility break (")[1].split("\n## ")[0]
+        self.assertIn("p0", table,
+                      "the rare signal has no row in the rendered table")
+        self.assertIn("M0", table, "the heavy signal lost its rows")
+
+    def test_every_signal_in_every_bucket_of_a_real_report(self):
+        """Held against a rendered report rather than a fixture, because the
+        defect was a property of how scores bunch on real data."""
+        import glob
+        from chromiumdiff.diff import leading_signal
+        from chromiumdiff.model import BUCKET_ORDER, read_report
+        from chromiumdiff.report.markdown import _covering
+        paths = sorted(glob.glob("out/*/report.json"))
+        if not paths:
+            self.skipTest("no report on this machine")
+        report = read_report(paths[0])
+        for bucket in BUCKET_ORDER:
+            rows = report.by_bucket(bucket)
+            if not rows:
+                continue
+            present = {leading_signal(f.change) for f in rows}
+            shown = {leading_signal(f.change) for f in _covering(rows, cap=60)}
+            self.assertEqual(present, shown, bucket)
+
+
 class TestClusterOrderPutsTheStoriesFirst(unittest.TestCase):
     """Only the first twelve blocks are printed, so the ordering decides which.
 
@@ -1647,6 +1735,21 @@ class TestClusterOrderPutsTheStoriesFirst(unittest.TestCase):
                          "a grouping that only repeats a row it already has "
                          "must not outrank one that contradicts itself apart")
         self.assertGreater(rows[1]["top_score"], rows[0]["top_score"])
+
+    def test_a_member_that_reaches_nobody_does_not_inflate_spread(self):
+        """A finding scoring zero is in `cleanup` *because* it scores zero --
+        the declaration is not in the Windows build on either side -- so its
+        bucket is a fact about the build, not about the change.
+
+        Counting it put seven `ChromeAndroidIdentitySurvey*` clusters at the
+        top of a wide run: an Android-only flag at 0 beside a new parameter,
+        which is not two sides of anything.
+        """
+        noise = self._cluster([self._f("base_feature", "A", "modified", 0, "cleanup"),
+                               self._f("feature_param", "A/p", "added", 15, "added")])
+        real = self._cluster([self._f("base_feature", "A", "modified", 60, "behaviour"),
+                              self._f("feature_param", "A/p", "added", 15, "added")])
+        self.assertLess(noise["spread"], real["spread"])
 
     def test_directions_and_spread_reach_the_json(self):
         """A reader has to be able to see why a block is where it is."""

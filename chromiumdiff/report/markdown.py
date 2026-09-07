@@ -11,9 +11,9 @@ declaring lines are always present rather than summarized away.
 
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import Dict, List, Sequence
 
-from ..diff import SIGNAL_LABELS
+from ..diff import SIGNAL_LABELS, leading_signal
 from ..enrich.gerrit import CITES as _CITES, strength as _strength
 from . import wording
 from ..model import (
@@ -106,6 +106,46 @@ def _location(finding: Finding, limit: int = 52) -> str:
     return "…/" + out
 
 
+def _covering(findings: Sequence[Finding], per_signal: int = 3,
+              cap: int = 60) -> List[Finding]:
+    """Rows for a bucket table: every signal represented, heaviest first.
+
+    A bucket table used to be the top N by score, and score is not spread
+    evenly across signals. At M148 -> M151 the 40 rows of Compatibility break
+    were all score 80, so they covered 2 of the bucket's 11 signals and a
+    reader going top to bottom saw forty Mojo signature changes and not one of
+    the 45 removed web APIs -- severity 70 -- nor either of the two renamed
+    preference constants that stop code compiling. Behaviour change was worse:
+    40 rows, 1 signal of 19, and all 129 `web_api_shipped` rows absent.
+
+    The *What happened* section already counts every signal. What a table adds
+    is identifiers to go and grep, and it adds nothing for a signal it never
+    shows. So each signal contributes its highest-scoring few, signals come in
+    severity order, and whatever room is left goes to the next-highest rows.
+
+    This is the report doing what the skill tells its reader to do: when the
+    list is long, group by signal rather than truncate.
+    """
+    groups: Dict[str, List[Finding]] = {}
+    for finding in findings:
+        lead = leading_signal(finding.change) or ""
+        groups.setdefault(lead, []).append(finding)
+    for rows in groups.values():
+        rows.sort(key=lambda f: -f.score)
+    order = sorted(groups, key=lambda k: (
+        -max(f.change.severity for f in groups[k]), -len(groups[k]), k))
+
+    picked: List[Finding] = []
+    taken = set()
+    for key in order:
+        for finding in groups[key][:per_signal]:
+            picked.append(finding)
+            taken.add(finding.uid)
+    rest = [f for f in findings if f.uid not in taken]
+    rest.sort(key=lambda f: -f.score)
+    return picked + rest[:max(0, cap - len(picked))]
+
+
 def render(report: Report, platform: str = "windows",
            detail_limit: int = 40) -> str:
     out: List[str] = []
@@ -165,19 +205,21 @@ def render(report: Report, platform: str = "windows",
         out.append("")
         out.append("| Score | What changed | Kind | What moved | Where |")
         out.append("|---:|---|---|---|---|")
-        for finding in findings[:detail_limit]:
+        shown = _covering(findings, cap=detail_limit + 20)
+        for finding in shown:
             out.append(
                 f"| {finding.score} | {_esc(wording.describe(finding.change))} "
                 f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
                 f"| {_esc(_state_arrow(finding, platform))} "
                 f"| `{_esc(_location(finding))}` |"
             )
-        if len(findings) > detail_limit:
-            out.append(f"| … | _{len(findings) - detail_limit} more_ | | | |")
+        if len(findings) > len(shown):
+            out.append(f"| … | _{len(findings) - len(shown)} more, and every "
+                       f"signal above already has a row_ | | | |")
         out.append("")
 
         if bucket in (BUCKET_CONTRACT, BUCKET_BEHAVIOUR):
-            out.append(_render_details(findings[:detail_limit], platform))
+            out.append(_render_details(shown, platform))
 
     out.append(_render_unconfirmed(report, platform, detail_limit))
 
@@ -368,8 +410,15 @@ def _render_clusters(report: Report, summary: dict, limit: int = 12) -> str:
     for that sentence is every member's move, together, which is what is
     printed here.
     """
-    rows = [r for r in ((summary or {}).get("clusters") or [])
-            if r.get("size", 0) > 1][:limit]
+    # Every block whose fragments disagree gets printed, however many that
+    # is; the flat ones fill whatever room is left. A fixed twelve cut 12 of
+    # the 24 contradictory blocks on a wide run, and those are the only ones
+    # that mislead when read apart.
+    every = [r for r in ((summary or {}).get("clusters") or [])
+             if r.get("size", 0) > 1]
+    telling = [r for r in every if r.get("spread", 0) >= 5]
+    flat = [r for r in every if r.get("spread", 0) < 5]
+    rows = telling + flat[:max(0, limit - len(telling))]
     if not rows:
         return ""
     by_uid = {f.uid: f for f in report.findings}

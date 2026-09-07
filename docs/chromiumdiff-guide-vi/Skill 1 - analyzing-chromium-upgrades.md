@@ -163,11 +163,11 @@ Ba file mang ba thứ khác nhau, và **id của signal chỉ có trong `report.
 
 | Artifact | Dung lượng | ≈ token | Đọc thế nào |
 |---|---:|---:|---|
-| `report.md` | 133 KB | **38k** | đọc trọn, từ trên xuống |
+| `report.md` | 173 KB | **49k** | đọc trọn, từ trên xuống |
 | `report.html` | 1,5 MB | 427k | mở bằng browser, không bao giờ đưa vào context |
-| `report.json` | 4,2 MB | **1.193k** | chỉ qua chương trình |
+| `report.json` | 4,1 MB | **1.200k** | chỉ qua chương trình |
 
-Một lần chạy `wide` nâng con số cuối lên khoảng 2.032k. Nên `report.json` **không** vào context — không `cat`, không `Read`, không dán một đoạn của nó. **Chạy Python trên nó và chỉ in ra câu trả lời**, vì chỉ phần đó mới tốn context:
+Một lần chạy `wide` nâng con số cuối lên khoảng 2.052k. Nên `report.json` **không** vào context — không `cat`, không `Read`, không dán một đoạn của nó. **Chạy Python trên nó và chỉ in ra câu trả lời**, vì chỉ phần đó mới tốn context:
 
 ```python
 import json, collections
@@ -181,7 +181,7 @@ print([f["change"]["name"] for f in F
 
 `grep` trên nó còn tệ hơn vô dụng: file ghi trên **một dòng**, nên mọi match đều trả về nguyên 4 MB.
 
-#### Thứ tự đọc tốn khoảng 24k
+#### Thứ tự đọc tốn khoảng 34k
 
 `report.md` được xếp sao cho các mục đầu chính là thứ để viết báo cáo. Đọc theo thứ tự này và dừng khi đã đủ trả lời:
 
@@ -190,12 +190,12 @@ print([f["change"]["name"] for f in F
 | Header, *What kind of change*, *What happened* | 2k | các con số đếm, và mọi nhóm signal cùng lúc |
 | *Related changes, grouped* | 1k | các mục cần viết, đã gom sẵn |
 | *What changed on each screen* | 2k | các mục theo từng màn hình |
-| *Compatibility break* | 12k | những dòng phải đọc kỹ |
-| *Behaviour change* | 7k | như trên |
+| *Compatibility break* | 18k | những dòng phải đọc kỹ — mọi signal trong bucket đều có dòng |
+| *Behaviour change* | 11k | như trên |
 
-Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 24k, phần còn lại của ngân sách dành cho việc suy luận. Các mục còn lại — *New declarations*, *Scheduled*, *Unconfirmed* — mỗi mục khoảng 2k, đọc khi câu hỏi cần tới.
+Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 34k, phần còn lại của ngân sách dành cho việc suy luận. Các mục còn lại — *New declarations*, *Scheduled*, *Unconfirmed* — mỗi mục khoảng 2k, đọc khi câu hỏi cần tới.
 
-**Chỗ nào `report.md` cắt bớt thì quay sang chương trình, đừng mở file.** Bảng theo bucket dừng ở 40 dòng, mỗi màn hình dừng ở 12, và cả hai đều ghi rõ còn ẩn bao nhiêu. Một truy vấn là ra phần còn lại:
+**Chỗ nào `report.md` cắt bớt thì quay sang chương trình, đừng mở file.** Bảng theo bucket mang **mọi signal** của bucket đó — mỗi signal vài dòng cao điểm nhất, signal nặng nhất trước — rồi mới dừng; mỗi màn hình dừng ở 12. Cả hai đều ghi rõ còn ẩn bao nhiêu. Một truy vấn là ra phần còn lại:
 
 ```python
 [f["change"]["name"] for f in F
@@ -234,7 +234,9 @@ Hai lệnh phụ: `chromiumdiff catalog <ref>` đo xem target set đang bỏ só
 
 Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Đó không phải thứ tự đọc, và cũng không phải chỗ để cắt.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
 
-Danh sách dài thì **gom theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 39 leading signal khác nhau. Xem mỗi nhóm signal một lần là đã phủ hết.
+Danh sách dài thì **phủ hết theo signal**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng nhưng chỉ 39 leading signal khác nhau, nên xem mỗi nhóm signal một lần là đã phủ hết. `report.md` được dựng đúng theo cách đó — bảng của mỗi bucket mang **mọi** signal của bucket, nặng nhất trước.
+
+**Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — và một mục lấy tên signal, tên bucket hay khoảng điểm làm tiêu đề chính là hình dạng mà skill này sinh ra để tránh.
 
 Đọc theo bucket, theo đúng thứ tự dưới đây.
 
