@@ -172,7 +172,7 @@ retrieval. The agent records evidence-backed event decisions with `record`;
 `render` writes `review.md` from `review.json`. Neither edits the raw report.
 `check` returns nonzero for pending/unresolved work, provisional conclusions or
 stale inputs. Accounting completion does not certify semantic completeness.
-See the [checkpoint contract](skills/analyzing-chromium-upgrades/reference/investigation.md)
+See the [decision and refresh procedure](skills/analyzing-chromium-upgrades/reference/investigation.md)
 and [independent evaluation protocol](docs/review-evaluation.md).
 
 The evaluation workflow includes `prepare-trial`, `run-trial`, `collect-trial`
