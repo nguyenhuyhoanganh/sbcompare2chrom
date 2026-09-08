@@ -982,7 +982,7 @@ class TestPlatformDirectories(unittest.TestCase):
 
         `targets.py` decided what to fetch and what the coverage denominator
         is; `extract/` decided which extractors run. Nothing asked when
-        scoring, so 164 findings on a wide M148 -> M151 run were declared
+        scoring, so 164 findings on a full M148 -> M151 run were declared
         under a platform we do not build and none of them scored zero.
         """
         from chromiumdiff.extract._cpp import PLATFORM_DIR_RE

@@ -257,7 +257,7 @@ class TestScoring(unittest.TestCase):
         `platform_state`, and if either spelling moves the deduction goes back
         to skipping every Mojo finding in silence -- which is how an
         Android-only field changing type reached the top of a Windows report at
-        80 points. Measured on wide M148 -> M151: seven findings.
+        80 points. Measured on M148 -> M151: seven findings.
         """
         facts = mojom.extract("""
 module blink.mojom;
@@ -423,7 +423,7 @@ class TestWebApiGates(unittest.TestCase):
         self.assertIn("web_api_added_gated", change.signals)
 
     def test_an_unreadable_gate_stays_undecided(self):
-        """A `default` run reads a third of the flags; guessing is the bug."""
+        """A partial run reads a fraction of the flags; guessing is the bug."""
         new = snap("151.0.0.0", [self._idl("mystery", runtime="NotInThisRun")])
         change = diff_snapshots(snap("148.0.0.0", []), new)[0]
         self.assertIn("web_api_added", change.signals)
@@ -751,7 +751,7 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
         self.assertEqual(sorted(labels), sorted(set(labels)), labels)
 
     def test_a_report_with_nothing_unconfirmed_offers_no_filter(self):
-        """An empty control reads as a broken one, and its absence on a wide
+        """An empty control reads as a broken one, and its absence on a full
         run is itself the answer: no row rests on a hole."""
         from chromiumdiff.model import Change, Finding, Report
         from chromiumdiff.report import html as html_report
@@ -1363,9 +1363,9 @@ class TestCompletePartitions(unittest.TestCase):
         """
         from chromiumdiff.targets import READABLE_SUFFIXES, get_targets
 
-        wide = {t.include for t in get_targets("analysis")
-                if t.kind == "tree" and t.include}
-        self.assertIn(READABLE_SUFFIXES, wide)
+        filters = {t.include for t in get_targets("analysis")
+                   if t.kind == "tree" and t.include}
+        self.assertIn(READABLE_SUFFIXES, filters)
         for target in get_targets("analysis", ["extensions"], complete=True):
             if target.kind != "tree":
                 continue
@@ -2620,13 +2620,14 @@ class TestIdentityMovesAreStillChanges(unittest.TestCase):
         self.assertEqual([c for c in changes if "ui_control_repointed" in c.signals], [])
 
 class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
-    """Three target sets, and each has to say what it costs and what it reads.
+    """Two target sets, and each has to say what it costs and what it reads.
 
     Coverage is a property of a run, not of the tool, so nothing may hard-code
-    it as a constant. Measured at M151: `default` reads 42 of the 1,039 files
-    in the tree that could declare -- 4% of files, but more than half the
-    `base::Feature` declarations, because the curated files are the large ones
-    -- and the archives reach all 1,039, for about 315 MB per version against 40.
+    it as a constant. Measured at M151: the curated files alone read 42 of the
+    1,039 files in the tree that could declare -- 4% of files, but more than
+    half the `base::Feature` declarations, because those files are the large
+    ones -- and the archives reach all 1,039, for about 315 MB per version
+    against 40.
     """
 
     def test_every_named_set_resolves(self):
@@ -2634,14 +2635,16 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         for name in TARGET_SETS:
             self.assertTrue(get_targets(name), name)
 
-    def test_wide_is_a_superset_of_default(self):
-        """A release gate must never read *less* than a working run."""
+    def test_analysis_keeps_every_curated_target(self):
+        """The archives are added to the curated list, never in place of it."""
+        from chromiumdiff import targets as targets_module
         from chromiumdiff.targets import get_targets
-        default = {(t.path, t.kind) for t in get_targets("analysis")}
-        wide = {(t.path, t.kind) for t in get_targets("analysis")}
-        self.assertTrue(default <= wide, sorted(default - wide))
+        curated = {(t.path, t.kind) for t in targets_module._curated_targets()}
+        analysis = {(t.path, t.kind) for t in get_targets("analysis")}
+        self.assertTrue(curated, "the curated list is empty")
+        self.assertTrue(curated <= analysis, sorted(curated - analysis))
 
-    def test_every_wide_suffix_is_read_by_some_extractor(self):
+    def test_every_archive_suffix_is_read_by_some_extractor(self):
         """The archives are large; the filter is what stops the tree being.
 
         A suffix nobody reads is bytes unpacked and then ignored, and worse, it
@@ -2699,28 +2702,28 @@ class TestMinimalStaysMinimal(unittest.TestCase):
     the three-file set quietly started pulling 683 preference keys.
     """
 
-    def test_minimal_is_three_declaration_files(self):
+    def test_smoke_is_three_declaration_files(self):
         from chromiumdiff.targets import get_targets
         targets = get_targets("smoke")
         self.assertEqual(len(targets), 3, [t.path for t in targets])
         self.assertTrue(all(t.kind == "file" for t in targets))
 
-    def test_minimal_is_a_subset_of_default(self):
+    def test_smoke_is_a_subset_of_analysis(self):
         from chromiumdiff.targets import get_targets
-        minimal = {t.path for t in get_targets("smoke")}
-        default = get_targets("analysis")
-        names = {t.path for t in default if t.kind == "file"}
-        trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
-        for path in minimal:
+        smoke = {t.path for t in get_targets("smoke")}
+        analysis = get_targets("analysis")
+        names = {t.path for t in analysis if t.kind == "file"}
+        trees = [t.path.rstrip("/") + "/" for t in analysis if t.kind == "tree"]
+        for path in smoke:
             self.assertTrue(path in names or any(path.startswith(p) for p in trees),
-                            f"{path} is in minimal but not reachable from default")
+                            f"{path} is in smoke but not reachable from analysis")
 
-    def test_every_partition_core_file_is_reachable_from_default(self):
+    def test_every_partition_core_file_is_reachable_from_analysis(self):
         """PARTITION_CORE promises these to every partition."""
         from chromiumdiff.targets import PARTITION_CORE, get_targets
-        default = get_targets("analysis")
-        names = {t.path for t in default if t.kind == "file"}
-        trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
+        analysis = get_targets("analysis")
+        names = {t.path for t in analysis if t.kind == "file"}
+        trees = [t.path.rstrip("/") + "/" for t in analysis if t.kind == "tree"]
         for path in PARTITION_CORE:
             self.assertTrue(path in names or any(path.startswith(p) for p in trees),
                             f"{path} is promised to partitions but not fetched")
@@ -3568,12 +3571,12 @@ class TestEveryComparedAttributeIsExplained(unittest.TestCase):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         snaps = {}
         for path in glob.glob(os.path.join(root, ".chromiumdiff-cache",
-                                           "snapshots", "*.default.json")):
+                                           "snapshots", "*.analysis.json")):
             blob = read_json(path)
             if blob.get("schema") == SCHEMA_VERSION:
                 snaps[blob["ref"]] = Snapshot.from_dict(blob)
         if len(snaps) < 2:
-            self.skipTest("needs two current-schema default snapshots")
+            self.skipTest("needs two current-schema analysis snapshots")
         old, new = [snaps[r] for r in sorted(snaps)[:2]]
         mute = [c for c in diff_snapshots(old, new)
                 if c.change_type == "modified" and not c.signals]
@@ -4346,7 +4349,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         `position` is recorded only inside `[Stable]`, so when Chromium drops
         the annotation the attribute disappears and every field's delta reads
         `[6, None]`. Read as an ordinal move that is an ABI break each: 183
-        rows at 80 points on M143 -> M147 wide, from
+        rows at 80 points on M143 -> M147, from
         `device.mojom.HidCollectionInfo` and its neighbours losing `[Stable]`
         upstream. A position is evidence only against another position.
         """
@@ -4527,10 +4530,10 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
             return dedupe_facts(web_idl.extract(
                 "interface N {\n  %s\n};" % body,
                 "third_party/blink/renderer/x.idl"))
-        wide = "\n  ".join(f"void f({'long a, ' * n}long z);" for n in range(5))
+        signatures = "\n  ".join(f"void f({'long a, ' * n}long z);" for n in range(5))
         changes = diff_snapshots(
-            Snapshot(ref="1", facts=side(wide), meta={"target_set": "analysis"}),
-            Snapshot(ref="2", facts=side(wide.split("\n  ", 1)[1]),
+            Snapshot(ref="1", facts=side(signatures), meta={"target_set": "analysis"}),
+            Snapshot(ref="2", facts=side(signatures.split("\n  ", 1)[1]),
                      meta={"target_set": "analysis"}))
         findings = score_all([c for c in changes if c.kind == "idl_member"])
         locations = findings[0].change.locations

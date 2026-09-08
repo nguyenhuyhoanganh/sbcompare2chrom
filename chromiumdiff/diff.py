@@ -562,7 +562,7 @@ NO_SIGNAL_BUCKET = {
 # Attributes that are evidence only against their counterpart. A lexical
 # position exists only inside `[Stable]`, so when the promise is withdrawn the
 # attribute disappears and a naive comparison reports `[6, None]` -- once per
-# member. Measured M143 -> M147 wide: three files dropped `[Stable]` and
+# member. Measured M143 -> M147: three files dropped `[Stable]` and
 # produced 32 correct container rows and 164 members restating them, 11% of
 # the Behaviour bucket for one upstream annotation edit.
 #
@@ -668,7 +668,7 @@ def _reachable(fact: Optional[Fact],
     Gates are ANDed, the way build conditions are: a member behind two flags
     needs both open. None rather than a guess when the flag is not in the
     snapshot, for the same reason a non-platform BUILDFLAG stays
-    `conditional` -- a `default` run reads a third of the flags.
+    `conditional` -- a partitioned run reads a fraction of the flags.
     """
     if fact is None:
         return None

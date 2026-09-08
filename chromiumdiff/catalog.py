@@ -133,7 +133,7 @@ def covered_by_targets(path: str, targets: Sequence) -> bool:
 
     Nested targets also have to be tried in full: a path excluded by the
     narrow filter on `chrome/browser/ui/webui` may still be reached by the
-    wide one on `chrome/browser`.
+    broader one on `chrome/browser`.
     """
     from .targets import reaches, scope_of
 

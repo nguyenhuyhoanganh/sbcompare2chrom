@@ -26,17 +26,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 # Bump whenever cached artifacts stop meaning what an older build thought they
 # meant, so stale caches are rebuilt instead of silently misread.
-#
-# The target sets were once named "minimal", "default" and "wide"; they are now
-# "smoke" and "analysis", and the entries below keep the old names because that
-# is what those snapshots were built under. No bump for that rename: a snapshot
-# records its set in its own filename, so an old one is never found rather than
-# misread, and "analysis" fetches exactly what "wide" did.
 #   2: extraction is scoped to the declared target set. Version 1 snapshots
 #      took their scope from whatever the shared per-ref tree cache held, so a
-#      "minimal" snapshot could contain the full fact set.
-#   3: the "default" target set gained the desktop WebUI surfaces, so a
-#      version 2 snapshot named "default" no longer means the same thing.
+#      small-set snapshot could contain the full fact set.
+#   3: the curated target list gained the desktop WebUI surfaces, so a
+#      version 2 snapshot no longer means the same thing.
 #   4: base_feature facts record the preprocessor guards enclosing them.
 #      Snapshots without that attribute compare as different from ones with
 #      it, which made an identical tree look 1,369 facts diverged.
@@ -71,7 +65,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #  13: extraction honours a tree target's suffix filter, not just its path
 #      prefix. Version 12 snapshots extracted whatever an earlier, wider run
 #      had left under the prefix in the shared tree cache: at M148 that was 103
-#      .mojom files under chrome/browser/ui/webui, which the "default" target
+#      .mojom files under chrome/browser/ui/webui, which the curated target
 #      asks for as .cc only. Diffed against a clean M151 it produced 803
 #      phantom "Mojo method removed" findings at severity 80 -- the tool's
 #      highest -- sitting at the top of the report.
@@ -99,7 +93,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #      than assumed. Version 15 snapshots carry no such measurement, and the
 #      target set they were built from named files chosen at M151, which is a
 #      different scope from the one the same name resolves to now.
-#  17: `wide` reads every filename shape an extractor understands, not only
+#  17: the full set reads every filename shape an extractor understands, not only
 #      feature and pref files, and reaches content/ and blink/public. Version 16
 #      downloaded the archives holding 934 of the tree's 1,424 .mojom files and
 #      124 of its 132 WebUI surfaces, then discarded them for want of a suffix
@@ -151,8 +145,8 @@ from typing import Any, Dict, Iterable, List, Optional
 #          declared in more than one file, so 318 declarations were dropped as
 #          duplicates and which survived depended on walk order. This is the
 #          same defect schema 11 fixed for a control's preference, one level
-#          out. Recovering them moves the M151 default set from 24,679 facts to
-#          24,871 and wide from 36,095 to 36,356.
+#          out. Recovering them moves the M151 curated files from 24,679 facts to
+#          24,871 and the full set from 36,095 to 36,356.
 #        - nine new signals label attributes that were compared and never
 #          explained -- 380 of 709 modified changes at M148 -> M151.
 #  21: every fact points at a line, and a finding carries the place rather than
@@ -208,7 +202,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #      the ground it already covers.
 #        - `DISCOVERY_ROOTS` was the fourteen roots the fetch targets happen to
 #          live under, so the denominator was chosen by the same list it was
-#          grading. `wide` scored 1,039 of 1,039 and reported **100%**, while
+#          grading. The full set scored 1,039 of 1,039 and reported **100%**, while
 #          `chromiumdiff catalog`, which walks the real tree, counted 1,192
 #          files the same rule says can declare. The 153 in the gap could never
 #          appear as missed however wide the run: `base/base_switches.h`,
@@ -227,12 +221,12 @@ from typing import Any, Dict, Iterable, List, Optional
 #        - a snapshot's `missing_targets` reaches the report. It was printed by
 #          the run that built the snapshot and lost on every cached run after
 #          it, and it was in none of the three report files.
-#  24: `wide` reads every file the rule admits, so its figure means what it
+#  24: the full set reads every file the rule admits, so its figure means what it
 #      says. Schema 23 made the denominator honest and the answer came back
 #      88%; this closes the 139 it named. base/, device/, cc/, sandbox/,
 #      storage/, google_apis/, pdf/, mojo/ and Blink's renderer/platform are
 #      fetched -- 22 MB per version on top of 315 -- and the two Blink renderer
-#      archives the default set already downloaded are filtered by everything
+#      archives already downloaded are filtered by everything
 #      an extractor reads rather than by `.idl` alone, which was free.
 #      Binaries that ship beside the browser rather than being it are excluded
 #      by name instead: the headless shell, Chrome Remote Desktop, the updater,
@@ -294,7 +288,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #      `#if` for the scanner to find and the path is the only evidence. Two
 #      copies of the directory list existed, in `targets.py` and in
 #      `extract/__init__.py`, and they disagreed about `android/`; neither was
-#      read when scoring. On a wide M148 -> M151 run 164 findings were declared
+#      read when scoring. On a full M148 -> M151 run 164 findings were declared
 #      under a platform we do not build and none scored zero, topped by
 #      `AndroidNewMediaPicker` at 75 in Behaviour change. Stamped only when
 #      every declaration of the uid is under such a directory, since five keys
@@ -371,7 +365,7 @@ from typing import Any, Dict, Iterable, List, Optional
 #      recorded `position` only inside `[Stable]`, so a declaration losing the
 #      annotation dropped the attribute and every member's delta read
 #      `[N, None]` -- an ordinal move, 80 points, Breaking. Measured on
-#      M143 -> M147 wide, where `device.mojom.HidCollectionInfo` and its
+#      M143 -> M147, where `device.mojom.HidCollectionInfo` and its
 #      neighbours lost `[Stable]` upstream: 183 rows invented by the
 #      attribute's absence, 178 of them in Breaking.
 #  39: a surface counts every file that reads it, and a guard belongs to the

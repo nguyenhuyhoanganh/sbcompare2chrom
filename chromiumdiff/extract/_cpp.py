@@ -44,7 +44,7 @@ PLATFORM_FLAGS = {PLATFORM: {"IS_WIN"}}
 # One definition, because there were two and they disagreed. `targets.py` had
 # this list to decide what to fetch and what the coverage denominator is, and
 # `extract/__init__.py` had a shorter one, missing `android/`, to decide which
-# extractors run. Nothing read either when scoring, so 164 findings on a wide
+# extractors run. Nothing read either when scoring, so 164 findings on a full
 # M148 -> M151 run were declared under a platform we do not build and none of
 # them scored zero -- `AndroidNewMediaPicker` at 75 points, in Behaviour
 # change, on a Windows report.

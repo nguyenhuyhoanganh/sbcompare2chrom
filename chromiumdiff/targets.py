@@ -63,7 +63,7 @@ WEBUI_SURFACES = (
 # and it is resolved against the actual tree of the version being read.
 # Gitiles answers a full recursive listing per root in one request
 # (`?format=JSON&recursive=true`), so all twelve roots cost about 24 MB and 21
-# seconds on a cold cache, against the ~40 MB of source the same run already
+# seconds on a cold cache, against the ~315 MB of source the same run already
 # downloads. A tag's tree is immutable, so the listing is cached forever.
 #
 # The rules stay narrow on purpose. They are matched against filenames, which

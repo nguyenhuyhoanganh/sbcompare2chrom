@@ -621,7 +621,7 @@ Chromium says this in three different ways, and for a long time the tool read on
 | A mojom attribute | `[EnableIf=is_android]` | schema 27 |
 | A directory name | `chrome/browser/ash/`, `.../android/` | schema 28 |
 
-The second and third are not variations on the first. A `.mojom` file has no preprocessor, and a directory Chromium excludes in BUILD.gn contains **no guard anywhere** — the path is the only evidence there is. So `platform_state` sat on four of the sixteen fact kinds, none of them Mojo, and an Android-only field changing type scored 80 at the top of a Windows report. On a wide M148 → M151 run, 164 findings were declared under a platform we do not build and not one of them scored zero.
+The second and third are not variations on the first. A `.mojom` file has no preprocessor, and a directory Chromium excludes in BUILD.gn contains **no guard anywhere** — the path is the only evidence there is. So `platform_state` sat on four of the sixteen fact kinds, none of them Mojo, and an Android-only field changing type scored 80 at the top of a Windows report. On an M148 → M151 run, 164 findings were declared under a platform we do not build and not one of them scored zero.
 
 The directory rule applies only when *every* declaration of a key sits under one, because five keys at M151 sit both inside and outside — and deduplication keeps the copy we do not build.
 

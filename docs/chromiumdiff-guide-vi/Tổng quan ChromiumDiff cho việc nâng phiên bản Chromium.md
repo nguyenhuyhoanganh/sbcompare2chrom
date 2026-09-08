@@ -1052,7 +1052,7 @@ Kết quả được lưu trong snapshot và trong report, chứ không chỉ in
 
 ### 16.1. Số liệu M151 hiện có
 
-| Surface denominator | Default read | Wide read | Candidate files |
+| Surface denominator | Danh sách chọn tay đọc | `analysis` đọc | Candidate files |
 |---|---:|---:|---:|
 | Feature flags | 363 | 2,971 | 3,011 |
 | Prefs and switches | 9 | 526 | 529 |
@@ -1398,7 +1398,7 @@ Khi đánh giá toàn bộ một đợt nâng phiên bản, đừng giới hạn
 ```bash
 python3 -m chromiumdiff run \
   148.0.7778.217 151.0.7922.138 \
-  --out out/M148_to_M151_wide
+  --out out/M148_to_M151
 ```
 
 ### Bước 2 — Phân loại theo loại khai báo, không theo file
