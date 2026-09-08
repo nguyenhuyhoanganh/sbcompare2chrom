@@ -173,8 +173,18 @@ class TestTrialRunner(unittest.TestCase):
         refs = workspace / "skills/analyzing-chromium-upgrades/reference"
         self.assertIn("withheld", (refs / "traps.md").read_text())
         original_refs = Path(__file__).resolve().parent.parent / "skills/analyzing-chromium-upgrades/reference"
-        for name in ("scoping.md", "focus.md", "investigation.md", "history.md"):
-            self.assertEqual((refs / name).read_bytes(), (original_refs / name).read_bytes())
+        # A kept reference keeps its procedure and loses its path examples; a
+        # copied prefix spends the trial on the example's product area whether
+        # or not the case has a file there.
+        redacted = 0
+        for name in review_trials.CORE_REFERENCES:
+            staged = (refs / name).read_text()
+            original = (original_refs / name).read_text()
+            self.assertEqual([], review_trials.DOMAIN_PATH.findall(staged), name)
+            redacted += len(review_trials.DOMAIN_PATH.findall(original))
+            self.assertEqual(staged.splitlines()[0], original.splitlines()[0], name)
+            self.assertNotIn("withheld", staged)
+        self.assertTrue(redacted, "kept references name no path; the ablation is untested")
         self.assertTrue(metadata["staged_skill_sha256"])
         self.assertIn("implementation.cc", str(metadata["source_sha256"]))
         with self.assertRaisesRegex(ValueError, "never overwritten"):

@@ -66,11 +66,11 @@ Các script MUST được dùng ở những giai đoạn sau:
 - Phân tích bằng chứng: dùng `review index`, `inspect`, `related` và `source`
   khi cần, để xem finding và source đúng version. Một lần tìm theo từ khoá
   MUST NOT được coi là bằng chứng về hành vi hay về coverage đầy đủ.
-- Lưu và giao kết quả: `review record`, `review check`, rồi `review render
-  --require-complete` khi phần kế toán đã xong. Một báo cáo còn dở MUST giữ
-  nguyên trạng thái và các con số chưa hoàn tất của nó. Không vượt qua một lần
-  `check` thất bại bằng cách đổi các item chưa giải thích thành `explained`
-  hay `out_of_scope`.
+- Lưu và giao kết quả: `review record`, `review check`, rồi `review render`.
+  Thêm `--require-complete` khi đã review toàn bộ index; một review theo phạm
+  vi hẹp render không kèm tuỳ chọn đó và MUST giữ nguyên trạng thái PARTIAL
+  cùng các con số chưa hoàn tất. Không vượt qua một lần `check` thất bại bằng
+  cách đổi các item chưa giải thích thành `explained` hay `out_of_scope`.
 
 Dùng các thuật ngữ này một cách nhất quán:
 
@@ -178,20 +178,26 @@ bị xoá.
    đã lưu và đối chiếu bằng chứng mới với các quyết định trước đó. Sửa lại các
    nhóm khi bằng chứng cho thấy chúng nên được gộp hoặc tách.
 7. Trước khi giao kết quả, kiểm tra các item còn pending, các câu hỏi chưa
-   giải và các event provisional. Chạy `review check` và `review render
-   --require-complete`. Nếu còn việc và các bước kiểm tra được phép vẫn còn
-   dùng được, tiếp tục đợt kế tiếp. Nếu một giới hạn tài nguyên thật sự hoặc
-   bằng chứng thiếu ngăn việc hoàn tất, lưu tiến độ và giao một báo cáo còn dở
-   kèm các con số và các bước kiểm tra tiếp theo.
+   giải và các event provisional. Chạy `review check`. Một review toàn bộ index
+   được giao bằng `review render --require-complete`; khi còn việc và các bước
+   kiểm tra được phép vẫn dùng được thì tiếp tục đợt kế tiếp. Một review theo
+   phạm vi hẹp được giao khi phạm vi đã xác nhận đã được kế toán xong. Nó render
+   ra PARTIAL vì các item ngoài phạm vi vẫn ở pending, nên render không kèm
+   `--require-complete` và đưa vào bản tóm tắt giao đi phạm vi đã xác nhận lấy
+   từ `review/request.md` cùng các con số chưa đụng tới; `render` ghi đè
+   `review.md`. Nếu một giới hạn tài nguyên hoặc bằng chứng thiếu làm dừng việc sớm hơn,
+   nói rõ là cái nào trong hai, kèm các con số và các bước kiểm tra tiếp theo.
 
 Áp dụng quy trình này cho cả những identifier không quen. Các ví dụ trong
 reference và tên signal không phải là danh sách tính năng cần đi tìm. Score có
 thể ảnh hưởng thứ tự làm việc, nhưng không được quyết định bằng chứng nào được
 xem xét hay event nào tồn tại. Không đặt trước một số lượng event cần tìm. Một
 đợt nhỏ giới hạn lượng thông tin có mặt trong context tại một thời điểm, không
-giới hạn phần so sánh cần review. Làm theo quy trình lặp lại cho item pending
-trong `reference/investigation.md`; không dừng lại sau trang đầu tiên hay sau
-một nhóm ví dụ thú vị.
+giới hạn phần phạm vi đã xác nhận cần review. Làm theo quy trình lặp lại cho
+item pending trong `reference/investigation.md`; không dừng lại sau trang đầu
+tiên. Phạm vi user đã xác nhận là ranh giới duy nhất cho phép dừng trước khi
+kế toán hết index; một nhóm dòng trông thú vị, một ngưỡng score hay một số
+trang thì không.
 
 ## Truy vấn theo từng phần nhỏ
 

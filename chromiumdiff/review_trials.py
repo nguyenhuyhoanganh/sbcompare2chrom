@@ -11,6 +11,7 @@ import datetime
 import json
 from pathlib import Path
 import random
+import re
 import shutil
 import subprocess
 import time
@@ -24,6 +25,14 @@ from .model import Report, Snapshot, read_json, write_json
 from .report import markdown
 from .score import Scope, score_all, summarize_findings
 from .snapshot import snapshot_path, tree_path
+
+CORE_REFERENCES = ("scoping.md", "focus.md", "investigation.md", "history.md")
+# A path prefix is the input that steers retrieval, so a kept reference must not
+# name one: the trial would spend its budget on the example's product area
+# whether or not the case has a file there. A product-area word in prose names
+# an area the agent must still locate in the actual comparison.
+DOMAIN_PATH = re.compile(r"\b(?:chrome|components|content|device|extensions|services|third_party|ui)"
+                         r"(?:/[A-Za-z0-9_.-]+)+")
 
 
 def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=0) -> dict:
@@ -45,13 +54,17 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
     shutil.copytree(source_root / "skills", workspace / "skills",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "evaluations.json"))
     if reference_mode == "core":
-        # Withhold all domain examples, not particular feature names. Keep the
-        # links usable and the generic analysis/history procedures intact.
+        # Withhold domain examples, not particular feature names. Keep the links
+        # usable and the scoping, retrieval, analysis and history procedures
+        # intact, with their path examples redacted.
         refs = workspace / "skills/analyzing-chromium-upgrades/reference"
         for path in refs.glob("*.md"):
-            if path.name not in ("scoping.md", "focus.md", "investigation.md", "history.md"):
+            if path.name not in CORE_REFERENCES:
                 path.write_text("# Reference withheld for this trial\n\n"
                                 "Use the generic investigation procedure in SKILL.md and actual source evidence.\n",
+                                encoding="utf-8")
+            else:
+                path.write_text(DOMAIN_PATH.sub("PATH/FROM/OVERVIEW", path.read_text(encoding="utf-8")),
                                 encoding="utf-8")
     data = workspace / "data"
     staged_cache = data / "cache"
@@ -125,7 +138,11 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
                                              for p in sorted((workspace / "skills").rglob("*"))
                                              if p.is_file()})
     write_json(str(dest / "trial.json"), metadata)
-    task = ("Analyze every meaningful change supported by the supplied comparison and declared file scope.\n"
+    task = ("Scope answer, supplied with this task: review the entire declared file scope of this\n"
+            "comparison, every declaration kind, to support what a downstream product must adapt to.\n"
+            "This trial has no interactive user, so do not ask the scope question and do not wait for\n"
+            "a reply. Record this answer in review/request.md and proceed.\n"
+            "Analyze every meaningful change supported by the supplied comparison and declared file scope.\n"
             "Use skills/analyzing-chromium-upgrades/SKILL.md and its available references.\n"
             "Start with data/report.md and the documented CLI. The report is data/report.json; "
             "its cache is data/cache. Write the review into review/.\n"

@@ -7,15 +7,15 @@ tự xác định event hoặc chứng minh đã phát hiện đầy đủ. MUST
 ## Tạo gói bằng chứng
 
 Chọn đường dẫn chính xác từ `review overview` và source liên quan. Dùng review
-rộng đã có nếu phù hợp. Những đường dẫn Settings dưới đây chỉ là ví dụ về
-lựa chọn của user, không phải quy tắc tên tính năng được cài sẵn:
+rộng đã có nếu phù hợp. Các prefix dưới đây chỉ là ví dụ về lựa chọn của
+user, không phải quy tắc tên tính năng được cài sẵn:
 
 ```bash
 python3 -m chromiumdiff review focus out/upgrade/review \
   --path-prefix chrome/browser/resources/settings \
   --path-prefix chrome/browser/ui/webui/settings \
   --fact-kind base_feature --fact-kind mojo_method --fact-kind webui_control \
-  --output out/upgrade/review/settings-focus.json
+  --output out/upgrade/review/area-focus.json
 ```
 
 Lặp `--fact-kind` cho các loại khai báo user ưu tiên. Tuỳ chọn chỉ đánh dấu
@@ -45,15 +45,17 @@ hưởng tới khu vực sản phẩm đã chọn.
 ## Đọc từng phần của gói bằng chứng
 
 ```bash
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section findings --limit 20
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section files --limit 20
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section unresolved --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section findings --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section files --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section unresolved --limit 20
 ```
 
 Đọc tiếp mỗi phần bằng `--cursor` đến khi `next_cursor` là null. `findings`
 chứa bản rút gọn trước/sau, deltas và ID tham chiếu. `files` liệt kê toàn bộ
-source delta của từng file, không chỉ hunk có finding. `references` có hai dạng dòng:
+source delta của từng file, không chỉ hunk có finding. Dòng của cả hai phần
+đều mang `status` hiện tại của item trong sổ quyết định, nên nhìn một phần là
+biết ứng viên nào đã có quyết định. `references` có hai dạng dòng:
 dòng khớp source mang `targets`, dòng quan hệ khai báo mang `source` và
 `target`. Cả hai đều mang `certainty`, nhận giá trị
 `declared_reference` khi parser đã ghi nhận quan hệ, `lexical_lead` khi source
@@ -72,7 +74,7 @@ kết quả cho phạm vi hẹp.
 Để xem tham chiếu trực tiếp của một ứng viên:
 
 ```bash
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section references --item 'KIND:KEY'
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section references --item 'KIND:KEY'
 ```
 
 Dùng ID thật. `--item` cũng nhận ID tham chiếu hoặc `file:PATH` để tìm bản ghi

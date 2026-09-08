@@ -245,23 +245,27 @@ item đã index đều có quyết định hợp lệ. **Nó không chứng minh
 đủ về mặt ngữ nghĩa và không chứng minh sản phẩm an toàn.** Báo cáo render ra
 sẽ đánh dấu phân tích chưa xong là `PARTIAL`.
 
-Khi xuất bản cuối, dùng:
+Khi xuất bản cuối một review toàn bộ index, dùng:
 
 ```bash
 python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 Nếu còn item hoặc event chưa xong, lệnh trả mã 1 và không ghi hay thay thế
-`review.md`. Lệnh `render` thông thường vẫn dùng được để xuất báo cáo một phần
-có ghi rõ trạng thái; mã 0 của nó chỉ nghĩa là đã ghi file. Cả hai lệnh đều
-không xác minh ý nghĩa các lời giải thích của agent.
+`review.md`. Một review theo phạm vi hẹp không bao giờ tới trạng thái đó, vì
+các item ngoài phạm vi vẫn ở pending; render nó không kèm tuỳ chọn này và giữ
+nguyên trạng thái PARTIAL. Lệnh `render` thông thường vẫn dùng được để xuất báo
+cáo một phần có ghi rõ trạng thái; mã 0 của nó chỉ nghĩa là đã ghi file. Cả hai
+lệnh đều không xác minh ý nghĩa các lời giải thích của agent.
 
 Trước khi giao, xem lại ranh giới các event, phần source chống đỡ chúng, các
 điều kiện và các hunk còn lại của từng file. Bản tóm tắt có thể chọn các event
 chính, nhưng báo cáo đầy đủ được liên kết phải giữ mọi event có bằng chứng.
-Nếu giới hạn tài nguyên, bằng chứng thiếu hoặc yêu cầu dừng của user khiến
-công việc chưa xong, báo tổng số item, số quyết định theo trạng thái và loại
-item, số event provisional cùng các bước kiểm tiếp theo. Nếu không bị cản
-trở thì tiếp tục từ trạng thái đã lưu; tìm đủ một số lượng event thuận tiện
-không phải điều kiện dừng. Thiếu thời gian, điểm thấp hay khó phân tích không
+Một review theo phạm vi hẹp được giao khi phạm vi đã xác nhận của nó được kế
+toán xong: báo phạm vi đó, tổng số item, số quyết định theo trạng thái và loại
+item, số event provisional, và các item nằm ngoài phạm vi. Nếu giới hạn tài
+nguyên, bằng chứng thiếu hoặc yêu cầu dừng của user khiến công việc trong phạm
+vi chưa xong, báo là cái nào và các bước kiểm tiếp theo. Nếu không bị cản trở
+thì tiếp tục từ trạng thái đã lưu; tìm đủ một số lượng event thuận tiện không
+phải điều kiện dừng. Thiếu thời gian, điểm thấp hay khó phân tích không
 khiến một item nằm ngoài phạm vi hoặc giải thích được tác động của nó.

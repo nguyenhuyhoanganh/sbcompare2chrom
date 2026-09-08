@@ -237,24 +237,28 @@ invalid records or changed inputs. Exit 0 means all indexed items have valid
 decisions. It does not prove semantic completeness or product safety.
 The rendered report marks incomplete analysis as `PARTIAL`.
 
-For final delivery, use:
+For final delivery of a whole-index review, use:
 
 ```bash
 python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 This exits 1 without writing or replacing `review.md` if items or events are
-unfinished. The ordinary `render` command remains available for a clearly
-labelled partial report; its exit 0 only means the file was written. Neither
-command verifies the meaning of the agent's explanations.
+unfinished. A scoped review never reaches that state, because the items outside
+its scope stay pending; render it without the option and keep the PARTIAL
+status. The ordinary `render` command remains available for a clearly labelled
+partial report; its exit 0 only means the file was written. Neither command
+verifies the meaning of the agent's explanations.
 
 Before delivery, review event boundaries, source support, conditions and
 remaining file hunks. A short summary may select key events, but the linked
-full report must contain all supported events. If a resource limit, missing
-evidence or a user-requested stop leaves work incomplete, report total and
-decision counts, counts by item kind, provisional events and next checks.
-Otherwise continue from the saved state; finding a convenient number of
-events is not a stopping condition. Lack of time, a low score or difficulty
+full report must contain all supported events. A scoped review is delivered
+when its confirmed scope is accounted for: report that scope, the total and
+decision counts, counts by item kind, provisional events, and the items left
+outside the scope. If a resource limit, missing evidence or a user-requested
+stop leaves work incomplete inside the scope, report which one and the next
+checks. Otherwise continue from the saved state; finding a convenient number
+of events is not a stopping condition. Lack of time, a low score or difficulty
 does not make an item out of scope or explain its effect.
 
 Independent evaluation needs fixed source versions, input hashes, tool/skill

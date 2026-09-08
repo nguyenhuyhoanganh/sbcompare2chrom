@@ -98,8 +98,9 @@ Pass `--cache /path/to/cache` if nondefault. Missing/mismatched sources fail
 explicitly; preparation does not fetch or invent empty files. Each workspace
 contains the executable package, skill, `TASK.md`, source-derived report and
 exact-version cache. It excludes tests, gold and prior reviews. `core` replaces
-the analysis skill's domain references with neutral notices, keeping the
-generic scoping, focused retrieval, analysis and history references; `full` keeps the normal references. Metadata
+the analysis skill's domain references with neutral notices and keeps the
+scoping, focused retrieval, analysis and history references with their Chromium
+path examples redacted; `full` keeps the normal references. Metadata
 records both the parent revision and actual staged reference digest.
 `--seed 17` perturbs scores, buckets and input order without changing evidence.
 Repeat into five new directories with the same tool revision/source case.
@@ -209,7 +210,7 @@ benchmark. The two source-pinned cases add reproducible cross-version inputs,
 source-first rubrics, isolation, ablation and execution/adjudication commands.
 They are a small evaluation corpus, not broad semantic certification.
 
-On 2026-09-08, `python3 -m unittest discover -s tests -q` passed **598 tests**;
+On 2026-09-08, `python3 -m unittest discover -s tests -q` passed **615 tests**;
 compilation, diff whitespace checks and the skill creator's `quick_validate.py`
 also passed. Real-file staging, index/source/render and assessment-template
 smoke checks succeeded: the first case has 59 indexed items, the second has

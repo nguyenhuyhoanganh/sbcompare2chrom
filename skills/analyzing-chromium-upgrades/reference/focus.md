@@ -7,15 +7,15 @@ MUST read [scoping.md](scoping.md) and [investigation.md](investigation.md) firs
 ## Build a focus packet
 
 Choose exact source prefixes from `review overview` and the relevant source.
-Use the existing broad review where available. The Settings paths below are
-examples of user-selected inputs, not built-in discovery rules:
+Use the existing broad review where available. The prefixes below are examples
+of user-selected inputs, not built-in discovery rules:
 
 ```bash
 python3 -m chromiumdiff review focus out/upgrade/review \
   --path-prefix chrome/browser/resources/settings \
   --path-prefix chrome/browser/ui/webui/settings \
   --fact-kind base_feature --fact-kind mojo_method --fact-kind webui_control \
-  --output out/upgrade/review/settings-focus.json
+  --output out/upgrade/review/area-focus.json
 ```
 
 Repeat `--fact-kind` for the user's preferred declaration kinds. These mark
@@ -47,15 +47,17 @@ that a candidate affects the selected product area.
 ## Read the packet in sections
 
 ```bash
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section findings --limit 20
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section files --limit 20
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section unresolved --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section findings --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section files --limit 20
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section unresolved --limit 20
 ```
 
 Continue each selected section using `--cursor` until `next_cursor` is null.
 `findings` contains compact before/after values, deltas and reference IDs.
 `files` lists entire source deltas, not just hunks represented by findings.
+Rows in both sections also carry the item's current ledger `status`, so a
+section shows which of its candidates already have a decision.
 `references` holds two row shapes: a source match carries `targets`, a declared
 link carries `source` and `target`. Both carry `certainty`. It is
 `declared_reference` for a link the parser recorded, `lexical_lead` for a single
@@ -74,7 +76,7 @@ the whole-index review may remain partial while the scoped result is reported.
 To inspect a candidate's immediate references without listing all references:
 
 ```bash
-python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/settings-focus.json --section references --item 'KIND:KEY'
+python3 -m chromiumdiff review focus-read out/upgrade/review --file out/upgrade/review/area-focus.json --section references --item 'KIND:KEY'
 ```
 
 Use real IDs. `--item` also accepts a reference ID, or `file:PATH` for matching

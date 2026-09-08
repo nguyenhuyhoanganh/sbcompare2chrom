@@ -62,10 +62,11 @@ The scripts MUST be used at these stages:
 - Evidence analysis: use `review index`, `inspect`, `related` and `source`
   as needed to inspect findings and exact-version source. A keyword search
   alone MUST NOT be treated as evidence of behaviour or complete coverage.
-- Saving and delivery: `review record`, `review check`, then `review render
-  --require-complete` for completed accounting. A partial report MUST retain
-  its status and unfinished counts. Do not bypass a failed check by changing
-  unexplained items to `explained` or `out_of_scope`.
+- Saving and delivery: `review record`, `review check`, then `review render`.
+  Add `--require-complete` when the whole index was reviewed; a scoped review
+  renders without it and MUST retain its PARTIAL status and unfinished counts.
+  Do not bypass a failed check by changing unexplained items to `explained`
+  or `out_of_scope`.
 
 Use these terms consistently:
 
@@ -169,18 +170,25 @@ absence. Read the coverage and reasons before calling a declaration removed.
    event list and compare new evidence with earlier decisions. Revise groups
    when evidence shows that they should be combined or separated.
 7. Before delivery, check pending items, unresolved questions and provisional
-   events. Run `review check` and `review render --require-complete`. If work
-   remains and permitted checks are still available, continue the next batch.
-   If an actual resource limit or missing evidence prevents completion, save
-   progress and deliver a partial report with counts and the next checks.
+   events. Run `review check`. A whole-index review is delivered with `review
+   render --require-complete`; while work remains and permitted checks are
+   still available, continue the next batch. A scoped review is delivered when
+   the confirmed scope is accounted for. It renders PARTIAL because the items
+   outside that scope stay pending, so render without `--require-complete` and
+   give the delivered summary the confirmed scope from `review/request.md`
+   together with the untouched counts; `render` rewrites `review.md`. If a
+   resource limit or missing evidence stops the work earlier, name which of the
+   two it was and give the counts and the next checks.
 
 Apply this procedure to unfamiliar identifiers too. Reference examples and
 signal names are not a list of features to discover. Scores may affect work
 order, but must not decide which evidence is examined or which events exist.
 Do not set a fixed number of events to find. A small batch limits what is in
-context at once, not how much of the comparison to review. Follow the repeatable
-pending-item procedure in `reference/investigation.md`; do not stop after the
-first page or a selection of interesting examples.
+context at once, not how much of the confirmed scope to review. Follow the
+repeatable pending-item procedure in `reference/investigation.md`; do not stop
+after the first page. The scope the user confirmed is the only boundary that
+ends the work before the whole index is accounted for; a set of
+interesting-looking rows, a score threshold or a page count is not.
 
 ## Query in small sections
 
