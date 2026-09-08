@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from chromiumdiff import cluster, evidence, review
@@ -203,6 +203,46 @@ class TestReviewWorkflow(unittest.TestCase):
                              "--after", first["next_after"])
         self.assertEqual(second["items"][0]["id"], sorted(self.index["items"])[1])
 
+    def test_pending_batches_resume_past_first_page_and_account_for_all_kinds(self):
+        # More than one page of implementation-only changes; no named feature
+        # and no classifier score are needed to keep them in the work queue.
+        for side, root in self.index["inputs"]["source_roots"].items():
+            for i in range(35):
+                Path(root, f"engine/unit-{i:02}.cc").write_text(f"// {side} {i}\n")
+        review.initialize(self.path, self.directory, self.cache, refresh=True)
+        index, _ = review.load(self.directory)
+        expected = set(index["items"])
+        seen = []
+        decision_path = str(Path(self.tmp.name) / "batch.json")
+        while True:
+            _, batch = self.cli("index", self.directory, "--status", "pending", "--limit", "10")
+            if not batch["items"]:
+                break
+            ids = [row["id"] for row in batch["items"]]
+            self.assertTrue(set(ids).isdisjoint(seen))
+            seen.extend(ids)
+            # This tests accounting, not the truth of an agent explanation.
+            write_json(decision_path, {"dispositions": [
+                {"id": uid, "status": "explained", "reason": "Synthetic batching exercise only"}
+                for uid in ids]})
+            _, saved = self.cli("record", self.directory, "--file", decision_path)
+            self.assertEqual(saved["counts"].get("pending", 0), len(expected) - len(seen))
+            self.assertEqual(sum(g["total"] for g in saved["by_kind"].values()), len(expected))
+            for kind, group in saved["by_kind"].items():
+                self.assertEqual(sum(group["counts"].values()), group["total"])
+                self.assertEqual(group["counts"].get("pending", 0), sum(
+                    item["kind"] == kind and uid not in seen for uid, item in index["items"].items()))
+            if len(seen) == 10:
+                self.assertFalse(saved["accounting_complete"])
+                with redirect_stderr(io.StringIO()):
+                    code, _ = self.cli("render", self.directory, "--require-complete")
+                self.assertEqual(code, 1)
+                self.assertFalse(Path(self.directory, "review.md").exists())
+        self.assertEqual(set(seen), expected)
+        self.assertGreater(len(seen), 30)
+        self.assertEqual(self.cli("check", self.directory)[0], 0)
+        self.assertEqual(self.cli("render", self.directory, "--require-complete")[0], 0)
+
     def test_context_payload_and_long_string_inspection_are_bounded(self):
         from chromiumdiff.review_cli import _leaves
         value = "a" * 8000
@@ -378,6 +418,31 @@ class TestReviewWorkflow(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("PARTIAL", Path(result["output"]).read_text())
         self.assertEqual(Path(self.path).read_bytes(), before)
+
+    def test_strict_render_rejects_each_unfinished_state_without_replacing_output(self):
+        done = review.record(self.index, self.ledger, {"dispositions": [
+            {"id": uid, "status": "explained", "reason": "Synthetic accounting exercise only"}
+            for uid in self.index["items"]]})
+        uid = self.report.findings[0].uid
+        states = {
+            "pending": self.ledger,
+            "unresolved": review.record(self.index, done, {"dispositions": [
+                {"id": uid, "status": "unresolved", "reason": "Need before/after consumer evidence"}]}),
+            "provisional": review.record(self.index, done, {"events": [
+                event([uid], status="provisional")]}),
+        }
+        output = Path(self.directory, "review.md")
+        output.write_text("Existing saved report\n")
+        before = output.read_bytes()
+        for name, ledger in states.items():
+            with self.subTest(state=name):
+                write_json(str(Path(self.directory, "review.json")), ledger)
+                stderr = io.StringIO()
+                with redirect_stderr(stderr):
+                    code, _ = self.cli("render", self.directory, "--require-complete")
+                self.assertEqual(code, 1)
+                self.assertIn("review is incomplete", stderr.getvalue())
+                self.assertEqual(output.read_bytes(), before)
 
     def test_documented_cli_end_to_end_with_record_and_evaluation(self):
         uid = self.report.findings[0].uid

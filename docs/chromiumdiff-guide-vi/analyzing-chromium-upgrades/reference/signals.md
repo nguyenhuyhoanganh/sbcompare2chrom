@@ -41,12 +41,12 @@ cấu hình Finch thật hay hành vi sản phẩm vĩnh viễn.
 | `web_api_shipped` | Khai báo runtime được thêm ở trạng thái stable, hoặc chuyển sang stable, trên platform được ghi nhận | Khai báo API, mức exposure, các điều kiện còn lại, và bằng chứng triển khai |
 | `web_api_unshipped` | Trạng thái runtime chuyển từ stable xuống mức thấp hơn | Consumer, các đường bật khác, và lịch sử |
 | `killswitch_retired` | Khai báo runtime biến mất sau khi đã ở trạng thái stable | Khai báo API và phần hiện thực còn lại hay không |
-| `experimental_dropped` | Khai báo runtime biến mất mà trước đó chưa từng stable | Mức exposure thật trước đó; phần hiện thực bị xoá hay bị thay thế |
-| `web_api_added_live` | Với một khai báo IDL mới, classifier **không tìm thấy** gate đóng nào trong các điều kiện nó xét | Điều kiện của interface, exposure, yêu cầu secure context, và cấu hình runtime thật |
+| `experimental_dropped` | Khai báo runtime biến mất và trạng thái được ghi nhận ở phiên bản trước không phải stable | Mức exposure thật trước đó; phần hiện thực bị xoá hay bị thay thế |
+| `web_api_added_live` | Bộ phân loại đánh giá khai báo IDL mới là có thể gọi được theo các điều kiện đã ghi nhận | Điều kiện của interface, exposure, yêu cầu secure context, và cấu hình runtime thật |
 | `web_api_added_gated` | Classifier coi điều kiện runtime ghi nhận của khai báo IDL mới là không bật mặc định | Các đường bật khác; nó **không** chứng minh không ngữ cảnh nào dùng được |
 | `web_api_added` | Khai báo API/runtime được thêm nhưng chưa kết luận được về tính sẵn dùng ở stable | Xem `kind` của finding, khai báo runtime, và các điều kiện còn thiếu |
-| `web_api_removed` | Khai báo IDL biến mất và không được phân loại là nằm sau gate đóng | Coverage về sự vắng mặt, khai báo thay thế, consumer bị ảnh hưởng; khả năng với tới có thể vẫn chưa xác định |
-| `web_api_removed_gated` | Khai báo IDL biến mất và điều kiện runtime ghi nhận trước đó được phân loại là đóng | Có ngữ cảnh liên quan nào từng bật nó không |
+| `web_api_removed` | Khai báo IDL biến mất; bộ phân loại không xác định rằng các điều kiện trước đó đã ngăn việc gọi API | Coverage về sự vắng mặt, khai báo thay thế, consumer bị ảnh hưởng; khả năng sử dụng API có thể vẫn chưa xác định |
+| `web_api_removed_gated` | Khai báo IDL biến mất; bộ phân loại đánh giá điều kiện runtime đã ghi nhận trước đó là ngăn việc gọi API | Có ngữ cảnh liên quan nào từng bật nó không |
 | `web_api_overload_removed` | Một hoặc nhiều signature của method đã trích xuất biến mất | Các lời gọi dùng những signature đó, và khai báo thay thế |
 | `web_api_overload_added` | Có signature được thêm mà classifier không phát hiện xung đột số lượng đối số | Chuyển kiểu, cách chọn overload, và các caller hiện có |
 | `web_api_overload_shadowed` | Signature mới có thể làm đổi cách chọn overload theo số đối số, kể cả các đối số dư trước đây | Toàn bộ luật overload và các lời gọi tiêu biểu |

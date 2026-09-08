@@ -103,17 +103,24 @@ absence. Read the coverage and reasons before calling a declaration removed.
    event list and compare new evidence with earlier decisions. Revise groups
    when evidence shows that they should be combined or separated.
 7. Before delivery, check pending items, unresolved questions and provisional
-   events. Run `review check` and `review render`. If material work remains,
-   deliver a partial report and list the remaining questions.
+   events. Run `review check` and `review render --require-complete`. If work
+   remains and permitted checks are still available, continue the next batch.
+   If an actual resource limit or missing evidence prevents completion, save
+   progress and deliver a partial report with counts and the next checks.
 
 Apply this procedure to unfamiliar identifiers too. Reference examples and
 signal names are not a list of features to discover. Scores may affect work
 order, but must not decide which evidence is examined or which events exist.
+Do not set a fixed number of events to find. A small batch limits what is in
+context at once, not how much of the comparison to review. Follow the repeatable
+pending-item procedure in `reference/investigation.md`; do not stop after the
+first page or a selection of interesting examples.
 
 ## Query in small sections
 
 ```bash
-python3 -m chromiumdiff review index out/upgrade/review --limit 30
+python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
 python3 -m chromiumdiff review events out/upgrade/review --limit 30
 python3 -m chromiumdiff review inspect out/upgrade/review 'KIND:KEY'
 python3 -m chromiumdiff review related out/upgrade/review 'KIND:KEY' --hops 2
@@ -126,6 +133,11 @@ Use IDs and paths from the actual index. All queries support `--cursor`,
 Read remaining pages until `next_cursor` is null. For `index`, use
 `--after NEXT_AFTER` if decisions change between pages: numeric offsets on
 a shrinking `--status pending` list can skip items.
+Alternatively, decide every item returned in the current pending batch, save
+it, then repeat `index --status pending` from cursor 0. Check the whole review
+before stopping: an empty filtered search does not mean no work remains.
+`review unresolved` lists unresolved graph references, not unfinished review
+decisions; use `index --status unresolved` for those.
 
 `inspect` returns fields as JSON-pointer paths. Long strings have offsets and
 may span pages. `events` returns a short list; inspect an event ID to read its
@@ -182,6 +194,10 @@ user's language; preserve source identifiers and command names exactly.
 Include exact versions, platform and scope. Distinguish changes established
 by source from consequences that depend on the user's build or configuration.
 Include a short summary and links to the full review when it is long.
+The full review must retain every supported event, even if the summary shows
+only a few. Report `check.total`, decision counts, `by_kind` and provisional
+event count; finding and file counts overlap and are not event counts.
+Do not call unexamined items `explained` or `out_of_scope` to finish sooner.
 
 Accounting for every indexed item does not prove that every meaningful change
 was discovered. Cached source may be incomplete; parsers cover selected

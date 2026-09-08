@@ -212,7 +212,7 @@ số coverage của cả hai ref, target set và version chính xác.
 - [ ] 4. Khi nguyên nhân, thứ tự hay ý định chưa rõ thì tra lịch sử
 - [ ] 5. Chỉ gom item khi bằng chứng cho thấy chúng là một thay đổi liên quan
 - [ ] 6. Sau mỗi đợt, lưu event và câu hỏi còn treo; đối chiếu với quyết định cũ
-- [ ] 7. Trước khi giao, kiểm tra phần còn treo rồi chạy `review check` và `review render`
+- [ ] 7. Trước khi giao, xử lý phần còn lại rồi chạy `review check` và `review render --require-complete`
 ```
 
 1. **Đọc metadata và tổng quan báo cáo.** Liệt kê mọi item đã index theo từng
@@ -242,18 +242,25 @@ số coverage của cả hai ref, target set và version chính xác.
    khi bằng chứng cho thấy cần gộp hoặc cần tách.
 7. **Trước khi giao**, kiểm tra các item còn `pending`, các câu hỏi
    `unresolved` và các event còn `provisional`. Chạy `review check` và
-   `review render`. Còn phần việc đáng kể thì giao báo cáo một phần và liệt kê
-   các câu hỏi còn lại.
+   `review render --require-complete`. Nếu còn việc và vẫn có thể thực hiện
+   các bước kiểm được phép thì làm đợt tiếp theo. Nếu giới hạn tài nguyên thực
+   tế hoặc bằng chứng thiếu khiến không thể hoàn thành, lưu tiến độ và giao
+   báo cáo một phần kèm số mục chưa xong và các bước kiểm tiếp theo.
 
 Quy trình này áp dụng cho cả những identifier chưa từng gặp. Ví dụ trong các
 reference và tên signal không phải danh sách tính năng cần đi tìm. Score có thể
 ảnh hưởng thứ tự làm việc, nhưng không được quyết định bằng chứng nào được xem
 hay event nào tồn tại.
+Không đặt trước số event cần tìm. Một đợt nhỏ giới hạn lượng dữ liệu cùng có
+trong context, không giới hạn phạm vi cần rà soát. Làm theo vòng lặp lấy item
+pending trong `reference/investigation.md`; không dừng sau trang đầu hay sau
+một số ví dụ đáng chú ý.
 
 ## Truy vấn theo từng phần nhỏ
 
 ```bash
-python3 -m chromiumdiff review index out/upgrade/review --limit 30
+python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
 python3 -m chromiumdiff review events out/upgrade/review --limit 30
 python3 -m chromiumdiff review inspect out/upgrade/review 'KIND:KEY'
 python3 -m chromiumdiff review related out/upgrade/review 'KIND:KEY' --hops 2
@@ -268,6 +275,11 @@ model. Đọc tiếp các trang cho tới khi `next_cursor` là null.
 Với `index`, dùng `--after NEXT_AFTER` nếu quyết định thay đổi giữa các trang:
 offset dạng số trên một danh sách `--status pending` đang co lại sẽ nhảy cóc
 qua item.
+Một cách khác là ghi quyết định cho mọi item trong đợt pending hiện tại, lưu
+lại rồi chạy lại `index --status pending` từ cursor 0. Kiểm tra toàn bộ review
+trước khi dừng: tìm kiếm có bộ lọc không trả kết quả không có nghĩa hết việc.
+`review unresolved` liệt kê tham chiếu graph chưa giải được, không phải quyết
+định chưa hoàn thành; dùng `index --status unresolved` để lấy các quyết định đó.
 
 - `inspect` trả về các trường dưới dạng JSON pointer. Chuỗi dài có offset và
   có thể trải nhiều trang.
@@ -321,7 +333,7 @@ Tạo file JSON quyết định rồi ghi vào review:
 ```bash
 python3 -m chromiumdiff review record out/upgrade/review --file /path/to/decisions.json
 python3 -m chromiumdiff review check out/upgrade/review
-python3 -m chromiumdiff review render out/upgrade/review
+python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 Cấu trúc file, các trường bắt buộc của một event, và dạng của một mục bằng
@@ -345,6 +357,9 @@ Những điểm cần nhớ:
   `provisional`, bản ghi không hợp lệ, hoặc input đã đổi. Mã 0 chỉ nghĩa là
   mọi item đã index đều có quyết định hợp lệ. **Nó không chứng minh phân tích
   đã đầy đủ về mặt ngữ nghĩa và không phải một cổng duyệt release.**
+- `render --require-complete` từ chối ghi khi còn công việc chưa hoàn thành.
+  Bỏ tuỳ chọn này chỉ khi cần xuất báo cáo một phần; `render` thông thường trả
+  mã 0 không có nghĩa phân tích đã xong.
 
 ## Refresh sau khi lưu bằng chứng mới
 
@@ -527,6 +542,11 @@ của user; giữ nguyên identifier trong source và tên lệnh.
 Nêu version chính xác, platform và phạm vi. Tách phần được source xác lập ra
 khỏi phần hậu quả phụ thuộc vào build hoặc cấu hình của user. Báo cáo dài thì
 kèm một bản tóm tắt ngắn và link tới review đầy đủ.
+Bản đầy đủ phải giữ mọi event có bằng chứng dù bản tóm tắt chỉ chọn vài mục.
+Báo `check.total`, số quyết định theo trạng thái, `by_kind` và số event còn
+provisional. Số finding và số file có thể mô tả cùng thay đổi, không phải số
+event. Không gán `explained` hay `out_of_scope` cho item chưa xem để kết thúc
+sớm hơn.
 
 Hai ví dụ **sai**:
 

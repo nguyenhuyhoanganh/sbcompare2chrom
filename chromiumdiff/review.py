@@ -520,12 +520,16 @@ def record(index: dict, ledger: dict, patch: dict) -> dict:
 
 def check(index: dict, ledger: dict) -> dict:
     errors = validate(index, ledger)
-    counts = {}
-    for uid in index["items"]:
+    counts, by_kind = {}, {}
+    for uid, item in sorted(index["items"].items()):
         status = ledger["dispositions"].get(uid, {}).get("status", "pending")
         counts[status] = counts.get(status, 0) + 1
+        group = by_kind.setdefault(item["kind"], {"total": 0, "counts": {}})
+        group["total"] += 1
+        group["counts"][status] = group["counts"].get(status, 0) + 1
     provisional = sum(e.get("status") != "confirmed" for e in ledger["events"])
     return {"total": len(index["items"]), "counts": counts, "events": len(ledger["events"]),
+            "by_kind": by_kind,
             "provisional_events": provisional, "errors": errors,
             "unresolved_reference_count": len(index["graph"]["unresolved"]),
             "accounting_complete": not errors and not counts.get("pending") and
@@ -555,14 +559,24 @@ def verify_sources(index: dict) -> list:
     return errors
 
 
-def render(index: dict, ledger: dict) -> str:
+def render(index: dict, ledger: dict, require_complete=False) -> str:
     state = check(index, ledger)
     if state["errors"]:
         raise ValueError("cannot render invalid ledger: " + "; ".join(state["errors"][:20]))
+    if require_complete and not state["accounting_complete"]:
+        raise ValueError(
+            "review is incomplete: "
+            f"{state['counts'].get('pending', 0)} pending items, "
+            f"{state['counts'].get('unresolved', 0)} unresolved items, "
+            f"{state['provisional_events']} provisional events. "
+            "Resume the saved review; omit --require-complete only to render a PARTIAL report.")
     inputs = index["inputs"]
     out = ["# Chromium upgrade review", "",
            f"{inputs['refs']['from']} → {inputs['refs']['to']} · {inputs['platform']}", "",
            "Status: " + ("all indexed items accounted for" if state["accounting_complete"] else "PARTIAL"),
+           "", f"Indexed items: {state['total']}; events: {state['events']}; "
+           f"provisional events: {state['provisional_events']}.",
+           "", "Disposition counts: " + json.dumps(state["counts"], sort_keys=True),
            "", "Accounting does not establish semantic completeness or product safety.", ""]
     ordered = sorted(ledger["events"], key=lambda e: (e.get("order", 1000000), e["id"]))
     for i, event in enumerate(ordered, 1):
@@ -580,7 +594,6 @@ def render(index: dict, ledger: dict) -> str:
                 f"unconfirmed findings: {inputs['unconfirmed']}.", "",
                 "Measured file coverage (not grammar or behaviour coverage): " +
                 json.dumps(inputs["coverage"], ensure_ascii=False), "",
-                "Disposition counts: " + json.dumps(state["counts"], sort_keys=True), "",
                 "Finch, external configuration, product patches and rendered UI require separate evidence.", ""])
     out.extend(index["warnings"])
     return "\n".join(out) + "\n"

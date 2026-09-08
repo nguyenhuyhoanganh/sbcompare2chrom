@@ -54,6 +54,42 @@ file cho một event không giải thích các thay đổi còn lại của nó.
 Bản tóm tắt milestone là một nguồn độc lập, phải đối chiếu với đúng hai version
 đang so. Riêng nó không chứng minh một capability đã có ở đó.
 
+### Lặp lại cho đến khi xử lý hết phần việc còn lại
+
+Mỗi phiên làm việc bắt đầu từ review đã lưu, không chọn lại một nhóm điểm cao:
+
+```bash
+python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
+```
+
+Khi chưa xong, `check` chủ động trả mã 1; đọc JSON của nó và tiếp tục.
+`total` và `counts` tính trên toàn bộ index, không phải trang đang đọc.
+`by_kind` tách finding, source delta và bản tóm tắt milestone, giúp nhận ra
+phần source chưa được xem dù nhiều finding đã có quyết định.
+
+Với mỗi item được trả về, đọc bằng chứng rồi ghi event hoặc quyết định cụ thể
+không tạo event. Thiếu bằng chứng thì ghi `unresolved` cùng bước kiểm tiếp
+theo. Không dùng vòng lặp shell để gán cùng một lời giải thích cho các item
+chưa xem. Lưu xong một đợt thì chạy lại lệnh lấy `pending` từ cursor 0, không
+truyền `--query` hay `--after`. Các item đã có quyết định không xuất hiện nữa;
+lệnh trả những item tiếp theo. Lặp khi còn pending. Nếu số pending không giảm,
+kiểm tra kết quả ghi quyết định thay vì chọn một mẫu khác.
+
+Sau đó đọc hết các trang của `index --status unresolved` và các event còn
+`provisional`. Thực hiện bước kiểm tiếp theo khi có thể rồi cập nhật quyết
+định. `review unresolved` là lệnh khác: nó liệt kê tham chiếu graph chưa giải
+được. Kiểm tra lại pending sau khi sửa event hoặc refresh, vì các thao tác này
+có thể đưa item về pending. Đối chiếu bằng chứng giữa các đợt; ranh giới giữa
+hai đợt làm việc không phải ranh giới giữa hai event.
+
+Khi context gần đầy, lưu quyết định hiện tại, vị trí source, câu hỏi và bước
+kiểm tiếp theo trước khi chuyển sang context mới nếu môi trường chạy hỗ trợ.
+Tiếp tục cùng thư mục review. Giới hạn context không phải giới hạn số event;
+môi trường chạy vẫn có thể đặt giới hạn riêng cho tổng công việc. Nếu chạm
+giới hạn đó, báo số mục chưa xong và lý do. Không tự nhận đã hoàn thành hoặc
+âm thầm thu hẹp phạm vi.
+
 ## Định nghĩa và sửa lại event
 
 Một event phải trả lời đúng một câu hỏi: **thay đổi liên quan nào đã xảy ra?**
@@ -100,7 +136,6 @@ Tạo một file JSON theo cấu trúc dưới đây bằng cơ chế sửa file
 ```bash
 python3 -m chromiumdiff review record out/upgrade/review --file /path/to/decisions.json
 python3 -m chromiumdiff review check out/upgrade/review
-python3 -m chromiumdiff review render out/upgrade/review
 ```
 
 `record` kiểm tra phần thay đổi được đề xuất trước khi ghi. Mọi thành viên của
@@ -195,10 +230,26 @@ item đã index đều có quyết định hợp lệ. **Nó không chứng minh
 đủ về mặt ngữ nghĩa và không chứng minh sản phẩm an toàn.** Báo cáo render ra
 sẽ đánh dấu phân tích chưa xong là `PARTIAL`.
 
+Khi xuất bản cuối, dùng:
+
+```bash
+python3 -m chromiumdiff review render out/upgrade/review --require-complete
+```
+
+Nếu còn item hoặc event chưa xong, lệnh trả mã 1 và không ghi hay thay thế
+`review.md`. Lệnh `render` thông thường vẫn dùng được để xuất báo cáo một phần
+có ghi rõ trạng thái; mã 0 của nó chỉ nghĩa là đã ghi file. Cả hai lệnh đều
+không xác minh ý nghĩa các lời giải thích của agent.
+
 Trước khi giao, xem lại ranh giới các event, phần source chống đỡ chúng, các
-điều kiện, và các hunk còn lại của từng file. Việc chưa xong thì lưu các câu hỏi
-và báo cáo giới hạn đó. Tiếp tục từ trạng thái đã lưu, đừng bắt đầu lại từ danh
-sách xếp theo score cao nhất.
+điều kiện và các hunk còn lại của từng file. Bản tóm tắt có thể chọn các event
+chính, nhưng báo cáo đầy đủ được liên kết phải giữ mọi event có bằng chứng.
+Nếu giới hạn tài nguyên, bằng chứng thiếu hoặc yêu cầu dừng của user khiến
+công việc chưa xong, báo tổng số item, số quyết định theo trạng thái và loại
+item, số event provisional cùng các bước kiểm tiếp theo. Nếu không bị cản
+trở thì tiếp tục từ trạng thái đã lưu; tìm đủ một số lượng event thuận tiện
+không phải điều kiện dừng. Thiếu thời gian, điểm thấp hay khó phân tích không
+khiến một item nằm ngoài phạm vi hoặc giải thích được tác động của nó.
 
 ## Đánh giá độc lập
 
@@ -208,3 +259,7 @@ của công cụ và skill, tham số inference, và giới hạn tài nguyên. 
 Các lần chạy lặp phải so **ý nghĩa, phần bỏ sót và cách gom sai**, không so câu
 chữ giống hệt. Test cấu trúc và định dạng bản ghi hợp lệ không thay thế được
 việc đánh giá đó.
+Người hoặc agent đánh giá độc lập cũng phải lưu tiến độ và làm từng đợt trên
+toàn bộ phạm vi đánh giá đã công bố. Kiểm tra một mẫu chỉ đánh giá được các
+khẳng định trong mẫu đó, không xác lập được tỷ lệ phát hiện đầy đủ hoặc xác
+nhận được các quyết định chưa xem.

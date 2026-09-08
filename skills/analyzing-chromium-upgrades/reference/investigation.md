@@ -51,6 +51,42 @@ the file to one event does not account for its other changes.
 A milestone summary is a separate source to verify against the compared
 versions. It does not by itself prove that a capability was available there.
 
+### Repeat until the remaining work is accounted for
+
+Start each session with the saved review, not a new selection of high scores:
+
+```bash
+python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
+```
+
+An incomplete `check` exits 1 intentionally; read its JSON and continue.
+`total` and `counts` cover the entire index, not the current page. `by_kind`
+separates findings, source deltas and milestone leads so that an untouched
+source inventory is visible even after many findings have been examined.
+
+For each returned item, inspect the evidence and record an event or a specific
+non-event decision. If evidence is missing, record `unresolved` with the exact
+next check. Do not use a shell loop to generate identical explanations for
+unexamined items. After saving the batch, run the same pending query again
+with cursor 0 and without `--query` or `--after`. Decided items no longer appear;
+the next items do. Repeat while pending items remain. If the count does not
+decrease, inspect the record result instead of selecting a different sample.
+
+Then page through `index --status unresolved` and the saved provisional events.
+Perform their next checks when possible and update the decisions. `review
+unresolved` is a different query: it lists unresolved graph references.
+Recheck pending items after event revisions or refresh because these can
+restore items to pending. Group related evidence across batches; batch
+boundaries must not become event boundaries.
+
+When context is nearly full, save the current decisions, source locations,
+questions and next checks before continuing in a fresh context if the runner
+supports it. Resume the same directory. A context-window limit is not a limit
+on the number of events; the runner may still impose a separate total work
+limit. If that limit is reached, report the unfinished counts and the reason.
+Do not invent completion or silently reduce the scope.
+
 ## Define and revise events
 
 An event should answer one specific question: what related change occurred?
@@ -97,7 +133,6 @@ editing mechanism. Replace example values with real IDs and observations.
 ```bash
 python3 -m chromiumdiff review record out/upgrade/review --file /path/to/decisions.json
 python3 -m chromiumdiff review check out/upgrade/review
-python3 -m chromiumdiff review render out/upgrade/review
 ```
 
 `record` validates the proposed changes before writing. Every event member
@@ -184,13 +219,31 @@ invalid records or changed inputs. Exit 0 means all indexed items have valid
 decisions. It does not prove semantic completeness or product safety.
 The rendered report marks incomplete analysis as `PARTIAL`.
 
+For final delivery, use:
+
+```bash
+python3 -m chromiumdiff review render out/upgrade/review --require-complete
+```
+
+This exits 1 without writing or replacing `review.md` if items or events are
+unfinished. The ordinary `render` command remains available for a clearly
+labelled partial report; its exit 0 only means the file was written. Neither
+command verifies the meaning of the agent's explanations.
+
 Before delivery, review event boundaries, source support, conditions and
-remaining file hunks. If work is incomplete, save the questions and report
-that limit. Resume from the saved state rather than starting again from
-the highest scores.
+remaining file hunks. A short summary may select key events, but the linked
+full report must contain all supported events. If a resource limit, missing
+evidence or a user-requested stop leaves work incomplete, report total and
+decision counts, counts by item kind, provisional events and next checks.
+Otherwise continue from the saved state; finding a convenient number of
+events is not a stopping condition. Lack of time, a low score or difficulty
+does not make an item out of scope or explain its effect.
 
 Independent evaluation needs fixed source versions, input hashes, tool/skill
 versions, inference settings and resource limits. A fresh agent must not see
 expected event names or earlier answers. Repeated trials should compare
 meaning, omissions and incorrect grouping, not identical prose. Structural
 tests and valid record formats are not substitutes for that evaluation.
+An independent evaluator must also work in saved batches across the declared
+evaluation scope. Reviewing a sample can assess those sampled claims, but
+cannot establish full event recall or validate the unexamined decisions.

@@ -22,6 +22,23 @@ changes. That requires the protocol below.
 5. Repeat at least five times for the same frozen input. Compare core events
    and evidence membership, not identical prose. A partial run stays partial.
 
+Both discovery and independent adjudication may need multiple saved batches.
+A page size or context-window limit is not an event quota. For discovery,
+repeat `review index --status pending` after recording each batch, then revisit
+unresolved decisions and provisional events. Record whole-index counts from
+`review check`, including `by_kind`, and use `review render --require-complete`
+for a completed report. This rejects unfinished accounting, not false claims.
+
+For adjudication, divide the frozen input scope into explicit work units and
+save which units and claims have actually been checked. Include source-only
+changes and explained/excluded decisions, not just the agent's chosen events;
+otherwise omissions cannot be measured. Reconcile events that cross work-unit
+boundaries before final scoring. A sampled assessment must state its sample
+and unreviewed scope. It cannot establish full recall, and unreviewed expected
+events, predicted events or dispositions must not receive passing judgments.
+If a complete independent expected set cannot be established, full recall
+remains unmeasured; do not redefine the selected sample as the whole release.
+
 Include held-out version pairs and feature families, not just the development
 pair. Remove named worked examples in one trial. Vary finding scores, buckets
 and order while preserving source evidence. Include independently labelled

@@ -143,8 +143,8 @@ Một member IDL có thể mang điều kiện runtime riêng, hoặc kế thừ
 interface chứa nó. Exposure, yêu cầu secure context, điều kiện build và cấu hình
 runtime đều có thể đặt thêm hạn chế.
 
-`web_api_added_live` nghĩa là classifier **không xác định được** điều kiện đóng
-nào trong những điều kiện nó xét. Nó **không** chứng minh API sẵn dùng ở mọi nơi.
+`web_api_added_live` nghĩa là bộ phân loại đánh giá các điều kiện đã ghi nhận
+là cho phép gọi API. Nó **không** chứng minh API sẵn dùng ở mọi nơi.
 `web_api_added_gated` mô tả một hạn chế mặc định được ghi nhận; nó **không**
 chứng minh mọi ngữ cảnh override hay origin trial đều không dùng được API.
 

@@ -35,12 +35,12 @@ Finch configuration or permanent product behaviour.
 | `web_api_shipped` | A runtime declaration was added as stable or changed to stable for the recorded platform | API declarations, exposure, remaining conditions and deployment evidence |
 | `web_api_unshipped` | The recorded runtime status changed from stable to a lower status | Consumers, other enablement paths and history |
 | `killswitch_retired` | A runtime declaration disappeared after a stable status | Whether API declarations and implementation remain |
-| `experimental_dropped` | A runtime declaration disappeared without a stable prior status | Actual prior exposure and whether implementation was removed or replaced |
-| `web_api_added_live` | The classifier found no closed gate among the conditions it evaluated for an added IDL declaration | Interface conditions, exposure, secure-context requirements and actual runtime configuration |
+| `experimental_dropped` | A runtime declaration disappeared and its last recorded status was not stable | Actual prior exposure and whether implementation was removed or replaced |
+| `web_api_added_live` | The classifier evaluated an added IDL declaration as callable under the recorded conditions | Interface conditions, exposure, secure-context requirements and actual runtime configuration |
 | `web_api_added_gated` | The classifier treated an added IDL declaration's recorded runtime condition as not enabled by default | Other enablement paths; this does not prove that no context can use it |
 | `web_api_added` | An API/runtime declaration was added without a resolved stable-availability conclusion | Check the finding kind, runtime declaration and missing conditions |
-| `web_api_removed` | An IDL declaration disappeared and was not classified as behind a closed gate | Absence coverage, replacements and affected consumers; reachability may be unresolved |
-| `web_api_removed_gated` | An IDL declaration disappeared and its prior recorded runtime condition was classified as closed | Whether any relevant context enabled it |
+| `web_api_removed` | An IDL declaration disappeared and the classifier did not determine that its prior conditions disabled access | Absence coverage, replacements and affected consumers; availability may be unresolved |
+| `web_api_removed_gated` | An IDL declaration disappeared and the classifier evaluated its prior recorded runtime condition as disabling access | Whether any relevant context enabled it |
 | `web_api_overload_removed` | One or more extracted method signatures disappeared | Calls using those signatures and available replacements |
 | `web_api_overload_added` | Signatures were added without the classifier detecting an argument-count conflict | Type conversion, overload selection and existing callers |
 | `web_api_overload_shadowed` | Added signatures may change selection by argument count, including previously excess arguments | Full overload rules and representative calls |

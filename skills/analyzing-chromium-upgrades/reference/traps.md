@@ -137,8 +137,8 @@ An IDL member may have its own runtime condition or inherit one from its
 interface. Exposure, secure-context requirements, build conditions and
 runtime configuration may impose additional restrictions.
 
-`web_api_added_live` means the classifier did not identify a closed condition
-among those it evaluated. It does not prove universal availability.
+`web_api_added_live` means the classifier evaluated the recorded conditions
+as allowing API calls. It does not prove universal availability.
 `web_api_added_gated` describes a recorded default restriction; it does not
 prove that all override or trial contexts are unable to use the API.
 

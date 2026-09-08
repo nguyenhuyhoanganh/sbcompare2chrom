@@ -98,7 +98,7 @@ def command(args):
             errors = review.verify_sources(index)
             if errors:
                 raise ValueError("; ".join(errors))
-            text = review.render(index, ledger)
+            text = review.render(index, ledger, require_complete=args.require_complete)
             path = os.path.join(args.directory, "review.md")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
@@ -171,3 +171,6 @@ def add_parser(sub, default_cache):
             p.add_argument("--fetch", action="store_true", help="fetch missing exact-ref source from Gitiles")
         if name == "record":
             p.add_argument("--file", required=True, help="JSON patch of events/dispositions")
+        if name == "render":
+            p.add_argument("--require-complete", action="store_true",
+                           help="refuse to write while items or events remain unfinished; not semantic approval")
