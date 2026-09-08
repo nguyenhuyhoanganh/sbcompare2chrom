@@ -477,8 +477,8 @@ enum TopLevel { kA, kB = 2, };
         from chromiumdiff.diff import diff_snapshots
         from chromiumdiff.model import Snapshot
         old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
-                       meta={"target_set": "default"})
-        new = Snapshot(ref="b", meta={"target_set": "default"},
+                       meta={"target_set": "analysis"})
+        new = Snapshot(ref="b", meta={"target_set": "analysis"},
                        facts=mojom.extract(
                            self.SRC.replace("bool flag;", "int32 flag;"),
                            "a.mojom"))
@@ -490,8 +490,8 @@ enum TopLevel { kA, kB = 2, };
         from chromiumdiff.diff import diff_snapshots
         from chromiumdiff.model import Snapshot
         old = Snapshot(ref="a", facts=mojom.extract(self.SRC, "a.mojom"),
-                       meta={"target_set": "default"})
-        new = Snapshot(ref="b", meta={"target_set": "default"},
+                       meta={"target_set": "analysis"})
+        new = Snapshot(ref="b", meta={"target_set": "analysis"},
                        facts=mojom.extract(
                            self.SRC.replace("kA, kB = 2,", "kA, kB = 2, kC = 3,"),
                            "a.mojom"))

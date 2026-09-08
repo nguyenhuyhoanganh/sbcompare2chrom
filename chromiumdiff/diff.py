@@ -517,7 +517,7 @@ SIGNAL_BUCKET: Dict[str, str] = {
     # The three retirements belong here and it is the single most consequential
     # row in this table. A retired flag is Chromium deleting a switch it no
     # longer needs *after* the outcome settled -- 175 of them at M148 -> M151
-    # on the default set, 72 shipped and 60 abandoned plus 43 kill-switches --
+    # on the curated files, 72 shipped and 60 abandoned plus 43 kill-switches --
     # and none of them changes behaviour. Filing them as breakage is how half
     # a report becomes false alarms.
     "flag_retired_on": BUCKET_CLEANUP,
@@ -759,7 +759,7 @@ LOPSIDED_RATIO = 0.5
 
 # ...and below which the ratio means nothing. A handful of facts on each side is
 # a unit test's fixture, where one against three is normal rather than alarming.
-# The smallest real run is `--target-set minimal` at about 1,700 facts and the
+# The smallest run is `--target-set smoke` at about 1,700 facts and the
 # smallest partition about 2,700, so this floor sits far under anything a real
 # comparison produces and far over anything a fixture does.
 LOPSIDED_MIN_FACTS = 500
@@ -770,8 +770,8 @@ def _refuse_lopsided(old: Snapshot, new: Snapshot) -> None:
 
     The target-set guard above is one derivation short of its own reasoning.
     It compares the *label* a snapshot was built under, which catches
-    `--target-set minimal` against `default` and nothing else; two sides both
-    labelled "default" pass it even when one of them is a truncated tree.
+    `--target-set smoke` against `analysis` and nothing else; two sides both
+    labelled the same pass it even when one of them is a truncated tree.
 
     That is not hypothetical, and `--local-src` / `--to-src` is how it happens.
     Pointed at a partial checkout, one side of a real run held 1,647 facts

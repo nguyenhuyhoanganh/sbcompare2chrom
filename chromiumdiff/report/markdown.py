@@ -247,8 +247,9 @@ def _render_unconfirmed(report: Report, platform: str,
     out = [f"## Unconfirmed ({len(findings)})", "",
            f"Filed under {BUCKET_LABELS[BUCKET_CLEANUP]} because this run did "
            f"not read enough of the tree to tell a deletion from a move, not "
-           f"because nothing happened. Re-run with `--target-set wide` to "
-           f"settle them.", "",
+           f"because nothing happened. Each one needs the file it would have "
+           f"declared in, read by hand.", "",
+
            "| Score | What changed | Kind | Where |",
            "|---:|---|---|---|"]
     for finding in findings[:detail_limit]:
@@ -411,7 +412,7 @@ def _render_clusters(report: Report, summary: dict, limit: int = 12) -> str:
     printed here.
     """
     # Every block whose fragments disagree gets printed, however many that
-    # is; the flat ones fill whatever room is left. A wide run at M148 -> M151
+    # is; the flat ones fill whatever room is left. An analysis run at M148 -> M151
     # has 16 of them and a fixed twelve cut 4, and those are the only ones
     # that mislead when read apart. (The 24 this comment first quoted was
     # measured before the `score > 0` filter in `cluster.summarize` lowered
@@ -683,9 +684,9 @@ def _tree_coverage_lines(report: Report) -> List[str]:
             out.append("  Largest gaps: "
                        + ", ".join(f"`{d}/` ({n:,} files)" for d, n in gaps)
                        + ".")
-    if out and (report.meta or {}).get("target_set") != "wide":
-        out.append("  Run `--target-set wide` to read every file an extractor "
-                   "understands.")
+    if out and (report.meta or {}).get("target_set") == "smoke":
+        out.append("  This was a smoke run of three files. Re-run without "
+                   "`--target-set smoke` to compare two versions.")
     return out
 
 

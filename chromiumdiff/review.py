@@ -148,7 +148,7 @@ def initialize(report_path: str, directory: str, cache: str, source_repo=None,
     roots = {s: os.path.abspath(tree_path(cache, r)) for s, r in refs.items()}
     snapshots, snapshot_inputs, warnings = {}, {}, []
     for side, ref in refs.items():
-        path = snapshot_path(cache, ref, report.meta.get("target_set", "default"),
+        path = snapshot_path(cache, ref, report.meta.get("target_set", "analysis"),
                              report.meta.get("partitions"), report.meta.get("complete", False))
         if not os.path.isfile(path):
             snapshots[side] = None

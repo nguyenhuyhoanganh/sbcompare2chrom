@@ -10,9 +10,9 @@ run rather than on the change:
   * **Did this run read enough of the tree to believe a removal?**  A removal
     is an inference from absence, and absence from a tree the run read a
     part of is a much weaker claim than absence from one it read all of.
-    Measured M148 -> M151: the default set reports 139 preference keys gone
-    and the wide run still holds 29 of them, so those 29 had simply moved
-    into a file the default run never opened.
+    Measured M148 -> M151: the curated files alone report 139 preference keys
+    gone and a full run still holds 29 of them, so those 29 had simply moved
+    into a file the curated list never opened.
 
 Both are facts about Chromium and about this run.  Neither needs a description
 of who is reading, which is the whole reason the scoring could be rebuilt at
@@ -48,21 +48,21 @@ from .extract._cpp import PLATFORM
 
 # How much of a surface a run has to have read before a disappearance from it
 # counts as a disappearance rather than as scope. Per surface, not per run:
-# measured at M151, `wide` reaches 99.2% of the candidate files and `default`
-# 44.0%, but that average hides the spread this threshold actually meets --
+# measured at M151, a full run reaches 99.2% of the candidate files and the
+# curated files alone 44.0%, but that average hides the spread this threshold actually meets --
 # 99.8% of the web API definitions against 1.7% of the pref and switch files.
 CONFIRMING_COVERAGE = 0.95
 
 # What an unconfirmed removal loses. A fixed step rather than a share of the
 # severity, because coverage counts *files* and file count is not declaration
-# count: at M151 the default set reads 44.0% of the candidate files while
-# finding 2,069 of the 4,243 base::Feature declarations `wide` finds, and it
+# count: at M151 the curated files alone read 44.0% of the candidate files
+# while finding 2,069 of the 4,243 base::Feature declarations a full run finds, and it
 # reads 1.7% of the pref and switch files. No single proportional scalar is
 # right for surfaces that far apart, which is why `Scope` measures coverage
 # per surface and why this stays a step.
 #
 # The size of the step is a plateau, not a derivation. Re-scored against the
-# real M148 -> M151 default run at 0, 5, 10, 15, 20, 25, 30 and 45: every
+# real M148 -> M151 curated-only run at 0, 5, 10, 15, 20, 25, 30 and 45: every
 # value from 10 up produces the same top 276 rows, the same 67 swaps against
 # no penalty at all -- 67 Blink runtime features. The two bounds hold across that whole range rather than
 # picking a point in it -- a modification is never penalised, so any step
@@ -84,7 +84,7 @@ UNCONFIRMED_SIGNALS = frozenset(("pref_left_scan", "switch_left_scan"))
 
 # Which coverage row answers for a fact kind. A removal is only as believable
 # as the read of the surface it was removed from, and those differ by a factor
-# of fifty on the default set: 99.8% of the web API definitions against 1.7%
+# of fifty on the curated files: 99.8% of the web API definitions against 1.7%
 # of the pref and switch files. One scalar for all of them made a vanished web
 # API exactly as doubtful as a vanished preference, which is wrong in one
 # direction or the other whichever number you pick.
@@ -309,7 +309,7 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         # decides the filing as well as the number. `pref_left_scan` says
         # "deleted, or moved out of the files we read" in its own label; on a
         # partial run the second reading is the likelier one, and 139 of these
-        # at the top of an M148 -> M151 report -- 29 of which the wide run
+        # at the top of an M148 -> M151 report -- 29 of which a full run
         # shows had simply moved -- is how a list stops being read.
         #
         # Only these two move bucket. Every row in this branch already carries
@@ -318,13 +318,9 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         if leading_signal(change) in UNCONFIRMED_SIGNALS:
             bucket = BUCKET_CLEANUP
             why += "; filed as upstream cleanup rather than a compatibility break"
-        # `wide` widens what is fetched. It cannot conjure a target the
-        # source does not have or make a file parse, so the advice is only
-        # offered when reading more would actually settle the question.
-        if gap:
-            reasons.append(why)
-        else:
-            reasons.append(why + " — --target-set wide settles it")
+        # No advice about reading more: an analysis run already fetches every
+        # target there is, so what it missed is not reachable by re-running.
+        reasons.append(why)
 
     if (direction == ADDED and bucket == BUCKET_ADDED
             and scope.from_incomplete):
@@ -394,6 +390,6 @@ def summarize_findings(findings: Sequence[Finding]) -> Dict[str, object]:
         # Not a partition -- an `unconfirmed` finding is already counted in
         # its bucket. It is here because it is the one number that says how
         # much of this report is limited by what the run read rather than by
-        # what Chromium did, and `wide` is expected to drive it to zero.
+        # what Chromium did, and a full run is expected to drive it to zero.
         "unconfirmed": sum(1 for f in findings if f.unconfirmed),
     }

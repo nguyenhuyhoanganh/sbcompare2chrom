@@ -31,7 +31,7 @@
         "Quotes the coverage recorded in this report's own `meta.coverage`, and not the worked example in SKILL.md, which is a different run and a different figure",
         "Names where the number came from, so a reader can check it against the report rather than the document",
         "Says that coverage changes the answer and not merely the confidence: on a partial read a removal is penalised, filed as Upstream cleanup rather than a Compatibility break, and marked `unconfirmed`",
-        "States that `Compatibility break: 0` on a default run is not a clean bill of health, and reads `summary.unconfirmed` before saying otherwise"
+        "States that `Compatibility break: 0` on a partitioned run is not a clean bill of health, and reads `summary.unconfirmed` before saying otherwise"
       ]
     },
     {
@@ -81,7 +81,7 @@
         "Quotes the sentence in `reasons` rather than the number, and notes that nothing raises a score, so a score below its severity always carries one",
         "Reports the deduction as an unconfirmed removal, and repeats the reason's own point that the run read very little of that surface at the newer version, so `gone` may mean `moved into a file we never opened`",
         "Says the low score records low confidence in the removal, not low consequence, and so does not support closing it",
-        "Names `--target-set wide` as the step that settles it, and notes that every removed pref key on this run is `pref_left_scan`, so none of them is a confirmed deletion"
+        "Says the missing pref files must be read by hand, and notes that every removed pref key on this run is `pref_left_scan`, so none of them is a confirmed deletion"
       ]
     }
   ],

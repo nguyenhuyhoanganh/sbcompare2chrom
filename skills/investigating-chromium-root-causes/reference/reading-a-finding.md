@@ -86,11 +86,10 @@ file on disk, and whether that matters depends on whether Chromium wrote a
 migration in `chrome/browser/prefs/browser_prefs.cc`.
 
 For a switch, search launch scripts and test automation for the string. For a
-pref, note that `browser_prefs.cc` is read on a `wide` run and not on a
-`default` one. And apply the previous trap first: on a default run a removed
-key arrives as `pref_left_scan`, whose own reason says the key may simply have
-moved into a pref file the scan never opened. That signal is an unsettled
-question, not a deletion, and a `wide` run is what settles it.
+pref, apply the previous trap first: a removed key arrives as
+`pref_left_scan`, whose own reason says the key may simply have moved into a
+pref file the scan never opened. That signal is an unsettled question, not a
+deletion. Read the pref file it would have moved into to settle it.
 
 ## The settings three-hop chain
 

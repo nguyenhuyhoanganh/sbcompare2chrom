@@ -157,7 +157,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         _log(f"  {len(clusters)} clusters link related findings "
              f"(largest: {biggest} findings)")
     finding_summary = summarize_findings(findings)
-    # Every cluster, not the first 25. They are 66 KB on a wide run
+    # Every cluster, not the first 25. They are 66 KB on an analysis run
     # against a 5.8 MB file, and capping them here put 134 of 159
     # beyond the reach of any query -- including 12 of the 24 whose
     # fragments contradict each other when read apart, which is the
@@ -304,11 +304,10 @@ def _incomplete_reason(snapshot) -> str:
     return " and ".join(reasons)
 
 
-# One clean fetch of the default target set costs 79 MB for a single version
-# (36 MB of trees, 32 MB of directory listings, 12 MB of snapshot), so a pair
-# costs about this much. The wide set roughly doubles it. README quotes the
-# same number; a test keeps the two together.
-PAIR_DISK_MB = 150
+# Measured on the M148 -> M151 pair in this checkout: 202 MB of trees
+# (99 + 103), 74 MB of directory listings (37 + 37) and 42 MB of snapshots
+# (21 + 21). README quotes the same number, and nothing enforces that.
+PAIR_DISK_MB = 320
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -345,8 +344,8 @@ def cmd_check(args: argparse.Namespace) -> int:
         free = shutil.disk_usage(args.cache).free // (1024 ** 3)
         report(f"{os.path.abspath(args.cache)} writable", True, f"{free} GB free")
         if free < 2:
-            print("        note: two versions on the default target set take"
-                  f" roughly {PAIR_DISK_MB} MB; --target-set wide about doubles it")
+            print("        note: two versions take roughly"
+                  f" {PAIR_DISK_MB} MB; --target-set smoke needs almost none")
     except OSError as exc:
         report(f"{args.cache} writable", False, str(exc))
 
@@ -520,20 +519,18 @@ def build_parser() -> argparse.ArgumentParser:
                        help="ignore caches and refetch")
 
     target_set = argparse.ArgumentParser(add_help=False)
-    target_set.add_argument("--target-set", default="default",
-                            choices=("default", "minimal", "wide"),
-                            help="which Chromium files to pull. default: a "
-                             "curated list, about 40 MB per version. It reads "
-                             "a small share of the files that could declare "
-                             "something, but a large share of the "
-                             "declarations, because the curated files are the "
-                             "big ones. wide: whole-directory archives for "
-                             "components/, chrome/browser/, content/ and "
-                             "others -- about 315 MB per version, and nearly "
-                             "every file an extractor understands. The widest "
-                             "read available; it is not a release verdict, and "
-                             "the run prints what it missed. minimal: three "
-                             "files, for smoke tests. Every run measures and "
+    target_set.add_argument("--target-set", default="analysis",
+                            choices=("analysis", "smoke"),
+                            help="which Chromium files to pull. analysis (the "
+                             "default): a curated file list plus "
+                             "whole-directory archives for components/, "
+                             "chrome/browser/, services/ and others -- about "
+                             "315 MB per version, and nearly every file an "
+                             "extractor understands. It is the widest read "
+                             "available, not a release verdict, and the run "
+                             "prints what it missed. smoke: three files, "
+                             "enough to prove the pipeline runs; too little to "
+                             "compare two versions. Every run measures and "
                              "prints the coverage it achieved")
     which_files = argparse.ArgumentParser(add_help=False, parents=[target_set])
     which_files.add_argument("--partition", action="append", dest="partitions",

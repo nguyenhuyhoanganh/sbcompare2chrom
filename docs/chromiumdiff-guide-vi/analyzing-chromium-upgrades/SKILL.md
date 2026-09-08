@@ -73,8 +73,8 @@ Chuyển câu hỏi sang ngôn ngữ của user, và hỏi luôn version còn th
 cùng lượt. Các khu vực trên là ví dụ, không phải danh sách để đi tìm. Chỉ nêu
 loại khai báo như một lựa chọn tinh chỉnh; đừng bắt user phân loại code.
 
-MUST chờ khi chưa có câu trả lời. Không tự chọn `wide`, tất cả khu vực, một
-mẫu top-N hay các score cao nhất để thay thế. Nếu user đã nêu rõ phạm vi và ưu
+MUST chờ khi chưa có câu trả lời. Không tự chọn khu vực, không lấy N dòng đầu
+và không làm lần lượt theo score để thay thế. Nếu user đã nêu rõ phạm vi và ưu
 tiên thì dùng luôn, không hỏi lại; khi làm tiếp, giữ nguyên phạm vi đã ghi trừ
 khi user đổi.
 
@@ -95,19 +95,21 @@ Thư viện chuẩn Python 3.9+ là đủ; không cài gì thêm. Script so sán
 kiện Windows và không có tuỳ chọn platform. Ghi lại đúng `from_ref` và `to_ref`
 mà report trả về, vì số milestone trần có thể phân giải khác ở lần chạy sau.
 
-Với một lần so sánh mới, ví dụ dưới đây lấy acquisition diện rộng:
+Với một lần so sánh mới:
 
 ```bash
 cache_dir=.chromiumdiff-cache
 python3 -m chromiumdiff check
-python3 -m chromiumdiff run FROM TO --target-set wide --cache "$cache_dir" --out out/upgrade
+python3 -m chromiumdiff run FROM TO --cache "$cache_dir" --out out/upgrade
 python3 -m chromiumdiff review init out/upgrade --directory out/upgrade/review --cache "$cache_dir"
 ```
 
-Thay FROM/TO và các đường dẫn bằng lần so sánh được yêu cầu. `wide` quét nhiều
-file được hỗ trợ hơn `default`, và vẫn không phủ hết code lẫn cú pháp của
-Chromium. `--partition` thu hẹp acquisition về các đường dẫn được hỗ trợ, và
-chỉ dùng sau khi user chấp nhận đầu vào hẹp hơn đó.
+Thay FROM/TO và các đường dẫn bằng lần so sánh được yêu cầu. Một lần chạy đọc
+mọi file mà target của nó phủ, khoảng 315 MB mỗi version, và vẫn không phủ hết
+code lẫn cú pháp của Chromium. Thêm `--target-set smoke` để đọc ba file và kiểm
+xem công cụ có chạy được không; nó đọc quá ít để so sánh hai version.
+`--partition` thu hẹp phần được tải về các đường dẫn được hỗ trợ, và chỉ dùng
+sau khi user chấp nhận đầu vào hẹp hơn đó.
 
 Với report đã có nhưng chưa có review, chạy `review init` với đúng cache của
 report đó. Với review đã có, sang bước 3; chỉ init lại nếu đầu vào của nó đã

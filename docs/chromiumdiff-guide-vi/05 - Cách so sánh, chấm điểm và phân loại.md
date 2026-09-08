@@ -325,7 +325,7 @@ Ngưỡng để xác nhận một khai báo thật sự vắng mặt là **95%**
 - Một kết luận `removed` hỏi coverage của snapshot **mới**: câu "không còn ở bản mới" chỉ đáng tin nếu bản mới đã thật sự được đọc.
 - Một kết luận `added` thường là thứ công cụ nhìn thấy tận mắt ở bản mới, nên nó không bị nghi ngờ chỉ vì target set cũ có coverage một phần như bình thường. Nó chỉ bị hạ khi bên cũ có lỗ hổng nghiêm trọng, khiến công cụ không thể chứng minh thứ đó trước đây chưa tồn tại.
 
-Mức phạt là một con số cố định `15`, không nhân theo phần trăm coverage. Lý do: coverage đếm **file**, không đếm **khai báo**. Target set `default` có thể đọc rất ít file, nhưng đó lại là những file chứa phần lớn khai báo feature. Dùng coverage như một xác suất sẽ tạo ra cảm giác chính xác giả.
+Mức phạt là một con số cố định `15`, không nhân theo phần trăm coverage. Lý do: coverage đếm **file**, không đếm **khai báo**. Danh sách file chọn tay đọc rất ít file, nhưng đó lại là những file chứa phần lớn khai báo feature. Dùng coverage như một xác suất sẽ tạo ra cảm giác chính xác giả.
 
 ## Bước 5 — Bucket được chọn thế nào
 
@@ -367,9 +367,9 @@ Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc 
 
 ### `unconfirmed` không phải bucket thứ sáu
 
-Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal sẽ `unconfirmed` ở bộ `default` và không ở bộ `wide`. Vì vậy nó là một field trên finding, không phải một bucket.
+Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal sẽ `unconfirmed` khi chỉ đọc danh sách file chọn tay và không `unconfirmed` khi chạy đủ cả archive. Vì vậy nó là một field trên finding, không phải một bucket.
 
-Những dòng đó nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì nhỏ: trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. `report.md` dành cho chúng một mục riêng, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng — 303 ở bộ `default` tại M148 → M151, **0 ở bộ `wide`**, trong đó 120 dòng nằm ở Compatibility break. Cờ này được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở những dòng bị đổi bucket.
+Những dòng đó nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì nhỏ: khi coverage đủ chúng là Compatibility break và cao hơn 15 điểm. `report.md` dành cho chúng một mục riêng, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng — 303 khi chỉ đọc danh sách file chọn tay tại M148 → M151, **0 khi chạy `analysis`**, trong đó 120 dòng nằm ở Compatibility break. Cờ này được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở những dòng bị đổi bucket.
 
 ## Bước 6 — Những signal phải sửa ở ngoài repository
 
@@ -456,9 +456,9 @@ bucket: Upstream cleanup thay vì Compatibility break, unconfirmed = true
 lý do: có thể khoá này chỉ chuyển sang một file mà target set chưa đọc
 ```
 
-**Việc tiếp theo:** chạy lại với `wide` để xác nhận. Ba khả năng sẽ lộ ra:
+**Việc tiếp theo:** đọc file pref mà khoá đó có thể đã chuyển sang. Ba khả năng sẽ lộ ra:
 
-- nếu `wide` thấy cùng biến C++ đó ở một đường dẫn mới → đây là **move**;
+- nếu thấy cùng biến C++ đó ở một đường dẫn mới → đây là **move**;
 - nếu ghép được với một chuỗi mới → đây là **rename**;
 - nếu vẫn mất trong khi coverage đã đủ cao → kết luận **đã bị xoá** lúc này mới đáng tin.
 
@@ -502,7 +502,7 @@ Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh 
 - Rằng build hoặc runtime của Samsung chắc chắn hỏng.
 - Rằng severity 80 luôn tốn công hơn severity 60.
 - Rằng parser đã hiểu mọi cú pháp Chromium có thể thêm trong tương lai.
-- Rằng target set mặc định phủ được phần implementation.
+- Rằng target set phủ được phần implementation.
 - Rằng cấu hình bên ngoài repository đã được ai đó kiểm tra.
 
 Tóm lại: báo cáo là **bằng chứng đã xếp hạng và đầu vào cho việc triage**, không phải một cái gật đầu tự động cho đợt upgrade.

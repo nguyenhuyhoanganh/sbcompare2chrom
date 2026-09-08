@@ -25,7 +25,7 @@ kỳ. Một ID dạng `file:` hoặc `brief:` của review index không phải U
 
 Xem target set, partition và coverage của lần chạy. Nếu file đó không được đọc,
 báo cáo **không thể** xác lập các khai báo trong nó có đổi hay không.
-`wide` có thể mở rộng phạm vi file được hỗ trợ, nhưng không bao gồm mọi code.
+Một lần chạy đầy đủ phủ các file mà target của nó nêu tên, không phải mọi code.
 
 Với một câu hỏi cụ thể, hãy xem source cần thiết ở **cả hai ref chính xác**. Chỉ
 dựng lại một lần so sánh rộng hơn khi phạm vi của user cần tới, và giữ kết quả

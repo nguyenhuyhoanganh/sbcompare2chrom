@@ -93,7 +93,7 @@ một trong hai phía mà không nói ra.
 
 Target set, partition, chế độ completeness và các file có sẵn đều ảnh hưởng tới
 việc snapshot chứa fact nào. So các input tương thích với nhau và đọc các warning
-về coverage. `wide` mở rộng phạm vi **file được hỗ trợ**, không phải toàn bộ code
+về coverage. Một lần chạy đầy đủ phủ các file mà target của nó nêu tên, không phải toàn bộ code
 hay toàn bộ cú pháp.
 
 Thêm `--refresh` **không** sửa được một lựa chọn phạm vi sai. Giữ nguyên target

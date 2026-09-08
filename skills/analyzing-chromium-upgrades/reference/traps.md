@@ -91,7 +91,8 @@ unmentioned replacement for either side.
 
 Target sets, partitions, completeness mode and available files affect which
 facts exist in a snapshot. Compare compatible inputs and inspect coverage
-warnings. `wide` expands supported file coverage, not all code or syntax.
+warnings. A full run covers the files its targets name, not all code or
+syntax.
 
 Adding `--refresh` does not repair a wrong scope choice. Keep the intended
 target set and partitions when rebuilding a comparison. When refreshing a

@@ -45,7 +45,7 @@ So the real problem is not "how do we compare them" but **"how do we filter down
 https://chromium.googlesource.com/chromium/src/+archive/refs/tags/<version>/<directory>.tar.gz
 ```
 
-About 40 MB per version with the default target set. A team that already has a checkout or an internal mirror uses `--local-src` instead; nothing else changes.
+About 315 MB per version. A team that already has a checkout or an internal mirror uses `--local-src` instead; nothing else changes.
 
 **Normalize first, compare second.** Between M139 and M143, Chromium changed how the feature-declaration macro is written:
 
@@ -73,7 +73,7 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 |---|---|
 | Python | 3.9 or newer. No 3.10+ syntax. Tested on 3.14.6 |
 | Third-party libraries | None. Standard library only |
-| Free disk | ~150 MB for two versions with the default target set |
+| Free disk | ~320 MB for two versions, measured on M148 → M151 |
 | Network | Four HTTPS hosts, see the table below. Only the first is ever required |
 | Chromium checkout | Not needed |
 
@@ -124,10 +124,11 @@ Exit code `0` means ready, `1` means there is a FAIL line to deal with — usabl
 
 ```bash
 python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
-  --target-set minimal --no-enrich
+  --target-set smoke --no-enrich
 ```
 
-`minimal` fetches three files — enough to confirm the pipeline is wired up.
+`smoke` fetches three files — enough to confirm the pipeline is wired up. It
+reads far too little to compare two versions.
 
 ### A full run
 
@@ -372,7 +373,7 @@ The control's type is the tag name itself — `settings-toggle-button` is a togg
 
 Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unevenly: at M151, settings still has 243 Polymer files against 6 Lit, while extensions is 2 against 33 and print_preview 2 against 32. The extractor reads both dialects.
 
-**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight screens the default target set reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
+**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight screens the curated file list reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
 
 An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is why widening the rule costs nothing: an element with no preference, no id and no label can only be identified by its position, which changes whenever a template is reordered. The rule improves on the list it replaced in every measure — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
 
@@ -416,7 +417,7 @@ eval_condition("BUILDFLAG(ENABLE_PLUGINS)")  # None   — no guess
 
 Build conditions are resolved for Windows everywhere they appear, not only in feature macros: an `#if` around a pref or switch constant (117 keys at M151 are not in the Windows build), and a GRIT `<if expr="...">` around a WebUI control (16 controls). One three-valued evaluator, two dialects — `not is_win` and `!BUILDFLAG(IS_WIN)` ask the same question.
 
-Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: the default run reports 139 keys gone and the wide run still holds 29 of them, so those 29 had moved rather than been deleted.
+Other platforms' trees (`ash/`, `chromeos/`, `ios/`, `fuchsia/`) are skipped, **with one exception**: string constants are read wherever they live. A pref key is identified by its string, and Chromium is currently splitting `chrome/common/pref_names.h` apart. When a key moves into a ChromeOS file we cannot see, the tool reports it as deleted — and a deleted pref means every existing user's stored value is orphaned. Measured M148 → M151: reading the curated files alone reports 139 keys gone and an `analysis` run still holds 29 of them, so those 29 had moved rather than been deleted.
 
 ### Comparison by meaning, not by text
 
@@ -455,7 +456,7 @@ BASE_FEATURE(kFedCmIdPRegistration, base::FEATURE_DISABLED_BY_DEFAULT);
 
 Nobody edited a name — changing the macro changed it. Every server-side field-trial config and every `--enable-features` flag using the old spelling **silently stopped working**. No compile error, no warning.
 
-When a pref or switch disappears and cannot be paired, the tool does **not** claim it was deleted. It labels it `pref_left_scan` / `switch_left_scan`, meaning "left the scanned scope" — possibly deleted, possibly moved to a file we do not read. On the M148 → M151 run with the default target set, all 139 vanished prefs carried that label.
+When a pref or switch disappears and cannot be paired, the tool does **not** claim it was deleted. It labels it `pref_left_scan` / `switch_left_scan`, meaning "left the scanned scope" — possibly deleted, possibly moved to a file we do not read. On the M148 → M151 run reading the curated files alone, all 139 vanished prefs carried that label.
 
 ---
 
@@ -472,22 +473,21 @@ The result is printed on every run, stored on the snapshot, and carried into the
 ```
 coverage: reads 3677 of 8366 files in this tree that could declare (43% of files)
   largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
-  to read these too, run `--target-set wide`: about 337 MB per version instead of 40
+  no target reads these; the run cannot see them at all
 ```
 
 **The numbers in this document are a measurement taken at M151. The number to trust is the one your run prints.**
 
-### Three target sets
+### Two target sets
 
 | | Downloaded | Kept on disk | Declaration files read | Use it for |
 |---|---:|---:|---:|---|
-| `minimal` | ~300 KB | ~1 MB | 3 files | Smoke tests, CI wiring checks |
-| `default` | ~40 MB | ~38 MB | under half | Day-to-day work |
-| `wide` | ~337 MB | ~110 MB | **nearly all of them** | The widest read available |
+| `analysis` (the default) | ~337 MB | ~110 MB | **nearly all of them** | Comparing two versions |
+| `smoke` | ~300 KB | ~1 MB | 3 files | Checking the pipeline runs |
 
-That share looks small, but **file count is not declaration count**. The hand-picked files are the big ones. Measured at M151:
+`analysis` is a hand-picked file list plus whole-directory archives. The list alone would be ~40 MB per version and read under half the declaration files — and **file count is not declaration count**, because the hand-picked files are the big ones. Measured at M151, what the archives add:
 
-| | `default` | `wide` |
+| | curated files alone | `analysis` |
 |---|---:|---:|
 | `base::Feature` | 2,069 | 4,243 |
 | Feature params | 863 | 1,686 |
@@ -501,13 +501,13 @@ That share looks small, but **file count is not declaration count**. The hand-pi
 | WebUI controls | 971 | 1,431 |
 | **Total facts** | **29,138** | **54,298** |
 
-So `default` reads under half the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. That is a deliberate trade, not a defect — but when the answer genuinely matters, run `wide`.
+So the curated list alone reads under half the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. The archives are what close that gap, and they are why a run costs 337 MB rather than 40. The list is not selectable on its own for exactly that reason.
 
-`wide` reads nearly the whole tree, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
+`analysis` reads nearly the whole tree, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
 
 There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. What it still misses has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
 
-What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded `wide` against exactly the ground `wide` already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
+What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded the run against exactly the ground it already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
 Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
@@ -520,7 +520,7 @@ Fourteen files went the other way, excluded by name rather than fetched: the hea
 
 Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's own code, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
 
-That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared by `wide` and `--complete`, because both ask the same question: which filename shapes can an extractor read.
+That suffix list now exists exactly once (`targets.READABLE_SUFFIXES`), shared by the archive roots and `--complete`, because both ask the same question: which filename shapes can an extractor read.
 
 ### Partitions: bounding what is fetched and scanned
 
@@ -561,7 +561,7 @@ It uses **the same rule** as the per-run measurement, so the two numbers describ
 
 | Question | Can it be answered |
 |---|---|
-| Did we read every declaration **inside** an area's directories? | **Yes** — with `--complete`, or `--target-set wide` for the whole tree |
+| Did we read every declaration **inside** an area's directories? | **Yes** — with `--complete`, or an unpartitioned run for the whole tree |
 | Did we read every feature that **belongs to** that area? | **No** — every area references things outside itself |
 
 For example: every declaration in `chrome/browser/resources/settings` is readable, but a feature shown on the Settings page may be controlled by a flag declared in `content/`. That is why the report has a *reference closure* section — it walks every link the data itself declares and lists the ones pointing at something absent from the snapshot.
@@ -635,8 +635,7 @@ severity 35 — Preference no longer in the file we read — it may have been
     pref files outside the scan
 -15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
-    upstream cleanup rather than a compatibility break — --target-set wide
-    settles it
+    upstream cleanup rather than a compatibility break
 ```
 
 Additions are not discounted. An addition is a thing seen rather than a thing not seen, and "it may have existed in a file we did not open" does not make it any less present in the version being adopted. The asymmetry is the documented failure mode of this tool, not a hypothetical one: what goes wrong on a partial read is removals reading as deletions.
@@ -667,12 +666,12 @@ Three placements are worth arguing about explicitly, because each decides whethe
 
 | | Coverage | `pref_left_scan` | Bucket | Score |
 |---|---:|---:|---|---:|
-| `default` | 5% | 139 | Upstream cleanup | 20 |
-| `wide` | 100% | 171 | **Compatibility break** for the 30 in the Windows build | **35** |
+| curated files alone | 5% | 139 | Upstream cleanup | 20 |
+| `analysis` | 100% | 171 | **Compatibility break** for the 30 in the Windows build | **35** |
 
 A rule that produced the same answer either way would be wrong in one of the two directions, so the report says which run it is.
 
-That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows on the default run and 0 on the wide run**, and 120 of the 303 are in Compatibility break, the bucket read first. `summary.unconfirmed` counts them: it says how much of a report is limited by what the run read rather than by what Chromium did.
+That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows reading the curated files alone and 0 on an `analysis` run**, and 120 of the 303 are in Compatibility break, the bucket read first. `summary.unconfirmed` counts them: it says how much of a report is limited by what the run read rather than by what Chromium did.
 
 ### Changing the ranking
 
@@ -696,7 +695,7 @@ Read in that order. `report.md` gives the first four a table each and deliberate
 
 Scheduled does get a table, and that is the point of it being its own bucket. `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and while they were filed as cleanup the only way to reach them was to filter `report.json` by signal id.
 
-`report.md` also gives a table to whatever carries **`unconfirmed`** — every row this run did not read enough of the tree to confirm. 303 of them on the default run, 0 on the wide one. The 163 that sit in Upstream cleanup are there because the evidence is short, not because they are minor.
+`report.md` also gives a table to whatever carries **`unconfirmed`** — every row this run did not read enough of the tree to confirm. 303 of them reading the curated files alone, 0 on an `analysis` run. The 163 that sit in Upstream cleanup are there because the evidence is short, not because they are minor.
 
 What decides a bucket, and the three placements worth arguing about, are in §7.
 
@@ -768,8 +767,7 @@ severity 35 — Preference no longer in the file we read — it may have been
     pref files outside the scan
 -15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
-    upstream cleanup rather than a compatibility break — --target-set wide
-    settles it
+    upstream cleanup rather than a compatibility break
 ```
 
 A web API removed on the same run keeps its full 70, because the surface it
@@ -1072,7 +1070,7 @@ Two independent checks, neither of which reads the diff the match was made on. O
 
 ### What can still be extended
 
-The default target set tracks eight `chrome://` screens (`wide` reads all 132). Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
+The curated file list names eight `chrome://` screens; the archives reach all 132. Chromium has 132 directories under `chrome/browser/resources/`, but that number is misleading: 39 are debug pages users never see and 9 are ChromeOS-only. **The number worth considering is about 29**, for example `autofill`, `certificate_manager`, `enterprise`, `lens`, `pdf`, `side_panel`, `signin`, `tab_search`, `webauthn`.
 
 Adding a screen is one line in `chromiumdiff/targets.py`:
 
@@ -1165,7 +1163,7 @@ python3 -m chromiumdiff snapshot 151.0.7922.138
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `report.json is schema N, and this build reads M` | The report was written by an older build | Re-run. A report cannot be rebuilt from itself, and the bucket ids in it may no longer name buckets — rendering it anyway printed `Compatibility break 0` and dropped 2,553 of 3,022 findings from the counts |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `Compatibility break: 0` on a default run | Normal, and not evidence that nothing is broken | The default set reads under half the tree and a fiftieth of the pref files, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Run `--target-set wide` before concluding anything |
+| `Compatibility break: 0` on a partitioned run | Normal, and not evidence that nothing is broken | A partition reads a fraction of the tree, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Drop `--partition` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMIUMDIFF_CACHE=C:\cdcache` |
@@ -1193,7 +1191,6 @@ TO="151.0.7922.138"
 
 python3 -m chromiumdiff check
 python3 -m chromiumdiff run "$FROM" "$TO" \
-  --target-set wide \
   --out "reports/${FROM}_to_${TO}"
 
 # Block the merge until someone has looked at the breaking changes
@@ -1203,7 +1200,7 @@ BREAKS=$(python3 -c "import json,sys; \
 [ "$BREAKS" -eq 0 ] || { echo "$BREAKS compatibility breaks to triage"; exit 1; }
 ```
 
-On a `wide` run `summary.unconfirmed` is 0, so a non-zero value there says the
+On a full run `summary.unconfirmed` is 0, so a non-zero value there says the
 run read less of the tree than it was asked to and some removals were filed
 as cleanup for want of evidence.
 

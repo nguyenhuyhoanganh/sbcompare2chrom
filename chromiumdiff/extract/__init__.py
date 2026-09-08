@@ -131,11 +131,10 @@ def run_on_tree(root: str, log=lambda m: None, skip_dirs: bool = True,
     prefixes, or a ``{prefix: suffix_filter}`` mapping -- the mapping form is
     what keeps a tree target's filter in force, see ``_in_scope``.  Without that scoping, extraction silently
     takes its scope from whatever happens to be on disk -- and since the tree
-    cache is shared per ref across target sets, running ``--target-set minimal``
-    in a directory a previous ``default`` run had populated produced a
-    "minimal" snapshot containing the full 21,595 facts.  Diffed against a real
-    minimal snapshot, that invented roughly 20,000 phantom additions and looked
-    entirely plausible.
+    cache is shared per ref across target sets, running the small target set
+    in a directory a previous full run had populated produced a small-set
+    snapshot containing the full 21,595 facts.  Diffed against a real one, that
+    invented roughly 20,000 phantom additions and looked entirely plausible.
     """
     facts: List[Fact] = []
     stats: Dict[str, int] = {name: 0 for name, _, _ in REGISTRY}

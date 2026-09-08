@@ -42,7 +42,7 @@ RESOURCES_DIR = "chrome/browser/resources/"
 # This used to be 27 tag names someone typed out, and it decayed the way every
 # curated list in this project has decayed -- silently, because a tag nobody
 # listed is a control nobody sees. Measured at M151 across the eight surfaces
-# the default target set reads: 471 distinct custom elements appear in the
+# the curated file list reads: 471 distinct custom elements appear in the
 # templates, 2,462 times, and the list matched 902 of those occurrences (36%).
 #
 # The misses were not exotic. 41 of them bind a real preference, which makes

@@ -25,7 +25,7 @@ or `brief:` ID from a review index is not a finding UID.
 
 Inspect the run's target set, partitions and coverage. If the file was not
 read, the report cannot establish whether its declarations changed.
-`wide` can expand supported file coverage, but does not include all code.
+A full run covers the files its targets name, not all code.
 
 For a specific question, inspect the required source at both exact refs.
 Rebuild a wider comparison only when needed for the user's scope, and keep

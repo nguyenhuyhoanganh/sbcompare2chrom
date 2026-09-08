@@ -141,14 +141,14 @@ def covered_by_targets(path: str, targets: Sequence) -> bool:
     return reaches(path, files, trees)
 
 
-def target_paths(target_set: str = "default",
+def target_paths(target_set: str = "analysis",
                  partitions: Optional[Sequence[str]] = None,
                  complete: bool = False) -> List[str]:
     """The paths this target set names, for the report's own record."""
     return sorted(t.path for t in get_targets(target_set, partitions, complete))
 
 
-def analyze(paths: Sequence[str], ref: str, target_set: str = "default",
+def analyze(paths: Sequence[str], ref: str, target_set: str = "analysis",
             include_irrelevant: bool = False,
             partitions: Optional[Sequence[str]] = None,
             complete: bool = False) -> CatalogReport:
@@ -319,7 +319,7 @@ def summarize_closure(dangling: Dict[str, List[str]], limit: int = 8) -> List[st
 def declared_scope(snapshot) -> tuple:
     """(exact files, {tree prefix: suffix filter}) this snapshot was allowed."""
     meta = snapshot.meta or {}
-    targets = get_targets(meta.get("target_set", "default"),
+    targets = get_targets(meta.get("target_set", "analysis"),
                           meta.get("partitions") or None,
                           bool(meta.get("complete")))
     from .targets import scope_of

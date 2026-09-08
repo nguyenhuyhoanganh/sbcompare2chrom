@@ -20,8 +20,8 @@ nghìn dòng xuống vài chục dòng.
 
 ## Bảng định tuyến
 
-Số dòng lấy từ một lần chạy M148 → M151 thật với bộ `default`, để thấy mỗi `kind`
-có bao nhiêu dòng.
+Số dòng lấy từ một lần chạy M148 → M151 thật, để thấy mỗi `kind` có bao nhiêu
+dòng.
 
 | Triệu chứng nghe như | `kind` cần tìm | Số dòng |
 |---|---|---|

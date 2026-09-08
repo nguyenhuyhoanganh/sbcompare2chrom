@@ -266,8 +266,8 @@ font-size:.95rem;color:var(--muted)}
 /* -- unconfirmed badge ---------------------------------------------------- */
 /* Not a bucket colour, because it is not a bucket. It marks a row whose
    absence this run could not confirm, and those rows sit in Upstream cleanup
-   only because the evidence is short -- on a `wide` run they are compatibility
-   breaks. Outlined rather than filled so it reads as an annotation on the row
+   only because the evidence is short -- where the tree was read they are
+   compatibility breaks. Outlined rather than filled so it reads as an annotation on the row
    rather than a second classification of it. */
 .unc{display:inline-block;margin-left:6px;padding:1px 5px;border-radius:var(--r1);
 font-size:.65rem;font-weight:660;letter-spacing:.02em;text-transform:uppercase;
@@ -1786,7 +1786,7 @@ def _unconfirmed_filter(rows) -> str:
 
     A run that read the whole tree confirms every absence it reports, so this
     control has nothing in it and is dropped rather than shown empty -- and
-    the reader of a `wide` report learns from its absence that no row is
+    the reader of such a report learns from its absence that no row is
     resting on a hole.
 
     "All coverage" rather than "All evidence": the provenance filter beside it

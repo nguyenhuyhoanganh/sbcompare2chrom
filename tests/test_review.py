@@ -20,7 +20,7 @@ from chromiumdiff.snapshot import snapshot_path, tree_path
 
 def fixture(root, prefix="Orbital"):
     cache = str(Path(root) / "cache")
-    meta = dict(target_set="default", platform="windows", partitions=[], complete=False)
+    meta = dict(target_set="analysis", platform="windows", partitions=[], complete=False)
     feature = Fact("base_feature", prefix, prefix, "engine/features.cc", 2,
                    {"var": "k" + prefix, "platform_state": {"windows": "enabled"}})
     gate = Fact("webui_gate", "handler/visible", "visible", "ui/handler.cc", 2,
@@ -43,7 +43,7 @@ def fixture(root, prefix="Orbital"):
     path = str(Path(root) / "report.json")
     write_json(path, report.to_dict())
     for snap, route in ((old, "old"), (new, "new")):
-        write_json(snapshot_path(cache, snap.ref, "default"), snap.to_dict())
+        write_json(snapshot_path(cache, snap.ref, "analysis"), snap.to_dict())
         tree = Path(tree_path(cache, snap.ref))
         (tree / "ui").mkdir(parents=True)
         (tree / "engine").mkdir()
@@ -484,7 +484,7 @@ class TestReviewWorkflow(unittest.TestCase):
         self.assertEqual(again["provenance"]["to"]["origin"], "supplemental_cache")
 
     def test_missing_snapshot_is_explicit_and_does_not_read_other_target_set(self):
-        Path(snapshot_path(self.cache, self.old.ref, "default")).unlink()
+        Path(snapshot_path(self.cache, self.old.ref, "analysis")).unlink()
         review.initialize(self.path, self.directory, self.cache, refresh=True)
         index, _ = review.load(self.directory)
         self.assertTrue(index["warnings"])

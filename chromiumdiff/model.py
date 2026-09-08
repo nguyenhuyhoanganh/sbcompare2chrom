@@ -26,6 +26,12 @@ from typing import Any, Dict, Iterable, List, Optional
 
 # Bump whenever cached artifacts stop meaning what an older build thought they
 # meant, so stale caches are rebuilt instead of silently misread.
+#
+# The target sets were once named "minimal", "default" and "wide"; they are now
+# "smoke" and "analysis", and the entries below keep the old names because that
+# is what those snapshots were built under. No bump for that rename: a snapshot
+# records its set in its own filename, so an old one is never found rather than
+# misread, and "analysis" fetches exactly what "wide" did.
 #   2: extraction is scoped to the declared target set. Version 1 snapshots
 #      took their scope from whatever the shared per-ref tree cache held, so a
 #      "minimal" snapshot could contain the full fact set.
@@ -768,10 +774,10 @@ class Finding:
     bucket: str = BUCKET_CLEANUP
     # True when the finding rests on an absence this run did not read enough of
     # the tree to confirm. It is a property of the *run*, not of the change, so
-    # it cannot be a bucket -- the same change on a `wide` run carries it and
+    # it cannot be a bucket -- the same change on a partial run carries it and
     # scores 15 points higher. It is a field rather than a sentence in
     # ``reasons`` because a reader has to be able to filter for these: 303 of
-    # them at M148 -> M151 on the default target set and 0 on the wide one.
+    # them at M148 -> M151 on the curated files and 0 on a full run.
     # Set wherever the 15-point deduction is, so it is not confined to one
     # bucket -- 120 of those 303 are in Compatibility break, the bucket read
     # first.

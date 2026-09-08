@@ -44,8 +44,9 @@ scope and present their completeness counts as equivalent.
 
 For a new comparison, explain the tradeoff before choosing the acquisition:
 
-- A broad `--target-set wide` scan retains more possible cross-area evidence,
-  but still does not cover all Chromium code or syntax.
+- The full scan retains the most possible cross-area evidence, and still does
+  not cover all Chromium code or syntax. `--target-set smoke` reads three
+  files to check the tool runs; it cannot answer a comparison question.
 - `--partition` reduces acquisition to supported paths for the chosen areas.
   It is not a complete boundary for their behaviour. Use it only after the
   user accepts that narrower acquisition. Confirm available options with

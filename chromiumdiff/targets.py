@@ -78,7 +78,7 @@ WEBUI_SURFACES = (
 # It is a list, so it is a *denominator you choose*, and that is exactly how a
 # coverage number learns to flatter itself. These roots used to be the fourteen
 # the fetch targets happen to live under, which meant the measurement graded
-# `wide` against the ground `wide` already covered: 1,039 of 1,039, reported as
+# the run against the ground it already covered: 1,039 of 1,039, reported as
 # **100%**, while `chromiumdiff catalog` -- which walks the real tree -- counted
 # 1,192 files the same rule says can declare. The 153 in the gap could never
 # show up as missed however wide the run, and they are not obscure:
@@ -190,7 +190,7 @@ class DiscoveryRule:
 
 # What the denominator counts, asked of the extractors themselves.
 #
-# It used to be the two filename rules above and nothing else, so `wide` could
+# It used to be the two filename rules above and nothing else, so a full run could
 # report "1,164 of 1,164 files (100%)" while 3,798 `.mojom` and `.idl` files --
 # carrying 39,376 of the tree's 54,255 facts, 72% of a report -- sat outside
 # the measurement entirely. That is the third time this denominator has graded
@@ -335,7 +335,7 @@ def coverage_against(candidates: Dict[str, str],
         by_dir[top] = by_dir.get(top, 0) + 1
     # Per surface as well as overall, because one scalar hides the spread and
     # the scoring stage uses it to decide whether an absence is a removal.
-    # Measured at M151 on the default set: 99.8% of the web API definitions
+    # Measured at M151 on the curated files: 99.8% of the web API definitions
     # against 1.7% of the pref and switch files. A pref that vanished from
     # that read is a guess; a web API that vanished is very nearly a fact, and
     # one number cannot say both.
@@ -357,8 +357,13 @@ def coverage_against(candidates: Dict[str, str],
     }
 
 
-def default_targets() -> List[FetchTarget]:
-    """The standard target set (~40 MB per version)."""
+def _curated_targets() -> List[FetchTarget]:
+    """Hand-picked files (~40 MB per version), not selectable on its own.
+
+    `analysis_targets` fetches these plus whole-directory archives. They stay
+    a separate list because the archives cannot replace them: content/ answers
+    503 on an archive request, so its files are named here one by one.
+    """
     return [
         # -- base::Feature declarations: the canonical "what can be toggled"
         #    list.  A default-state flip here is the single highest-signal
@@ -472,8 +477,12 @@ def default_targets() -> List[FetchTarget]:
     ]
 
 
-def minimal_targets() -> List[FetchTarget]:
-    """Fast subset (~1 MB) for smoke tests and CI wiring checks."""
+def smoke_targets() -> List[FetchTarget]:
+    """Three files (~1 MB): enough to prove the pipeline is wired up.
+
+    Not a comparison. It reads too little to say what changed between two
+    versions; use it to check the network, cache and extractors run at all.
+    """
     return [
         FetchTarget("third_party/blink/renderer/platform/"
                     "runtime_enabled_features.json5", "file"),
@@ -484,8 +493,9 @@ def minimal_targets() -> List[FetchTarget]:
 
 # Whole-directory archives for what the curated list can only sample. One
 # request each, filtered as they unpack. The measured effect is in
-# `wide_targets` below; it is stated once so the two cannot disagree.
-_WIDE_ROOTS = (
+# `analysis_targets` below; it is stated once so the two cannot
+# disagree.
+_ARCHIVE_ROOTS = (
     ("components", "every components/ declaration"),
     ("chrome/browser", "every chrome/browser declaration, including all 132 "
                        "WebUI surfaces under resources/"),
@@ -512,7 +522,7 @@ _WIDE_ROOTS = (
 
     # -- The roots that closed the last 12%.
     #
-    # `wide` used to read 1,039 of the 1,178 files the rule admits, and called
+    # The archives used to read 1,039 of the 1,178 files the rule admits, and called
     # that 100% because the measurement graded it against the roots the fetch
     # list already lived under. Once the denominator became the tree, the 139
     # it was missing had names: base/, device/, cc/, sandbox/, storage/ and the
@@ -536,14 +546,14 @@ _WIDE_ROOTS = (
     ("gin", "V8 bindings"),
     ("skia", "graphics"),
     ("url", "URL parsing"),
-    # `core` and `modules` are already fetched by the default set; only
+    # `core` and `modules` are already fetched by the curated list; only
     # `platform` is a new download, at 5.8 MB.
     ("third_party/blink/renderer/platform", "Blink platform declarations"),
 )
 
 # Every filename shape an extractor can read, as basename suffixes.
 #
-# One tuple, because two fetch paths ask this same question -- a `wide` root and
+# One tuple, because two fetch paths ask this same question -- an archive root and
 # a `--complete` partition both download a whole archive and keep only the
 # declarations out of it -- and answering it twice is how the two drift. They
 # did: this list learned the `*_prefs.{h,cc}` convention when the extractor did,
@@ -559,7 +569,7 @@ _WIDE_ROOTS = (
 # all.
 # The one root whose rule is "every .cc" rather than a filename convention.
 # Taken from the extractor that makes that claim, because the same directory
-# was written out three times -- the extractor's rule, the default set's fetch
+# was written out three times -- the extractor's rule, the curated list's fetch
 # target, and the --complete filter -- with nothing binding them. Chromium
 # moves its WebUI directories; two of the three would move and the third would
 # go quiet.
@@ -585,29 +595,29 @@ READABLE_SUFFIXES = (
 )
 
 
-def wide_targets() -> List[FetchTarget]:
-    """The default set, plus whole directories for what it can only sample.
+def analysis_targets() -> List[FetchTarget]:
+    """The set a real comparison uses: curated files plus whole directories.
 
-    Much larger to fetch: about 315 MB per version against 40. The archives
-    are filtered as they unpack, so the tree kept on disk is 94 MB against
-    roughly 38. The real cost is bandwidth, once per version, and a tag is
-    cached forever afterwards.
+    Much larger to fetch than the curated files alone: about 315 MB per
+    version against 40. The archives are filtered as they unpack, so the tree
+    kept on disk is 94 MB against roughly 38. The real cost is bandwidth, once
+    per version, and a tag is cached forever afterwards.
 
     Measured at M151, against a recursive listing of that version's own tree:
-    the files read go from 42 of 1,039 to all 1,039, and base::Feature
-    declarations from 2,062 to 3,951. These are the numbers as of that
-    measurement -- every run prints its own, and that is the one to trust.
+    the curated files alone read 42 of 1,039 and this set reads all 1,039,
+    taking base::Feature declarations from 2,062 to 3,951. These are the
+    numbers as of that measurement -- every run prints its own, and that is
+    the one to trust.
     """
-    return default_targets() + [
+    return _curated_targets() + [
         FetchTarget(root, "tree", READABLE_SUFFIXES, note=note)
-        for root, note in _WIDE_ROOTS
+        for root, note in _ARCHIVE_ROOTS
     ]
 
 
 TARGET_SETS = {
-    "default": default_targets,
-    "minimal": minimal_targets,
-    "wide": wide_targets,
+    "analysis": analysis_targets,
+    "smoke": smoke_targets,
 }
 
 # ---------------------------------------------------------------------------

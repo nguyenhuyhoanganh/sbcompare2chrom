@@ -35,7 +35,7 @@ def snapshot_path(cache_dir: str, ref: str, target_set: str,
 
     A partitioned snapshot covers a fraction of the surface. Keying only on
     the target-set name would let one be reused as if it were the full run --
-    the same mistake that once made a "minimal" snapshot silently hold the
+    the same mistake that once made a smoke-run snapshot silently hold the
     full fact set, and later made a widened filter change nothing.
     """
     safe = safe_name(ref)
@@ -59,7 +59,7 @@ def _partition_prefixes(partitions: Sequence[str]) -> Tuple[str, ...]:
     return out
 
 
-def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
+def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
                    platform: str = "Windows", local_src: Optional[str] = None,
                    refresh: bool = False, partitions: Optional[Sequence[str]] = None,
                    complete: bool = False, log=print) -> Snapshot:
@@ -95,7 +95,7 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
     # notices. Measuring costs one cached recursive listing per root; it does
     # not change what is fetched, only whether the gap is visible.
     coverage: dict = {}
-    if target_set != "minimal":
+    if target_set != "smoke":
         candidates, memberships = discover_candidates(source, log=log)
         if partitions:
             # A partitioned run is the one most likely to miss something, so
@@ -111,21 +111,20 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "default",
         log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "
             f"files in this tree that could declare ({pct}% of files)")
         if coverage["missed"]:
-            # A file count understates what the curated set gets, because the
-            # files someone chose are the big ones: measured at M151, the 42
-            # files `default` reads hold 2,062 of the 3,951 base::Feature
-            # declarations in all 1,039. Both numbers are worth knowing, and
-            # neither is the whole answer, so the log gives the one that can
-            # be measured without fetching and says what to run for the rest.
+            # A file count understates what a run gets, because the files
+            # someone chose are the big ones: measured at M151, the 42 curated
+            # files hold 2,062 of the 3,951 base::Feature declarations in all
+            # 1,039. Both numbers are worth knowing, and neither is the whole
+            # answer, so the log gives the one that can be measured without
+            # fetching, then says why the rest went unread.
             top = list(coverage["missed_by_directory"].items())[:3]
             log("    largest gaps: "
                 + ", ".join(f"{d}/ ({n} files)" for d, n in top))
-            if target_set != "wide":
-                # Only useful advice if it names something you are not already
-                # doing. A wide run that still misses files is a partitioned
-                # one, and widening the target set is not the fix for that.
-                log("    to read these too, run `--target-set wide`: "
-                    "about 315 MB per version instead of 40")
+            # Say which of the two causes it is. There is no wider target set
+            # to recommend, so naming one would be advice you cannot act on.
+            log("    these are outside this run's partitions; drop --partition "
+                "to read them" if partitions else
+                "    no target reads these; the run cannot see them at all")
     log(f"  {len(targets)} targets")
 
     started = time.time()

@@ -145,13 +145,12 @@ Mỗi target có bốn thuộc tính: `path` (tải ở đâu), `kind` (file hay
 
 ### Target set
 
-Một tập hợp target, tương ứng với một mức độ quét. ChromiumDiff có ba target set:
+Một tập hợp target, tương ứng với một mức độ quét. ChromiumDiff có hai target set:
 
 | Target set | Dùng khi nào | Đặc điểm |
 |---|---|---|
-| `minimal` | Thử xem công cụ có chạy được không | Rất nhanh, chỉ giữ phần lõi, không đủ để kết luận gì |
-| `default` | Chạy hằng ngày | Khoảng 40 MB mỗi version theo ghi chú hiện tại của project |
-| `wide` | Phân tích cho một đợt release thật | Phủ toàn bộ dạng tên file mà bộ đọc hiểu, trong những thư mục gốc đã chọn; lớn hơn đáng kể |
+| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Phủ toàn bộ dạng tên file mà bộ đọc hiểu, trong những thư mục gốc đã chọn; khoảng 315 MB mỗi version |
+| `smoke` | Thử xem công cụ có chạy được không | Rất nhanh, ba file, không đủ để kết luận gì |
 
 ### Partition
 
@@ -185,7 +184,7 @@ Tỷ lệ candidate file mà target set thực sự đọc tới:
 coverage = số candidate file mà target chạm tới / tổng số candidate file nhìn thấy được
 ```
 
-Coverage được tính cả ở mức tổng thể và ở mức từng nhóm (từng surface). Coverage theo từng nhóm mới là con số quan trọng khi đánh giá một kết luận dạng "khai báo này đã biến mất": target set `default` có thể đọc gần hết file Web IDL, nhưng chỉ đọc được một phần rất nhỏ file chứa pref và switch.
+Coverage được tính cả ở mức tổng thể và ở mức từng nhóm (từng surface). Coverage theo từng nhóm mới là con số quan trọng khi đánh giá một kết luận dạng "khai báo này đã biến mất": riêng danh sách file chọn tay đọc gần hết file Web IDL, nhưng chỉ đọc được một phần rất nhỏ file chứa pref và switch; phần archive của `analysis` là thứ bù vào.
 
 ### Missing target
 
@@ -624,7 +623,7 @@ Bảng này gom lại các nhầm lẫn đã thực sự xảy ra khi trình bà
 | "`removed` nghĩa là upstream đã xoá" | Khi coverage chưa đủ, rất có thể khai báo chỉ chuyển sang một file chưa được đọc |
 | "`Compatibility break` nghĩa là Samsung chắc chắn hỏng" | Nó nói đây là **loại** contract change cần đối chiếu với cách Samsung đang dùng |
 | "Score 80 nghĩa là 80% có bug" | Score là thứ tự ưu tiên tính theo rule, không phải xác suất |
-| "`wide` nghĩa là toàn bộ implementation của Chromium" | `wide` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
+| "`analysis` nghĩa là toàn bộ implementation của Chromium" | `analysis` là toàn bộ **dạng tên file** mà công cụ được thiết kế để đọc, trong các thư mục gốc đã chọn |
 | "Finch chính là command-line switch" | Finch là cấu hình/rollout từ phía server; switch là tham số truyền vào lúc khởi động process |
 | "`chrome://flags` là toàn bộ hệ thống feature flag" | Nó chỉ là giao diện và metadata cho một phần flag; `base::Feature` và Blink runtime flag là các lớp khác |
 | "Không tra được CL nghĩa là không có CL" | Hai cây source khác nhau thì chắc chắn đã có gì đó land. Dòng trống là phát biểu về **cuộc tìm kiếm**, không phải về Chromium |

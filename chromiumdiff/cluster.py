@@ -305,7 +305,7 @@ def summarize(clusters: Dict[str, List[Finding]], limit: int = 25) -> List[dict]
         # declaration is not in the Windows build on either side -- so counting
         # its bucket counts a fact about the build, not about the change. That
         # inflated seven `ChromeAndroidIdentitySurvey*` clusters to the top of
-        # a wide run: an Android-only flag at 0 beside a new parameter, which
+        # a full run: an Android-only flag at 0 beside a new parameter, which
         # is not two sides of anything.
         speaking = [m for m in members if m.score > 0] or members
         groups = {group_of(m.change.kind) for m in speaking} - {""}

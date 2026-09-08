@@ -86,12 +86,10 @@ dùng trên đĩa, và điều đó có quan trọng hay không phụ thuộc v�
 viết migration trong `chrome/browser/prefs/browser_prefs.cc` hay không.
 
 Với switch, tìm chuỗi đó trong các script khởi chạy và test automation. Với pref,
-lưu ý `browser_prefs.cc` được đọc ở lần chạy `wide` và không được đọc ở lần chạy
-`default`. Và áp dụng cái bẫy phía trên trước: ở lần chạy default, một key bị xoá
-đến dưới dạng `pref_left_scan`, mà chính phần `reason` của nó nói rằng key có thể
-chỉ đơn giản đã chuyển vào một file pref mà lần quét không mở. Signal đó là một
-**câu hỏi chưa ngã ngũ**, không phải một lần xoá, và một lần chạy `wide` mới giải
-quyết được nó.
+áp dụng cái bẫy phía trên trước: một key bị xoá đến dưới dạng `pref_left_scan`,
+mà chính phần `reason` của nó nói rằng key có thể chỉ đơn giản đã chuyển vào một
+file pref mà lần quét không mở. Signal đó là một **câu hỏi chưa ngã ngũ**, không
+phải một lần xoá. Đọc file pref mà nó có thể đã chuyển vào để giải quyết.
 
 ## Chuỗi ba chặng của settings
 

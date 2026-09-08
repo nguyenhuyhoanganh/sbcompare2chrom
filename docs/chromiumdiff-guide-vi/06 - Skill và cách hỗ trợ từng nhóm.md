@@ -56,7 +56,7 @@ Skill là playbook cho agent. Nó buộc agent tuân theo chín quy tắc:
 
 - dùng full version chính xác, không dùng milestone mơ hồ cho kết luận chính thức;
 - dùng trạng thái trên Windows, không dùng trạng thái global hay default;
-- chọn `wide` khi câu hỏi ở mức release;
+- không thêm `--partition` khi câu hỏi ở mức release;
 - đọc báo cáo theo bucket và theo signal, thay vì nhìn tổng số dòng;
 - phân biệt ba việc rất khác nhau: code của feature đã được đưa vào, feature thật sự đã được bật, và flag sau đó bị dọn đi;
 - không áp dụng vòng đời của flag cho Mojo, pref hay switch, vì các contract đó không có gate;
@@ -88,7 +88,7 @@ Hai điều agent **không** được làm: tự truy cập repository hoặc co
   "from_version": "full version cũ",
   "to_version": "full version mới",
   "platform": "Windows",
-  "target_set": "wide cho việc review ở mức release",
+  "target_set": "analysis cho việc review ở mức release",
   "samsung_src": "đường dẫn hoặc repository đã được cấp quyền",
   "samsung_build_config": "nếu tách khỏi source",
   "external_config_sources": [
@@ -283,7 +283,7 @@ Agent cần tách rõ sáu tình huống:
 
 - **pref key đổi tên**: dữ liệu đang lưu có thể bị bỏ rơi; cần migration hoặc đọc fallback;
 - **C++ symbol của pref đổi tên**: dữ liệu an toàn, nhưng tham chiếu trong code phải sửa;
-- **pref biến mất nhưng chưa xác nhận**: chạy `wide`, hoặc tìm trong toàn bộ cây Chromium;
+- **pref biến mất nhưng chưa xác nhận**: đọc file pref nó có thể đã chuyển sang, hoặc tìm trong toàn bộ cây Chromium;
 - **đăng ký, giá trị mặc định hoặc điều kiện platform đổi**;
 - **control WebUI nào đang bind vào khoá đó**;
 - **lớp policy hoặc sync nào có liên quan**.
@@ -434,7 +434,7 @@ Agent có thể dựng hàng đợi này từ `blink_runtime_feature`, `idl_inte
 
 ```text
 Phân tích upgrade Chromium <from_full_version> → <to_full_version> trên Windows.
-Chạy ChromiumDiff target-set wide. Chỉ lập report cho WebUI, nhưng kéo thêm
+Chạy ChromiumDiff không kèm partition. Chỉ lập report cho WebUI, nhưng kéo thêm
 base_feature và pref liên quan bằng route/control/gate chain. Với mỗi screen:
 nói upstream đổi gì, Windows user có thấy khác không, Samsung source có reference
 ở đâu, việc cần sửa hoặc test, và phần nào chưa xác minh. Không gọi một route
@@ -445,7 +445,7 @@ removed là user-visible change trước khi kiểm tra guard và backing featur
 
 ```text
 Phân tích upgrade Chromium <from_full_version> → <to_full_version> trên Windows.
-Chạy ChromiumDiff target-set wide. Tạo queue Browser C++/WebNative gồm feature
+Chạy ChromiumDiff không kèm partition. Tạo queue Browser C++/WebNative gồm feature
 state/param, pref, switch, C++ symbol và Mojo có Samsung reference. Tách rõ
 build work, runtime behaviour, stored-profile migration và external config.
 Flag retired phải đọc prior Windows state. Mọi kết luận Samsung bị ảnh hưởng
@@ -457,7 +457,7 @@ phải kèm Samsung path:line; nếu chỉ có upstream evidence, ghi là cần 
 Trước khi nhận kết luận của agent, tech lead chỉ cần kiểm tra năm điểm:
 
 1. **Version và platform** — full version chính xác của cả hai bên, cùng chữ "Windows", được ghi ngay ở đầu báo cáo.
-2. **Phạm vi** — kết luận ở mức release phải dùng `wide`; nếu dùng target set khác, giới hạn của nó phải được nói rõ.
+2. **Phạm vi** — kết luận ở mức release phải chạy `analysis` không kèm partition; nếu hẹp hơn, giới hạn của nó phải được nói rõ.
 3. **Bằng chứng cho mọi câu về Samsung** — mọi câu "Samsung dùng…" phải kèm `path:line` phía Samsung, hoặc một nguồn config cụ thể.
 4. **Bằng chứng cho mọi kết luận đã bị xoá** — phải đã đọc coverage và lý do, không suy trực tiếp từ sự vắng mặt.
 5. **Tách bạch bốn lớp** — báo cáo phải tách rõ: fact phía upstream, tác động lên sản phẩm, hành động, và test. Không trộn cả bốn vào một câu chắc chắn quá mức.

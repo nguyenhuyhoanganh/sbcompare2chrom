@@ -73,8 +73,8 @@ Adapt it to the user's language and ask for missing versions in the same
 exchange. Those areas are examples, not a discovery list. Offer declaration
 kinds only as an optional refinement; do not make the user classify code.
 
-MUST wait while the answer is missing. Do not choose `wide`, all areas, a
-top-N sample or the highest scores instead. If the user already gave an
+MUST wait while the answer is missing. Do not pick the areas yourself, take
+the top N rows or work down the scores instead. If the user already gave an
 explicit scope and priorities, use them without asking again; on resume, keep
 the recorded scope unless the user changes it.
 
@@ -97,19 +97,21 @@ compares Windows conditions and has no platform option. Record the exact
 `from_ref` and `to_ref` the report returns, because bare milestone numbers
 resolve differently on a later run.
 
-For a new comparison, with broad acquisition shown:
+For a new comparison:
 
 ```bash
 cache_dir=.chromiumdiff-cache
 python3 -m chromiumdiff check
-python3 -m chromiumdiff run FROM TO --target-set wide --cache "$cache_dir" --out out/upgrade
+python3 -m chromiumdiff run FROM TO --cache "$cache_dir" --out out/upgrade
 python3 -m chromiumdiff review init out/upgrade --directory out/upgrade/review --cache "$cache_dir"
 ```
 
-Replace FROM/TO and the paths with the requested comparison. `wide` scans more
-supported files than `default` and still covers neither all Chromium code nor
-all syntax. `--partition` narrows acquisition to supported paths, and is used
-only after the user accepts that narrower input.
+Replace FROM/TO and the paths with the requested comparison. A run reads
+every file its targets cover, about 315 MB per version, and still covers
+neither all Chromium code nor all syntax. Add `--target-set smoke` to read
+three files and check the tool runs at all; it reads far too little to compare
+two versions. `--partition` narrows what is fetched to supported paths, and is
+used only after the user accepts that narrower input.
 
 For an existing report without a review, run `review init` with that report's
 own cache. For an existing review, go to step 3; initialize again only if its

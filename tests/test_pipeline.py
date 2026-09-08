@@ -213,8 +213,8 @@ class TestSnapshotScoping(unittest.TestCase):
     def test_diff_refuses_mismatched_target_sets(self):
         old = snap("139.0.0.0", [feature("Foo", "disabled")])
         new = snap("143.0.0.0", [feature("Foo", "enabled")])
-        old.meta = {"target_set": "minimal"}
-        new.meta = {"target_set": "default"}
+        old.meta = {"target_set": "smoke"}
+        new.meta = {"target_set": "analysis"}
         with self.assertRaises(ValueError) as ctx:
             diff_snapshots(old, new)
         self.assertIn("target set", str(ctx.exception))
@@ -331,7 +331,7 @@ struct Handset {
     def test_a_removal_is_discounted_when_the_tree_was_not_read(self):
         """Absence from a twentieth of the tree is not evidence of deletion.
 
-        Measured M148 -> M151 on the default set: of 141 preference keys that
+        Measured M148 -> M151 on the curated files: of 141 preference keys that
         vanished, 100 had simply moved into a file the run never opened.
         """
         change = diff_snapshots(snap("148.0.0.0", [feature("Gone", "enabled")]),
@@ -643,7 +643,7 @@ class TestScheduledIsItsOwnBucket(unittest.TestCase):
 class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
     """Whether a run confirmed an absence is a property of the run.
 
-    The same change carries it on a default run and not on a wide one, so it
+    The same change carries it on a partial run and not on a full one, so it
     cannot be a bucket -- buckets are decided by the change. It is a field so
     a reader can filter for it: the rows that carry it sit in Upstream
     cleanup, the one bucket `report.md` gives no table to.
@@ -685,7 +685,7 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
         page = md_report.render(Report(from_ref="a", to_ref="b",
                                        findings=[self._unconfirmed_pref()]))
         self.assertIn("## Unconfirmed (1)", page)
-        self.assertIn("--target-set wide", page)
+        self.assertIn("read by hand", page)
 
     def test_the_html_row_carries_the_flag_and_offers_the_filter(self):
         from chromiumdiff.model import Report
@@ -774,8 +774,8 @@ class TestPartitions(unittest.TestCase):
     def test_partition_narrows_the_fetch_list(self):
         from chromiumdiff.targets import get_targets
 
-        full = get_targets("default")
-        part = get_targets("default", ["downloads"])
+        full = get_targets("analysis")
+        part = get_targets("analysis", ["downloads"])
         self.assertLess(len(part), len(full))
         self.assertTrue(any("resources/downloads" in t.path for t in part))
         self.assertFalse(any("resources/bookmarks" in t.path for t in part))
@@ -785,14 +785,14 @@ class TestPartitions(unittest.TestCase):
         from chromiumdiff.targets import get_targets
 
         for name in ("downloads", "settings", "history"):
-            paths = {t.path for t in get_targets("default", [name])}
+            paths = {t.path for t in get_targets("analysis", [name])}
             self.assertIn("chrome/common/pref_names.h", paths, name)
             self.assertIn("chrome/browser/flag-metadata.json", paths, name)
 
     def test_partitions_combine(self):
         from chromiumdiff.targets import get_targets
 
-        both = {t.path for t in get_targets("default", ["downloads", "bookmarks"])}
+        both = {t.path for t in get_targets("analysis", ["downloads", "bookmarks"])}
         self.assertTrue(any("resources/downloads" in p for p in both))
         self.assertTrue(any("resources/bookmarks" in p for p in both))
 
@@ -800,18 +800,18 @@ class TestPartitions(unittest.TestCase):
         from chromiumdiff.targets import get_targets
 
         with self.assertRaises(KeyError):
-            get_targets("default", ["not-a-partition"])
+            get_targets("analysis", ["not-a-partition"])
 
     def test_partition_is_part_of_the_cache_key(self):
         """Otherwise a partial snapshot gets reused as if it were a full one.
 
-        This exact class of bug has bitten twice: a "minimal" snapshot holding
+        This exact class of bug has bitten twice: a smoke snapshot holding
         the full fact set, and a widened filter that changed nothing.
         """
         from chromiumdiff.snapshot import snapshot_path
 
-        full = snapshot_path("/c", "refs/tags/151.0.0.0", "default")
-        part = snapshot_path("/c", "refs/tags/151.0.0.0", "default", ["downloads"])
+        full = snapshot_path("/c", "refs/tags/151.0.0.0", "analysis")
+        part = snapshot_path("/c", "refs/tags/151.0.0.0", "analysis", ["downloads"])
         self.assertNotEqual(full, part)
         self.assertIn("downloads", part)
 
@@ -819,8 +819,8 @@ class TestPartitions(unittest.TestCase):
         """One side missing whole categories reads as mass addition."""
         old = snap("148.0.0.0", [feature("Foo", "enabled")])
         new = snap("151.0.0.0", [feature("Foo", "disabled")])
-        old.meta = {"target_set": "default", "partitions": []}
-        new.meta = {"target_set": "default", "partitions": ["downloads"]}
+        old.meta = {"target_set": "analysis", "partitions": []}
+        new.meta = {"target_set": "analysis", "partitions": ["downloads"]}
         with self.assertRaises(ValueError):
             diff_snapshots(old, new)
 
@@ -850,7 +850,7 @@ class TestFetchMarkers(unittest.TestCase):
                 return None
 
         self.root = tempfile.mkdtemp()
-        self.targets = get_targets("minimal")
+        self.targets = get_targets("smoke")
         self.source = AllMissing("refs/tags/999.0.0.0", self.root)
 
     def tearDown(self):
@@ -1335,8 +1335,8 @@ class TestCompletePartitions(unittest.TestCase):
 
     def test_complete_pulls_roots_not_a_curated_subset(self):
         from chromiumdiff.targets import get_targets
-        filtered = get_targets("default", ["downloads"])
-        complete = get_targets("default", ["downloads"], complete=True)
+        filtered = get_targets("analysis", ["downloads"])
+        complete = get_targets("analysis", ["downloads"], complete=True)
         self.assertTrue(any(t.kind == "tree" and t.path == "components/download"
                             for t in complete),
                         "complete should pull the whole components/download root")
@@ -1346,14 +1346,14 @@ class TestCompletePartitions(unittest.TestCase):
     def test_complete_covers_what_the_curated_list_missed(self):
         """Measured gaps at M151, now inside the roots by construction."""
         from chromiumdiff.targets import get_targets
-        targets = get_targets("default", ["bookmarks", "history"], complete=True)
+        targets = get_targets("analysis", ["bookmarks", "history"], complete=True)
         prefixes = [t.path.rstrip("/") + "/" for t in targets if t.kind == "tree"]
         for missed in ("components/bookmarks/common/bookmark_pref_names.h",
                        "components/history/core/common/pref_names.h"):
             self.assertTrue(any(missed.startswith(p) for p in prefixes), missed)
 
     def test_complete_filters_through_the_one_readable_list(self):
-        """`--complete` and `wide` ask the same question, so they share a list.
+        """`--complete` and the archives ask the same question, so they share a list.
 
         They did not. `--complete` carried its own copy, written earlier, that
         had never learned the `*_prefs.{h,cc}` convention or the `.h` half of
@@ -1363,10 +1363,10 @@ class TestCompletePartitions(unittest.TestCase):
         """
         from chromiumdiff.targets import READABLE_SUFFIXES, get_targets
 
-        wide = {t.include for t in get_targets("wide")
+        wide = {t.include for t in get_targets("analysis")
                 if t.kind == "tree" and t.include}
         self.assertIn(READABLE_SUFFIXES, wide)
-        for target in get_targets("default", ["extensions"], complete=True):
+        for target in get_targets("analysis", ["extensions"], complete=True):
             if target.kind != "tree":
                 continue
             missing = set(READABLE_SUFFIXES) - set(target.include or ())
@@ -1377,7 +1377,7 @@ class TestCompletePartitions(unittest.TestCase):
 
         `webui_gates.applies_to` claims every .cc under its handler directory --
         a rule, not a naming convention -- so the fetch side has to name the
-        same directory in two places: the default set's tree target and the
+        same directory in two places: the curated list's tree target and the
         `--complete` filter. All three were string literals. Chromium moves its
         WebUI directories, and two of the three would have moved with it while
         the third went quiet: the fetch would keep working and the extractor
@@ -1389,9 +1389,9 @@ class TestCompletePartitions(unittest.TestCase):
         self.assertEqual(GATE_ROOT, WEBUI_HANDLER_DIR.rstrip("/"))
         probe = WEBUI_HANDLER_DIR + "settings/settings_ui.cc"
         self.assertTrue(applies_to(probe))
-        for args in (("default", None, False), ("wide", None, False),
-                     ("default", ["settings"], False),
-                     ("default", ["settings"], True)):
+        for args in (("analysis", None, False),
+                     ("analysis", ["settings"], False),
+                     ("analysis", ["settings"], True)):
             files, trees = scope_of(get_targets(*args))
             self.assertTrue(reaches(probe, files, trees),
                             f"{args} does not fetch what the gate extractor reads")
@@ -1399,7 +1399,7 @@ class TestCompletePartitions(unittest.TestCase):
     def test_complete_fetches_the_pref_files_the_extractor_reads(self):
         """The concrete files the second list was dropping, at M151."""
         from chromiumdiff.targets import get_targets, reaches, scope_of
-        files, trees = scope_of(get_targets("default", ["extensions"],
+        files, trees = scope_of(get_targets("analysis", ["extensions"],
                                             complete=True))
         for path in ("extensions/browser/extension_prefs.h",
                      "extensions/browser/extension_prefs.cc",
@@ -1409,27 +1409,27 @@ class TestCompletePartitions(unittest.TestCase):
     def test_an_unaffordable_root_is_refused_not_faked(self):
         from chromiumdiff.targets import get_targets
         with self.assertRaises(ValueError) as caught:
-            get_targets("default", ["webplatform"], complete=True)
+            get_targets("analysis", ["webplatform"], complete=True)
         self.assertIn("webplatform", str(caught.exception))
 
     def test_complete_needs_a_partition(self):
         from chromiumdiff.targets import get_targets
         with self.assertRaises(ValueError):
-            get_targets("default", None, complete=True)
+            get_targets("analysis", None, complete=True)
 
     def test_complete_is_part_of_the_cache_key(self):
         from chromiumdiff.snapshot import snapshot_path
-        a = snapshot_path("/c", "refs/tags/151", "default", ["settings"])
-        b = snapshot_path("/c", "refs/tags/151", "default", ["settings"], True)
+        a = snapshot_path("/c", "refs/tags/151", "analysis", ["settings"])
+        b = snapshot_path("/c", "refs/tags/151", "analysis", ["settings"], True)
         self.assertNotEqual(a, b)
 
     def test_diff_refuses_to_mix_complete_with_filtered(self):
         from chromiumdiff.diff import diff_snapshots
         old = Snapshot(ref="a", facts=[],
-                       meta={"target_set": "default", "partitions": ["settings"],
+                       meta={"target_set": "analysis", "partitions": ["settings"],
                              "complete": True})
         new = Snapshot(ref="b", facts=[],
-                       meta={"target_set": "default", "partitions": ["settings"],
+                       meta={"target_set": "analysis", "partitions": ["settings"],
                              "complete": False})
         with self.assertRaises(ValueError):
             diff_snapshots(old, new)
@@ -1446,9 +1446,11 @@ class TestCatalog(unittest.TestCase):
     PATHS = [
         "content/public/common/content_features.cc",       # covered by a tree target
         "chrome/common/chrome_features.cc",                # covered by a file target
-        "cc/base/features.cc",                             # not covered
+        "cc/base/features.cc",                             # covered by an archive
         "components/sync/base/features.cc",                # covered
-        "base/task/task_features.cc",                      # not covered
+        "base/task/task_features.cc",                      # covered by an archive
+        "chrome/installer/util/features.cc",               # not covered
+        "chrome/services/x/features.cc",                   # not covered
         "content/browser/x_unittest.cc",                   # a test, ignore
         "components/y/features_browsertest.cc",            # a test, ignore
         "ash/constants/ash_features.cc",                   # platform we do not ship
@@ -1464,7 +1466,7 @@ class TestCatalog(unittest.TestCase):
     def test_every_surface_an_extractor_reads_is_a_candidate(self):
         """The denominator asks the extractors; there is no second list.
 
-        `.idl` and `.mojom` used to be excluded from it, so `wide` reported
+        `.idl` and `.mojom` used to be excluded from it, so a full run reported
         100% while 3,798 such files -- 72% of a report's facts -- sat outside
         the measurement. A file no extractor reads is still not a candidate.
         """
@@ -1494,8 +1496,11 @@ class TestCatalog(unittest.TestCase):
         self.assertIn("content/public/common/content_features.cc", covered)
         # An exact file target covers just that file.
         self.assertIn("chrome/common/chrome_features.cc", covered)
-        self.assertIn("cc/base/features.cc", missing)
-        self.assertIn("base/task/task_features.cc", missing)
+        # An archive root covers these; chrome/installer and chrome/services
+        # sit under no root, which is the gap every run prints.
+        self.assertIn("cc/base/features.cc", covered)
+        self.assertIn("chrome/installer/util/features.cc", missing)
+        self.assertIn("chrome/services/x/features.cc", missing)
 
     def test_coverage_is_reported_as_a_number(self):
         report = self._report()
@@ -1505,8 +1510,7 @@ class TestCatalog(unittest.TestCase):
 
     def test_missing_is_grouped_so_the_gap_is_actionable(self):
         by_area = self._report().missing_by_area()
-        self.assertIn("cc", by_area)
-        self.assertIn("base", by_area)
+        self.assertEqual({"chrome": 2}, by_area)
 
 
 class TestTheMarkdownCarriesTheGroup(unittest.TestCase):
@@ -1854,7 +1858,7 @@ class TestClusterOrderPutsTheStoriesFirst(unittest.TestCase):
         bucket is a fact about the build, not about the change.
 
         Counting it put seven `ChromeAndroidIdentitySurvey*` clusters at the
-        top of a wide run: an Android-only flag at 0 beside a new parameter,
+        top of a full run: an Android-only flag at 0 beside a new parameter,
         which is not two sides of anything.
         """
         noise = self._cluster([self._f("base_feature", "A", "modified", 0, "cleanup"),
@@ -2359,7 +2363,7 @@ class TestTreeFilterIsPartOfScope(unittest.TestCase):
         from chromiumdiff.targets import get_targets
 
         prefixes = {t.path.rstrip("/") + "/": t.include
-                    for t in get_targets("default") if t.kind == "tree"}
+                    for t in get_targets("analysis") if t.kind == "tree"}
         self.assertEqual(prefixes.get("chrome/browser/ui/webui/"), (".cc",))
 
 
@@ -2377,18 +2381,19 @@ class TestScopeViolations(unittest.TestCase):
     def _snap(self, paths):
         from chromiumdiff.model import Fact, Snapshot
         return Snapshot(
-            ref="test", meta={"target_set": "default", "partitions": [],
+            ref="test", meta={"target_set": "analysis", "partitions": [],
                               "complete": False},
             facts=[Fact(kind="x", key=p, name="x", path=p) for p in paths])
 
     def test_a_file_outside_the_tree_filter_is_flagged(self):
         from chromiumdiff.catalog import scope_violations
 
-        # The default target asks for chrome/browser/ui/webui as *.cc only.
+        # chrome/browser/ui/webui is declared .cc only and the chrome/browser
+        # archive reads the readable suffixes; a plain header is in neither.
         snap = self._snap(["chrome/browser/ui/webui/downloads/downloads.cc",
-                           "chrome/browser/ui/webui/downloads/downloads.mojom"])
+                           "chrome/browser/ui/webui/downloads/downloads.h"])
         self.assertEqual(scope_violations(snap),
-                         ["chrome/browser/ui/webui/downloads/downloads.mojom"])
+                         ["chrome/browser/ui/webui/downloads/downloads.h"])
 
     def test_a_file_under_no_target_at_all_is_flagged(self):
         from chromiumdiff.catalog import scope_violations
@@ -2537,17 +2542,18 @@ class TestDiscoveryMeasuresTheGap(unittest.TestCase):
                                [FetchTarget("chrome/browser", "tree", (".cc",))])
         self.assertEqual(cov["missed"], 1)
 
-    def test_the_wide_target_set_closes_most_of_the_gap(self):
-        """`--target-set wide` exists to be the answer when the gap matters."""
+    def test_the_archives_close_the_gap_the_curated_files_leave(self):
+        """The archives are why an analysis run costs 315 MB instead of 40."""
+        from chromiumdiff import targets as targets_module
         from chromiumdiff.targets import coverage_against, get_targets
 
         candidates = {"components/deep/nested/x_features.cc": "f",
                       "chrome/browser/deep/y_prefs.h": "p",
                       "media/z_switches.cc": "f"}
-        narrow = coverage_against(candidates, get_targets("default"))
-        wide = coverage_against(candidates, get_targets("wide"))
-        self.assertEqual(narrow["read"], 0)
-        self.assertEqual(wide["read"], 3)
+        curated = coverage_against(candidates, targets_module._curated_targets())
+        analysis = coverage_against(candidates, get_targets("analysis"))
+        self.assertEqual(curated["read"], 0)
+        self.assertEqual(analysis["read"], 3)
 
 
 class TestIdentityMovesAreStillChanges(unittest.TestCase):
@@ -2620,7 +2626,7 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
     it as a constant. Measured at M151: `default` reads 42 of the 1,039 files
     in the tree that could declare -- 4% of files, but more than half the
     `base::Feature` declarations, because the curated files are the large ones
-    -- and `wide` reads all 1,039, for about 315 MB per version against 40.
+    -- and the archives reach all 1,039, for about 315 MB per version against 40.
     """
 
     def test_every_named_set_resolves(self):
@@ -2631,8 +2637,8 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
     def test_wide_is_a_superset_of_default(self):
         """A release gate must never read *less* than a working run."""
         from chromiumdiff.targets import get_targets
-        default = {(t.path, t.kind) for t in get_targets("default")}
-        wide = {(t.path, t.kind) for t in get_targets("wide")}
+        default = {(t.path, t.kind) for t in get_targets("analysis")}
+        wide = {(t.path, t.kind) for t in get_targets("analysis")}
         self.assertTrue(default <= wide, sorted(default - wide))
 
     def test_every_wide_suffix_is_read_by_some_extractor(self):
@@ -2670,17 +2676,17 @@ class TestTargetSetsAreHonestAboutCost(unittest.TestCase):
         """An unfiltered root would unpack a whole Chromium subsystem to disk."""
         from chromiumdiff.targets import get_targets
 
-        default_trees = {t.path for t in get_targets("default") if t.kind == "tree"}
-        for target in get_targets("wide"):
+        default_trees = {t.path for t in get_targets("analysis") if t.kind == "tree"}
+        for target in get_targets("analysis"):
             if target.kind == "tree" and target.path not in default_trees:
                 self.assertTrue(target.include, f"{target.path} has no filter")
 
     def test_the_cache_key_separates_the_sets(self):
-        """Otherwise a 40 MB snapshot gets reused as if it were the 315 MB one."""
+        """Otherwise a smoke snapshot gets reused as if it were the real one."""
         from chromiumdiff.snapshot import snapshot_path
         paths = {snapshot_path("c", "refs/tags/151.0.0.0", name)
-                 for name in ("default", "minimal", "wide")}
-        self.assertEqual(len(paths), 3)
+                 for name in ("analysis", "smoke")}
+        self.assertEqual(len(paths), 2)
 
 
 class TestMinimalStaysMinimal(unittest.TestCase):
@@ -2695,14 +2701,14 @@ class TestMinimalStaysMinimal(unittest.TestCase):
 
     def test_minimal_is_three_declaration_files(self):
         from chromiumdiff.targets import get_targets
-        targets = get_targets("minimal")
+        targets = get_targets("smoke")
         self.assertEqual(len(targets), 3, [t.path for t in targets])
         self.assertTrue(all(t.kind == "file" for t in targets))
 
     def test_minimal_is_a_subset_of_default(self):
         from chromiumdiff.targets import get_targets
-        minimal = {t.path for t in get_targets("minimal")}
-        default = get_targets("default")
+        minimal = {t.path for t in get_targets("smoke")}
+        default = get_targets("analysis")
         names = {t.path for t in default if t.kind == "file"}
         trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
         for path in minimal:
@@ -2712,7 +2718,7 @@ class TestMinimalStaysMinimal(unittest.TestCase):
     def test_every_partition_core_file_is_reachable_from_default(self):
         """PARTITION_CORE promises these to every partition."""
         from chromiumdiff.targets import PARTITION_CORE, get_targets
-        default = get_targets("default")
+        default = get_targets("analysis")
         names = {t.path for t in default if t.kind == "file"}
         trees = [t.path.rstrip("/") + "/" for t in default if t.kind == "tree"]
         for path in PARTITION_CORE:
@@ -2760,10 +2766,10 @@ class TestOneDefinitionOfScope(unittest.TestCase):
         from chromiumdiff.targets import coverage_against, get_targets
 
         path = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
-        targets = get_targets("wide")
+        targets = get_targets("analysis")
         cov = coverage_against({path: "pref"}, targets)
         snap = Snapshot(ref="t", facts=[Fact(kind="pref", key="k", name="k", path=path)],
-                        meta={"target_set": "wide", "partitions": [], "complete": False})
+                        meta={"target_set": "analysis", "partitions": [], "complete": False})
         # Coverage says it is read, and the scope check agrees it is allowed.
         self.assertEqual(cov["missed"], 0, cov["missed_paths"])
         self.assertEqual(scope_violations(snap), [])
@@ -2779,20 +2785,21 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
     now hit four separate times.
     """
 
-    NESTED = "chrome/browser/ui/webui/bookmarks/bookmark_prefs.h"
+    NESTED = "chrome/browser/ui/webui/bookmarks/bookmarks_handler.h"
 
     def test_catalog_agrees_with_the_shared_rule(self):
         """catalog measured on the path prefix and ignored the suffix filter.
 
-        The default set asks for .cc under chrome/browser/ui/webui, so this
-        header is never written to disk and never read. catalog counted it
-        as covered -- an error in the reassuring direction, in the one
-        command whose whole job is measuring the gap.
+        chrome/browser/ui/webui asks for .cc, and the chrome/browser archive
+        above it for the readable suffixes; this header matches neither, so it
+        is never written to disk and never read. catalog counted it as covered
+        -- an error in the reassuring direction, in the one command whose whole
+        job is measuring the gap.
         """
         from chromiumdiff.catalog import covered_by_targets
         from chromiumdiff.targets import get_targets, reaches, scope_of
 
-        targets = get_targets("default")
+        targets = get_targets("analysis")
         files, trees = scope_of(targets)
         self.assertFalse(reaches(self.NESTED, files, trees))
         self.assertFalse(covered_by_targets(self.NESTED, targets))
@@ -2808,8 +2815,8 @@ class TestEveryScopeCheckAgrees(unittest.TestCase):
         from chromiumdiff.targets import get_targets
 
         path = "components/bookmarks/browser/bookmark_pref_names.h"
-        filtered = get_targets("default", ["bookmarks"])
-        complete = get_targets("default", ["bookmarks"], complete=True)
+        filtered = get_targets("analysis", ["bookmarks"])
+        complete = get_targets("analysis", ["bookmarks"], complete=True)
         self.assertFalse(covered_by_targets(path, filtered))
         self.assertTrue(covered_by_targets(path, complete))
 
@@ -2977,7 +2984,7 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
         return Report(
             from_ref="refs/tags/148", to_ref="refs/tags/151", findings=[],
             summary=summary,
-            meta={"target_set": "default",
+            meta={"target_set": "analysis",
                   "coverage": {"from": {"candidates": 986, "read": 43,
                                         "missed_by_directory": {}},
                                "to": {"candidates": 1039, "read": 42,
@@ -3010,13 +3017,14 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
         text = md.render(self._report())
         self.assertIn("read 42 of 1,039 files", text)
         self.assertIn("`chrome/browser/` (251 files)", text)
-        self.assertIn("--target-set wide", text)
+        # An analysis run has no wider set to be sent to, so it is offered none.
+        self.assertNotIn("Re-run", text)
 
-    def test_a_wide_run_is_not_told_to_widen(self):
+    def test_only_a_smoke_run_is_told_to_re_run(self):
         from chromiumdiff.report import markdown as md
         report = self._report()
-        report.meta["target_set"] = "wide"
-        self.assertNotIn("--target-set wide", md.render(report))
+        report.meta["target_set"] = "smoke"
+        self.assertIn("Re-run without `--target-set smoke`", md.render(report))
 
     def test_a_report_without_the_measurement_renders_no_empty_row(self):
         from chromiumdiff.report import markdown as md
@@ -3083,8 +3091,8 @@ class TestTheControlRuleAndItsWordsAgree(unittest.TestCase):
 class TestATruncatedTreeIsRefused(unittest.TestCase):
     """The target-set guard was one derivation short of its own reasoning.
 
-    It compares the *label* a snapshot was built under, which catches `minimal`
-    against `default` and nothing else. Two sides both labelled "default" pass
+    It compares the *label* a snapshot was built under, which catches `smoke`
+    against `analysis` and nothing else. Two sides labelled the same pass
     it even when one is a truncated checkout -- and `--local-src` / `--to-src`
     is exactly how that happens. Pointed at a partial tree, one side of a
     real run held 1,647 facts against the other's 24,959 and the tool said
@@ -3095,7 +3103,7 @@ class TestATruncatedTreeIsRefused(unittest.TestCase):
 
     def _snap(self, ref, n, kind="base_feature"):
         from chromiumdiff.model import Fact, Snapshot
-        return Snapshot(ref=ref, meta={"target_set": "default"},
+        return Snapshot(ref=ref, meta={"target_set": "analysis"},
                         facts=[Fact(kind, f"F{i}", f"F{i}", path="a.cc",
                                     attrs={"default_state": "enabled"})
                                for i in range(n)])
@@ -3162,7 +3170,7 @@ class TestCoverageIsGradedAgainstTheTree(unittest.TestCase):
     """A denominator you choose is how a coverage number flatters itself.
 
     `DISCOVERY_ROOTS` was the fourteen roots the fetch targets happen to live
-    under, so the per-run measurement graded `wide` against the ground `wide`
+    under, so the per-run measurement graded the run against the ground it
     already covered: 1,039 of 1,039, reported as 100%, while `catalog` -- which
     walks the real tree -- counted 1,192 files the same rule admits. The 153 in
     the gap could never surface as missed, and they hold real declarations:
@@ -4103,7 +4111,7 @@ class TestNoCoverageNumberIsHardcoded(unittest.TestCase):
     """Nothing shown to a user may quote a coverage figure of its own.
 
     Coverage changes whenever a filter changes, and it has gone stale twice:
-    help text and a log line were still advertising 96% after `wide` reached
+    help text and a log line were still advertising 96% after the archives reached
     100%. Every run measures its own coverage and prints it, so a second copy
     in a string can only ever disagree with the first.
 
@@ -4162,7 +4170,7 @@ class TestAMojoOrdinalChangeReachesTheReport(unittest.TestCase):
         from chromiumdiff.extract import mojom
         return Snapshot(ref=ref, facts=mojom.extract(
             f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
-            meta={"target_set": "default"})
+            meta={"target_set": "analysis"})
 
     def test_a_moved_ordinal_is_a_breaking_change(self):
         changes = diff_snapshots(self._snap("148.0.0.0", "Foo@0(int32 a);"),
@@ -4286,7 +4294,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\ninterface I {{\n  {body}\n}};\n", "t.mojom"),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         changes = [c for c in diff_snapshots(
             snap_of("148.0.0.0", "Foo(int32 a);"),
             snap_of("151.0.0.0", "[EnableIf=is_android] Foo(int32 a);"))
@@ -4303,7 +4311,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
             return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
                 "interface N { %s };" % body,
                 "third_party/blink/renderer/x.idl")),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         before = "[SecureContext] void f(long a); void f(double b);"
         after = "void f(long a); [SecureContext] void f(double b);"
         change = [c for c in diff_snapshots(snap_of("148.0.0.0", before),
@@ -4322,7 +4330,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\n[Stable]\nstruct S {{ {body} }};\n", "t.mojom"),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         changes = [c for c in diff_snapshots(
             snap_of("148.0.0.0", "int32 a; int32 b;"),
             snap_of("151.0.0.0", "int32 b; int32 a;"))
@@ -4347,7 +4355,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         def snap_of(ref, header):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\n{header}struct S {{ int32 a; int32 b; }};\n",
-                "t.mojom"), meta={"target_set": "default"})
+                "t.mojom"), meta={"target_set": "analysis"})
 
         changes = diff_snapshots(snap_of("148.0.0.0", "[Stable]\n"),
                                  snap_of("151.0.0.0", ""))
@@ -4365,7 +4373,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\nstruct S {{ {body} }};\n", "t.mojom"),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         self.assertEqual(
             [c for c in diff_snapshots(snap_of("148.0.0.0", "int32 a; int32 b;"),
                                        snap_of("151.0.0.0", "int32 b; int32 a;"))
@@ -4381,7 +4389,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
             return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
                 "interface N { %s };" % body,
                 "third_party/blink/renderer/x.idl")),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         scores = set()
         for order in ("void f(); void f(long a);", "void f(long a); void f();"):
             change = [c for c in diff_snapshots(snap_of("148.0.0.0", order),
@@ -4448,7 +4456,7 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
     def _mojom_snapshot(self, ref, body, meta=None):
         from chromiumdiff.extract import mojom
         return Snapshot(ref=ref, facts=mojom.extract(body, "t.mojom"),
-                        meta=meta or {"target_set": "default"})
+                        meta=meta or {"target_set": "analysis"})
 
     def test_the_run_hands_the_scorer_both_sides_of_the_coverage(self):
         """`Scope` held two sides while the run passed one.
@@ -4521,9 +4529,9 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
                 "third_party/blink/renderer/x.idl"))
         wide = "\n  ".join(f"void f({'long a, ' * n}long z);" for n in range(5))
         changes = diff_snapshots(
-            Snapshot(ref="1", facts=side(wide), meta={"target_set": "default"}),
+            Snapshot(ref="1", facts=side(wide), meta={"target_set": "analysis"}),
             Snapshot(ref="2", facts=side(wide.split("\n  ", 1)[1]),
-                     meta={"target_set": "default"}))
+                     meta={"target_set": "analysis"}))
         findings = score_all([c for c in changes if c.kind == "idl_member"])
         locations = findings[0].change.locations
         # The name says five. Checking the first four was the same fault the
@@ -4563,7 +4571,7 @@ class TestPairedAttributesStayScoped(unittest.TestCase):
         def snap_of(ref, body):
             return Snapshot(ref=ref, facts=mojom.extract(
                 f"module t;\n[Stable]\nstruct S {{ {body} }};\n", "t.mojom"),
-                meta={"target_set": "default"})
+                meta={"target_set": "analysis"})
         changes = [c for c in diff_snapshots(snap_of("1", "int32 a; int32 b;"),
                                              snap_of("2", "int32 b; int32 a;"))
                    if c.kind == "mojo_field"]
@@ -4614,9 +4622,9 @@ class TestTheCompletenessMatrix(unittest.TestCase):
         before, after = (one, two) if direction == ADDED else (two, one)
         return [c for c in diff_snapshots(
             Snapshot(ref="148.0.0.0", facts=side(before),
-                     meta={"target_set": "default"}),
+                     meta={"target_set": "analysis"}),
             Snapshot(ref="151.0.0.0", facts=side(after),
-                     meta={"target_set": "default"}))
+                     meta={"target_set": "analysis"}))
             if c.kind == "idl_member"][0]
 
     # Which side each kind of evidence rests on. A variant removal is an
@@ -4777,7 +4785,7 @@ class TestRemovalConfidenceIsPerSurface(unittest.TestCase):
 
     One scalar for the whole run made a vanished web API -- seen against a
     99.8% read of the IDL -- exactly as doubtful as a vanished preference seen
-    against 1.7% of the pref files. On the default set that cost 45 real web
+    against 1.7% of the pref files. On the curated files that cost 45 real web
     API removals 15 points each.
     """
 
@@ -4831,7 +4839,7 @@ class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
         return Snapshot(ref=ref, facts=dedupe_facts(web_idl.extract(
             "interface N { %s };" % body,
             "third_party/blink/renderer/x.idl")),
-            meta={"target_set": "default"})
+            meta={"target_set": "analysis"})
 
     ONE = "Promise<R> install(); Promise<R> install(USVString u);"
     TWO = ONE + " Promise<R> install(P p);"
@@ -5043,7 +5051,7 @@ class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
 
     It has been wrong twice, the same way both times. Most recently it counted
     two filename conventions while the extractors grew to read `.mojom`,
-    `.idl` and the WebUI templates, so `wide` reported 1,164 of 1,164 -- 100%
+    `.idl` and the WebUI templates, so a full run reported 1,164 of 1,164 -- 100%
     -- while 3,798 files carrying 72% of a report's facts were not counted.
     """
 

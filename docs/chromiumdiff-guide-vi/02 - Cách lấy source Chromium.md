@@ -105,13 +105,14 @@ Và đây là target kiểu file đơn:
 
 Khác biệt giữa hai kiểu: `kind=file` tải đúng một đường dẫn. `kind=tree` tải archive của cả thư mục, nhưng khi giải nén chỉ ghi ra đĩa những file có tên khớp một trong các đuôi liệt kê ở `include`.
 
-Ba target set phục vụ ba mục đích khác nhau:
+Hai target set phục vụ hai mục đích khác nhau:
 
 | Target set | Dùng khi | Điều cần nhớ |
 |---|---|---|
-| `minimal` | Smoke test — kiểm tra công cụ và cache còn chạy đúng không | Không bao giờ đủ để kết luận cho một release |
-| `default` | Báo cáo hằng ngày, giữ chi phí ở khoảng 40 MB mỗi version theo thiết kế hiện tại | Được chọn lọc theo các nhóm khai báo có giá trị cao; bắt buộc phải đọc báo cáo coverage kèm theo kết quả |
-| `wide` | Phân tích ở mức release, hoặc cần xác minh một khai báo có thật sự bị xoá không | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; lớn hơn nhiều nhưng giảm hẳn số kết luận "đã bị xoá" sai |
+| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; khoảng 315 MB mỗi version, và vẫn phải đọc báo cáo coverage kèm theo |
+| `smoke` | Kiểm tra công cụ và cache còn chạy đúng không | Ba file; không bao giờ đủ để so sánh hai version |
+
+`analysis` gồm một danh sách file chọn tay cộng với archive của cả thư mục. Riêng danh sách chọn tay tốn khoảng 40 MB mỗi version và đọc chưa tới một nửa số file khai báo; phần archive là thứ bù vào khoảng trống đó, nên nó không tách ra chọn riêng được.
 
 Ngoài target set, `partition` còn lọc tiếp danh sách target theo khu vực chức năng. Ví dụ `--partition settings` chỉ giữ lại các file lõi cùng những target có tiền tố liên quan tới Settings.
 
@@ -218,7 +219,7 @@ Hệ quả: nếu gom hết file về một thư mục phẳng, toàn bộ các 
 
 ## Bước 7 — Phạm vi trích xuất bị khoá lại theo target set
 
-Cache dùng chung một cây thư mục cho mỗi ref. Điều đó tạo ra một rủi ro: một lần chạy `wide` để lại rất nhiều file trong cache; nếu sau đó chạy `minimal` trên cùng ref, extractor có thể vô tình đọc phải những file còn sót và tạo ra một snapshot mang nhãn `minimal` nhưng chứa dữ liệu của `wide`.
+Cache dùng chung một cây thư mục cho mỗi ref. Điều đó tạo ra một rủi ro: một lần chạy `analysis` để lại rất nhiều file trong cache; nếu sau đó chạy `smoke` trên cùng ref, extractor có thể vô tình đọc phải những file còn sót và tạo ra một snapshot mang nhãn `smoke` nhưng chứa dữ liệu của `analysis`.
 
 Để chặn tình huống này, trước khi duyệt cây, bộ dựng snapshot truyền vào hai tập hợp giới hạn:
 
@@ -258,7 +259,7 @@ Phần metadata của snapshot nên được đọc **trước** khi đọc bấ
   "ref": "refs/tags/151.0.7922.138",
   "milestone": 151,
   "meta": {
-    "target_set": "default",
+    "target_set": "analysis",
     "platform": "Windows",
     "coverage": {
       "candidates": 1200,

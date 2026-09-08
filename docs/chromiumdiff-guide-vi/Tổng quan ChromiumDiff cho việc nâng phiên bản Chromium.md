@@ -228,11 +228,10 @@ Hiện tại target set (bộ file mà một lần chạy cam kết đọc) có 
 
 | Bộ file | Số mục được cấu hình | Thành phần | Mục đích |
 |---|---:|---|---|
-| `minimal` | 3 file | Blink manifest, file khai báo feature và file khai báo switch | Kiểm tra nhanh xem pipeline có hoạt động không |
-| `default` | 49 mục: 36 file + 13 thư mục | Các file thường chứa nhiều thông tin, Blink IDL, Blink Mojo và 8 nhóm WebUI | Phân tích nhanh hằng ngày |
-| `wide` | 81 mục: 36 file + 45 thư mục | `default` cộng thêm các thư mục subsystem lớn; trong mỗi thư mục vẫn chỉ giữ loại file mà tool đọc được | Lập kế hoạch chính thức với phạm vi rộng nhất |
+| `analysis` (mặc định) | 81 mục: 36 file + 45 thư mục | Danh sách file chọn tay cộng thêm archive của các thư mục subsystem lớn; trong mỗi thư mục vẫn chỉ giữ loại file mà tool đọc được | Mọi lần so sánh thật giữa hai version |
+| `smoke` | 3 file | Blink manifest, file khai báo feature và file khai báo switch | Kiểm tra nhanh xem pipeline có hoạt động không |
 
-Số liệu đã đo trong project là khoảng **40 MB** cho mỗi version với `default`, và khoảng **337 MB** với `wide`. Dung lượng thực tế phụ thuộc từng Git tag; khi trình bày, hãy dùng số của chính lần chạy đó chứ đừng dùng số trong tài liệu.
+Riêng danh sách chọn tay là 49 mục (36 file + 13 thư mục) và không tách ra chọn riêng được. Số liệu đã đo trong project là khoảng **40 MB** cho mỗi version nếu chỉ có danh sách đó, và khoảng **337 MB** với `analysis`. Dung lượng thực tế phụ thuộc từng Git tag; khi trình bày, hãy dùng số của chính lần chạy đó chứ đừng dùng số trong tài liệu.
 
 ### 5.2. Tải một thư mục không có nghĩa giữ mọi file trong đó
 
@@ -272,14 +271,14 @@ Bảy lớp bảo vệ chính:
 
 Thư mục `trees/` được dùng chung giữa các bộ file. Điều này tạo ra một rủi ro, và công cụ có cách chặn:
 
-Bước trích xuất **không** đọc tất cả những gì đang có trong cache. Nó chỉ đọc những đường dẫn mà bộ file hiện tại cho phép. Cơ chế này ngăn các file còn sót lại từ một lần chạy `wide` lọt vào kết quả `minimal` hoặc `default` rồi tạo ra hàng nghìn thay đổi giả.
+Bước trích xuất **không** đọc tất cả những gì đang có trong cache. Nó chỉ đọc những đường dẫn mà bộ file hiện tại cho phép. Cơ chế này ngăn các file còn sót lại từ một lần chạy `analysis` lọt vào kết quả `smoke` rồi tạo ra hàng nghìn thay đổi giả.
 
 ### 5.5. Cây thư mục được lấy như thế nào?
 
 Có hai bước khác nhau, và không nên nhầm chúng với nhau:
 
 1. **Lấy danh sách để đo coverage.** Gitiles trả về toàn bộ đường dẫn dưới các thư mục gốc cần khảo sát. Bước này chỉ lấy tên file, chưa tải nội dung.
-2. **Tải file để phân tích.** Bộ file `minimal`, `default` hoặc `wide` quyết định file và thư mục con nào được tải vào cache.
+2. **Tải file để phân tích.** Bộ file `analysis` hoặc `smoke` quyết định file và thư mục con nào được tải vào cache.
 
 Các thư mục gốc bao gồm những vùng như `chrome`, `components`, `content`, `extensions`, `services`, Blink, `base`, `device`, `cc`, `sandbox`, `storage` và `mojo`.
 
@@ -549,13 +548,13 @@ Khi reviewer hoặc owner nghi ngờ một finding bị thiếu, có thể kiể
 
 1. File đó có chứa loại khai báo mà một trong chín extractor hỗ trợ không?
 2. `applies_to(path)` của extractor có nhận đúng đường dẫn và tên file không?
-3. Bộ file đang chạy là `default` hay `wide`, và đường dẫn có nằm trong phạm vi được tải không?
+3. Lần chạy có kèm `--partition` không, và đường dẫn có nằm trong phạm vi được tải không?
 4. File có bị loại vì là test, vì thuộc binary khác, vì là third-party, hoặc vì thuộc nền tảng ngoài Windows không?
 5. Coverage của đúng nhóm file ở version đó là bao nhiêu, và report có ghi nhận file mục tiêu bị thiếu hoặc lỗi parser nào không?
 
 Nếu có bất kỳ câu trả lời nào là "không", báo cáo **không** được dùng để kết luận rằng đối tượng chắc chắn không tồn tại hoặc đã bị xoá.
 
-Đây chính là lý do lần lập kế hoạch chính thức nên dùng `wide`, và luôn đọc coverage theo từng nhóm chứ không chỉ nhìn con số tổng.
+Đây chính là lý do lần lập kế hoạch chính thức không nên kèm partition, và luôn đọc coverage theo từng nhóm chứ không chỉ nhìn con số tổng.
 
 ## 8. Chín bộ trích xuất và mười sáu loại Fact
 
@@ -1000,10 +999,10 @@ Công cụ đánh dấu `removed` khi thấy một `Fact` ở bản cũ nhưng k
 
 Vì vậy coverage được xét riêng cho **từng nhóm file**. Hai con số dưới đây cho thấy sự chênh lệch lớn đến mức nào, và vì sao không thể dùng một con số tổng:
 
-- Với Web IDL, bộ `default` đọc **2.166 trên 2.170** file ứng viên ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
-- Với pref và switch, bộ `default` chỉ đọc **9 trên 529** file ứng viên. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
+- Với Web IDL, riêng danh sách file chọn tay đọc **2.166 trên 2.170** file ứng viên ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
+- Với pref và switch, riêng danh sách file chọn tay chỉ đọc **9 trên 529** file ứng viên. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
 
-Ngưỡng xác nhận hiện là **95%**. Nếu coverage thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" bị trừ 15 điểm. Riêng pref và switch chưa xác nhận được sẽ bị đưa về Upstream cleanup **và mang cờ `unconfirmed`**, vì kết luận an toàn lúc này chỉ là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: 303 ở bộ `default`, **0 ở bộ `wide`**. Cờ được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở pref và switch bị đổi bucket.
+Ngưỡng xác nhận hiện là **95%**. Nếu coverage thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" bị trừ 15 điểm. Riêng pref và switch chưa xác nhận được sẽ bị đưa về Upstream cleanup **và mang cờ `unconfirmed`**, vì kết luận an toàn lúc này chỉ là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: 303 khi chỉ đọc danh sách file chọn tay, **0 khi chạy `analysis`**. Cờ được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở pref và switch bị đổi bucket.
 
 Chiều ngược lại thì khác: một khai báo nhìn thấy rõ ở bản mới **không** bị trừ điểm chỉ vì coverage ở bản cũ thấp. Công cụ chỉ hạ độ tin cậy khi bản cũ có lỗi chắc chắn — thiếu file mục tiêu, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
 
@@ -1018,7 +1017,7 @@ delta nhìn thấy ở cả hai phía, không dựa trên absence
 score = 80, bucket = Compatibility break
 ```
 
-**Feature flag LNA bị remove trong default run**
+**Feature flag LNA bị remove khi chỉ đọc danh sách file chọn tay**
 
 ```text
 prior Windows state = enabled
@@ -1028,7 +1027,7 @@ removal chưa confirm → -15
 score = 20, bucket = Upstream cleanup, unconfirmed = true
 ```
 
-Với bộ `wide`, gần như toàn bộ file feature đều được đọc. Nếu không có lỗi tải hoặc lỗi parser, khoản trừ do thiếu coverage sẽ được bỏ đi.
+Với `analysis`, gần như toàn bộ file feature đều được đọc. Nếu không có lỗi tải hoặc lỗi parser, khoản trừ do thiếu coverage sẽ được bỏ đi.
 
 **Android-only declaration đổi**
 
@@ -1047,7 +1046,7 @@ Công cụ tính lại coverage cho từng version, theo năm bước:
 2. Hỏi từng extractor xem nó có thể đọc file nào.
 3. Loại các file không thuộc sản phẩm browser hoặc không liên quan Windows.
 4. Chia các file ứng viên theo nhóm: Mojo, Web IDL, pref/switch, WebUI...
-5. Đối chiếu với bộ `default` hoặc `wide` để tính số file đã đọc và số file chưa đọc.
+5. Đối chiếu với bộ file đang chạy để tính số file đã đọc và số file chưa đọc.
 
 Kết quả được lưu trong snapshot và trong report, chứ không chỉ in ra log.
 
@@ -1067,12 +1066,12 @@ Kết quả được lưu trong snapshot và trong report, chứ không chỉ in
 
 Tổng thể:
 
-- `default`: 3,677 / 8,366 file ứng viên, tức 43,95%.
-- `wide`: 8,295 / 8,366 file ứng viên, tức 99,15%.
+- danh sách file chọn tay: 3,677 / 8,366 file ứng viên, tức 43,95%.
+- `analysis`: 8,295 / 8,366 file ứng viên, tức 99,15%.
 
 **Một điểm rất dễ hiểu sai về bảng trên:** số file không phản ánh trực tiếp số khai báo lấy được.
 
-Bộ `default` được thiết kế để ưu tiên các file lớn chứa nhiều feature. Vì vậy, dù chỉ đọc khoảng 12% số file feature, nó vẫn lấy được gần một nửa số `base::Feature` mà bộ `wide` tìm thấy ở M151.
+Danh sách file chọn tay được thiết kế để ưu tiên các file lớn chứa nhiều feature. Vì vậy, dù chỉ đọc khoảng 12% số file feature, riêng nó đã lấy được gần một nửa số `base::Feature` mà `analysis` tìm thấy ở M151.
 
 Đó là lý do coverage chỉ được dùng để **hạ độ tin cậy khi kết luận "đã biến mất"**. Nó không được coi là xác suất finding đúng.
 
@@ -1088,8 +1087,8 @@ Sau khi tạo snapshot, công cụ kiểm tra xem các liên kết giữa các `
 
 Ở M151:
 
-- `default` còn 180 liên kết chưa tìm được đầu kia.
-- `wide` còn 89 liên kết chưa tìm được đầu kia.
+- danh sách file chọn tay còn 180 liên kết chưa tìm được đầu kia.
+- `analysis` còn 89 liên kết chưa tìm được đầu kia.
 
 Một liên kết chưa tìm thấy đầu còn lại **không** tự động có nghĩa là parser sai. Đối tượng đích có thể nằm ngoài bộ file, có thể dùng cú pháp chưa được hỗ trợ, hoặc chỉ tồn tại trong một cấu hình khác.
 
@@ -1310,7 +1309,7 @@ Nói gọn lại thành một câu:
 | Bước | Responsible | Accountable/Reviewer |
 |---|---|---|
 | Chốt chính xác phiên bản FROM/TO | Người phụ trách nâng Chromium | Tech lead |
-| Chạy `wide`, lưu các file kết quả | Người phụ trách công cụ hoặc nâng Chromium | Tech lead |
+| Chạy `analysis`, lưu các file kết quả | Người phụ trách công cụ hoặc nâng Chromium | Tech lead |
 | IPC triage | Mojo/integration owner | Browser architecture owner |
 | Web platform triage | Blink/Web Platform owner | Compatibility lead |
 | Browser C++ triage | Native migration owner | Tech lead |
@@ -1332,7 +1331,7 @@ python3 -m chromiumdiff run \
   --no-enrich
 ```
 
-Snapshot và report ở bộ `default`:
+Snapshot và report khi chỉ đọc danh sách file chọn tay:
 
 | Metric | Kết quả |
 |---|---:|
@@ -1392,14 +1391,13 @@ Cần đọc thận trọng: **không phải cứ thấy finding này là phải
 
 Report của ChromiumDiff mới chỉ mô tả thay đổi từ Chromium gốc. Muốn dự đoán công việc thật của Samsung, cần nối report với bằng chứng từ source và config của Samsung, theo quy trình năm bước sau.
 
-### Bước 1 — Chạy `wide` trên hai version đầy đủ
+### Bước 1 — Chạy `analysis` trên hai version đầy đủ
 
 Khi đánh giá toàn bộ một đợt nâng phiên bản, đừng giới hạn công cụ vào một subsystem nhỏ. Lưu cả ba định dạng JSON, Markdown và HTML cùng với tài liệu lập kế hoạch.
 
 ```bash
 python3 -m chromiumdiff run \
   148.0.7778.217 151.0.7922.138 \
-  --target-set wide \
   --out out/M148_to_M151_wide
 ```
 
@@ -1413,7 +1411,7 @@ Thứ tự ưu tiên:
 4. Behaviour change trên Windows.
 5. New declarations có liên quan tới roadmap sản phẩm.
 6. Scheduled — danh sách cho milestone sau.
-7. Unconfirmed — removal chưa xác nhận được; chạy `wide` để giải quyết.
+7. Unconfirmed — removal chưa xác nhận được; đọc file mà khai báo đó có thể đã chuyển sang để giải quyết.
 8. Upstream cleanup — bỏ qua.
 
 ### Bước 3 — Tìm nơi Samsung đang sử dụng
@@ -1540,7 +1538,7 @@ Một số loại khai báo hiện chưa được chuyển thành `Fact`:
 - Mojo `feature` block và constant.
 - Một số trường hợp cú pháp hiếm, cùng các quan hệ lồng nhau hoặc kế thừa phức tạp.
 
-Vì vậy, dù bộ `wide` đọc 99% file ứng viên, điều đó **không** có nghĩa parser hiểu 99% mọi khai báo trong các file đó.
+Vì vậy, dù `analysis` đọc 99% file ứng viên, điều đó **không** có nghĩa parser hiểu 99% mọi khai báo trong các file đó.
 
 ### 24.3. Không đọc implementation body
 
@@ -1595,14 +1593,14 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 | Dự báo vùng build/test có rủi ro | Phù hợp | Phải bổ sung thông tin về nơi Samsung đang sử dụng |
 | Tự động ước lượng effort | Chưa đủ | Cần dữ liệu về patch, reference và config của Samsung |
 | Dùng làm release gate duy nhất | Không | Vẫn cần merge, build, test và kiểm tra sản phẩm |
-| Khẳng định "không có impact" từ một lần chạy `default` sạch | Không | Coverage của `default` chênh lệch rất lớn giữa các surface |
+| Khẳng định "không có impact" từ một lần chạy có partition | Không | Coverage chênh lệch rất lớn giữa các surface |
 
 ## 26. Đề xuất đưa vào quy trình nâng phiên bản Chromium
 
 ### Giai đoạn 1 — Dùng ngay
 
 - Ghi version Chromium hiện tại và version mục tiêu bằng đầy đủ bốn phần trong ticket.
-- Chạy `wide` một lần cho mỗi cặp version chính thức.
+- Chạy `analysis` một lần cho mỗi cặp version chính thức.
 - Lưu `report.json`, `report.md`, `report.html` và cả lệnh đã chạy.
 - Tạo checklist cho từng team, từ hai bucket Compatibility break và Behaviour change.
 - Dùng key và symbol trong report làm đầu vào cho `rg` khi tìm trong Samsung source và config.
@@ -1647,11 +1645,11 @@ Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Compatibil
 
 **Phút 15–18: độ tin cậy và giới hạn**
 
-So sánh coverage của `default` và `wide`, và mở vị trí source của một finding. Nói rõ đây là lớp cảnh báo sớm, không thay thế release gate.
+So sánh coverage hai bên, và mở vị trí source của một finding. Nói rõ đây là lớp cảnh báo sớm, không thay thế release gate.
 
 **Phút 18–20: đề xuất thử nghiệm**
 
-Đề nghị thử trên một đợt nâng phiên bản thật: chạy `wide`, xem trước các danh sách quan trọng của từng nhóm, rồi đo xem bao nhiêu mục khớp với mã nguồn Samsung và bao nhiêu mục trở thành đầu việc.
+Đề nghị thử trên một đợt nâng phiên bản thật: chạy `analysis`, xem trước các danh sách quan trọng của từng nhóm, rồi đo xem bao nhiêu mục khớp với mã nguồn Samsung và bao nhiêu mục trở thành đầu việc.
 
 ### Ba câu nên tránh
 
@@ -1681,7 +1679,7 @@ Report chính thức phải dùng version đầy đủ, để lần chạy sau k
 
 ### "Có checkout toàn bộ Chromium không?"
 
-Không. Công cụ lấy danh sách file từ Gitiles rồi chỉ tải các file hoặc thư mục con cần thiết. Ngay cả bộ `wide` cũng chỉ giữ những loại file mà extractor biết cách đọc.
+Không. Công cụ lấy danh sách file từ Gitiles rồi chỉ tải các file hoặc thư mục con cần thiết. Ngay cả `analysis` cũng chỉ giữ những loại file mà extractor biết cách đọc.
 
 ### "Làm sao chắc file thuộc đúng version?"
 
@@ -1693,7 +1691,7 @@ Khi dùng source có sẵn trên máy, người chạy phải tự kiểm tra co
 
 Vì công cụ không build Chromium, và chưa phân tích thân function hay TypeScript thông thường. Tải các file đó sẽ tăng dung lượng nhưng không tạo thêm `Fact` nào.
 
-Bộ `wide` vì vậy chỉ mở rộng tối đa **trong phạm vi những loại file mà parser hiện hỗ trợ**.
+`analysis` vì vậy chỉ mở rộng tối đa **trong phạm vi những loại file mà parser hiện hỗ trợ**.
 
 ### "Tại sao chỉ các đuôi file đó?"
 
@@ -1795,7 +1793,7 @@ Nếu key cũng đổi, công cụ chỉ ghép hai phía lại khi có bằng ch
 
 Không. `Removed` trước hết chỉ có nghĩa là công cụ thấy đối tượng ở bản cũ nhưng không thấy ở bản mới.
 
-Công cụ kiểm tra coverage của đúng nhóm file, cùng các lỗi tải và lỗi parser, trước khi coi đó là xoá thật. Với pref và switch, bộ `default` đọc quá ít file nên **không** được dùng để xác nhận việc xoá.
+Công cụ kiểm tra coverage của đúng nhóm file, cùng các lỗi tải và lỗi parser, trước khi coi đó là xoá thật. Với pref và switch, riêng danh sách file chọn tay đọc quá ít file nên **không** đủ để xác nhận việc xoá.
 
 ### "Compatibility break có chắc Samsung break không?"
 
@@ -1863,11 +1861,11 @@ Nếu chính runtime flag đó nằm ngoài snapshot, report ghi là chưa đủ
 
 Không. Chromestatus chỉ bổ sung bối cảnh về vòng đời của một Web Platform feature. Việc trích xuất, so sánh và chấm điểm vẫn chạy được hoàn toàn offline.
 
-### "Default và wide khác nhau thế nào?"
+### "Analysis và smoke khác nhau thế nào?"
 
-`default` tối ưu cho tốc độ, và ưu tiên các file chứa nhiều khai báo. `wide` đọc gần như toàn bộ file mà extractor hiểu.
+`analysis` đọc gần như toàn bộ file mà extractor hiểu, và là mặc định. `smoke` đọc ba file, chỉ để xem công cụ có chạy được không.
 
-Lập kế hoạch cho cả một đợt nâng phiên bản thì nên dùng `wide`; `default` phù hợp để kiểm tra nhanh hằng ngày.
+Mọi lần so sánh thật đều dùng `analysis`; `smoke` không trả lời được câu hỏi so sánh nào.
 
 ### "Partition dùng khi nào?"
 
@@ -1924,7 +1922,7 @@ Thử trên một đợt nâng phiên bản đã hoàn thành, hoặc một đ�
 ```text
 [ ] Ghi version FROM/TO đầy đủ bốn phần
 [ ] Chạy chromiumdiff check
-[ ] Chạy bộ wide cho lần lập kế hoạch chính thức
+[ ] Chạy `analysis` không kèm partition cho lần lập kế hoạch chính thức
 [ ] Kiểm tra coverage của bản cũ, bản mới và từng nhóm file
 [ ] Xác nhận missing_targets = 0 và out_of_scope_files = 0
 [ ] Ghi số liên kết chưa tìm thấy đầu còn lại vào phần giới hạn
@@ -1952,7 +1950,7 @@ ChromiumDiff đáng dùng vì nó giải đúng một phần việc đang tốn 
 
 Đề nghị hợp lý **không phải** là "dùng tool làm release gate ngay". Đề nghị là:
 
-> **Thử ChromiumDiff như một lớp phát hiện sớm trước khi merge một phiên bản Chromium thật: chạy `wide`, đối chiếu finding với Samsung source và config, rồi đo xem bao nhiêu finding trở thành đầu việc.**
+> **Thử ChromiumDiff như một lớp phát hiện sớm trước khi merge một phiên bản Chromium thật: chạy `analysis`, đối chiếu finding với Samsung source và config, rồi đo xem bao nhiêu finding trở thành đầu việc.**
 
 Nếu lần thử cho thấy công cụ tìm được công việc liên quan tới C++ symbol, config hoặc IPC **trước khi merge**, và giảm được thời gian đọc Git diff, thì giá trị của project đã được chứng minh.
 

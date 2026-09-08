@@ -43,8 +43,9 @@ vi đổi, xem lại những loại trừ và kết luận phụ thuộc phạm 
 
 Trước lần so sánh mới, giải thích đánh đổi:
 
-- `--target-set wide` giữ được nhiều bằng chứng giữa các khu vực hơn, nhưng
-  vẫn không phủ toàn bộ code hay ngữ pháp Chromium.
+- Lần quét đầy đủ giữ được nhiều bằng chứng giữa các khu vực nhất, và vẫn
+  không phủ toàn bộ code hay ngữ pháp Chromium. `--target-set smoke` đọc ba
+  file để kiểm công cụ có chạy không; nó không trả lời được câu hỏi so sánh.
 - `--partition` giới hạn việc tải vào các đường dẫn được công cụ hỗ trợ cho
   khu vực đã chọn. Nó không bao hết hành vi của khu vực đó. Chỉ dùng sau khi
   user chấp nhận phạm vi tải hẹp hơn. Kiểm tra tên tuỳ chọn bằng

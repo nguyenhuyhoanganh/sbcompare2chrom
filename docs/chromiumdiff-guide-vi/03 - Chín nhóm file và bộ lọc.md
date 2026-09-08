@@ -35,7 +35,7 @@ Toàn bộ file trong một Chromium tag
         │
         ▼
 2. Target scope
-   default / minimal / wide / partition / complete
+   analysis / smoke / partition / complete
         │
         ▼
 3. Bộ lọc include khi giải nén archive

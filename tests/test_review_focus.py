@@ -39,7 +39,7 @@ class TestFocus(unittest.TestCase):
             snap.facts.extend([dep, iface])
             if snap is new:
                 snap.facts.append(method)
-            write_json(snapshot_path(self.cache, snap.ref, "default"), snap.to_dict())
+            write_json(snapshot_path(self.cache, snap.ref, "analysis"), snap.to_dict())
             root = Path(tree_path(self.cache, snap.ref))
             (root / self.prefix).mkdir()
             (root / "shared").mkdir()
