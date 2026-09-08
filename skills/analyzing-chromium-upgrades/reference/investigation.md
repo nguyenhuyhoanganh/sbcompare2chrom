@@ -1,68 +1,95 @@
-# Event investigation and checkpoints
+# Saving analysis and preserving inputs
 
-## Working set and coverage
+## Read the saved configuration
 
-Keep a compact event index and current questions in context. Open only the
-finding leaves, nearby evidence and source slices needed for the current
-question. The complete ledger stays on disk. Its dispositions are accounting
-decisions, not output categories for the human report.
+Run this from the project root, replacing only the review directory. It prints
+selected fields without placing the complete index in context.
 
-Every index item must eventually be one of:
+```bash
+python3 - out/upgrade/review <<'PY'
+import json
+import sys
+from pathlib import Path
 
-- `event`: primary member of one event. Other events may cite it as supporting
-  evidence without assigning it twice.
-- `explained`: examined but no standalone report item is warranted; give the
-  specific explanation and evidence/location, not merely "cleanup".
-- `out_of_scope`: excluded by the user's declared scope, with a reason.
-- `unresolved`: a concrete unanswered question and next check.
+index = json.loads((Path(sys.argv[1]) / "review-index.json").read_text(encoding="utf-8"))
+keys = ("report", "refs", "cache", "source_roots", "source_scope",
+        "platform", "target_set", "partitions", "coverage")
+print(json.dumps({key: index["inputs"].get(key) for key in keys}, indent=2))
+print(json.dumps({"warnings": index["warnings"]}, indent=2))
+PY
+```
 
-Items without a decision are `pending`. A source-delta item represents the
-entire file delta: inspect remaining hunks even if some already support
-finding-based events. One file can support many events; assigning it to one
-does not explain every other hunk. Milestone summaries are independent leads;
-verify applicability to the exact versions/platform or explain the gap.
+`source_scope.mode` distinguishes cached files from a Git repository.
+`source_roots` identify cached trees. In Git mode, read the recorded commits
+from the repository; do not assume the working checkout matches either ref.
+Keep the printed cache path for `why.py` and `cl.py` lookups.
 
-## Event boundaries
+## Work in small batches
 
-Test each proposed group against one sentence describing a transition. Explain
-what each member contributes and what distinguishes it from neighbouring work.
-Useful relationships include bindings and ownership, consumer usages found in
-source, migrations of the same persisted key, and history linking stages.
+Keep the current questions and a short event list in context. Read only the
+finding fields, related declarations and source sections needed for those
+questions. Save complete decisions in `review.json` after each batch.
 
-The workbench indexes relations its inputs declare; it is not a full
-C++/TypeScript call graph. Follow unresolved identifiers and implementation
-deltas with targeted source reading. Common flags can gate unrelated work;
-CLs can mix refactoring with behaviour changes. Conversely, a single event can
-span several CLs and unchanged bridging declarations. Do not require a known
-feature name, signal or reference example before investigating a delta.
+Every indexed item needs a decision:
 
-## Recording decisions
+- `event`: the item belongs primarily to one event. Other events can cite it
+  as supporting evidence without assigning it twice.
+- `explained`: inspected, but no separate event is warranted. State the
+  reason and source location; a label such as "cleanup" is not an explanation.
+- `out_of_scope`: excluded by the user's scope, with a specific reason.
+- `unresolved`: a question still needs evidence. State the next check.
 
-Create a JSON patch with your runtime's file-editing mechanism. Replace these
-placeholders with actual IDs and conclusions; they are not discovery keywords:
+Items without a decision are `pending`. These states track analysis work;
+they are not categories for the final report.
+
+A `file:` item represents the entire file diff. Inspect each hunk, including
+those not represented by findings. Record which event explains each relevant
+hunk, or why a hunk has no reportable consequence, in the file's decision or
+evidence explanation. The same file can support several events. Assigning
+the file to one event does not account for its other changes.
+
+A milestone summary is a separate source to verify against the compared
+versions. It does not by itself prove that a capability was available there.
+
+## Define and revise events
+
+An event should answer one specific question: what related change occurred?
+Explain why its items belong together and how they differ from nearby work.
+Source references, consumers, shared persisted keys and commit history can
+establish relationships. A common name, flag, file or CL alone cannot.
+
+Read previously saved events when analyzing another batch. Combine related
+fragments or separate unrelated changes when the evidence requires it.
+The graph is not a complete call graph, so inspect source relationships that
+are missing from it.
+
+## Record decisions
+
+Create a JSON file with the following structure using the environment's file
+editing mechanism. Replace example values with real IDs and observations.
 
 ```json
 {
   "events": [{
-    "title": "Describe the capability transition in the reader's language",
+    "title": "Describe the related change",
     "status": "provisional",
     "items": ["kind:actual-key"],
-    "before": "Observed prior state",
-    "after": "Observed new state",
-    "mechanism": "How the evidence establishes one transition; why grouped",
-    "impact": "Affected consumer or user; distinguish unknown product impact",
-    "conditions": "Build/runtime/rollout conditions and what remains unknown",
-    "action": "Specific verification or decision, with consumer/source locations",
-    "uncertainties": ["Concrete question still needing evidence"],
+    "before": "Observed state in the earlier version",
+    "after": "Observed state in the later version",
+    "mechanism": "How the code changed and why these items belong together",
+    "impact": "Affected consumers; identify any product-specific uncertainty",
+    "conditions": "Relevant build, runtime and deployment conditions",
+    "action": "Specific check or update, with the affected consumer location",
+    "uncertainties": ["Question that still needs evidence"],
     "evidence": [{
       "item": "kind:actual-key",
-      "supports": "Which before/after observation this member supports"
+      "supports": "The observation supported by this item"
     }]
   }],
   "dispositions": [{
     "id": "file:path/from/index.cc",
     "status": "unresolved",
-    "reason": "Which remaining hunks/consumer need checking, and next step"
+    "reason": "Unexplained source section, missing evidence and next check"
   }]
 }
 ```
@@ -73,24 +100,24 @@ python3 -m chromiumdiff review check out/upgrade/review
 python3 -m chromiumdiff review render out/upgrade/review
 ```
 
-`record` validates the whole proposed ledger before writing. Every event
-member needs an evidence explanation. Unknown IDs, duplicate primary members
-and dangling dispositions fail. This checks traceability, not whether the
-explanation is true. `confirmed` means the stated, bounded conclusion is
-supported; `provisional` retains a material unanswered question. Unknown
-rollout may remain an explicit condition of a confirmed source-level change.
+`record` validates the proposed changes before writing. Every event member
+needs an evidence explanation. Unknown IDs, duplicate primary membership and
+decisions pointing to absent events fail validation. This checks the record's
+structure and references, not whether its conclusions are true.
 
-Event IDs default to a hash of sorted member IDs, independent of wording,
-score and arrival order. To revise, supply the existing `id`. To split/merge,
-include `remove_events: ["event:old-id"]` and replacements in the same patch.
-Released members become pending unless reassigned. Shared supporting evidence
-belongs in `evidence`, not duplicate primary memberships.
-Use optional nonnegative `order` values to arrange the final narrative by
-reader consequence. This is your presentation decision; it does not filter
-discovery or change event membership.
+`confirmed` means the stated conclusion is supported within its stated scope.
+`provisional` means an unresolved question could change the conclusion.
+Unknown deployment status can remain a stated limit of a confirmed source
+change; it does not justify claiming deployed availability.
 
-Additional evidence can cite an unchanged node ID, an HTTPS source/CL/bug URL,
-or hash-pinned source from the `source` command:
+Event IDs default to a hash of sorted item IDs, not wording or scores.
+To revise an event, supply its existing `id`. To split or merge events,
+include `remove_events: ["event:old-id"]` and replacements in one patch.
+Items released from an event become pending unless reassigned.
+Optional nonnegative `order` values control presentation, not discovery.
+
+An evidence entry can use `item` for a finding or unchanged node, `url` for
+an HTTPS source/CL/bug page, or `source` for hash-verified local evidence:
 
 ```json
 {
@@ -101,42 +128,69 @@ or hash-pinned source from the `source` command:
     "start": 100,
     "end": 120
   },
-  "supports": "What the consumer proves within these conditions"
+  "supports": "What these source lines establish"
 }
 ```
 
-Local source citations are checked against their hashes. Read cited URLs;
-validation does not verify remote contents or whether they entail a claim.
-Keep inaccessible bug links as unknowns instead of claiming to have read them.
+Use source line numbers, not diff-output line numbers. Read a URL before
+citing its contents. Validation does not fetch URLs or verify that a source
+supports the stated claim. An inaccessible issue remains missing evidence.
 
-## Completion and reproducibility
+## Refresh after saving new evidence
 
-`check` exits 1 for pending/unresolved items, provisional events, invalid
-records or changed local input. Exit 0 establishes accounting completion only.
-The rendered report labels an incomplete ledger `PARTIAL` and includes scan
-coverage, source-inventory limits and disposition counts.
+`why.py --save` changes `report.json`. Refresh the review before continuing,
+using its saved configuration. The CLI does not automatically retain a prior
+`--cache` or `--source-repo` when they are omitted on `review init --refresh`.
 
-Reconcile events across batches before delivery. Inspect remaining references
-relevant to the conclusions; check for duplicated, split or overmerged stories.
-When resources run low, save the patch and next questions; resume from the
-ledger instead of restarting a score-ranked skim.
+Run the following from the project root after saving the lookup. It preserves
+both cached-only and Git-backed reviews without guessing their paths:
 
-The index pins refs, input fingerprints, snapshot hashes and source roots.
-`review init ... --refresh` preserves decisions if evidence is identical (rank,
-bucket and order are not evidence). On context-only changes it archives the old
-ledger, follows both old/new declared relationships to mark affected events
-provisional and affected non-event decisions unresolved. Disconnected work is
-retained; new leads are pending. Recheck provisional event boundaries as well
-as their wording. This conservative dependency check can reopen many events
-under a broad gate/CL; it does not claim all those events are one change.
-Source, snapshot or scope changes archive and reset baseline decisions.
-Contextual `source --fetch` uses a separate
-supplemental cache and does not increase baseline scan coverage.
+```bash
+python3 - out/upgrade/review <<'PY'
+import json
+import subprocess
+import sys
+from pathlib import Path
 
-For independent evaluation, pin the model/version, skill/tool revisions,
-exact refs, evidence fingerprint, network cutoff and resource budget. A fresh
-agent gets the broad question and skill, never expected event names. Build the
-expected list independently from source/CLs. Test held-out version pairs and
-families, removed examples, shuffled rows, changed scores, unrelated changes
-under shared gates, and unchanged bridges. Compare coverage and false
-merges/splits, not exact prose. Structural metrics still need semantic review.
+directory = Path(sys.argv[1]).resolve()
+index = json.loads((directory / "review-index.json").read_text(encoding="utf-8"))
+inputs = index["inputs"]
+command = [sys.executable, "-m", "chromiumdiff", "review", "init",
+           inputs["report"], "--directory", str(directory),
+           "--cache", inputs["cache"], "--refresh"]
+scope = inputs["source_scope"]
+if scope["mode"] == "git":
+    command.extend(["--source-repo", scope["repository"]])
+subprocess.run(command, check=True)
+PY
+```
+
+Read the result's warnings. With identical evidence, previous decisions are
+preserved. Ranking or input-order changes alone do not invalidate them.
+Context-only changes archive the old decisions, mark related events
+provisional and related non-event decisions unresolved. Unrelated decisions
+remain; new items are pending. This dependency check may revisit many events
+under a shared condition, but does not mean those events should be merged.
+
+Changes to source, snapshots or scope archive and reset the decisions.
+If such a change was not intended, inspect the configuration before starting
+another analysis. Additional files fetched by `review source --fetch` use a
+separate cache and do not expand the baseline source inventory.
+
+## Check completion
+
+`review check` exits 1 for pending/unresolved items, provisional events,
+invalid records or changed inputs. Exit 0 means all indexed items have valid
+decisions. It does not prove semantic completeness or product safety.
+The rendered report marks incomplete analysis as `PARTIAL`.
+
+Before delivery, review event boundaries, source support, conditions and
+remaining file hunks. If work is incomplete, save the questions and report
+that limit. Resume from the saved state rather than starting again from
+the highest scores.
+
+Independent evaluation needs fixed source versions, input hashes, tool/skill
+versions, inference settings and resource limits. A fresh agent must not see
+expected event names or earlier answers. Repeated trials should compare
+meaning, omissions and incorrect grouping, not identical prose. Structural
+tests and valid record formats are not substitutes for that evaluation.
