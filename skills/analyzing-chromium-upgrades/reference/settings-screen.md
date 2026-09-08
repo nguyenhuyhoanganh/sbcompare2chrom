@@ -58,22 +58,23 @@ Report at the size the audience cares about and say which size you are using.
 | Size | Example | Detect via |
 |---|---|---|
 | **Control** | A toggle became a dropdown; a label changed | Template element type; strings |
-| **Page / entry** | Five AI routes added at M151: `/ai/skills`, `/ai/suggestions`, `/autofill/suggestionsFromGemini`, `/shopping`, and a site-settings submenu | `route.ts` diff |
-| **Capability** | Local Network Access split-permissions migration: 1 route removed, 1 added, 5 flags, 3 Blink runtime features, plus strings | Group by flag family |
+| **Page / entry** | A new route, with its own visibility and behaviour conditions | `route.ts` plus gate/consumer source |
+| **Capability** | Related pages, controls and core consumers establish one transition | Trace bindings and source/CL evidence on both versions |
 
 ## Grouping rule
 
-**Group by flag family, not by file.** Chromium organizes its own work by flag,
-so the shared prefix of a flag name is the correlation key — for example every
-`kLocalNetworkAccessChecks*` flag belongs to one capability.
+Use shared flags, names and files as retrieval leads. Verify a shared mechanism
+before grouping: a common prefix or screen does not establish one capability,
+and a broad feature gate can control multiple independent changes. The same
+pref or unchanged gate can bridge changed components; inspect its consumers.
 
 Without grouping, one capability-level change reports as roughly ten
 contradictory lines, simultaneously claiming a page was removed and a page was
 added. With grouping it is one line that states the migration, when it became
 visible to users, and what is left to update.
 
-Changes with no flag (pure refactor, string-only edits) stop at control or page
-size. Record them; do not promote them to capability.
+Changes without a flag can also establish a capability transition. Determine
+its size from the behaviour and consumer evidence, not the presence of a flag.
 
 ## Current tool coverage
 
@@ -87,10 +88,9 @@ extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
 per version. Measured at M151 on the default target set: 108 routes, 971
 controls across those eight screens, 764 gates.
 
-Related fragments are grouped into one item by `cluster.py`, using links the
-data declares (a route names its guard, a guard names its features) rather than
-name similarity. The Local Network Access migration collapses 7 fragments
-across 4 screens into a single row.
+`cluster.py` supplies candidate bundles. The review workbench preserves typed
+links through both snapshots, including unchanged facts; neither is a final
+decision that every connected row belongs to one semantic event.
 
 Measured at M151, `chrome/browser/resources/` holds **132** screens, so the
 eight tracked are **6%** of them; adding another is one line in `targets.py`.

@@ -1,5 +1,5 @@
 {
-  "_comment": "Scenarios this skill must pass. Each was built from a real M148 -> M151 run; no harness ships with the project, so run them by hand against a fresh agent with the skill loaded. The point of each is the failure it catches, named in `catches`. Scenarios assert what the agent must do, not the figures of one run -- a number appears only where the number is the thing being got right.",
+  "_comment": "Named regression questions from M148 -> M151, not a blind discovery benchmark. Execute against a fresh agent with the skill loaded. For independent event discovery and repeated-run scoring use docs/review-evaluation.md and chromiumdiff review evaluate. Synthetic tests and a successful named query do not prove general recall.",
   "evaluations": [
     {
       "skills": [
@@ -62,7 +62,7 @@
       "catches": "Reading a retired flag as a lost feature, which is the most common wrong conclusion on this kind.",
       "expected_behavior": [
         "Reads the state the flag held before deletion rather than the deletion alone",
-        "Reports `flag_retired_on`: the feature shipped and the behaviour is now permanent and can no longer be turned off, so no capability was lost",
+        "Reads `flag_retired_on` as the last observed enabled source default, then inspects consumer source or CL evidence before concluding whether behaviour was retained, replaced or removed",
         "Explains that this is why the row is Upstream cleanup rather than a Compatibility break, instead of treating the bucket as a mistake",
         "States the two things that do break: anything naming the symbol no longer builds, and any override setting the flag from outside the binary is silently dead",
         "Treats it as one of a large class of retirements on this pair, most of which had shipped, rather than as an isolated event"
@@ -86,7 +86,7 @@
     }
   ],
   "_ran": {
-    "how": "Every claim in every `expected_behavior` was checked against out/M148_to_M151/report.json in this checkout, and the workflow claims against the CLI. No agent harness exists, so the part that matters most was NOT done: no fresh agent was walked through these queries. Checking proves the facts a scenario asserts are true of a real run; it does not prove an unprompted agent reaches them.",
+    "how": "Historical check of the original named scenarios against the cached report and CLI, not a fresh-agent discovery trial. The consumer-verification criterion was subsequently strengthened and is not certified by these historical results. See docs/review-evaluation.md for the current validation boundary.",
     "results": {
       "1": "Verified. The two flags disagree in opposite directions -- one changes on Windows while `default_state` holds still, the other flips `default_state` while Windows holds still -- and both are filed under Behaviour change, which is what makes the bucket useless for telling them apart.",
       "2": "Verified. The coverage in `meta.coverage` and the worked example in SKILL.md are different figures, so quoting the document instead of the run is detectable.",

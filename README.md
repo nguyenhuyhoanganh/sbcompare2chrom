@@ -148,6 +148,41 @@ Results land in `out/M148_to_M151/`:
 
 `report.html` loads no external resources, so it works on an air-gapped network and can be attached to an email.
 
+### From findings to meaningful upgrade events
+
+The [upgrade-analysis skill](skills/analyzing-chromium-upgrades/SKILL.md) uses
+a resumable evidence workbench. It does not require an additional model API or
+third-party dependency: the executing agent supplies the interpretation.
+
+```bash
+python3 -m chromiumdiff review init out/M148_to_M151 --directory out/M148_to_M151/review
+python3 -m chromiumdiff review index out/M148_to_M151/review --limit 30
+python3 -m chromiumdiff review check out/M148_to_M151/review
+```
+
+The index includes every finding regardless of score, declared relationships
+through unchanged facts in both snapshots, milestone leads, and raw changes
+between cached source files. Add `--source-repo /path/to/chromium/src` to
+`review init` to inventory all changed paths between exact Git refs without
+checking out either revision. Cached-only inventory is explicitly partial;
+one uncached side is not evidence of an upstream addition or removal.
+
+Use `inspect`, `related`, `unresolved` and `source` for bounded, version-qualified
+retrieval. The agent records evidence-backed event decisions with `record`;
+`render` writes `review.md` from `review.json`. Neither edits the raw report.
+`check` returns nonzero for pending/unresolved work, provisional conclusions or
+stale inputs. Accounting completion does not certify semantic completeness.
+See the [checkpoint contract](skills/analyzing-chromium-upgrades/reference/investigation.md)
+and [independent evaluation protocol](docs/review-evaluation.md).
+
+The evaluation workflow includes `prepare-trial`, `run-trial`, `collect-trial`
+and `evaluate --adjudication ... --manifests ...`. Source-pinned case specs and
+separate source-first rubrics live under `tests/fixtures/review_cases` and
+`review_gold`; gold is never staged for the tested agent. A perfect membership
+score is not a semantic pass. The optional release gate requires independent
+claim/citation review, complete accounting, repeated executions and a verified
+runner context limit. See the protocol for runnable examples and current limits.
+
 ### Always write the full version
 
 `151` resolves to whatever is the newest stable release *at the moment you run it*, and that moves. Here is a real difference:

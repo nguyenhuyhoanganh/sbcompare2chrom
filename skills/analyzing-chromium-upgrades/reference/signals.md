@@ -1,7 +1,9 @@
 # Signal reference
 
-Every finding carries one or more signals. The signal, not the score, tells you
-what actually happened. Read this column first.
+A finding may carry signals, or none at all. Signals describe the deterministic
+classifier's interpretation of the declarations this run read. Use them to
+choose questions, then verify source, consumers and conditions before making
+behaviour or product-impact claims. They are not a discovery allowlist.
 
 One of them is the **leading signal** — the one with the highest severity — and
 it does two jobs: it sets the finding's severity, and it decides which of the
@@ -19,7 +21,7 @@ always the sentence it was ranked by.
 
 ## Behaviour changed
 
-Users see a difference. This is the short list.
+These signals identify potential behaviour/contract changes to investigate.
 
 | Signal | Meaning |
 |---|---|
@@ -35,7 +37,7 @@ Users see a difference. This is the short list.
 | `web_api_overload_shadowed` | A member gained an overload taking an argument count another already took. Web IDL resolves by count first, so a call that used to reach the older one can now reach the new one — nothing removed, nothing edited at the call site |
 | `web_api_overload_added` | A member gained an argument list. Every existing call still matches the overload it always did, so this is purely additive |
 | `web_api_signature_change` | An IDL member's signature moved; existing call sites may not match |
-| `ipc_signature_change` | Mojo method signature moved. Breaks across the process boundary at runtime, not at compile time |
+| `ipc_signature_change` | Mojo method signature moved. Check out-of-tree callers and mixed-version peers before claiming build/runtime impact |
 | `ipc_ordinal_changed` | A Mojo method's explicit ordinal moved. The far side routes by that number, so the message now reaches a different method or none — no build error, no signature change |
 | `ipc_shape_changed` | The data half of the same break: a struct field changed type or ordinal, or a struct became a union. The other process reads those bytes as something else |
 | `ipc_enum_changed` | A Mojo enum gained or lost a member. Lower severity on purpose — a peer that does not know a value **rejects** the message rather than misreading it |
@@ -49,15 +51,14 @@ second says what our users get.
 
 ## Behaviour unchanged (cleanup)
 
-This is the largest group in a typical report and the one most often misread.
-**None of these changes what anybody sees.** They matter only to something that was setting the
-flag from outside the binary — a server-side Finch config, an
-`--enable-features` command line — which silently stops having an effect.
+These are cleanup hypotheses based on declaration state. Inspect retained and
+removed consumers to establish the actual behaviour. Check external overrides
+and code naming removed symbols independently.
 
 | Signal | Meaning |
 |---|---|
-| `flag_retired_on` | Shipped earlier; behaviour is now permanent and **can no longer be turned off** |
-| `flag_retired_off` | Never shipped; code removed, **can no longer be turned on** |
+| `flag_retired_on` | Flag removed after an enabled source default; verify whether its enabled branch was retained |
+| `flag_retired_off` | Flag removed after a disabled source default; verify whether implementation was removed or replaced |
 | `killswitch_retired` | Blink runtime equivalent of `flag_retired_on` |
 | `experimental_dropped` | Experimental Blink flag abandoned |
 | `feature_deleted` | Flag removed but its prior state could not be determined — investigate manually |
@@ -67,8 +68,8 @@ Measured evidence for why this distinction exists:
 
 - **M148 → M151, Windows**: 154 `base::Feature` flags removed — 72
   `flag_retired_on`, 60 `flag_retired_off`, and 22 `feature_deleted` whose
-  prior state could not be read. Labelling all 154 "feature deleted" makes
-  132 of them false alarms.
+  prior state could not be read. These labels alone do not establish whether
+  a capability was deleted.
 - **M139 → M143, Blink**: of 202 runtime features that disappeared, **167 had
   been `stable`** — retired after shipping, not removed capability.
 
@@ -81,20 +82,20 @@ because the tool could not read the prior state and so cannot rule one out.
 
 ## Silent breaks
 
-These compile and pass tests, then fail in the field. Nothing warns you, so
-they are expensive to find late.
+These can affect external consumers and persisted state. Establish which
+consumer still relies on the old contract and whether a migration exists.
 
 | Signal | Meaning |
 |---|---|
 | `feature_string_renamed` | The Finch feature name changed. Server-side field trials and `--enable-features` using the old spelling silently stop matching |
 | `feature_symbol_renamed` | The mirror image: the C++ identifier changed while the feature string held. Code writing `features::kOldName` stops compiling. It fails loudly rather than silently, but only after the merge |
-| `pref_renamed` | A preference key changed. Every existing user's stored value is orphaned and the setting quietly resets |
+| `pref_renamed` | A preference key changed; check migrations and consumers before claiming stored values reset |
 | `switch_renamed` | Command-line switch renamed. Launch scripts and automation stop taking effect |
 | `pref_symbol_renamed` | The key held; its C++ constant was renamed. Stored values are safe, but code writing `prefs::kOldName` stops compiling after the merge |
 | `switch_symbol_renamed` | Same for a switch: launch scripts keep working, a build against it does not |
 | `param_removed` | A feature parameter is gone. Anything still setting it — a Finch config most often — silently stops having an effect |
 | `param_rewired` | The parameter itself moved rather than its value: a different C++ type, or a different owning flag. Code reading it with the old type stops compiling |
-| `ui_control_repointed` | The control now writes a different preference; the old one is orphaned, exactly as in a rename |
+| `ui_control_repointed` | The control binds a different preference; inspect migration and other readers of the old key |
 | `ipc_stability_changed` | A Mojo declaration gained or lost `[Stable]`. Mojo promises wire compatibility for a stable declaration and nothing for the rest, so this is the compatibility promise changing, not the bytes |
 | `ipc_field_annotated` | A Mojo field's default value or its `[MinVersion]` annotation moved. Every byte on the wire is still read as the thing it is, but what an **older** peer sees changes — which is why this is a behaviour change rather than a break |
 
@@ -124,10 +125,10 @@ finds 139 of these, `wide` reads 99% and finds 171. Only 30 are in the Windows
 build on either side, and it is those 30 that move from Upstream cleanup at 20
 points to Compatibility break at 35; the rest score 0 whichever set is used.
 
-Resolve one by searching the current Chromium tree for the key string. Found
-elsewhere means it moved and there is nothing to do; genuinely absent means
-stored user data is orphaned, which is a real and silent break. Do not report
-either outcome until you have looked.
+Resolve one by searching the exact target version for the key and its consumers.
+A declaration elsewhere suggests a move; evaluate callers and build conditions.
+Absence needs adequate source coverage, and data loss needs migration/consumer
+evidence. Do not infer either from a partial scan or a bucket label.
 
 ## Structural
 
@@ -137,7 +138,7 @@ either outcome until you have looked.
 | `web_api_added_gated` | New web API still behind a runtime flag whose status is not stable. Stage A: the code shipped, nothing can reach it yet |
 | `web_api_added` | New web API whose gate names a flag this run did not read. Undecided rather than guessed — a `default` run reads a third of the flags |
 | `ui_page_added` / `ui_page_removed` | A chrome:// page appeared or disappeared. **Check its guard before concluding** — see traps.md |
-| `ui_page_regated` | The page is now shown under a different flag. The user-visible switch happened when that flag flipped, usually earlier |
+| `ui_page_regated` | A recorded route guard changed; compare complete expressions and consumers to establish visibility |
 | `ui_page_moved` | The page's URL or parent route changed |
 | `ui_control_type_changed` | A control changed type, e.g. dropdown became a toggle |
 | `ui_control_added` / `ui_control_removed` | A control appeared or disappeared on a page |
@@ -151,7 +152,7 @@ either outcome until you have looked.
 | `web_api_exposure_changed` | An IDL extended attribute or the `[RuntimeEnabled]` flag gating a member moved: who can reach the API changed |
 | `web_api_shape_changed` | An interface's inheritance or an enum's member list moved |
 | `web_api_status_moved` | A Blink flag moved between `test` and `experimental`. Never reached stable, so users see nothing |
-| `runtime_flag_rewired` | The `base::Feature` behind a Blink flag, what it depends on, or its visibility changed. `base_feature: none` means the C++ flag that controlled it is gone |
+| `runtime_flag_rewired` | Recorded dependencies or base-feature wiring changed. `base_feature: none` declares no generated base-feature link; it does not prove another C++ flag was deleted |
 | `ui_control_relabelled` | A control's label key changed. The tool reads the key, never the display string — that lives in a `.grd` it does not open — so it cannot say whether anyone sees a difference |
 
 Everything the comparison treats as meaningful produces one of these rows. This
@@ -163,8 +164,9 @@ modified changes used to arrive that way**; a test now asserts none do.
 
 A change can also carry **no signal at all**, and about a third of a report
 does: 981 of 3,022 findings at M148 → M151, almost all of them things that
-simply appeared. There the direction and the kind are the whole story, and the
-report writes them as one — *New feature flag*, *Removed chrome://flags entry*.
+simply appeared. Direction and kind summarize those observations, but their
+meaning still needs investigation. Unsignalled additions can establish a new
+capability alongside other declarations or implementation changes.
 
 ## Bucket meanings
 
@@ -177,7 +179,7 @@ statement about the change rather than about the reader.
 | Behaviour change | The Windows build behaves differently. Someone can see a difference | Confirm what the difference is |
 | New declarations | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence | Product input, not a blocker |
 | Scheduled | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet | Plan for the next milestone; nothing to do in this one |
-| Upstream cleanup | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | Do not read line by line; filter it for `unconfirmed` |
+| Upstream cleanup | Classifier hypothesis of cleanup or platform exclusion; can also contain insufficient absence evidence | Account for these items too; verify consumers and `unconfirmed` before dismissing |
 
 Three rules make these hold together, and all three are tested:
 

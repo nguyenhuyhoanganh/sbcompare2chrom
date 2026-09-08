@@ -36,11 +36,12 @@ the flag held *just before* deletion says which outcome that was.
 abandoned, 22 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 167 of which had
 been `stable`.
 
-**Check:** read the prior state. `flag_retired_on` means behaviour is now
-permanent and unremovable; `flag_retired_off` means the code is gone. Neither
-changes behaviour at this upgrade — which is why both are filed under Upstream
-cleanup — but both break the build of anything naming the symbol, and both
-silently stop any override that was setting the flag from outside the binary.
+**Check:** read the prior platform state, then inspect the flag's consumers
+and the replacement branch. `flag_retired_on` and `flag_retired_off` classify
+the last observed default; they do not establish whether implementation was
+retained, removed or replaced. Report permanent behaviour only with consumer
+evidence. Source defaults also do not prove a user's Finch configuration.
+Check code naming a removed symbol and external overrides separately.
 
 ## 2. Declaration moved, not removed
 
@@ -49,10 +50,10 @@ silently stop any override that was setting the flag from outside the binary.
 **Reality:** it usually reappears elsewhere, often behind a different flag.
 M148 → M151 "lost" the route `SITE_SETTINGS_LOCAL_NETWORK_ACCESS`. It had not
 been lost: Chromium was mid-migration and declared both versions of the page at
-M148, each behind its own guard, then deleted the old one once the new guard
-had shipped. Because `kLocalNetworkAccessChecksSplitPermissions` was already
-enabled by default at M148, users were seeing the *new* page one milestone
-before the old route disappeared from the file.
+M148, each behind its own guard, then deleted the old one.
+`kLocalNetworkAccessChecksSplitPermissions` was enabled by default at M148;
+that supports the source-default path through the new pages, not a claim
+about every user's rollout or its exact date.
 
 **Check:** search the whole tree for the key before reporting a removal, and
 read the `guards` attribute on both sides. If it exists elsewhere, this is a
@@ -155,8 +156,9 @@ if (loadTimeData.getBoolean('enableLocalNetworkAccessSplitPermissions')) {
 
 At M151 only the second survives, and
 `kLocalNetworkAccessChecksSplitPermissions` — ENABLED at M148 — is gone
-entirely. So Local Network Access was **not removed**; it moved to split
-permissions, users already had it at M148, and M151 only retired the flag.
+entirely. These declarations support a migration toward split permissions,
+rather than capability removal. Verify the full gate expressions and consumers
+before claiming unchanged behaviour; actual rollout needs separate evidence.
 
 **Check:** never conclude a page exists or does not exist from a declaration
 file alone. Follow the guard to its flag.

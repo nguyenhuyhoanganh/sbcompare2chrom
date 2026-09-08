@@ -45,6 +45,7 @@ if _ROOT not in sys.path:
 
 try:
     from chromiumdiff.enrich import gerrit
+    from chromiumdiff import cluster
     from chromiumdiff.model import Report, read_report
 except ImportError as exc:  # a checkout this script was copied out of
     print(f"cannot import chromiumdiff ({exc}). Run this from the "
@@ -273,6 +274,7 @@ def main() -> int:
         print(render(finding, warnings))
 
     if args.save:
+        cluster.refresh(report)
         tmp = json_path + ".tmp"
         try:
             with open(tmp, "w", encoding="utf-8") as fh:

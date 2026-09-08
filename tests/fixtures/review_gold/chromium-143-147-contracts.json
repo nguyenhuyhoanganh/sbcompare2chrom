@@ -1,0 +1,53 @@
+{
+  "provenance": "Maintainer-authored source-first rubric, 2026-09-08. Read all hunks of the four primary files and referenced runtime declarations at both exact tags; no generated event answers existed. Requires independent semantic adjudication; not a claim of independently validated gold or release-wide completeness.",
+  "source_spec_digest": "db77a6d566add3b00830b641c5416c7ce33e28a786c75bd008c07a8d91efd8be",
+  "scope": "Selected whole-file deltas at 143.0.7499.194 -> 147.0.7727.139. Core memberships below are disjoint scoring anchors, not an exhaustive list of supporting findings. Alternate defensible narrative boundaries require semantic adjudication, not keyword matching.",
+  "events": [
+    {
+      "id": "tool-call-round-trip-contract",
+      "critical": true,
+      "items": ["idl_member:LanguageModel.prompt", "idl_member:LanguageModelCreateCoreOptions.tools", "idl_member:LanguageModelToolCall.arguments", "idl_member:LanguageModelToolSuccess.result", "idl_member:LanguageModelToolError.errorMessage", "idl_interface:LanguageModelMessageType"],
+      "required_meaning": "Group tool declarations, tool-call/tool-response message types, call identity/arguments, structured success/error responses and conditional structured outputs into a tool-calling contract. Source typedefs and streaming comments add evidence beyond extracted finding rows.",
+      "conditions": "Secure context and declared Window/Worker runtime exposure; structured output comments require tool declarations and expectedOutputs tool-call. Windows AIPromptAPI is experimental in the supplied runtime declaration, not proof of shipped product rollout.",
+      "action": "Check callers that assume prompt returns only a string and streaming yields only text; verify tool request/result handling and applicable runtime exposure.",
+      "source_paths": ["third_party/blink/renderer/modules/ai/language_model.idl", "third_party/blink/renderer/modules/ai/language_model_create_options.idl", "third_party/blink/renderer/platform/runtime_enabled_features.json5"]
+    },
+    {
+      "id": "context-usage-contract-migration",
+      "critical": true,
+      "items": ["idl_member:LanguageModel.measureContextUsage", "idl_member:LanguageModel.measureInputUsage", "idl_member:LanguageModel.contextUsage", "idl_member:LanguageModel.inputUsage", "idl_member:LanguageModel.contextWindow", "idl_member:LanguageModel.inputQuota", "idl_member:LanguageModel.oncontextoverflow", "idl_member:LanguageModel.onquotaoverflow"],
+      "required_meaning": "New context-named usage/window/overflow API coexists with legacy input/quota names now gated by LanguageModelLegacyParamsAndAttributes. Old measurement and usage attributes are marked deprecated. Do not claim the old declarations are absent.",
+      "conditions": "New and old endpoints establish a net migration, not intermediate history. The measurement comment has a direction inconsistent with the declaration delta; base the bounded conclusion on both declarations and note the inconsistency when relevant.",
+      "action": "Locate consumers of legacy measurement, quota and overflow names; adapt and verify behaviour under the actual legacy gate.",
+      "source_paths": ["third_party/blink/renderer/modules/ai/language_model.idl"]
+    },
+    {
+      "id": "legacy-sampling-parameter-gating",
+      "critical": false,
+      "items": ["idl_member:LanguageModel.params", "idl_member:LanguageModel.topK", "idl_member:LanguageModel.temperature", "idl_member:LanguageModelCreateCoreOptions.topK", "idl_member:LanguageModelCreateCoreOptions.temperature"],
+      "required_meaning": "Sampling options, accessors and params acquire the legacy runtime gate across creation and instance/static APIs. This is not merely an unrelated list of IDL member changes. A larger coherent legacy migration event can receive semantic credit if both distinct consequences are explained.",
+      "conditions": "Comments describe non-extension deprecation; the public runtime feature declaration alone does not establish actual per-context enablement.",
+      "action": "Audit consumers that configure or read these legacy sampling parameters; establish extension/runtime conditions before claiming breakage.",
+      "source_paths": ["third_party/blink/renderer/modules/ai/language_model.idl", "third_party/blink/renderer/modules/ai/language_model_create_options.idl"]
+    },
+    {
+      "id": "clipboard-notification-payload",
+      "critical": true,
+      "items": ["mojo_method:blink.mojom.ClipboardListener.OnClipboardDataChanged"],
+      "required_meaning": "Clipboard change notification changes from no parameters to carrying types and a change_id; explain the consumer contract together.",
+      "conditions": "An IPC signature delta is not proof of a stock-browser or website regression. Out-of-tree implementations and mixed-version peers need separate evidence.",
+      "action": "Inspect implementations/callers of ClipboardListener and adapt payload handling where applicable.",
+      "source_paths": ["third_party/blink/public/mojom/clipboard/clipboard.mojom"]
+    },
+    {
+      "id": "media-state-explicit-defaults",
+      "critical": false,
+      "items": ["mojo_enum:media_session.mojom.CameraState", "mojo_enum:media_session.mojom.MicrophoneState"],
+      "required_meaning": "Both stable extensible media-state enums annotate kUnknown as Default. This is an explicit default/compatibility declaration change, not a new camera or microphone user capability. Explain the unrelated blank-line hunk as non-behavioural.",
+      "conditions": "Specific decoder fallback consequences need generator/consumer evidence; do not invent a rollout or user-visible state change from these declarations alone.",
+      "action": "Check generated bindings and compatibility assumptions if consuming these extensible states outside the matching upstream build.",
+      "source_paths": ["services/media_session/public/mojom/media_session.mojom"]
+    }
+  ],
+  "negative_controls": ["Do not infer rollout, historical split/revert/merge or product-specific breakage from endpoint declarations alone.", "Do not merge tool calling and clipboard notifications because both are contracts."]
+}

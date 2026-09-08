@@ -1,26 +1,9 @@
-"""Group related findings into one change.
+"""Candidate bundles of related findings, not semantic event verdicts.
 
-A single Chromium change arrives as scattered fragments across every surface
-the extractors read. The Local Network Access migration between M148 and M151
-produced seven separate findings:
-
-    webui_route    SITE_SETTINGS_LOCAL_NETWORK_ACCESS   removed
-    webui_route    SITE_SETTINGS_LOCAL_NETWORK          re-gated
-    webui_gate     enableLocalNetworkAccessSplitPermissions   removed
-    webui_gate     enableLocalNetworkAccessSetting      expression changed
-    webui_control  label:siteSettingsLocalNetworkAccess removed
-    base_feature   LocalNetworkAccessChecksSplitPermissions   flag retired
-    blink_runtime  LocalNetworkAccessSplitPermissions   dropped
-
-Read as seven lines they contradict each other -- one says a page was removed,
-another says a page appeared. Read as one cluster they say one thing:
-the page moved to split permissions, users already had it at M148, and
-the only work left is updating a stale route reference.
-
-Grouping uses the links the extractors already captured, not string similarity
-on names. A route names its guard; a guard names its features; a feature shares
-its name with the Blink runtime flag. Those are facts, so the resulting cluster
-is exact rather than a guess.
+Declared links and matched CLs help a reader retrieve evidence. A shared gate
+or CL can span independent work; an event can also span several bundles. The
+review workbench preserves typed relations through unchanged snapshot facts
+and leaves event boundaries to the reader.
 """
 
 from __future__ import annotations
@@ -35,7 +18,7 @@ from .model import (
     KIND_WEBUI_CONTROL,
     KIND_WEBUI_GATE,
     KIND_WEBUI_ROUTE,
-    Finding,
+    Finding, Report,
     group_of,
 )
 
@@ -59,7 +42,7 @@ class _Union:
     def union(self, a: str, b: str) -> None:
         ra, rb = self.find(a), self.find(b)
         if ra != rb:
-            self.parent[rb] = ra
+            self.parent[max(ra, rb)] = min(ra, rb)
 
 
 def _attrs(finding: Finding) -> dict:
@@ -121,6 +104,7 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     wrapping it in a cluster adds noise rather than removing it.
     """
     union = _Union()
+    findings = sorted(findings, key=lambda f: f.uid)
     for f in findings:
         union.add(f.uid)
 
@@ -171,9 +155,12 @@ def build_clusters(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
                     twin = features.get(_flag_name(declared))
                     if twin is not None:
                         union.union(f.uid, twin.uid)
-            twin = features.get(f.change.key)
-            if twin is not None:
-                union.union(f.uid, twin.uid)
+                elif declared is None:
+                    # Implicit generated twin only when no explicit mapping
+                    # is present. `none` must not be undone by name equality.
+                    twin = features.get(f.change.key)
+                    if twin is not None:
+                        union.union(f.uid, twin.uid)
 
         elif kind == KIND_FEATURE_PARAM:
             for attrs in _both_attrs(f):
@@ -269,6 +256,8 @@ def cluster_label(members: Sequence[Finding]) -> str:
 def annotate(findings: Sequence[Finding]) -> Dict[str, List[Finding]]:
     """Attach cluster info to each finding in place; return the clusters."""
     clusters = build_clusters(findings)
+    for f in findings:
+        f.enrichment.pop("cluster", None)
     for root, members in clusters.items():
         label = cluster_label(members)
         for f in members:
@@ -333,7 +322,12 @@ def summarize(clusters: Dict[str, List[Finding]], limit: int = 25) -> List[dict]
             # Published so a reader can see why a block is where it is, and
             # sort on it themselves.
             "spread": len(groups) + len(buckets) + len(directions),
-            "members": [m.uid for m in sorted(members, key=lambda x: -x.score)],
+            "members": [m.uid for m in sorted(members, key=lambda x: (-x.score, x.uid))],
         })
-    rows.sort(key=lambda r: (-r["spread"], -r["size"], -r["top_score"]))
+    rows.sort(key=lambda r: (-r["spread"], -r["size"], -r["top_score"], r["id"]))
     return rows[:limit] if limit else rows
+
+
+def refresh(report: Report) -> None:
+    """Rebuild all derived bundles at every enrichment/render boundary."""
+    report.summary["clusters"] = summarize(annotate(report.findings), limit=0)

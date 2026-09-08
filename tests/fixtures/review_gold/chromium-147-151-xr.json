@@ -1,0 +1,20 @@
+{
+  "provenance": "Maintainer-authored source-first rubric, 2026-09-08. Full raw diff of all three pinned primary files at both exact tags; requires independent adjudication. No agent event output used.",
+  "source_spec_digest": "d75dffd50585d8230b3ee64b9df8f0aba49432c7cc1e61fa5cc6f1474da195f8",
+  "scope": "Three-file comparison at 147.0.7727.139 -> 151.0.7922.138, not a release-wide benchmark.",
+  "events": [
+    {
+      "id": "xr-mesh-session-feature-contract",
+      "critical": true,
+      "items": ["mojo_enum:device.mojom.XRSessionFeature"],
+      "required_meaning": "XRSessionFeature adds MESH_DETECTION with value 19. Report a new session-feature contract boundary and investigate consumers; it does not alone prove an implemented or publicly enabled WebXR mesh API.",
+      "conditions": "Runtime support, availability, consumers and rollout are not established by this enum declaration.",
+      "action": "Inspect feature negotiation/support checks before claiming the capability usable in the user's build.",
+      "source_paths": ["device/vr/public/mojom/xr_session.mojom"]
+    }
+  ],
+  "negative_controls": [
+    {"path": "services/media_session/public/mojom/media_session.mojom", "expectation": "Only LINT.IfChange/ThenChange comments link MediaSessionAction to histogram enums.xml. Account for maintenance coupling without inventing a new runtime action or compatibility break."},
+    {"path": "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom", "expectation": "Byte-identical at both tags. No FileSystemAccess change should be invented for this case."}
+  ]
+}

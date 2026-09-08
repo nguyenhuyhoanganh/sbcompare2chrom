@@ -425,9 +425,10 @@ def _render_clusters(report: Report, summary: dict, limit: int = 12) -> str:
         return ""
     by_uid = {f.uid: f for f in report.findings}
     out = ["## Related changes, grouped", "",
-           "Each block is one Chromium change arriving across several kinds. "
-           "Read the block, not the rows: the fragments contradict each other "
-           "apart and agree together. `report.json` holds the rest.", ""]
+           "Each block is a candidate bundle linked by declarations or CLs. "
+           "Verify its event boundaries and impact in source; a shared gate or CL can cover independent work. "
+           "Read linked evidence together, including before/after conditions. "
+           "`report.json` holds the rest; the review workbench also reaches unchanged facts.", ""]
     for r in rows:
         out.append(f"### {_esc(r.get('label', ''))} — "
                    f"{r.get('size', 0)} fragments, top score "

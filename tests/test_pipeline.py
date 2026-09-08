@@ -5352,7 +5352,8 @@ class TestAStaleReportIsRefused(unittest.TestCase):
                    "skills/investigating-chromium-root-causes/scripts/why.py"]
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         for rel in loaders:
-            text = open(os.path.join(root, rel), encoding="utf-8").read()
+            with open(os.path.join(root, rel), encoding="utf-8") as source:
+                text = source.read()
             self.assertNotIn("Report.from_dict(", text,
                              f"{rel} loads a report without the schema check; "
                              f"use model.read_report")
@@ -5371,17 +5372,29 @@ class TestEveryFlagIsActedOn(unittest.TestCase):
     # Flags argparse always adds, and positional/handler plumbing.
     IGNORED = {"help", "func", "command"}
 
-    def _handler_reads(self, name):
+    def _handler_reads(self, handler):
         import ast
+        import inspect
 
-        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        with open(os.path.join(root, "chromiumdiff", "cli.py"), encoding="utf-8") as fh:
-            tree = ast.parse(fh.read())
-        fn = next(n for n in ast.walk(tree)
-                  if isinstance(n, ast.FunctionDef) and n.name == f"cmd_{name}")
-        return {n.attr for n in ast.walk(fn)
-                if isinstance(n, ast.Attribute)
-                and getattr(n.value, "id", "") == "args"}
+        seen = set()
+        def reads(fn):
+            if fn in seen:
+                return set()
+            seen.add(fn)
+            tree = ast.parse(inspect.getsource(fn))
+            result = {n.attr for n in ast.walk(tree)
+                      if isinstance(n, ast.Attribute)
+                      and getattr(n.value, "id", "") == "args"}
+            # Shared argument readers (e.g. bounded pagination) are normal
+            # handlers too. Follow only direct calls which pass this namespace.
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                        and any(isinstance(a, ast.Name) and a.id == "args" for a in node.args)):
+                    helper = fn.__globals__.get(node.func.id)
+                    if inspect.isfunction(helper):
+                        result.update(reads(helper))
+            return result
+        return reads(handler)
 
     def test_no_subcommand_offers_a_flag_it_never_reads(self):
         from chromiumdiff.cli import build_parser
@@ -5389,9 +5402,18 @@ class TestEveryFlagIsActedOn(unittest.TestCase):
         parser = build_parser()
         commands = parser._subparsers._group_actions[0].choices
         unused = {}
-        for name, sub in commands.items():
+        def leaves(choices, prefix=""):
+            import argparse
+            for name, sub in choices.items():
+                nested = [a for a in sub._actions if isinstance(a, argparse._SubParsersAction)]
+                if nested:
+                    yield from leaves(nested[0].choices, prefix + name + " ")
+                else:
+                    yield prefix + name, sub
+
+        for name, sub in leaves(commands):
             offered = {a.dest for a in sub._actions} - self.IGNORED
-            leftover = sorted(offered - self._handler_reads(name))
+            leftover = sorted(offered - self._handler_reads(sub.get_default("func")))
             if leftover:
                 unused[name] = leftover
         self.assertEqual(unused, {})
@@ -6333,7 +6355,8 @@ class TestServingDoesNotChangeTheFile(unittest.TestCase):
             state.resolve("base_feature:F")
         finally:
             gerrit.enrich, cluster.annotate = real_enrich, real_annotate
-        self.assertEqual(seen, [1])
+        # Refresh persisted enrichment at load, then again after the lookup.
+        self.assertEqual(seen, [1, 1])
 
     def test_a_row_lookup_does_not_pay_for_issue_history(self):
         """The CLs carry their `Bug:` footers already; the history behind one
@@ -7878,13 +7901,14 @@ class TestPrintedCommandsExist(unittest.TestCase):
         from chromiumdiff import cli
         parser = cli.build_parser()
         shape = {}
-        for action in parser._actions:
-            if isinstance(action, argparse._SubParsersAction):
-                for name, sub in action.choices.items():
-                    flags = set()
-                    for a in sub._actions:
-                        flags.update(a.option_strings)
-                    shape[name] = flags
+        def visit(current, prefix=""):
+            for action in current._actions:
+                if isinstance(action, argparse._SubParsersAction):
+                    for name, sub in action.choices.items():
+                        key = (prefix + " " + name).strip()
+                        shape[key] = {option for a in sub._actions for option in a.option_strings}
+                        visit(sub, key)
+        visit(parser)
         return shape
 
     def test_every_command_the_project_prints_is_one_the_cli_accepts(self):
@@ -7900,6 +7924,10 @@ class TestPrintedCommandsExist(unittest.TestCase):
                     if sub not in shape:
                         wrong.append("%s -> no `%s` subcommand" % (where, sub))
                         continue
+                    # Resolve nested verbs before checking that leaf's flags.
+                    words = rest.strip().split()
+                    while words and sub + " " + words[0] in shape:
+                        sub += " " + words.pop(0)
                     for flag in re.findall(r"--[a-z][a-z0-9-]*", rest):
                         if flag not in shape[sub]:
                             wrong.append("%s -> `%s` has no %s"

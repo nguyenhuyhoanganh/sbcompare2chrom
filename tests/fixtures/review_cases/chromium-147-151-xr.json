@@ -1,0 +1,26 @@
+{
+  "id": "chromium-147-151-xr",
+  "refs": {
+    "from": "refs/tags/147.0.7727.139",
+    "to": "refs/tags/151.0.7922.138"
+  },
+  "files": [
+    "device/vr/public/mojom/xr_session.mojom",
+    "services/media_session/public/mojom/media_session.mojom",
+    "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom"
+  ],
+  "context_files": [],
+  "provenance": "Whole-file comparison including unchanged and comment-only controls; independent source-level expectations.",
+  "sha256": {
+    "from": {
+      "device/vr/public/mojom/xr_session.mojom": "dd8a29901a267322491d693f0e2c04da71ce69c385822f38f9605861add332d7",
+      "services/media_session/public/mojom/media_session.mojom": "e72d6a21c9d8c1a6737fcb20678e94b25b4bbc5a1cefc090a9e05eb328b01086",
+      "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom": "268012fa3f2493474fbd239c43bc386d85d6f559c0c5bb4c98e4745b07e53cb5"
+    },
+    "to": {
+      "device/vr/public/mojom/xr_session.mojom": "09f064f307456eb32f39eef79a904d6a7bca233b002cfe42e64da80c33337061",
+      "services/media_session/public/mojom/media_session.mojom": "06fca2b3a95513b6f9013db07b785ba718e7e3aae8f9426f30ff6bf7ef5c0f9b",
+      "third_party/blink/public/mojom/file_system_access/file_system_access_manager.mojom": "268012fa3f2493474fbd239c43bc386d85d6f559c0c5bb4c98e4745b07e53cb5"
+    }
+  }
+}

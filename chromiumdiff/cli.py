@@ -421,6 +421,7 @@ def cmd_catalog(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     report = read_report(args.report)
+    cluster.refresh(report)
     platform = report.meta.get("platform", PLATFORM)
 
     if args.format in ("md", "both"):
@@ -641,6 +642,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="output path (stdout if omitted)")
     p.set_defaults(func=cmd_report)
 
+    from .review_cli import add_parser as add_review_parser
+    add_review_parser(sub, DEFAULT_CACHE)
     return parser
 
 

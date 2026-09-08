@@ -1,0 +1,33 @@
+{
+  "id": "chromium-143-147-contracts",
+  "refs": {
+    "from": "refs/tags/143.0.7499.194",
+    "to": "refs/tags/147.0.7727.139"
+  },
+  "files": [
+    "third_party/blink/renderer/modules/ai/language_model.idl",
+    "third_party/blink/renderer/modules/ai/language_model_create_options.idl",
+    "third_party/blink/public/mojom/clipboard/clipboard.mojom",
+    "services/media_session/public/mojom/media_session.mojom"
+  ],
+  "context_files": [
+    "third_party/blink/renderer/platform/runtime_enabled_features.json5"
+  ],
+  "provenance": "Whole-file raw source deltas inspected before building event expectations; narrow source-backed regression, not a release-wide corpus.",
+  "sha256": {
+    "from": {
+      "third_party/blink/renderer/modules/ai/language_model.idl": "868f050fe9b474bf7e3cd8ee3e0d5b248f4456d9daa40edb21b88a15ae9bccd5",
+      "third_party/blink/renderer/modules/ai/language_model_create_options.idl": "7ad827f2936768934376008bdebb0f3b6621ca38fde9b0f302cd526c471076d4",
+      "third_party/blink/public/mojom/clipboard/clipboard.mojom": "e9c6616a6366b8c9c6637a1b905b3a84c4347f2bd97a429f27f132a0f007e69e",
+      "services/media_session/public/mojom/media_session.mojom": "19ec0432e5ef3d850d49bbffd56bfa0a4f76f5c6753411994049fb80fc1055d4",
+      "third_party/blink/renderer/platform/runtime_enabled_features.json5": "895c100e542841c08ee31d1351fb7a3910d542c874cd22cf4630204155d579f9"
+    },
+    "to": {
+      "third_party/blink/renderer/modules/ai/language_model.idl": "883535d6485cfdb4de85b0a0d0629591ac2fe9ce49e9b043b3c0c60406ed3da5",
+      "third_party/blink/renderer/modules/ai/language_model_create_options.idl": "43d0032c4d342e9ca86ac49c3f0a080d6ec39fade688cc470e61a66c152e8e37",
+      "third_party/blink/public/mojom/clipboard/clipboard.mojom": "1d4658f910ebc788407333fd9f651ed930939bc45c696d1aa1e5f9406ce98e3c",
+      "services/media_session/public/mojom/media_session.mojom": "e72d6a21c9d8c1a6737fcb20678e94b25b4bbc5a1cefc090a9e05eb328b01086",
+      "third_party/blink/renderer/platform/runtime_enabled_features.json5": "de61753a534013e4b96ef34f68a6e765ad2a8b2353e076d14cfbe9058ef5fc05"
+    }
+  }
+}
