@@ -1,162 +1,116 @@
-# When the answer comes back empty
+# When a lookup returns no result
 
-## Contents
+`why.py` searches findings in `report.json` and then looks for related CLs.
+No matching row and no matching CL are different results. Neither by itself
+establishes that source or behaviour did not change.
 
-- A sentence you may not write
-- Part A — no row in the report at all
-- Part B — a row exists, but no CL
-- Deciding which case you are in
-- What to do about each
+## Part A — no matching finding
 
-## A sentence you may not write
+The helper prints `nothing ... matches`. Check the following possibilities.
 
-> *"No CL touched this file, so nothing changed."*
+### A1. The search does not match the report's identifier
 
-The two trees differ. Something landed. An empty answer is a fact about **this
-search**, never about Chromium, and phrasing it as an absence invites the reader
-to conclude a declaration changed on its own — which cannot happen.
-
-Each case below has a sentence that is true of it. Use that instead.
-
-## Part A — no row in the report at all
-
-`why.py` printed `nothing ... matches`. Several distinct causes, and only the
-last one is "it did not change".
-
-### A1. The name is not what the report calls it
-
-The report is indexed by `kind:key`. A feature is keyed by its **string name**
-(`BackForwardCache`), not its C++ symbol (`kBackForwardCache`); a Mojo field by
-its fully qualified path (`blink.mojom.CommitNavigationParams.early_hints_...`).
-
-Try the search again against a path fragment instead:
+Use the finding's `kind:key`, or search by a path fragment. A feature's
+external string and its C++ identifier can differ. Mojo keys include their
+namespace and enclosing declaration. Keep the actual cache path:
 
 ```bash
-python3 skills/investigating-chromium-root-causes/scripts/why.py out/DIR features.cc
+python3 skills/investigating-chromium-root-causes/scripts/why.py out/DIR features.cc --cache "$cache_dir"
 ```
 
-### A2. The declaring file was outside the target set
+This still searches report findings, not arbitrary file history. A `file:`
+or `brief:` ID from a review index is not a finding UID.
 
-`default` reads under half the candidate files. A declaration in a file this run
-did not fetch produces no fact on either side, so it produces no row and no
-`removed` either. Re-run `--target-set wide` before concluding anything.
+### A2. The file was outside the declaration scan
 
-Check what the run actually read — every run prints it:
+Inspect the run's target set, partitions and coverage. If the file was not
+read, the report cannot establish whether its declarations changed.
+`wide` can expand supported file coverage, but does not include all code.
 
-```
-coverage: reads N of M files in this tree that could declare (P% of files)
-```
+For a specific question, inspect the required source at both exact refs.
+Rebuild a wider comparison only when needed for the user's scope, and keep
+its output separate from an existing analysis unless replacement is intended.
 
-### A3. The declaration is a class the extractors do not turn into facts
+### A3. The parser does not extract this syntax
 
-Measured at M151, in files the tool otherwise reads completely: 85 Web IDL
-`callback` definitions, 144 `typedef`s, 200 `Interface includes Mixin`
-relations, 18 Mojo `feature` blocks, 311 Mojo constants. **"Reads 99% of the
-files" is a statement about files, not about grammar.**
+File coverage and syntax coverage are different. A file can be cached while
+some of its declarations are not represented as facts. Read its raw diff
+rather than concluding that no matching finding means no change.
 
-If the thing you are chasing is one of those, the report will never hold it, at
-any target set. Read the two versions of the file directly.
+### A4. The change is in implementation code
 
-### A4. It changed inside a function body
+A function-body change may produce no declaration finding. The review's
+source inventory can still identify the changed file when it is cached or
+in the selected Git comparison. Inspect `review source` and the relevant
+consumers even when `why.py` cannot resolve it.
 
-The tool reads declarations. A behaviour rewritten inside an implementation with
-no declaration touched is invisible here and always will be.
+For A3 or A4, use the
+[direct source/history procedure](../../analyzing-chromium-upgrades/reference/history.md).
+It does not require a finding or a known feature name.
 
-### A5. It genuinely did not change between these two versions
+### A5. No relevant source difference was found
 
-Reachable only after A1–A4 are excluded. Say it with the coverage figure
-attached, because on a partial read A2 is the more likely explanation.
+State which paths, refs and scope were actually compared. Do not generalize
+that result to uncached files, external configuration or product behaviour.
+Even unchanged declarations can have changed consumers or runtime conditions.
 
-## Part B — a row exists, but no CL
+## Part B — a finding exists, but no explanatory CL
 
-`why.py` printed the finding, then `No CL was tied to this finding.` The script
-names which case it is, and they allow very different sentences.
+Inspect lookup warnings before interpreting an empty `changes` list.
+Several limitations can apply to the same lookup.
 
-### B1. Nothing was looked up
+### B1. No lookup was performed
 
-No provenance block at all. The row was never asked about.
+A missing enrichment block means no stored lookup result is available.
+Run the lookup if history is needed for the question.
 
-> "Not yet investigated."
+### B2. Gerrit was unreachable
 
-### B2. The lookup could not reach Gerrit
+A connection or request failure establishes a retrieval problem, not an
+absence of changes. Check access and retry when useful. If access remains
+unavailable, preserve the source-level result and state the history limit.
 
-Printed as `! the lookup could not reach Gerrit`. Network, proxy, or the host
-being unreachable. Nothing was established at all — this is not a result.
+### B3. The diff budget was reached
 
-> "The lookup failed before it established anything. Retry."
+`diffs_read: false` means the relevant diffs were not read. Increase the
+budget for the selected finding when justified. `--budget 0` disables the
+diff cap; do not use it automatically for a large comparison.
 
-Verify the host: `python3 -m chromiumdiff check`.
+### B4. Some requests failed
 
-### B3. The diff budget declined the file
+`failed_fetches > 0` means the returned evidence is incomplete. Successful
+results may still support a bounded conclusion. Retry failed retrieval where
+possible; cached successful results can be reused.
 
-Printed as `Nobody looked: N CLs touched this file, past the diff budget.`
+### B5. The candidate search was incomplete
 
-Nobody read the diffs, so the verdicts that name a fact were never attempted.
-This is **not** the same as "no CL matched".
+`search_incomplete` indicates that the candidate list may omit relevant CLs.
+Read the available candidates and use direct history if needed. Do not count
+the incomplete list as all commits affecting the file.
 
-> "Not searched — N CLs touched this file, more than the budget would open."
+### B6. The completed searches found no explaining match
 
-Fix it: re-run with `--budget 0` for that one row.
+If the relevant searches and diffs completed without B2–B5 limitations, the
+result is still limited to those paths, identifiers, branches and search
+rules. It does not identify the cause of the unmatched change.
 
-### B4. Requests were lost mid-lookup
+Investigate renamed paths, generated sources, dependency updates and branch
+history as applicable. Use the direct source/history procedure linked above.
+State which searches failed to explain the observed difference rather than
+asserting that the responsible commit must have a particular form.
 
-Printed as `! N request(s) to Gerrit failed`. Whatever came back is real but
-partial — a diff that failed and a diff that genuinely does not mention the
-identifier are indistinguishable at the point of use.
+## Reading the stored fields
 
-> "Partial: N requests failed, so what follows is not a finished search."
-
-Retry the same command; the cache keeps what already succeeded.
-
-### B5. The candidate list hit Gerrit's page cap
-
-Gerrit stops at 500 rows for an anonymous query and gives no marker. The run
-splits the window to establish the count, but where the list is still trimmed
-the row says so.
-
-> "The window may hold CLs this list does not."
-
-### B6. All three questions were asked and missed
-
-The only case that is a finished result. The file was asked on `main`, then
-with the branch pin removed for merge-backs, then the whole window's commit
-messages were searched for the identifier — and all three missed.
-
-This is a real conclusion, and it is a narrow one:
-
-> "The CL that made this change is recorded under some other name or path than
-> the ones this report holds — a generated file, a path Gerrit indexes
-> differently, a rename, or a third-party roll."
-
-It points to a next step: search Chromium's git log directly for the
-identifier, or open the declaring file's history on
-`chromium.googlesource.com`.
-
-## Deciding which case you are in
-
-The script tells you. If you are reading a raw block instead, in
-`enrichment.gerrit`:
-
-| Field | Case |
+| Field in `enrichment.gerrit` | Interpretation |
 |---|---|
-| block absent | B1 |
-| `diffs_read: false` | B3 |
-| `failed_fetches > 0` | B4 |
-| `search_incomplete` | B5 |
-| `changes: []`, `diffs_read: true` | B6 |
-| `found_by: "message"` | answered by question 3, not by the file |
+| Block absent | No stored lookup result |
+| `diffs_read: false` | Relevant diffs were not read |
+| `failed_fetches > 0` | Some requests failed |
+| `search_incomplete` | Candidate search may be incomplete |
+| `changes: []` | No matched CL was stored; check all limitations above |
+| `found_by: "message"` | Candidates came from commit-message search; verify their diffs |
 
-## What to do about each
-
-| Case | Next command |
-|---|---|
-| A1 | search again by path fragment, or by `kind:` prefix |
-| A2 | re-run the pipeline with `--target-set wide` |
-| A3, A4 | read the two versions of the file; the tool will not help |
-| A5 | report it, with the coverage figure |
-| B1 | run the lookup |
-| B2 | `python3 -m chromiumdiff check`, then retry |
-| B3 | retry with `--budget 0` |
-| B4 | retry; the cache keeps the successful half |
-| B5 | report the number, and read the CLs you did get |
-| B6 | leave the tool: search Chromium's git history for the identifier |
+Do not treat inaccessible issues as supporting evidence. When saving new
+lookup results, preserve the review's cache and Git configuration during
+refresh, as described in the analysis skill's
+[saved-input procedure](../../analyzing-chromium-upgrades/reference/investigation.md).

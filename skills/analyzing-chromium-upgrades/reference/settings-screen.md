@@ -1,98 +1,83 @@
-# The settings screen
+# Analyzing WebUI changes
 
-Where settings live, how to compare them, and how large a "feature" should be.
+Use this reference for route declarations, controls, preferences and visibility
+conditions. The objective is to explain a change in the UI or its behaviour,
+not to list each changed HTML element or feature flag separately.
 
-## Contents
+## Source locations
 
-- Where settings live
-- Desktop sources and the three-hop chain
-- Feature granularity
-- Grouping rule
-- Current tool coverage
+For desktop settings, start with the files below if they exist at the compared
+refs. Other WebUI screens can use different handlers and route structures.
 
-## Where settings live
-
-On desktop, settings are a web page: `chrome://settings` is TypeScript and HTML
-templates under `chrome/browser/resources/settings/`, served by C++ handlers in
-`chrome/browser/ui/webui/settings/`.
-
-Chromium's mobile builds implement settings a completely different way — as
-declarative preference XML with Java visibility logic — and share no code with
-this. That tree is irrelevant to a Windows product, is excluded from the target
-set, and should not appear in a report. If a finding points into it, the
-finding is wrong.
-
-## Desktop sources and the three-hop chain
-
-| Source | Gives |
+| Source | What to inspect |
 |---|---|
-| `chrome/browser/resources/settings/route.ts` | The page inventory plus the `loadTimeData` guard around each route. Measured: 104 routes at M148, 108 at M151 |
-| `chrome/browser/resources/settings/<page>/` templates | Each control, its type (`settings-toggle-button`, `settings-dropdown-menu`, `cr-radio-group`), and its `pref="{{prefs.x.y}}"` binding |
-| `chrome/browser/ui/webui/settings/settings_ui.cc` | Maps each `loadTimeData` key to the `base::Feature` behind it |
-| `chrome/browser/resources/settings/page_visibility.ts` | Per-page visibility keys (24 at both M148 and M151). **Not fetched by the tool** — read it by hand when a page's presence is the question |
-| `chrome/common/pref_names.h` | Backing prefs. Already covered by the tool: 785 keys at M148, 683 at M151 |
+| `chrome/browser/resources/settings/route.ts` | Route names, paths, parents and surrounding conditions |
+| Templates and TypeScript under `chrome/browser/resources/settings/` | Controls, preference bindings, event handlers and visibility logic |
+| C++ under `chrome/browser/ui/webui/settings/` | Values supplied to `loadTimeData` and their full expressions |
+| `chrome/browser/resources/settings/page_visibility.ts`, when present | Additional page visibility conditions |
+| Preference declarations, registrations and consumers | Key identity, default, stored values and migration behaviour |
+| String resources referenced by the templates | Actual displayed text and translations, not only the resource key |
 
-The chain is:
+A path in this table is a starting location, not a guarantee that it was
+fetched or parsed. Use the index's exact-version roots or `review source`.
+If the cache lacks a required file, fetch that path at the correct ref or
+record the missing evidence.
 
+## Determine visibility and behaviour
+
+Follow each relevant reference:
+
+```text
+route or control
+  -> condition or loadTimeData key
+  -> handler expression
+  -> feature/configuration values and affected implementation
 ```
-route.ts  --guard-->  loadTimeData key  --settings_ui.cc-->  base::Feature
-```
 
-**Follow all three hops.** Stopping at the first gives trap 6, *declarative
-files declare more than ships*: the route table declares pages that a flag may
-hide. `reference/traps.md` is linked from SKILL.md.
+Read all terms of an expression. A feature default does not determine a
+condition that also depends on profile state, platform or another value.
+Compare both versions; some of these declarations may be unchanged while
+their consumers change.
 
-The `pref="{{prefs.x.y}}"` binding in the templates is the strongest join key
-between a UI control and the browser core, because it is declarative. It is
-what survives a redesign: the page can be rewritten while the preference behind
-it stays, so the binding tells you the same control moved rather than a new one
-appearing beside an old one disappearing.
+For a control with a preference binding, inspect the key's readers and
+writers. The same binding can help identify a moved control, but several
+controls may use one preference. Confirm the relationship rather than merging
+all controls that share a key.
 
-The control type is written in the element name, which is what makes
-"a dropdown became a toggle" mechanically detectable.
+Inspect event handlers and other implementation code when the question is
+about what the UI does. Template presence alone does not establish behaviour
+or rendered visibility. For platform-specific files, verify build scope
+rather than assuming every finding is relevant to Windows.
 
-## Feature granularity
+## Choose an event's scope
 
-Report at the size the audience cares about and say which size you are using.
+| Observed change | What establishes a useful report item |
+|---|---|
+| One control changed type, value or label | Explain its before/after interaction and affected setting |
+| A route appeared, disappeared or moved | Explain navigation, conditions and replacement if one exists |
+| Several pages, controls and consumers changed together | Explain the shared capability change and evidence connecting the parts |
 
-| Size | Example | Detect via |
-|---|---|---|
-| **Control** | A toggle became a dropdown; a label changed | Template element type; strings |
-| **Page / entry** | A new route, with its own visibility and behaviour conditions | `route.ts` plus gate/consumer source |
-| **Capability** | Related pages, controls and core consumers establish one transition | Trace bindings and source/CL evidence on both versions |
+Group by the supported change, not by screen name, prefix, common flag or
+score. A screen can contain unrelated changes. A single related change can
+involve several screens and files. Changes without a feature flag also need
+analysis.
 
-## Grouping rule
+For a proposed migration, identify the old behaviour, new behaviour and
+source or history connecting them. Two endpoint versions do not establish
+when users first saw the new UI. State that date only with relevant history
+or deployment evidence.
 
-Use shared flags, names and files as retrieval leads. Verify a shared mechanism
-before grouping: a common prefix or screen does not establish one capability,
-and a broad feature gate can control multiple independent changes. The same
-pref or unchanged gate can bridge changed components; inspect its consumers.
+## Coverage and verification
 
-Without grouping, one capability-level change reports as roughly ten
-contradictory lines, simultaneously claiming a page was removed and a page was
-added. With grouping it is one line that states the migration, when it became
-visible to users, and what is left to update.
+The WebUI extractors read supported route, control and handler declarations
+in the files selected by the run. This is not a complete TypeScript analysis
+or a rendered UI test. Use actual report coverage; do not assume that a
+previous run's screen count or file list applies.
 
-Changes without a flag can also establish a capability transition. Determine
-its size from the behaviour and consumer evidence, not the presence of a flag.
+`cluster.py` produces candidate groups. The review index also records declared
+relationships through unchanged facts. Both help retrieve evidence; the
+agent still verifies which items belong to one event.
 
-## Current tool coverage
-
-`chromiumdiff` covers flags, Blink runtime features, Web IDL, Mojo, switches,
-prefs, chrome://flags metadata, **and the desktop WebUI screens**: page routes,
-controls and visibility gates.
-
-The same three extractors read every `chrome://` screen, not only settings.
-Eight are tracked by default — settings, history, downloads, bookmarks,
-extensions, password_manager, new_tab_page, print_preview — for about 1.7 MB
-per version. Measured at M151 on the default target set: 108 routes, 971
-controls across those eight screens, 764 gates.
-
-`cluster.py` supplies candidate bundles. The review workbench preserves typed
-links through both snapshots, including unchanged facts; neither is a final
-decision that every connected row belongs to one semantic event.
-
-Measured at M151, `chrome/browser/resources/` holds **132** screens, so the
-eight tracked are **6%** of them; adding another is one line in `targets.py`.
-Only the declarative parts are read — the route table and the HTML templates,
-not `page_visibility.ts` and not the TypeScript behaviour.
+Before concluding that a page or control was removed, check alternative
+locations, full visibility conditions and consumers. If those checks are
+incomplete, report the observed source change and the unresolved question.

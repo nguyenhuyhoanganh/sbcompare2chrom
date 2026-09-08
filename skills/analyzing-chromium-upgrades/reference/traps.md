@@ -1,365 +1,176 @@
-# Known traps
-
-Each trap below produced a wrong conclusion against real Chromium data before
-it was handled. Expect them; check for them before reporting any removal.
-
-## Contents
-
-- 1. Retired flag read as removed feature
-- 2. Declaration moved, not removed
-- 3. Macro migration invents thousands of changes
-- 4. Macro migration silently renames features
-- 5. Platform-divergent defaults
-- 6. Declarative files declare more than ships
-- 7. Bare milestone numbers drift
-- 8. Mixed target sets and partitions produce a result that looks real
-- 9. A platform-gated declaration is not ours, and it may say so only by its path
-- 10. A Mojo ABI break has to break it for somebody
-- 11. A new web API can be unreachable
-- 12. A removed switch fails silently; a removed pref may orphan data
-- 13. A Mojo method's implicit ordinal is not compared, on purpose
+# Limits of source-based conclusions
 
-Traps 1 and 3 to 5 are about feature flags, 2 and 6 about declarative files,
-7 and 8 about running the tool. The rest are Mojo and the web platform, which carry
-the highest severities the tool reports: at M148 → M151, 219 of the 276
-Compatibility break rows are Mojo or web API.
-
-## 1. Retired flag read as removed feature
-
-**Symptom:** a `base::Feature` or Blink runtime feature disappears; the diff
-reads as lost capability.
-
-**Reality:** Chromium deletes the flag once the outcome is settled. The state
-the flag held *just before* deletion says which outcome that was.
-
-**Evidence:** M148 → M151 Windows removed 154 flags: 72 that had shipped, 60
-abandoned, 22 whose prior state is unreadable. M139 → M143 removed 202 Blink runtime features, 167 of which had
-been `stable`.
-
-**Check:** read the prior platform state, then inspect the flag's consumers
-and the replacement branch. `flag_retired_on` and `flag_retired_off` classify
-the last observed default; they do not establish whether implementation was
-retained, removed or replaced. Report permanent behaviour only with consumer
-evidence. Source defaults also do not prove a user's Finch configuration.
-Check code naming a removed symbol and external overrides separately.
-
-## 2. Declaration moved, not removed
-
-**Symptom:** an entry vanishes from a file.
-
-**Reality:** it usually reappears elsewhere, often behind a different flag.
-M148 → M151 "lost" the route `SITE_SETTINGS_LOCAL_NETWORK_ACCESS`. It had not
-been lost: Chromium was mid-migration and declared both versions of the page at
-M148, each behind its own guard, then deleted the old one.
-`kLocalNetworkAccessChecksSplitPermissions` was enabled by default at M148;
-that supports the source-default path through the new pages, not a claim
-about every user's rollout or its exact date.
-
-**Check:** search the whole tree for the key before reporting a removal, and
-read the `guards` attribute on both sides. If it exists elsewhere, this is a
-move, and the user-visible change happened whenever the controlling flag
-flipped — usually earlier than either version compared. The tool groups these
-fragments for you: that migration arrives as seven separate findings across
-routes, gates, controls and flags, and the report's "Related changes, grouped"
-section reassembles them.
-
-## 3. Macro migration invents thousands of changes
-
-**Symptom:** an entire file appears rewritten.
-
-**Reality:** between M139 and M143 the `BASE_FEATURE` macro dropped its
-string-name argument:
-
-```cpp
-BASE_FEATURE(kBackForwardCache, "BackForwardCache", base::FEATURE_ENABLED_BY_DEFAULT);  // <= M141
-BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);                      // >= M142
-```
-
-In `content_features.cc`, M139 has 170/170 declarations in the old form and
-M143 has 12/187. A parser keyed on source text reports every feature as removed
-and re-added. After normalizing `kFoo` → `"Foo"`, the true delta is 152
-unchanged, 18 removed, 35 added.
-
-**Check:** the tool handles this. If writing a new parser, key on the semantic
-name, never the source text.
-
-## 4. Macro migration silently renames features
-
-**Symptom:** nothing — this one is invisible.
-
-**Reality:** the two-argument macro derives the feature string from the
-variable name. Where those disagreed, the Finch name changed with no edit:
-
-```cpp
-// M139
-BASE_FEATURE(kFedCmIdPRegistration, "FedCmIdPregistration", ...);   // lowercase r
-// M143 - macro derives from the variable
-BASE_FEATURE(kFedCmIdPRegistration, base::FEATURE_DISABLED_BY_DEFAULT);
-//   feature string is now "FedCmIdPRegistration"                    // uppercase R
-```
-
-Every server-side field trial and `--enable-features` flag keyed on the old
-spelling now does nothing. No compiler warning, no test failure.
+Use this reference when interpreting absence, platform conditions, API
+availability or compatibility. The checks apply to any identifier. A source
+comparison establishes differences between versions; deployment and actual
+failures require additional evidence.
 
-A second real case: M139 declared
-`BASE_FEATURE(kAccessibilityPopulateSupplementalDescriptionApi,
-"kAccessibilityPopulateSupplementalDescriptionApi", ...)` — the author left the
-`k` prefix inside the string. The macro migration corrected it, which is still
-a rename with the same consequence.
+## 1. Removed flag versus removed capability
 
-**Check:** the tool pairs removals and additions sharing a C++ variable and
-emits `feature_string_renamed`. Verify Finch configs and launch scripts
-separately; those live outside the repository.
+A removed feature flag may indicate that its enabled branch was retained,
+its implementation was removed, or another condition replaced it.
+The last recorded default does not distinguish these outcomes.
 
-## 5. Platform-divergent defaults
+Read the old flag declaration, both versions of its consumers and any
+replacement. Check configurations or code that still refer to the removed
+flag. State that behaviour is retained or removed only when the implementation
+supports that conclusion. Do not infer permanent rollout from flag deletion.
 
-**Symptom:** a feature reads as enabled, but not on the platform you ship.
+## 2. Removed declaration versus moved declaration
 
-**Reality:** defaults are wrapped in preprocessor conditionals:
+A declaration missing from one file may exist elsewhere in the target version.
+Search for its key, source identifier, persisted value and relevant consumers
+at the exact target ref. Follow renamed files when necessary.
 
-```cpp
-BASE_FEATURE(kAudioServiceOutOfProcess,
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-```
+Two declarations with similar names are not necessarily replacements. Confirm
+their relationship through source usage, bindings or commit history. Shared
+flags, paths and the tool's clusters identify relationships to investigate;
+they do not establish a migration or its date.
 
-In `content_features.cc` alone a small but steady minority of features carry
-platform-divergent defaults, which is enough that assuming the global default
-is wrong on a regular basis rather than a rare one.
+Searching a partial cache cannot establish tree-wide absence. If the required
+files are unavailable, record the unresolved scope rather than calling the
+capability removed. See [history.md](history.md) for exact-ref source searches.
 
-**Check:** read `platform_state.windows`, never `default_state`. The platform is
-fixed to Windows and is not selectable — reading the wrong one gives the
-opposite answer, and there is no option to get wrong. A value of
-`conditional` means the guard depends on a non-platform build flag the tool
-cannot decide — report it as undetermined rather than guessing.
+## 3. Syntax changes versus declaration changes
 
-## 6. Declarative files declare more than ships
+A macro or declaration syntax change can preserve the same extracted meaning.
+For example, one macro form can supply a feature string explicitly while
+another derives it from the C++ identifier.
 
-**Symptom:** a settings page or entry exists in the declaration but users never
-see it, or two competing versions both appear.
+Compare the resulting name, default and conditions rather than source text
+alone. The parser normalizes supported forms; inspect unsupported forms and
+parser coverage before accepting a large set of apparent additions/removals.
 
-**Reality:** at M148 the desktop route table declared **both** pages during a
-migration:
+## 4. External strings versus source identifiers
 
-```js
-if (loadTimeData.getBoolean('enableLocalNetworkAccessSetting')) {
-    r.SITE_SETTINGS_LOCAL_NETWORK_ACCESS = r.SITE_SETTINGS.createChild('localNetworkAccess');
-}
-if (loadTimeData.getBoolean('enableLocalNetworkAccessSplitPermissions')) {
-    r.SITE_SETTINGS_LOCAL_NETWORK = r.SITE_SETTINGS.createChild('localNetwork');
-}
-```
-
-At M151 only the second survives, and
-`kLocalNetworkAccessChecksSplitPermissions` — ENABLED at M148 — is gone
-entirely. These declarations support a migration toward split permissions,
-rather than capability removal. Verify the full gate expressions and consumers
-before claiming unchanged behaviour; actual rollout needs separate evidence.
-
-**Check:** never conclude a page exists or does not exist from a declaration
-file alone. Follow the guard to its flag.
+A C++ identifier and the string used by external configuration are different
+identities. A syntax migration can change the derived string even when the
+C++ identifier stays the same.
 
-## 7. Bare milestone numbers drift
-
-**Symptom:** two runs of the same command disagree.
-
-**Reality:** `151` resolves to the newest stable release *at run time*.
-`ServiceWorkerAutoPreload` is ENABLED in 143.0.7499.40 and DISABLED in
-143.0.7499.194 — same milestone, reverted in a patch release.
-
-**Check:** pin full versions for anything recorded in a ticket. Bare milestones
-are for exploration only.
-
-## 8. Mixed target sets and partitions produce a result that looks real
-
-**Symptom:** a run reports thousands of additions that look real.
-
-**Reality:** the per-ref source cache is shared across target sets. A
-`--target-set minimal` run inside a cache a previous `default` run populated
-once produced a "minimal" snapshot containing the full 21,595 facts, inventing
-roughly 20,000 phantom additions with no error and no warning.
+Check both `name`/key and `var` on the two versions. If the string changes,
+inspect external settings using it. If only the C++ identifier changes,
+inspect source references. Confirm aliases or migration handling before
+claiming a specific consumer fails.
 
-**Check:** the tool now scopes extraction to the declared target set and
-refuses to diff snapshots built from different ones. If you see
-`cannot diff snapshots built from different target sets`, rerun with a
-consistent `--target-set` or add `--refresh`.
-
-The same trap applies to `--partition`, which is part of the snapshot cache key
-for exactly this reason: a partitioned snapshot covers a fraction of the surface
-and must never be reused as if it were a full run. A partitioned run answers a
-smaller question; it is not a cheaper way to answer the full one. Never use one
-as a release gate, and say in the report which partitions were scanned.
-
-## 9. A platform-gated declaration is not ours, and it may say so only by its path
-
-**Symptom:** a change scores 60 to 80 at the top of a Windows report, and the
-thing it names is Android or ChromeOS.
-
-There are two ways a declaration can be out of our build and neither is the
-`#if BUILDFLAG(IS_WIN)` chain that trap 5 covers.
-
-### 9a. A mojom attribute rather than a preprocessor line
-
-**Reality:** mojom has its own build conditions, spelled as an attribute rather
-than a preprocessor line:
+## 5. Platform-specific defaults
 
-```
-[EnableIf=is_android]
-struct AndroidPayload {
-  int32 imei;
-};
-
-interface Renderer {
-  [EnableIf=is_android] OnRegisteredFontsChanged();
-};
-```
-
-Measured at M151: 256 declarations are `EnableIf=is_android` and 186 are
-`is_win`. Conditions are inherited — a field or a nested enum inside an
-Android-only struct is Android-only too.
-
-**Check:** the tool resolves these now and scores them zero, the same as a C++
-declaration behind `#if BUILDFLAG(IS_ANDROID)`. Before it did, `platform_state`
-existed on four of the sixteen fact kinds and none of them were Mojo. Read
-`platform_state.windows` on the finding, exactly as for a flag. A value of
-`conditional` means the attribute names a build flag rather than a platform —
-`enable_print_preview`, `webnn_enable_graph_dump` and 40 others — and is
-undetermined, not ours-by-default.
-
-### 9b. A directory excluded in BUILD.gn, with no guard anywhere
-
-Chromium keeps whole platforms in their own directories and excludes them at
-the build-system level, so **nothing inside them carries a guard at all**:
+Read `platform_state.windows` for C++ and Mojo declarations, and the recorded
+Windows status for Blink. General defaults can differ from platform-specific
+values. A `conditional` value means non-platform conditions remain unresolved.
 
-```
-chrome/browser/flags/android/chrome_feature_list.cc   Android only
-chrome/browser/ash/login/login_pref_names.h           ChromeOS only
-ash/  chromeos/  ios/  fuchsia/  android_webview/  chromecast/
-```
-
-There is no `#if` for a preprocessor scanner to find. The path is the only
-evidence there is, and it is conclusive.
-
-Measured on a wide M148 → M151 run before this was read: **164 findings** were
-declared under one of those directories and not one scored zero, topped by
-`AndroidNewMediaPicker` at 75 points in **Behaviour change**. It only happens on
-`wide`, because the default target set does not fetch those directories — that
-is, exactly when the report is being used as a release gate.
-
-**Check:** the tool resolves this now, into the same `platform_state` a guard
-produces, and only when *every* declaration of the key is under such a
-directory. Five keys at M151 are declared both inside and outside one, and
-deduplication keeps the ChromeOS copy — so a per-file rule would take a real
-preference out of the report. Three findings on that pair still score, all of
-them correctly: they carry a second declaration in `components/`.
-
-## 10. A Mojo ABI break has to break it for somebody
-
-**Symptom:** 40 rows at 80 points saying "Mojo method signature changed
-(ABI)", read as 40 runtime breakages in the next release.
-
-**Reality:** both ends of a Mojo interface are compiled from the same tree.
-The browser process and the renderer process of one Chromium build always
-agree, because the generated bindings on both sides came out of the same
-`.mojom` file. Between two stock versions nothing at runtime is talking across
-that boundary at two different versions.
-
-So an `ipc_signature_change` between M148 and M151 is a **build break for code
-outside this tree**, not a runtime break — unless one of these is true:
-
-- something ships separately from the browser and speaks the same interface
-- an install can end up part-updated, so two versions run side by side
-- there is out-of-tree code implementing or calling the interface, which is the
-  usual case and the reason the severity is what it is
-
-**Check:** say which of those applies before calling it a runtime break. The
-tool cannot tell — it compares Chromium against Chromium, and a **Compatibility
-break** row says a contract changed, not that anyone was relying on it.
-
-## 11. A new web API can be unreachable
-
-**Symptom:** 347 rows of new web API declarations, read as 347 new capabilities.
-
-**Reality:** this is trap 1 on a different kind. Blink gates IDL members
-with `[RuntimeEnabled=Foo]`, and `Foo` moves through the same three stages a
-`base::Feature` does. The attribute alone settles nothing — a gate whose flag
-already reached stable is an open gate.
-
-Measured M148 → M151 on 220 added `idl_member` rows: 133 are reachable by a
-page on arrival and 87 are not. The gate can also sit on the *interface* rather
-than the member, which accounts for 45 of the 87 — a member carrying no
-`[RuntimeEnabled]` of its own is not therefore reachable.
-
-**Check:** the tool resolves this now, into `web_api_added_live` and
-`web_api_added_gated`, with `web_api_added` kept for the case where the gating
-flag was outside what the run read. The same applies backwards:
-`web_api_removed_gated` is a removal no page could reach, 32 of the 77 removals
-on that pair.
-
-## 12. A removed switch fails silently; a removed pref may orphan data
-
-**Symptom:** `switch_left_scan` or `pref_left_scan`, read as low-priority
-because nothing broke.
-
-**Reality:** Chromium **ignores command-line switches it does not recognise**.
-No warning, no error, no log line. A launch script, a test runner or an
-enterprise deployment keeps starting the browser exactly as before, and the
-flag it passes silently stops doing anything. This is the same failure mode as
-`feature_string_renamed`, in a place people rarely check.
-
-A removed preference is different: the key in a user's `Preferences` file stays
-on disk. Whether that matters depends on whether Chromium wrote a migration for
-it, in `chrome/browser/prefs/browser_prefs.cc`.
-
-**Check:** for a switch, search launch scripts and test automation for the
-string — the tool cannot see either. For a pref, `browser_prefs.cc` is read on
-a `wide` run and not on a `default` one, so run `wide` before concluding a key
-was dropped without a migration. And read trap 2 first: at M148 → M151 the
-`default` run reports 139 keys gone and `wide` still holds 29 of them, so
-those 29 had simply moved into a file `default` never opened.
-
-## 13. A Mojo member's implicit ordinal, and where it is compared
-
-**Symptom:** a member changed position in a `.mojom` file and the report says
-nothing — unless the declaration is `[Stable]`.
-
-**Reality:** mojom assigns a member's ordinal from its lexical position unless
-one is written. So inserting a method or a field above another shifts the wire
-id of everything below it, for methods and for struct and union fields alike.
-
-Measured M148 → M151, from the snapshots the report is built from:
-
-| | Count |
-|---|---:|
-| Methods carrying an explicit `@N` at M151 | 196 of 6,012 |
-| Fields carrying an explicit ordinal | 121 of 13,015 |
-| Interfaces present in both versions, with methods | 1,357 |
-| Methods whose lexical index moved | **503**, across 48 interfaces |
-| Fields whose lexical index moved | **607**, across 72 containers |
-| Members reordered relative to each other | 0 |
-| Explicit ordinals that changed value | 0 |
-| **Position shifts inside a `[Stable]` declaration** | **0** |
-
-**What the tool compares, and why that line.** Position is recorded and
-compared **only inside `[Stable]`** — 113 of the 4,546 interface, struct and
-union declarations at M151. That is where the mojom documentation says
-existing ordinals must not move, and Chromium honours it exactly: not one of
-the 1,110 shifts is in a stable declaration.
-
-Outside `[Stable]`, Chromium reorders and inserts freely because both ends of
-the interface are rebuilt together. Reporting those 1,110 would report file
-layout as an ABI event at Mojo severity, every upgrade; recording position only
-where compatibility is promised costs 0 rows today and will catch the first
-real one.
-
-**Check:** if you are in the case trap 10 describes — something ships
-separately, an install can be part-updated, or there is out-of-tree code
-implementing the interface — then a member inserted above yours in a
-**non-stable** declaration is a real break and this tool will not tell you.
-Diff the `.mojom` file for the interfaces you implement. Mojo's own answer to
-this is `[Stable]` with explicit ordinals; an interface that has neither is
-one Chromium has not promised to keep compatible.
+Inspect the complete condition and the product's build/runtime configuration
+when needed. Source defaults do not measure the active Finch configuration.
+Do not substitute a default from another platform.
+
+## 6. Declared UI versus visible UI
+
+Routes and controls can be declared behind separate conditions. Both old and
+new UI can exist in source during a migration without both being visible.
+
+Read route/template conditions, the values supplied by handlers and relevant
+feature checks on both versions. Follow additional visibility code when
+present. A removed route is a source observation, not proof that a page used
+by the user disappeared during this comparison.
+
+See [settings-screen.md](settings-screen.md) for source locations and the
+relationship between routes, handlers, preferences and consumers.
+
+## 7. Exact versions versus milestone numbers
+
+A bare milestone can resolve to a different patch release on a later run.
+Different patch releases may contain different behaviour.
+
+Record the exact refs from the report. Use those refs for source and history
+queries. Do not use the current checkout or the newest release as an
+unmentioned replacement for either side.
+
+## 8. Comparison scope and source configuration
+
+Target sets, partitions, completeness mode and available files affect which
+facts exist in a snapshot. Compare compatible inputs and inspect coverage
+warnings. `wide` expands supported file coverage, not all code or syntax.
+
+Adding `--refresh` does not repair a wrong scope choice. Keep the intended
+target set and partitions when rebuilding a comparison. When refreshing a
+review after a CL lookup, preserve its saved cache and optional Git repository
+as described in [investigation.md](investigation.md).
+
+The cache can contain files acquired for other analyses. The source inventory
+may therefore include more files than the original declaration scan. State
+both scopes. Files fetched later by `review source --fetch` are additional
+evidence, not an automatic extension of the original inventory.
+
+## 9. Build exclusion outside ordinary preprocessor conditions
+
+Mojo attributes such as `[EnableIf=is_android]` can restrict a declaration.
+A member can also inherit a condition from its enclosing declaration.
+The tool records supported conditions in `platform_state`.
+
+Build rules may exclude files without an inline condition. A platform-specific
+path is useful evidence, but inspect all declaration locations and relevant
+build rules before excluding a key. A duplicate declaration outside that
+directory may still be relevant to Windows.
+
+A zero score reflects the classifier's platform interpretation, not a reason
+to skip the item without checking that interpretation. An Android-only change
+can be marked out of scope for a Windows review with the supporting reason.
+It is not automatically a parser error just because it appears in the input.
+
+## 10. IPC contract changes versus actual failures
+
+Matching generated bindings from one Chromium revision are not evidence of
+a mixed-version failure. Identify the actual consumer before describing the
+impact of a Mojo signature or layout change.
+
+Check whether any relevant implementation or caller is maintained outside
+the upstream tree, whether a component ships independently, and whether
+communicating processes can use different interface versions.
+
+Report the observed contract change even when product impact is unknown.
+State build failure or runtime incompatibility only with evidence about those
+consumers and versions. For enums, inspect extensibility, defaults and
+generated handling before describing unknown-value behaviour.
+
+## 11. API declaration versus API availability
+
+An IDL member may have its own runtime condition or inherit one from its
+interface. Exposure, secure-context requirements, build conditions and
+runtime configuration may impose additional restrictions.
+
+`web_api_added_live` means the classifier did not identify a closed condition
+among those it evaluated. It does not prove universal availability.
+`web_api_added_gated` describes a recorded default restriction; it does not
+prove that all override or trial contexts are unable to use the API.
+
+Inspect both interface and member declarations, the relevant runtime features
+and consumers. Distinguish a newly declared capability, enabled source default
+and verified availability in the user's build.
+
+## 12. Removed switches and persisted preferences
+
+If a switch declaration disappears, inspect argument parsing, aliases and
+launch configurations that still pass it. A removed declaration does not by
+itself prove which deployed launch commands stopped having an effect.
+
+If a preference disappears, search for the persisted key, registrations,
+readers, writers and migration code. Data may remain on disk even if the new
+code no longer reads the key. Do not infer data loss, reset or a migration
+from the bucket label or a key rename alone.
+
+A wider declaration scan can locate a moved key. Determining stored-data
+behaviour still requires reading the relevant implementation.
+
+## 13. Implicit Mojo ordinals and comparison limits
+
+The parser records lexical position for comparison inside declarations marked
+`[Stable]`. Explicit ordinals are compared separately. Removing `[Stable]`
+and losing recorded position is not the same observation as moving a member
+between two recorded positions.
+
+For a relevant non-stable interface with separately maintained consumers,
+inspect its raw diff and generated message/field identifiers. An inserted
+member can require investigation even if the declaration-based report does
+not produce an ordinal-change finding.
+
+Do not interpret the absence of that signal as proof of compatibility.
+Establish which version combinations the product must support.
