@@ -46,10 +46,10 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "evaluations.json"))
     if reference_mode == "core":
         # Withhold all domain examples, not particular feature names. Keep the
-        # links usable and the generic checkpoint contract intact.
+        # links usable and the generic analysis/history procedures intact.
         refs = workspace / "skills/analyzing-chromium-upgrades/reference"
         for path in refs.glob("*.md"):
-            if path.name != "investigation.md":
+            if path.name not in ("investigation.md", "history.md"):
                 path.write_text("# Reference withheld for this trial\n\n"
                                 "Use the generic investigation procedure in SKILL.md and actual source evidence.\n",
                                 encoding="utf-8")

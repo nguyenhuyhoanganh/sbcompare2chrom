@@ -82,7 +82,7 @@ explicitly; preparation does not fetch or invent empty files. Each workspace
 contains the executable package, skill, `TASK.md`, source-derived report and
 exact-version cache. It excludes tests, gold and prior reviews. `core` replaces
 the analysis skill's domain references with neutral notices, keeping the
-generic checkpoint reference; `full` keeps the normal references. Metadata
+generic analysis and history references; `full` keeps the normal references. Metadata
 records both the parent revision and actual staged reference digest.
 `--seed 17` perturbs scores, buckets and input order without changing evidence.
 Repeat into five new directories with the same tool revision/source case.
