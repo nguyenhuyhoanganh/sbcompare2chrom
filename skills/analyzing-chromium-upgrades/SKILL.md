@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
+description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
 ---
 
 # Analyzing Chromium upgrades
@@ -16,14 +16,15 @@ Copy this checklist into your reply and tick each line as you finish its step:
 
 ```
 Chromium upgrade review:
-- [ ] 1 Confirm the scope -- read reference/scoping.md first
+- [ ] 1 Get the versions and the scope -- read reference/scoping.md first
 - [ ] 2 Build or open the comparison
 - [ ] 3 Take the whole-index inventory
 - [ ] 4 Retrieve evidence for the scope -- read reference/focus.md first
 - [ ] 5 Read the evidence -- read reference/traps.md first
 - [ ] 6 Group into events and record decisions -- read reference/investigation.md first
 - [ ] 7 Repeat 4 to 6 until the scope is accounted for
-- [ ] 8 Render and deliver
+- [ ] 8 Render the review
+- [ ] 9 Publish the result
 ```
 
 Each step ends with a **Checkpoint**: a condition, and what to do when it does
@@ -59,24 +60,34 @@ example command or reading `report.md` alone passes no checkpoint.
   **Acquisition** is separate: how much Chromium the script downloads and
   parses, set by `--target-set` and `--partition` at step 2.
 
-## Step 1 — Confirm the scope
+## Step 1 — Get the versions and the scope
 
-MUST establish the scope before running a comparison or analyzing findings.
-Ask which areas matter and what decisions the report should support:
+MUST ask for anything missing before running a comparison or analyzing
+findings. Ask all of it in one exchange, in the user's language:
 
-> Which areas should I review: Settings, History, Bookmarks, Extensions,
-> Downloads, other areas you name, or a broad comparison? What matters most:
-> changes users will notice, new capabilities, or changes your product must
-> adapt to? You can select several and describe your own priorities.
+> 1. Which two versions? Full version numbers are best, like
+>    `148.0.7778.217` and `151.0.7922.138`. A milestone on its own, like
+>    `148`, also works: it becomes the newest stable Windows release of that
+>    milestone at the moment I run it, so the same request can give a
+>    different release if we run it again later.
+> 2. Which areas should I review: Settings, History, Bookmarks, Extensions,
+>    Downloads, other areas you name, or a broad comparison? You can pick
+>    several.
+> 3. Which kinds of declaration matter: feature flags, preferences,
+>    command-line switches, Mojo interfaces, Web IDL, WebUI controls and
+>    routes — or all of them? Answer "all" if you are not sure.
+> 4. What matters most: changes users will notice, new capabilities, or
+>    changes your product must adapt to?
 
-Adapt it to the user's language and ask for missing versions in the same
-exchange. Those areas are examples, not a discovery list. Offer declaration
-kinds only as an optional refinement; do not make the user classify code.
+Those areas are examples, not a list of things to go and find. Question 3 only
+narrows what gets marked as asked for; a kind you did not pick still appears
+when it explains one you did, so nothing is lost by answering "all". Do not
+make the user classify code: a product-language answer is enough.
 
-MUST wait while the answer is missing. Do not pick the areas yourself, take
-the top N rows or work down the scores instead. If the user already gave an
-explicit scope and priorities, use them without asking again; on resume, keep
-the recorded scope unless the user changes it.
+MUST wait while any of it is missing. Do not pick the versions, the areas or
+the kinds yourself, and do not fall back to the top N rows or the highest
+scores. If the user already gave explicit answers, use them without asking
+again; on resume, keep the recorded ones unless the user changes them.
 
 A broad review is a valid answer, covering new capabilities, behaviour
 changes, API changes, migrations and scheduled work, not only compatibility
@@ -86,9 +97,9 @@ problems.
 `review/request.md` and how to choose acquisition without dropping the
 dependencies a selected area needs.
 
-**Checkpoint 1.** `review/request.md` exists and answers every field
-scoping.md lists. An assumed scope fails this, and so does one you chose
-yourself: stop and ask.
+**Checkpoint 1.** Both versions are known and `review/request.md` exists and
+answers every field scoping.md lists. An assumed version, area or kind fails
+this, and so does one you chose yourself: stop and ask.
 
 ## Step 2 — Build or open the comparison
 
@@ -285,7 +296,7 @@ rows, the provisional events have been revisited, and `review check` has been
 read for the whole-index counts. An empty filtered query alone does not pass
 it: the filter may be wrong rather than the work finished.
 
-## Step 8 — Render and deliver
+## Step 8 — Render the review
 
 ```bash
 python3 -m chromiumdiff review render out/upgrade/review
@@ -294,33 +305,76 @@ python3 -m chromiumdiff review render out/upgrade/review
 Add `--require-complete` when the whole index was reviewed; it exits 1 without
 writing `review.md` while items or events are unfinished. A scoped review
 never reaches that state, because items outside its scope stay pending, so
-render it without the option and keep its PARTIAL status. `render` rewrites
-`review.md`, so the confirmed scope goes into the delivered summary, taken
-from `review/request.md`, with the untouched counts. If a resource limit or
-missing evidence stopped the work earlier, name which of the two and give the
-counts and next checks. Do not clear a failed check by changing unexamined
+render it without the option and keep its PARTIAL status. If a resource limit
+or missing evidence stopped the work earlier, name which of the two and give
+the counts and next checks. Do not clear a failed check by changing unexamined
 items to `explained` or `out_of_scope`.
 
-Write one numbered item per event, titled with the change rather than its
-bucket, score or identifier. Give before and after, the reason for grouping,
-affected consumers, conditions, evidence, action and uncertainty. Write in the
-user's language and preserve source identifiers and command names exactly.
-
-Include the exact versions, the platform and the confirmed scope, and separate
-what source establishes from what depends on the user's build or
-configuration. A long report gets a short summary and links to the full
-review, which retains every supported event. Report `check.total`, the
-decision counts, `by_kind` and the provisional event count; finding and file
-counts overlap and are not event counts.
+`review.md` is the tool's own record: the coverage limits it measured, then
+one section per event with its evidence. It is the source the next step draws
+from, and `render` rewrites it, so never hand-edit it.
 
 Accounting for every indexed item does not prove every meaningful change was
 discovered: cached source may be incomplete and parsers cover selected syntax.
 External configuration, product patches and rendered UI need separate
 evidence. `review check` is not release approval.
 
-**Checkpoint 8.** `review render` wrote `review.md`, and the delivered summary
-names the confirmed scope, the counts and the limits. A summary that reports
-events without them does not pass it.
+**Checkpoint 8.** `review render` exited 0 and `review.md` holds one section
+per event you recorded. A render you did not read does not pass it.
+
+## Step 9 — Publish the result
+
+Ask where the result should go:
+
+> Do you want this on Confluence, or as a document here? For Confluence I
+> need the page: a new page under an existing one, or an existing page whose
+> content I should replace. Give me the page title or its URL.
+
+For Confluence, use the `managing-confluence` skill and give it the page the
+user named. If that skill is not available in this run, say so and write the
+document instead; do not publish through any other route, and do not guess a
+page location the user did not give.
+
+Otherwise write the document to `out/upgrade/review/delivery.md` and give the
+user its path. `render` does not touch that file.
+
+Both forms carry the same three parts, in this order.
+
+**1. What this run covered.** The exact `from_ref` and `to_ref`, the platform,
+the areas and kinds the user confirmed, and the path to the review directory.
+A reader who does not know which two builds were compared cannot use the rest.
+
+**2. The changes.** One row per event, in the order the user's priorities put
+them, not by score:
+
+| Change | What it means | Evidence | Verify |
+|---|---|---|---|
+| Feature flag X enabled by default | Windows users get X without a flag | `base_feature:X`, `chrome/browser/x/features.cc:42` | Not verified |
+
+`Change` names what happened, not its bucket, score or identifier alone.
+`What it means` says what someone will notice or what the product must adapt
+to, in the user's language. `Evidence` cites the finding IDs and exact-version
+source locations behind the row, so a reader can open them. `Verify` starts at
+`Not verified` on every row and is for the reader to fill in after checking:
+on Confluence use a grey status marker so an unchecked row is visible at a
+glance; a plain document has no colour, so it carries the same words. MUST NOT
+mark a row verified. That column records a person's check, and neither the
+tool nor you can make it.
+
+**3. What this did not cover.** Not a footnote — the same page or document,
+under its own heading. Carry across from `review.md` what the run measured:
+the declaration coverage per side, the largest gaps by directory, and the
+files no target reads. Then add what the method cannot do at all: it compares
+declarations, not behaviour; a file with no parser is absent from the findings
+whether or not it changed; and Finch, external configuration, product patches
+and rendered UI need separate evidence. Say which items were left outside the
+confirmed scope, with counts. A reader must be able to tell what the absence
+of a row means.
+
+**Checkpoint 9.** The page or document exists and holds all three parts, and
+every row of the table is `Not verified`. A table without part 1 or part 3
+does not pass it: the reader cannot tell what the rows cover or what their
+absence means.
 
 ## Query mechanics
 

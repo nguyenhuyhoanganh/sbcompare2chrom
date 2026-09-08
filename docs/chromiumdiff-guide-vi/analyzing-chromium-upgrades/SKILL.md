@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
+description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
 ---
 
 # Phân tích một đợt nâng version Chromium
@@ -16,14 +16,15 @@ Chép checklist này vào câu trả lời của bạn, xong bước nào thì t
 
 ```
 Chromium upgrade review:
-- [ ] 1 Xác nhận phạm vi -- đọc reference/scoping.md trước
+- [ ] 1 Lấy số phiên bản và phạm vi -- đọc reference/scoping.md trước
 - [ ] 2 Tạo hoặc mở lần so sánh
 - [ ] 3 Kiểm kê toàn bộ index
 - [ ] 4 Lấy bằng chứng cho phạm vi -- đọc reference/focus.md trước
 - [ ] 5 Đọc bằng chứng -- đọc reference/traps.md trước
 - [ ] 6 Gom thành event và ghi quyết định -- đọc reference/investigation.md trước
 - [ ] 7 Lặp 4 tới 6 cho tới khi phạm vi được kế toán xong
-- [ ] 8 Render và giao kết quả
+- [ ] 8 Render bản review
+- [ ] 9 Đưa kết quả cho user
 ```
 
 Mỗi bước kết thúc bằng một **Checkpoint**: một điều kiện, kèm việc phải làm
@@ -59,24 +60,33 @@ lệnh ví dụ, hay chỉ đọc `report.md` đều không qua được checkpo
   **Acquisition** là chuyện khác: script tải và parse bao nhiêu phần Chromium,
   đặt bằng `--target-set` và `--partition` ở bước 2.
 
-## Bước 1 — Xác nhận phạm vi
+## Bước 1 — Lấy số phiên bản và phạm vi
 
-MUST xác lập phạm vi trước khi chạy so sánh hay phân tích finding. Hỏi khu vực
-nào quan trọng và báo cáo cần phục vụ quyết định nào:
+MUST hỏi mọi thứ còn thiếu trước khi chạy so sánh hay phân tích finding. Hỏi
+hết trong một lượt, bằng ngôn ngữ của user:
 
-> Tôi nên review khu vực nào: Settings, History, Bookmarks, Extensions,
-> Downloads, khu vực khác bạn nêu tên, hay so sánh diện rộng? Điều gì quan
-> trọng nhất: thay đổi người dùng sẽ thấy, năng lực mới, hay thay đổi mà sản
-> phẩm của bạn phải thích ứng? Bạn có thể chọn nhiều và mô tả ưu tiên riêng.
+> 1. So sánh hai phiên bản nào? Tốt nhất là số phiên bản đầy đủ, ví dụ
+>    `148.0.7778.217` và `151.0.7922.138`. Chỉ ghi milestone như `148` cũng
+>    được: nó sẽ thành bản stable Windows mới nhất của milestone đó tại đúng
+>    lúc tôi chạy, nên cùng một yêu cầu chạy lại sau có thể ra bản khác.
+> 2. Tôi nên review khu vực nào: Settings, History, Bookmarks, Extensions,
+>    Downloads, khu vực khác bạn nêu tên, hay so sánh diện rộng? Chọn nhiều
+>    cũng được.
+> 3. Loại khai báo nào quan trọng với bạn: feature flag, preference, switch
+>    dòng lệnh, Mojo interface, Web IDL, WebUI control và route — hay tất cả?
+>    Chưa chắc thì trả lời "tất cả".
+> 4. Điều gì quan trọng nhất: thay đổi người dùng sẽ thấy, năng lực mới, hay
+>    thay đổi mà sản phẩm của bạn phải thích ứng?
 
-Chuyển câu hỏi sang ngôn ngữ của user, và hỏi luôn version còn thiếu trong
-cùng lượt. Các khu vực trên là ví dụ, không phải danh sách để đi tìm. Chỉ nêu
-loại khai báo như một lựa chọn tinh chỉnh; đừng bắt user phân loại code.
+Các khu vực trên là ví dụ, không phải danh sách để đi tìm. Câu 3 chỉ thu hẹp
+phần được đánh dấu là user yêu cầu; một loại bạn không chọn vẫn xuất hiện khi
+nó giải thích cho loại bạn đã chọn, nên trả lời "tất cả" không mất gì. Đừng
+bắt user phân loại code: trả lời bằng ngôn ngữ sản phẩm là đủ.
 
-MUST chờ khi chưa có câu trả lời. Không tự chọn khu vực, không lấy N dòng đầu
-và không làm lần lượt theo score để thay thế. Nếu user đã nêu rõ phạm vi và ưu
-tiên thì dùng luôn, không hỏi lại; khi làm tiếp, giữ nguyên phạm vi đã ghi trừ
-khi user đổi.
+MUST chờ khi còn thiếu bất kỳ mục nào. Không tự chọn phiên bản, khu vực hay
+loại khai báo, và không quay sang lấy N dòng đầu hoặc score cao nhất. Nếu user
+đã trả lời rõ thì dùng luôn, không hỏi lại; khi làm tiếp, giữ nguyên những gì
+đã ghi trừ khi user đổi.
 
 So sánh diện rộng là một câu trả lời hợp lệ, phủ năng lực mới, thay đổi hành
 vi, thay đổi API, migration và việc đã lên lịch, không chỉ vấn đề tương thích.
@@ -85,9 +95,9 @@ vi, thay đổi API, migration và việc đã lên lịch, không chỉ vấn �
 `review/request.md` và cách chọn acquisition mà không bỏ rơi những phụ thuộc
 mà khu vực đã chọn cần tới.
 
-**Checkpoint 1.** `review/request.md` tồn tại và trả lời đủ mọi trường
-scoping.md liệt kê. Phạm vi phỏng đoán thì không đạt, phạm vi do bạn tự chọn
-cũng không: dừng lại và hỏi.
+**Checkpoint 1.** Đã biết cả hai phiên bản, và `review/request.md` tồn tại,
+trả lời đủ mọi trường scoping.md liệt kê. Phiên bản, khu vực hay loại khai báo
+phỏng đoán thì không đạt, do bạn tự chọn cũng không: dừng lại và hỏi.
 
 ## Bước 2 — Tạo hoặc mở lần so sánh
 
@@ -284,7 +294,7 @@ dòng nào, các event provisional đã được xem lại, và `review check` �
 để lấy con số toàn index. Chỉ một truy vấn có lọc rỗng thì không đạt: có thể
 bộ lọc sai chứ không phải công việc đã xong.
 
-## Bước 8 — Render và giao kết quả
+## Bước 8 — Render bản review
 
 ```bash
 python3 -m chromiumdiff review render out/upgrade/review
@@ -293,32 +303,77 @@ python3 -m chromiumdiff review render out/upgrade/review
 Thêm `--require-complete` khi đã review toàn bộ index; nó thoát mã 1 và không
 ghi `review.md` khi còn item hay event chưa xong. Một review theo phạm vi hẹp
 không bao giờ tới trạng thái đó, vì các item ngoài phạm vi vẫn ở pending, nên
-render không kèm tuỳ chọn này và giữ nguyên trạng thái PARTIAL. `render` ghi đè
-`review.md`, nên phạm vi đã xác nhận phải nằm trong bản tóm tắt giao đi, lấy từ
-`review/request.md`, kèm các con số chưa đụng tới. Nếu giới hạn tài nguyên hoặc
-bằng chứng thiếu làm dừng việc sớm hơn, nói rõ là cái nào trong hai và đưa các
-con số cùng các bước kiểm tiếp theo. Không xoá một lần check thất bại bằng cách
-đổi các item chưa xem thành `explained` hay `out_of_scope`.
+render không kèm tuỳ chọn này và giữ nguyên trạng thái PARTIAL. Nếu giới hạn
+tài nguyên hoặc bằng chứng thiếu làm dừng việc sớm hơn, nói rõ là cái nào
+trong hai và đưa các con số cùng các bước kiểm tiếp theo. Không xoá một lần
+check thất bại bằng cách đổi các item chưa xem thành `explained` hay
+`out_of_scope`.
 
-Viết mỗi event một mục có số thứ tự, tiêu đề nói về thay đổi chứ không phải
-bucket, score hay identifier. Nêu trước và sau, lý do gom nhóm, consumer bị ảnh
-hưởng, điều kiện, bằng chứng, hành động và phần chưa chắc. Viết bằng ngôn ngữ
-của user và giữ nguyên chính xác identifier trong source cùng tên lệnh.
-
-Ghi đúng version, platform và phạm vi đã xác nhận, và tách phần source xác lập
-được ra khỏi phần phụ thuộc vào build hay cấu hình của user. Báo cáo dài thì
-kèm một bản tóm tắt ngắn và link tới bản đầy đủ, bản đầy đủ giữ mọi event có
-bằng chứng. Báo `check.total`, số quyết định theo trạng thái, `by_kind` và số
-event provisional; số finding và số file chồng lấn nhau và không phải số event.
+`review.md` là bản ghi của chính công cụ: các giới hạn coverage nó đo được,
+rồi mỗi event một mục kèm bằng chứng. Đó là nguồn cho bước sau, và `render`
+ghi đè nó, nên đừng bao giờ sửa tay file này.
 
 Kế toán đủ mọi item đã index không chứng minh đã tìm ra mọi thay đổi có ý
 nghĩa: source trong cache có thể chưa đủ và parser chỉ phủ một phần cú pháp.
 Cấu hình bên ngoài, patch riêng của sản phẩm và UI đã render cần bằng chứng
 riêng. `review check` không phải phê duyệt phát hành.
 
-**Checkpoint 8.** `review render` đã ghi `review.md`, và bản tóm tắt giao đi có
-nêu phạm vi đã xác nhận, các con số và các giới hạn. Một bản tóm tắt chỉ nêu
-event mà thiếu những thứ đó thì không đạt.
+**Checkpoint 8.** `review render` thoát mã 0 và `review.md` có đủ mỗi event
+một mục như bạn đã ghi. Một lần render mà bạn chưa đọc thì không đạt.
+
+## Bước 9 — Đưa kết quả cho user
+
+Hỏi kết quả nên đi đâu:
+
+> Bạn muốn đưa cái này lên Confluence, hay nhận một tài liệu ở đây? Nếu lên
+> Confluence, tôi cần biết trang: tạo trang mới nằm dưới một trang có sẵn, hay
+> thay nội dung của một trang có sẵn. Cho tôi tên trang hoặc URL của nó.
+
+Nếu chọn Confluence, dùng skill `managing-confluence` và đưa nó đúng trang user
+đã nêu. Nếu skill đó không có trong lần chạy này, nói rõ ra rồi viết tài liệu
+thay thế; không đăng bằng đường nào khác, và không tự đoán vị trí trang mà user
+chưa nêu.
+
+Nếu không, viết tài liệu vào `out/upgrade/review/delivery.md` rồi đưa user
+đường dẫn của nó. `render` không đụng tới file này.
+
+Cả hai dạng đều gồm đúng ba phần, theo thứ tự này.
+
+**1. Lần chạy này đã phủ những gì.** Đúng `from_ref` và `to_ref`, platform, các
+khu vực và loại khai báo user đã xác nhận, và đường dẫn tới thư mục review.
+Người đọc không biết hai bản nào được đem so thì không dùng được phần còn lại.
+
+**2. Các thay đổi.** Mỗi event một dòng, xếp theo thứ tự ưu tiên của user chứ
+không theo score:
+
+| Thay đổi | Nghĩa là gì | Bằng chứng | Verify |
+|---|---|---|---|
+| Feature flag X bật mặc định | Người dùng Windows có X mà không cần bật flag | `base_feature:X`, `chrome/browser/x/features.cc:42` | Not verified |
+
+`Thay đổi` nói việc gì đã xảy ra, không phải bucket, score hay identifier của
+nó. `Nghĩa là gì` nói người ta sẽ thấy gì hoặc sản phẩm phải thích ứng ra sao,
+bằng ngôn ngữ của user. `Bằng chứng` dẫn ID finding và vị trí source đúng
+version đằng sau dòng đó, để người đọc mở ra xem được. `Verify` khởi đầu là
+`Not verified` ở mọi dòng, dành cho người đọc tự điền sau khi kiểm: trên
+Confluence dùng status marker màu xám để nhìn một cái là thấy dòng nào chưa
+kiểm; tài liệu thường không có màu nên giữ nguyên chữ. MUST NOT tự đánh dấu
+một dòng là đã verify. Cột đó ghi nhận việc kiểm của một con người, công cụ
+lẫn bạn đều không làm thay được.
+
+**3. Những gì lần chạy này không phủ.** Không phải một dòng chú thích — cùng
+trang hoặc cùng tài liệu, dưới heading riêng. Lấy sang từ `review.md` những gì
+lần chạy đã đo: coverage khai báo của từng bên, các khoảng trống lớn nhất theo
+thư mục, và các file không target nào đọc. Rồi thêm những gì phương pháp này
+vốn không làm được: nó so khai báo chứ không so hành vi; một file không có
+parser thì vắng mặt khỏi finding bất kể nó có đổi hay không; và Finch, cấu
+hình bên ngoài, patch riêng của sản phẩm cùng UI đã render đều cần bằng chứng
+riêng. Nói rõ những item nào bị bỏ ngoài phạm vi đã xác nhận, kèm số lượng.
+Người đọc phải biết được việc **không có** một dòng nào đó nghĩa là gì.
+
+**Checkpoint 9.** Trang hoặc tài liệu đã tồn tại và có đủ ba phần, và mọi dòng
+của bảng đều là `Not verified`. Một cái bảng thiếu phần 1 hoặc phần 3 thì
+không đạt: người đọc không biết các dòng đó phủ cái gì, và việc thiếu một dòng
+nghĩa là gì.
 
 ## Cơ chế truy vấn
 
