@@ -1,8 +1,5 @@
 # Khi một lần tra cứu không trả về kết quả
 
-Bản dịch của `skills/investigating-chromium-root-causes/reference/no-row.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
-
 `why.py` tìm trong các finding của `report.json`, rồi tìm các CL liên quan.
 **Không có finding nào khớp** và **không có CL nào khớp** là hai kết quả khác
 nhau. Riêng từng cái đều không xác lập rằng source hay hành vi không đổi.

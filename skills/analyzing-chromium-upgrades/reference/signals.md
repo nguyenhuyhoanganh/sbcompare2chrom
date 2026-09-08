@@ -1,5 +1,8 @@
 # Interpreting signals, buckets and scores
 
+MUST read this reference before interpreting classifier labels. These labels
+MUST NOT replace before/after evidence or the user's scope priorities.
+
 A signal is a label assigned by the comparison code. It describes a recorded
 declaration change or the classifier's interpretation of it. It is not a
 measurement of product behaviour, deployment or user impact. Read `before`,

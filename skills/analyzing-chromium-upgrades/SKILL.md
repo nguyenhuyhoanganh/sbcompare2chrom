@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compare Chromium versions and explain related changes using report findings, versioned source and commit history. Use for Chromium upgrade analysis and for interpreting chromiumdiff reports, with impact, actions and explicit coverage limits.
+description: Ask which Chromium areas and decisions matter, then compare versions using the chromiumdiff scripts, required references and versioned evidence. Use for Chromium upgrade analysis and report interpretation, with impact, actions and explicit coverage limits.
 ---
 
 # Analyzing Chromium upgrades
@@ -9,6 +9,63 @@ Explain what changed between two Chromium versions, how the changes relate,
 and what the user should verify or update. The script extracts declarations
 and compares them. The agent determines the meaning of those differences.
 Do not use buckets, scores, signals or clusters as final conclusions.
+
+## Required steps before analysis
+
+`MUST` marks a required step, not a suggestion. These requirements apply to
+upgrade analysis, not merely explaining what a command does.
+
+1. **MUST establish the user's scope before running a comparison or analyzing
+   findings.** Ask which areas matter and what decisions the report should
+   support. Offer Settings, History, Bookmarks, Extensions, Downloads, another
+   user-named area, or a broad review. Multiple areas are allowed; this is not
+   a fixed discovery list. Offer technical declaration kinds only as an
+   optional refinement. Do not require the user to know parser terminology.
+2. **MUST wait for the user's choice when it is missing.** Do not silently
+   choose `wide`, all areas, a top-N sample or the highest scores. If the user
+   already supplied explicit scope and priorities, use those answers without
+   asking again. On resume, keep the recorded scope unless the user changes it.
+3. **MUST read the required references below before their corresponding work.**
+   Read each selected reference completely, not just its heading or search
+   matches. A reference already read in this run need not be loaded again.
+4. **MUST execute the documented scripts and inspect their actual results.**
+   Reading SKILL.md, copying example commands or reading only `report.md` does
+   not complete an analysis. If a required script or reference is unavailable,
+   state the blocker and do not claim the dependent work is complete.
+
+A short opening question, adapted to the user's language:
+
+> Which areas should I review: Settings, History, Bookmarks, Extensions,
+> Downloads, other areas you name, or a broad comparison? What matters most:
+> changes users will notice, new capabilities, or changes your product must
+> adapt to? You can select several and describe your own priorities.
+
+Ask for missing versions in the same exchange. See
+[reference/scoping.md](reference/scoping.md) for recording the answers,
+choosing acquisition scope and using bounded queries without omitting dependencies.
+
+| Before this work | Reference that MUST be read |
+|---|---|
+| Choosing acquisition/query scope or starting detailed analysis | [scoping.md](reference/scoping.md) |
+| Building or reading evidence for a selected product area | [focus.md](reference/focus.md) |
+| Starting or resuming a review, saving decisions or refreshing inputs | [investigation.md](reference/investigation.md) |
+| Drawing conclusions from source, availability or absence | [traps.md](reference/traps.md) |
+| Interpreting classifier signals, buckets or scores | [signals.md](reference/signals.md) |
+| Analyzing WebUI controls, routes, preferences or visibility | [settings-screen.md](reference/settings-screen.md) |
+| Looking up CLs/bugs or claiming cause, intent, split, revert or merge | [history.md](reference/history.md) |
+
+The scripts MUST be used at these stages:
+
+- New comparison: `check`, `run`, then `review init` using the chosen inputs.
+- Existing report: `review init` only if no review exists; do not regenerate
+  an unchanged report. Then run `review check` and `review overview`.
+- Evidence analysis: use `review index`, `inspect`, `related` and `source`
+  as needed to inspect findings and exact-version source. A keyword search
+  alone MUST NOT be treated as evidence of behaviour or complete coverage.
+- Saving and delivery: `review record`, `review check`, then `review render
+  --require-complete` for completed accounting. A partial report MUST retain
+  its status and unfinished counts. Do not bypass a failed check by changing
+  unexplained items to `explained` or `out_of_scope`.
 
 Use these terms consistently:
 
@@ -26,17 +83,18 @@ Use these terms consistently:
 
 ## Start or resume the comparison
 
-Use the versions and scope supplied by the user. Ask if the versions are
-missing. For an unspecified scope, state a reasonable default. A broad review
-includes new capabilities, behaviour changes, API changes, migrations and
-scheduled work; do not restrict it to compatibility problems.
+Use the confirmed scope and versions. An unanswered scope question is not
+permission to start. A broad review includes new capabilities, behaviour
+changes, API changes, migrations and scheduled work; do not restrict it to
+compatibility problems. Keep the user's answers in `review/request.md` as
+described in `reference/scoping.md`.
 
 Run commands from the project root. Python 3.9+ standard library is sufficient.
 The script compares Windows conditions; there is no platform CLI option.
 Record the exact `from_ref` and `to_ref` returned in the report. Bare milestone
 numbers can resolve differently on later runs.
 
-For a new comparison:
+For a new comparison after scope confirmation (broad acquisition shown):
 
 ```bash
 cache_dir=.chromiumdiff-cache
@@ -79,17 +137,25 @@ absence. Read the coverage and reasons before calling a declaration removed.
 
 ## Analyze the changes
 
-1. Read the comparison metadata and report overview. Enumerate every indexed
-   item in pages, including low scores, no-signal findings, source deltas and
-   milestone summaries. Record a decision for each item. Exclude an item only
-   for a stated reason consistent with the user's scope.
+1. Read the comparison metadata and run `review overview` before detailed
+   queries. Use its whole-index counts to choose queries for the confirmed
+   scope; do not load thousands of raw rows into context. Account for the
+   inventory, including low scores, no-signal findings, source deltas and
+   milestone summaries. An exclusion needs a reason tied to the user's scope,
+   not merely a failed keyword or path match. Follow `reference/scoping.md`.
 2. Identify possible related changes. Use `related` to examine declared
    relationships on both versions, including declarations that did not change.
    A shared flag, prefix, screen, interface or CL is a reason to investigate,
    not proof that the items form one event.
+   For an area-focused comparison, MUST use the procedure in
+   [reference/focus.md](reference/focus.md) to retrieve source-backed
+   candidates before treating a path filter as the full evidence set.
 3. Read before/after source and relevant consumers. Inspect all changed hunks
-   of a file, even when some hunks already have findings. Follow identifiers
-   the graph could not resolve. Changes without a finding still need analysis.
+   of files in the confirmed scope, even when some hunks already have findings.
+   For shared dependency files, follow the referenced sections and related
+   hunks as described in `reference/focus.md`; do not mark the entire file
+   reviewed if other hunks remain unread. Follow identifiers the graph could
+   not resolve. Changes without a finding still need analysis.
 4. When cause, sequence or intent is unclear, use
    [reference/history.md](reference/history.md). It covers both finding-based
    lookup and direct file history when `why.py` cannot find a row. Verify
@@ -120,6 +186,7 @@ first page or a selection of interesting examples.
 
 ```bash
 python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review overview out/upgrade/review
 python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
 python3 -m chromiumdiff review events out/upgrade/review --limit 30
 python3 -m chromiumdiff review inspect out/upgrade/review 'KIND:KEY'

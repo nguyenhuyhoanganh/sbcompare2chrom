@@ -1,5 +1,9 @@
 # Finding commits and explaining change history
 
+MUST read this reference before a history lookup or a claim about cause,
+intent or intermediate changes. Missing history limits the claim; it does
+not permit inventing a sequence from two endpoint files.
+
 Use history when the source difference does not explain intent, replacement,
 sequence or a contradiction. A Chromium change list (CL) is a code-review
 record in Gerrit. A CL can contain several unrelated edits, and one event can

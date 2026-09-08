@@ -28,6 +28,17 @@ def _paged(args, rows):
     return review.page(rows, args.cursor, args.limit, args.max_chars)
 
 
+def _path_prefixes(values):
+    prefixes = []
+    for value in values:
+        prefix = value.rstrip("/")
+        if (not prefix or "\\" in prefix or
+                any(part in ("", ".", "..") for part in prefix.split("/"))):
+            raise ValueError("path-prefix must be a nonempty Chromium-relative path")
+        prefixes.append(prefix)
+    return sorted(set(prefixes))
+
+
 def command(args):
     action = args.review_command
     if action == "init":
@@ -53,15 +64,59 @@ def command(args):
                               [read_json(path) for path in args.manifests])
     else:
         index, ledger = review.load(args.directory)
-        if action == "index":
+        if action in ("focus", "focus-read"):
+            from . import review_focus
+            errors = review.verify_sources(index)
+            if errors:
+                raise ValueError("; ".join(errors))
+            if action == "focus":
+                if os.path.exists(args.output):
+                    raise ValueError("focus output already exists; choose a new path to preserve prior evidence")
+                packet = review_focus.build(index, _path_prefixes(args.path_prefix), args.fact_kind, args.hops)
+                write_json(args.output, packet)
+                result = {"output": os.path.abspath(args.output), **packet["summary"], "limits": packet["limits"]}
+            else:
+                packet = review_focus.load(index, args.file)
+                if args.section == "summary":
+                    if args.item:
+                        raise ValueError("--item requires a focus data section, not summary")
+                    result = {**packet["summary"], "request": packet["request"], "refs": packet["refs"],
+                              "limits": packet["limits"]}
+                else:
+                    rows = packet[args.section]
+                    if args.item:
+                        rows = [row for row in rows if row.get("id") == args.item or
+                                row.get("source") == args.item or row.get("target") == args.item or
+                                args.item in row.get("targets", []) or
+                                (args.item.startswith("file:") and row.get("path") == args.item[5:])]
+                    if args.section in ("findings", "files"):
+                        rows = [{**row, "status": ledger["dispositions"].get(row["id"], {}).get("status", "pending")}
+                                for row in rows]
+                    result = _paged(args, rows)
+        elif action == "overview":
+            prefixes = _path_prefixes(args.path_prefix)
+            result = _paged(args, review.overview_rows(index, ledger, args.group_by,
+                                                       args.path_depth, prefixes))
+            result.update(index_total=len(index["items"]), group_by=args.group_by,
+                          path_prefixes=prefixes,
+                          note="Counts from indexed evidence, not semantic review. Path groups may overlap; counts are not events.")
+        elif action == "index":
             if args.after and args.cursor:
                 raise ValueError("use --after or --cursor, not both")
-            rows = review.index_rows(index, ledger, args.status, args.query)
+            prefixes = _path_prefixes(args.path_prefix)
+            rows = review.index_rows(index, ledger, args.status, args.query,
+                                     item_kind=args.item_kind, fact_kinds=args.fact_kind,
+                                     path_prefixes=prefixes)
             if args.after:
                 rows = [r for r in rows if r["id"] > args.after]
             result = _paged(args, rows)
             result["next_after"] = result["items"][-1]["id"] if result["next_cursor"] is not None else None
             result["pagination_note"] = "With mutable status filters, continue using --after and cursor 0."
+            result["index_total"] = len(index["items"])
+            result["filters"] = {"status": args.status, "query": args.query,
+                                 "item_kind": args.item_kind, "fact_kinds": args.fact_kind,
+                                 "path_prefixes": prefixes}
+            result["scope_note"] = "Filters select retrieval only, not scope decisions. Fact-kind filters omit source-only changes."
         elif action == "events":
             rows = [{"id": e["id"], "title": e["title"], "status": e["status"],
                      "member_count": len(e["items"]), "open_questions": len(e["uncertainties"])}
@@ -145,19 +200,37 @@ def add_parser(sub, default_cache):
     p.add_argument("trials", nargs="+")
     p.add_argument("--output", required=True, help="new JSON file, kept outside all tested workspaces")
     p.set_defaults(func=command)
-    for name in ("index", "events", "inspect", "related", "unresolved", "source", "record", "check", "render"):
+    for name in ("focus", "focus-read", "overview", "index", "events", "inspect", "related", "unresolved", "source", "record", "check", "render"):
         p = commands.add_parser(name)
         p.add_argument("directory", help="directory created by review init")
         p.set_defaults(func=command)
-        if name in ("index", "events", "inspect", "related", "unresolved", "source"):
+        if name in ("focus-read", "overview", "index", "events", "inspect", "related", "unresolved", "source"):
             p.add_argument("--cursor", type=int, default=0)
             p.add_argument("--limit", type=int, default=30)
             p.add_argument("--max-chars", type=int, default=24000,
                            help="JSON payload character budget, not model tokens (2000..100000)")
+        if name in ("focus", "overview", "index"):
+            p.add_argument("--path-prefix", action="append", default=[],
+                           help="exact relative file/directory prefix; repeat for OR, not a complete feature boundary")
+        if name == "focus":
+            p.add_argument("--fact-kind", action="append", default=[], help="requested kinds; supporting kinds remain visible")
+            p.add_argument("--hops", type=int, default=3, help="declared dependency depth after source matching (0..8)")
+            p.add_argument("--output", required=True, help="new focus JSON packet; does not change review decisions")
+        if name == "focus-read":
+            p.add_argument("--file", required=True, help="focus JSON created for this review")
+            p.add_argument("--item", help="exact item/reference id, or file:path for source locations")
+            p.add_argument("--section", default="summary",
+                           choices=("summary", "findings", "files", "references", "unresolved", "sources"))
+        if name == "overview":
+            p.add_argument("--group-by", choices=("fact-kind", "path"), default="fact-kind")
+            p.add_argument("--path-depth", type=int, default=3, help="path components per group (1..12)")
         if name == "index":
             p.add_argument("--status", choices=("pending", "event", "explained", "unresolved", "out_of_scope"))
             p.add_argument("--query", default="", help="case-insensitive identifier/name/path search")
             p.add_argument("--after", default="", help="stable last id; safe even after recording dispositions")
+            p.add_argument("--item-kind", choices=("finding", "source_delta", "milestone_lead"))
+            p.add_argument("--fact-kind", action="append", default=[],
+                           help="exact declaration kind from overview; repeat for OR; excludes non-finding items")
         if name in ("inspect", "related"):
             p.add_argument("uid")
         if name == "related":

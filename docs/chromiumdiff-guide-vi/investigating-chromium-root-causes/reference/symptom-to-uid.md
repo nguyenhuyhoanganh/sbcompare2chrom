@@ -1,8 +1,5 @@
 # Từ một triệu chứng tới một identifier
 
-Bản dịch của `skills/investigating-chromium-root-causes/reference/symptom-to-uid.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
-
 ## Mục lục
 
 - Vì sao grep báo cáo bằng lời phàn nàn không ra gì

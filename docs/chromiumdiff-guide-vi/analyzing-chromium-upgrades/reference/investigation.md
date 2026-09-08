@@ -1,7 +1,8 @@
 # Lưu kết quả phân tích và giữ nguyên input
 
-Bản dịch của `skills/analyzing-chromium-upgrades/reference/investigation.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
+MUST đọc tài liệu này trước khi khởi tạo, tiếp tục, ghi quyết định hoặc refresh
+review. Xác nhận phạm vi với user trước theo [scoping.md](scoping.md). Có report
+hoặc cache không có nghĩa đã biết user muốn phân tích phần nào.
 
 ## Đọc cấu hình đã lưu
 
@@ -29,6 +30,8 @@ Giữ lại đường dẫn cache vừa in ra để dùng cho `why.py` và `cl.p
 
 ## Làm theo từng đợt nhỏ
 
+MUST giữ phạm vi đã xác nhận trong `request.md`. Chạy `review overview` trước
+truy vấn chi tiết; không nạp hàng nghìn dòng không liên quan vào context.
 Giữ trong context các câu hỏi hiện tại và một danh sách event ngắn. Chỉ đọc
 những trường của finding, những khai báo liên quan và những đoạn source cần cho
 các câu hỏi đó. Sau mỗi đợt, lưu quyết định đầy đủ vào `review.json`.
@@ -45,18 +48,24 @@ Mỗi item đã index cần một quyết định:
 Item chưa có quyết định là `pending`. Các trạng thái này theo dõi tiến độ phân
 tích; chúng không phải phân loại cho báo cáo cuối.
 
-Một item `file:` đại diện cho **toàn bộ** bản diff của file. Đọc từng hunk, kể
-cả hunk không có finding nào mô tả. Ghi vào quyết định của file hoặc vào phần
-giải thích bằng chứng: event nào giải thích hunk nào, hoặc vì sao một hunk
-không có hậu quả đáng báo cáo. Cùng một file có thể phục vụ nhiều event; gán
-file cho một event không giải thích các thay đổi còn lại của nó.
+Một item `file:` đại diện cho **toàn bộ** bản diff của file. Với file nằm trong
+phạm vi đã xác nhận, đọc các hunk thay đổi của nó và ghi event nào giải thích
+hunk nào. Với file dùng chung nằm ngoài phạm vi, chỉ đọc những hunk mà finding
+và reference của nó trỏ tới, rồi ghi file đó là `out_of_scope` kèm tên các hunk
+chưa đọc. Một file khai báo trung tâm có thể mang hàng trăm hunk thuộc các khu
+vực sản phẩm khác; đọc chúng không thuộc phạm vi review theo scope. Không ghi
+là đã giải thích một file khi còn hunk chưa đọc. Cùng một file có thể phục vụ
+nhiều event; gán file cho một event không giải thích các thay đổi còn lại.
 
 Bản tóm tắt milestone là một nguồn độc lập, phải đối chiếu với đúng hai version
 đang so. Riêng nó không chứng minh một capability đã có ở đó.
 
 ### Lặp lại cho đến khi xử lý hết phần việc còn lại
 
-Mỗi phiên làm việc bắt đầu từ review đã lưu, không chọn lại một nhóm điểm cao:
+Mỗi phiên bắt đầu từ yêu cầu và review đã lưu, không chọn lại nhóm điểm cao.
+Danh sách không lọc dưới đây phủ toàn bộ index. Với review tập trung, dùng
+overview và cách truy vấn trong `scoping.md` trước; hết kết quả trong bộ lọc
+không có nghĩa toàn bộ index đã được xử lý:
 
 ```bash
 python3 -m chromiumdiff review check out/upgrade/review
@@ -68,13 +77,19 @@ Khi chưa xong, `check` chủ động trả mã 1; đọc JSON của nó và ti�
 `by_kind` tách finding, source delta và bản tóm tắt milestone, giúp nhận ra
 phần source chưa được xem dù nhiều finding đã có quyết định.
 
-Với mỗi item được trả về, đọc bằng chứng rồi ghi event hoặc quyết định cụ thể
+Với mỗi item thuộc phạm vi đã xác nhận, đọc bằng chứng rồi ghi event hoặc quyết định cụ thể
 không tạo event. Thiếu bằng chứng thì ghi `unresolved` cùng bước kiểm tiếp
 theo. Không dùng vòng lặp shell để gán cùng một lời giải thích cho các item
 chưa xem. Lưu xong một đợt thì chạy lại lệnh lấy `pending` từ cursor 0, không
 truyền `--query` hay `--after`. Các item đã có quyết định không xuất hiện nữa;
 lệnh trả những item tiếp theo. Lặp khi còn pending. Nếu số pending không giảm,
 kiểm tra kết quả ghi quyết định thay vì chọn một mẫu khác.
+
+Với các đợt tập trung, giữ bộ lọc đường dẫn/kind đã chọn khi đọc tiếp cùng
+truy vấn. Đọc riêng source hỗ trợ và các thành phần phụ thuộc ngoài bộ lọc.
+Review tập trung trên index rộng hơn có thể vẫn là `PARTIAL` khi kiểm toàn bộ
+index: báo riêng phạm vi đã đánh giá và phần chưa xem, không tạo hàng nghìn
+quyết định loại trừ không có căn cứ.
 
 Sau đó đọc hết các trang của `index --status unresolved` và các event còn
 `provisional`. Thực hiện bước kiểm tiếp theo khi có thể rồi cập nhật quyết
@@ -250,16 +265,3 @@ item, số event provisional cùng các bước kiểm tiếp theo. Nếu không
 trở thì tiếp tục từ trạng thái đã lưu; tìm đủ một số lượng event thuận tiện
 không phải điều kiện dừng. Thiếu thời gian, điểm thấp hay khó phân tích không
 khiến một item nằm ngoài phạm vi hoặc giải thích được tác động của nó.
-
-## Đánh giá độc lập
-
-Muốn đánh giá độc lập thì phải cố định: version source, hash của input, version
-của công cụ và skill, tham số inference, và giới hạn tài nguyên. Một agent mới
-**không được** thấy trước tên các event kỳ vọng hay câu trả lời của lần trước.
-Các lần chạy lặp phải so **ý nghĩa, phần bỏ sót và cách gom sai**, không so câu
-chữ giống hệt. Test cấu trúc và định dạng bản ghi hợp lệ không thay thế được
-việc đánh giá đó.
-Người hoặc agent đánh giá độc lập cũng phải lưu tiến độ và làm từng đợt trên
-toàn bộ phạm vi đánh giá đã công bố. Kiểm tra một mẫu chỉ đánh giá được các
-khẳng định trong mẫu đó, không xác lập được tỷ lệ phát hiện đầy đủ hoặc xác
-nhận được các quyết định chưa xem.

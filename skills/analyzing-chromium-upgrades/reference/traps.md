@@ -1,5 +1,8 @@
 # Limits of source-based conclusions
 
+MUST read this reference before drawing conclusions from source evidence.
+For every applicable limit below, perform the check or retain the uncertainty.
+
 Use this reference when interpreting absence, platform conditions, API
 availability or compatibility. The checks apply to any identifier. A source
 comparison establishes differences between versions; deployment and actual

@@ -1,7 +1,8 @@
 # Phân tích thay đổi WebUI
 
-Bản dịch của `skills/analyzing-chromium-upgrades/reference/settings-screen.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
+MUST đọc tài liệu này khi phân tích route, control, pref hoặc điều kiện
+hiển thị WebUI. Chọn một màn hình không loại trừ các thành phần mà nó phụ
+thuộc trong thư mục hay kind khác.
 
 Dùng tài liệu này cho khai báo route, control, preference và điều kiện hiển thị.
 Mục tiêu là **giải thích một thay đổi trong UI hoặc trong hành vi của nó**,

@@ -1,8 +1,5 @@
 # Đọc chính bản CL
 
-Bản dịch của `skills/investigating-chromium-root-causes/reference/reading-a-cl.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
-
 ## Mục lục
 
 - Vì sao một verdict chưa phải là điểm dừng

@@ -173,7 +173,7 @@ class TestTrialRunner(unittest.TestCase):
         refs = workspace / "skills/analyzing-chromium-upgrades/reference"
         self.assertIn("withheld", (refs / "traps.md").read_text())
         original_refs = Path(__file__).resolve().parent.parent / "skills/analyzing-chromium-upgrades/reference"
-        for name in ("investigation.md", "history.md"):
+        for name in ("scoping.md", "focus.md", "investigation.md", "history.md"):
             self.assertEqual((refs / name).read_bytes(), (original_refs / name).read_bytes())
         self.assertTrue(metadata["staged_skill_sha256"])
         self.assertIn("implementation.cc", str(metadata["source_sha256"]))

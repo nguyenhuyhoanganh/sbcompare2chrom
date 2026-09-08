@@ -29,7 +29,7 @@ Gần như mọi câu trả lời sai ở đây đều là một trong ba câu n
 
 Chạy mọi lệnh **từ thư mục gốc của repo `chromiumdiff`**: mọi đường dẫn dưới đây đều tương đối so với gốc repo, và `python3 -m chromiumdiff` cần import được package nên ở thư mục khác nó báo `No module named chromiumdiff`.
 
-Một **finding** là một dòng của báo cáo — một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`. Nghĩa của từng signal nằm ở **[reference/reading-a-finding.md](investigating-chromium-root-causes/reference/reading-a-finding.md)**.
+Một **finding** là một dòng của báo cáo — một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`. Nghĩa của từng signal nằm ở **[reference/reading-a-finding.md](reference/reading-a-finding.md)**.
 
 ## Quy trình
 
@@ -48,7 +48,7 @@ Mọi thứ phía sau đều tra theo `uid` = `kind:key`, ví dụ `base_feature
 
 **Nếu đã có sẵn một finding, một tên flag, hoặc một identifier** — thì bạn đã có nó rồi.
 
-**Nếu chỉ có một triệu chứng** ("trang downloads mất một toggle", "các trang extension bị treo") — báo cáo được đánh chỉ mục theo tên khai báo, không theo triệu chứng. Grep nó bằng chính những từ trong lời phàn nàn thì không tìm ra gì, và cũng không có nghĩa gì. Hãy ánh xạ triệu chứng sang một `kind` trước: **[reference/symptom-to-uid.md](investigating-chromium-root-causes/reference/symptom-to-uid.md)**.
+**Nếu chỉ có một triệu chứng** ("trang downloads mất một toggle", "các trang extension bị treo") — báo cáo được đánh chỉ mục theo tên khai báo, không theo triệu chứng. Grep nó bằng chính những từ trong lời phàn nàn thì không tìm ra gì, và cũng không có nghĩa gì. Hãy ánh xạ triệu chứng sang một `kind` trước: **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)**.
 
 Nếu yêu cầu nêu ra nhiều thứ, làm từng thứ một. Một câu trả lời gộp sẽ che mất bằng chứng nào thuộc về khẳng định nào.
 
@@ -59,7 +59,7 @@ python3 skills/investigating-chromium-root-causes/scripts/why.py \
   out/M148_to_M151 BackForwardCachePauseMicrotasks
 ```
 
-Phần tìm kiếm nhận một uid, một key, một tên, hoặc một mẩu đường dẫn. Khi có nhiều kết quả khớp, nó in ra một danh sách đã xếp hạng rồi dừng, nên hãy chạy lại với đúng một uid. Không khớp gì cả **không** xác lập rằng source không đổi — đọc **[reference/no-row.md](investigating-chromium-root-causes/reference/no-row.md)** để phân biệt các nguyên nhân trước khi kết luận.
+Phần tìm kiếm nhận một uid, một key, một tên, hoặc một mẩu đường dẫn. Khi có nhiều kết quả khớp, nó in ra một danh sách đã xếp hạng rồi dừng, nên hãy chạy lại với đúng một uid. Không khớp gì cả **không** xác lập rằng source không đổi — đọc **[reference/no-row.md](reference/no-row.md)** để phân biệt các nguyên nhân trước khi kết luận.
 
 ### Bước 3: Lấy CL và issue
 
@@ -115,7 +115,7 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
    ```
 
    **Đừng đánh giá mức liên quan qua tiêu đề.** Tiêu đề CL của Chromium có dạng `[khu vực] việc gì`, và khu vực là cách tác giả gọi mảng sản phẩm đó, không phải identifier — `[sub apps] change web api` chính là CL đứng sau `SubAppsServiceRemoveResult.manifest_id`. Đo trên 84 dòng Mojo và Web IDL của một lần chạy thật M148 → M151: toàn bộ commit message gọi đúng tên identifier ở 39 dòng; đọc nốt phần còn lại thì tất cả trừ năm dòng đều rõ ràng theo cách dùng từ của tác giả.
-   **[reference/reading-a-cl.md](investigating-chromium-root-causes/reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
+   **[reference/reading-a-cl.md](reference/reading-a-cl.md)** nói cách đọc cả hai, và mỗi mức bằng chứng cho phép khẳng định tới đâu.
 
 **Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Gần một nửa trả về HTTP 403 — 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới — các component security, abuse, hoặc nội bộ Google. Các CL vẫn công khai và tiêu đề của chúng cho biết chuyện gì đã xảy ra. Hãy báo cáo lịch sử sửa lỗi và ghi rõ là không mở được issue; đừng báo cáo rằng công cụ hỏng.
 
@@ -150,7 +150,7 @@ Nếu một phép kiểm tra không đạt thì CL là bối cảnh, không ph�
 | Đây là các ứng viên, không phải nguyên nhân | `crowded` hoặc `touched`, hoặc các phép kiểm tra ở bước 5 không đạt |
 | Chưa xác lập được | lần tra cứu trượt, lỗi, hoặc bị từ chối — nói rõ là trường hợp nào |
 
-Dòng đầu tiên đòi phải có bản diff. Nấc 4 của thang bằng chứng trong [reference/reading-a-cl.md](investigating-chromium-root-causes/reference/reading-a-cl.md) là nấc duy nhất cho phép dùng chữ "gây ra"; mọi nấc dưới nó chỉ cho phép "gọi tên", "có chạm vào", hoặc "được tìm thấy nhờ". **Hãy báo cáo nấc cao nhất mà bạn thật sự đạt tới, và nói rõ đó là nấc nào** — một dòng chỉ được trả lời từ verdict rồi viết ra như thể đã đọc diff là lỗi skill này được viết ra để ngăn.
+Dòng đầu tiên đòi phải có bản diff. Nấc 4 của thang bằng chứng trong [reference/reading-a-cl.md](reference/reading-a-cl.md) là nấc duy nhất cho phép dùng chữ "gây ra"; mọi nấc dưới nó chỉ cho phép "gọi tên", "có chạm vào", hoặc "được tìm thấy nhờ". **Hãy báo cáo nấc cao nhất mà bạn thật sự đạt tới, và nói rõ đó là nấc nào** — một dòng chỉ được trả lời từ verdict rồi viết ra như thể đã đọc diff là lỗi skill này được viết ra để ngăn.
 
 Đừng bao giờ làm tròn hai mức cuối lên. "Ứng viên" mà viết thành "nguyên nhân" là lỗi nặng nhất có thể mắc ở bước này.
 
@@ -185,10 +185,10 @@ Một bản diff không cho ra được điều đó, và đọc `features.cc` c
 
 ## Tài liệu tham chiếu
 
-- **[reference/reading-a-cl.md](investigating-chromium-root-causes/reference/reading-a-cl.md)** — thang bằng chứng và mỗi nấc cho phép khẳng định tới đâu; vì sao cách dùng từ của tác giả không phải là identifier; cách đọc một commit message và một bản diff, và bốn câu hỏi mà chỉ bản diff mới trả lời được.
-- **[reference/no-row.md](investigating-chromium-root-causes/reference/no-row.md)** — các trường hợp một lần tra cứu không trả về kết quả: không có finding nào khớp (A1–A5) và có finding nhưng không có CL giải thích được (B1–B6), kèm bảng đọc các trường chẩn đoán trong `enrichment.gerrit`. Trường hợp A3 và A4 chuyển sang thủ tục đọc lịch sử trực tiếp trong `analyzing-chromium-upgrades/reference/history.md`.
-- **[reference/symptom-to-uid.md](investigating-chromium-root-causes/reference/symptom-to-uid.md)** — bắt đầu từ một triệu chứng người dùng thấy được thay vì từ một identifier.
-- **[reference/reading-a-finding.md](investigating-chromium-root-causes/reference/reading-a-finding.md)** — các signal của skill này nghĩa là gì, những cách đi tới kết luận sai từ một finding đúng, và chuỗi mắt xích đứng sau một control trong settings. Đọc trước khi diễn giải bất kỳ mục bị xoá nào.
+- **[reference/reading-a-cl.md](reference/reading-a-cl.md)** — thang bằng chứng và mỗi nấc cho phép khẳng định tới đâu; vì sao cách dùng từ của tác giả không phải là identifier; cách đọc một commit message và một bản diff, và bốn câu hỏi mà chỉ bản diff mới trả lời được.
+- **[reference/no-row.md](reference/no-row.md)** — các trường hợp một lần tra cứu không trả về kết quả: không có finding nào khớp (A1–A5) và có finding nhưng không có CL giải thích được (B1–B6), kèm bảng đọc các trường chẩn đoán trong `enrichment.gerrit`. Trường hợp A3 và A4 chuyển sang thủ tục đọc lịch sử trực tiếp trong `analyzing-chromium-upgrades/reference/history.md`.
+- **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — bắt đầu từ một triệu chứng người dùng thấy được thay vì từ một identifier.
+- **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — các signal của skill này nghĩa là gì, những cách đi tới kết luận sai từ một finding đúng, và chuỗi mắt xích đứng sau một control trong settings. Đọc trước khi diễn giải bất kỳ mục bị xoá nào.
 
 ## Những gì skill này không xác lập được
 

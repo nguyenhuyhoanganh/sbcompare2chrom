@@ -1,5 +1,9 @@
 # Analyzing WebUI changes
 
+MUST read this reference when analyzing WebUI routes, controls, preferences
+or visibility. Selecting one screen does not exclude its dependencies in
+other directories or declaration kinds.
+
 Use this reference for route declarations, controls, preferences and visibility
 conditions. The objective is to explain a change in the UI or its behaviour,
 not to list each changed HTML element or feature flag separately.

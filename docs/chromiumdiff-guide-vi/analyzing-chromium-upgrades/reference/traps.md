@@ -1,7 +1,7 @@
 # Giới hạn của kết luận rút ra từ source
 
-Bản dịch của `skills/analyzing-chromium-upgrades/reference/traps.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
+MUST đọc tài liệu này trước khi kết luận từ source. Với mỗi giới hạn áp
+dụng dưới đây, thực hiện bước kiểm tra hoặc giữ lại phần chưa chắc.
 
 Dùng tài liệu này khi diễn giải sự vắng mặt, điều kiện platform, tính sẵn dùng
 của API, hoặc tính tương thích. Các phép kiểm dưới đây áp dụng cho **mọi**

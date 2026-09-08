@@ -193,6 +193,68 @@ class TestReviewWorkflow(unittest.TestCase):
             after = data["next_after"]
         self.assertEqual(seen, expected)
 
+    def test_overview_aggregates_large_inventory_without_returning_bodies(self):
+        index = copy.deepcopy(self.index)
+        template = index["items"][self.report.findings[0].uid]
+        index["items"] = {}
+        for i in range(9000):
+            item = copy.deepcopy(template)
+            item["id"] = f"unlisted:{i:05}"
+            item["paths"] = [f"subsystem{i % 4}/unit/file.cc"]
+            item["data"]["change"]["kind"] = f"unknown_kind_{i % 3}"
+            item["data"]["body"] = "Evidence stays outside context " * 100
+            index["items"][item["id"]] = item
+        ledger = {"dispositions": {"unlisted:00000": {"status": "explained", "reason": "test"}}}
+        rows = review.overview_rows(index, ledger)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(sum(row["total"] for row in rows), 9000)
+        self.assertEqual(sum(row["counts"].get("pending", 0) for row in rows), 8999)
+        self.assertLess(len(json.dumps(rows)), 2000)
+        self.assertNotIn("Evidence stays outside context", json.dumps(rows))
+        self.assertEqual(len(review.overview_rows(index, ledger, "path", 1)), 4)
+        filtered = review.overview_rows(index, ledger, path_prefixes=["subsystem2"])
+        self.assertEqual(sum(row["total"] for row in filtered), 2250)
+        self.assertEqual(len(index["items"]), 9000)
+        self.assertEqual(len(ledger["dispositions"]), 1)
+
+    def test_overview_pagination_and_path_overlap_are_explicit(self):
+        _, first = self.cli("overview", self.directory, "--limit", "1")
+        self.assertEqual(first["index_total"], len(self.index["items"]))
+        self.assertIsNotNone(first["next_cursor"])
+        _, second = self.cli("overview", self.directory, "--limit", "1",
+                             "--cursor", str(first["next_cursor"]))
+        self.assertNotEqual(first["items"], second["items"])
+        index = copy.deepcopy(self.index)
+        uid = self.report.findings[0].uid
+        index["items"] = {uid: index["items"][uid]}
+        index["items"][uid]["paths"] = ["area/a.cc", "area/b.cc", "other/a.cc"]
+        rows = review.overview_rows(index, self.ledger, "path", 1)
+        self.assertEqual([(row["group"], row["total"]) for row in rows], [("area", 1), ("other", 1)])
+        self.assertEqual(review.overview_rows({"items": {}}, self.ledger), [])
+
+    def test_index_filters_select_evidence_without_changing_decisions(self):
+        before = Path(self.directory, "review.json").read_bytes()
+        _, rows = self.cli("index", self.directory, "--path-prefix", "engine/", "--item-kind", "source_delta")
+        self.assertEqual([row["id"] for row in rows["items"]], ["file:engine/work.cc"])
+        _, findings = self.cli("index", self.directory, "--fact-kind", "webui_route",
+                               "--fact-kind", "feature_param", "--path-prefix", "ui")
+        self.assertEqual({row["id"] for row in findings["items"]},
+                         {f.uid for f in self.report.findings if f.change.kind == "webui_route"})
+        _, empty = self.cli("index", self.directory, "--path-prefix", "engin")
+        self.assertEqual(empty["items"], [])
+        self.assertEqual(empty["index_total"], len(self.index["items"]))
+        _, unknown = self.cli("index", self.directory, "--fact-kind", "unavailable_kind")
+        self.assertEqual(unknown["items"], [])
+        self.assertEqual(Path(self.directory, "review.json").read_bytes(), before)
+        self.assertFalse(self.cli("check", self.directory)[1]["accounting_complete"])
+
+    def test_invalid_overview_depth_and_absolute_prefix_are_rejected(self):
+        for args in (("overview", "--path-depth", "0"), ("overview", "--path-depth", "13"),
+                     ("index", "--path-prefix", "/engine"), ("overview", "--path-prefix", "../engine")):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()):
+                code, _ = self.cli(args[0], self.directory, *args[1:])
+                self.assertEqual(code, 1)
+
     def test_stable_after_cursor_does_not_skip_when_pending_shrinks(self):
         _, first = self.cli("index", self.directory, "--limit", "1", "--status", "pending")
         uid = first["items"][0]["id"]
@@ -302,6 +364,25 @@ class TestReviewWorkflow(unittest.TestCase):
         unresolved = review.record(self.index, done, {"dispositions": [
             {"id": uid, "status": "unresolved", "reason": "Need consumer evidence"}]})
         self.assertFalse(review.check(self.index, unresolved)["accounting_complete"])
+
+    def test_render_states_the_comparison_boundary_once(self):
+        from chromiumdiff.targets import READABLE_SUFFIXES
+        text = review.render(self.index, self.ledger)
+        # A reader who does not know which files are parsed cannot tell a removed
+        # declaration from an unparsed file, so the suffixes come from the code.
+        for suffix in READABLE_SUFFIXES:
+            self.assertIn(suffix, text, suffix)
+        scope = self.index["inputs"]["source_scope"]["limit"]
+        self.assertIn(scope, text)
+        for warning in self.index["warnings"]:
+            self.assertIn(warning, text)
+        # Every figure is derived in one place; a second copy goes stale alone.
+        for once in (scope, "Parsed file suffixes:", "Unresolved declaration references:",
+                     "Acquisition: target set"):
+            self.assertEqual(text.count(once), 1, once)
+        head, _, tail = text.partition("## Coverage and limits")
+        self.assertTrue(tail)
+        self.assertNotIn("##", head.replace("# Chromium upgrade review", ""))
 
     def test_evidence_change_invalidates_and_refresh_archives_decisions(self):
         uid = self.report.findings[0].uid
@@ -589,7 +670,7 @@ class TestSkillContract(unittest.TestCase):
         self.assertTrue(fields["description"])
         for relative in re.findall(r"\]\((reference/[^)]+)\)", text):
             self.assertTrue((skill.parent / relative).is_file(), relative)
-        for name in ("evidence", "review", "review_cli", "review_eval", "review_trials"):
+        for name in ("evidence", "review", "review_cli", "review_eval", "review_trials", "review_focus"):
             ast.parse((root / "chromiumdiff" / (name + ".py")).read_text(), feature_version=(3, 9))
 
 

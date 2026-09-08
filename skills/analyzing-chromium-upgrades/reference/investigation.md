@@ -1,5 +1,9 @@
 # Saving analysis and preserving inputs
 
+MUST read this reference before initializing, resuming, recording or refreshing
+a review. Confirm the user scope first using [scoping.md](scoping.md). An
+existing report or cache does not by itself establish what the user wants.
+
 ## Read the saved configuration
 
 Run this from the project root, replacing only the review directory. It prints
@@ -26,9 +30,11 @@ Keep the printed cache path for `why.py` and `cl.py` lookups.
 
 ## Work in small batches
 
-Keep the current questions and a short event list in context. Read only the
-finding fields, related declarations and source sections needed for those
-questions. Save complete decisions in `review.json` after each batch.
+MUST preserve the confirmed scope in `request.md`. Run `review overview`
+before detailed queries; do not enumerate thousands of unrelated rows into
+context. Keep the current questions and a short event list in context. Read
+only the finding fields, related declarations and source sections needed for
+those questions. Save complete decisions in `review.json` after each batch.
 
 Every indexed item needs a decision:
 
@@ -42,18 +48,24 @@ Every indexed item needs a decision:
 Items without a decision are `pending`. These states track analysis work;
 they are not categories for the final report.
 
-A `file:` item represents the entire file diff. Inspect each hunk, including
-those not represented by findings. Record which event explains each relevant
-hunk, or why a hunk has no reportable consequence, in the file's decision or
-evidence explanation. The same file can support several events. Assigning
-the file to one event does not account for its other changes.
+A `file:` item represents the entire file diff. For a file inside the confirmed
+scope, inspect its changed hunks and record which event explains each relevant
+one. For a shared file outside that scope, inspect only the hunks its findings
+and references point at, then record the file as `out_of_scope` naming the
+hunks left unread. A central declaration file can carry hundreds of hunks for
+other product areas; reading them is not part of a scoped review. Do not write
+that a file is explained while hunks remain unread. The same file can support
+several events, and assigning it to one does not account for its other changes.
 
 A milestone summary is a separate source to verify against the compared
 versions. It does not by itself prove that a capability was available there.
 
 ### Repeat until the remaining work is accounted for
 
-Start each session with the saved review, not a new selection of high scores:
+Start each session with the saved request and review, not a new selection of
+high scores. The unfiltered queue below covers the whole index. For a focused
+review, first use the overview and retrieval procedure in `scoping.md`; an
+empty filtered queue does not establish whole-index completion:
 
 ```bash
 python3 -m chromiumdiff review check out/upgrade/review
@@ -65,13 +77,19 @@ An incomplete `check` exits 1 intentionally; read its JSON and continue.
 separates findings, source deltas and milestone leads so that an untouched
 source inventory is visible even after many findings have been examined.
 
-For each returned item, inspect the evidence and record an event or a specific
-non-event decision. If evidence is missing, record `unresolved` with the exact
-next check. Do not use a shell loop to generate identical explanations for
-unexamined items. After saving the batch, run the same pending query again
+For each returned item in the confirmed scope, inspect the evidence and record
+an event or a specific non-event decision. If evidence is missing, record
+`unresolved` with the exact next check. Do not use a shell loop to generate
+identical explanations for unexamined items. After saving the batch, run the same pending query again
 with cursor 0 and without `--query` or `--after`. Decided items no longer appear;
 the next items do. Repeat while pending items remain. If the count does not
 decrease, inspect the record result instead of selecting a different sample.
+
+For focused batches, retain the chosen path/kind retrieval filters while
+continuing that query. Separately inspect supporting source and dependencies
+outside those filters. A focused review over a broader index may remain
+`PARTIAL` in whole-index accounting: report the assessed scope and untouched
+remainder separately, not thousands of invented exclusion decisions.
 
 Then page through `index --status unresolved` and the saved provisional events.
 Perform their next checks when possible and update the decisions. `review

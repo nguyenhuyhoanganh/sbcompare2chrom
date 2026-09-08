@@ -1,8 +1,5 @@
 # Đọc một finding
 
-Bản dịch của `skills/investigating-chromium-root-causes/reference/reading-a-finding.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
-
 Một cuộc điều tra bắt đầu từ một dòng và phải xác định dòng đó **nghĩa là gì**
 trước khi đi tìm CL đứng sau nó. Ba thứ quyết định điều đó: signal của dòng nói
 gì, những cách một finding đúng vẫn bị đọc sai, và chuỗi mắt xích đứng sau một

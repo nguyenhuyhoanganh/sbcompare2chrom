@@ -1,7 +1,8 @@
 # Tìm commit và giải thích lịch sử thay đổi
 
-Bản dịch của `skills/analyzing-chromium-upgrades/reference/history.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
+MUST đọc tài liệu này trước khi tra lịch sử hoặc nêu nguyên nhân, ý định,
+hay các bước thay đổi trung gian. Thiếu lịch sử thì giới hạn kết luận; không
+suy ra cả chuỗi thay đổi chỉ từ hai file ở hai phiên bản.
 
 Dùng lịch sử khi khác biệt trong source không giải thích được ý định, sự thay
 thế, thứ tự, hoặc một mâu thuẫn. Một **change list (CL)** của Chromium là một

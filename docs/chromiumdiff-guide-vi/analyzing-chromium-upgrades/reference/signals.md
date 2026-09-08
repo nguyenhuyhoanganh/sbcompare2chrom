@@ -1,7 +1,7 @@
 # Diễn giải signal, bucket và score
 
-Bản dịch của `skills/analyzing-chromium-upgrades/reference/signals.md`.
-Khi hai bản lệch nhau thì lấy bản tiếng Anh.
+MUST đọc tài liệu này trước khi diễn giải nhãn phân loại. Những nhãn đó
+MUST NOT thay thế bằng chứng trước/sau hoặc ưu tiên user đã xác nhận.
 
 **signal** là nhãn do code so sánh gán. Nó mô tả một thay đổi khai báo được ghi
 nhận, hoặc cách classifier diễn giải thay đổi đó. Nó **không** phải phép đo về

@@ -21,6 +21,7 @@ from .acquire import GitilesSource
 from .evidence import build_graph, digest
 from .model import SCHEMA_VERSION, Snapshot, read_json, read_report, write_json
 from .snapshot import snapshot_path, tree_path
+from .targets import READABLE_SUFFIXES
 
 REVIEW_SCHEMA = 1
 EVENT_FIELDS = ("title", "before", "after", "mechanism", "impact", "conditions", "action")
@@ -312,11 +313,25 @@ def page(rows: list, cursor=0, limit=30, max_chars=24000) -> dict:
             "next_cursor": pos if pos < len(rows) else None}
 
 
-def index_rows(index: dict, ledger: dict, status=None, query="") -> list:
+def _matches_paths(paths, prefixes) -> bool:
+    return not prefixes or any(path == prefix or path.startswith(prefix + "/")
+                               for path in paths for prefix in prefixes)
+
+
+def index_rows(index: dict, ledger: dict, status=None, query="", *,
+               item_kind=None, fact_kinds=(), path_prefixes=()) -> list:
     rows = []
     for uid, item in sorted(index["items"].items()):
         state = ledger["dispositions"].get(uid, {}).get("status", "pending")
         if status and state != status:
+            continue
+        if item_kind and item["kind"] != item_kind:
+            continue
+        if fact_kinds and (item["kind"] != "finding" or
+                           item["data"]["change"]["kind"] not in fact_kinds):
+            continue
+        paths = item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
+        if not _matches_paths(paths, path_prefixes):
             continue
         text = " ".join((uid, item.get("name", ""), " ".join(item.get("paths", [])),
                          json.dumps(item.get("data", {}).get("name", ""))))
@@ -333,6 +348,33 @@ def index_rows(index: dict, ledger: dict, status=None, query="") -> list:
                               if k in ("id", "name", "milestone", "summary", "url")}
         rows.append(row)
     return rows
+
+
+def overview_rows(index: dict, ledger: dict, group_by="fact-kind", path_depth=3,
+                  path_prefixes=()) -> list:
+    """Aggregate the complete index without emitting findings or source bodies.
+
+    Path groups are retrieval hints, not feature boundaries. An item with
+    several paths can occur in several groups; counts are not event counts.
+    """
+    if group_by not in ("fact-kind", "path") or not 1 <= path_depth <= 12:
+        raise ValueError("group-by must be fact-kind or path; path-depth must be 1..12")
+    groups = {}
+    for uid, item in sorted(index["items"].items()):
+        paths = item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
+        if not _matches_paths(paths, path_prefixes):
+            continue
+        if group_by == "fact-kind":
+            keys = {item["data"]["change"]["kind"] if item["kind"] == "finding" else item["kind"]}
+        else:
+            keys = {"/".join(path.split("/")[:path_depth]) for path in paths if path} or {"(no path)"}
+        status = ledger["dispositions"].get(uid, {}).get("status", "pending")
+        for key in keys:
+            group = groups.setdefault(key, {"group": key, "total": 0, "item_kinds": {}, "counts": {}})
+            group["total"] += 1
+            group["item_kinds"][item["kind"]] = group["item_kinds"].get(item["kind"], 0) + 1
+            group["counts"][status] = group["counts"].get(status, 0) + 1
+    return [groups[key] for key in sorted(groups)]
 
 
 def source_bytes(index: dict, side: str, path: str, fetch=False):
@@ -559,6 +601,42 @@ def verify_sources(index: dict) -> list:
     return errors
 
 
+def coverage_section(index: dict, state: dict) -> list:
+    """State what the comparison read, and what it left open, before the events.
+
+    A reader who does not know which files the extractor parses cannot tell a
+    removed declaration from an unparsed file. Every figure comes from the run.
+    """
+    inputs = index["inputs"]
+    lines = ["## Coverage and limits", "",
+             "This comparison reads declarations the extractor parses. It does not "
+             "compare behaviour, and a file with no declaration parser is absent from "
+             "the findings whether or not it changed.", "",
+             "Parsed file suffixes: " + ", ".join(READABLE_SUFFIXES) + ".", ""]
+    for side in sorted(inputs.get("coverage", {})):
+        value = inputs["coverage"][side]
+        if isinstance(value, dict) and "candidates" in value:
+            lines.append(f"- {side}: {value['read']} of {value['candidates']} candidate "
+                         f"declarations read; {value['missed']} missed.")
+    missed = inputs.get("coverage", {}).get("to", {}).get("missed_by_directory") or {}
+    if missed:
+        top = sorted(missed.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
+        lines.append("- Candidates missed by directory (to side): " +
+                     "; ".join(f"{name} {count}" for name, count in top) +
+                     (f"; and {len(missed) - len(top)} more directories" if len(missed) > len(top) else ""))
+    lines += [f"- Acquisition: target set {inputs.get('target_set')}; "
+              f"partitions {', '.join(inputs.get('partitions') or []) or 'none'}; "
+              f"unconfirmed findings: {inputs['unconfirmed']}.",
+              f"- Unresolved declaration references: {state['unresolved_reference_count']}.",
+              f"- Source scope: {inputs['source_scope']['limit']}",
+              "- Finch, external configuration, product patches and rendered UI require "
+              "separate evidence."]
+    lines += ["- " + warning for warning in index["warnings"]]
+    return lines + ["",
+                    "These limits bound what the comparison could observe. They are the "
+                    "places a reviewer must check by hand.", ""]
+
+
 def render(index: dict, ledger: dict, require_complete=False) -> str:
     state = check(index, ledger)
     if state["errors"]:
@@ -578,6 +656,7 @@ def render(index: dict, ledger: dict, require_complete=False) -> str:
            f"provisional events: {state['provisional_events']}.",
            "", "Disposition counts: " + json.dumps(state["counts"], sort_keys=True),
            "", "Accounting does not establish semantic completeness or product safety.", ""]
+    out.extend(coverage_section(index, state))
     ordered = sorted(ledger["events"], key=lambda e: (e.get("order", 1000000), e["id"]))
     for i, event in enumerate(ordered, 1):
         out.extend([f"## {i}. {event['title']}", "", f"Status: {event['status']}", ""])
@@ -589,13 +668,6 @@ def render(index: dict, ledger: dict, require_complete=False) -> str:
             ref = citation_text(index, e)
             out.append(f"- {ref}: {e['supports']}")
         out.append("")
-    out.extend(["## Limits and remaining work", "", inputs["source_scope"]["limit"], "",
-                f"Target set: {inputs['target_set']}; partitions: {inputs['partitions']}; "
-                f"unconfirmed findings: {inputs['unconfirmed']}.", "",
-                "Measured file coverage (not grammar or behaviour coverage): " +
-                json.dumps(inputs["coverage"], ensure_ascii=False), "",
-                "Finch, external configuration, product patches and rendered UI require separate evidence.", ""])
-    out.extend(index["warnings"])
     return "\n".join(out) + "\n"
 
 
