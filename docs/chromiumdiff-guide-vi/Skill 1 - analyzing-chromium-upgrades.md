@@ -1,429 +1,581 @@
 ---
 name: analyzing-chromium-upgrades
-description: So sánh hai version Chromium — feature flag, Web API, pref, switch, Mojo interface, các screen WebUI chrome:// (route, control, gate hiển thị) — tách thay đổi hành vi thật ra khỏi việc dọn dẹp, và tạo ra một báo cáo có xếp hạng những gì đã đổi. Dùng khi lên kế hoạch hoặc rà soát một đợt nâng version Chromium, ví dụ M148 lên M151; khi được hỏi cái gì mới, cái gì bị bỏ, cái gì đã đổi giữa hai milestone Chromium; khi được hỏi một thay đổi của Chromium có làm hỏng gì không; khi cần diễn giải một bản diff Chromium thô; hoặc khi quyết định một đợt rebase đòi hỏi những việc gì.
+description: So sánh hai version Chromium và giải thích các thay đổi có liên quan, dựa trên finding của báo cáo, source đúng version và lịch sử commit. Dùng khi phân tích một đợt nâng version Chromium, khi diễn giải báo cáo chromiumdiff, kèm tác động, việc cần làm và giới hạn coverage nêu rõ.
 ---
 
 # Phân tích một đợt nâng version Chromium
 
-Chạy `chromiumdiff` trên hai version Chromium, rồi phân loại những gì nó tìm được và báo cáo đúng phần user cần. Công cụ lo phần xếp hạng; còn quyết định một thay đổi có nghĩa gì với một sản phẩm cụ thể là việc mà skill này mô tả.
+Giải thích cái gì đã đổi giữa hai version Chromium, các thay đổi liên quan
+với nhau ra sao, và user cần kiểm tra hoặc cập nhật cái gì.
 
-**Một khai báo đã đổi không có nghĩa là một hành vi đã đổi.** Công cụ chỉ đọc khai báo, nên thứ nó gán cho mỗi dòng là *phân loại dựa trên những gì lần chạy đó đọc được*, không phải kết luận đã chắc về thực tế.
+Phân chia công việc: script trích xuất khai báo và so sánh chúng; agent quyết
+định các khác biệt đó có nghĩa gì. Bucket, score, signal và cluster là kết quả
+phân loại của script, không phải kết luận cuối cùng.
 
-Việc của skill này là kiểm lại phân loại đó bằng ngữ cảnh mà công cụ không có. Nó sai theo hai chiều ngược nhau: **báo một thay đổi mà người dùng không hề thấy**, và **bỏ qua một dòng trông vô hại, trong khi nó làm hỏng thứ gì đó mà không có gì báo lỗi**.
+Tài liệu này là bản tiếng Việt của skill `analyzing-chromium-upgrades`. Bản
+tiếng Anh trong `skills/analyzing-chromium-upgrades/` là bản chuẩn; khi hai bản
+lệch nhau thì lấy bản tiếng Anh.
 
 ## Từ vựng
 
-Những từ dưới đây xuất hiện khắp phần còn lại của skill và trong `report.json`.
+Dùng các từ dưới đây nhất quán trong toàn bộ quá trình phân tích.
 
-- **finding và change** — `finding` là một dòng của báo cáo, một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`.
-- **signal** — nhãn mô tả vì sao thay đổi này quan trọng, kèm một mức nghiêm trọng sàn. Một finding có thể mang nhiều signal; signal có sàn cao nhất là signal quyết định, và báo cáo vừa gom nhóm vừa đặt tiêu đề cho finding theo chính nó. Nằm ở `change.signals`. Nghĩa của từng signal: **[reference/signals.md](reference/signals.md)**.
-- **severity và score** — severity là cái giá của loại thay đổi đó, do signal quyết định. score là severity sau hai khoản trừ: không có trong bản build Windows ở cả hai phía → 0; xoá chưa được xác nhận → −15. Không có gì làm tăng score, nên score thấp hơn severity luôn kèm một câu trong `reasons` — trích câu đó, đừng trích con số.
-- **bucket** — loại chuyện đã xảy ra, suy ra từ signal quyết định. Có đúng năm bucket và mỗi finding thuộc đúng một:
-
-| Bucket | Nghĩa là |
+| Từ | Nghĩa |
 |---|---|
-| **Compatibility break** | Một contract bên ngoài binary không còn giữ nguyên, và không có gì ở khâu build cảnh báo: dữ liệu người dùng đã lưu, script khởi chạy, Finch config, website đang chạy thật, process ở đầu bên kia |
-| **Behaviour change** | Bản build Windows chạy khác đi sau thay đổi này. Có người nhìn thấy được sự khác biệt |
-| **New declarations** | Có khai báo ở version mới mà version cũ không có. Bản thân nó không tự bật cái gì lên |
-| **Scheduled** | Một mốc ngày, chưa phải một việc đã xảy ra. Chromium đã lên lịch xoá hoặc dời lịch |
-| **Upstream cleanup** | Chromium dọn thứ đã ngã ngũ, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì người dùng quan sát được thay đổi |
+| **fact** | Một khai báo được trích xuất từ một version. Một fact có thể không hề đổi. |
+| **finding** | Một khác biệt giữa các fact, định danh bằng `kind:key`. |
+| **source delta** | Một khác biệt trong nội dung file, kể cả phần code mà parser không hiểu. |
+| **hunk** | Một đoạn trong bản diff của một file. |
+| **event** | Một thay đổi có liên quan, được giải thích thành một mục trong báo cáo cuối. Một event có thể gồm nhiều finding, nhiều file và nhiều commit, hoặc chỉ một finding. |
+| **consumer** | Code hoặc hệ thống bên ngoài gọi một API, đọc một giá trị, hiện thực một interface, hoặc phụ thuộc theo cách khác vào hành vi đã đổi. |
+| **gate** | Một điều kiện quyết định code hay API có sẵn dùng hay không. |
+| **rollout** | Mức độ sẵn dùng thật sự trong sản phẩm đã triển khai. Nó có thể khác với giá trị mặc định khai báo trong source. |
 
-- **unconfirmed** — một boolean trên finding, bật khi lần chạy này chưa đọc đủ cây source để xác nhận sự vắng mặt mà dòng đó dựa vào. Không phải bucket: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ `wide`. Những dòng mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, *không* phải vì nhẹ — trên một lần chạy `wide` chúng là Compatibility break và cao hơn 15 điểm. Cờ được bật ở **mọi** dòng bị trừ 15 điểm, nên nó không chỉ nằm trong Upstream cleanup: `summary.unconfirmed` đếm 303 dòng ở M148 → M151 với bộ `default` và 0 với bộ `wide`, trong đó 120 dòng nằm ở Compatibility break.
+Các từ dưới đây là của báo cáo, không phải của quá trình phân tích.
+
+- **signal** — nhãn do code so sánh gán cho một finding, mô tả thay đổi được
+  ghi nhận hoặc cách classifier diễn giải nó. Nằm ở `change.signals`. Một
+  finding có thể mang nhiều signal, hoặc không mang signal nào. Ở lần chạy
+  M148 → M151 với bộ `default`, 981 trong 3.022 finding không mang signal nào,
+  và chúng vẫn cần phân tích như mọi finding khác.
+- **severity và score** — severity là mức của loại thay đổi, do signal quyết
+  định. score là severity sau hai khoản trừ: khai báo không có trong bản build
+  Windows ở cả hai phía → 0; xoá chưa được xác nhận → −15. Không có gì làm tăng
+  score. Score là thứ tự ưu tiên công việc, không phải xác suất hay mức độ tin
+  cậy. Mỗi khoản trừ đều kèm một câu trong `reasons`; trích câu đó.
+- **bucket** — nhóm chuyện đã xảy ra, suy ra từ signal quyết định. Có đúng năm
+  bucket và mỗi finding thuộc đúng một. Bucket dùng để sắp xếp báo cáo thô,
+  không dùng làm tiêu đề cho báo cáo cuối.
+
+| Bucket | Dùng nó để làm gì trong lúc phân tích |
+|---|---|
+| **Compatibility break** | Kiểm tra các contract có thể đã đổi, và xác định consumer nào thật sự bị ảnh hưởng |
+| **Behaviour change** | Xác định khai báo đã đổi có làm đổi hành vi trong điều kiện liên quan hay không |
+| **New declarations** | Kiểm tra khả năng có capability mới và điều kiện của nó; một khai báo không tự chứng minh là nó đã sẵn dùng |
+| **Scheduled** | Kiểm tra công việc tương lai ghi trong metadata; phân biệt kế hoạch với việc đã làm |
+| **Upstream cleanup** | Xác minh thay đổi là không đổi hành vi, là bị loại khỏi platform, hay là do bằng chứng vắng mặt không đủ |
+
+- **unconfirmed** — một boolean trên finding, bật khi lần chạy chưa đọc đủ
+  source để xác nhận sự vắng mặt mà finding đó dựa vào. Nó không phải bucket
+  thứ sáu: cùng một thay đổi sẽ mang cờ này ở bộ `default` và không mang ở bộ
+  `wide`. Ở M148 → M151 với bộ `default`, `summary.unconfirmed` là 303, trong
+  đó 120 nằm ở Compatibility break; lần chạy `wide` không có dòng nào.
+  Chạy rộng hơn cải thiện coverage theo file, không chứng minh parser đã đọc
+  hết ngữ pháp hay đã phủ hết hành vi.
 
 ## Hai nhóm khai báo
 
-Mười sáu `kind` của công cụ chia thành hai nhóm, khác nhau ở chỗ **có gì đứng chắn giữa một thay đổi trong code và người dùng hay không**. Nhóm nào quyết định câu hỏi phải hỏi. Hỏi nhầm câu thì ra kết luận sai.
-
-Đọc `change.kind` của finding rồi tra bảng này trước khi phân tích nó.
+Mười sáu `kind` chia thành hai nhóm, khác nhau ở chỗ có gì đứng chắn giữa một
+thay đổi trong code và người dùng hay không. Nhóm quyết định câu hỏi phải hỏi.
 
 | Nhóm | `change.kind` | Đứng chắn giữa code và người dùng |
 |---|---|---|
-| **1 — có flag chắn** | `base_feature`, `blink_runtime_feature`, `flag_entry`, `webui_route`, `webui_control`, `webui_gate` | giá trị mặc định của flag, theo từng platform |
-| **2 — không có flag chắn** | `mojo_interface`, `mojo_method`, `mojo_struct`, `mojo_field`, `mojo_enum`, `pref`, `switch`, `feature_param` | không có gì |
-| **1 hoặc 2** | `idl_interface`, `idl_member` | `[RuntimeEnabled]` trên member hoặc trên interface của nó, nếu có. Không có `[RuntimeEnabled]` thì đọc như nhóm 2 |
+| **1 — có gate** | `base_feature`, `blink_runtime_feature`, `flag_entry`, `webui_route`, `webui_control`, `webui_gate` | giá trị mặc định của flag, theo từng platform |
+| **2 — không có gate** | `mojo_interface`, `mojo_method`, `mojo_struct`, `mojo_field`, `mojo_enum`, `pref`, `switch`, `feature_param` | không có gì |
+| **1 hoặc 2** | `idl_interface`, `idl_member` | `[RuntimeEnabled]` trên member hoặc trên interface chứa nó, nếu có. Không có `[RuntimeEnabled]` thì đọc như nhóm 2 |
 
-### Nhóm 1, có flag chắn — một thay đổi trong diff thường không phải thay đổi
+**Nhóm 1.** Code thường đi qua ba giai đoạn cách nhau vài milestone: merge vào
+Chromium khi flag đang tắt, bật flag, rồi xoá flag. Chỉ giai đoạn giữa mới đổi
+hành vi. Đọc `platform_state.windows` ở cả hai phía trước khi kết luận. Đọc
+sai ở nhóm này cho ra kết quả: báo một thay đổi mà người dùng không hề thấy.
 
-Code đi qua ba giai đoạn, thường cách nhau vài milestone:
+**Nhóm 2.** Không có giai đoạn nào. Khai báo chính là contract, và nó đổi ngay
+khi version mới được nhận vào:
 
-1. code mới được merge vào Chromium, flag đang tắt — người dùng không thấy gì
-2. flag được bật lên — **đây mới là thay đổi**
-3. flag bị xoá — người dùng không thấy gì
+- hai đầu của một Mojo interface sinh ra từ cùng một cây source, nên một
+  signature đã đổi không làm hỏng build của chính Chromium
+- Chromium bỏ qua một command-line switch không nhận ra và không báo gì
+- một feature param bị xoá thì Finch config vẫn set nó, chỉ là không còn tác dụng
 
-Một bản diff phần lớn cho thấy giai đoạn 1 và 3, tức là hai giai đoạn không ai thấy gì.
+Đọc sai ở nhóm này cho ra kết quả: kết luận không có gì xảy ra, trong khi có
+thứ đã hỏng mà không có gì báo lỗi.
 
-**Phải làm: đọc `platform_state.windows` trước đã.** Chưa đọc trạng thái flag thì chưa được viết "X đã đổi".
+**Đọc Compatibility break thì mặc định hỏi câu của nhóm 2.** Mọi signal
+`ipc_*`, `pref_*`, `switch_*` và `param_*` chỉ phát sinh từ khai báo nhóm 2.
+Số cụ thể đổi theo từng cặp version. Ở M148 → M151 với bộ `default`: 181 trong
+276 dòng Compatibility break là nhóm 2, 93 dòng là Web IDL (tuỳ vào
+`[RuntimeEnabled]`), 2 dòng thuộc nhóm 1.
 
-Đọc sai ở nhóm này ra kết quả: báo một thay đổi mà người dùng không hề thấy.
+## Bắt đầu hoặc tiếp tục một lần so sánh
 
-### Nhóm 2, không có flag chắn — một thay đổi trong diff luôn là thay đổi
+Dùng version và phạm vi mà user đưa. Thiếu version thì hỏi. Phạm vi không rõ
+thì nêu một mặc định hợp lý. Một yêu cầu rà soát rộng bao gồm capability mới,
+thay đổi hành vi, thay đổi API, migration và công việc đã lên lịch; không thu
+hẹp nó thành riêng các vấn đề tương thích.
 
-Không có giai đoạn nào. Khai báo là contract, và nó đổi ngay lúc version mới được nhận vào mà không có gì báo:
+Chạy mọi lệnh **từ thư mục gốc của repo**: `python3 -m chromiumdiff` cần import
+được package, đứng ở thư mục khác nó báo `No module named chromiumdiff`. Mọi
+đường dẫn dưới đây tương đối so với gốc repo. Chỉ cần stdlib Python 3.9+.
 
-- hai đầu của một Mojo interface đều sinh ra từ cùng một file, nên một signature đã đổi không bao giờ làm hỏng build
-- Chromium bỏ qua một command-line switch không nhận ra và không báo gì cả
-- một feature param bị xoá thì Finch config vẫn set nó như cũ, chỉ là không còn tác dụng nữa
+Script so sánh theo điều kiện của Windows và không có tuỳ chọn CLI nào đổi
+được điều đó. Ghi lại `from_ref` và `to_ref` chính xác mà báo cáo trả về: số
+milestone trần có thể giải ra bản khác ở lần chạy sau.
 
-**Phải làm: đừng đi tìm flag nào cả. Khai báo đã đổi nghĩa là đã hỏng rồi.**
-
-Đọc sai ở nhóm này ra kết quả: kết luận không có gì xảy ra, trong khi có thứ đã hỏng mà không ai được báo.
-
-### Đọc Compatibility break thì mặc định hỏi câu của nhóm 2
-
-Đây là tính chất của bảng signal, không phải của một lần chạy: mọi signal `ipc_*`, `pref_*`, `switch_*` và `param_*` — phần lớn những signal đưa một finding vào Compatibility break — chỉ phát sinh từ khai báo nhóm 2. Nhóm 1 chỉ vào được Compatibility break trong vài trường hợp hiếm, ví dụ một `base::Feature` bị đổi tên hoặc một `webui_control` trỏ sang pref khác, chứ không phải qua việc một flag lật.
-
-Số cụ thể đổi theo từng cặp version, nên đừng mang con số của cặp này sang cặp khác. Ở M148 → M151 chẳng hạn: 181 trong 276 dòng Compatibility break là nhóm 2, 93 dòng Web IDL tuỳ vào `[RuntimeEnabled]`, 2 dòng thuộc nhóm 1. **Thứ không đổi là mặc định: đọc Compatibility break thì hỏi câu của nhóm 2 trước.**
-
-## Quy trình
-
-```
-- [ ] 1. Hỏi user ba câu: so hai version nào, đọc kỹ tới mức nào, cần phần nào
-- [ ] 2. Chạy chromiumdiff
-- [ ] 3. Đọc báo cáo theo đúng thứ tự
-- [ ] 4. Hỏi vì sao một dòng lại đổi — khi có người hỏi; render lại sau đó
-- [ ] 5. Đọc từng finding bằng câu hỏi của đúng loại khai báo
-- [ ] 6. Viết báo cáo theo đúng thứ user quan tâm, kèm phần giới hạn
-```
-
-### Bước 1: Hỏi user ba câu
-
-**Hỏi user ba câu dưới đây trước khi chạy bất cứ thứ gì.**
-
-**Câu 1 — so hai version nào?** Đưa số milestone trần cũng chạy được: công cụ tự giải `151` thành bản stable mới nhất của milestone đó tính đến hôm nay. Nhưng như vậy cùng một câu lệnh chạy hai ngày khác nhau có thể ra hai kết quả khác nhau — `ServiceWorkerAutoPreload` là ENABLED ở 143.0.7499.40 và DISABLED ở 143.0.7499.194, hai bản stable của cùng milestone 143. Version thật sự được dùng nằm ở `from_ref` và `to_ref` trong `report.json`; trích báo cáo từ đó, đừng trích lại con số user đưa vào.
-
-**Câu 2 — cần đọc kỹ tới mức nào?** User thường không biết "target set" là gì, nên hỏi bằng thứ họ nhận được chứ đừng hỏi bằng tên tuỳ chọn:
-
-| User cần gì | Dùng | Đánh đổi |
-|---|---|---|
-| Xem nhanh đợt này có gì đổi | `default` — mặc định của công cụ | Đọc chưa tới một nửa số file. Một khai báo "biến mất" có thể chỉ là nằm trong file lần chạy này không mở |
-| Quyết định đợt nâng version này có ship được không | `wide` | Đọc gần như toàn bộ cây source. Tải nặng hơn và lâu hơn nhiều, đổi lại kết luận "đã bị xoá" mới đáng tin |
-| Chỉ muốn biết công cụ có chạy được không | `minimal` | Đọc 3 file. Không dùng để trả lời bất kỳ câu hỏi nào về nội dung |
-
-Chi phí cụ thể của từng mức ở bảng trong Bước 2.
-
-**Câu 3 — user muốn xem phần nào?** Không đọc hết được: một cặp version cho ra vài nghìn dòng. Hỏi user quan tâm cái gì rồi lọc theo đúng cái đó, đừng mặc định đổ cả báo cáo ra.
-
-Hỏi bằng thứ user nói được, rồi ánh xạ sang một trong ba trục mà báo cáo lọc được:
-
-| User nói | Lọc theo |
-|---|---|
-| "chỉ quan tâm cái gì hỏng" | bucket `contract` (**Compatibility break**) |
-| "phần Mojo / IPC", "web API", "trang settings" | `change.kind` |
-| "cái gì bật tắt hành vi", "contract với bên ngoài" | nhóm kind — mục *What happened* của `report.md` |
-
-Nếu người đọc là người thật, **đưa thẳng trang `serve` cho họ**: nó có tối đa năm ô lọc chọn nhiều giá trị cùng lúc — bucket, kind, consequences, coverage, evidence — cộng một ô nhập từ khoá cần loại bỏ. Ô coverage chỉ hiện khi có dòng `unconfirmed`, ô evidence chỉ hiện sau khi đã tra CL. Họ tự chọn nhanh hơn mọi cách hỏi.
-
-**Platform luôn là Windows.** Công cụ luôn so cho Windows và không tuỳ chọn nào đổi được điều đó — `meta.platform` trong `report.json` ghi lại là `windows`. Trạng thái của một flag nằm ở `change.before.platform_state.windows` và `change.after.platform_state.windows`. Ngay cạnh chúng có `default_state`: đó là mặc định chung của Chromium, không phải của Windows, và đọc nhầm sang nó là lỗi hay gặp nhất ở bước này.
-
-**Còn thiếu gì khác thì hỏi user, đừng tự điền.**
-
-### Bước 2: Chạy chromiumdiff
-
-Chạy mọi lệnh **từ thư mục gốc của repo `chromiumdiff`**: `python3 -m chromiumdiff` cần import được package, đứng ở thư mục khác nó báo `No module named chromiumdiff`. Mọi đường dẫn dưới đây đều tương đối so với gốc repo.
+Với một lần so sánh mới:
 
 ```bash
-python3 -m chromiumdiff check          # kiểm tra máy, mạng, cache
-
-python3 -m chromiumdiff run 148.0.7778.217 151.0.7922.138 \
-  --out out/M148_to_M151
+cache_dir=.chromiumdiff-cache
+python3 -m chromiumdiff check
+python3 -m chromiumdiff run FROM TO --target-set wide --cache "$cache_dir" --out out/upgrade
+python3 -m chromiumdiff review init out/upgrade --directory out/upgrade/review --cache "$cache_dir"
 ```
 
-Thuần stdlib Python 3.9+, không cần cài gì, không cần checkout Chromium. Khoảng ba phút rưỡi cho một cặp khi chạy nguội; nửa giây khi đã có cache.
+Thay FROM/TO và đường dẫn output bằng lần so sánh được yêu cầu.
 
-| `--target-set` | Tải mỗi version | Số file đọc |
+| `--target-set` | Tải mỗi version | Đọc được gì |
 |---|---:|---|
-| `minimal` | ~1 MB | 3 |
+| `minimal` | ~1 MB | 3 file. Chỉ để kiểm tra công cụ chạy được, không trả lời câu hỏi nội dung nào |
 | `default` | ~40 MB | chưa tới một nửa số file, hơn một nửa số flag |
-| `wide` | ~337 MB | **gần như toàn bộ cây source** |
+| `wide` | ~337 MB | gần như toàn bộ cây source. Đọc nhiều file được hỗ trợ hơn, không phải toàn bộ code hay toàn bộ ngữ pháp |
 
-Lần chạy ghi ba file vào đúng thư mục `--out` vừa đưa:
+`--partition` thu hẹp phạm vi xuống các đường dẫn đã liệt kê sẵn cho một tính
+năng (`settings`, `downloads`, `bookmarks`, `history`, `extensions`,
+`passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`). Đúng khi
+đang soi một tính năng, sai khi dùng làm cổng chặn release: Chromium không tổ
+chức source theo tính năng, nên một thay đổi ảnh hưởng tới downloads có thể nằm
+trong `content/` và không khớp partition nào.
 
-```
-out/M148_to_M151/report.md      dán vào ticket
-out/M148_to_M151/report.html    mở bằng trình duyệt, lọc được
-out/M148_to_M151/report.json    dữ liệu để viết script
-```
+**Đã có báo cáo nhưng chưa có review:** chạy `review init` với đúng cache của
+báo cáo đó. **Đã có review:** tiếp tục bằng `index`, `events` và `check`; đừng
+init lại trừ khi input đã đổi.
 
-Mọi lệnh sau đó — `serve`, `report`, `why.py` — nhận **thư mục đó hoặc chính file `report.json`**, không nhận thư mục cha. `serve out` sẽ báo `no report.json in out`.
+**Có repo Git Chromium ở máy** thì thêm `--source-repo /path/to/chromium/src`
+vào lần `review init` đầu tiên. Nó cho danh sách đầy đủ mọi đường dẫn đã đổi
+giữa hai ref, đọc thẳng từ Git object và không đụng vào checkout. Không có Git
+thì phần so sánh source chỉ phủ các file đã có trong cache, và một file thiếu
+trong cache nghĩa là **chưa biết nội dung**, không phải Chromium đã xoá.
 
-Ba file mang ba thứ khác nhau, và **id của signal chỉ có trong `report.json`**:
+Đọc [reference/investigation.md](analyzing-chromium-upgrades/reference/investigation.md)
+trước khi ghi quyết định hoặc refresh một review đã có.
 
-| Cần gì | `report.md` | `report.html` | `report.json` |
-|---|---|---|---|
-| id signal (`pref_left_scan`, `ipc_shape_changed`…) | không có — chỉ in nhãn chữ, ví dụ *Mojo data shape changed (ABI)* | chỉ nằm trong ô lọc | `change.signals` |
-| bucket của từng dòng | ngầm theo tên mục | có | `bucket` |
-| lần chạy có xác nhận được sự vắng mặt không | mục *Unconfirmed* riêng | badge trên dòng, ô lọc `All coverage` | `unconfirmed`, và `summary.unconfirmed` |
-| `platform_state`, score, severity, `path:line` | có | có | có |
+## Các artifact và cách đọc chúng
 
-**Lọc hay rẽ nhánh theo signal thì phải truy vấn `report.json` bằng một chương trình.** `report.md` là bản cho người đọc, `report.html` cộng `serve` là bản cho người bấm chuột.
+| File | Chứa gì |
+|---|---|
+| `report.md` | Bản tổng quan cho người đọc. Các bảng trong đó có thể bị cắt bớt |
+| `report.json` | Toàn bộ finding. Truy vấn bằng chương trình; không nạp cả file vào context, và không coi một lần tìm chuỗi là đã rà soát xong |
+| `report.html` | Bảng đầy đủ, lọc được, mở bằng trình duyệt |
+| `review-index.json` | Cấu hình input, finding, các fact không đổi, quan hệ khai báo, và source delta |
+| `review.json` | Event, bằng chứng, và quyết định cho từng item đã index |
+| `review.md` | Báo cáo render ra từ `review.json` |
 
-#### Chỉ một trong ba file lọt vào context
+`change` của một finding chứa `before`, `after`, `deltas`, `paths`, `locations`
+và `signals`. `unconfirmed` nghĩa là bằng chứng vắng mặt không đủ; đọc coverage
+và `reasons` trước khi nói một khai báo đã bị xoá.
 
-Đo trên lần chạy M148 → M151 trong repository này:
+**Chỉ một trong ba file của `run` lọt được vào context.** Đo trên lần chạy
+M148 → M151 với bộ `default` trong repo này; ước lượng token là số ký tự chia 4:
 
 | Artifact | Dung lượng | ≈ token | Đọc thế nào |
 |---|---:|---:|---|
-| `report.md` | 173 KB | **49k** | đọc trọn, từ trên xuống |
-| `report.html` | 1,5 MB | 427k | mở bằng browser, không bao giờ đưa vào context |
-| `report.json` | 4,1 MB | **1.200k** | chỉ qua chương trình |
+| `report.md` | 173 KB | ~44k | đọc trọn, từ trên xuống |
+| `report.html` | 1,47 MB | ~384k | mở bằng browser, không đưa vào context |
+| `report.json` | 4,52 MB | ~1.185k | chỉ qua chương trình |
 
-Một lần chạy `wide` nâng con số cuối lên khoảng 2.052k. Nên `report.json` **không** vào context — không `cat`, không `Read`, không dán một đoạn của nó. **Chạy Python trên nó và chỉ in ra câu trả lời**, vì chỉ phần đó mới tốn context:
+Chạy Python trên `report.json` và chỉ in ra câu trả lời:
 
 ```python
 import json, collections
 R = json.load(open("out/M148_to_M151/report.json"))
 F = R["findings"]
-# In câu trả lời, đừng bao giờ in F.
 print(collections.Counter(f["bucket"] for f in F))
 print([f["change"]["name"] for f in F
        if "pref_left_scan" in f["change"]["signals"]][:20])
 ```
 
-`grep` trên nó còn tệ hơn vô dụng: file ghi trên **một dòng**, nên mọi match đều trả về nguyên 4 MB.
+`grep` trên file này không dùng được: nó ghi trên một dòng, nên mọi match trả
+về nguyên 4,5 MB.
 
-#### Thứ tự đọc tốn khoảng 34k
-
-`report.md` được xếp sao cho các mục đầu chính là thứ để viết báo cáo. Đọc theo thứ tự này và dừng khi đã đủ trả lời:
+**Thứ tự đọc `report.md`.** Các mục đầu là phần dùng để định hướng:
 
 | Đọc | ≈ token | Cho biết |
 |---|---:|---|
-| Header, *What kind of change*, *What happened* | 2k | các con số đếm, và mọi nhóm signal cùng lúc |
-| *Related changes, grouped* | 1k | các mục cần viết, đã gom sẵn |
-| *What changed on each screen* | 2k | các mục theo từng màn hình |
-| *Compatibility break* | 18k | những dòng phải đọc kỹ — mọi signal trong bucket đều có dòng |
-| *Behaviour change* | 11k | như trên |
+| Header, *What kind of change*, *What happened* | 2k | các con số đếm và mọi nhóm signal |
+| *Related changes, grouped* | 1k | các cụm ứng viên mà `cluster.py` gom sẵn |
+| *What changed on each screen* | 2k | thay đổi theo từng màn hình |
+| *Compatibility break*, *Behaviour change* | ~25k | các dòng cần đọc kỹ |
 
-Tức toàn bộ câu chuyện của một lần chạy 3.022 finding tốn khoảng 34k, phần còn lại của ngân sách dành cho việc suy luận.
+*What Chromium says shipped in this window* nằm giữa đường đọc đó và không
+thuộc về nó: đấy là bản tóm tắt milestone của chính Chromium, một nguồn độc
+lập. Dùng nó để **kiểm chứng** một thay đổi đã có người hỏi, không dùng để
+**phát hiện** thay đổi, và xác minh nó với đúng cặp version đang so.
 
-**Có một mục nằm ngay trên đường đọc đó nhưng không thuộc về nó.** `report.md` in *What Chromium says shipped in this window* giữa *Related changes, grouped* và *Compatibility break* — 8k, 78 feature từ chromestatus trải M149–M151 ở cặp này, gói trong một khối `<details>`. Đó là lời của chính Chromium về cửa sổ version, và không khớp với dòng nào trong báo cáo, nên đọc nó để **giải thích** một thay đổi đã có người hỏi, đừng đọc để **tìm ra** thay đổi. Đi ngang qua nó.
+*How this was produced* là chỗ lấy phần giới hạn cho báo cáo cuối: nó mang con
+số coverage của cả hai ref, target set và version chính xác.
 
-Các mục còn lại đọc khi câu hỏi cần tới: *New declarations*, *Scheduled* và *Unconfirmed* mỗi mục 2k–3k, và *How this was produced* dưới 1k — đây chính là chỗ lấy phần **Limits** của Bước 6, vì nó mang con số coverage của cả hai ref, target set và version chính xác.
-
-**Chỗ nào `report.md` cắt bớt thì quay sang chương trình, đừng mở file.** Bảng theo bucket mang **mọi signal** của bucket đó — mỗi signal vài dòng cao điểm nhất, signal nặng nhất trước — rồi mới dừng; mỗi màn hình dừng ở 12. Cả hai đều ghi rõ còn ẩn bao nhiêu. Một truy vấn là ra phần còn lại:
-
-```python
-[f["change"]["name"] for f in F
- if f["bucket"] == "contract" and f["change"]["kind"].startswith("mojo_")]
-```
-
-Source Chromium tải về nằm trong `.chromiumdiff-cache/` ở gốc repo, đổi được bằng `--cache` hoặc biến môi trường `CHROMIUMDIFF_CACHE`. Nó tái tạo được — xoá đi chỉ làm lần chạy sau chậm lại. `check` in ra thư mục cache, chỗ trống còn lại và ước lượng dung lượng một cặp version cần.
-
-Mỗi finding đều dẫn `path:line` trong `change.locations` — trích nguyên văn, đừng bao giờ diễn đạt lại tên file.
-
-**Chỉ mình `report.html` trả lời được *cái gì* đã đổi, không bao giờ trả lời *vì sao*.** Mở như một file, nó là một bảng đầy đủ, chạy offline; nhưng phần tra cứu "vì sao dòng này đổi" của từng dòng không chạy được ở đó, vì một trang trên `file://` không được phép gọi `chromium-review.googlesource.com` và trình duyệt chặn ngay trước khi request kịp gửi đi. Serve thư mục đó lên sẽ đổi người đi hỏi — trang gọi về localhost, và Python mới là bên hỏi Gerrit:
+## Quy trình phân tích
 
 ```
-python3 -m chromiumdiff serve out/M148_to_M151     # in ra http://127.0.0.1:8787/
+- [ ] 1. Đọc metadata và tổng quan; liệt kê mọi item đã index, ghi một quyết định cho từng cái
+- [ ] 2. Tìm các thay đổi có thể liên quan bằng `related`
+- [ ] 3. Đọc source before/after và các consumer liên quan; đọc mọi hunk đã đổi
+- [ ] 4. Khi nguyên nhân, thứ tự hay ý định chưa rõ thì tra lịch sử
+- [ ] 5. Chỉ gom item khi bằng chứng cho thấy chúng là một thay đổi liên quan
+- [ ] 6. Sau mỗi đợt, lưu event và câu hỏi còn treo; đối chiếu với quyết định cũ
+- [ ] 7. Trước khi giao, kiểm tra phần còn treo rồi chạy `review check` và `review render`
 ```
 
-Hãy đề xuất cách này mỗi khi có người hỏi vì sao một dòng đổi, một flag để làm gì, hoặc nên đọc review nào. Bạn có thể tự khởi động nó rồi đưa URL cho họ. Mở thẳng `report.html` rồi kết luận phần tra cứu bị hỏng là sai: nó không chạy vì `file://`, không phải vì lỗi.
+1. **Đọc metadata và tổng quan báo cáo.** Liệt kê mọi item đã index theo từng
+   trang, gồm cả dòng điểm thấp, finding không mang signal, source delta và
+   bản tóm tắt milestone. Ghi một quyết định cho từng item. Chỉ loại một item
+   khi nêu được lý do phù hợp với phạm vi user đưa.
+2. **Tìm các thay đổi có thể liên quan.** Dùng `related` để xem quan hệ khai
+   báo ở cả hai version, kể cả những khai báo không đổi. Một flag, tiền tố,
+   màn hình, interface hay CL dùng chung là **lý do để điều tra**, không phải
+   bằng chứng rằng các item đó là một event.
+3. **Đọc source before/after và các consumer liên quan.** Đọc mọi hunk đã đổi
+   của một file, kể cả khi vài hunk đã có finding mô tả. Lần theo các
+   identifier mà graph không giải được. Thay đổi không có finding vẫn cần
+   phân tích.
+4. **Khi nguyên nhân, thứ tự hay ý định chưa rõ**, dùng
+   [reference/history.md](analyzing-chromium-upgrades/reference/history.md).
+   Nó bao gồm cả cách tra theo finding lẫn cách đọc thẳng lịch sử file khi
+   `why.py` không tìm được dòng nào. Bản tóm tắt milestone phải được kiểm
+   chứng với đúng cặp version: riêng ngày tháng không chứng minh tính năng đã
+   có ở version nào.
+5. **Chỉ gom item khi bằng chứng cho thấy chúng là một thay đổi liên quan.**
+   Nêu rõ mỗi item đóng góp gì. Tách các thay đổi không liên quan ngay cả khi
+   công cụ gom chúng lại. Nói riêng phần quan sát được từ source, phần suy ra
+   về ý định, và phần hậu quả phụ thuộc vào sản phẩm cụ thể.
+6. **Sau mỗi đợt, lưu event và câu hỏi chưa trả lời.** Đọc lại danh sách event
+   đã lưu và đối chiếu bằng chứng mới với quyết định trước. Sửa lại cách gom
+   khi bằng chứng cho thấy cần gộp hoặc cần tách.
+7. **Trước khi giao**, kiểm tra các item còn `pending`, các câu hỏi
+   `unresolved` và các event còn `provisional`. Chạy `review check` và
+   `review render`. Còn phần việc đáng kể thì giao báo cáo một phần và liệt kê
+   các câu hỏi còn lại.
 
-**Công cụ không kết luận thay bạn.** Nó dừng ở bằng chứng trích được và một thứ hạng tất định. Nó không biết gì về việc ai patch, ai ship hay ai override cái gì: một dòng **Compatibility break** nói rằng một contract đã đổi, chứ không nói rằng có ai đang dựa vào contract đó.
+Quy trình này áp dụng cho cả những identifier chưa từng gặp. Ví dụ trong các
+reference và tên signal không phải danh sách tính năng cần đi tìm. Score có thể
+ảnh hưởng thứ tự làm việc, nhưng không được quyết định bằng chứng nào được xem
+hay event nào tồn tại.
 
-**Mỗi lần chạy đều in ra coverage đạt được.** Trích con số đó vào báo cáo; đừng bao giờ trích một con số từ chính file này.
-
-```
-coverage: reads N of M files in this tree that could declare (P% of files)
-```
-
-**Coverage làm đổi câu trả lời, chứ không chỉ đổi độ tin cậy.** Một mục bị xoá là suy luận từ sự vắng mặt, nên khi đọc thiếu nó bị trừ 15 điểm, bị xếp vào Upstream cleanup thay vì Compatibility break, và mang cờ `unconfirmed`. Đo trên M148 → M151: `default` tìm được 139 dòng `pref_left_scan`, `wide` tìm được 171 — nhưng chỉ 30 trong số đó có trong bản build Windows, và đúng 30 dòng ấy chuyển từ Upstream cleanup 20 điểm sang Compatibility break 35 điểm khi chạy `wide`. Số còn lại về 0 điểm ở cả hai lần chạy. **`Compatibility break: 0` trên một lần chạy `default` không có nghĩa là không có gì hỏng** — đọc `summary.unconfirmed` trước khi nói vậy.
-
-**Hai thông báo lỗi, cùng một nguyên nhân.** `cannot diff snapshots built from different target sets` và `cannot diff: X holds N facts against Y's M` đều nói rằng một bên chỉ đọc được một phần nhỏ so với bên kia. Cả hai đều không phải lỗi cần lách: kiểm tra xem `--local-src` / `--from-src` / `--to-src` có trỏ vào một thư mục `src/` Chromium đầy đủ hay không.
-
-`--partition settings` (lặp lại được: `downloads`, `bookmarks`, `history`, `extensions`, `passwords`, `printing`, `newtab`, `webplatform`, `network`, `media`) chỉ tải và quét những đường dẫn source đã liệt kê sẵn cho một tính năng. Đúng khi đang soi một tính năng, sai khi dùng làm cổng chặn release — Chromium không tổ chức source theo tính năng, nên một thay đổi ảnh hưởng tới downloads có thể nằm trong `content/` và không khớp partition nào.
-
-Một lệnh phụ: `python3 -m chromiumdiff catalog <ref>` đo xem target set đang bỏ sót những gì. Lệnh render lại báo cáo nằm ở Bước 4, chỗ nói vì sao cần nó.
-
-### Bước 3: Đọc báo cáo theo đúng thứ tự
-
-Báo cáo đã xếp sẵn theo điểm, cao nhất trước. **Điểm không phải thứ tự đọc, và không dùng để quyết định cắt danh sách ở đâu.** Một dòng Compatibility break mà lần chạy không xác nhận được sẽ bị trừ 15 điểm và tụt xuống dưới hàng nghìn dòng ít hậu quả hơn. Đo ở M148 → M151: đọc 100 dòng điểm cao nhất bỏ sót 232 trong 276 dòng Compatibility break; đọc 500 dòng vẫn bỏ sót 55. Điểm để xếp thứ tự bên trong một bucket, không để quyết định đọc tới đâu.
-
-Danh sách dài thì **phủ hết theo nhóm**, đừng cắt bớt: ở cặp version đó, bốn bucket trên Upstream cleanup là 2.287 dòng gom thành 47 nhóm, nên xem mỗi nhóm một lần là đã phủ hết. 37 trong 47 nhóm là một leading signal. 10 nhóm còn lại là kind cộng hướng thay đổi: 718 dòng — toàn bộ nằm ở New declarations — **không mang signal nào cả**, nên không nhóm signal nào chạm tới chúng. *What happened* dựng trên 47 nhóm; bảng của mỗi bucket dựng trên 37, mang **mọi** signal của bucket, nặng nhất trước.
-
-**Đó là cách ĐỌC, không phải cách VIẾT.** Signal, bucket và khoảng điểm đều là thuộc tính của bộ máy. Báo cáo trả về cho người đọc gom theo **chuyện đã xảy ra** — Bước 6 — không đặt tiêu đề một mục theo tên signal, tên bucket hay khoảng điểm.
-
-Đọc theo bucket, theo đúng thứ tự dưới đây.
-
-1. **Cái gì đã đổi** — bảng đếm theo bucket, ở đầu `report.md`. Bắt đầu từ đây; nó cho biết mỗi danh sách dài bao nhiêu.
-2. **Chuyện gì đã xảy ra** — mọi finding được gom theo signal đã quyết định mức nghiêm trọng của nó, nên một báo cáo vài nghìn dòng gom lại chỉ còn vài chục nhóm.
-3. **Compatibility break**, rồi **Behaviour change**, rồi **New declarations**. Mỗi bucket có một bảng riêng trong `report.md`.
-4. **Scheduled** — cũng có bảng. Đọc như danh sách của milestone sau, không phải của milestone này: chưa có gì trong đó xảy ra. Đây cũng không phải bucket "điểm thấp": ở M148 → M151 nó lên tới 45 điểm, cao hơn mọi dòng trong New declarations, vì `flag_expiring` là một cái xoá Chromium đã cam kết.
-5. **Unconfirmed** — có mục riêng trong `report.md`, và ô lọc `All coverage` trong `report.html`. Đây là những mục bị xoá mà lần chạy này không xác nhận được. Phần lớn giữ nguyên bucket và chỉ mất 15 điểm; riêng `pref_left_scan` và `switch_left_scan` còn bị chuyển sang Upstream cleanup — nằm ở đó vì **thiếu bằng chứng**, *không* phải vì nhẹ. Bước 5, nhánh *Flag, pref và switch*, nói phải làm gì với chúng. 303 dòng ở M148 → M151 với bộ `default`, 120 trong số đó ở Compatibility break; một lần chạy `wide` không có dòng nào.
-6. **Upstream cleanup**: lấy các flag bị gỡ ra khỏi nó trước, rồi mới bỏ qua phần còn lại. Nó cố ý không có bảng — đây là bucket lớn nhất trong mọi báo cáo, và khi Scheduled với Unconfirmed đã tách ra thì phần còn lại không phải đọc từng dòng. Ở M148 → M151 nó chỉ lên tới 35 điểm.
-
-   **Ba signal "flag bị gỡ" nằm ở đây, và Bước 6 bắt buộc phải có chúng.** Ở M148 → M151 với bộ `default` là 175 dòng: 132 dòng `flag_retired_on` và `flag_retired_off` — 72 đã từng ship, 60 bị bỏ — cộng 43 dòng `killswitch_retired`. 169 trong số tên đó **không xuất hiện ở bất kỳ đâu trong `report.md`**, vì bucket không có bảng còn dòng trong *What happened* chỉ mang số đếm và một câu, không mang identifier. Truy vấn chúng ra trước khi viết:
-
-   ```python
-   RETIRED = {"flag_retired_on", "flag_retired_off", "killswitch_retired"}
-   [f["change"]["name"] for f in F if set(f["change"]["signals"]) & RETIRED]
-   ```
-
-   Không cái nào trong đó đổi hành vi, nên báo cáo một cái như một tính năng bị mất là sai — đọc [reference/traps.md](reference/traps.md) trước khi kết luận. Nhưng mỗi cái đều biến một override từ bên ngoài thành vô tác dụng, và đó chính là lý do nhánh *Fixed outside the repository* ở Bước 5 và mục cùng tên ở Bước 6 tồn tại.
-
-### Bước 4: Hỏi vì sao một dòng lại đổi
-
-Mở rộng một dòng trong trang được serve sẽ tra cứu review đã tạo ra thay đổi đó. Nó đọc các CL đã chạm vào file chứa khai báo trong khoảng giữa hai milestone, rồi giữ lại những CL mà một bản diff buộc được vào *chính* identifier này — một file khai báo là của chung, và đã có 500 CL được merge chạm vào `about_flags.cc` giữa M148 và M151, nên chỉ riêng cái tên file thì không trả lời được gì.
-
-Thứ trả về là một CL, issue mà CL đó dẫn, và những CL khác cũng dẫn cùng issue ấy — đó là lịch sử sửa lỗi của bug đứng sau thay đổi này. Mỗi CL mang theo verdict đã đưa nó vào danh sách, và các verdict không bao giờ bị gộp lại thành một điểm số:
-
-| Verdict | Nó khẳng định điều gì |
-|---|---|
-| `introduced` | **ngay bên trong khai báo này**, một dòng đã nhận giá trị mà khai báo kết thúc bằng, hoặc mất đi giá trị mà khai báo bắt đầu bằng — CL này *chính là* thay đổi |
-| `exact` | một dòng mà CL này sửa có chứa identifier |
-| `moved` | file bị đổi tên và khai báo đi theo; không dòng nào đổi |
-| `declares` | CL sửa phần thân của khai báo, không phải dòng đặt tên cho nó |
-| `described` | tiêu đề hoặc mô tả của chính CL có gọi tên nó; không đọc diff nào |
-| `crowded` | nhiều CL cùng sửa khai báo này nên không CL nào tách riêng ra được — đọc như lịch sử của khai báo đó, cũ nhất trước |
-| `touched` | không có gì khớp identifier; những CL này chỉ đơn giản là có chạm vào file |
-
-Hai loại cuối không chỉ đích danh khai báo nào. Đừng bao giờ trích chúng như nguyên nhân; hãy nói đúng bản chất của chúng.
-
-Kết quả tra cứu được ghi ngược vào `report.json`, nên chúng vẫn còn sau khi khởi động lại. Chúng chỉ vào tới `report.md` và `report.html` khi render lại, và `serve` không tự làm việc đó cho bạn — nó in ra câu lệnh khi bạn dừng nó:
+## Truy vấn theo từng phần nhỏ
 
 ```bash
-python3 -m chromiumdiff report out/M148_to_M151/report.json --format both --out out/M148_to_M151/report
+python3 -m chromiumdiff review index out/upgrade/review --limit 30
+python3 -m chromiumdiff review events out/upgrade/review --limit 30
+python3 -m chromiumdiff review inspect out/upgrade/review 'KIND:KEY'
+python3 -m chromiumdiff review related out/upgrade/review 'KIND:KEY' --hops 2
+python3 -m chromiumdiff review unresolved out/upgrade/review
+python3 -m chromiumdiff review source out/upgrade/review path/to/file.cc --side diff --start 1 --end 120
 ```
 
-Hãy làm việc đó trước khi trích báo cáo cho bất kỳ ai: những gì bạn tìm được bằng cách bấm chuột nằm trong JSON, còn hai file trên đĩa vẫn là hai file mà lần chạy đã ghi ra.
+Dùng ID và đường dẫn lấy từ index thật. Mọi lệnh truy vấn đều nhận `--cursor`,
+`--limit` và `--max-chars`. Giới hạn đó tính bằng ký tự, không phải token của
+model. Đọc tiếp các trang cho tới khi `next_cursor` là null.
 
-`--click-budget N` giới hạn số diff đọc cho mỗi dòng (mặc định 600), `--no-save` thì không đụng vào file. Lịch sử của một issue không được tải về cùng với dòng: bấm vào issue trên CL mà bạn tin, nó sẽ mở ra ngay dưới CL đó.
+Với `index`, dùng `--after NEXT_AFTER` nếu quyết định thay đổi giữa các trang:
+offset dạng số trên một danh sách `--status pending` đang co lại sẽ nhảy cóc
+qua item.
 
-**Một issue bị hạn chế truy cập là chuyện bình thường, không phải một thất bại.** Gần một nửa trả về HTTP 403 — 44 trong 97 issue mà top 150 finding của một lần chạy M148 → M151 dẫn tới — vì chúng nằm trong các component security, abuse hoặc nội bộ Google của tracker. Panel ghi rõ issue bị hạn chế và vẫn giữ link, vì người đọc có thể có quyền truy cập. **Dù thế nào thì các CL vẫn đọc được**: chúng nằm trên Gerrit, chúng công khai, và tiêu đề của chúng cho biết issue nói về cái gì. Hãy báo cáo lịch sử sửa lỗi, đừng chỉ báo cáo là không mở được issue.
+- `inspect` trả về các trường dưới dạng JSON pointer. Chuỗi dài có offset và
+  có thể trải nhiều trang.
+- `events` trả về danh sách ngắn; `inspect` một event ID để đọc toàn bộ phần
+  phân tích đã lưu của nó mà không phải nạp cả review.
+- `related` trả về chuỗi tham chiếu có kiểu, không phải kết luận nhân quả. Nó
+  không tự mở rộng các tham chiếu mơ hồ hay các CL khớp yếu. Một node có quá
+  nhiều liên kết thì truy vấn riêng node đó với `--hops 1`.
+- `source` trả về ref chính xác, nguồn gốc source và hash SHA-256. `next_line`
+  của nó tách biệt với `next_cursor`: đọc hết các trang của khoảng dòng đang
+  hỏi rồi mới sang khoảng tiếp theo. Dùng `--side from` hoặc `--side to` để lấy
+  **số dòng của source**; số dòng trong output diff không phải số dòng source.
 
-**Không tìm thấy CL nào chỉ có nghĩa là lần tìm này không thấy, không có nghĩa là Chromium không đổi.** Hai cây source khác nhau, nghĩa là đã có gì đó vào cây. File được hỏi theo ba cách — trên nhánh main, rồi ngoài main để bắt các bản merge-back, rồi toàn bộ commit message trong khoảng thời gian đó — và nếu cả ba đều trượt thì CL được ghi dưới một cái tên hoặc một đường dẫn mà báo cáo này không giữ. Hãy nói đúng như vậy; đừng báo cáo rằng một khai báo tự nó đổi.
+File thiếu trong cache thì `source --fetch` tải đúng đường dẫn đó ở đúng ref.
+Tải thất bại hoặc không tải được thì nêu rõ bằng chứng còn thiếu. **Không thay
+thế bằng file của một version khác trong cache.**
 
-### Bước 5: Đọc từng finding bằng câu hỏi của đúng loại khai báo
+Để tìm consumer trong source đã cache, đọc `inputs.source_roots` chính xác từ
+index rồi dùng:
 
-Đọc `change.kind` của finding, rẽ nhánh theo bảng dưới, rồi hỏi đúng câu của nhánh đó.
+```bash
+rg -n -F -- 'IDENTIFIER' EXACT_VERSION_ROOT
+```
+
+Kết quả tìm kiếm là các vị trí cần xem, không phải bằng chứng code có chạy. Ở
+chế độ Git, dùng thủ tục `git grep` theo đúng ref trong `reference/history.md`;
+checkout hiện tại có thể đang ở version khác.
+
+## Ghi quyết định vào review
+
+Mỗi item đã index cần một quyết định:
+
+| Trạng thái | Nghĩa |
+|---|---|
+| `event` | Item thuộc về một event. Event khác vẫn có thể trích nó làm bằng chứng phụ mà không gán nó hai lần |
+| `explained` | Đã xem, nhưng không cần một event riêng. Phải nêu lý do và vị trí trong source; nhãn kiểu "cleanup" không phải một lời giải thích |
+| `out_of_scope` | Bị loại theo phạm vi user đưa, kèm lý do cụ thể |
+| `unresolved` | Còn một câu hỏi cần bằng chứng. Phải nêu bước kiểm tiếp theo |
+| `pending` | Chưa có quyết định |
+
+Các trạng thái này theo dõi tiến độ phân tích. Chúng không phải phân loại cho
+báo cáo cuối.
+
+Một item `file:` đại diện cho **toàn bộ** bản diff của file đó. Đọc từng hunk,
+kể cả hunk không có finding nào mô tả. Ghi lại event nào giải thích hunk nào,
+hoặc vì sao một hunk không có hậu quả đáng báo cáo. Một file có thể phục vụ
+nhiều event; gán nó cho một event không giải thích các hunk còn lại.
+
+Tạo file JSON quyết định rồi ghi vào review:
+
+```bash
+python3 -m chromiumdiff review record out/upgrade/review --file /path/to/decisions.json
+python3 -m chromiumdiff review check out/upgrade/review
+python3 -m chromiumdiff review render out/upgrade/review
+```
+
+Cấu trúc file, các trường bắt buộc của một event, và dạng của một mục bằng
+chứng (`item`, `url`, hoặc `source` có kiểm hash) nằm trong
+[reference/investigation.md](analyzing-chromium-upgrades/reference/investigation.md).
+Những điểm cần nhớ:
+
+- `record` kiểm tra cấu trúc và tham chiếu trước khi ghi. Mọi thành viên của
+  một event đều cần một câu giải thích bằng chứng. ID lạ, gán trùng thành viên
+  chính, và quyết định trỏ tới event không tồn tại đều bị từ chối. Nó kiểm
+  **cấu trúc**, không kiểm kết luận có đúng hay không.
+- `confirmed` nghĩa là kết luận được bằng chứng chống đỡ **trong phạm vi đã
+  nêu**. `provisional` nghĩa là còn một câu hỏi có thể làm đổi kết luận. Không
+  biết trạng thái rollout vẫn có thể là một giới hạn đã nêu của một thay đổi
+  `confirmed` ở mức source; nó không cho phép kết luận tính năng đã tới người dùng.
+- ID của event mặc định là hash của danh sách item đã sắp xếp, không phụ thuộc
+  câu chữ hay score. Sửa một event thì đưa lại `id` của nó. Tách hoặc gộp thì
+  đưa `remove_events` cùng các event thay thế trong **một** patch. Item bị gỡ
+  khỏi event sẽ quay về `pending` nếu không được gán lại.
+- `check` trả mã khác 0 khi còn item `pending`/`unresolved`, còn event
+  `provisional`, bản ghi không hợp lệ, hoặc input đã đổi. Mã 0 chỉ nghĩa là
+  mọi item đã index đều có quyết định hợp lệ. **Nó không chứng minh phân tích
+  đã đầy đủ về mặt ngữ nghĩa và không phải một cổng duyệt release.**
+
+## Refresh sau khi lưu bằng chứng mới
+
+`why.py --save` ghi thêm vào `report.json`, nên phải refresh review trước khi
+làm tiếp. Đây là chỗ dễ sai: `review init --refresh` rơi về cache mặc định khi
+không truyền `--cache`, và bỏ hẳn `--source-repo` khi không truyền lại. Refresh
+kiểu đó sẽ re-index bằng cache khác và mất source scope kiểu Git.
+
+`reference/investigation.md` có sẵn đoạn script đọc cấu hình đã lưu trong
+`review-index.json` rồi dựng lại đúng câu lệnh. Dùng nó thay vì tự nhớ tham số.
+
+Đọc phần warning của kết quả refresh:
+
+- Bằng chứng giống hệt thì quyết định cũ được giữ. Riêng thứ hạng hay thứ tự
+  input đổi thì không làm mất hiệu lực quyết định.
+- Thay đổi chỉ ở phần ngữ cảnh sẽ lưu trữ bản quyết định cũ, đánh dấu các event
+  liên quan thành `provisional` và các quyết định không phải event thành
+  `unresolved`. Phần không liên quan được giữ; item mới là `pending`. Việc này
+  có thể mở lại nhiều event nằm dưới một điều kiện chung; **điều đó không có
+  nghĩa các event đó nên gộp làm một.**
+- Thay đổi ở source, snapshot hay phạm vi sẽ lưu trữ và reset các quyết định.
+  Nếu thay đổi đó ngoài ý muốn, kiểm tra lại cấu hình trước khi phân tích tiếp.
+- File tải thêm bằng `review source --fetch` nằm ở cache riêng và **không** mở
+  rộng phạm vi quét gốc.
+
+## Diễn giải bằng chứng
+
+Nguyên tắc chung:
+
+- **Flag và API:** so trạng thái Windows được ghi nhận cùng toàn bộ điều kiện
+  build và runtime liên quan. Một giá trị mặc định trong source không phải
+  rollout đã đo được.
+- **Khai báo bị xoá:** xem khai báo thay thế và các consumer trước khi kết luận
+  capability đã mất.
+- **Signature của API hay IPC:** mới chỉ là một khai báo đã đổi. Xác định
+  consumer bị ảnh hưởng và các tổ hợp version trước khi nói build hỏng hay
+  runtime hỏng.
+- **Pref, switch và param:** tìm bên đọc, bên ghi, migration và override từ bên
+  ngoài. Không ghi nhận gate nào không chứng minh code chạy vô điều kiện.
+- **Hai version source chỉ xác lập khác biệt ròng giữa chúng.** Mọi khẳng định
+  về một lần tách, một lần revert hay một lần merge sau đó đều cần lịch sử tương ứng.
+
+Câu hỏi theo từng loại khai báo:
 
 **Mojo** — `mojo_interface`, `mojo_method`, `mojo_struct`, `mojo_field`, `mojo_enum`
 
-1. `platform_state.windows` — `not_compiled` thì đã có điểm bằng không; `conditional` là chưa xác định, không phải mặc định là của mình. Một khai báo nằm dưới `android/`, `ash/`, `chromeos/` hay `ios/` thì hoàn toàn không có guard nào.
-2. **Ai ở đầu bên kia?** Cả hai đầu đều biên dịch từ cùng một cây source, nên đây là lỗi build cho code nằm ngoài cây trước khi nó là lỗi lúc chạy. Bẫy 10 trong [reference/traps.md](reference/traps.md) liệt kê những trường hợp nó là lỗi lúc chạy. Hãy nói rõ trường hợp nào đang áp dụng.
-3. `ipc_shape_changed` và `ipc_signature_change` làm hỏng deserialization mà không báo lỗi. `ipc_enum_changed` nhẹ hơn: một giá trị lạ bị từ chối chứ không bị đọc sai.
+1. Đọc `platform_state.windows`. `not_compiled` thì score đã bằng 0;
+   `conditional` là **chưa xác định**, không phải mặc định là của mình.
+2. Ai ở đầu bên kia? Cả hai đầu biên dịch từ cùng một cây source, nên đây là
+   lỗi build cho code ngoài cây trước khi nó là lỗi lúc chạy. Mục 10 của
+   `reference/traps.md` liệt kê các trường hợp nó là lỗi lúc chạy.
+3. Với enum, xem `[Extensible]` và `[Default]` trước khi mô tả cách xử lý giá
+   trị lạ. Không mặc định rằng mọi peer đều từ chối giá trị không biết.
 
 **Web platform** — `idl_interface`, `idl_member`, `blink_runtime_feature`
 
-1. **Một trang web có với tới được không?** `web_api_added_live` so với `web_api_added_gated`. `web_api_added` nghĩa là flag chắn nó nằm ngoài phạm vi lần chạy này đọc — kiểm tra trước khi kết luận theo bất kỳ hướng nào.
-2. `web_api_removed` làm hỏng các site đang chạy thật; `web_api_removed_gated` thì chưa tới người dùng nào.
-3. `web_api_shipped` là thời điểm người dùng thật sự nhận được nó.
+1. Một trang web có với tới được không? `web_api_added_live` nghĩa là
+   classifier **không tìm thấy** gate đóng nào trong các điều kiện nó xét — nó
+   không chứng minh API sẵn dùng ở mọi nơi. `web_api_added_gated` mô tả một hạn
+   chế mặc định được ghi nhận — nó không chứng minh mọi ngữ cảnh override hay
+   origin trial đều không dùng được.
+2. Điều kiện có thể nằm trên **interface** chứ không nằm trên member. Một
+   member không mang `[RuntimeEnabled]` riêng không vì thế mà với tới được.
+3. `web_api_removed` so với `web_api_removed_gated`: cái sau là khai báo bị xoá
+   trong khi gate ghi nhận trước đó đã đóng.
 
 **Flag, pref và switch** — `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry`
 
-1. **Trạng thái của flag có đổi trên platform của mình không?** Xem `platform_state`. `disabled → enabled` hoặc ngược lại là một thay đổi hành vi thật. Dừng ở đó.
-2. **Flag có biến mất không?** Đọc trạng thái nó giữ *trước đó*. `flag_retired_on` / `flag_retired_off` nghĩa là hành vi ở đây không đổi.
-3. **Sự biến mất đó đã được xác nhận chưa?** `pref_left_scan` / `switch_left_scan` nghĩa là "không có trong những file mà lần chạy này đọc". Tìm key đó trong cây source, hoặc chạy lại với `wide`, trước khi báo cáo theo bất kỳ hướng nào.
+1. Trạng thái flag có đổi trên Windows không? Xem `platform_state`.
+   `disabled → enabled` hoặc ngược lại là thay đổi hành vi thật.
+2. Flag có biến mất không? `flag_retired_on` / `flag_retired_off` chỉ phân loại
+   giá trị mặc định **cuối cùng quan sát được**. Chúng không cho biết phần hiện
+   thực được giữ lại, bị xoá, hay bị thay thế — phải đọc consumer.
+3. Sự biến mất đã được xác nhận chưa? `pref_left_scan` / `switch_left_scan`
+   nghĩa là "không có trong những file lần chạy này đọc". Tìm key trong source
+   đủ đầy đủ, hoặc chạy lại `wide`, trước khi kết luận theo bất kỳ hướng nào.
+4. Với pref biến mất, tìm key đã lưu, chỗ đăng ký, bên đọc, bên ghi và code
+   migration. Dữ liệu có thể vẫn nằm trên đĩa dù code mới không đọc key nữa.
+   Không suy ra mất dữ liệu hay reset chỉ từ nhãn bucket.
 
 **Trang chrome://** — `webui_route`, `webui_control`, `webui_gate`
 
-1. **Lần theo guard để ra flag của nó.** Một control hay một trang biến mất thường là đã chuyển ra sau một guard khác, và thay đổi mà người dùng thấy đã xảy ra vào lúc flag đó lật. Bẫy 2 và 6 trong [reference/traps.md](reference/traps.md).
+1. Lần theo điều kiện của route hoặc control ra tới giá trị mà handler C++ cung
+   cấp. Một control hay một trang biến mất thường là đã chuyển ra sau một điều
+   kiện khác, và thay đổi mà người dùng thấy đã xảy ra lúc flag đó lật.
+2. Cả UI cũ lẫn UI mới có thể cùng tồn tại trong source trong lúc migration mà
+   không phải cả hai đều hiển thị. Mục 6 của `reference/traps.md`.
+3. `ui_control_relabelled` chỉ nói key của label đổi. Nó không chứng minh chữ
+   người dùng nhìn thấy đã đổi — phải đọc string resource thật.
 
-**Sửa ở ngoài repository** — nhánh này không theo `kind` mà theo signal. Chín signal dưới đây đều biên dịch bình thường rồi ngừng hoạt động ngoài thực địa, và chỗ phải sửa là Finch config, script khởi chạy hoặc automation chứ không phải file khai báo:
+**Thay đổi cần sửa ở ngoài repository.** Nhánh này theo signal chứ không theo
+`kind`. Các signal dưới đây đều biên dịch bình thường rồi ngừng có tác dụng
+ngoài thực địa, và chỗ phải sửa là Finch config, script khởi chạy hoặc
+automation:
 
-`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`, `flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`, `flag_expiry_moved`
+`feature_string_renamed`, `switch_renamed`, `param_removed`, `param_rewired`,
+`flag_retired_on`, `flag_retired_off`, `killswitch_retired`, `flag_expiring`,
+`flag_expiry_moved`
 
-1. **Luôn có việc phải làm nếu cái tên cũ còn xuất hiện ở đâu đó.** Bốn signal đầu làm mất tác dụng thứ đang set giá trị từ bên ngoài. Ba signal tiếp theo là flag bị gỡ, làm mọi override đặt từ bên ngoài mất tác dụng mà không có gì báo. Hai signal cuối là lịch xoá: một flag có ngày hết hạn nghĩa là override đặt lên nó cũng có hạn.
-2. Công cụ không nhìn thấy bất kỳ nơi nào trong số đó. Đây là danh sách những thứ cần kiểm tra, không phải danh sách những thứ đã hỏng.
+Ba signal flag bị gỡ nằm trong Upstream cleanup, là bucket duy nhất không có
+bảng trong `report.md`. Ở M148 → M151 với bộ `default` chúng là 175 dòng, và
+phần lớn tên đó không xuất hiện ở đâu trong `report.md`. Truy vấn ra trước khi
+viết báo cáo:
 
-Ý nghĩa từng signal: **[reference/signals.md](reference/signals.md)**.
-
-### Bước 6: Viết báo cáo theo đúng thứ user quan tâm
-
-Bố cục do Câu 3 quyết định — gom theo đúng thứ user đã nêu, và ghi rõ đã lọc theo cái gì.
-
-**Khi user không nêu gì, gom theo chuyện đã xảy ra, không gom theo cách công cụ tìm ra nó.** Bucket, khoảng điểm và loại khai báo đều là thuộc tính của bộ máy. Gom theo bất kỳ cái nào trong ba cái đó sẽ lấy một thay đổi vốn đến dưới dạng bảy mảnh rồi xếp flag vào một mục còn các trang vào mục khác — tức là trả các mảnh về đúng trạng thái trước khi `cluster.py` gom chúng lại.
-
-```markdown
-## Overall risk
-[Một câu: đợt nâng này làm gì, và phần việc nằm ở đâu.]
-
-## What happened
-[Mỗi mục là một chuyện đã xảy ra, hậu quả nặng nhất trước.]
-
-### <tên mà một người sẽ gọi nó> — <thay đổi, trong vài chữ>
-[Cái gì đã đổi, đọc từ các mảnh gộp lại. Nêu đủ mọi identifier mà
-người ta sẽ đi grep.]
-**Cần kiểm:** [phải đi xem cái gì, ở đâu — kể cả ngoài repository này.]
-
-## Fixed outside the repository — N
-[Luôn có mặt, luôn ở cuối, kể cả khi đã lọc: một tên flag hay switch bị đổi làm mất tác dụng override của bất kỳ ai đặt nó.]
-
-## New capability
-[Chỉ `web_api_added_live`. Đây là đầu vào cho sản phẩm, không phải thứ chặn release.]
-
-## Limits
-[Con số coverage mà lần chạy đã in ra, target set, partition, version chính xác, và `summary.unconfirmed`.]
+```python
+RETIRED = {"flag_retired_on", "flag_retired_off", "killswitch_retired"}
+[f["change"]["name"] for f in F if set(f["change"]["signals"]) & RETIRED]
 ```
 
-#### Thế nào là một mục
+Không cái nào trong đó tự nó đổi hành vi, nên báo cáo một cái như tính năng bị
+mất là sai. Nhưng mỗi cái đều làm một override đặt từ bên ngoài mất tác dụng mà
+không có gì báo. Đây là danh sách cần kiểm tra, không phải danh sách đã hỏng.
 
-Theo thứ tự này, để không viết trùng:
+## Truy nguyên lịch sử
 
-1. **Một khối trong `## Related changes, grouped`.** Đã là một mục sẵn.
+Dùng lịch sử khi khác biệt trong source không giải thích được ý định, sự thay
+thế, thứ tự, hoặc một mâu thuẫn. Thủ tục đầy đủ nằm trong
+[reference/history.md](analyzing-chromium-upgrades/reference/history.md).
+Tóm tắt các đường có thể đi:
 
-   Các khối xếp theo `spread`: số nhóm hậu quả, số bucket và số hướng mà các mảnh trải qua. Đó là thước đo mức độ việc gom nói thêm được điều các dòng riêng không nói. Khối vừa có xoá vừa có thêm đứng trước, vì đó chính là cặp gây hiểu sai khi đọc rời. Mọi khối có các mảnh bất đồng đều được in, bao nhiêu cũng in — 9 khối ở M148 → M151 với bộ `default`, 16 với bộ `wide`. `summary.clusters` trong JSON giữ đủ tất cả, mỗi khối kèm `spread` và `directions`.
-2. **Một màn hình cộng một hướng.** Năm trang mới trên `settings` là **một** mục, không phải năm. `## What changed on each screen` có sẵn, cắt ở 12 dòng — phần còn lại lấy từ `report.json` bằng truy vấn.
-3. **Một dòng đứng một mình.** Một Mojo signature, một pref bị đổi tên. Chỉ thành mục riêng khi không cluster nào nhận nó.
+| Tình huống | Cách làm |
+|---|---|
+| Finding có trong `report.json` | `why.py` với UID của finding và đúng `--cache` đã lưu |
+| Có repo Git ở máy | `git log`/`git show`/`git grep` theo đúng hai ref, không đổi checkout |
+| Không có repo Git | Mở file ở Gitiles theo đúng ref rồi xem history; Gerrit tìm theo đường dẫn hoặc identifier |
+| Đã xác định được CL | `cl.py` với số CL và `--cache` |
 
-#### Đọc một khối thành một câu
+Ba điểm hay sai:
 
-Đọc rời từng mảnh thì chúng mâu thuẫn nhau, nên phải đọc hết các mảnh rồi mới viết. Hai thuộc tính mang hướng: **gate mà một trang nằm sau**, và **trạng thái flag đang giữ lúc bị xoá**.
+1. **Một lần tìm không ra kết quả là kết quả của lần tìm đó, không phải kết
+   luận về Chromium.** Giới hạn request, lỗi mạng hay danh sách ứng viên không
+   đầy đủ đều không chứng minh không có commit liên quan. Ghi lại phần chưa xem
+   được. Các trường chẩn đoán nằm ở
+   [reference/no-row.md](investigating-chromium-root-causes/reference/no-row.md).
+2. **`introduced`, `exact` và `declares` mô tả các kiểu khớp khác nhau trong
+   diff của một CL** — phải đọc diff để biết nó có giải thích được chuyển biến
+   đang xét hay không. `described` chỉ khớp commit message; `touched` và
+   `crowded` là khớp theo file, yếu hơn. Không cái nào tự nó xác lập nhân quả.
+3. **Một CL có thể chứa nhiều sửa đổi không liên quan, và một sự việc có thể
+   trải nhiều CL.** Cùng một bug hay cùng một tiêu đề không đủ để gộp hai sự
+   việc làm một.
 
-Làm mẫu, từ khối M148 → M151:
+Issue bị hạn chế truy cập là chuyện bình thường: nhiều issue nằm trong các
+component security, abuse hoặc nội bộ và trả về HTTP 403. Ghi đó là bằng chứng
+còn thiếu; các CL vẫn công khai và đọc được.
 
+**Với người đọc là người thật**, `python3 -m chromiumdiff serve out/upgrade`
+mở giao diện tra cứu ở `http://127.0.0.1:8787/`, bấm vào một dòng thì nó tra CL
+của dòng đó. `--click-budget N` giới hạn số diff đọc mỗi lần bấm (mặc định
+600), `--no-save` thì không ghi ngược vào `report.json`. Mở thẳng file
+`report.html` thì phần tra cứu không chạy, vì trang trên `file://` không được
+phép gọi `chromium-review.googlesource.com`; đó là giới hạn của trình duyệt,
+không phải lỗi.
+
+Kết quả tra cứu được ghi vào `report.json` nhưng chỉ vào tới `report.md` và
+`report.html` sau khi render lại:
+
+```bash
+python3 -m chromiumdiff report out/upgrade/report.json --format both --out out/upgrade/report
 ```
-- `−` SITE_SETTINGS_LOCAL_NETWORK_ACCESS · WebUI page · 55
-  - route: localNetworkAccess
-  - guards: enableLocalNetworkAccessSetting
-- `~` enableLocalNetworkAccessSetting · WebUI visibility gate · 45
-  - features: −kLocalNetworkAccessChecksSplitPermissions
-- `~` SITE_SETTINGS_LOCAL_NETWORK · WebUI page · 45
-  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
-- `~` SITE_SETTINGS_LOOPBACK_NETWORK · WebUI page · 45
-  - guards: −enableLocalNetworkAccessSplitPermissions, +enableLocalNetworkAccessSetting
-- `−` enableLocalNetworkAccessSplitPermissions · WebUI visibility gate · 40
-- `−` LocalNetworkAccessChecksSplitPermissions · Chromium feature flag · 20
-  - default_state: enabled
-- `−` label:siteSettingsLocalNetworkAccess · WebUI control · 20
-```
 
-Flag đang **enabled** trước khi bị xoá, nghĩa là bản split đã là thứ người dùng đang thấy; gate thử nghiệm bị xoá và hai trang split chuyển sang gate mà trang gộp từng dùng; trang gộp và control của nó bị xoá theo. **Bảy dòng này là một thay đổi, không phải bảy thay đổi:**
+## Viết báo cáo cuối
 
-> **Local Network Access — bản split đã ship, trang gộp biến mất.**
-> Trang `SITE_SETTINGS_LOCAL_NETWORK_ACCESS` (route `localNetworkAccess`) và control `siteSettingsLocalNetworkAccess` bị xoá. `SITE_SETTINGS_LOCAL_NETWORK` và `SITE_SETTINGS_LOOPBACK_NETWORK` rời gate thử nghiệm `enableLocalNetworkAccessSplitPermissions` sang `enableLocalNetworkAccessSetting`; cả gate đó lẫn `LocalNetworkAccessChecksSplitPermissions` — vốn đang **enabled** ở M148 — đều bị retire. Người dùng đã thấy bản split từ trước đợt nâng này; M151 chỉ xoá phần cài đặt còn lại.
-> **Cần kiểm:** chỗ nào link tới `chrome://settings/localNetworkAccess`; chỗ nào dùng chuỗi `siteSettingsLocalNetworkAccess`; Finch config nào đang set `kLocalNetworkAccessChecksSplitPermissions`.
+Mỗi event là một mục được đánh số, đặt tiêu đề theo **thay đổi**, không đặt
+theo bucket, score hay riêng một identifier.
 
-Và một mục theo màn hình, cùng lần chạy đó:
+Mỗi mục phải có:
 
-> **Năm trang settings mới.** `/ai/suggestions` và `/ai/skills` sau `showAiPage`, `/autofill/suggestionsFromGemini` và `/shopping` sau `enableYourSavedInfoSettingsPage`, và `inlineCueMenu` **không có gate nào**.
-> **Cần kiểm:** `inlineCueMenu` là trang duy nhất với tới được ngay ngày adopt version. Trích route đúng y như `report.json` giữ — bốn trong năm cái có dấu `/` ở đầu, cái còn lại thì không.
+- **before / after** — trạng thái quan sát được ở version cũ và version mới
+- **lý do gom** — vì sao các item này thuộc về một thay đổi
+- **consumer bị ảnh hưởng**
+- **điều kiện** — build, runtime và triển khai
+- **bằng chứng** — finding, đường dẫn source kèm số dòng, CL
+- **việc cần làm** — kiểm tra hay cập nhật cụ thể, kèm vị trí consumer
+- **phần chưa chắc** — câu hỏi vẫn còn cần bằng chứng
 
-#### Mỗi mục bắt buộc phải có gì
+Viết câu trực tiếp và định nghĩa các thuật ngữ kỹ thuật lạ. Viết bằng ngôn ngữ
+của user; giữ nguyên identifier trong source và tên lệnh.
 
-**Cái gì đã đổi**, **có ai thấy khác đi không**, **ai đó phải làm gì**. Phần ở giữa quyết định độ ưu tiên, và một bản diff thô không cung cấp được nó.
+Nêu version chính xác, platform và phạm vi. Tách phần được source xác lập ra
+khỏi phần hậu quả phụ thuộc vào build hoặc cấu hình của user. Báo cáo dài thì
+kèm một bản tóm tắt ngắn và link tới review đầy đủ.
 
-Sai: *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."* — một mảnh trong bảy, và đọc lên thành mất tính năng.
+Hai ví dụ **sai**:
 
-Cũng sai: *"12 thay đổi ở chrome:// pages, 3 cái Compatibility break."* — một con số đếm không phải một chuyện đã xảy ra.
+- *"`LocalNetworkAccessChecksSplitPermissions` đã bị xoá ở M151."* — một mảnh
+  của một thay đổi lớn hơn, và đọc lên thành mất tính năng.
+- *"12 thay đổi ở chrome:// pages, 3 cái Compatibility break."* — một con số
+  đếm không phải một chuyện đã xảy ra.
 
-**Dừng ở chỗ bằng chứng cho phép.** Viết cái gì đã đổi và phải kiểm gì; đừng viết rằng cái đó là bug. Công cụ chỉ có một version Chromium và một version nữa, và không biết gì về việc sản phẩm này đang patch hay ship cái gì.
+**Dừng ở chỗ bằng chứng cho phép.** Viết cái gì đã đổi và phải kiểm gì; đừng
+viết rằng cái đó là bug. Công cụ chỉ có hai version Chromium và không biết sản
+phẩm này đang patch hay ship cái gì.
 
 ## Tài liệu tham chiếu
 
-- **[reference/traps.md](reference/traps.md)** — những con đường dẫn tới kết luận sai, mỗi con đường đều được đo trên dữ liệu Chromium thật. Đọc trước khi diễn giải bất kỳ mục bị xoá nào; các bẫy về sau nói về Mojo, web API và switch.
-- **[reference/signals.md](reference/signals.md)** — mỗi signal nghĩa là gì.
-- **[reference/settings-screen.md](reference/settings-screen.md)** — chuỗi ba chặng từ một trang settings tới flag đứng sau nó, và cách ước lượng quy mô của một "feature".
+Đường dẫn dưới đây tính từ thư mục của skill, tức
+`skills/analyzing-chromium-upgrades/`.
+
+- **`reference/investigation.md`** — cách đọc cấu hình đã lưu trong
+  `review-index.json`, cách ghi quyết định, cấu trúc file record, và thủ tục
+  refresh giữ nguyên cache cùng repo Git.
+- **`reference/history.md`** — cách tìm commit và giải thích lịch sử: đường
+  `why.py` khi có finding, và đường đọc thẳng `git log`/Gitiles khi không có.
+- **`reference/signals.md`** — mỗi signal ghi nhận thay đổi gì, và cần thêm
+  bằng chứng gì trước khi kết luận từ nó.
+- **`reference/traps.md`** — mười ba giới hạn của kết luận rút từ source: vắng
+  mặt, điều kiện platform, tính sẵn dùng của API, và tương thích.
+- **`reference/settings-screen.md`** — vị trí source của WebUI, cách lần theo
+  điều kiện hiển thị, và cách chọn phạm vi cho một event về UI.
+- **`skills/investigating-chromium-root-causes/reference/no-row.md`** — các
+  trường chẩn đoán khi một lần tra cứu không trả về kết quả.
 
 ## Những gì công cụ không nhìn thấy
 
-Nêu những điều này trong mọi báo cáo. Một báo cáo sạch không có nghĩa là một đợt nâng version sạch.
+Nêu những điều này trong mọi báo cáo. Việc mọi item đã index đều có quyết định
+không chứng minh đã phát hiện hết mọi thay đổi đáng kể.
 
-- **Liệu có phần nào trong đó chạm tới một sản phẩm cụ thể hay không.** Công cụ so Chromium với Chromium. Tìm identifier mà một finding dẫn ra trong cây source của chính mình mới là bước trả lời câu "cái này có ảnh hưởng tới mình không".
-- **Thay đổi chỉ nằm ở phần hiện thực.** Nó đọc khai báo. Hành vi đổi bên trong thân một hàm thì nó không thấy.
-- **Năm loại khai báo mà nó không biến thành fact**, ngay trong những file mà nó vẫn đọc đầy đủ. Đo ở M151: 85 định nghĩa `callback` của Web IDL, 144 `typedef`, 200 quan hệ `Interface includes Mixin`, 18 khối `feature` của Mojo và 311 hằng số Mojo. Ví dụ thật không tạo ra dòng nào: `typedef LanguageModelMessageValue` đổi union nền của nó ở M143 → M147, và hằng số Mojo `kWebNNDirectML` biến mất ở M151. **"Đọc 99% số file" là phát biểu về file, không phải về ngữ pháp.**
-- **Bất cứ thứ gì nằm ngoài repository** — config Finch, script khởi chạy, test automation, enterprise policy, metadata trên store.
-- **IDL của Chrome Extensions và MIDL.** Chỉ có `.idl` của riêng Blink được đọc.
-- **Hành vi của trang.** Chỉ các phần khai báo của một screen WebUI: bảng route và các template HTML, không phải TypeScript.
-- **Giao diện đã render.** Không ảnh chụp màn hình, không layout, không lỗi hiển thị.
+- **Thay đổi chỉ nằm trong phần hiện thực.** Công cụ đọc khai báo. Hành vi đổi
+  bên trong thân một hàm thì nó không tạo ra finding nào.
+- **Các loại khai báo mà parser không biến thành fact**, ngay trong những file
+  nó đọc đầy đủ. Coverage theo file và coverage theo ngữ pháp là hai chuyện.
+- **Bất cứ thứ gì ngoài repository** — Finch config, script khởi chạy, test
+  automation, enterprise policy, metadata trên store.
+- **Bản vá của chính sản phẩm.** Công cụ so Chromium với Chromium. Tìm
+  identifier trong cây source của mình mới trả lời được câu "cái này có ảnh
+  hưởng tới mình không".
+- **IDL của Chrome Extensions và MIDL.** Chỉ `.idl` của riêng Blink được đọc.
+- **Hành vi của trang và giao diện đã render.** Chỉ phần khai báo của một
+  screen WebUI được đọc, không phải toàn bộ TypeScript, và không có ảnh chụp
+  màn hình.
 
-Dùng flag và khai báo để *phát hiện*, đọc code có chủ đích để *giải thích*, ảnh chụp màn hình chỉ để *xác nhận* một danh sách ngắn. Đừng dùng ảnh chụp màn hình để phát hiện thay đổi.
+Dùng khai báo để **phát hiện**, đọc source có chủ đích để **giải thích**, ảnh
+chụp màn hình chỉ để **xác nhận** một danh sách ngắn.
