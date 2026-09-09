@@ -1,0 +1,524 @@
+# Chromium upgrade review
+
+refs/tags/148.0.7778.217 → refs/tags/151.0.7922.138 · windows
+
+Status: PARTIAL
+
+Indexed items: 9437; events: 19; provisional events: 0.
+
+Disposition counts: {"event": 130, "explained": 6, "out_of_scope": 23, "pending": 9278}
+
+Accounting does not establish semantic completeness or product safety.
+
+## Selected review scope
+
+Downloads and Bookmarks at 148.0.7778.217 -> 151.0.7922.138 on Windows, for feature flags, Mojo interfaces and WebUI controls/routes, plus the preferences, source deltas and shared dependencies needed to explain them. Boundary: the indexed findings and file diffs the focus packet for the two areas' path prefixes returned, plus two items those prefixes missed (chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc and chrome/browser/ui/webui/settings/downloads_handler_unittest.cc).
+
+Scope accounting: COMPLETE
+Selected items: 154; outside selected scope: 9283.
+Disposition counts: {"event": 130, "explained": 6, "out_of_scope": 18}
+
+Only the explicitly selected items are counted. Selection and semantic completeness require review.
+
+## Coverage and limits
+
+This comparison reads declarations the extractor parses. It does not compare behaviour, and a file with no declaration parser is absent from the findings whether or not it changed.
+
+Parsed file suffixes: features.cc, features.h, switches.cc, switches.h, feature_list.cc, feature_list.h, field_trial.cc, field_trial.h, fieldtrial.cc, fieldtrial.h, flags.cc, flags.h, _handler.cc, _util.cc, _manager.cc, pref_names.cc, pref_names.h, prefs.cc, prefs.h, .mojom, .idl, .json5, route.ts, routes.ts, .html, .html.ts, flag-metadata.json.
+
+- from: 8024 of 8094 candidate declarations read; 70 missed.
+- to: 8295 of 8366 candidate declarations read; 71 missed.
+- Candidates missed by directory (to side): chrome/services 24; chrome/credential_provider 15; chrome/installer 12; third_party/blink 6; chrome/renderer 3; chrome/notification_helper 2; chrome/browser 1; chrome/common 1; and 4 more directories
+- Acquisition: target set wide; partitions none; unconfirmed findings: 0.
+- Unresolved declaration references: 295.
+- Source scope: Only cached files, possibly beyond the original scan. A missing side is unknown, not an upstream addition/removal. Uncached code and symlinks are unexamined; .git and acquisition markers are excluded.
+- Finch, external configuration, product patches and rendered UI require separate evidence.
+
+These limits bound what the comparison could observe. They are the places a reviewer must check by hand.
+
+## 1. A new bookmarks Mojo API (bookmarks_api.mojom) is added, and the experimental WebUI browser is its first consumer
+
+Status: confirmed
+
+Before: At 148.0.7778.217 no file under components/browser_apis/bookmarks exists in the cached tree; components/browser_apis is cached at that ref and holds only browser_controls, tab_strip and ui_controllers. No file at 148 mentions bookmarks_api or BookmarksService. chrome/browser/resources/webui_browser has no bookmarks subdirectory.
+
+After: 151.0.7922.138 adds components/browser_apis/bookmarks/bookmarks_api.mojom, declaring interface BookmarksService with 6 methods (GetBookmarks, GetBookmark, CreateBookmarkNode, UpdateBookmarkNode, MoveBookmarkNode, DeleteBookmarkNodes), interface BookmarksObserver with OnBookmarksEvents(array<BookmarksEvent>), unions BookmarkNode{url,folder} and BookmarksEvent{added,removed,moved,changed}, structs RootNode, Url, Folder, BookmarksSnapshot, BookmarkNodeCreated/Removed/Moved/Changed, and enum PermanentFolderType{kUnknown,kBookmarkBar,kOther,kMobile,kManaged}. BookmarksService carries the [GenerateDirectReturnStub] attribute and every method returns result<T, mojo_base.mojom.Error>. Node identity is mojo_base.mojom.Uuid, optional on Url.id and Folder.id so an unset id means 'creating a new resource'. chrome/browser/resources/webui_browser/bookmarks/ is added with bookmarks.html.ts and bookmark_tree_node.html.ts, whose Lit templates read exactly these shapes (node.folder / node.url, folder.children, id.value, url.faviconUrl).
+
+Mechanism: The .mojom file and the two Lit templates arrive together and the templates bind field for field to the mojom declaration, so they are one change. BookmarksSnapshot carries a pending_associated_receiver<BookmarksObserver> named stream, which is how a client subscribes: it gets the tree and the update channel in one GetBookmarks() reply, and association preserves ordering between the reply and later events. chrome/browser/ui/browser_window/internal/browser_window_features.cc constructs a BookmarksServiceFeature per browser window whenever BookmarkModelFactory returns a model, with no feature check at that call site.
+
+Impact: This is a new capability, not a compatibility break: nothing at 148 could call it. A downstream product that wants a bookmarks API for its own WebUI or embedder surface now has an upstream one instead of chrome.bookmarks extension plumbing. Because it is a new Mojo contract with no [Stable] annotation, both peers must be built from the same revision; a downstream component that ships separately cannot rely on the wire format.
+
+Conditions: Windows: the .mojom declares no [EnableIf] and no build condition. The creation site in browser_window_features.cc is not behind a base::Feature. What is NOT established here: which process or renderer is allowed to bind BookmarksService, and whether any shipped surface exposes it. The implementation (BookmarksServiceFeature, the BUILD.gn, the generated bindings) is not in the cache at either ref, so the binding policy was not read.
+
+Action: If the product plans to use it, read components/browser_apis/bookmarks/ BUILD.gn and the BookmarksServiceFeature implementation at refs/tags/151.0.7922.138 to find who may bind the interface. If the product patches components/browser_apis, note that this directory is new and will conflict on the next merge.
+
+Uncertainties: Which surfaces are permitted to bind BookmarksService is unknown: BookmarksServiceFeature's implementation file is not cached at either ref. Next check: fetch chrome/browser/ui/browser_window/internal/ and components/browser_apis/bookmarks/ BUILD.gn at refs/tags/151.0.7922.138.; Whether the WebUI browser surface that consumes it ships to users is not established from source; chrome/browser/resources/webui_browser existed at 148 as an experiment and its enablement was not read.
+
+- `mojo_enum:bookmarks_api.mojom.PermanentFolderType` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:15](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#15): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNode.folder` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:32](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#32): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNode.url` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:31](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#31): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeChanged.node` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:87](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#87): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeCreated.index` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:71](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#71): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeCreated.node` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:72](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#72): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeCreated.parent_id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:70](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#70): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeMoved.new_index` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:83](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#83): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeMoved.new_parent_id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:82](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#82): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeMoved.old_index` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:81](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#81): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeMoved.old_parent_id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:80](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#80): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarkNodeRemoved.id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:76](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#76): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksEvent.added` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:91](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#91): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksEvent.changed` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:94](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#94): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksEvent.moved` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:93](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#93): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksEvent.removed` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:92](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#92): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksSnapshot.root` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:60](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#60): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.BookmarksSnapshot.stream` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:66](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#66): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Folder.children` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:52](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#52): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Folder.id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:50](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#50): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Folder.is_synced` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:56](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#56): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Folder.permanent_folder_type` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:53](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#53): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Folder.title` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:51](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#51): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.RootNode.children` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:26](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#26): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.RootNode.id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:25](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#25): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Url.favicon_url` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:41](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#41): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Url.id` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:38](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#38): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Url.is_synced` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:44](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#44): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Url.title` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:39](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#39): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_field:bookmarks_api.mojom.Url.url` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:40](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#40): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_interface:bookmarks_api.mojom.BookmarksObserver` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:97](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#97): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_interface:bookmarks_api.mojom.BookmarksService` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:102](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#102): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksObserver.OnBookmarksEvents` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:98](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#98): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.CreateBookmarkNode` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:114](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#114): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.DeleteBookmarkNodes` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:137](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#137): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.GetBookmark` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:108](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#108): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.GetBookmarks` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:105](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#105): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.MoveBookmarkNode` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:130](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#130): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_method:bookmarks_api.mojom.BookmarksService.UpdateBookmarkNode` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:125](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#125): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarkNode` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:30](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#30): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarkNodeChanged` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:86](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#86): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarkNodeCreated` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:69](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#69): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarkNodeMoved` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:79](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#79): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarkNodeRemoved` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:75](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#75): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarksEvent` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:90](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#90): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.BookmarksSnapshot` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:59](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#59): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.Folder` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:48](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#48): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.RootNode` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:24](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#24): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `mojo_struct:bookmarks_api.mojom.Url` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom:36](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom#36): The added declaration this event describes, extracted from bookmarks_api.mojom at the 151 side only.
+- `file:components/browser_apis/bookmarks/bookmarks_api.mojom` · [to: components/browser_apis/bookmarks/bookmarks_api.mojom](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/browser_apis/bookmarks/bookmarks_api.mojom): The file record shows state one_side_cached with a to-side hash and no from-side hash, so the whole file is new evidence at 151.
+- `file:chrome/browser/resources/webui_browser/bookmarks/bookmarks.html.ts` · [to: chrome/browser/resources/webui_browser/bookmarks/bookmarks.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/webui_browser/bookmarks/bookmarks.html.ts): New at 151; renders webui-browser-bookmark-tree-node from rootNode_.folder?.id!.value, matching RootNode/Folder in the mojom.
+- `file:chrome/browser/resources/webui_browser/bookmarks/bookmark_tree_node.html.ts` · [to: chrome/browser/resources/webui_browser/bookmarks/bookmark_tree_node.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/webui_browser/bookmarks/bookmark_tree_node.html.ts): New at 151; branches on node.folder vs node.url and reads folder.children, url.faviconUrl and id.value, matching the BookmarkNode union and the Uuid ids in the mojom.
+- [to: chrome/browser/ui/browser_window/internal/browser_window_features.cc:271](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/browser_window/internal/browser_window_features.cc#271): BookmarksServiceFeature is constructed per browser window when BookmarkModelFactory returns a model, with no base::Feature check at the call site.
+
+## 2. chrome://bookmarks and chrome://downloads join the 2026 WebUI refresh and the rounded-icons rollout
+
+Status: confirmed
+
+Before: At 148 neither handler supplies a webuiRefresh2026 value; no file at that ref mentions WebuiRefresh2026 or roundedIconsAttribute. Both page shells open with <html dir=... lang=... class="loading"> and no extra attributes.
+
+After: At 151 both bookmarks_ui.cc and downloads_ui.cc call source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled() ? "webui-refresh-2026" : ""), and both page shells stamp $i18n{webuiRefresh2026} and $i18n{roundedIconsAttribute} onto the <html> element, with a new rule html[webui-refresh-2026] { background: var(--color-webui-page-background); }.
+
+Mechanism: IsWebuiRefresh2026Enabled() in chrome/browser/ui/ui_features.cc returns FeatureList::IsEnabled(kDesktopGlowUp) || FeatureList::IsEnabled(kWebuiRefresh2026). Both are BASE_FEATURE(..., base::FEATURE_DISABLED_BY_DEFAULT) at 151, and both are exposed in about_flags.cc as desktop-glow-up and webui-refresh-2026 with kOsDesktop. roundedIconsAttribute is not set by these handlers: ui/base/webui/web_ui_util.cc SetLoadTimeDataDefaults adds it for every WebUI from features::IsRoundedIconsEnabled(). The two pages are grouped because the same attribute pair and the same stylesheet hook were added to both in the same form; the same call appears at 151 in settings, history, extensions, management, password_manager, certificate_manager and skills UIs, so this is a tree-wide rollout that reached these two pages.
+
+Impact: With the source defaults, a Windows user sees no change: both flags are off, the attribute renders as the empty string and the html[webui-refresh-2026] rule never matches. Turning on chrome://flags#desktop-glow-up or #webui-refresh-2026 restyles both pages. For a downstream product this is a new styling hook it can enable or suppress, and a new i18n key both page shells now expect.
+
+Conditions: Windows source default: kWebuiRefresh2026 disabled, kDesktopGlowUp disabled. Both are reachable from chrome://flags on desktop. This says nothing about the active Finch configuration, which is not measurable from source.
+
+Action: If the product ships its own bookmarks or downloads page shell, add the two $i18n substitutions or the AddString call will feed a template that does not consume them. Decide whether desktop-glow-up should be forced off in the product's field-trial configuration.
+
+Uncertainties: The Finch state of kDesktopGlowUp and kWebuiRefresh2026 in shipped builds is not measurable from source; a run-time check on a built binary is needed.
+
+- `webui_gate:bookmarks_ui/webuiRefresh2026` · [to: chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc:154](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc#154): Records the added gate with expression features::IsWebuiRefresh2026Enabled() ? "webui-refresh-2026" : "" and value_type string on handler bookmarks_ui.
+- `webui_gate:downloads_ui/webuiRefresh2026` · [to: chrome/browser/ui/webui/downloads/downloads_ui.cc:244](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_ui.cc#244): The identical gate added on handler downloads_ui, which is what makes the two pages one rollout rather than two changes.
+- `file:chrome/browser/resources/downloads/downloads.html` · [from: chrome/browser/resources/downloads/downloads.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/downloads/downloads.html), [to: chrome/browser/resources/downloads/downloads.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/downloads/downloads.html): The chrome://downloads shell adds $i18n{webuiRefresh2026} $i18n{roundedIconsAttribute} on <html> plus the html[webui-refresh-2026] background rule.
+- `file:chrome/browser/resources/bookmarks/bookmarks.html` · [from: chrome/browser/resources/bookmarks/bookmarks.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/bookmarks/bookmarks.html), [to: chrome/browser/resources/bookmarks/bookmarks.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/bookmarks/bookmarks.html): The chrome://bookmarks shell takes the same two attributes and the same background rule.
+- [to: chrome/browser/ui/ui_features.cc:67](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/ui_features.cc#67): kMenuSimplification and kWebuiRefresh2026 are declared FEATURE_DISABLED_BY_DEFAULT and both helper functions OR in kDesktopGlowUp.
+- [to: ui/base/ui_base_features.cc:505](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/ui/base/ui_base_features.cc#505): kDesktopGlowUp is declared FEATURE_DISABLED_BY_DEFAULT at 151; it does not exist at 148.
+- [to: ui/base/webui/web_ui_util.cc:187](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/ui/base/webui/web_ui_util.cc#187): roundedIconsAttribute is supplied to every WebUI by SetLoadTimeDataDefaults from features::IsRoundedIconsEnabled(), not by the two handlers in this event.
+
+## 3. The bookmarks side panel is rewritten from Polymer to Lit and split into app, header and row components
+
+Status: confirmed
+
+Before: At 148 the side panel is a Polymer page: power_bookmarks.html loads <power-bookmarks-list> from power_bookmarks_list.js, and power_bookmarks_list.html carries the whole toolbar in one template with [[...]] bindings, holding addCurrentTabButton, contextMenu, deleteButton, editButton, sortMenu, viewButton, the labels sortMenuA11yLabel, tooltipMore and tooltipMove, and the row id bookmark-[[item.id]]. power_bookmark_row.html.ts renders the tree recursively: it wraps power-bookmark-row-item in its own cr-expand-button#expandButton and, when expanded, emits a nested <power-bookmark-row id="bookmark-${item.id}"> per child.
+
+After: At 151 every Polymer .html template in that directory is replaced by a Lit .html.ts of the same name, power_bookmarks.html loads <power-bookmarks-app> from power_bookmarks_app.js, and the toolbar is split three ways: power_bookmarks_app.html.ts holds addCurrentTabButton, contextMenu, deleteButton and the labels tooltipMore and tooltipMove; power_bookmarks_list_header.html.ts holds editButton, sortMenu, viewButton and sortMenuA11yLabel; power_bookmarks_list.html.ts renders a flat cr-lazy-list whose template emits <power-bookmark-row id="bookmark-${item.bookmark.id}"> with an explicit item.depth. expandButton moves out of power_bookmark_row.html.ts into power_bookmark_row_item.html.ts as slot="prefix". power_bookmarks_add_folder_button.html.ts is new. bookmarks_side_panel_ui.cc adds the strings ok (IDS_OK), switchToCompactView and switchToVisualView.
+
+Mechanism: The tool paired the moves it could see: the five power_bookmarks_edit_dialog controls, power_bookmarks_context_menu/id:menu and shopping_list/id:arrowIcon are recorded as modified with a path delta from the .html to the .html.ts of the same name, which is a rename, not a UI change. The controls it recorded as removed from power_bookmarks_list and added under power_bookmarks_app or power_bookmarks_list_header are the same controls under new component names. The one substantive change inside the rewrite is the tree flattening: recursion moved out of power_bookmark_row into a flat displayList_ with a per-item depth, so the list virtualizes through cr-lazy-list instead of nesting elements. These items belong together because the .html/.html.ts pairs are byte-for-byte renames of one another's role and every removed id reappears under a new component in the same directory at the same ref.
+
+Impact: For a user this is intended to look the same, with the new add-folder button and the compact/visual view toggle labels as the visible additions. For a downstream product it is the most disruptive item in this review: any patch, test, or automation that selects #addCurrentTabButton, #deleteButton, #contextMenu, #editButton, #sortMenu, #viewButton, or a #bookmark-<id> row inside power-bookmarks-list will not find them, because those ids now live in power-bookmarks-app, power-bookmarks-list-header, or a flattened list. Polymer bindings in a forked template will not work in a Lit template.
+
+Conditions: No feature flag gates the rewrite: the Polymer templates are gone from the tree at 151, so both forms do not coexist. Note that new UI inside it can still be gated: see the separate menuSimplification event.
+
+Action: Re-point any downstream selector or patch in chrome/browser/resources/side_panel/bookmarks/ at the new component and file names, and port Polymer [[...]] bindings to Lit ${...}. Re-record any UI automation that walks the side panel bookmark tree, because rows are now siblings in one list rather than nested.
+
+Uncertainties: Whether the flattened list changes screen-reader tree semantics in practice was not verified; the templates set role="tree" on the list and aria-level on the row, but the rendered accessibility tree was not read.
+
+- `webui_control:side_panel/bookmarks/power_bookmark_row/id:bookmark-${item.id}` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts:42](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts#42): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmark_row/id:expandButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts:13](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts#13): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmark_row_item/id:expandButton` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts:30](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts#30): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_app/id:addCurrentTabButton` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts:63](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts#63): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_app/id:contextMenu` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts:113](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts#113): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_app/id:deleteButton` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts:77](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts#77): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_app/label:tooltipMore` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts:87](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts#87): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_app/label:tooltipMove` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts:82](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts#82): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_context_menu/id:menu` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html:12](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html#12), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html.ts:12](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html.ts#12): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_edit_dialog/id:nameInput` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html:112](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html#112), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts:19](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts#19): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_edit_dialog/id:newFolderButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html:170](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html#170), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts:78](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts#78): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_edit_dialog/id:newFolderInput` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html:135](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html#135), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts:41](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts#41): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_edit_dialog/id:saveFolderButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html:175](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html#175), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts:83](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts#83): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_edit_dialog/id:urlInput` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html:118](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html#118), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts:25](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts#25): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:addCurrentTabButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:389](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#389): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:bookmark-${item.bookmark.id}` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html.ts:56](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html.ts#56): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:bookmark-[[item.id]]` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:343](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#343): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:contextMenu` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:449](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#449): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:deleteButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:404](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#404): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:editButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:277](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#277): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:sortMenu` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:424](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#424): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/id:viewButton` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:272](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#272): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/label:sortMenuA11yLabel` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:265](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#265): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/label:tooltipMore` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:414](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#414): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list/label:tooltipMove` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:409](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#409): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list_header/id:editButton` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts:37](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts#37): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list_header/id:sortMenu` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts:46](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts#46): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list_header/id:viewButton` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts:31](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts#31): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/power_bookmarks_list_header/label:sortMenuA11yLabel` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts:24](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts#24): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `webui_control:side_panel/bookmarks/shopping_list/id:arrowIcon` · [from: chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html:242](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html#242), [to: chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html.ts:16](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html.ts#16): An extracted control in this rewrite: either removed from a Polymer template, added under a new Lit component, or recorded as modified with a path delta from .html to .html.ts.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks.html` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks.html), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list_header.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_app.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_add_folder_button.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_add_folder_button.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_add_folder_button.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_context_menu.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_edit_dialog.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_labels.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts` · [from: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts), [to: chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/power_bookmark_row_item.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html` · [from: chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html.ts` · [to: chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/commerce/shopping_list.html.ts): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/resources/side_panel/bookmarks/icons.html` · [from: chrome/browser/resources/side_panel/bookmarks/icons.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/icons.html), [to: chrome/browser/resources/side_panel/bookmarks/icons.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/bookmarks/icons.html): A source delta in the rewritten side panel directory; the .html/.html.ts pairs are recorded one_side_cached in opposite directions, which is the rename.
+- `file:chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc` · [from: chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc), [to: chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc): Adds the strings ok, switchToCompactView and switchToVisualView that the new header and dialog components consume.
+- [from: chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html:260](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/bookmarks/power_bookmarks_list.html#260): The 148 Polymer template is the single file that held the toolbar controls and the bookmarksTreeViewEnabled_ binding now gone from the tree.
+
+## 4. A menuSimplification gate is exposed to both bookmarks pages
+
+Status: confirmed
+
+Before: Neither handler supplies a menuSimplification value at 148; no file at that ref mentions IsMenuSimplificationEnabled.
+
+After: Both chrome://bookmarks (bookmarks_ui.cc) and the bookmarks side panel (bookmarks_side_panel_ui.cc) call source->AddBoolean("menuSimplification", features::IsMenuSimplificationEnabled()) at 151.
+
+Mechanism: IsMenuSimplificationEnabled() returns FeatureList::IsEnabled(kDesktopGlowUp) || FeatureList::IsEnabled(kMenuSimplification); both are FEATURE_DISABLED_BY_DEFAULT at 151 and both appear in about_flags.cc for kOsDesktop. The two gates are one change because the same boolean under the same key was added to both bookmarks handlers. It is kept apart from the WebUI refresh event because it is a different feature reading a different flag, even though both ride on kDesktopGlowUp.
+
+Impact: Off by source default on Windows, so no user-visible change without a flag or a trial. It gives the two bookmarks templates a switch for a simplified menu; what the templates do with it was not read.
+
+Conditions: Windows source default: disabled through both kMenuSimplification and kDesktopGlowUp. Desktop-only flag entries.
+
+Action: If the product forces kDesktopGlowUp on for the toolbar work, note that the same flag also turns on menuSimplification and the 2026 WebUI refresh in the bookmarks pages, which may not be intended.
+
+Uncertainties: What the bookmarks templates render differently when menuSimplification is true was not traced into the .ts sources.
+
+- `webui_gate:bookmarks_ui/menuSimplification` · [to: chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc:144](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc#144): Added gate on handler bookmarks_ui, boolean, expression features::IsMenuSimplificationEnabled().
+- `webui_gate:bookmarks_side_panel_ui/menuSimplification` · [to: chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc:215](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc#215): The identical gate on handler bookmarks_side_panel_ui, which is what makes the pair one change.
+- [to: chrome/browser/ui/ui_features.cc:90](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/ui_features.cc#90): IsMenuSimplificationEnabled() ORs kDesktopGlowUp with kMenuSimplification, both disabled by default at 151.
+
+## 5. The bookmarks side panel now opens in compact view by default instead of expanded
+
+Status: confirmed
+
+Before: RegisterProfilePrefs registered prefs::kBookmarksViewType with the default static_cast<int>(side_panel::mojom::ViewType::kExpanded).
+
+After: The same registration now defaults to static_cast<int>(side_panel::mojom::ViewType::kCompact).
+
+Mechanism: A one-line change to the registered default of an existing integer profile preference. The pref is unchanged in name and type, so this is a default change and not a migration.
+
+Impact: A user who has never toggled the side panel view sees the compact list instead of the expanded one after the upgrade. A profile that has the pref written keeps its own value, because a registered default only applies when the pref is unset. This is the clearest end-user-visible change in the two areas reviewed.
+
+Conditions: No feature flag and no platform condition; it applies on Windows. Whether a given profile is affected depends on whether kBookmarksViewType was ever written for it, which is per-profile state and not readable from source.
+
+Action: Expect support questions about the side panel 'changing layout' after the upgrade. If the product wants the old look, set the pref default back or push a policy; verify against a fresh profile, not an upgraded one, because an upgraded profile that already wrote the pref will not show the change.
+
+- `file:chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc` · [from: chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc), [to: chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/bookmarks/bookmark_prefs.cc): The single hunk in this file changes the registered default of kBookmarksViewType from ViewType::kExpanded to ViewType::kCompact.
+
+## 6. The BookmarksTreeView experiment is removed from the tree
+
+Status: confirmed
+
+Before: chrome/browser/browser_features.cc declared BASE_FEATURE(kBookmarksTreeView, base::FEATURE_DISABLED_BY_DEFAULT) with the comment that it enables an experiment for the bookmarks tree view in the side panel. browser_features.h declared it, about_flags.cc exposed it as bookmarks-tree-view for kOsDesktop, flag-metadata.json listed it, bookmarks_side_panel_ui.cc published it as the boolean bookmarksTreeViewEnabled, and power_bookmarks_list.html read bookmarksTreeViewEnabled_.
+
+After: At 151 none of kBookmarksTreeView, bookmarksTreeViewEnabled or bookmarks-tree-view appears anywhere in the cached tree: the declaration, the header, the about_flags entry, the flag-metadata entry, the AddBoolean call and the template binding are all gone.
+
+Mechanism: The flag was disabled by default on Windows at 148 and every reference to it disappears at 151, so this is the removal of an unlaunched experiment rather than a launch. The tree-view template code it guarded lived in power_bookmarks_list.html, which the Polymer-to-Lit rewrite replaced; the two changes overlap in that one file but are separate, because the rewrite renamed and re-split every other control in the directory whether or not it touched this flag.
+
+Impact: No user-visible change: the flag was off by default at 148 and its UI never shipped enabled. Anyone who had turned on chrome://flags#bookmarks-tree-view loses that flag entry. A downstream product that enabled kBookmarksTreeView in its own field-trial or master-preferences configuration is now setting a flag no code reads; that configuration is dead but harmless.
+
+Conditions: Windows platform_state at 148 was disabled, which is why removal cannot be read as a rollout. The finding is not marked unconfirmed, and a tree-wide search at the exact 151 ref found no replacement declaration.
+
+Action: Remove bookmarks-tree-view and kBookmarksTreeView from any product field-trial config, launch script or test that still names them.
+
+- `base_feature:BookmarksTreeView` · [from: chrome/browser/browser_features.cc:26](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/browser_features.cc#26): Recorded as removed with before.platform_state.windows = disabled and after = null; unconfirmed is false.
+- `webui_gate:bookmarks_side_panel_ui/bookmarksTreeViewEnabled` · [from: chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc:207](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/side_panel/bookmarks/bookmarks_side_panel_ui.cc#207): The handler-side gate is removed too, and its recorded expression base::FeatureList::IsEnabled(features::kBookmarksTreeView) is what ties it to the flag.
+
+## 7. Download history loading can be deferred, and chrome://downloads now forces it to initialize when the page opens
+
+Status: confirmed
+
+Before: No kDeferredDownloadHistoryLoading declaration exists at 148. DownloadsUI::CreatePageHandler went straight from Profile::FromWebUI to profile->GetDownloadManager().
+
+After: 151 declares BASE_FEATURE(kDeferredDownloadHistoryLoading, base::FEATURE_DISABLED_BY_DEFAULT) outside every BUILDFLAG block in components/download/public/common/download_features.cc, with the header comment 'Whether to defer download history loading until first use'. DownloadsUI::CreatePageHandler now calls DownloadCoreServiceFactory::GetForBrowserContext(profile) and, if non-null, service->InitializeHistory() before taking the download manager.
+
+Mechanism: The flag makes history loading lazy; the explicit InitializeHistory() call is the counterpart that guarantees the chrome://downloads page still sees history when the deferral is on. They belong together because the page would otherwise open against an unloaded history exactly when the flag is enabled. The InitializeHistory() call is unconditional, so it also runs with the flag off, where it is a no-op against an already-initialized service.
+
+Impact: With the flag off, which is the Windows source default, behaviour is unchanged; the added call is defensive. If the flag is turned on, browser startup does less work and the first open of chrome://downloads pays for loading history instead. Any downstream code that assumes download history is loaded early in profile startup would need to call InitializeHistory() itself under that flag.
+
+Conditions: Windows: declared outside IS_ANDROID and IS_CHROMEOS, default disabled, platform_state.windows recorded as disabled. There is no about_flags entry for it in the cached tree, so it is trial-only rather than user-togglable.
+
+Action: If the product reads download history during startup, find those call sites and confirm they still work when the flag is on before it is enabled in any trial.
+
+Uncertainties: Which code paths besides chrome://downloads now depend on an explicit InitializeHistory() was not traced; download_core_service.h is not in the cache at either ref.
+
+- `base_feature:DeferredDownloadHistoryLoading` · [to: components/download/public/common/download_features.cc:91](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/public/common/download_features.cc#91): Added feature with platform_state.windows disabled and an empty conditions list, so it is compiled on Windows.
+- `file:components/download/public/common/download_features.cc` · [from: components/download/public/common/download_features.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/public/common/download_features.cc), [to: components/download/public/common/download_features.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/public/common/download_features.cc): Shows the declaration added at the end of namespace features, after the closing #endif of BUILDFLAG(IS_ANDROID), so it is not Android-scoped.
+- `file:components/download/public/common/download_features.h` · [from: components/download/public/common/download_features.h](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/public/common/download_features.h), [to: components/download/public/common/download_features.h](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/public/common/download_features.h): Carries the comment that states the intent, 'Whether to defer download history loading until first use'.
+- `file:chrome/browser/ui/webui/downloads/downloads_ui.cc` · [from: chrome/browser/ui/webui/downloads/downloads_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/downloads/downloads_ui.cc), [to: chrome/browser/ui/webui/downloads/downloads_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_ui.cc): Adds the DownloadCoreService includes and the InitializeHistory() call in CreatePageHandler; the same file also carries the webuiRefresh2026 hunk belonging to the WebUI refresh event.
+
+## 8. Clearing downloads on chrome://downloads now permanently deletes items still being scanned
+
+Status: confirmed
+
+Before: DownloadsDOMHandler::RemoveDownloads called download->Remove() only when download->IsDangerous() || download->IsInsecure(); anything else was hidden from the list and could still be undone.
+
+After: The same loop computes should_remove from IsDangerous() || IsInsecure() and, when that is false, also from GetDangerType() being DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING or DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING, and calls download->Remove() for those too.
+
+Mechanism: A download undergoing an asynchronous Safe Browsing deep scan or a local password scan is not yet IsDangerous(), so at 148 it fell through to the soft path. The comment above the branch, 'Don't allow users to revive dangerous downloads; just nuke em', now covers in-flight scans as well. The unittest change is the same change: it adds RemoveDownloadsAsyncScanning and adds GetDangerType expectations to the two existing cases.
+
+Impact: A user who clears their download list while a file is still being scanned loses that download permanently instead of being able to undo it. This is a behaviour change users can hit without any flag.
+
+Conditions: No feature flag and no platform condition on the branch; it applies on Windows. Whether a download reaches the async-scanning danger types depends on Safe Browsing and enterprise-connector configuration.
+
+Action: If the product has its own downloads UI or an undo affordance, re-check what 'clear all' does to items in ASYNC_SCANNING. Update any test that expected an in-scan download to survive a clear.
+
+- `file:chrome/browser/ui/webui/downloads/downloads_dom_handler.cc` · [from: chrome/browser/ui/webui/downloads/downloads_dom_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/downloads/downloads_dom_handler.cc), [to: chrome/browser/ui/webui/downloads/downloads_dom_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_dom_handler.cc): The RemoveDownloads hunk that adds the should_remove computation over the two async danger types.
+- `file:chrome/browser/ui/webui/downloads/downloads_dom_handler_unittest.cc` · [from: chrome/browser/ui/webui/downloads/downloads_dom_handler_unittest.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/downloads/downloads_dom_handler_unittest.cc), [to: chrome/browser/ui/webui/downloads/downloads_dom_handler_unittest.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_dom_handler_unittest.cc): Adds TEST_F RemoveDownloadsAsyncScanning expecting Remove() for DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING, which is what confirms the intent of the production hunk.
+
+## 9. The bookmarks WebUI handler moves off Browser* to BrowserWindowInterface and the browser collections
+
+Status: confirmed
+
+Before: bookmarks_message_handler.cc included chrome/browser/ui/browser_finder.h and used chrome::FindLastActiveWithProfile(profile) and chrome::FindBrowserWithTab(web_contents), passing the resulting Browser* straight to BatchUploadService::OpenBatchUpload.
+
+After: browser_finder.h is gone. The handler includes global_browser_collection.h and profile_browser_collection.h and uses ProfileBrowserCollection::GetForProfile(profile)->GetLastActiveBrowser() and GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(...), then calls browser->GetBrowserForMigrationOnly() to reach the legacy Browser*.
+
+Mechanism: This is one step of an upstream migration away from the Browser class towards BrowserWindowInterface plus per-scope collections. The same substitution appears at 151 in downloads_dom_handler.cc, where chrome::FindBrowserWithTab becomes GlobalBrowserCollection::GetInstance()->FindBrowserWithTab, browser->window() becomes BrowserWindow::FromBrowser(browser) and browser->profile() becomes browser->GetProfile(); that file is accounted for under the clear-downloads event because that is what most of its diff is.
+
+Impact: Compile-level, and this is the item most likely to break a downstream patch: any product code in or around these handlers that calls chrome::FindBrowserWithTab, chrome::FindLastActiveWithProfile, Browser::window() or Browser::profile() must be rewritten against the new collections and BrowserWindowInterface. The GetBrowserForMigrationOnly() name signals that the legacy Browser* accessor is itself scheduled to go.
+
+Conditions: No flag; it is a source-level API change present on Windows. Note one behavioural detail visible in the diff: at 148 HandleOnBatchUploadPromoClicked passed a possibly null Browser* to OpenBatchUpload, and at 151 it dereferences browser->GetBrowserForMigrationOnly() without a null check on that path.
+
+Action: Grep the product tree for chrome::FindBrowserWithTab, chrome::FindLastActiveWithProfile and browser_finder.h and port them; expect the same migration to reach more files in later milestones.
+
+Uncertainties: Whether the unchecked browser->GetBrowserForMigrationOnly() in HandleOnBatchUploadPromoClicked can be reached with a null browser was not established; it needs the caller conditions in the .ts message sender.
+
+- `file:chrome/browser/ui/webui/bookmarks/bookmarks_message_handler.cc` · [from: chrome/browser/ui/webui/bookmarks/bookmarks_message_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/bookmarks/bookmarks_message_handler.cc), [to: chrome/browser/ui/webui/bookmarks/bookmarks_message_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/bookmarks/bookmarks_message_handler.cc): Contains both substitutions and the include swap; it is also where the ChromeOS un-gating hunks live, which belong to a separate event.
+
+## 10. BookmarksUI becomes a MojoWebUIController with chrome.send still enabled
+
+Status: confirmed
+
+Before: BookmarksUI::BookmarksUI(content::WebUI* web_ui) : WebUIController(web_ui) {}
+
+After: BookmarksUI::BookmarksUI(content::WebUI* web_ui) : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true) {}
+
+Mechanism: The base class of the chrome://bookmarks controller changes from the plain WebUIController to MojoWebUIController, with enable_chrome_send set true so the existing BookmarksMessageHandler chrome.send traffic keeps working. This is the prerequisite for binding Mojo interfaces from that page. It is kept separate from the new bookmarks_api.mojom event because nothing in the cached tree connects this controller to BookmarksService.
+
+Impact: A downstream subclass or patch of BookmarksUI must change its own base-class call and header. The page keeps both message channels, so no runtime behaviour changes by itself.
+
+Conditions: No flag, no platform condition.
+
+Action: If the product patches BookmarksUI or derives from it, update the constructor's base initializer and the include.
+
+Uncertainties: Which Mojo interface chrome://bookmarks is being prepared to bind is not established; no BindInterface override appears in the cached diff of this file.
+
+- `file:chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc` · [from: chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc), [to: chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/bookmarks/bookmarks_ui.cc): The constructor hunk showing the base-class change; the same file also carries the webuiRefresh2026, menuSimplification and ChromeOS string hunks, each accounted for in its own event.
+
+## 11. A new syncable bookmark_bar.visibility_state preference is added and the BookmarkBarEnabled policy now writes it
+
+Status: confirmed
+
+Before: components/bookmarks/common/bookmark_pref_names.h declared only kShowBookmarkBar = "bookmark_bar.show_on_all_tabs" for bookmark bar visibility. chrome/browser/bookmarks/bookmark_bar_policy_handler.cc does not exist in the cached tree at 148, and no cached file at that ref names key::kBookmarkBarEnabled.
+
+After: 151 adds kBookmarkBarVisibilityState = "bookmark_bar.visibility_state", an integer pref documented as mapping to bookmarks::BookmarkBarVisibilityState, and adds BookmarkBarPolicyHandler, a TypeCheckingPolicyHandler for key::kBookmarkBarEnabled whose ApplyPolicySettings writes both kShowBookmarkBar and the new integer, setting it to kAlwaysShow when the policy is true and kAlwaysHide when it is false. The enum, fetched at the exact 151 ref, is kAlwaysShow=0, kOnlyShowOnNtp=1, kAlwaysHide=2, with the comment that it is used for the kNtpSimplificationBookmarkBar feature and that its values are persisted to a syncable pref.
+
+Mechanism: The three-state pref exists so the bookmark bar can be shown only on the new tab page, which the old boolean could not express. The policy handler is added at the same time so that BookmarkBarEnabled keeps forcing a definite state once the three-state pref is what the UI reads. chrome/browser/extensions/api/settings_private/prefs_util.cc allow-lists the new pref as kNumber next to the existing boolean, so chrome://settings can read it.
+
+Impact: New persisted state, and it is syncable, so it will appear in profile data and travel between devices. For an enterprise deployment the BookmarkBarEnabled policy keeps working and now also pins the new state. A downstream product that reads kShowBookmarkBar directly will not see a user who has chosen 'only on the new tab page' once that path is enabled.
+
+Conditions: kNtpSimplificationBookmarkBar is BASE_FEATURE(..., FEATURE_DISABLED_BY_DEFAULT) at both 148 and 151 and is exposed in about_flags.cc for kOsDesktop, so the three-state behaviour is off by source default on Windows. The pref is registered and written regardless; only its effect on the bar is behind the feature.
+
+Action: If the product reads or writes bookmark_bar.show_on_all_tabs, plan to read bookmark_bar.visibility_state as well before kNtpSimplificationBookmarkBar is enabled anywhere. Confirm the product's policy handler list picks up BookmarkBarPolicyHandler if it maintains its own list.
+
+Uncertainties: Where BookmarkBarPolicyHandler is registered was not read: chrome/browser/policy/configuration_policy_handler_list_factory.cc is not in the cache at either ref, so how BookmarkBarEnabled was handled at 148 is unknown rather than absent. Next check: fetch that file at both refs and diff its BookmarkBarEnabled entry.; Which code reads kBookmarkBarVisibilityState to decide visibility was not found; the only cached readers are the policy handler and the settings_private allowlist.
+
+- `pref:bookmark_bar.visibility_state` · [to: components/bookmarks/common/bookmark_pref_names.h:49](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/bookmarks/common/bookmark_pref_names.h#49): Added pref with var kBookmarkBarVisibilityState; direction added, unconfirmed false.
+- `file:components/bookmarks/common/bookmark_pref_names.h` · [from: components/bookmarks/common/bookmark_pref_names.h](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/bookmarks/common/bookmark_pref_names.h), [to: components/bookmarks/common/bookmark_pref_names.h](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/bookmarks/common/bookmark_pref_names.h): The single hunk adding the constant and the comment that it maps to bookmarks::BookmarkBarVisibilityState.
+- `file:chrome/browser/bookmarks/bookmark_bar_policy_handler.cc` · [to: chrome/browser/bookmarks/bookmark_bar_policy_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/bookmarks/bookmark_bar_policy_handler.cc): New at 151; ApplyPolicySettings writes kShowBookmarkBar and kBookmarkBarVisibilityState together from the BookmarkBarEnabled policy.
+
+## 12. Downloads served by a service worker are no longer resumed through the in-progress download manager
+
+Status: confirmed
+
+Before: InProgressDownloadManager's resumption path returned early only when url_loader_factory_ was null, then called BeginDownload for any request. DownloadResponseHandler did not record whether the response came from a service worker, and CreateDownloadCreateInfo did not carry that bit.
+
+After: The resumption path returns early unless params->skip_service_worker_interception() is true, with a comment stating that a service-worker-served download resumed against url_loader_factory_ would fetch unrelated network bytes and corrupt the file, and that DownloadManagerImpl will re-attach and restart the download against the service worker. DownloadResponseHandler stores head->was_fetched_via_service_worker into fetched_via_service_worker_, copies it into create_info->fetched_via_service_worker, and passes it to HandleRequestCompletionStatus.
+
+Mechanism: The two files are one change: the response handler is what learns and propagates the service-worker origin of the bytes, and the in-progress manager is what acts on it by declining to resume. The comment in the manager states the invariant it relies on, that skip_service_worker_interception is set to true exactly when the original was network-fetched.
+
+Impact: A user resuming an interrupted download that was originally served by a service worker gets a correct file instead of a corrupted one; the resume is routed through DownloadManagerImpl rather than being dropped. This is a data-correctness fix, and downloads are in the reviewed scope, so it is worth verifying even though it is not flag-gated.
+
+Conditions: No feature flag and no platform condition; it applies on Windows. It depends on network.mojom.URLResponseHead.was_fetched_via_service_worker being populated, which is the network service's job.
+
+Action: If the product carries patches in components/download/internal/common/, expect conflicts in both files. Test resuming a download from a site that serves it via a service worker.
+
+Uncertainties: Whether every resume path reaches DownloadManagerImpl as the comment asserts was not verified; download_manager_impl.cc was not read at either ref.
+
+- `file:components/download/internal/common/in_progress_download_manager.cc` · [from: components/download/internal/common/in_progress_download_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/internal/common/in_progress_download_manager.cc), [to: components/download/internal/common/in_progress_download_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/internal/common/in_progress_download_manager.cc): The added early return on !params->skip_service_worker_interception() with the corruption rationale in the comment.
+- `file:components/download/internal/common/download_response_handler.cc` · [from: components/download/internal/common/download_response_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/internal/common/download_response_handler.cc), [to: components/download/internal/common/download_response_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/internal/common/download_response_handler.cc): Records was_fetched_via_service_worker on the handler and on the create info and passes it into HandleRequestCompletionStatus, which is the signal the other file consumes.
+
+## 13. Saving a page as MHTML switches from a duplicated file handle to a Mojo data pipe and refuses to follow symlinks
+
+Status: confirmed
+
+Before: The browser opened the destination file with FLAG_CREATE_ALWAYS | FLAG_APPEND and handed the renderer a duplicated base::File through mojom::MhtmlOutputHandle::NewFileHandle. A mojo::SimpleWatcher plus a consumer handle on the job drained data, and the watcher was passed around and reset by hand.
+
+After: The file is opened with FLAG_CREATE_ALWAYS | FLAG_APPEND | FLAG_NO_FOLLOW. The job creates a Mojo data pipe and hands the renderer NewProducerHandle instead of a file handle; a new MHTMLDataPipeReader, owned through base::SequenceBound on the download task runner, drains the pipe and writes to the file. The watcher and its handle are removed from the job, and tracing moves to a NamedTrack.
+
+Mechanism: One change with two consequences: the renderer no longer holds a writable file descriptor for the target path, and FLAG_NO_FOLLOW makes the browser refuse to open the path through a symlink. The comments added around Complete() and MarkAsFinished() document the use-after-free and double-finish hazards the new asynchronous ownership introduces and how they are handled.
+
+Impact: Users see the same Save page as MHTML result. For the product this narrows what a compromised renderer can do with the save target and changes behaviour on a path that goes through a symlink, where the save now fails instead of writing through it. Any downstream patch in mhtml_generation_manager.cc will conflict substantially.
+
+Conditions: No feature flag. FLAG_NO_FOLLOW is meaningful on Windows for reparse points; the exact Windows semantics were not verified against base::File's implementation.
+
+Action: If the product or its tests save MHTML to a path that is a symlink or a junction, re-test it. Re-base any patch in this file.
+
+Uncertainties: How base::File::FLAG_NO_FOLLOW behaves for Windows junctions and reparse points was not read; base/files/file_win.cc is not in the cache.
+
+- `file:content/browser/download/mhtml_generation_manager.cc` · [from: content/browser/download/mhtml_generation_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/content/browser/download/mhtml_generation_manager.cc), [to: content/browser/download/mhtml_generation_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/content/browser/download/mhtml_generation_manager.cc): Contains the flag change, the MHTMLDataPipeReader class, the NewFileHandle to NewProducerHandle swap and the removal of the SimpleWatcher member.
+
+## 14. Save-page quarantine stops passing the source URL for off-the-record saves
+
+Status: confirmed
+
+Before: SaveFileManager::QuarantineItem took the url as a bound parameter and the caller decided at bind time, passing GURL() when the context was off the record; the callback type was base::OnceClosure.
+
+After: The callback type is base::OnceCallback<void(const GURL&)>, the url arrives when the callback runs, and QuarantineItem takes a bool is_off_the_record and passes is_off_the_record ? GURL() : url to AnnotateWithSourceInformation. The include of child_process_security_policy_impl.h also moves to content/browser/security/cpsp/.
+
+Mechanism: The same off-the-record suppression is kept, moved from bind time to call time so the real URL can be supplied later while still being withheld from the quarantine annotation in incognito.
+
+Impact: No user-visible change intended: an incognito save still records no source URL in the Zone.Identifier data that Windows quarantine writes. It is worth listing because it touches what the product writes into file metadata on Windows, and because the callback signature change will break a downstream patch in this file.
+
+Conditions: No flag. The quarantine annotation itself is the Windows Mark of the Web path.
+
+Action: If the product patches SaveFileManager or hooks quarantine, update the callback signature. Verify on Windows that an incognito 'save page as' still produces no source URL in the alternate data stream.
+
+- `file:content/browser/download/save_file_manager.cc` · [from: content/browser/download/save_file_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/content/browser/download/save_file_manager.cc), [to: content/browser/download/save_file_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/content/browser/download/save_file_manager.cc): Shows the callback type change, the added is_off_the_record parameter and the moved url argument.
+
+## 15. network.mojom.URLResponseHead.headers becomes nullable
+
+Status: confirmed
+
+Before: struct URLResponseHead declared HttpResponseHeaders headers, a non-nullable field.
+
+After: It declares HttpResponseHeaders? headers, and the struct now imports http_response_headers.mojom, auth.mojom and ssl_info.mojom directly.
+
+Mechanism: A nullability change on a field of a shared network struct. It reaches this review because the download path consumes URLResponseHead: DownloadResponseHandler::OnReceiveResponse reads head->headers and already guards it with if (head->headers), and CreateDownloadCreateInfo passes head.headers.get() to HandleResponseHeaders.
+
+Impact: An IPC contract change on a struct that every network consumer deserializes. Generated C++ makes the field an optional type, so code that reads it without a null check will not compile after the merge. The download code in this review is already null-safe. This is a declaration change: it does not by itself prove any peer fails, and because the struct is not [Stable], mixed-revision peers were never supported.
+
+Conditions: No platform condition. The change matters wherever product code reads URLResponseHead::headers, which is far outside Downloads.
+
+Action: Grep the product tree for URLResponseHead headers accesses and add null handling where the compiler now demands it. This is a whole-tree task, not a downloads task.
+
+Uncertainties: Which product consumers read this field is unknown: the product's own source is not part of this comparison.
+
+- `mojo_field:network.mojom.URLResponseHead.headers` · [from: services/network/public/mojom/url_response_head.mojom:54](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/services/network/public/mojom/url_response_head.mojom#54), [to: services/network/public/mojom/url_response_head.mojom:57](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/services/network/public/mojom/url_response_head.mojom#57): Recorded as modified with the type delta HttpResponseHeaders to HttpResponseHeaders?, selected into this packet as a dependency of the download response path.
+
+## 16. Bookmarks sync gains a no-op conflict resolution that keeps the local state
+
+Status: confirmed
+
+Before: On a conflict the handler acknowledged the sequence number before deciding, and it had two outcomes: changes match, or the server wins and the local model is overwritten. A locally deleted entity was always restored from server data as a remote creation. The already-seen check compared metadata().server_version() directly.
+
+After: Two branches are added on tracked_entity->MatchesBaseData(update_entity): when the local node was deleted, the remote update is treated as a no-op and the local deletion wins; when the local node was updated, the local update wins and the remote is ignored. Both record ConflictResolution::kIgnoreRemoteNoOpUpdate and only bump the server version. AckSequenceNumber moved out of the common path into the two branches that still need it, the version check goes through IsVersionAlreadyKnown, and creation uses AddRemote instead of Add.
+
+Mechanism: MatchesBaseData identifies a remote update whose content equals the base the local change was made against, which the comment attributes to a server-side migration. Acknowledging the sequence number unconditionally would have squashed the pending local commit; moving it is what makes the local change survive.
+
+Impact: A user whose bookmarks are synced is less likely to see a local rename or deletion reverted by a server-side no-op update. There is no flag, so the new resolution applies as soon as the milestone ships.
+
+Conditions: No flag and no platform condition. It only takes effect for profiles with bookmark sync active.
+
+Action: If the product runs its own sync server or replays sync traffic in tests, re-check bookmark conflict expectations; the kIgnoreRemoteNoOpUpdate outcome is new and will show up in the ConflictResolution histogram.
+
+Uncertainties: MatchesBaseData and IsVersionAlreadyKnown are new members of SyncedBookmarkTrackerEntity; synced_bookmark_tracker_entity.cc is not in the cache, so their exact comparison was not read.
+
+- `file:components/sync_bookmarks/bookmark_remote_updates_handler.cc` · [from: components/sync_bookmarks/bookmark_remote_updates_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/sync_bookmarks/bookmark_remote_updates_handler.cc), [to: components/sync_bookmarks/bookmark_remote_updates_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/sync_bookmarks/bookmark_remote_updates_handler.cc): Contains both new MatchesBaseData branches, the moved AckSequenceNumber calls and the Add to AddRemote change.
+
+## 17. The bookmarks batch-upload promo is un-gated on ChromeOS
+
+Status: confirmed
+
+Before: chrome/browser/resources/bookmarks/list.html.ts wrapped <promo-card id="promoCard"> in <if expr="not is_chromeos">, and the C++ side guarded the promo strings, the promo subtitle and the three batch-upload handlers with #if !BUILDFLAG(IS_CHROMEOS).
+
+After: The <if expr> wrapper is gone from the template, and bookmarks_ui.cc and bookmarks_message_handler.cc drop every #if !BUILDFLAG(IS_CHROMEOS) around bookmarkPromoCardTitle, saveToAccount, the promo subtitle and the HandleOnBatchUploadPromo handlers.
+
+Mechanism: One change spread over a template and two C++ files: the platform exclusion is removed in all three places at once. The template is the item recorded for it here because the two C++ files carry larger separate changes accounted for in their own events.
+
+Impact: No change on Windows: the promo card, its strings and its handlers were already compiled and shown there. The effect is that ChromeOS now gets the promo too. It is recorded so the report does not mistake the removal of a platform guard for a new feature on Windows.
+
+Conditions: The guard removed was BUILDFLAG(IS_CHROMEOS), so the Windows build is identical before and after.
+
+Action: None for a Windows product.
+
+- `file:chrome/browser/resources/bookmarks/list.html.ts` · [from: chrome/browser/resources/bookmarks/list.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/bookmarks/list.html.ts), [to: chrome/browser/resources/bookmarks/list.html.ts](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/bookmarks/list.html.ts): The only hunk in this file removes the <if expr="not is_chromeos"> wrapper around the promo card.
+- [to: chrome/browser/ui/ui_features.cc:100](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/ui_features.cc#100): Placeholder for the shared 151 ui_features state already cited; the ChromeOS un-gating hunks themselves are in bookmarks_ui.cc and bookmarks_message_handler.cc, which are members of other events.
+
+## 18. The dangerous-download warning metric is only recorded for downloads that are actually dangerous
+
+Status: confirmed
+
+Before: CreateDownloadData called MaybeRecordDangerousDownloadWarningShown(download_model) for every row it built.
+
+After: The call is wrapped in if (download_model.IsDangerous()). The same hunk range also drops a redundant = std::nullopt initialiser and renumbers two crbug links.
+
+Mechanism: A guard added around a metrics call. The unittest file changes only a crbug number in a comment, which is why it is grouped here rather than given its own event.
+
+Impact: No user-visible change. Downloads-page metrics for dangerous-warning impressions stop counting non-dangerous rows, so a dashboard comparing across this upgrade will show a step change that is a measurement fix, not a behaviour change.
+
+Conditions: No flag, no platform condition.
+
+Action: If the product tracks this metric, annotate the milestone boundary before comparing 148 and 151 numbers.
+
+- `file:chrome/browser/ui/webui/downloads/downloads_list_tracker.cc` · [from: chrome/browser/ui/webui/downloads/downloads_list_tracker.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/downloads/downloads_list_tracker.cc), [to: chrome/browser/ui/webui/downloads/downloads_list_tracker.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_list_tracker.cc): The IsDangerous() guard added around MaybeRecordDangerousDownloadWarningShown.
+- `file:chrome/browser/ui/webui/downloads/downloads_list_tracker_unittest.cc` · [from: chrome/browser/ui/webui/downloads/downloads_list_tracker_unittest.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui/downloads/downloads_list_tracker_unittest.cc), [to: chrome/browser/ui/webui/downloads/downloads_list_tracker_unittest.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui/downloads/downloads_list_tracker_unittest.cc): Its only hunk renumbers a crbug link in a comment about the same verdict logic, with no assertion change.
+
+## 19. The WebUI browser bookmark bar gets its initial state and reacts to bookmarks moving
+
+Status: confirmed
+
+Before: The handler's constructor populated the bar from the BookmarkModel but never pushed a bookmark bar state to the page. BookmarkNodeMoved was a TODO(webium) stub that did nothing.
+
+After: The constructor calls SetBookmarkBarState(BookmarkBarController::From(browser_)->bookmark_bar_state(), BookmarkBar::AnimateChangeType::DONT_ANIMATE_STATE_CHANGE). BookmarkNodeMoved now calls page_->BookmarkLoaded() when either the old or the new parent is the bookmark bar node.
+
+Mechanism: Both hunks fill in state propagation the handler was missing, so the WebUI bar matches the browser's state on creation and refreshes when a bookmark moves in or out of the bar.
+
+Impact: Only affects the experimental WebUI browser surface, which is not the shipping bookmark bar. It is included because it is a bookmarks-area source change that the path filters reach, and it shows the WebUI browser work continuing across these two milestones alongside the new bookmarks Mojo API.
+
+Conditions: Whether the WebUI browser surface is reachable in a shipped Windows build was not established from source.
+
+Action: None unless the product is following the WebUI browser work.
+
+Uncertainties: What enables the WebUI browser surface was not read at either ref.
+
+- `file:chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc` · [from: chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc), [to: chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc): Contains the SetBookmarkBarState call added to the constructor and the BookmarkNodeMoved implementation replacing the TODO.
+
