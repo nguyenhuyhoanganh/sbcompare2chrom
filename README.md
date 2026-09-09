@@ -89,7 +89,7 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
-tar czf chromiumdiff.tgz chromiumdiff/ tests/ skills/ docs/ README.md
+tar czf chromiumdiff.tgz chromiumdiff/ scripts/ tests/ skills/ docs/ README.md
 # on the target machine, in an empty directory
 tar xzf chromiumdiff.tgz
 python3 -m chromiumdiff --version
@@ -175,6 +175,12 @@ retrieval. The agent records evidence-backed event decisions with `record`;
 stale inputs. Accounting completion does not certify semantic completeness.
 See the [decision and refresh procedure](skills/analyzing-chromium-upgrades/reference/investigation.md)
 and [independent evaluation protocol](docs/review-evaluation.md).
+
+A review can also record an explicit item selection for the user's scope.
+`review check --scope` and `review render --require-scope-complete` check that
+selection while preserving whole-index counts and any PARTIAL status. See the
+[scope record](skills/analyzing-chromium-upgrades/reference/scope.md); a path
+filter returning no rows does not define or complete the scope.
 
 The evaluation workflow includes `prepare-trial`, `run-trial`, `collect-trial`
 and `evaluate --adjudication ... --manifests ...`. Source-pinned case specs and
@@ -1290,4 +1296,15 @@ Every stage reads and writes JSON, so any stage can be run, inspected and re-run
 
 ## Further reading
 
+- Shared command-line helpers: [scripts/why.py](scripts/why.py) and
+  [scripts/cl.py](scripts/cl.py). Both skills use these repository-level
+  scripts and keep their own references. Cross-skill handoffs name the skill
+  and its task rather than calling files inside another skill.
+- `why.py --retry` repeats a lookup with cached successful requests;
+  `--refresh` refetches Gerrit data. Text and JSON disclose incomplete lookups
+  (exit 3); input/save failures return 2. `cl.py --offset N --limit N` pages
+  matching file diffs and reports omitted files.
+- Root-cause evaluation uses `review prepare-trial --task-type root-cause`,
+  `root-assessment-template` and `root-evaluate`. Source-pinned cases and
+  separately held rubrics are described in the [evaluation protocol](docs/review-evaluation.md).
 - **[skills/analyzing-chromium-upgrades/SKILL.md](skills/analyzing-chromium-upgrades/SKILL.md)** — the knowledge pack for an agent: the triage procedure, the signal reference, and the traps verified against real data. The valuable part is not how to run the commands, but the knowledge that stops an agent reaching a wrong conclusion.

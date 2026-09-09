@@ -163,14 +163,14 @@ When one holds, the row is not answered. Go back to the other CLs on it, raise
 
 ```bash
 # what the CL says about itself, and which files it touched
-python3 skills/investigating-chromium-root-causes/scripts/cl.py 7982397
+python3 scripts/cl.py 7982397
 
 # the diff of one file, marking only changed lines carrying the value
-python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+python3 scripts/cl.py \
   7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
 
 # the whole diff of that file, no marking
-python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+python3 scripts/cl.py \
   7982397 federated_auth_request.mojom --context 0
 ```
 

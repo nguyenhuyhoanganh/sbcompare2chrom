@@ -1,0 +1,21 @@
+{
+  "id": "root-cause-147-151-comment-only",
+  "question": "Our media session stopped working after upgrading from 147.0.7727.139 to 151.0.7922.138. What does the supplied change in media_session.mojom establish about the cause?",
+  "refs": {
+    "from": "refs/tags/147.0.7727.139",
+    "to": "refs/tags/151.0.7922.138"
+  },
+  "files": [
+    "services/media_session/public/mojom/media_session.mojom"
+  ],
+  "context_files": [],
+  "sha256": {
+    "from": {
+      "services/media_session/public/mojom/media_session.mojom": "e72d6a21c9d8c1a6737fcb20678e94b25b4bbc5a1cefc090a9e05eb328b01086"
+    },
+    "to": {
+      "services/media_session/public/mojom/media_session.mojom": "06fca2b3a95513b6f9013db07b785ba718e7e3aae8f9426f30ff6bf7ef5c0f9b"
+    }
+  },
+  "history_files": {}
+}

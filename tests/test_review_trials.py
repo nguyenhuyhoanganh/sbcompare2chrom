@@ -3,9 +3,11 @@
 import copy
 from contextlib import redirect_stdout
 import io
+import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from chromiumdiff import evidence, review, review_eval, review_trials
@@ -164,6 +166,18 @@ class TestTrialRunner(unittest.TestCase):
 
     def prepare(self, name="trial", **kwargs):
         return review_trials.prepare(self.spec, str(Path(self.tmp.name) / name), self.cache, **kwargs)
+
+    def test_staged_workspace_can_run_shared_helpers(self):
+        metadata = self.prepare()
+        workspace = Path(metadata["workspace"])
+        for name in ("why.py", "cl.py"):
+            result = subprocess.run(
+                [sys.executable, "-I", str(workspace / "scripts" / name), "--help"],
+                cwd=self.tmp.name, capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        with patch.object(review, "__file__", str(workspace / "chromiumdiff/review.py")):
+            self.assertEqual(review.implementation_identity()["tool_sha256"],
+                             metadata["implementation"]["tool_sha256"])
 
     def test_answer_free_staging_with_raw_source_and_example_ablation(self):
         metadata = self.prepare(reference_mode="core")

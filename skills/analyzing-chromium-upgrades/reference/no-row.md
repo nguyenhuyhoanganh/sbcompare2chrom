@@ -123,4 +123,4 @@ block retain additional retrieval limits from an earlier saved lookup.
 Do not treat inaccessible issues as supporting evidence. When saving new
 lookup results, preserve the review's cache and Git configuration during
 refresh, as described in the local
-[saved-input procedure](review-inputs.md).
+[saved-input procedure](investigation.md).

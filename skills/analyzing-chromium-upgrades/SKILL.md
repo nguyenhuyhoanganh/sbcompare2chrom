@@ -5,6 +5,12 @@ description: Compares two Chromium versions with the chromiumdiff scripts and ex
 
 # Analyzing Chromium upgrades
 
+Shared executable helpers live in the repository-root `scripts/` directory.
+Read references from this skill's own `reference/` directory. To hand work to
+another skill, name that skill and its task; do not call its scripts or read
+its reference files directly.
+Read [reference/handoff.md](reference/handoff.md) when transferring a task.
+
 The script reads declarations out of two Chromium versions and lists the
 differences. You work out what each difference means, what it affects, and
 what the user has to check or change. Buckets, scores, signals and clusters
@@ -285,6 +291,10 @@ recording a different set of items instead does not pass.
 
 ## Step 7 — Repeat 4 to 6 until the scope is accounted for
 
+For a selected area, record its indexed items using
+[reference/scope.md](reference/scope.md). Include source deltas and required
+supporting items, not just findings returned by a path or kind filter.
+
 ```bash
 python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
 ```
@@ -313,7 +323,9 @@ items back to pending.
 **Checkpoint 7.** `index --status pending` with the scope's filters returns no
 rows, you have gone back to the provisional events, and you have read `review
 check` for the whole-index numbers. An empty filtered query on its own does
-not pass: the filter may be wrong instead of the work being finished.
+not pass: the filter may be wrong instead of the work being finished. For a
+selected scope, `review check --scope` must also pass against its saved item
+selection. Confirm that selection still covers the user's request.
 
 ## Step 8 — Render the review
 
@@ -321,10 +333,10 @@ not pass: the filter may be wrong instead of the work being finished.
 python3 -m chromiumdiff review render out/upgrade/review
 ```
 
-Add `--require-complete` only when you reviewed the whole index. It exits 1
-and writes nothing while any item or event is unfinished. A review limited to
-one scope never gets there, because the items outside that scope stay pending,
-so run it without the option and let the report say PARTIAL. If you had to
+Add `--require-complete` when you reviewed the whole index. For a recorded
+selected scope, use `--require-scope-complete` instead. Both refuse to write
+while their respective work is unfinished. The scope gate keeps whole-index
+PARTIAL visible and reports selected-scope completion separately. If you had to
 stop early because you ran out of budget or because evidence was missing, say
 which of the two it was, and give the numbers and what to check next. Never
 get past a failed check by changing items you did not look at to `explained`
@@ -353,53 +365,81 @@ Ask where the result should go:
 
 For Confluence, use the `managing-confluence` skill and give it the page the
 user named. If that skill is not available in this run, say so and write the
-document instead. Do not publish any other way, and do not guess a page the
-user did not name.
+document instead. Do not publish any other way. Do not guess a page the user
+did not name.
 
 Otherwise write the document to `out/upgrade/review/delivery.md` and tell the
 user where it is. `render` does not touch that file.
 
-Both the page and the document have the same three parts, in this order.
+The page and the document hold the same three parts, in this order.
 
-**1. What this run looked at.** The exact `from_ref` and `to_ref`, the
-platform, the areas and kinds the user asked for, and the path to the review
-directory. If the reader does not know which two builds were compared, the
-rest of the page is no use to them.
+### Part 1 — What this run compared
 
-**2. The changes.** One row per event. Put the rows the user said matter most
-at the top; do not sort by score.
+Put these at the top:
+
+- the two versions, as the exact `from_ref` and `to_ref`;
+- the platform;
+- the areas and the kinds of declaration the user asked for at step 1;
+- the path to the review directory.
+
+Without these the reader cannot tell what the table below is about.
+
+### Part 2 — The table of changes
+
+One row per event. Put the rows the user said matter most at the top. Do not
+sort by score.
 
 | Change | What it means | Evidence | Verify |
 |---|---|---|---|
-| Feature flag X enabled by default | Windows users get X without a flag | `base_feature:X`, `chrome/browser/x/features.cc:42` | Not verified |
+| Feature flag X enabled by default | Windows users get X without turning on a flag | `base_feature:X`, `chrome/browser/x/features.cc:42` | Not verified |
 
-`Change` says what happened. Do not put the bucket, the score or the
-identifier there on its own. `What it means` says what someone will notice, or
-what this product has to change, written in the user's language. `Evidence`
-lists the finding IDs and the source file and line at each version, so the
-reader can open them. `Verify` starts as `Not verified` on every row. It is
-there for a person to fill in after they check the row: on Confluence use a
-grey status marker, so the rows nobody has checked are easy to spot; a plain
-document has no colours, so it just says the same words. You MUST NOT change a
-row to verified. Only a person can do that check. The tool cannot do it and
-neither can you.
+What goes in each column:
 
-**3. What this run did not look at.** Put this under its own heading on the
-same page or in the same document, not in a small note at the bottom. Copy
-across from `review.md` what the run measured: how many declaration files it
-read on each side, the directories where it read the fewest, and the files no
-target reads at all. Then add what this method cannot do at all. It compares
-declarations, not what the code does. A file no parser understands never shows
-up in the findings, whether it changed or not. Finch, configuration outside
-the binary, patches this product carries and the UI as rendered all need their
-own evidence. Say how many items were left outside the scope the user asked
-for. The reader has to be able to tell what it means when something is not in
-the table.
+- **Change** — what happened. Not the bucket, the score, or the identifier on
+  its own.
+- **What it means** — what a user will notice, or what this product has to
+  change. Write it in the user's language.
+- **Evidence** — the finding IDs, and the file and line in each version, so
+  the reader can open them.
+- **Verify** — always `Not verified` when you write the table.
+
+The `Verify` column is there because the tool only reads code. It never runs
+it. Every row says what the source says, and nobody has checked it on a real
+build yet. A person fills this column in after they check the row.
+
+On Confluence, use a grey status marker, so the rows nobody has checked are
+easy to see. A plain document has no colours, so it just says the words.
+
+You MUST NOT change a row to verified. Only a person can do that check.
+
+### Part 3 — What this run did not compare
+
+Put this under its own heading, on the same page or in the same document. Do
+not put it in a small note at the bottom.
+
+Copy these three numbers from `review.md`:
+
+- how many declaration files the run read on each side;
+- the directories where it read the fewest;
+- the files no target reads at all.
+
+Then say what this method cannot do at all:
+
+- it compares declarations, not what the code does;
+- a file no parser understands never appears in the findings, whether it
+  changed or not;
+- Finch, configuration outside the binary, patches this product carries, and
+  the UI as rendered all need their own evidence.
+
+Then say how many items were left outside the scope the user asked for.
+
+This part is what lets the reader tell two different things apart: "nothing
+changed here" and "the tool never looked here". Without it, an empty table
+reads as good news.
 
 **Checkpoint 9.** The page or the document exists, it has all three parts, and
 every row of the table says `Not verified`. A table with no part 1 or no part
-3 does not pass: the reader cannot tell what the rows cover, and cannot tell
-what it means when something is missing from them.
+3 does not pass.
 
 ## Query mechanics
 

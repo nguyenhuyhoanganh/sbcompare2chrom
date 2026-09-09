@@ -96,7 +96,7 @@ python3 -m chromiumdiff review prepare-trial \
 
 Pass `--cache /path/to/cache` if nondefault. Missing/mismatched sources fail
 explicitly; preparation does not fetch or invent empty files. Each workspace
-contains the executable package, skill, `TASK.md`, source-derived report and
+contains the executable package, shared scripts, selected skill, `TASK.md`, source-derived report and
 exact-version cache. It excludes tests, gold and prior reviews. `core` replaces
 the analysis skill's domain references with neutral notices and keeps the
 scoping, focused retrieval, analysis and history references with their Chromium
@@ -209,6 +209,72 @@ named M148→M151 scenarios remain regression questions, not a blind discovery
 benchmark. The two source-pinned cases add reproducible cross-version inputs,
 source-first rubrics, isolation, ablation and execution/adjudication commands.
 They are a small evaluation corpus, not broad semantic certification.
+
+## Independent root-cause trials
+
+Root-cause trials use the same staging and runner commands, with their own
+question, output and assessment contract. Each workspace contains only
+`investigating-chromium-root-causes`, shared executable tools, complete source
+files at pinned refs and any explicitly hash-pinned Gerrit probe responses.
+The selected skill uses its own references. Gold, tests, named evaluation
+answers and earlier trials are excluded from the workspace.
+
+The corpus in `tests/fixtures/root_cause_cases` covers a TokenError URL-type
+transition with frozen CL evidence (148.0.7778.217 → 151.0.7922.138), a
+comment-only MediaSession change, and an unchanged file-access declaration
+file (both 147.0.7727.139 → 151.0.7922.138). Whole source files, not extracted
+answer snippets, are staged. Rubrics in `tests/fixtures/root_cause_gold` were
+authored from those raw files and cached CL responses; they require an
+independent reviewer and are not certified gold or a held-out release benchmark.
+
+Run from the repository root, using a new directory for every trial:
+
+```bash
+python3 -m chromiumdiff review prepare-trial \
+  tests/fixtures/root_cause_cases/root-cause-148-151-token-error.json \
+  --task-type root-cause --reference-mode core --directory /path/to/root-trial-1 \
+  --cache /path/to/source-and-gerrit-cache
+python3 -m chromiumdiff review run-trial /path/to/root-trial-1 --runner /path/to/runner.json
+```
+
+The runner format is the one above. An interactive independent run can use
+`collect-trial` with the runner identity instead. The answer is `answer.md` at
+the workspace root; a review ledger is optional. `core` removes the entrypoint's
+worked answer and withholds example-heavy finding/symptom/CL references while
+retaining operational procedures. `full` keeps the skill as shipped. Compare
+these variants separately. Trials run offline: a missing CL or issue limits
+the answer rather than authorizing a fetch. Staging pins bytes; the external
+runner must enforce offline access and isolation.
+
+Collection records the answer hash, input hashes, executable/skill identity,
+runner and actual execution record. A nonempty answer is only an artifact,
+not a semantic pass. An independent reviewer assesses the entire answer:
+
+```bash
+python3 -m chromiumdiff review root-assessment-template \
+  tests/fixtures/root_cause_gold/root-cause-148-151-token-error.json \
+  /path/to/root-trial-1 --output /path/outside-trials/root-assessment.json
+python3 -m chromiumdiff review root-evaluate \
+  tests/fixtures/root_cause_gold/root-cause-148-151-token-error.json \
+  /path/to/root-trial-1 --adjudication /path/outside-trials/root-assessment.json
+```
+
+Supply all trial directories to both commands when evaluating repetitions;
+one is shown only to illustrate arguments. The template starts unresolved.
+Set `reviewer`, `provenance`, `answer_reviewed`, and every check (`transition`,
+`cause`, `symptom`, `uncertainty`, `citations`) with a verdict, reason and
+evidence citations. Record all unsupported claims, including statements not
+covered by the core rubric; use an explicit empty list only after checking
+the whole answer. Changed answers or gold invalidate the assessment.
+
+A pass requires at least five distinct successful executions for the same
+case/evidence/tool/skill/runner profile, a verified context limit ≤200k, every
+semantic check passing and no major unsupported claim. Unassessed, failed,
+stale or incomplete trials cannot pass. The command returns 1 unless this
+gate passes for the frozen case and runner. The scorer verifies records, not
+the identity or honesty of the reviewer, the actual enforcement of runner
+limits, or semantic truth by itself. No completed independent root-cause
+benchmark is claimed by adding this infrastructure or its synthetic tests.
 
 On 2026-09-08, `python3 -m unittest discover -s tests -q` passed **615 tests**;
 compilation, diff whitespace checks and the skill creator's `quick_validate.py`

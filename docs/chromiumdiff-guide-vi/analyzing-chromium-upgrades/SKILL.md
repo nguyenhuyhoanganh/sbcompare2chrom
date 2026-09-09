@@ -5,6 +5,12 @@ description: Compares two Chromium versions with the chromiumdiff scripts and ex
 
 # Phân tích một đợt nâng version Chromium
 
+Script dùng chung nằm trong thư mục `scripts/` ở root của repository.
+Đọc reference trong thư mục `reference/` của chính skill này. Khi chuyển việc
+sang skill khác, gọi bằng tên skill và nêu nhiệm vụ; không gọi script hay đọc
+file reference của skill đó trực tiếp.
+Đọc [reference/handoff.md](reference/handoff.md) khi chuyển một tác vụ.
+
 Script đọc các khai báo ra từ hai version Chromium rồi liệt kê khác biệt. Bạn
 là người tìm ra mỗi khác biệt đó có nghĩa gì, ảnh hưởng tới đâu, và user phải
 kiểm hay sửa gì. Bucket, score, signal và cluster chỉ nói cho bạn biết nên xem
@@ -282,6 +288,9 @@ thì chưa đạt.
 
 ## Bước 7 — Lặp 4 tới 6 cho tới khi xong phạm vi
 
+Với phạm vi đã chọn, lưu danh sách item theo [reference/scope.md](reference/scope.md).
+Bao gồm source delta và item hỗ trợ cần thiết ngoài bộ lọc, không chỉ finding.
+
 ```bash
 python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
 ```
@@ -308,7 +317,8 @@ một event hoặc refresh review, vì cả hai đều có thể đưa item về
 **Checkpoint 7.** `index --status pending` kèm bộ lọc của phạm vi không trả về
 dòng nào, bạn đã quay lại các event provisional, và bạn đã đọc `review check`
 để lấy con số toàn index. Chỉ một truy vấn có lọc trả về rỗng thì chưa đạt: có
-thể bộ lọc sai chứ không phải việc đã xong.
+thể bộ lọc sai chứ không phải việc đã xong. Với scope đã lưu, `review check --scope`
+cũng phải đạt; xác nhận danh sách item còn bao trùm yêu cầu của user.
 
 ## Bước 8 — Render bản review
 
@@ -316,10 +326,10 @@ thể bộ lọc sai chứ không phải việc đã xong.
 python3 -m chromiumdiff review render out/upgrade/review
 ```
 
-Chỉ thêm `--require-complete` khi bạn đã review toàn bộ index. Nó thoát mã 1
-và không ghi gì khi còn item hay event chưa xong. Một bản review giới hạn ở
-một phạm vi không bao giờ tới trạng thái đó, vì các item ngoài phạm vi vẫn ở
-pending, nên chạy không kèm tuỳ chọn này và để báo cáo ghi PARTIAL. Nếu bạn
+Dùng `--require-complete` khi review toàn index. Với scope đã lưu, dùng
+`--require-scope-complete`. Cả hai từ chối ghi khi phần việc tương ứng chưa
+xong. Gate theo scope giữ PARTIAL của toàn index và báo riêng mức hoàn thành
+phạm vi đã chọn. Nếu bạn
 phải dừng sớm vì hết ngân sách hoặc vì thiếu bằng chứng, nói rõ là cái nào
 trong hai, kèm các con số và việc cần kiểm tiếp. Đừng bao giờ vượt qua một lần
 check thất bại bằng cách đổi các item bạn chưa xem thành `explained` hay
@@ -348,51 +358,81 @@ Hỏi kết quả nên đi đâu:
 
 Nếu chọn Confluence, dùng skill `managing-confluence` và đưa nó đúng trang user
 đã nêu. Nếu skill đó không có trong lần chạy này, nói rõ ra rồi viết tài liệu
-thay thế. Đừng đăng bằng cách nào khác, và đừng đoán một trang mà user chưa
-nêu tên.
+thay thế. Đừng đăng bằng cách nào khác. Đừng đoán một trang mà user chưa nêu
+tên.
 
 Nếu không, viết tài liệu vào `out/upgrade/review/delivery.md` rồi cho user
 biết nó nằm ở đâu. `render` không đụng tới file này.
 
-Cả trang Confluence lẫn tài liệu đều gồm đúng ba phần, theo thứ tự này.
+Trang Confluence và tài liệu đều gồm ba phần giống nhau, theo thứ tự này.
 
-**1. Lần chạy này đã xem những gì.** Đúng `from_ref` và `to_ref`, platform,
-các khu vực và loại khai báo user đã yêu cầu, và đường dẫn tới thư mục review.
-Nếu người đọc không biết hai bản nào được đem so, phần còn lại của trang vô
-dụng với họ.
+### Phần 1 — Lần chạy này so cái gì
 
-**2. Các thay đổi.** Mỗi event một dòng. Đưa những dòng user nói là quan trọng
-nhất lên đầu; đừng sắp theo score.
+Đặt ở đầu:
+
+- hai phiên bản, ghi đúng `from_ref` và `to_ref`;
+- platform;
+- các khu vực và loại khai báo user đã yêu cầu ở bước 1;
+- đường dẫn tới thư mục review.
+
+Không có mấy dòng này thì người đọc không biết cái bảng bên dưới nói về cái gì.
+
+### Phần 2 — Bảng các thay đổi
+
+Mỗi event một dòng. Đưa những dòng user nói là quan trọng nhất lên đầu. Đừng
+sắp theo score.
 
 | Thay đổi | Nghĩa là gì | Bằng chứng | Verify |
 |---|---|---|---|
 | Feature flag X bật mặc định | Người dùng Windows có X mà không cần bật flag | `base_feature:X`, `chrome/browser/x/features.cc:42` | Not verified |
 
-`Thay đổi` nói việc gì đã xảy ra. Đừng để mỗi bucket, score hay identifier ở
-đó. `Nghĩa là gì` nói người ta sẽ thấy gì, hoặc sản phẩm này phải sửa gì, viết
-bằng ngôn ngữ của user. `Bằng chứng` liệt kê ID finding cùng file và dòng
-source ở từng version, để người đọc mở ra xem được. `Verify` khởi đầu là
-`Not verified` ở mọi dòng. Cột đó để một con người điền vào sau khi họ kiểm
-dòng đó: trên Confluence dùng status marker màu xám, để những dòng chưa ai
-kiểm dễ nhận ra; tài liệu thường không có màu, nên chỉ ghi đúng chữ đó. Bạn
-MUST NOT đổi một dòng thành đã verify. Chỉ con người mới làm được việc kiểm
-đó. Công cụ không làm được, và bạn cũng không.
+Từng cột ghi gì:
 
-**3. Lần chạy này chưa xem những gì.** Đặt phần này dưới một heading riêng,
-trên cùng trang hoặc trong cùng tài liệu, không nhét thành một dòng chú thích
-ở cuối. Chép sang từ `review.md` những gì lần chạy đã đo: mỗi bên đọc được bao
-nhiêu file khai báo, những thư mục nó đọc được ít nhất, và những file không
-target nào đọc tới. Rồi thêm những gì cách làm này vốn không làm được. Nó so
-khai báo, không so việc code làm gì. Một file không parser nào hiểu thì không
-bao giờ xuất hiện trong finding, dù nó có đổi hay không. Finch, cấu hình ngoài
-binary, patch riêng của sản phẩm này và UI như nó hiện ra — tất cả đều cần
-bằng chứng riêng. Nói rõ có bao nhiêu item bị bỏ ngoài phạm vi user yêu cầu.
-Người đọc phải biết được việc một thứ **không có** trong bảng nghĩa là gì.
+- **Thay đổi** — việc gì đã xảy ra. Không phải bucket, score hay identifier.
+- **Nghĩa là gì** — người dùng sẽ thấy khác gì, hoặc sản phẩm này phải sửa gì.
+  Viết bằng ngôn ngữ của user.
+- **Bằng chứng** — ID finding, cùng file và dòng ở từng version, để người đọc
+  mở ra xem được.
+- **Verify** — luôn là `Not verified` khi bạn viết bảng.
+
+Có cột `Verify` vì công cụ chỉ đọc code, nó không chạy code. Mọi dòng đều là
+"theo source thì như vậy", chưa ai kiểm trên bản build thật. Một con người sẽ
+điền cột này sau khi họ kiểm dòng đó.
+
+Trên Confluence, dùng status marker màu xám, để nhìn là thấy ngay dòng nào
+chưa ai kiểm. Tài liệu thường không có màu, nên chỉ ghi đúng chữ đó.
+
+Bạn MUST NOT đổi một dòng thành đã verify. Chỉ con người mới làm được việc
+kiểm đó.
+
+### Phần 3 — Lần chạy này chưa so cái gì
+
+Đặt phần này dưới một heading riêng, trên cùng trang hoặc trong cùng tài liệu.
+Đừng nhét nó thành một dòng chú thích nhỏ ở cuối.
+
+Chép ba con số này từ `review.md`:
+
+- mỗi bên đọc được bao nhiêu file khai báo;
+- những thư mục nó đọc được ít nhất;
+- những file không target nào đọc tới.
+
+Rồi nói những gì cách làm này vốn không làm được:
+
+- nó so khai báo, không so việc code làm gì;
+- một file không parser nào hiểu thì không bao giờ xuất hiện trong finding, dù
+  nó có đổi hay không;
+- Finch, cấu hình ngoài binary, patch riêng của sản phẩm này, và UI như nó
+  hiện ra — tất cả đều cần bằng chứng riêng.
+
+Rồi nói có bao nhiêu item bị bỏ ngoài phạm vi user yêu cầu.
+
+Phần này là thứ giúp người đọc phân biệt hai chuyện khác hẳn nhau: "chỗ này
+không có gì đổi" và "công cụ chưa hề xem chỗ này". Không có nó, một cái bảng
+trống sẽ bị đọc thành tin tốt.
 
 **Checkpoint 9.** Trang hoặc tài liệu đã tồn tại, có đủ ba phần, và mọi dòng
 của bảng đều ghi `Not verified`. Một cái bảng thiếu phần 1 hoặc thiếu phần 3
-thì chưa đạt: người đọc không biết các dòng đó nói về cái gì, và không biết
-việc một thứ vắng mặt nghĩa là gì.
+thì chưa đạt.
 
 ## Cơ chế truy vấn
 

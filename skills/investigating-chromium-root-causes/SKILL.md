@@ -5,6 +5,12 @@ description: Traces one Chromium change back to the review that made it and the 
 
 # Investigating Chromium root causes
 
+Shared executable helpers live in the repository-root `scripts/` directory.
+Read references from this skill's own `reference/` directory. To hand work to
+another skill, name that skill and its task; do not call its scripts or read
+its reference files directly.
+Read [reference/handoff.md](reference/handoff.md) when transferring a task.
+
 A report says **what changed**. This answers **why it changed, and whether
 that explains the thing you were asked about.**
 
@@ -71,7 +77,7 @@ hides which evidence belongs to which claim.
 ### Step 2: Get the row, or establish there is none
 
 ```bash
-python3 skills/investigating-chromium-root-causes/scripts/why.py \
+python3 scripts/why.py \
   out/M148_to_M151 BackForwardCachePauseMicrotasks
 ```
 
@@ -89,11 +95,19 @@ what is stored. Options:
 | Option | Default | Use when |
 |---|---|---|
 | `--budget N` | 600 | a busy declaration file was declined; raise it |
+| `--retry` | off | repeat a saved lookup using successful HTTP cache entries; combine with a larger budget |
+| `--refresh` | off | repeat the lookup and refetch Gerrit data; mutually exclusive with `--retry` |
 | `--save` | off | you want the answer written back into `report.json` |
 | `--json` | off | you need the raw block rather than prose |
 | `--issues N` | 6 | how many issues the script fetches with the CLs; lower it if you only want the reviews |
 | `--limit N` | 15 | how many rows are printed when the search matches several |
 | `--cache DIR` | `.chromiumdiff-cache` at the repository root, or `CHROMIUMDIFF_CACHE` | the fetched source lives somewhere else |
+
+A saved result containing CLs is reused unless `--retry` or `--refresh` is given.
+`lookup.status` and `lookup.warnings` appear in JSON as well as text, including
+empty results and failed retries. Exit 3 means incomplete/unavailable history,
+1 means no matching finding, and 2 means an input or save error. Exit 0 means
+a completed lookup or a selection list; it does not prove causation.
 
 What a `serve` session finds is saved to `report.json` and nowhere else.
 `report.md` and `report.html` on disk are still what the run wrote, so
@@ -146,8 +160,8 @@ stop as soon as the answer is sufficient:
    or `described`, and whenever the subject reads as unrelated to the finding:
 
    ```bash
-   python3 skills/investigating-chromium-root-causes/scripts/cl.py 7982397
-   python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+   python3 scripts/cl.py 7982397
+   python3 scripts/cl.py \
      7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
    ```
 

@@ -17,7 +17,7 @@ cáo các bước đó khi đã xem commit và thay đổi source tương ứng.
 ## Trường hợp finding có trong report.json
 
 Đọc đường dẫn cache đã lưu theo cách mô tả trong
-[investigation.md](investigation.md). Đặt `cache_dir` bằng đúng đường dẫn đó,
+[review-inputs.md](review-inputs.md). Đặt `cache_dir` bằng đúng đường dẫn đó,
 không dùng một giá trị mặc định mới, và dùng UID của finding mà `review index`
 trả về:
 
@@ -42,7 +42,7 @@ budget hoặc thử lại khi việc đó có ích cho câu hỏi; ghi lại ph�
 Các trường chẩn đoán của helper nằm trong
 [reference/no-row.md](no-row.md).
 
-Sau `--save`, dùng thủ tục refresh giữ nguyên cấu hình trong `investigation.md`.
+Sau `--save`, dùng thủ tục refresh giữ nguyên cấu hình trong `review-inputs.md`.
 Render lại Markdown/HTML thô là tuỳ chọn:
 
 ```bash

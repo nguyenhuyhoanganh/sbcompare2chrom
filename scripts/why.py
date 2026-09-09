@@ -23,23 +23,26 @@ Usage:
                    (default 15 -- enough to recognise the right uid in a list,
                    short enough that a broad search does not bury the prompt)
     --save         write the resolved lookup back into report.json
-    --json         print the raw provenance block instead of prose
+    --retry        repeat the lookup, reusing successful cached requests
+    --refresh      repeat the lookup and refresh Gerrit requests
+    --json         print provenance, lookup diagnostics and save status as JSON
 
-Exit codes: 0 resolved or listed, 1 nothing matched, 2 the report is unusable.
+Exit codes: 0 completed lookup or list, 1 nothing matched, 2 input/save error,
+3 incomplete or unavailable lookup. A completed lookup is not proof of cause.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import sys
 
-# Run from anywhere: the repository root is four levels up from this file
-# (skills/<name>/scripts/why.py), and an agent invoking this by path should not
+# Run from anywhere: the repository root is two levels up from this file
+# (scripts/why.py), and an agent invoking this by path should not
 # have to also set PYTHONPATH.
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
@@ -118,22 +121,46 @@ def block(finding) -> dict:
     return (finding.enrichment or {}).get("gerrit") or {}
 
 
-def resolve(finding, report, cache: str, budget: int, issues: int) -> list:
-    """Look the finding up unless it already carries CLs. Returns warnings."""
-    if block(finding).get("changes"):
-        return []
+def lookup_state(finding, warnings=(), origin="stored", unavailable=False) -> dict:
+    """One disclosure contract for text and JSON, including empty results."""
+    b = block(finding)
+    notes = list(b.get("lookup_warnings") or []) + list(warnings)
+    if b.get("diffs_read") is False:
+        notes.append("Relevant diffs were not read; retry with --retry and a larger --budget.")
+    if b.get("failed_fetches"):
+        notes.append(f"{b['failed_fetches']} Gerrit retrieval(s) failed; evidence is incomplete.")
+    if b.get("search_incomplete"):
+        notes.append("The candidate list is incomplete; it may omit relevant CLs.")
+    status = ("unavailable" if unavailable else "not_run" if not b else
+              "partial" if notes else "complete")
+    return {"status": status, "origin": origin, "warnings": list(dict.fromkeys(notes))}
+
+
+def resolve(finding, report, cache: str, budget: int, issues: int,
+            retry=False, refresh=False) -> dict:
+    """Explicit retries retain the HTTP cache; refresh refetches it."""
+    if block(finding).get("changes") and not (retry or refresh):
+        return lookup_state(finding)
     notes = []
+    candidate = copy.deepcopy(finding)
+    candidate.enrichment = dict(candidate.enrichment or {})
+    candidate.enrichment.pop("gerrit", None)
     try:
-        gerrit.enrich([finding], report.from_ref, report.to_ref, cache,
-                      top=1, budget=budget, with_history=issues,
-                      log=lambda m: notes.append(m.strip()))
+        summary = gerrit.enrich([candidate], report.from_ref, report.to_ref, cache,
+                                top=1, budget=budget, with_history=issues, refresh=refresh,
+                                log=lambda m: notes.append(m.strip()))
     except Exception as exc:
-        # A lookup that cannot reach Gerrit must not read as "no CL found".
-        # That is the same wrong answer as an absent row, arrived at faster.
-        return [f"! the lookup could not reach Gerrit ({exc}). This is not "
-                f"an answer about Chromium -- nothing was established."]
-    # `!` is the enricher's own mark for a line that qualifies an answer.
-    return [n for n in notes if n.startswith("!")]
+        return lookup_state(finding, [f"Lookup failed ({exc}); any displayed evidence is from the saved result."],
+                            origin="lookup", unavailable=True)
+    warnings = [n for n in notes if n.startswith("!")]
+    if not summary.get("available"):
+        warnings.append("Lookup unavailable: " + summary.get("reason", "no result") +
+                        "; any displayed evidence is from the saved result.")
+        return lookup_state(finding, warnings, origin="lookup", unavailable=True)
+    finding.enrichment = candidate.enrichment
+    if warnings:
+        finding.enrichment.setdefault("gerrit", {})["lookup_warnings"] = warnings
+    return lookup_state(finding, warnings, origin="lookup")
 
 
 def describe(finding) -> str:
@@ -152,34 +179,24 @@ def describe(finding) -> str:
     return "\n".join(lines)
 
 
-def render(finding, warnings) -> str:
+def render(finding, lookup) -> str:
     b = block(finding)
-    out = [describe(finding), ""]
-    for w in warnings:
-        out.append(w)
-    if warnings:
+    out = [describe(finding), "", f"Lookup: {lookup['status']} ({lookup['origin']})"]
+    for w in lookup["warnings"]:
+        out.append("! " + w)
+    if lookup["warnings"]:
         out.append("")
 
     changes = b.get("changes") or []
     if not changes:
         out.append("No CL was tied to this finding.")
         out.append("")
-        if any("could not reach Gerrit" in w for w in warnings):
-            out.append("  The lookup failed before it established anything. "
-                       "This is not a result -- retry it.")
-        elif not b:
-            out.append("  Nothing was looked up. Check the arguments above.")
-        elif b.get("diffs_read") is False:
-            out.append(f"  Nobody looked: {b.get('candidates', 0)} CLs touched "
-                       f"this file, past the diff budget. Re-run with a larger "
-                       f"--budget.")
+        if lookup["status"] != "complete":
+            out.append("  The lookup is unfinished or unavailable. No cause was established.")
         else:
-            out.append("  The file was asked on main, off main, and by commit "
-                       "message, and all three missed. This says the CL is "
-                       "recorded under some other name or path -- it does NOT "
-                       "say the declaration changed on its own.")
-            out.append("  See skills/investigating-chromium-root-causes/"
-                       "reference/no-row.md before reporting this.")
+            out.append("  The completed searches found no explaining match within their "
+                       "paths, identifiers and branch window. The cause remains unknown.")
+        out.append("  See reference/no-row.md in the active skill before reporting this.")
         return "\n".join(out)
 
     pool = b.get("candidates") or 0
@@ -194,11 +211,6 @@ def render(finding, warnings) -> str:
     if b.get("found_by") == "message":
         scope = (f"{len(changes)} found by commit message -- nothing "
                  f"touched this file in the window")
-    if b.get("failed_fetches"):
-        out.append(f"! {b['failed_fetches']} request(s) to Gerrit failed -- "
-                   f"this is not a finished search.")
-        out.append("")
-
     leads_only = all(c.get("match") in LEADS for c in changes)
     out.append(f"{'LEADS, NOT A CITATION' if leads_only else 'Why it changed'}"
                f"  ({scope})")
@@ -244,15 +256,20 @@ def main() -> int:
     ap.add_argument("--issues", type=int, default=6)
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--save", action="store_true")
+    retry = ap.add_mutually_exclusive_group()
+    retry.add_argument("--retry", action="store_true", help="repeat lookup using the HTTP cache")
+    retry.add_argument("--refresh", action="store_true", help="repeat lookup and refetch Gerrit data")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+    if args.budget < 0 or args.issues < 0 or args.limit < 1:
+        ap.error("budget/issues must be nonnegative and limit must be positive")
 
     report, json_path = load(args.report)
     hits = find(report, args.search)
     if not hits:
         print(f"nothing in {json_path} matches {args.search!r}.", file=sys.stderr)
         print("An absent row is not an absent change -- see "
-              "skills/investigating-chromium-root-causes/reference/no-row.md.",
+              "reference/no-row.md in the active skill.",
               file=sys.stderr)
         return 1
     if len(hits) > 1:
@@ -264,15 +281,9 @@ def main() -> int:
         return 0
 
     finding = hits[0]
-    warnings = resolve(finding, report, args.cache, args.budget, args.issues)
-    if args.json:
-        print(json.dumps({"uid": finding.uid, "score": finding.score,
-                          "bucket": finding.bucket,
-                          "signals": finding.change.signals,
-                          "gerrit": block(finding)}, indent=2))
-    else:
-        print(render(finding, warnings))
-
+    lookup = resolve(finding, report, args.cache, args.budget, args.issues,
+                     retry=args.retry, refresh=args.refresh)
+    saved = {"requested": args.save, "written": False}
     if args.save:
         cluster.refresh(report)
         tmp = json_path + ".tmp"
@@ -280,11 +291,24 @@ def main() -> int:
             with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump(report.to_dict(), fh)
             os.replace(tmp, json_path)
+            saved["written"] = True
         except OSError as exc:
+            saved["error"] = str(exc)
             print(f"could not save back to {json_path}: {exc}", file=sys.stderr)
             if os.path.exists(tmp):
-                os.remove(tmp)
-    return 0
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+    if args.json:
+        print(json.dumps({"uid": finding.uid, "score": finding.score,
+                          "bucket": finding.bucket, "signals": finding.change.signals,
+                          "gerrit": block(finding), "lookup": lookup, "save": saved}, indent=2))
+    else:
+        print(render(finding, lookup))
+    if "error" in saved:
+        return 2
+    return 0 if lookup["status"] == "complete" else 3
 
 
 if __name__ == "__main__":

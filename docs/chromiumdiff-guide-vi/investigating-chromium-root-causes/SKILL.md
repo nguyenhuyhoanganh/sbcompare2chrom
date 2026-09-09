@@ -5,6 +5,12 @@ description: Lần một thay đổi Chromium ngược về review đã tạo ra
 
 # Truy nguyên nguyên nhân gốc của một thay đổi Chromium
 
+Script dùng chung nằm trong thư mục `scripts/` ở root của repository.
+Đọc reference trong thư mục `reference/` của chính skill này. Khi chuyển việc
+sang skill khác, gọi bằng tên skill và nêu nhiệm vụ; không gọi script hay đọc
+file reference của skill đó trực tiếp.
+Đọc [reference/handoff.md](reference/handoff.md) khi chuyển một tác vụ.
+
 Một báo cáo nói **cái gì đã đổi**. Skill này trả lời **vì sao nó đổi, và điều đó có giải thích được thứ mà bạn được hỏi hay không.**
 
 Báo cáo không làm được việc đó. Nó so hai cây source, mà cây source không ghi lại ý định: `disabled → enabled` là tất cả những gì một bản diff cho biết. Ý định nằm trên review server của Chromium, và skill này lấy nó về.
@@ -55,7 +61,7 @@ Nếu yêu cầu nêu ra nhiều thứ, làm từng thứ một. Một câu tr�
 ### Bước 2: Lấy dòng tương ứng, hoặc xác định là không có dòng nào
 
 ```bash
-python3 skills/investigating-chromium-root-causes/scripts/why.py \
+python3 scripts/why.py \
   out/M148_to_M151 BackForwardCachePauseMicrotasks
 ```
 
@@ -67,12 +73,20 @@ Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, script sẽ
 
 | Tuỳ chọn | Mặc định | Dùng khi |
 |---|---|---|
-| `--budget N` | 600 | một file khai báo quá đông CL bị từ chối; nâng nó lên |
+| `--budget N` | 600 | một file khai báo quá đông CL bị từ chối; nâng nó lên với `--retry` |
+| `--retry` | tắt | chạy lại tra cứu, dùng lại các request đã cache thành công |
+| `--refresh` | tắt | chạy lại và lấy lại dữ liệu Gerrit; không dùng cùng `--retry` |
 | `--save` | tắt | muốn ghi câu trả lời ngược vào `report.json` |
 | `--json` | tắt | cần khối dữ liệu thô thay vì văn xuôi |
 | `--issues N` | 6 | số issue script đi lấy về cùng lúc; hạ xuống nếu chỉ cần CL |
 | `--limit N` | 15 | số dòng in ra khi tìm kiếm khớp nhiều kết quả |
 | `--cache DIR` | `.chromiumdiff-cache` ở gốc repo, hoặc `CHROMIUMDIFF_CACHE` | source đã tải nằm ở chỗ khác |
+
+`lookup.status` và `lookup.warnings` có trong JSON lẫn text, kể cả kết quả rỗng
+và thử lại thất bại. Mã 3 nghĩa là lịch sử chưa đầy đủ/không truy cập được; 1 là
+không có finding khớp; 2 là lỗi input hoặc lưu file. Mã 0 là tra cứu hoàn tất
+hoặc danh sách để chọn, không xác lập nhân quả. Muốn tra lại kết quả đã có CL,
+dùng `--retry` hoặc `--refresh`.
 
 Những gì một phiên `serve` tìm được chỉ được lưu vào `report.json` chứ không vào đâu khác. `report.md` và `report.html` trên đĩa vẫn là những gì lần chạy đã ghi ra, nên hãy render lại trước khi đưa bất kỳ file nào trong hai file đó cho ai:
 
@@ -109,8 +123,8 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
 3. **Chính lời văn và chính bản diff của CL**, mỗi khi câu trả lời có trọng lượng — và luôn luôn phải đọc trước khi trích một CL vào ticket, mỗi khi verdict là `declares` hoặc `described`, và mỗi khi tiêu đề đọc lên có vẻ không liên quan tới finding:
 
    ```bash
-   python3 skills/investigating-chromium-root-causes/scripts/cl.py 7982397
-   python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+   python3 scripts/cl.py 7982397
+   python3 scripts/cl.py \
      7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
    ```
 
@@ -186,7 +200,7 @@ Một bản diff không cho ra được điều đó, và đọc `features.cc` c
 ## Tài liệu tham chiếu
 
 - **[reference/reading-a-cl.md](reference/reading-a-cl.md)** — thang bằng chứng và mỗi nấc cho phép khẳng định tới đâu; vì sao cách dùng từ của tác giả không phải là identifier; cách đọc một commit message và một bản diff, và bốn câu hỏi mà chỉ bản diff mới trả lời được.
-- **[reference/no-row.md](reference/no-row.md)** — các trường hợp một lần tra cứu không trả về kết quả: không có finding nào khớp (A1–A5) và có finding nhưng không có CL giải thích được (B1–B6), kèm bảng đọc các trường chẩn đoán trong `enrichment.gerrit`. Trường hợp A3 và A4 chuyển sang thủ tục đọc lịch sử trực tiếp trong `analyzing-chromium-upgrades/reference/history.md`.
+- **[reference/no-row.md](reference/no-row.md)** — các trường hợp một lần tra cứu không trả về kết quả: không có finding nào khớp (A1–A5) và có finding nhưng không có CL giải thích được (B1–B6), kèm bảng đọc các trường chẩn đoán trong `enrichment.gerrit`. Trường hợp A3 và A4 chuyển sang thủ tục đọc lịch sử trực tiếp trong `reference/history.md`.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — bắt đầu từ một triệu chứng người dùng thấy được thay vì từ một identifier.
 - **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — các signal của skill này nghĩa là gì, những cách đi tới kết luận sai từ một finding đúng, và chuỗi mắt xích đứng sau một control trong settings. Đọc trước khi diễn giải bất kỳ mục bị xoá nào.
 

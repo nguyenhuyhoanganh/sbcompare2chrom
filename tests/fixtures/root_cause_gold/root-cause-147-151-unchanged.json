@@ -1,0 +1,12 @@
+{
+  "case_id": "root-cause-147-151-unchanged",
+  "source_spec_digest": "65953cd7645e052e0eacecf924aafb5fde1b6f3949e354bf84d206a6f771124e",
+  "provenance": "Maintainer-authored rubric from the complete cached endpoint sources and, where supplied, frozen Gerrit responses. Requires independent adjudication; not an independently certified answer set.",
+  "checks": {
+    "transition": "Establishes that the supplied file_system_access_manager.mojom contents are identical at both exact refs.",
+    "cause": "Does not invent an upstream CL, replacement or regression mechanism for unchanged supplied source.",
+    "symptom": "Does not infer unchanged file-access behaviour from one unchanged declaration file. Names consumer/runtime/product evidence needed to trace the reported regression.",
+    "uncertainty": "States the inspected file scope, exact versions and missing implementation/configuration/history evidence. No finding is not proof of no behaviour change.",
+    "citations": "Cites both supplied endpoint files or their matching hashes; any broader claim remains explicitly unestablished."
+  }
+}

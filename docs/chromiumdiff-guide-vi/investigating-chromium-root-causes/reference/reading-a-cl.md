@@ -166,14 +166,14 @@ nó, tăng `--budget`, hoặc báo cáo rằng lần tìm đã tới được fi
 
 ```bash
 # CL tự nói gì về nó, và nó chạm vào những file nào
-python3 skills/investigating-chromium-root-causes/scripts/cl.py 7982397
+python3 scripts/cl.py 7982397
 
 # diff của một file, chỉ đánh dấu các dòng đã đổi có mang giá trị cần tìm
-python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+python3 scripts/cl.py \
   7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
 
 # toàn bộ diff của file đó, không đánh dấu
-python3 skills/investigating-chromium-root-causes/scripts/cl.py \
+python3 scripts/cl.py \
   7982397 federated_auth_request.mojom --context 0
 ```
 

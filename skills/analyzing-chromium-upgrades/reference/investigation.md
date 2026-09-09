@@ -244,9 +244,9 @@ python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 This exits 1 without writing or replacing `review.md` if items or events are
-unfinished. A scoped review never reaches that state, because the items outside
-its scope stay pending; render it without the option and keep the PARTIAL
-status. The ordinary `render` command remains available for a clearly labelled
+unfinished. For a recorded selected scope, use `--require-scope-complete`
+as described in [scope.md](scope.md). It requires that selection to be complete
+while preserving whole-index PARTIAL when outside items remain pending. The ordinary `render` command remains available for a clearly labelled
 partial report; its exit 0 only means the file was written. Neither command
 verifies the meaning of the agent's explanations.
 

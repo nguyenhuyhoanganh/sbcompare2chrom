@@ -1,5 +1,5 @@
 {
-  "_comment": "Scenarios this skill must pass. Each was built from a real M148 -> M151 run; no harness ships with the project, so run them by hand against a fresh agent with the skill loaded. The point of each is the failure it catches, named in `catches`.",
+  "_comment": "Named regression scenarios below retain their original manual validation record. Independent source-pinned trials are available through review prepare-trial --task-type root-cause; keep root_cause_gold outside the tested workspace.",
   "evaluations": [
     {
       "skills": [
@@ -94,5 +94,13 @@
       "4": "REWRITTEN. The original used AIManager.CreateLanguageModel, which the commit history describes as the crowded case. It is not one any more: the scan-to-delimiter rule picks 1 of 11 CLs on that file, and the one it picks is right -- '[3/3] Pass download progress observers dynamically in WebPlatform APIs', which is the CL that added the `DownloadObserver` parameter the finding reports. The scenario tested nothing. It now uses a flag_entry that really does return only `touched`, verified against the report.",
       "5": "PASS. `cl.py 7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'` prints the added line alone; dropping the value and passing `--find url` prints both sides of the same hunk and nothing else, because only changed lines are marked. The message body names the struct, the file and the reason."
     }
+  },
+  "independent_trials": {
+    "cases": "tests/fixtures/root_cause_cases",
+    "rubrics": "tests/fixtures/root_cause_gold",
+    "prepare": "python3 -m chromiumdiff review prepare-trial CASE --task-type root-cause --directory TRIAL --reference-mode core",
+    "assessment": "python3 -m chromiumdiff review root-assessment-template GOLD TRIAL --output ASSESSMENT",
+    "evaluate": "python3 -m chromiumdiff review root-evaluate GOLD TRIAL --adjudication ASSESSMENT",
+    "status": "Infrastructure and frozen cases; no completed independent semantic benchmark claimed."
   }
 }

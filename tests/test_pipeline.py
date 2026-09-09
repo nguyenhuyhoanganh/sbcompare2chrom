@@ -5360,7 +5360,7 @@ class TestAStaleReportIsRefused(unittest.TestCase):
         analysis, and is written up in `meaningful_attrs`."""
         import re
         loaders = ["chromiumdiff/cli.py", "chromiumdiff/serve.py",
-                   "skills/investigating-chromium-root-causes/scripts/why.py"]
+                   "scripts/why.py"]
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         for rel in loaders:
             with open(os.path.join(root, rel), encoding="utf-8") as source:

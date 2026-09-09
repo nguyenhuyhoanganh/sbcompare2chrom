@@ -1,0 +1,25 @@
+{
+  "id": "root-cause-148-151-token-error",
+  "question": "Between 148.0.7778.217 and 151.0.7922.138 TokenError.url changed type. Does CL 7982397 explain that transition, and does it prove the cause of a sign-in failure in our browser?",
+  "refs": {
+    "from": "refs/tags/148.0.7778.217",
+    "to": "refs/tags/151.0.7922.138"
+  },
+  "files": [
+    "third_party/blink/public/mojom/webid/federated_auth_request.mojom"
+  ],
+  "context_files": [],
+  "sha256": {
+    "from": {
+      "third_party/blink/public/mojom/webid/federated_auth_request.mojom": "422539a38ad7bf821b9585bf69ba036d3f8864846930cd26df68a79a6156a815"
+    },
+    "to": {
+      "third_party/blink/public/mojom/webid/federated_auth_request.mojom": "076ab29de09c633c37968dd07ee8d5e4239f1f66fd2708306c0b7317ebc641a8"
+    }
+  },
+  "history_files": {
+    "gerrit/probe/7982397.json": "55787696467bc9023e7fcfd0ae749edd906b144e2fe144e12767723c637b49ac",
+    "gerrit/probe/f7982397.json": "7755ceab5f27796e4584cdc853ff062e6c6c0eb21df7be5356163dd5f79ab31a",
+    "gerrit/probe/d7982397_third_party_blink_public_mojom_webid_federated_auth_request.mojom.json": "a3b67b34f72b1cf530ef68c255108124cbdfb459f5749ef8c06ea34f606c5fd9"
+  }
+}

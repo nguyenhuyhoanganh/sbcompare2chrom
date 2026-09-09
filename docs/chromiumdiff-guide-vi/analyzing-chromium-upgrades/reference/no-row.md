@@ -124,5 +124,5 @@ khối Gerrit giữ giới hạn lấy dữ liệu bổ sung của lần tra c�
 **Đừng** coi một issue không truy cập được là bằng chứng chống đỡ. Khi lưu kết
 quả tra cứu mới, phải giữ nguyên cache và cấu hình Git của review trong lúc
 refresh, theo
-[thủ tục giữ input đã lưu](review-inputs.md)
+[thủ tục giữ input đã lưu](investigation.md)
 của skill này.

@@ -252,9 +252,9 @@ python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 Nếu còn item hoặc event chưa xong, lệnh trả mã 1 và không ghi hay thay thế
-`review.md`. Một review theo phạm vi hẹp không bao giờ tới trạng thái đó, vì
-các item ngoài phạm vi vẫn ở pending; render nó không kèm tuỳ chọn này và giữ
-nguyên trạng thái PARTIAL. Lệnh `render` thông thường vẫn dùng được để xuất báo
+`review.md`. Với scope đã lưu, dùng `--require-scope-complete` theo
+[scope.md](scope.md): gate kiểm danh sách đã chọn, giữ PARTIAL toàn index khi
+item ngoài scope còn pending. Lệnh `render` thông thường vẫn dùng được để xuất báo
 cáo một phần có ghi rõ trạng thái; mã 0 của nó chỉ nghĩa là đã ghi file. Cả hai
 lệnh đều không xác minh ý nghĩa các lời giải thích của agent.
 

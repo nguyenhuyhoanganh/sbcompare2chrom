@@ -128,3 +128,7 @@ hay sự đồng ý của user. Chữ `MUST` không cưỡng chế được môi
 Muốn cưỡng chế từ bên ngoài agent, chương trình gọi agent phải kiểm tra việc
 thực thi công cụ và từ chối lời nhận hoàn thành thiếu bằng chứng. Một ô do
 agent tự đánh dấu không tương đương với bằng chứng đó.
+
+Sau khi lấy và kiểm inventory của phạm vi, lưu danh sách item cần quyết
+định theo [scope.md](scope.md). Nó theo dõi phạm vi riêng với toàn index;
+bộ lọc truy vấn không tự chứng minh mức hoàn thành.

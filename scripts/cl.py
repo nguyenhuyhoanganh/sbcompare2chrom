@@ -23,6 +23,8 @@ Usage:
     --find TOKEN   mark every diff line containing TOKEN (repeatable)
     --context N    context lines around a marked line (default 3; 0 for all)
     --files        list the files the CL touches and stop
+    --limit N      diffs per page (default 3)
+    --offset N     skip N matching files (default 0)
     --cache DIR    cache directory (default: $CHROMIUMDIFF_CACHE or
                    .chromiumdiff-cache, matching the rest of the tool)
 
@@ -36,8 +38,7 @@ import os
 import sys
 import urllib.parse
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
@@ -132,9 +133,13 @@ def main() -> int:
     ap.add_argument("--find", action="append", default=[], metavar="TOKEN")
     ap.add_argument("--context", type=int, default=3)
     ap.add_argument("--files", action="store_true")
+    ap.add_argument("--limit", type=int, default=3)
+    ap.add_argument("--offset", type=int, default=0)
     ap.add_argument("--cache", default=os.environ.get("CHROMIUMDIFF_CACHE",
                                                       ".chromiumdiff-cache"))
     args = ap.parse_args()
+    if args.limit < 1 or args.offset < 0:
+        ap.error("limit must be positive and offset must be nonnegative")
     if not args.number.isdigit():
         print("the CL number is a number", file=sys.stderr)
         return 2
@@ -171,12 +176,22 @@ def main() -> int:
             print("\n  Pass one of these as the second argument to read its diff.")
             return 0
 
-    wanted = [p for p in files if args.path in p]
+    wanted = sorted(p for p in files if args.path in p)
     if not wanted:
         print(f"  no file in this CL matches {args.path!r}; the ones it "
               f"touches are listed above.", file=sys.stderr)
         return 1
-    for path in sorted(wanted)[:3]:
+    if args.offset >= len(wanted):
+        print(f"offset {args.offset} is past {len(wanted)} matching files", file=sys.stderr)
+        return 2
+    selected = wanted[args.offset:args.offset + args.limit]
+    end = args.offset + len(selected)
+    print(f"Matching files: {len(wanted)}; showing {args.offset + 1}..{end}.")
+    if args.offset:
+        print(f"  {args.offset} earlier matching file(s) omitted on this page; use --offset 0 to start again.")
+    if end < len(wanted):
+        print(f"  {len(wanted) - end} matching file(s) omitted; repeat with --offset {end} --limit {args.limit}.")
+    for path in selected:
         diff = diff_of(args.number, path, args.cache)
         print()
         print(f"--- {path}  [{diff.get('change_type', '?')}] " + "-" * 10)

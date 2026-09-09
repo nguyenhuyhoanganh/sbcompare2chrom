@@ -48,6 +48,9 @@ exist, and do not state a prohibition the code does not enforce.
 
 ## Elsewhere
 
+- Each skill owns its references and private scripts. Shared scripts live in
+  the repository-root `scripts/` directory. Cross-skill handoffs use the other
+  skill's name and purpose, never a path to its scripts or references.
 - Prose states the fact, then the reason. No literary phrasing.
 - Shipped documents are in English. `docs/chromiumdiff-guide-vi/` is the one
   Vietnamese area.

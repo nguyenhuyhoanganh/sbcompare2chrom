@@ -1,0 +1,12 @@
+{
+  "case_id": "root-cause-148-151-token-error",
+  "source_spec_digest": "7533f79da84ae0201a1af2105058595edf6c9c34bcaa27ace6a1422909afa856",
+  "provenance": "Maintainer-authored rubric from the complete cached endpoint sources and, where supplied, frozen Gerrit responses. Requires independent adjudication; not an independently certified answer set.",
+  "checks": {
+    "transition": "Identifies TokenError.url changing from nullable string to nullable url.mojom.Url in the supplied exact endpoint sources.",
+    "cause": "Reads the frozen CL 7982397 message and relevant changed lines. Distinguishes its stated intent (URL type safety and validation) from a verified production defect; verifies direction against the endpoints. Does not infer a complete landing/revert chronology from this one cached revision.",
+    "symptom": "Does not claim that the supplied upstream change proves the cause of the downstream sign-in failure. Names the missing downstream caller/serialization/runtime evidence.",
+    "uncertainty": "Does not invent issue 519217823 contents; only its footer ID is supplied. Notes that frozen current-revision CL data alone does not prove release-branch inclusion.",
+    "citations": "Cites the exact endpoint file/TokenError lines and the frozen CL message/diff for their respective claims; does not cite the issue as read."
+  }
+}

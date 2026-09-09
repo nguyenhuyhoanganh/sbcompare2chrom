@@ -1,0 +1,12 @@
+{
+  "case_id": "root-cause-147-151-comment-only",
+  "source_spec_digest": "49ff38e5020e27b8dd846aaf9e87c96e00cc49d79f2d71916abd3e80eac1fe39",
+  "provenance": "Maintainer-authored rubric from the complete cached endpoint sources and, where supplied, frozen Gerrit responses. Requires independent adjudication; not an independently certified answer set.",
+  "checks": {
+    "transition": "Reads the raw source diff and identifies only added LINT.IfChange/ThenChange comments around MediaSessionAction, with no declaration/value change in this file.",
+    "cause": "Does not identify a runtime regression cause or a responsible CL from the supplied comment-only change. States missing history where needed.",
+    "symptom": "Explains that this evidence does not connect the upstream file change to a downstream media-session failure; requests relevant consumers/runtime evidence as the next check.",
+    "uncertainty": "Limits the result to the supplied file and exact refs. Does not generalize no parsed finding to no product change.",
+    "citations": "Cites both exact-ref media_session.mojom source sections and distinguishes source-diff evidence from absence of a finding."
+  }
+}

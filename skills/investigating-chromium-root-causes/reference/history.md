@@ -15,7 +15,7 @@ when the corresponding commits and source changes have been examined.
 
 ## A finding exists in report.json
 
-Read the saved cache path as described in [investigation.md](investigation.md).
+Read the saved cache path as described in [review-inputs.md](review-inputs.md).
 Set `cache_dir` to that path, not a new default, and use a finding UID returned
 by `review index`:
 
@@ -40,7 +40,7 @@ unexamined. See [the no-result reference](no-row.md)
 for the helper's diagnostic fields.
 
 After `--save`, use the configuration-preserving refresh procedure in
-`investigation.md`. Regenerating the raw Markdown/HTML is optional:
+`review-inputs.md`. Regenerating the raw Markdown/HTML is optional:
 
 ```bash
 python3 -m chromiumdiff report out/upgrade/report.json --format both --out out/upgrade/report

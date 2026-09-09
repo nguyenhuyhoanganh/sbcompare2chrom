@@ -67,10 +67,11 @@ def _file_hash(path) -> str:
     return h.hexdigest()
 
 
-def implementation_identity() -> dict:
-    root = Path(__file__).resolve().parent.parent
+def implementation_identity(root=None) -> dict:
+    root = Path(root) if root is not None else Path(__file__).resolve().parent.parent
     tool_files = {str(p.relative_to(root)): _file_hash(p)
-                  for p in sorted((root / "chromiumdiff").rglob("*.py"))}
+                  for directory in ("chromiumdiff", "scripts")
+                  for p in sorted((root / directory).rglob("*.py"))}
     skill_files = {str(p.relative_to(root)): _file_hash(p)
                    for p in sorted((root / "skills").rglob("*"))
                    if p.is_file() and p.suffix in (".md", ".py")}
@@ -206,6 +207,8 @@ def initialize(report_path: str, directory: str, cache: str, source_repo=None,
                 "fingerprint": previous.get("fingerprint"),
                 "events": previous.get("events", []),
                 "dispositions": previous.get("dispositions", {}),
+                "scope": previous.get("scope"),
+                "scope_history": previous.get("scope_history", []),
                 "reason": "Evidence changed; revalidate before re-recording decisions."}]
             if previous_index and _same_baseline(previous_index, index):
                 ledger = _refresh_context(previous_index, index, previous, ledger)
@@ -259,6 +262,12 @@ def _refresh_context(old: dict, new: dict, previous: dict, fresh: dict) -> dict:
         if set(item.get("findings", [])) & affected:
             affected.add(uid)
     fresh["events"] = copy.deepcopy(previous["events"])
+    fresh["scope_history"] = copy.deepcopy(previous.get("scope_history", []))
+    if previous.get("scope"):
+        scope = copy.deepcopy(previous["scope"])
+        if set(scope["items"]) <= set(new["items"]):
+            scope["fingerprint"] = new["fingerprint"]
+            fresh["scope"] = scope
     fresh["dispositions"] = {uid: copy.deepcopy(d) for uid, d in previous["dispositions"].items()
                              if uid in new["items"]}
     retained = []
@@ -440,8 +449,27 @@ def source_rows(index: dict, side: str, path: str, start=1, end=120, fetch=False
             "line_numbers": "unified diff output" if side == "diff" else "source"}
 
 
+def validate_scope(index: dict, scope) -> list:
+    if scope is None:
+        return []
+    if not isinstance(scope, dict) or set(scope) != {"description", "items", "fingerprint"}:
+        return ["scope requires description, items and fingerprint"]
+    errors = []
+    if not isinstance(scope["description"], str) or not scope["description"].strip():
+        errors.append("scope description must record the user's requested boundary")
+    if scope["fingerprint"] != index["fingerprint"]:
+        errors.append("scope fingerprint differs from the current evidence")
+    ids = scope["items"]
+    if (not isinstance(ids, list) or not ids or any(not isinstance(uid, str) for uid in ids)
+            or len(ids) != len(set(ids))):
+        errors.append("scope items must be a nonempty list of unique item IDs")
+    elif not set(ids) <= set(index["items"]):
+        errors.append("scope contains unknown item IDs")
+    return errors
+
+
 def validate(index: dict, ledger: dict) -> list:
-    errors, members = [], {}
+    errors, members = validate_scope(index, ledger.get("scope")), {}
     event_ids = set()
     for event in ledger.get("events", []):
         eid = event.get("id")
@@ -525,10 +553,10 @@ def validate(index: dict, ledger: dict) -> list:
 
 def record(index: dict, ledger: dict, patch: dict) -> dict:
     """Atomic upsert. Explicit remove_events supports merges and splits."""
-    if not isinstance(patch, dict) or set(patch) - {"events", "dispositions", "remove_events"}:
-        raise ValueError("review patch accepts only events, dispositions and remove_events")
-    if any(not isinstance(v, list) for v in patch.values()):
-        raise ValueError("review patch fields must be lists")
+    if not isinstance(patch, dict) or set(patch) - {"events", "dispositions", "remove_events", "scope"}:
+        raise ValueError("review patch accepts only events, dispositions, remove_events and scope")
+    if any(not isinstance(v, list) for k, v in patch.items() if k != "scope"):
+        raise ValueError("event/disposition patch fields must be lists")
     for e in patch.get("events", []):
         if (not isinstance(e, dict) or not isinstance(e.get("items"), list)
                 or any(not isinstance(uid, str) for uid in e["items"])):
@@ -541,6 +569,13 @@ def record(index: dict, ledger: dict, patch: dict) -> dict:
         if not isinstance(d, dict) or not isinstance(d.get("id"), str):
             raise ValueError("each disposition requires a string id")
     updated = copy.deepcopy(ledger)
+    if "scope" in patch:
+        errors = validate_scope(index, patch["scope"])
+        if errors:
+            raise ValueError("; ".join(errors))
+        if updated.get("scope") != patch["scope"]:
+            updated.setdefault("scope_history", []).append(copy.deepcopy(updated.get("scope")))
+        updated["scope"] = copy.deepcopy(patch["scope"])
     incoming = copy.deepcopy(patch.get("events", []))
     for event in incoming:
         event.setdefault("id", "event:" + digest(sorted(event.get("items", [])))[:20])
@@ -560,6 +595,32 @@ def record(index: dict, ledger: dict, patch: dict) -> dict:
     return updated
 
 
+def scope_check(index: dict, ledger: dict, errors=()) -> dict:
+    scope = ledger.get("scope")
+    if not scope:
+        return {"configured": False, "accounting_complete": False}
+    if validate_scope(index, scope):
+        return {"configured": True, "accounting_complete": False, "invalid": True}
+    selected = set(scope["items"])
+    counts, by_kind = {}, {}
+    for uid in selected:
+        status = ledger["dispositions"].get(uid, {}).get("status", "pending")
+        counts[status] = counts.get(status, 0) + 1
+        kind = index["items"][uid]["kind"]
+        group = by_kind.setdefault(kind, {"total": 0, "counts": {}})
+        group["total"] += 1
+        group["counts"][status] = group["counts"].get(status, 0) + 1
+    events = [e for e in ledger["events"] if selected & set(e["items"])]
+    provisional = sum(e.get("status") != "confirmed" for e in events)
+    return {"configured": True, "description": scope["description"],
+            "total": len(selected), "outside_scope": len(index["items"]) - len(selected),
+            "counts": counts, "by_kind": by_kind, "events": len(events),
+            "provisional_events": provisional,
+            "accounting_complete": not errors and not counts.get("pending") and
+                not counts.get("unresolved") and not provisional,
+            "limit": "Only the explicitly selected items are counted. Selection and semantic completeness require review."}
+
+
 def check(index: dict, ledger: dict) -> dict:
     errors = validate(index, ledger)
     counts, by_kind = {}, {}
@@ -573,6 +634,7 @@ def check(index: dict, ledger: dict) -> dict:
     return {"total": len(index["items"]), "counts": counts, "events": len(ledger["events"]),
             "by_kind": by_kind,
             "provisional_events": provisional, "errors": errors,
+            "scope": scope_check(index, ledger, errors),
             "unresolved_reference_count": len(index["graph"]["unresolved"]),
             "accounting_complete": not errors and not counts.get("pending") and
                 not counts.get("unresolved") and not provisional,
@@ -637,7 +699,7 @@ def coverage_section(index: dict, state: dict) -> list:
                     "places a reviewer must check by hand.", ""]
 
 
-def render(index: dict, ledger: dict, require_complete=False) -> str:
+def render(index: dict, ledger: dict, require_complete=False, require_scope_complete=False) -> str:
     state = check(index, ledger)
     if state["errors"]:
         raise ValueError("cannot render invalid ledger: " + "; ".join(state["errors"][:20]))
@@ -648,6 +710,8 @@ def render(index: dict, ledger: dict, require_complete=False) -> str:
             f"{state['counts'].get('unresolved', 0)} unresolved items, "
             f"{state['provisional_events']} provisional events. "
             "Resume the saved review; omit --require-complete only to render a PARTIAL report.")
+    if require_scope_complete and not state["scope"]["accounting_complete"]:
+        raise ValueError("selected scope is unconfigured or incomplete; record its items and resolve its remaining work")
     inputs = index["inputs"]
     out = ["# Chromium upgrade review", "",
            f"{inputs['refs']['from']} → {inputs['refs']['to']} · {inputs['platform']}", "",
@@ -656,6 +720,13 @@ def render(index: dict, ledger: dict, require_complete=False) -> str:
            f"provisional events: {state['provisional_events']}.",
            "", "Disposition counts: " + json.dumps(state["counts"], sort_keys=True),
            "", "Accounting does not establish semantic completeness or product safety.", ""]
+    scoped = state["scope"]
+    if scoped["configured"]:
+        out.extend(["## Selected review scope", "", scoped["description"], "",
+                    "Scope accounting: " + ("COMPLETE" if scoped["accounting_complete"] else "PARTIAL"),
+                    f"Selected items: {scoped['total']}; outside selected scope: {scoped['outside_scope']}.",
+                    "Disposition counts: " + json.dumps(scoped["counts"], sort_keys=True),
+                    "", scoped["limit"], ""])
     out.extend(coverage_section(index, state))
     ordered = sorted(ledger["events"], key=lambda e: (e.get("order", 1000000), e["id"]))
     for i, event in enumerate(ordered, 1):

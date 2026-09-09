@@ -26,7 +26,8 @@ from .report import markdown
 from .score import Scope, score_all, summarize_findings
 from .snapshot import snapshot_path, tree_path
 
-CORE_REFERENCES = ("scoping.md", "focus.md", "investigation.md", "history.md")
+CORE_REFERENCES = ("scoping.md", "scope.md", "focus.md", "investigation.md", "history.md",
+                   "handoff.md", "no-row.md")
 # A path prefix is the input that steers retrieval, so a kept reference must not
 # name one: the trial would spend its budget on the example's product area
 # whether or not the case has a file there. A product-area word in prose names
@@ -35,25 +36,38 @@ DOMAIN_PATH = re.compile(r"\b(?:chrome|components|content|device|extensions|serv
                          r"(?:/[A-Za-z0-9_.-]+)+")
 
 
-def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=0) -> dict:
+def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=0,
+            task_type="upgrade") -> dict:
     """Derive trial inputs from whole files, never a list of expected findings."""
     dest = Path(directory).resolve()
     if dest.exists() and any(dest.iterdir()):
         raise ValueError("trial directory must be new or empty; existing trials are never overwritten")
     if reference_mode not in ("full", "core"):
         raise ValueError("reference mode must be full or core")
+    if task_type not in ("upgrade", "root-cause"):
+        raise ValueError("task type must be upgrade or root-cause")
     if not spec.get("id") or not spec.get("files") or set(spec.get("refs", {})) != {"from", "to"}:
         raise ValueError("case needs id, from/to refs and a nonempty files list")
     primary = sorted(set(spec["files"]))
     context = sorted(set(spec.get("context_files", [])) - set(primary))
+    if task_type == "root-cause":
+        if not isinstance(spec.get("question"), str) or not spec["question"].strip():
+            raise ValueError("root-cause case requires a question")
+        for side in spec["refs"]:
+            if any(not (spec.get("sha256", {}).get(side) or {}).get(p) for p in primary + context):
+                raise ValueError("root-cause cases must pin every source file on both sides")
     source_root = Path(__file__).resolve().parent.parent
     workspace = dest / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_root / "chromiumdiff", workspace / "chromiumdiff",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    shutil.copytree(source_root / "skills", workspace / "skills",
+    shutil.copytree(source_root / "scripts", workspace / "scripts",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    skill = ("analyzing-chromium-upgrades" if task_type == "upgrade" else
+             "investigating-chromium-root-causes")
+    shutil.copytree(source_root / "skills" / skill, workspace / "skills" / skill,
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "evaluations.json"))
-    if reference_mode == "core":
+    if reference_mode == "core" and task_type == "upgrade":
         # Withhold domain examples, not particular feature names. Keep the links
         # usable and the scoping, retrieval, analysis and history procedures
         # intact, with their path examples redacted.
@@ -66,6 +80,16 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
             else:
                 path.write_text(DOMAIN_PATH.sub("PATH/FROM/OVERVIEW", path.read_text(encoding="utf-8")),
                                 encoding="utf-8")
+    elif reference_mode == "core":
+        entry = workspace / "skills" / skill / "SKILL.md"
+        text = entry.read_text(encoding="utf-8")
+        start, end = text.find("\n## Worked example"), text.find("\n## Reference")
+        if start >= 0 and end > start:
+            text = text[:start] + text[end:]
+        entry.write_text(text, encoding="utf-8")
+        for name in ("reading-a-cl.md", "reading-a-finding.md", "symptom-to-uid.md"):
+            (entry.parent / "reference" / name).write_text(
+                "# Examples withheld for this trial\n\nUse SKILL.md and the supplied source/CL evidence.\n", encoding="utf-8")
     data = workspace / "data"
     staged_cache = data / "cache"
     inputs, source_hashes = {}, {}
@@ -128,7 +152,20 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
         cluster.refresh(report)
     write_json(str(data / "report.json"), report.to_dict())
     (data / "report.md").write_text(markdown.render(report, platform="windows"), encoding="utf-8")
+    history_hashes = {}
+    if task_type == "root-cause":
+        for relative, expected in spec.get("history_files", {}).items():
+            if not relative.startswith("gerrit/probe/") or not relative.endswith(".json"):
+                raise ValueError("history files must be pinned Gerrit probe JSON paths")
+            src = review.safe_path(cache, relative)
+            if not src.is_file() or review._file_hash(src) != expected:
+                raise ValueError("missing or mismatched history file: " + relative)
+            dst = review.safe_path(str(staged_cache), relative)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            history_hashes[relative] = expected
     metadata = {"schema": 1, "case_id": spec["id"], "source_spec_digest": digest(spec),
+                "task_type": task_type, "history_sha256": history_hashes,
                 "source_sha256": source_hashes, "reference_mode": reference_mode, "seed": seed,
                 "workspace": str(workspace), "review_directory": str(workspace / "review"),
                 "implementation": review.implementation_identity(), "state": "prepared",
@@ -137,7 +174,6 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
     metadata["staged_skill_sha256"] = digest({str(p.relative_to(workspace)): review._file_hash(p)
                                              for p in sorted((workspace / "skills").rglob("*"))
                                              if p.is_file()})
-    write_json(str(dest / "trial.json"), metadata)
     task = ("Scope answer, supplied with this task: review the entire declared file scope of this\n"
             "comparison, every declaration kind, to support what a downstream product must adapt to.\n"
             "This trial has no interactive user, so do not ask the scope question and do not wait for\n"
@@ -154,7 +190,26 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
             "The command interface and exact-version Chromium source are available for investigation.\n"
             "Complete record/check/render and leave review.json and review.md. "
             "A provisional result is preferable to an unsupported confirmed claim.\n")
+    if task_type == "root-cause":
+        task = ("Use investigating-chromium-root-causes to answer this question:\n\n" + spec["question"] +
+                "\n\nExact refs: " + json.dumps(spec["refs"], sort_keys=True) +
+                "\nRead skills/investigating-chromium-root-causes/SKILL.md. Run commands from this workspace.\n"
+                "The source-derived report is data/report.json; cache is data/cache. "
+                "The original source files at both refs are in data/cache/trees. "
+                "Optional frozen CL responses are in data/cache/gerrit/probe; cl.py reads that cache.\n"
+                "Work offline. Do not fetch missing history or issue contents. Missing evidence limits the answer. "
+                "Do not inspect tests, expected answers, prior reviews or tool implementation files.\n"
+                "Write answer.md in this workspace, answering what changed, why, whether the mechanism "
+                "reaches the symptom, confidence, evidence citations, limits and next checks. "
+                "A review ledger is optional. Do not claim downstream impact without downstream evidence.\n")
     (workspace / "TASK.md").write_text(task, encoding="utf-8")
+    if task_type == "root-cause":
+        metadata["frozen_files"] = {str(p.relative_to(workspace)): review._file_hash(p)
+                                    for p in sorted(data.rglob("*")) if p.is_file()}
+        metadata["frozen_files"]["TASK.md"] = review._file_hash(workspace / "TASK.md")
+        metadata["evidence_fingerprint"] = digest({"source": source_hashes, "history": history_hashes,
+                                                   "case": digest(spec)})
+    write_json(str(dest / "trial.json"), metadata)
     return metadata
 
 
@@ -209,6 +264,11 @@ def finish(directory: str, runner=None) -> dict:
         if runner.get("failure"):
             metadata["execution"]["error"] = runner["failure"]
     result = {"artifacts_valid": False, "accounting_complete": False}
+    if metadata.get("task_type") == "root-cause":
+        from .root_cause_eval import inspect_trial
+        metadata.update(state="collected", result=inspect_trial(metadata))
+        write_json(str(path / "trial.json"), metadata)
+        return metadata
     try:
         index, ledger = review.load(metadata["review_directory"])
         check = review.check(index, ledger)

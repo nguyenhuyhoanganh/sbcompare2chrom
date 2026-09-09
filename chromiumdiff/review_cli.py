@@ -46,7 +46,17 @@ def command(args):
                                    args.source_repo, args.refresh)
     elif action == "prepare-trial":
         from .review_trials import prepare
-        result = prepare(read_json(args.spec), args.directory, args.cache, args.reference_mode, args.seed)
+        result = prepare(read_json(args.spec), args.directory, args.cache, args.reference_mode, args.seed, args.task_type)
+    elif action in ("root-assessment-template", "root-evaluate"):
+        from .root_cause_eval import assessment_template, evaluate
+        gold = read_json(args.gold)
+        if action == "root-assessment-template":
+            if os.path.exists(args.output):
+                raise ValueError("assessment output already exists; refusing to overwrite reviewer judgments")
+            write_json(args.output, assessment_template(gold, args.trials))
+            result = {"output": os.path.abspath(args.output), "status": "unadjudicated_template"}
+        else:
+            result = evaluate(gold, args.trials, read_json(args.adjudication) if args.adjudication else None)
     elif action in ("run-trial", "collect-trial"):
         from .review_trials import run, finish
         result = (run if action == "run-trial" else finish)(args.directory, read_json(args.runner))
@@ -149,11 +159,13 @@ def command(args):
             result["input_errors"] = review.verify_sources(index)
             if result["input_errors"]:
                 result["accounting_complete"] = False
+                result["scope"]["accounting_complete"] = False
         elif action == "render":
             errors = review.verify_sources(index)
             if errors:
                 raise ValueError("; ".join(errors))
-            text = review.render(index, ledger, require_complete=args.require_complete)
+            text = review.render(index, ledger, require_complete=args.require_complete,
+                                 require_scope_complete=args.require_scope_complete)
             path = os.path.join(args.directory, "review.md")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
@@ -164,7 +176,12 @@ def command(args):
     print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
     if action == "evaluate" and args.adjudication:
         return 0 if result["release_verdict"] == "pass_for_pinned_case_and_runner_only" else 1
-    return 1 if action == "check" and not result["accounting_complete"] else 0
+    if action == "root-evaluate":
+        return 0 if result["verdict"] == "pass_for_pinned_case_and_runner_only" else 1
+    if action == "check":
+        complete = result["scope"]["accounting_complete"] if args.scope else result["accounting_complete"]
+        return 0 if complete else 1
+    return 0
 
 
 def add_parser(sub, default_cache):
@@ -182,6 +199,7 @@ def add_parser(sub, default_cache):
     p.add_argument("--directory", required=True)
     p.add_argument("--cache", default=default_cache)
     p.add_argument("--reference-mode", choices=("full", "core"), default="full")
+    p.add_argument("--task-type", choices=("upgrade", "root-cause"), default="upgrade")
     p.add_argument("--seed", type=int, default=0, help="nonzero: deterministic rank/bucket/order perturbation")
     p.set_defaults(func=command)
     for name in ("run-trial", "collect-trial"):
@@ -200,6 +218,15 @@ def add_parser(sub, default_cache):
     p.add_argument("trials", nargs="+")
     p.add_argument("--output", required=True, help="new JSON file, kept outside all tested workspaces")
     p.set_defaults(func=command)
+    for name in ("root-assessment-template", "root-evaluate"):
+        p = commands.add_parser(name, help="independent assessment of frozen root-cause answers")
+        p.add_argument("gold", help="root-cause rubric JSON; keep outside tested workspaces")
+        p.add_argument("trials", nargs="+", help="trial directories holding trial.json")
+        if name == "root-assessment-template":
+            p.add_argument("--output", required=True)
+        else:
+            p.add_argument("--adjudication", help="completed independent assessment JSON")
+        p.set_defaults(func=command)
     for name in ("focus", "focus-read", "overview", "index", "events", "inspect", "related", "unresolved", "source", "record", "check", "render"):
         p = commands.add_parser(name)
         p.add_argument("directory", help="directory created by review init")
@@ -243,7 +270,12 @@ def add_parser(sub, default_cache):
             p.add_argument("--end", type=int, default=120)
             p.add_argument("--fetch", action="store_true", help="fetch missing exact-ref source from Gitiles")
         if name == "record":
-            p.add_argument("--file", required=True, help="JSON patch of events/dispositions")
+            p.add_argument("--file", required=True, help="JSON patch of events/dispositions and optional scope")
+        if name == "check":
+            p.add_argument("--scope", action="store_true", help="exit according to the explicitly recorded scope")
         if name == "render":
-            p.add_argument("--require-complete", action="store_true",
+            completion = p.add_mutually_exclusive_group()
+            completion.add_argument("--require-complete", action="store_true",
                            help="refuse to write while items or events remain unfinished; not semantic approval")
+            completion.add_argument("--require-scope-complete", action="store_true",
+                                   help="require completion of the explicitly recorded scope")
