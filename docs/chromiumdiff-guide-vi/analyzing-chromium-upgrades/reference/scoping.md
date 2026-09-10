@@ -130,5 +130,5 @@ thực thi công cụ và từ chối lời nhận hoàn thành thiếu bằng c
 agent tự đánh dấu không tương đương với bằng chứng đó.
 
 Sau khi lấy và kiểm inventory của phạm vi, lưu danh sách item cần quyết
-định theo [scope.md](scope.md). Nó theo dõi phạm vi riêng với toàn index;
-bộ lọc truy vấn không tự chứng minh mức hoàn thành.
+định theo [selection.md](selection.md). Selection được theo dõi riêng, song song
+với toàn index; bộ lọc truy vấn không tự chứng minh mức hoàn thành.

@@ -10,12 +10,12 @@ Disposition counts: {"event": 82, "explained": 15, "out_of_scope": 14, "pending"
 
 Accounting does not establish semantic completeness or product safety.
 
-## Selected review scope
+## Recorded item selection
 
 History đầy đủ ba ưu tiên: thay đổi người dùng thấy, khả năng mới, thích nghi downstream; flags/Mojo/WebUI, tất cả source deltas trực tiếp và dependency cần thiết. Windows 148.0.7778.217 → 151.0.7922.138. Downloads/Bookmarks ngoài phạm vi. Shared files chỉ quyết định hunks liên quan, không claim toàn Chromium.
 
-Scope accounting: COMPLETE
-Selected items: 111; outside selected scope: 9326.
+Selection accounting: COMPLETE
+Selected items: 111; outside the selection: 9326.
 Disposition counts: {"event": 82, "explained": 15, "out_of_scope": 14}
 
 Only the explicitly selected items are counted. Selection and semantic completeness require review.
@@ -528,3 +528,4 @@ Action: Test search title/URL, clear query, switch device, empty state, timestam
 - `file:chrome/browser/resources/side_panel/tabs_from_other_devices/tabs_from_other_devices.html` · [from: chrome/browser/resources/side_panel/tabs_from_other_devices/tabs_from_other_devices.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/chrome/browser/resources/side_panel/tabs_from_other_devices/tabs_from_other_devices.html), [to: chrome/browser/resources/side_panel/tabs_from_other_devices/tabs_from_other_devices.html](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/tabs_from_other_devices/tabs_from_other_devices.html): UI side panel và dữ liệu timestamp hiển thị được nối với ForeignSessionHandler.
 - [to: chrome/browser/resources/side_panel/tabs_from_other_devices/app.ts:1](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/resources/side_panel/tabs_from_other_devices/app.ts#1): State, query, sorting và data loading.
 - [to: chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.cc:59](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.cc#59): Regular-profile gate.
+

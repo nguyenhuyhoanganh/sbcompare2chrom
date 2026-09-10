@@ -138,5 +138,6 @@ actual tool execution and refuse an unsupported completion claim; a manually
 checked box is not equivalent to that evidence.
 
 After retrieving and checking the scope inventory, record its decision items
-using [scope.md](scope.md). This gives scope accounting alongside whole-index
-accounting without treating a retrieval filter as proof of completeness.
+using [selection.md](selection.md). That gives the selection its own accounting
+alongside the whole-index accounting, without treating a retrieval filter as
+proof of completeness.

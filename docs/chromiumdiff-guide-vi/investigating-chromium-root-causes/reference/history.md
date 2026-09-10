@@ -22,13 +22,13 @@ không dùng một giá trị mặc định mới, và dùng UID của finding m
 trả về:
 
 ```bash
-python3 scripts/why.py out/upgrade 'KIND:KEY' --cache "$cache_dir" --budget 100 --issues 3 --save
+python3 -m chromiumdiff why out/upgrade 'KIND:KEY' --cache "$cache_dir" --budget 100 --issues 3 --save
 ```
 
-`why.py` tìm trong các finding của báo cáo gốc. Nhiều finding cùng khớp thì
-chọn đúng một UID. Không finding nào khớp thì chuyển sang mục sau; **không** suy
-ra rằng source không đổi. Các item dạng `file:` và `brief:` của review index
-không phải UID của finding và helper này không nhận chúng.
+`chromiumdiff why` tìm trong các finding của báo cáo gốc. Nhiều finding cùng
+khớp thì chọn đúng một UID. Không finding nào khớp thì chuyển sang mục sau;
+**không** suy ra rằng source không đổi. Các item dạng `file:` và `brief:` của
+review index không phải UID của finding và helper này không nhận chúng.
 
 Các nhãn `introduced`, `exact` và `declares` mô tả những kiểu khớp khác nhau
 trong diff của một CL. Phải đọc diff để biết CL đó có giải thích được chuyển
@@ -135,8 +135,8 @@ rà soát.
 Đặt `cl_number` là số hiệu change trên Gerrit và giữ nguyên cache đã lưu:
 
 ```bash
-python3 scripts/cl.py "$cl_number" --files --cache "$cache_dir"
-python3 scripts/cl.py "$cl_number" "$source_path" --find "$identifier" --context 8 --cache "$cache_dir"
+python3 -m chromiumdiff cl "$cl_number" --files --cache "$cache_dir"
+python3 -m chromiumdiff cl "$cl_number" "$source_path" --find "$identifier" --context 8 --cache "$cache_dir"
 ```
 
 Bỏ `--find` để đọc toàn bộ diff của file đã chọn. Một đoạn trích có lọc có thể
@@ -154,6 +154,6 @@ Với mỗi khẳng định về lịch sử, ghi lại commit/CL, đoạn sourc
 xác lập được điều gì. Chung một bug hay chung một tiêu đề không đủ để gộp hai sự
 việc làm một.
 
-Khi mẩu đường dẫn khớp nhiều file trong CL, `cl.py` in tổng số và trang đã đọc.
-Dùng gợi ý `--offset`/`--limit` để đọc tiếp các file liên quan; mặc định tối đa
-ba diff mỗi trang.
+Khi mẩu đường dẫn khớp nhiều file trong CL, `chromiumdiff cl` in tổng số và
+trang đã đọc. Dùng gợi ý `--offset`/`--limit` để đọc tiếp các file liên quan;
+mặc định tối đa ba diff mỗi trang.

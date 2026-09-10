@@ -13,10 +13,11 @@
 
 ## Vì sao một verdict chưa phải là điểm dừng
 
-`why.py` cho biết **công cụ đã tìm ra CL bằng cách nào**. `introduced`, `exact`,
-`declares` là phát biểu về **một lần tìm kiếm**, không phải về nhân quả. Lần tìm
-đó hỏi "diff của CL này trên file này có chạm vào identifier này không"; nó không
-bao giờ hỏi "đây có phải thay đổi mà finding đang nói tới không".
+`chromiumdiff why` cho biết **công cụ đã tìm ra CL bằng cách nào**.
+`introduced`, `exact`, `declares` là phát biểu về **một lần tìm kiếm**, không
+phải về nhân quả. Lần tìm đó hỏi "diff của CL này trên file này có chạm vào
+identifier này không"; nó không bao giờ hỏi "đây có phải thay đổi mà finding
+đang nói tới không".
 
 Phần lớn trường hợp hai điều đó trùng nhau. Câu trả lời sai đến từ khoảng cách
 giữa chúng, và chỉ mở CL ra đọc mới khép được khoảng cách đó.
@@ -36,9 +37,8 @@ Từ thấp lên cao. Mỗi nấc đều kiểm chứng được; không nấc n
 | 3 | commit message giải thích nó | "tác giả nói CL này làm X" |
 | 4 | bản diff cho thấy trạng thái trước và sau | "CL này đã tạo ra thay đổi mà finding báo cáo" |
 | 5 | issue nêu rõ khiếm khuyết | "việc này được làm vì Y đang hỏng" |
-
-Nấc 1 và 2 đến từ `why.py`. Nấc 3 và 4 cần `cl.py`. Nấc 5 cần chip issue, hoặc
-`why.py` trên một báo cáo đang được serve.
+ Nấc 1 và 2 đến từ `chromiumdiff why`. Nấc 3 và 4 cần `chromiumdiff cl`. Nấc 5
+cần chip issue, hoặc `chromiumdiff why` trên một báo cáo đang được serve.
 
 **Báo cáo đúng nấc cao nhất thật sự đã tới, và nói rõ đó là nấc nào.** Một dòng
 được trả lời ở nấc 2 nhưng viết ra như nấc 4 chính là lỗi mà skill này được viết
@@ -87,9 +87,10 @@ Bốn phần, mỗi phần trả lời một chuyện khác nhau.
   CL đã land trên main và land ở đâu. Reviewer và `Change-Id` hiếm khi là thứ
   bạn cần.
 
-Một bản revert mang `revert_of`, một bản cherry-pick mang `cherry_pick_of_change`
-trong chính bản ghi của Gerrit, và `cl.py` in chúng phía trên message. Chúng đáng
-tin hơn việc đọc chuỗi `Revert "..."` từ tiêu đề.
+Một bản revert mang `revert_of`, một bản cherry-pick mang
+`cherry_pick_of_change` trong chính bản ghi của Gerrit, và `chromiumdiff cl` in
+chúng phía trên message. Chúng đáng tin hơn việc đọc chuỗi `Revert "..."` từ
+tiêu đề.
 
 ## Đọc bản diff
 
@@ -101,10 +102,9 @@ Gerrit trả bản diff theo từng khối, và loại khối có ý nghĩa:
 | `a` | bị xoá |
 | `b` | được thêm |
 | `common: true` | **cùng nội dung, chỉ khác nhau bên trong dòng** |
-
-Loại cuối là một lần thụt lề lại hoặc xuống dòng lại. `cl.py` đánh dấu nó bằng
-`~` chứ không phải `-`/`+`, vì tính nó là một lần sửa sẽ khiến một CL chỉ format
-lại file trở thành khớp `exact` với mọi khai báo trong file đó.
+ Loại cuối là một lần thụt lề lại hoặc xuống dòng lại. `chromiumdiff cl` đánh
+dấu nó bằng `~` chứ không phải `-`/`+`, vì tính nó là một lần sửa sẽ khiến một
+CL chỉ format lại file trở thành khớp `exact` với mọi khai báo trong file đó.
 
 Phải so **cả hai phía**. Một finding ghi lại trạng thái trước và sau của một khai
 báo; CL tạo ra thay đổi đó là CL có dòng **bị xoá** mang giá trị trước và dòng
@@ -118,14 +118,14 @@ báo; CL tạo ra thay đổi đó là CL có dòng **bị xoá** mang giá tr�
 Đó là `blink.mojom.TokenError.url` đổi kiểu, và đó chính là bằng chứng mà
 `introduced` dựa vào — đọc trực tiếp, không tin theo.
 
-**Tìm trong diff theo giá trị đã đổi, không theo identifier.** Identifier thường
-cũng nằm trên các dòng không đổi, và mọi dòng như vậy đều là nhiễu. `cl.py --find`
-chỉ đánh dấu các dòng mà CL đã đổi, chính vì lý do đó.
+**Tìm trong diff theo giá trị đã đổi, không theo identifier.** Identifier
+thường cũng nằm trên các dòng không đổi, và mọi dòng như vậy đều là nhiễu.
+`chromiumdiff cl --find` chỉ đánh dấu các dòng mà CL đã đổi, chính vì lý do đó.
 
-Một file bị CL đổi tên sẽ trả lời dưới đường dẫn cũ, với cả file là một khối duy
-nhất và không có dấu hiệu rename. `cl.py` in `(renamed from ...)` khi metadata của
-Gerrit nói vậy; một bản diff "rỗng" ở một mục bị xoá thường chính là trường hợp
-này.
+Một file bị CL đổi tên sẽ trả lời dưới đường dẫn cũ, với cả file là một khối
+duy nhất và không có dấu hiệu rename. `chromiumdiff cl` in `(renamed from ...)`
+khi metadata của Gerrit nói vậy; một bản diff "rỗng" ở một mục bị xoá thường
+chính là trường hợp này.
 
 ## Bốn câu hỏi mà chỉ bản diff trả lời được
 
@@ -154,9 +154,9 @@ Chuyện này có xảy ra, và một lần bác bỏ là một kết quả th�
   member của bạn.
 - **Toàn bộ diff là `~`.** Chỉ format lại.
 - **Thay đổi đi theo chiều ngược lại.** CL xoá đi thứ mà finding nói là được thêm.
-- **Ngày nằm ngoài khoảng của hai cây source.** `why.py` giờ không hiện các CL
-  này, nhưng một CL bạn tới được từ lịch sử của một issue thì có thể thuộc bất kỳ
-  milestone nào.
+- **Ngày nằm ngoài khoảng của hai cây source.** `chromiumdiff why` giờ không
+  hiện các CL này, nhưng một CL bạn tới được từ lịch sử của một issue thì có
+  thể thuộc bất kỳ milestone nào.
 
 Khi một trong số đó đúng, dòng đó **chưa được trả lời**. Quay lại các CL khác của
 nó, tăng `--budget`, hoặc báo cáo rằng lần tìm đã tới được file nhưng chưa tới
@@ -166,14 +166,14 @@ nó, tăng `--budget`, hoặc báo cáo rằng lần tìm đã tới được fi
 
 ```bash
 # CL tự nói gì về nó, và nó chạm vào những file nào
-python3 scripts/cl.py 7982397
+python3 -m chromiumdiff cl 7982397
 
 # diff của một file, chỉ đánh dấu các dòng đã đổi có mang giá trị cần tìm
-python3 scripts/cl.py \
+python3 -m chromiumdiff cl \
   7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
 
 # toàn bộ diff của file đó, không đánh dấu
-python3 scripts/cl.py \
+python3 -m chromiumdiff cl \
   7982397 federated_auth_request.mojom --context 0
 ```
 

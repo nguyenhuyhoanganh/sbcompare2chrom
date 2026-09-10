@@ -26,7 +26,8 @@ PY
 `source_scope.mode` distinguishes cached files from a Git repository.
 `source_roots` identify cached trees. In Git mode, read the recorded commits
 from the repository; do not assume the working checkout matches either ref.
-Keep the printed cache path for `why.py` and `cl.py` lookups.
+Keep the printed cache path for `chromiumdiff why` and `chromiumdiff cl`
+lookups.
 
 ## Work in small batches
 
@@ -190,10 +191,10 @@ citing its contents. Validation does not fetch URLs or verify that a source
 supports the stated claim. An inaccessible issue remains missing evidence.
 
 ## Refresh after saving new evidence
-
-`why.py --save` changes `report.json`. Refresh the review before continuing,
-using its saved configuration. The CLI does not automatically retain a prior
-`--cache` or `--source-repo` when they are omitted on `review init --refresh`.
+ `chromiumdiff why --save` changes `report.json`. Refresh the review before
+continuing, using its saved configuration. The CLI does not automatically
+retain a prior `--cache` or `--source-repo` when they are omitted on `review
+init --refresh`.
 
 Run the following from the project root after saving the lookup. It preserves
 both cached-only and Git-backed reviews without guessing their paths:
@@ -244,9 +245,10 @@ python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 This exits 1 without writing or replacing `review.md` if items or events are
-unfinished. For a recorded selected scope, use `--require-scope-complete`
-as described in [scope.md](scope.md). It requires that selection to be complete
-while preserving whole-index PARTIAL when outside items remain pending. The ordinary `render` command remains available for a clearly labelled
+unfinished. For a recorded item selection, use `--require-selection-complete`
+as described in [selection.md](selection.md). It requires that selection to be
+complete while preserving whole-index PARTIAL when items outside it remain
+pending. The ordinary `render` command remains available for a clearly labelled
 partial report; its exit 0 only means the file was written. Neither command
 verifies the meaning of the agent's explanations.
 

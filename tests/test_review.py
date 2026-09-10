@@ -558,8 +558,12 @@ class TestReviewWorkflow(unittest.TestCase):
         gold_path = str(Path(self.tmp.name) / "gold.json")
         write_json(gold_path, {"provenance": "synthetic CLI contract test, not semantic adjudication",
                                "events": [{"id": "one", "items": [uid]}]})
+        # Without an independent assessment the run has established nothing, so
+        # the command exits nonzero and says which blocker holds it there.
         code, evaluated = self.cli("evaluate", gold_path, self.directory)
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
+        self.assertEqual(evaluated["release_verdict"], "not established by structural metrics")
+        self.assertEqual(evaluated["unsupported_claims"], "requires independent source/CL adjudication")
         self.assertEqual(evaluated["trials"][0]["exact_event_membership_recall"], 1)
 
 
@@ -657,6 +661,43 @@ class TestReviewEvaluation(unittest.TestCase):
                                  ("two", {**self.index, "fingerprint": "other"}, self.trial("ab", "c"))])
 
 
+class TestThePersistedShapeIsPinnedToItsSchemaNumber(unittest.TestCase):
+    """A stored key renamed without a new number loses data without saying so.
+
+    `scope` became `selection`. A ledger written before that holds no
+    `selection`, and a build reading it without checking the number reports a
+    recorded COMPLETE selection as one that was never recorded -- the same
+    failure the `report.json` stamp exists to prevent. `load` does check the
+    number, but nothing made the number move when the shape did.
+
+    This is a tripwire, not a proof: it fails on any change to the stored shape
+    or the number, so the change has to be deliberate.
+    """
+
+    PINNED = "ac8794012aba6e0b"
+
+    def shape(self):
+        from chromiumdiff.evidence import digest
+        with tempfile.TemporaryDirectory() as tmp:
+            report, _, _, cache, path = fixture(tmp)
+            directory = str(Path(tmp) / "review")
+            review.initialize(path, directory, cache)
+            index, ledger = review.load(directory)
+            recorded = review.record(index, ledger, {"selection": {
+                "description": "one item", "fingerprint": index["fingerprint"],
+                "items": [report.findings[0].uid]}})
+            return digest({"schema": review.REVIEW_SCHEMA,
+                           "index": sorted(index), "ledger": sorted(ledger),
+                           "with_selection": sorted(recorded)})[:16]
+
+    def test_a_changed_stored_shape_must_come_with_a_new_schema_number(self):
+        self.assertEqual(self.shape(), self.PINNED,
+                         "review-index.json/review.json changed shape or schema number. "
+                         "A shape change MUST bump review.REVIEW_SCHEMA, because load() "
+                         "refuses an older number instead of reading the old shape as "
+                         "absent fields. Then update this pin.")
+
+
 class TestSkillContract(unittest.TestCase):
     def test_stdlib_frontmatter_links_and_python39_syntax(self):
         import ast
@@ -670,7 +711,8 @@ class TestSkillContract(unittest.TestCase):
         self.assertTrue(fields["description"])
         for relative in re.findall(r"\]\((reference/[^)]+)\)", text):
             self.assertTrue((skill.parent / relative).is_file(), relative)
-        for name in ("evidence", "review", "review_cli", "review_eval", "review_trials", "review_focus"):
+        for name in ("evidence", "review", "review_cli", "review_eval", "review_trials",
+                     "review_focus", "history_cli", "root_cause_eval"):
             ast.parse((root / "chromiumdiff" / (name + ".py")).read_text(), feature_version=(3, 9))
 
 

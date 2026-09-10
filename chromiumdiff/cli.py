@@ -642,6 +642,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     from .review_cli import add_parser as add_review_parser
     add_review_parser(sub, DEFAULT_CACHE)
+
+    # `why` and `cl` are the agent's replacement for clicking a row in `serve`.
+    # They live in the package like every other command, so there is one way to
+    # say where a command runs from and one thing to copy to another machine.
+    from .history_cli import add_parser as add_history_parser
+    add_history_parser(sub, DEFAULT_CACHE)
     return parser
 
 

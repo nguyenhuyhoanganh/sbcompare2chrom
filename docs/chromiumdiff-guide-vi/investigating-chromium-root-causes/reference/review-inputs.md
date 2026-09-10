@@ -21,14 +21,15 @@ PY
 
 `source_scope.mode` cho biết đang dùng file trong cache hay dùng repo Git.
 `source_roots` là các cây source đã cache. Ở chế độ Git, đọc commit đã ghi lại
-trong repo; **không** giả định checkout hiện tại khớp với ref nào trong hai ref.
-Giữ lại đường dẫn cache vừa in ra để dùng cho `why.py` và `cl.py`.
+trong repo; **không** giả định checkout hiện tại khớp với ref nào trong hai
+ref. Giữ lại đường dẫn cache vừa in ra để dùng cho `chromiumdiff why` và
+`chromiumdiff cl`.
 
 ## Refresh sau khi lưu bằng chứng mới
-
-`why.py --save` ghi thay đổi vào `report.json`. Phải refresh review trước khi
-làm tiếp, dùng đúng cấu hình đã lưu của nó. CLI **không** tự giữ lại `--cache`
-hay `--source-repo` trước đó khi chúng bị bỏ trống ở `review init --refresh`.
+ `chromiumdiff why --save` ghi thay đổi vào `report.json`. Phải refresh review
+trước khi làm tiếp, dùng đúng cấu hình đã lưu của nó. CLI **không** tự giữ lại
+`--cache` hay `--source-repo` trước đó khi chúng bị bỏ trống ở `review init
+--refresh`.
 
 Chạy đoạn dưới đây từ thư mục gốc của repo sau khi lưu kết quả tra cứu. Nó giữ
 đúng cấu hình cho cả review chỉ dùng cache lẫn review có repo Git, không phải

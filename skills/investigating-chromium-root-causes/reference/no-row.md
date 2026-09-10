@@ -1,8 +1,8 @@
 # When a lookup returns no result
 
-`why.py` searches findings in `report.json` and then looks for related CLs.
-No matching row and no matching CL are different results. Neither by itself
-establishes that source or behaviour did not change.
+`chromiumdiff why` searches findings in `report.json` and then looks for
+related CLs. No matching row and no matching CL are different results. Neither
+by itself establishes that source or behaviour did not change.
 
 ## Part A — no matching finding
 
@@ -15,7 +15,7 @@ external string and its C++ identifier can differ. Mojo keys include their
 namespace and enclosing declaration. Keep the actual cache path:
 
 ```bash
-python3 scripts/why.py out/DIR features.cc --cache "$cache_dir"
+python3 -m chromiumdiff why out/DIR features.cc --cache "$cache_dir"
 ```
 
 This still searches report findings, not arbitrary file history. A `file:`
@@ -42,7 +42,7 @@ rather than concluding that no matching finding means no change.
 A function-body change may produce no declaration finding. The review's
 source inventory can still identify the changed file when it is cached or
 in the selected Git comparison. Inspect `review source` and the relevant
-consumers even when `why.py` cannot resolve it.
+consumers even when `chromiumdiff why` cannot resolve it.
 
 For A3 or A4, use the
 [direct source/history procedure](history.md).

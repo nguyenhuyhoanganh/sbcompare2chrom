@@ -22,13 +22,14 @@ PY
 `source_scope.mode` distinguishes cached files from a Git repository.
 `source_roots` identify cached trees. In Git mode, read the recorded commits
 from the repository; do not assume the working checkout matches either ref.
-Keep the printed cache path for `why.py` and `cl.py` lookups.
+Keep the printed cache path for `chromiumdiff why` and `chromiumdiff cl`
+lookups.
 
 ## Refresh after saving new evidence
-
-`why.py --save` changes `report.json`. Refresh the review before continuing,
-using its saved configuration. The CLI does not automatically retain a prior
-`--cache` or `--source-repo` when they are omitted on `review init --refresh`.
+ `chromiumdiff why --save` changes `report.json`. Refresh the review before
+continuing, using its saved configuration. The CLI does not automatically
+retain a prior `--cache` or `--source-repo` when they are omitted on `review
+init --refresh`.
 
 Run the following from the project root after saving the lookup. It preserves
 both cached-only and Git-backed reviews without guessing their paths:

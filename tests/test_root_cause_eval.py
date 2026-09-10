@@ -79,6 +79,41 @@ class TestRootCauseTrials(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "history file"):
             self.prepare("bad-history")
 
+    def test_core_mode_removes_the_worked_answer_and_the_example_references(self):
+        """The ablation is the blinding, so a silent no-op has to fail here.
+
+        The cut is bounded by two headings found by name. Renaming either one
+        leaves the worked answer in a blind workspace and raises no error, so
+        this asserts the original carries what the staged copy has lost --
+        an ablation measured against nothing passes whatever it removes.
+        """
+        original = (Path(__file__).resolve().parent.parent
+                    / "skills/investigating-chromium-root-causes")
+        entry = (original / "SKILL.md").read_text(encoding="utf-8")
+        start, end = entry.find("\n## Worked example"), entry.find("\n## Reference")
+        self.assertLess(0, start, "SKILL.md has no worked example for core mode to remove")
+        self.assertLess(start, end, "the worked example no longer precedes the reference list")
+        removed = entry[start:end]
+
+        _, meta = self.prepare("ablated")
+        staged = Path(meta["workspace"]) / "skills/investigating-chromium-root-causes"
+        text = (staged / "SKILL.md").read_text(encoding="utf-8")
+        self.assertNotIn(removed, text)
+        self.assertNotIn("## Worked example", text)
+        # The procedure survives the cut; only the answer goes.
+        self.assertIn("## Workflow", text)
+        self.assertIn("## Reference", text)
+
+        for name in ("reading-a-cl.md", "reading-a-finding.md", "symptom-to-uid.md"):
+            withheld = (staged / "reference" / name).read_text(encoding="utf-8")
+            self.assertIn("withheld", withheld)
+            self.assertTrue((original / "reference" / name).read_text(encoding="utf-8").strip(),
+                            name + " is empty upstream; withholding it removes nothing")
+        for name in ("history.md", "no-row.md", "review-inputs.md", "handoff.md"):
+            kept = (staged / "reference" / name).read_text(encoding="utf-8")
+            self.assertNotIn("withheld", kept)
+            self.assertEqual(kept, (original / "reference" / name).read_text(encoding="utf-8"))
+
     def test_one_answer_or_unreviewed_checks_cannot_pass(self):
         paths = self.collected()
         template = root_cause_eval.assessment_template(self.gold, paths)

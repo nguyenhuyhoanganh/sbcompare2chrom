@@ -25,8 +25,9 @@ PY
 
 `source_scope.mode` cho biết đang dùng file trong cache hay dùng repo Git.
 `source_roots` là các cây source đã cache. Ở chế độ Git, đọc commit đã ghi lại
-trong repo; **không** giả định checkout hiện tại khớp với ref nào trong hai ref.
-Giữ lại đường dẫn cache vừa in ra để dùng cho `why.py` và `cl.py`.
+trong repo; **không** giả định checkout hiện tại khớp với ref nào trong hai
+ref. Giữ lại đường dẫn cache vừa in ra để dùng cho `chromiumdiff why` và
+`chromiumdiff cl`.
 
 ## Làm theo từng đợt nhỏ
 
@@ -194,10 +195,10 @@ rằng nguồn đó chống đỡ được khẳng định đang nêu. Một iss
 vẫn là bằng chứng còn thiếu.
 
 ## Refresh sau khi lưu bằng chứng mới
-
-`why.py --save` ghi thay đổi vào `report.json`. Phải refresh review trước khi
-làm tiếp, dùng đúng cấu hình đã lưu của nó. CLI **không** tự giữ lại `--cache`
-hay `--source-repo` trước đó khi chúng bị bỏ trống ở `review init --refresh`.
+ `chromiumdiff why --save` ghi thay đổi vào `report.json`. Phải refresh review
+trước khi làm tiếp, dùng đúng cấu hình đã lưu của nó. CLI **không** tự giữ lại
+`--cache` hay `--source-repo` trước đó khi chúng bị bỏ trống ở `review init
+--refresh`.
 
 Chạy đoạn dưới đây từ thư mục gốc của repo sau khi lưu kết quả tra cứu. Nó giữ
 đúng cấu hình cho cả review chỉ dùng cache lẫn review có repo Git, không phải
@@ -252,9 +253,9 @@ python3 -m chromiumdiff review render out/upgrade/review --require-complete
 ```
 
 Nếu còn item hoặc event chưa xong, lệnh trả mã 1 và không ghi hay thay thế
-`review.md`. Với scope đã lưu, dùng `--require-scope-complete` theo
-[scope.md](scope.md): gate kiểm danh sách đã chọn, giữ PARTIAL toàn index khi
-item ngoài scope còn pending. Lệnh `render` thông thường vẫn dùng được để xuất báo
+`review.md`. Với selection đã lưu, dùng `--require-selection-complete` theo
+[selection.md](selection.md): gate kiểm danh sách đã chọn, giữ PARTIAL toàn
+index khi item ngoài selection còn pending. Lệnh `render` thông thường vẫn dùng được để xuất báo
 cáo một phần có ghi rõ trạng thái; mã 0 của nó chỉ nghĩa là đã ghi file. Cả hai
 lệnh đều không xác minh ý nghĩa các lời giải thích của agent.
 

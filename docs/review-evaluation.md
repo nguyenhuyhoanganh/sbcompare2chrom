@@ -96,12 +96,13 @@ python3 -m chromiumdiff review prepare-trial \
 
 Pass `--cache /path/to/cache` if nondefault. Missing/mismatched sources fail
 explicitly; preparation does not fetch or invent empty files. Each workspace
-contains the executable package, shared scripts, selected skill, `TASK.md`, source-derived report and
-exact-version cache. It excludes tests, gold and prior reviews. `core` replaces
-the analysis skill's domain references with neutral notices and keeps the
-scoping, focused retrieval, analysis and history references with their Chromium
-path examples redacted; `full` keeps the normal references. Metadata
-records both the parent revision and actual staged reference digest.
+contains the executable package, the selected skill, `TASK.md`, the
+source-derived report and the exact-version cache. It excludes tests, gold and
+prior reviews. `core` replaces the analysis skill's domain references with
+neutral notices and keeps the scoping, selection, focused-retrieval, analysis,
+history, handoff and no-result references, with their Chromium path examples
+redacted; `full` keeps the normal references. Metadata records both the parent
+revision and actual staged reference digest.
 `--seed 17` perturbs scores, buckets and input order without changing evidence.
 Repeat into five new directories with the same tool revision/source case.
 
@@ -214,10 +215,12 @@ They are a small evaluation corpus, not broad semantic certification.
 
 Root-cause trials use the same staging and runner commands, with their own
 question, output and assessment contract. Each workspace contains only
-`investigating-chromium-root-causes`, shared executable tools, complete source
-files at pinned refs and any explicitly hash-pinned Gerrit probe responses.
-The selected skill uses its own references. Gold, tests, named evaluation
-answers and earlier trials are excluded from the workspace.
+`investigating-chromium-root-causes`, the executable package, `TASK.md`, the
+source-derived `data/report.json` and `data/report.md`, and a `data/cache`
+holding the extracted snapshots, complete source files at the pinned refs and
+any explicitly hash-pinned Gerrit probe responses. The selected skill uses its
+own references. Gold, tests, named evaluation answers and earlier
+trials are excluded from the workspace.
 
 The corpus in `tests/fixtures/root_cause_cases` covers a TokenError URL-type
 transition with frozen CL evidence (148.0.7778.217 → 151.0.7922.138), a

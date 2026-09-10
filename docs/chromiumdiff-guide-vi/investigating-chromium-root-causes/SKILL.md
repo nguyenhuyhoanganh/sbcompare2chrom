@@ -5,10 +5,10 @@ description: Lần một thay đổi Chromium ngược về review đã tạo ra
 
 # Truy nguyên nguyên nhân gốc của một thay đổi Chromium
 
-Script dùng chung nằm trong thư mục `scripts/` ở root của repository.
-Đọc reference trong thư mục `reference/` của chính skill này. Khi chuyển việc
-sang skill khác, gọi bằng tên skill và nêu nhiệm vụ; không gọi script hay đọc
-file reference của skill đó trực tiếp.
+Mọi câu lệnh đều là `python3 -m chromiumdiff ...`, và các command thuộc về tool
+chứ không thuộc về skill nào. Đọc reference trong thư mục `reference/` của chính
+skill này. Khi chuyển việc sang skill khác, gọi bằng tên skill và nêu nhiệm vụ;
+không đọc file reference hay chạy bất cứ thứ gì trong thư mục của skill đó.
 Đọc [reference/handoff.md](reference/handoff.md) khi chuyển một tác vụ.
 
 Một báo cáo nói **cái gì đã đổi**. Skill này trả lời **vì sao nó đổi, và điều đó có giải thích được thứ mà bạn được hỏi hay không.**
@@ -61,7 +61,7 @@ Nếu yêu cầu nêu ra nhiều thứ, làm từng thứ một. Một câu tr�
 ### Bước 2: Lấy dòng tương ứng, hoặc xác định là không có dòng nào
 
 ```bash
-python3 scripts/why.py \
+python3 -m chromiumdiff why \
   out/M148_to_M151 BackForwardCachePauseMicrotasks
 ```
 
@@ -119,12 +119,12 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
 **Đọc chính bằng chứng, đừng đọc bản tóm tắt của nó.** Lần ra theo thứ tự này, và dừng ngay khi câu trả lời đã đủ:
 
 1. **Tiêu đề của issue.** Thường chính là lỗi thật, gói trong một dòng.
-2. **Những CL khác cùng dẫn issue đó.** `why.py` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi, gồm cả việc bug có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
+2. **Những CL khác cùng dẫn issue đó.** `chromiumdiff why` lấy sẵn các issue này về và in ra cùng CL — mặc định tối đa 6, đổi bằng `--issues`. Không phải đi bấm gì cả; bấm chuột là đường của người dùng trang `serve`, ở đó chip issue mở lịch sử ngay dưới CL. Đây là lịch sử sửa lỗi, gồm cả việc bug có nghiêm trọng tới mức phải merge ngược về các nhánh đã phát hành hay không. Tiền tố `[M148]` hay `[m147]` trên tiêu đề một CL đúng là dấu hiệu đó, và nó là bằng chứng mạnh cho thấy con bug đã ảnh hưởng tới người dùng thật.
 3. **Chính lời văn và chính bản diff của CL**, mỗi khi câu trả lời có trọng lượng — và luôn luôn phải đọc trước khi trích một CL vào ticket, mỗi khi verdict là `declares` hoặc `described`, và mỗi khi tiêu đề đọc lên có vẻ không liên quan tới finding:
 
    ```bash
-   python3 scripts/cl.py 7982397
-   python3 scripts/cl.py \
+   python3 -m chromiumdiff cl 7982397
+   python3 -m chromiumdiff cl \
      7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
    ```
 
@@ -139,7 +139,7 @@ Trước khi viết câu trả lời, đem khẳng định đó đối chiếu v
 
 - **Ngày tháng có khớp không, ở cả hai đầu?** Một CL được merge trước điểm rẽ nhánh của version *from* thì có mặt trong cả hai cây và không thể giải thích một sự khác biệt. Một CL được merge sau điểm rẽ nhánh của version *to* thì hoàn toàn không có trong cây đã phát hành — `Cr-Branched-From` trong mỗi tag cho cả hai mốc ngày. Phần tra cứu ép cả hai điều kiện, và một dòng đã serve nhưng được ghi theo cửa sổ cũ và rộng hơn sẽ bị nhận ra và hỏi lại chứ không phục vụ nguyên trạng — nên một ngày vượt quá điểm rẽ nhánh của version đích trên một dòng đã serve là dấu hiệu của chuyện khác, và đáng báo lại.
 - **Chiều có khớp không?** Một flag đi từ `enabled → disabled` thì không được giải thích bởi một CL có tiêu đề "Enable …". Kiểm tra xem phần chênh lệch thật sự đi theo chiều nào.
-- **CL nói về khai báo này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff trả lời được, qua bốn câu hỏi: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `cl.py` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa sẽ biến một lần format lại thành bằng chứng.
+- **CL nói về khai báo này, hay chỉ nói về file?** Một file bị chạm bởi một lần đổi tên, một lần format lại và cả thay đổi thật thì báo cáo cả ba. `introduced` và `exact` phân biệt được; riêng `declares` thì không. Bản diff trả lời được, qua bốn câu hỏi: có dòng bị xoá nào mang giá trị trước của finding không, có dòng được thêm nào mang giá trị sau không, thay đổi có nằm bên trong khai báo mà finding gọi tên không, và nó có nhiều hơn một lần thụt lề lại không? Ba câu có thì CL là nguyên nhân; một câu không thì nó là bối cảnh. Gerrit đánh dấu một lần thụt lề lại là `common: true` và `chromiumdiff cl` in nó bằng `~`, vì tính một dòng như vậy thành một chỉnh sửa sẽ biến một lần format lại thành bằng chứng.
 - **Cơ chế đó có với tới triệu chứng không?** Một lần lật flag giải thích được thay đổi hành vi trên đúng platform mà flag đã lật. Đọc `change.before.platform_state.windows` và `change.after.platform_state.windows`; ngay cạnh chúng có `default_state` — đó là mặc định chung của Chromium, không phải của Windows.
 - **Đây là nguyên nhân, hay chỉ là một bước trong chuỗi?** Launch → revert → reland là một thay đổi và nhiều CL. CL cũ nhất là chỗ bắt đầu; CL mới nhất là trạng thái hiện tại. Báo cáo cả hai.
 
@@ -203,6 +203,9 @@ Một bản diff không cho ra được điều đó, và đọc `features.cc` c
 - **[reference/no-row.md](reference/no-row.md)** — các trường hợp một lần tra cứu không trả về kết quả: không có finding nào khớp (A1–A5) và có finding nhưng không có CL giải thích được (B1–B6), kèm bảng đọc các trường chẩn đoán trong `enrichment.gerrit`. Trường hợp A3 và A4 chuyển sang thủ tục đọc lịch sử trực tiếp trong `reference/history.md`.
 - **[reference/symptom-to-uid.md](reference/symptom-to-uid.md)** — bắt đầu từ một triệu chứng người dùng thấy được thay vì từ một identifier.
 - **[reference/reading-a-finding.md](reference/reading-a-finding.md)** — các signal của skill này nghĩa là gì, những cách đi tới kết luận sai từ một finding đúng, và chuỗi mắt xích đứng sau một control trong settings. Đọc trước khi diễn giải bất kỳ mục bị xoá nào.
+- **[reference/history.md](reference/history.md)** — tra CL từ một finding, và cách đọc thẳng lịch sử file khi lượt tra không ra dòng nào.
+- **[reference/review-inputs.md](reference/review-inputs.md)** — cache và source phải truyền lại cho lệnh sau, và `--save` thay đổi những gì.
+- **[reference/handoff.md](reference/handoff.md)** — cần chuyển những gì khi một skill khác nhận việc.
 
 ## Những gì skill này không xác lập được
 

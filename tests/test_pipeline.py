@@ -5302,7 +5302,7 @@ class TestAStaleReportIsRefused(unittest.TestCase):
 
     `snapshot.py` has checked it since schema 2 and rebuilds a stale cache.
     Nothing checked it on a `report.json`, and the four commands that load one
-    -- `report`, `figures`, `serve`, and the skill's `why.py` -- each called
+    -- `report`, `figures`, `serve` and `why` -- each called
     `Report.from_dict` on the parsed file.
 
     That does not fail; it renders a wrong report. A version 40 file put
@@ -5360,7 +5360,7 @@ class TestAStaleReportIsRefused(unittest.TestCase):
         analysis, and is written up in `meaningful_attrs`."""
         import re
         loaders = ["chromiumdiff/cli.py", "chromiumdiff/serve.py",
-                   "scripts/why.py"]
+                   "chromiumdiff/history_cli.py"]
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         for rel in loaders:
             with open(os.path.join(root, rel), encoding="utf-8") as source:

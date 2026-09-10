@@ -39,7 +39,7 @@ Counts are from one real M148 → M151 run, to show how many rows each kind has.
 Search within one kind by passing the prefix:
 
 ```bash
-python3 scripts/why.py out/DIR webui_control:
+python3 -m chromiumdiff why out/DIR webui_control:
 ```
 
 That lists every row of that kind, ranked. Pick the one whose name matches the
@@ -62,7 +62,7 @@ Three moves, in order. Stop at the first that produces a name.
    script matches path fragments:
 
    ```bash
-   python3 scripts/why.py out/DIR downloads
+   python3 -m chromiumdiff why out/DIR downloads
    ```
 
 If none of the three produce a name, the symptom may not be a declaration change

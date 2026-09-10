@@ -5,10 +5,10 @@ description: Compares two Chromium versions with the chromiumdiff scripts and ex
 
 # Analyzing Chromium upgrades
 
-Shared executable helpers live in the repository-root `scripts/` directory.
-Read references from this skill's own `reference/` directory. To hand work to
-another skill, name that skill and its task; do not call its scripts or read
-its reference files directly.
+Every command is `python3 -m chromiumdiff ...`, and the commands belong to the
+tool rather than to a skill. Read references from this skill's own `reference/`
+directory. To hand work to another skill, name that skill and its task; do not
+read its reference files or run anything inside its directory.
 Read [reference/handoff.md](reference/handoff.md) when transferring a task.
 
 The script reads declarations out of two Chromium versions and lists the
@@ -68,6 +68,10 @@ checkpoint.
 - **Scope**: the areas and decisions the user gives you at step 1.
   **Acquisition** is a different thing: how much of Chromium the script
   downloads and reads, set by `--target-set` and `--partition` at step 2.
+- **Selection**: the list of indexed items whose decisions must be complete for
+  that scope, recorded at step 7. The scope is in the user's words; the
+  selection is in item IDs, which is what a gate can count. `out_of_scope` is
+  neither of the two: it is one decision you record on a single item.
 
 ## Step 1 — Get the versions and the scope
 
@@ -247,11 +251,11 @@ What each kind of evidence can and cannot tell you:
   later, you need the commit history for that.
 
 Read [signals.md](reference/signals.md) before you read anything into the
-classifier labels. Read [settings-screen.md](reference/settings-screen.md)
-when you follow WebUI routes, controls and the conditions that show or hide
-them. Read [history.md](reference/history.md) when you cannot tell why a
-change was made or in what order things happened; it covers looking a CL up
-from a finding, and reading the file history directly when `why.py` finds no
+classifier labels. Read [settings-screen.md](reference/settings-screen.md) when
+you follow WebUI routes, controls and the conditions that show or hide them.
+Read [history.md](reference/history.md) when you cannot tell why a change was
+made or in what order things happened; it covers looking a CL up from a
+finding, and reading the file history directly when `chromiumdiff why` finds no
 row. Check a milestone summary against the two exact versions: its date alone
 does not tell you the feature was in either of them.
 
@@ -292,8 +296,9 @@ recording a different set of items instead does not pass.
 ## Step 7 — Repeat 4 to 6 until the scope is accounted for
 
 For a selected area, record its indexed items using
-[reference/scope.md](reference/scope.md). Include source deltas and required
-supporting items, not just findings returned by a path or kind filter.
+[reference/selection.md](reference/selection.md). Include source deltas and
+required supporting items, not just findings returned by a path or kind
+filter.
 
 ```bash
 python3 -m chromiumdiff review index out/upgrade/review --status pending --limit 30
@@ -323,9 +328,9 @@ items back to pending.
 **Checkpoint 7.** `index --status pending` with the scope's filters returns no
 rows, you have gone back to the provisional events, and you have read `review
 check` for the whole-index numbers. An empty filtered query on its own does
-not pass: the filter may be wrong instead of the work being finished. For a
-selected scope, `review check --scope` must also pass against its saved item
-selection. Confirm that selection still covers the user's request.
+not pass: the filter may be wrong instead of the work being finished. If you
+recorded an item selection, `review check --selection` must also pass against
+it. Confirm that selection still covers the user's request.
 
 ## Step 8 — Render the review
 
@@ -333,10 +338,10 @@ selection. Confirm that selection still covers the user's request.
 python3 -m chromiumdiff review render out/upgrade/review
 ```
 
-Add `--require-complete` when you reviewed the whole index. For a recorded
-selected scope, use `--require-scope-complete` instead. Both refuse to write
-while their respective work is unfinished. The scope gate keeps whole-index
-PARTIAL visible and reports selected-scope completion separately. If you had to
+Add `--require-complete` when you reviewed the whole index. For a recorded item
+selection, use `--require-selection-complete` instead. Both refuse to write
+while their respective work is unfinished. The selection gate keeps whole-index
+PARTIAL visible and reports the selection's completion separately. If you had to
 stop early because you ran out of budget or because evidence was missing, say
 which of the two it was, and give the numbers and what to check next. Never
 get past a failed check by changing items you did not look at to `explained`

@@ -5,10 +5,10 @@ description: Compares two Chromium versions with the chromiumdiff scripts and ex
 
 # Phân tích một đợt nâng version Chromium
 
-Script dùng chung nằm trong thư mục `scripts/` ở root của repository.
-Đọc reference trong thư mục `reference/` của chính skill này. Khi chuyển việc
-sang skill khác, gọi bằng tên skill và nêu nhiệm vụ; không gọi script hay đọc
-file reference của skill đó trực tiếp.
+Mọi câu lệnh đều là `python3 -m chromiumdiff ...`, và các command thuộc về tool
+chứ không thuộc về skill nào. Đọc reference trong thư mục `reference/` của chính
+skill này. Khi chuyển việc sang skill khác, gọi bằng tên skill và nêu nhiệm vụ;
+không đọc file reference hay chạy bất cứ thứ gì trong thư mục của skill đó.
 Đọc [reference/handoff.md](reference/handoff.md) khi chuyển một tác vụ.
 
 Script đọc các khai báo ra từ hai version Chromium rồi liệt kê khác biệt. Bạn
@@ -67,6 +67,10 @@ tách, bị revert hay được merge.
 - **Scope**: các khu vực và quyết định user đưa cho bạn ở bước 1.
   **Acquisition** là chuyện khác: script tải và đọc bao nhiêu phần Chromium,
   đặt bằng `--target-set` và `--partition` ở bước 2.
+- **Selection**: danh sách item trong index mà quyết định phải đủ cho phạm vi
+  đó, lưu ở bước 7. Phạm vi nói bằng lời của user; selection nói bằng ID item,
+  và đó là thứ một gate đếm được. `out_of_scope` không phải cái nào trong hai:
+  nó là một quyết định bạn ghi cho một item.
 
 ## Bước 1 — Lấy số phiên bản và phạm vi
 
@@ -247,8 +251,8 @@ các nhãn của bộ phân loại. Đọc
 [settings-screen.md](reference/settings-screen.md) khi bạn lần theo route,
 control của WebUI và các điều kiện làm chúng hiện hay ẩn. Đọc
 [history.md](reference/history.md) khi bạn không biết vì sao một thay đổi được
-làm, hoặc thứ tự các việc ra sao; nó nói cả cách tra CL từ một finding, và
-cách đọc thẳng lịch sử file khi `why.py` không tìm ra dòng nào. Đối chiếu
+làm, hoặc thứ tự các việc ra sao; nó nói cả cách tra CL từ một finding, và cách
+đọc thẳng lịch sử file khi `chromiumdiff why` không tìm ra dòng nào. Đối chiếu
 milestone summary với đúng hai version: chỉ riêng ngày tháng của nó không nói
 được tính năng đó đã có ở version nào.
 
@@ -288,7 +292,7 @@ thì chưa đạt.
 
 ## Bước 7 — Lặp 4 tới 6 cho tới khi xong phạm vi
 
-Với phạm vi đã chọn, lưu danh sách item theo [reference/scope.md](reference/scope.md).
+Với phạm vi đã chọn, lưu danh sách item theo [reference/selection.md](reference/selection.md).
 Bao gồm source delta và item hỗ trợ cần thiết ngoài bộ lọc, không chỉ finding.
 
 ```bash
@@ -317,7 +321,7 @@ một event hoặc refresh review, vì cả hai đều có thể đưa item về
 **Checkpoint 7.** `index --status pending` kèm bộ lọc của phạm vi không trả về
 dòng nào, bạn đã quay lại các event provisional, và bạn đã đọc `review check`
 để lấy con số toàn index. Chỉ một truy vấn có lọc trả về rỗng thì chưa đạt: có
-thể bộ lọc sai chứ không phải việc đã xong. Với scope đã lưu, `review check --scope`
+thể bộ lọc sai chứ không phải việc đã xong. Với selection đã lưu, `review check --selection`
 cũng phải đạt; xác nhận danh sách item còn bao trùm yêu cầu của user.
 
 ## Bước 8 — Render bản review
@@ -327,7 +331,7 @@ python3 -m chromiumdiff review render out/upgrade/review
 ```
 
 Dùng `--require-complete` khi review toàn index. Với scope đã lưu, dùng
-`--require-scope-complete`. Cả hai từ chối ghi khi phần việc tương ứng chưa
+`--require-selection-complete`. Cả hai từ chối ghi khi phần việc tương ứng chưa
 xong. Gate theo scope giữ PARTIAL của toàn index và báo riêng mức hoàn thành
 phạm vi đã chọn. Nếu bạn
 phải dừng sớm vì hết ngân sách hoặc vì thiếu bằng chứng, nói rõ là cái nào

@@ -126,7 +126,7 @@ def command(args):
             result["filters"] = {"status": args.status, "query": args.query,
                                  "item_kind": args.item_kind, "fact_kinds": args.fact_kind,
                                  "path_prefixes": prefixes}
-            result["scope_note"] = "Filters select retrieval only, not scope decisions. Fact-kind filters omit source-only changes."
+            result["retrieval_note"] = "Filters select retrieval only, not decisions. Fact-kind filters omit source-only changes."
         elif action == "events":
             rows = [{"id": e["id"], "title": e["title"], "status": e["status"],
                      "member_count": len(e["items"]), "open_questions": len(e["uncertainties"])}
@@ -159,13 +159,13 @@ def command(args):
             result["input_errors"] = review.verify_sources(index)
             if result["input_errors"]:
                 result["accounting_complete"] = False
-                result["scope"]["accounting_complete"] = False
+                result["selection"]["accounting_complete"] = False
         elif action == "render":
             errors = review.verify_sources(index)
             if errors:
                 raise ValueError("; ".join(errors))
             text = review.render(index, ledger, require_complete=args.require_complete,
-                                 require_scope_complete=args.require_scope_complete)
+                                 require_selection_complete=args.require_selection_complete)
             path = os.path.join(args.directory, "review.md")
             with open(path, "w", encoding="utf-8") as f:
                 f.write(text)
@@ -174,12 +174,15 @@ def command(args):
             raise ValueError("unknown review command")
         result["fingerprint"] = index["fingerprint"]
     print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
-    if action == "evaluate" and args.adjudication:
+    # One convention for both evaluators: a missing independent assessment is a
+    # blocker, not a pass, so an unadjudicated run exits nonzero either way.
+    if action == "evaluate":
         return 0 if result["release_verdict"] == "pass_for_pinned_case_and_runner_only" else 1
     if action == "root-evaluate":
         return 0 if result["verdict"] == "pass_for_pinned_case_and_runner_only" else 1
     if action == "check":
-        complete = result["scope"]["accounting_complete"] if args.scope else result["accounting_complete"]
+        complete = (result["selection"]["accounting_complete"] if args.selection
+                    else result["accounting_complete"])
         return 0 if complete else 1
     return 0
 
@@ -270,12 +273,14 @@ def add_parser(sub, default_cache):
             p.add_argument("--end", type=int, default=120)
             p.add_argument("--fetch", action="store_true", help="fetch missing exact-ref source from Gitiles")
         if name == "record":
-            p.add_argument("--file", required=True, help="JSON patch of events/dispositions and optional scope")
+            p.add_argument("--file", required=True,
+                           help="JSON patch of events/dispositions and an optional item selection")
         if name == "check":
-            p.add_argument("--scope", action="store_true", help="exit according to the explicitly recorded scope")
+            p.add_argument("--selection", action="store_true",
+                           help="exit according to the explicitly recorded item selection")
         if name == "render":
             completion = p.add_mutually_exclusive_group()
             completion.add_argument("--require-complete", action="store_true",
                            help="refuse to write while items or events remain unfinished; not semantic approval")
-            completion.add_argument("--require-scope-complete", action="store_true",
-                                   help="require completion of the explicitly recorded scope")
+            completion.add_argument("--require-selection-complete", action="store_true",
+                                   help="require completion of the explicitly recorded item selection")

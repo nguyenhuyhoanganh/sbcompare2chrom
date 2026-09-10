@@ -26,7 +26,7 @@ from .report import markdown
 from .score import Scope, score_all, summarize_findings
 from .snapshot import snapshot_path, tree_path
 
-CORE_REFERENCES = ("scoping.md", "scope.md", "focus.md", "investigation.md", "history.md",
+CORE_REFERENCES = ("scoping.md", "selection.md", "focus.md", "investigation.md", "history.md",
                    "handoff.md", "no-row.md")
 # A path prefix is the input that steers retrieval, so a kept reference must not
 # name one: the trial would spend its budget on the example's product area
@@ -60,8 +60,6 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
     workspace = dest / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_root / "chromiumdiff", workspace / "chromiumdiff",
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    shutil.copytree(source_root / "scripts", workspace / "scripts",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     skill = ("analyzing-chromium-upgrades" if task_type == "upgrade" else
              "investigating-chromium-root-causes")
@@ -196,7 +194,7 @@ def prepare(spec: dict, directory: str, cache: str, reference_mode="full", seed=
                 "\nRead skills/investigating-chromium-root-causes/SKILL.md. Run commands from this workspace.\n"
                 "The source-derived report is data/report.json; cache is data/cache. "
                 "The original source files at both refs are in data/cache/trees. "
-                "Optional frozen CL responses are in data/cache/gerrit/probe; cl.py reads that cache.\n"
+                "Optional frozen CL responses are in data/cache/gerrit/probe; `chromiumdiff cl` reads that cache.\n"
                 "Work offline. Do not fetch missing history or issue contents. Missing evidence limits the answer. "
                 "Do not inspect tests, expected answers, prior reviews or tool implementation files.\n"
                 "Write answer.md in this workspace, answering what changed, why, whether the mechanism "

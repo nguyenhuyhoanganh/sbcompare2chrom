@@ -1,8 +1,8 @@
 # Passing work to another skill
 
-Invoke the destination skill by name and say what it should do. Do not read
-its reference files or execute scripts inside its directory. Shared commands
-remain in the repository-root `scripts/` directory.
+Invoke the destination skill by name and say what it should do. Do not read its
+reference files or run anything inside its directory. Every `chromiumdiff`
+command belongs to the tool, so both skills already call the same ones.
 
 Pass a short record with these fields; JSON is convenient but not required:
 
@@ -19,13 +19,9 @@ Pass a short record with these fields; JSON is convenient but not required:
 - `return_to`: the calling task and what it needs back.
 
 Use `investigating-chromium-root-causes` to trace one change or symptom when
-an upgrade event needs causal evidence. Return the source transition, inspected
-CL/issue evidence, causal confidence, symptom connection and next checks. The
-calling analysis skill records the result in its own event ledger.
-
-Use `analyzing-chromium-upgrades` when the user requests an upgrade-wide or
-product-area review extending beyond a single cause. Pass the confirmed scope
-and existing evidence; do not infer new areas, versions or declaration kinds.
+an event needs causal evidence. Ask it for the source transition, the CL/issue
+evidence it read, its causal confidence, the symptom connection and the next
+checks, and record what comes back in this skill's own event ledger.
 
 The receiving skill verifies refs and evidence freshness, keeps the user's
 scope and authorization, and reads its own local references. A handoff does

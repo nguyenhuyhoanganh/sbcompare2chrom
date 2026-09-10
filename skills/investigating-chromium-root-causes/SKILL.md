@@ -5,10 +5,10 @@ description: Traces one Chromium change back to the review that made it and the 
 
 # Investigating Chromium root causes
 
-Shared executable helpers live in the repository-root `scripts/` directory.
-Read references from this skill's own `reference/` directory. To hand work to
-another skill, name that skill and its task; do not call its scripts or read
-its reference files directly.
+Every command is `python3 -m chromiumdiff ...`, and the commands belong to the
+tool rather than to a skill. Read references from this skill's own `reference/`
+directory. To hand work to another skill, name that skill and its task; do not
+read its reference files or run anything inside its directory.
 Read [reference/handoff.md](reference/handoff.md) when transferring a task.
 
 A report says **what changed**. This answers **why it changed, and whether
@@ -77,7 +77,7 @@ hides which evidence belongs to which claim.
 ### Step 2: Get the row, or establish there is none
 
 ```bash
-python3 scripts/why.py \
+python3 -m chromiumdiff why \
   out/M148_to_M151 BackForwardCachePauseMicrotasks
 ```
 
@@ -149,19 +149,20 @@ both `LEAD ONLY` for that reason.
 stop as soon as the answer is sufficient:
 
 1. **The issue title.** Usually the actual defect, in one line.
-2. **The other CLs citing that issue.** `why.py` fetches these and prints them
-   beside the CLs — up to six by default, changed with `--issues`. There is
-   nothing to click: clicking is the served page's path, where the issue chip
-   opens the history under the CL. This is the fix history, including whether the
-   bug was serious enough to merge back to released branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly
-   that, and it is strong evidence the bug hurt real users.
+2. **The other CLs citing that issue.** `chromiumdiff why` fetches these and
+   prints them beside the CLs — up to six by default, changed with `--issues`.
+   There is nothing to click: clicking is the served page's path, where the
+   issue chip opens the history under the CL. This is the fix history,
+   including whether the bug was serious enough to merge back to released
+   branches. A `[M148]` or `[m147]` prefix on a CL subject is exactly that, and
+   it is strong evidence the bug hurt real users.
 3. **The CL's own words and its own diff**, whenever the answer matters — and
    always before quoting a CL in a ticket, whenever the verdict is `declares`
    or `described`, and whenever the subject reads as unrelated to the finding:
 
    ```bash
-   python3 scripts/cl.py 7982397
-   python3 scripts/cl.py \
+   python3 -m chromiumdiff cl 7982397
+   python3 -m chromiumdiff cl \
      7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
    ```
 
@@ -194,14 +195,14 @@ confident wrong answer.
   a served row means something else, and is worth reporting.
 - **Does the direction fit?** A flag going `enabled → disabled` is not explained
   by a CL titled "Enable …". Check which way the delta actually went.
-- **Is the CL about this declaration, or about the file?** A file touched by a rename,
-  a reformat and the real change reports all three. `introduced` and `exact`
-  discriminate; `declares` does not, on its own. The diff answers it, through four
-  questions: does a removed line carry the finding's
-  before-value, does an added line carry the after-value, is the change inside
-  the declaration the finding names, and is it more than a reindent? Three
-  yeses and the CL is the cause; one no and it is context. Gerrit marks a
-  reindent `common: true` and `cl.py` prints it `~`, because counting one as
+- **Is the CL about this declaration, or about the file?** A file touched by
+  a rename, a reformat and the real change reports all three. `introduced` and
+  `exact` discriminate; `declares` does not, on its own. The diff answers it,
+  through four questions: does a removed line carry the finding's before-value,
+  does an added line carry the after-value, is the change inside the
+  declaration the finding names, and is it more than a reindent? Three yeses
+  and the CL is the cause; one no and it is context. Gerrit marks a reindent
+  `common: true` and `chromiumdiff cl` prints it `~`, because counting one as
   an edit turns a reformat into evidence.
 - **Does the mechanism reach the symptom?** A flag flip explains a behaviour
   change on the platform where the flag flipped. Read
@@ -297,6 +298,12 @@ issue history is what makes it convincing, not the verdict.
   this skill's signals mean, the ways to reach a wrong conclusion from a
   correct finding, and the chain behind a settings control. Read before
   interpreting any removal.
+- **[reference/history.md](reference/history.md)** — looking a CL up from a
+  finding, and reading a file's history directly when the lookup finds no row.
+- **[reference/review-inputs.md](reference/review-inputs.md)** — the cache and
+  source a later command has to be given, and what `--save` changes.
+- **[reference/handoff.md](reference/handoff.md)** — what to pass when another
+  skill takes the work over.
 
 ## What this cannot establish
 

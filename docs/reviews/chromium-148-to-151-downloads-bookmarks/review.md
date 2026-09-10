@@ -10,12 +10,12 @@ Disposition counts: {"event": 130, "explained": 6, "out_of_scope": 23, "pending"
 
 Accounting does not establish semantic completeness or product safety.
 
-## Selected review scope
+## Recorded item selection
 
 Downloads and Bookmarks at 148.0.7778.217 -> 151.0.7922.138 on Windows, for feature flags, Mojo interfaces and WebUI controls/routes, plus the preferences, source deltas and shared dependencies needed to explain them. Boundary: the indexed findings and file diffs the focus packet for the two areas' path prefixes returned, plus two items those prefixes missed (chrome/browser/ui/webui_browser/bookmark_bar_page_handler.cc and chrome/browser/ui/webui/settings/downloads_handler_unittest.cc).
 
-Scope accounting: COMPLETE
-Selected items: 154; outside selected scope: 9283.
+Selection accounting: COMPLETE
+Selected items: 154; outside the selection: 9283.
 Disposition counts: {"event": 130, "explained": 6, "out_of_scope": 18}
 
 Only the explicitly selected items are counted. Selection and semantic completeness require review.

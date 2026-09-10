@@ -7,7 +7,7 @@
 - **Nội dung:** Downloads và Bookmarks, tập trung vào feature flags, Mojo và WebUI; thêm prefs và C++ consumer khi cần giải thích tác động. Bao gồm cả việc fork phải cập nhật, thay đổi người dùng thấy và khả năng mới.
 - **Tài liệu:** `docs/reviews/chromium-148-to-151-downloads-bookmarks/`. [Yêu cầu gốc](request.md), [hồ sơ phân tích gốc](review.md). Các file chạy nằm ở `out/review-downloads-bookmarks/`.
 - **Dữ liệu:** comparison `wide`, không partition; 6.064 findings, cùng fingerprint `30277b7bb0496db1f0a0229226bc6c1c43daee9a29e8adf6ed8f90d58efd52ba`.
-- **Phạm vi đã ghi:** 19 nhóm thay đổi; 154 selected items = 92 findings + 62 source deltas. Trong scope: 130 thuộc event, 6 explained, 18 out_of_scope; không còn pending/unresolved decisions/provisional events. `review check --scope` hiện pass. Đây là kiểm tra quyết định đã được ghi đủ, không phải kiểm chứng hành vi sản phẩm.
+- **Phạm vi đã ghi:** 19 nhóm thay đổi; 154 selected items = 92 findings + 62 source deltas. Trong selection: 130 thuộc event, 6 explained, 18 out_of_scope; không còn pending/unresolved decisions/provisional events. `review check --selection` hiện pass. Đây là kiểm tra quyết định đã được ghi đủ, không phải kiểm chứng hành vi sản phẩm.
 
 Bản này viết lại 19 nhóm của hồ sơ gốc theo cách trình bày của History và hiệu chỉnh các kết luận quá chắc sau khi đối chiếu source. `review.md`/ledger giữ bản phân tích gốc; khi có cách diễn đạt khác nhau, dùng điều kiện và giới hạn được làm rõ trong delivery này. Chưa chạy build hoặc UI test Chromium.
 
@@ -61,9 +61,9 @@ Mỗi hàng nêu riêng bản 148, bản 151, điều kiện áp dụng, tác đ
 
 Các thư mục có nhiều candidate bị bỏ sót nhất ở bản 151: `chrome/services` 24, `chrome/credential_provider` 15, `chrome/installer` 12, `third_party/blink` 6, `chrome/renderer` 3 và `chrome/notification_helper` 2. Đây là số lượng thiếu, không phải phần trăm coverage.
 
-**Phân biệt hai con số trước đây bị ghi lẫn:** 9.283 = 9.437 − 154 mục nằm ngoài selected scope. Toàn ledger còn **9.278 pending** = 5.972 findings + 3.228 source deltas + 78 milestone leads. Chênh 5 là các mục ngoài selected scope đã có quyết định out_of_scope; không phải 5 mục bị bỏ quên. Toàn index vẫn **PARTIAL**.
+**Phân biệt hai con số trước đây bị ghi lẫn:** 9.283 = 9.437 − 154 mục nằm ngoài selection. Toàn ledger còn **9.278 pending** = 5.972 findings + 3.228 source deltas + 78 milestone leads. Chênh 5 là các mục ngoài selection đã có quyết định out_of_scope; không phải 5 mục bị bỏ quên. Toàn index vẫn **PARTIAL**.
 
-Toàn comparison còn 295 unresolved declaration references. Con số đó khác với unresolved decisions trong selected scope. Focus packet gốc có 20 missing-side leads; bản biên tập này không chạy lại acquisition hoặc tuyên bố đã xác minh upstream absence cho tất cả chúng.
+Toàn comparison còn 295 unresolved declaration references. Con số đó khác với unresolved decisions trong selection. Focus packet gốc có 20 missing-side leads; bản biên tập này không chạy lại acquisition hoặc tuyên bố đã xác minh upstream absence cho tất cả chúng.
 
 ### Chưa được chứng minh bởi bản review này
 

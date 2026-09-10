@@ -1,8 +1,8 @@
 # Khi một lần tra cứu không trả về kết quả
 
-`why.py` tìm trong các finding của `report.json`, rồi tìm các CL liên quan.
-**Không có finding nào khớp** và **không có CL nào khớp** là hai kết quả khác
-nhau. Riêng từng cái đều không xác lập rằng source hay hành vi không đổi.
+`chromiumdiff why` tìm trong các finding của `report.json`, rồi tìm các CL liên
+quan. **Không có finding nào khớp** và **không có CL nào khớp** là hai kết quả
+khác nhau. Riêng từng cái đều không xác lập rằng source hay hành vi không đổi.
 
 ## Phần A — không có finding nào khớp
 
@@ -15,7 +15,7 @@ dùng cho bên ngoài và định danh C++ của nó có thể khác nhau. Key c
 gồm cả namespace và khai báo chứa nó. Giữ nguyên đường dẫn cache thật:
 
 ```bash
-python3 scripts/why.py out/DIR features.cc --cache "$cache_dir"
+python3 -m chromiumdiff why out/DIR features.cc --cache "$cache_dir"
 ```
 
 Lệnh này vẫn tìm trong các finding của báo cáo, **không** tìm lịch sử file bất
@@ -41,9 +41,9 @@ finding khớp nghĩa là không có thay đổi.
 ### A4. Thay đổi nằm trong code hiện thực
 
 Một thay đổi trong thân hàm có thể không sinh ra finding nào về khai báo. Danh
-mục source của review vẫn có thể chỉ ra file đã đổi, nếu file đó nằm trong cache
-hoặc nằm trong phần so sánh Git đã chọn. Hãy xem `review source` và các consumer
-liên quan ngay cả khi `why.py` không giải được.
+mục source của review vẫn có thể chỉ ra file đã đổi, nếu file đó nằm trong
+cache hoặc nằm trong phần so sánh Git đã chọn. Hãy xem `review source` và các
+consumer liên quan ngay cả khi `chromiumdiff why` không giải được.
 
 Với A3 và A4, dùng
 [thủ tục đọc source/lịch sử trực tiếp](history.md).

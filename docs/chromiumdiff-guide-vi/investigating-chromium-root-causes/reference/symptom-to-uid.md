@@ -40,7 +40,7 @@ dòng.
 Tìm trong một `kind` bằng cách truyền tiền tố:
 
 ```bash
-python3 scripts/why.py out/DIR webui_control:
+python3 -m chromiumdiff why out/DIR webui_control:
 ```
 
 Lệnh đó liệt kê mọi dòng của `kind` ấy, đã xếp hạng. Chọn dòng có tên khớp màn
@@ -63,7 +63,7 @@ Ba bước, theo thứ tự. Dừng ở bước đầu tiên cho ra một cái t
    khớp được theo mẩu đường dẫn:
 
    ```bash
-   python3 scripts/why.py out/DIR downloads
+   python3 -m chromiumdiff why out/DIR downloads
    ```
 
 Cả ba bước đều không ra tên thì triệu chứng có thể không phải một thay đổi khai

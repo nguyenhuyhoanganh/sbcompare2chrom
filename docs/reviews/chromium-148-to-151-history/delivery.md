@@ -7,8 +7,8 @@
 - **Phạm vi:** History, History Clusters, History Embeddings, History side panels và dependency cần thiết. Review flags/feature params, Mojo interfaces, WebUI controls/gates cùng source-only changes liên quan. “Full” bao gồm thay đổi người dùng thấy, khả năng mới và phần downstream phải thích nghi. Downloads/Bookmarks không nằm trong lần review này.
 - **Skill:** `skills/analyzing-chromium-upgrades/SKILL.md` của project. Dùng comparison có sẵn với acquisition `wide`, không partition, 6.064 findings.
 - **Thư mục tài liệu:** `docs/reviews/chromium-148-to-151-history/`. [Review đầy đủ](review.md), [yêu cầu đã lưu](request.md).
-- **Kết quả accounting:** 21 events; 111 selected items = 54 findings + 57 source deltas. Trong scope: 82 thuộc event, 15 explained, 14 out_of_scope có lý do (chủ yếu shared files/Android); pending = 0, unresolved decisions = 0, provisional events = 0. `review check --scope` và `review render --require-scope-complete` đều exit 0.
-- **Toàn index vẫn PARTIAL:** 9.326/9.437 mục nằm ngoài selected scope. “COMPLETE” ở trên chỉ nói các mục History đã chọn được quyết định; không phải đã review toàn Chromium hoặc xác nhận sản phẩm hoạt động.
+- **Kết quả accounting:** 21 events; 111 selected items = 54 findings + 57 source deltas. Trong selection: 82 thuộc event, 15 explained, 14 out_of_scope có lý do (chủ yếu shared files/Android); pending = 0, unresolved decisions = 0, provisional events = 0. `review check --selection` và `review render --require-selection-complete` đều exit 0.
+- **Toàn index vẫn PARTIAL:** 9.326/9.437 mục nằm ngoài selection. “COMPLETE” ở trên chỉ nói các mục History đã chọn được quyết định; không phải đã review toàn Chromium hoặc xác nhận sản phẩm hoạt động.
 - **Fingerprint:** `30277b7bb0496db1f0a0229226bc6c1c43daee9a29e8adf6ed8f90d58efd52ba`.
 
 Ưu tiên khi port: cập nhật Mojo factory/TS proxy/C++ constructor cùng nhau; kiểm tra migration database cũ; sau đó kiểm tra các gate UI, promo và side panel. Default trong source được ghi rõ, không dùng thay cho thông tin Finch/rollout.

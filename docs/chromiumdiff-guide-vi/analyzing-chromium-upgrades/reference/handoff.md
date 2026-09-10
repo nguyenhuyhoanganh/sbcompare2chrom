@@ -1,7 +1,8 @@
 # Chuyển việc sang skill khác
 
-Gọi skill đích bằng tên và nêu nhiệm vụ. Không đọc reference hay chạy script
-bên trong thư mục của skill đó. Script dùng chung vẫn ở `scripts/` tại root.
+Gọi skill đích bằng tên và nêu nhiệm vụ. Không đọc reference hay chạy bất cứ
+thứ gì bên trong thư mục của skill đó. Mọi command `chromiumdiff` thuộc về tool,
+nên cả hai skill vốn đã gọi cùng một bộ command.
 
 Chuyển một bản ghi ngắn với các trường sau; có thể dùng JSON:
 
@@ -18,13 +19,9 @@ Chuyển một bản ghi ngắn với các trường sau; có thể dùng JSON:
 - `return_to`: tác vụ gọi và phần kết quả nó cần nhận lại.
 
 Dùng `investigating-chromium-root-causes` để lần nguyên nhân của một thay đổi
-hoặc triệu chứng khi event nâng cấp cần bằng chứng nhân quả. Trả chuyển biến
-source, CL/issue đã đọc, độ chắc chắn, liên hệ tới triệu chứng và bước kiểm
-tiếp. Skill phân tích tự ghi kết quả vào ledger của nó.
-
-Dùng `analyzing-chromium-upgrades` khi user cần review cả đợt nâng cấp hoặc
-một khu vực sản phẩm vượt ra ngoài một nguyên nhân. Chuyển phạm vi đã xác nhận
-và bằng chứng đang có; không tự suy ra version, khu vực hoặc loại khai báo mới.
+hoặc triệu chứng khi một event cần bằng chứng nhân quả. Yêu cầu nó trả chuyển
+biến source, CL/issue nó đã đọc, độ chắc chắn, liên hệ tới triệu chứng và bước
+kiểm tiếp, rồi ghi kết quả nhận về vào ledger event của chính skill này.
 
 Skill nhận kiểm ref và độ mới bằng chứng, giữ phạm vi và quyền user đã cho,
 đọc reference của chính nó. Chuyển việc không tự đánh dấu đã review hay xác

@@ -89,7 +89,7 @@ It is also why nothing in the tool describes *your* codebase. An earlier version
 There is no build step. Copy the directory to the target machine and it runs:
 
 ```bash
-tar czf chromiumdiff.tgz chromiumdiff/ scripts/ tests/ skills/ docs/ README.md
+tar czf chromiumdiff.tgz chromiumdiff/ tests/ skills/ docs/ README.md
 # on the target machine, in an empty directory
 tar xzf chromiumdiff.tgz
 python3 -m chromiumdiff --version
@@ -177,10 +177,10 @@ See the [decision and refresh procedure](skills/analyzing-chromium-upgrades/refe
 and [independent evaluation protocol](docs/review-evaluation.md).
 
 A review can also record an explicit item selection for the user's scope.
-`review check --scope` and `review render --require-scope-complete` check that
-selection while preserving whole-index counts and any PARTIAL status. See the
-[scope record](skills/analyzing-chromium-upgrades/reference/scope.md); a path
-filter returning no rows does not define or complete the scope.
+`review check --selection` and `review render --require-selection-complete`
+check that selection while preserving whole-index counts and any PARTIAL status.
+See the [selection record](skills/analyzing-chromium-upgrades/reference/selection.md);
+a path filter returning no rows neither defines nor completes it.
 
 The evaluation workflow includes `prepare-trial`, `run-trial`, `collect-trial`
 and `evaluate --adjudication ... --manifests ...`. Source-pinned case specs and
@@ -584,11 +584,14 @@ python3 -m chromiumdiff run        # the whole pipeline: snapshot → compare �
 python3 -m chromiumdiff report     # re-render a saved report.json
 python3 -m chromiumdiff catalog    # measure which files the target set is missing
 python3 -m chromiumdiff serve      # serve a report where opening a row looks its CL up
+python3 -m chromiumdiff why        # which CLs changed one finding, and the bug behind them
+python3 -m chromiumdiff cl         # one CL's own message, and the diff of one of its files
+python3 -m chromiumdiff review     # the agent's review ledger; section 9 covers it
 ```
 
 Splitting them up has a reason. The expensive stage (fetching) and the stage you tune repeatedly (ranking, reporting) have completely different cost profiles. Re-running the cheap half against a warm cache is what makes the tool worth tuning rather than running once.
 
-`serve` is the only stage that asks a question the two trees cannot answer between them: *who changed this, and what were they fixing.* It is separate from `run` because it needs the network and because a report is worth reading without it. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
+`serve`, `why` and `cl` are the stages that ask a question the two trees cannot answer between them: *who changed this, and what were they fixing.* They are separate from `run` because they need the network and because a report is worth reading without them. `serve` answers it for a person, through a page and a click; `why` and `cl` answer it for an agent, which has neither. The page asks `/api/ping` once on load and enables the live path only if something answers, so the same `report.html` opened from a disk, or mailed to a colleague, behaves exactly as it always did. Section 8 says what it produces and how far it can be trusted.
 
 Each command accepts only the options it actually uses. `catalog` has no `--local-src`, `check` has no `--partition` — a command that accepts a flag and ignores it is a bug, and a test blocks it.
 
@@ -1296,14 +1299,15 @@ Every stage reads and writes JSON, so any stage can be run, inspected and re-run
 
 ## Further reading
 
-- Shared command-line helpers: [scripts/why.py](scripts/why.py) and
-  [scripts/cl.py](scripts/cl.py). Both skills use these repository-level
-  scripts and keep their own references. Cross-skill handoffs name the skill
-  and its task rather than calling files inside another skill.
-- `why.py --retry` repeats a lookup with cached successful requests;
+- The two history lookups are `chromiumdiff why` and `chromiumdiff cl`, both in
+  [chromiumdiff/history_cli.py](chromiumdiff/history_cli.py). Either skill
+  calls them, because a command belongs to the tool and not to a skill, and
+  each skill keeps its own references. Cross-skill handoffs name the skill and
+  its task rather than reaching into its directory.
+- `chromiumdiff why --retry` repeats a lookup with cached successful requests;
   `--refresh` refetches Gerrit data. Text and JSON disclose incomplete lookups
-  (exit 3); input/save failures return 2. `cl.py --offset N --limit N` pages
-  matching file diffs and reports omitted files.
+  (exit 3); input/save failures return 2. `chromiumdiff cl --offset N
+  --limit N` pages matching file diffs and reports omitted files.
 - Root-cause evaluation uses `review prepare-trial --task-type root-cause`,
   `root-assessment-template` and `root-evaluate`. Source-pinned cases and
   separately held rubrics are described in the [evaluation protocol](docs/review-evaluation.md).

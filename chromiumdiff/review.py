@@ -23,7 +23,10 @@ from .model import SCHEMA_VERSION, Snapshot, read_json, read_report, write_json
 from .snapshot import snapshot_path, tree_path
 from .targets import READABLE_SUFFIXES
 
-REVIEW_SCHEMA = 1
+# 2: the recorded item selection is `selection`, not `scope`. A ledger written
+# under 1 must fail loudly here rather than be read as having no selection,
+# which would turn a recorded COMPLETE selection into a silent absence.
+REVIEW_SCHEMA = 2
 EVENT_FIELDS = ("title", "before", "after", "mechanism", "impact", "conditions", "action")
 
 
@@ -70,8 +73,7 @@ def _file_hash(path) -> str:
 def implementation_identity(root=None) -> dict:
     root = Path(root) if root is not None else Path(__file__).resolve().parent.parent
     tool_files = {str(p.relative_to(root)): _file_hash(p)
-                  for directory in ("chromiumdiff", "scripts")
-                  for p in sorted((root / directory).rglob("*.py"))}
+                  for p in sorted((root / "chromiumdiff").rglob("*.py"))}
     skill_files = {str(p.relative_to(root)): _file_hash(p)
                    for p in sorted((root / "skills").rglob("*"))
                    if p.is_file() and p.suffix in (".md", ".py")}
@@ -207,13 +209,18 @@ def initialize(report_path: str, directory: str, cache: str, source_repo=None,
                 "fingerprint": previous.get("fingerprint"),
                 "events": previous.get("events", []),
                 "dispositions": previous.get("dispositions", {}),
-                "scope": previous.get("scope"),
-                "scope_history": previous.get("scope_history", []),
+                "selection": previous.get("selection"),
+                "selection_history": previous.get("selection_history", []),
                 "reason": "Evidence changed; revalidate before re-recording decisions."}]
             if previous_index and _same_baseline(previous_index, index):
                 ledger = _refresh_context(previous_index, index, previous, ledger)
                 warnings.append("Context changed: affected decisions need revalidation; unrelated work retained. "
                                 "Previous decisions are archived in review.json history.")
+                # A refresh can retire an item the selection named, and a
+                # selection that silently vanished reads as one never recorded.
+                if previous.get("selection") and not ledger.get("selection"):
+                    warnings.append("Item selection cleared: the refreshed index no longer holds every selected "
+                                    "item. Record a new selection before claiming selection completion.")
             else:
                 warnings.append("Baseline evidence changed: prior decisions archived in review.json history; all items pending.")
     write_json(index_path, index)
@@ -262,12 +269,12 @@ def _refresh_context(old: dict, new: dict, previous: dict, fresh: dict) -> dict:
         if set(item.get("findings", [])) & affected:
             affected.add(uid)
     fresh["events"] = copy.deepcopy(previous["events"])
-    fresh["scope_history"] = copy.deepcopy(previous.get("scope_history", []))
-    if previous.get("scope"):
-        scope = copy.deepcopy(previous["scope"])
-        if set(scope["items"]) <= set(new["items"]):
-            scope["fingerprint"] = new["fingerprint"]
-            fresh["scope"] = scope
+    fresh["selection_history"] = copy.deepcopy(previous.get("selection_history", []))
+    if previous.get("selection"):
+        selection = copy.deepcopy(previous["selection"])
+        if set(selection["items"]) <= set(new["items"]):
+            selection["fingerprint"] = new["fingerprint"]
+            fresh["selection"] = selection
     fresh["dispositions"] = {uid: copy.deepcopy(d) for uid, d in previous["dispositions"].items()
                              if uid in new["items"]}
     retained = []
@@ -295,8 +302,12 @@ def _refresh_context(old: dict, new: dict, previous: dict, fresh: dict) -> dict:
 def load(directory: str, verify=True) -> tuple:
     index = read_json(os.path.join(directory, "review-index.json"))
     ledger = read_json(os.path.join(directory, "review.json"))
-    if index.get("schema") != REVIEW_SCHEMA or ledger.get("schema") != REVIEW_SCHEMA:
-        raise ValueError("unsupported review schema")
+    found = {index.get("schema"), ledger.get("schema")}
+    if found != {REVIEW_SCHEMA}:
+        # Both numbers, because "unsupported" without them leaves the reader to
+        # guess whether the review directory or the build is the old one.
+        raise ValueError(f"review schema {sorted(map(str, found))} in {directory}; "
+                         f"this build reads {REVIEW_SCHEMA}. Run review init again.")
     if index["fingerprint"] != ledger.get("fingerprint"):
         raise ValueError("review/index fingerprints differ; do not combine different runs")
     if verify and report_digest(read_report(index["inputs"]["report"])) != index["inputs"]["report_digest"]:
@@ -449,27 +460,33 @@ def source_rows(index: dict, side: str, path: str, start=1, end=120, fetch=False
             "line_numbers": "unified diff output" if side == "diff" else "source"}
 
 
-def validate_scope(index: dict, scope) -> list:
-    if scope is None:
+def validate_selection(index: dict, selection) -> list:
+    """The recorded item selection: which indexed items the user's request covers.
+
+    A separate word from `source_scope` (which files were read) and from the
+    `out_of_scope` disposition (excluded by the request), because a reader who
+    meets one `scope` in three meanings cannot tell which one a gate measures.
+    """
+    if selection is None:
         return []
-    if not isinstance(scope, dict) or set(scope) != {"description", "items", "fingerprint"}:
-        return ["scope requires description, items and fingerprint"]
+    if not isinstance(selection, dict) or set(selection) != {"description", "items", "fingerprint"}:
+        return ["selection requires description, items and fingerprint"]
     errors = []
-    if not isinstance(scope["description"], str) or not scope["description"].strip():
-        errors.append("scope description must record the user's requested boundary")
-    if scope["fingerprint"] != index["fingerprint"]:
-        errors.append("scope fingerprint differs from the current evidence")
-    ids = scope["items"]
+    if not isinstance(selection["description"], str) or not selection["description"].strip():
+        errors.append("selection description must record the user's requested boundary")
+    if selection["fingerprint"] != index["fingerprint"]:
+        errors.append("selection fingerprint differs from the current evidence")
+    ids = selection["items"]
     if (not isinstance(ids, list) or not ids or any(not isinstance(uid, str) for uid in ids)
             or len(ids) != len(set(ids))):
-        errors.append("scope items must be a nonempty list of unique item IDs")
+        errors.append("selection items must be a nonempty list of unique item IDs")
     elif not set(ids) <= set(index["items"]):
-        errors.append("scope contains unknown item IDs")
+        errors.append("selection contains unknown item IDs")
     return errors
 
 
 def validate(index: dict, ledger: dict) -> list:
-    errors, members = validate_scope(index, ledger.get("scope")), {}
+    errors, members = validate_selection(index, ledger.get("selection")), {}
     event_ids = set()
     for event in ledger.get("events", []):
         eid = event.get("id")
@@ -553,9 +570,9 @@ def validate(index: dict, ledger: dict) -> list:
 
 def record(index: dict, ledger: dict, patch: dict) -> dict:
     """Atomic upsert. Explicit remove_events supports merges and splits."""
-    if not isinstance(patch, dict) or set(patch) - {"events", "dispositions", "remove_events", "scope"}:
-        raise ValueError("review patch accepts only events, dispositions, remove_events and scope")
-    if any(not isinstance(v, list) for k, v in patch.items() if k != "scope"):
+    if not isinstance(patch, dict) or set(patch) - {"events", "dispositions", "remove_events", "selection"}:
+        raise ValueError("review patch accepts only events, dispositions, remove_events and selection")
+    if any(not isinstance(v, list) for k, v in patch.items() if k != "selection"):
         raise ValueError("event/disposition patch fields must be lists")
     for e in patch.get("events", []):
         if (not isinstance(e, dict) or not isinstance(e.get("items"), list)
@@ -569,13 +586,13 @@ def record(index: dict, ledger: dict, patch: dict) -> dict:
         if not isinstance(d, dict) or not isinstance(d.get("id"), str):
             raise ValueError("each disposition requires a string id")
     updated = copy.deepcopy(ledger)
-    if "scope" in patch:
-        errors = validate_scope(index, patch["scope"])
+    if "selection" in patch:
+        errors = validate_selection(index, patch["selection"])
         if errors:
             raise ValueError("; ".join(errors))
-        if updated.get("scope") != patch["scope"]:
-            updated.setdefault("scope_history", []).append(copy.deepcopy(updated.get("scope")))
-        updated["scope"] = copy.deepcopy(patch["scope"])
+        if updated.get("selection") != patch["selection"]:
+            updated.setdefault("selection_history", []).append(copy.deepcopy(updated.get("selection")))
+        updated["selection"] = copy.deepcopy(patch["selection"])
     incoming = copy.deepcopy(patch.get("events", []))
     for event in incoming:
         event.setdefault("id", "event:" + digest(sorted(event.get("items", [])))[:20])
@@ -595,13 +612,13 @@ def record(index: dict, ledger: dict, patch: dict) -> dict:
     return updated
 
 
-def scope_check(index: dict, ledger: dict, errors=()) -> dict:
-    scope = ledger.get("scope")
-    if not scope:
+def selection_check(index: dict, ledger: dict, errors=()) -> dict:
+    selection = ledger.get("selection")
+    if not selection:
         return {"configured": False, "accounting_complete": False}
-    if validate_scope(index, scope):
+    if validate_selection(index, selection):
         return {"configured": True, "accounting_complete": False, "invalid": True}
-    selected = set(scope["items"])
+    selected = set(selection["items"])
     counts, by_kind = {}, {}
     for uid in selected:
         status = ledger["dispositions"].get(uid, {}).get("status", "pending")
@@ -612,8 +629,8 @@ def scope_check(index: dict, ledger: dict, errors=()) -> dict:
         group["counts"][status] = group["counts"].get(status, 0) + 1
     events = [e for e in ledger["events"] if selected & set(e["items"])]
     provisional = sum(e.get("status") != "confirmed" for e in events)
-    return {"configured": True, "description": scope["description"],
-            "total": len(selected), "outside_scope": len(index["items"]) - len(selected),
+    return {"configured": True, "description": selection["description"],
+            "total": len(selected), "outside_selection": len(index["items"]) - len(selected),
             "counts": counts, "by_kind": by_kind, "events": len(events),
             "provisional_events": provisional,
             "accounting_complete": not errors and not counts.get("pending") and
@@ -634,7 +651,7 @@ def check(index: dict, ledger: dict) -> dict:
     return {"total": len(index["items"]), "counts": counts, "events": len(ledger["events"]),
             "by_kind": by_kind,
             "provisional_events": provisional, "errors": errors,
-            "scope": scope_check(index, ledger, errors),
+            "selection": selection_check(index, ledger, errors),
             "unresolved_reference_count": len(index["graph"]["unresolved"]),
             "accounting_complete": not errors and not counts.get("pending") and
                 not counts.get("unresolved") and not provisional,
@@ -699,7 +716,7 @@ def coverage_section(index: dict, state: dict) -> list:
                     "places a reviewer must check by hand.", ""]
 
 
-def render(index: dict, ledger: dict, require_complete=False, require_scope_complete=False) -> str:
+def render(index: dict, ledger: dict, require_complete=False, require_selection_complete=False) -> str:
     state = check(index, ledger)
     if state["errors"]:
         raise ValueError("cannot render invalid ledger: " + "; ".join(state["errors"][:20]))
@@ -710,8 +727,8 @@ def render(index: dict, ledger: dict, require_complete=False, require_scope_comp
             f"{state['counts'].get('unresolved', 0)} unresolved items, "
             f"{state['provisional_events']} provisional events. "
             "Resume the saved review; omit --require-complete only to render a PARTIAL report.")
-    if require_scope_complete and not state["scope"]["accounting_complete"]:
-        raise ValueError("selected scope is unconfigured or incomplete; record its items and resolve its remaining work")
+    if require_selection_complete and not state["selection"]["accounting_complete"]:
+        raise ValueError("item selection is unconfigured or incomplete; record its items and resolve its remaining work")
     inputs = index["inputs"]
     out = ["# Chromium upgrade review", "",
            f"{inputs['refs']['from']} → {inputs['refs']['to']} · {inputs['platform']}", "",
@@ -720,13 +737,13 @@ def render(index: dict, ledger: dict, require_complete=False, require_scope_comp
            f"provisional events: {state['provisional_events']}.",
            "", "Disposition counts: " + json.dumps(state["counts"], sort_keys=True),
            "", "Accounting does not establish semantic completeness or product safety.", ""]
-    scoped = state["scope"]
-    if scoped["configured"]:
-        out.extend(["## Selected review scope", "", scoped["description"], "",
-                    "Scope accounting: " + ("COMPLETE" if scoped["accounting_complete"] else "PARTIAL"),
-                    f"Selected items: {scoped['total']}; outside selected scope: {scoped['outside_scope']}.",
-                    "Disposition counts: " + json.dumps(scoped["counts"], sort_keys=True),
-                    "", scoped["limit"], ""])
+    chosen = state["selection"]
+    if chosen["configured"]:
+        out.extend(["## Recorded item selection", "", chosen["description"], "",
+                    "Selection accounting: " + ("COMPLETE" if chosen["accounting_complete"] else "PARTIAL"),
+                    f"Selected items: {chosen['total']}; outside the selection: {chosen['outside_selection']}.",
+                    "Disposition counts: " + json.dumps(chosen["counts"], sort_keys=True),
+                    "", chosen["limit"], ""])
     out.extend(coverage_section(index, state))
     ordered = sorted(ledger["events"], key=lambda e: (e.get("order", 1000000), e["id"]))
     for i, event in enumerate(ordered, 1):

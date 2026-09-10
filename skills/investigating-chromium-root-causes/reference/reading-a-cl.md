@@ -13,10 +13,10 @@
 
 ## Why a verdict is not the end
 
-`why.py` tells you **how the tool found a CL**. `introduced`, `exact`,
-`declares` are statements about a search, not about causation. The search
-asked "does this CL's diff of this file touch this identifier"; it never asked
-"is this the change the finding is about".
+`chromiumdiff why` tells you **how the tool found a CL**. `introduced`,
+`exact`, `declares` are statements about a search, not about causation. The
+search asked "does this CL's diff of this file touch this identifier"; it never
+asked "is this the change the finding is about".
 
 Most of the time those coincide. Wrong answers come from the gap between them,
 and only opening the CL closes it.
@@ -37,8 +37,8 @@ Lowest to highest. Each rung is checkable; none of them is an opinion.
 | 4 | the diff shows the before and after | "this CL made the change the finding reports" |
 | 5 | the issue states the defect | "it was done because Y was broken" |
 
-Rungs 1 and 2 come from `why.py`. Rungs 3 and 4 need `cl.py`. Rung 5 needs the
-issue chip, or `why.py` on a served report.
+Rungs 1 and 2 come from `chromiumdiff why`. Rungs 3 and 4 need `chromiumdiff
+cl`. Rung 5 needs the issue chip, or `chromiumdiff why` on a served report.
 
 **Report the highest rung you actually reached, and say which it is.** A row
 answered at rung 2 and written up as rung 4 is the error this skill is written
@@ -88,8 +88,8 @@ Four parts, and each answers something different.
   what you need.
 
 A revert carries `revert_of` and a cherry-pick `cherry_pick_of_change` in
-Gerrit's own record, which `cl.py` prints above the message. Those are more
-reliable than reading `Revert "..."` out of a subject.
+Gerrit's own record, which `chromiumdiff cl` prints above the message. Those
+are more reliable than reading `Revert "..."` out of a subject.
 
 ## Reading the diff
 
@@ -102,9 +102,9 @@ Gerrit returns a diff as blocks, and the block type matters:
 | `b` | added |
 | `common: true` | **the same content, differing only inside the line** |
 
-The last one is a reindent or a reflow. `cl.py` marks it `~` rather than
-`-`/`+`, because counting it as an edit would make a CL that reformatted
-a file an `exact` match for every declaration in it.
+The last one is a reindent or a reflow. `chromiumdiff cl` marks it `~` rather
+than `-`/`+`, because counting it as an edit would make a CL that reformatted a
+file an `exact` match for every declaration in it.
 
 Both sides are what you compare. A finding records a declaration's before
 and after; the CL that made that change is the one whose **removed** line
@@ -119,12 +119,13 @@ That is `blink.mojom.TokenError.url` changing type, and it is the evidence
 `introduced` is built on — read directly rather than taken on trust.
 
 **Search the diff for the changed value, not the identifier.** The identifier
-is usually on unchanged lines too, and every one of those is noise. `cl.py
---find` only marks lines the CL changed, for that reason.
+is usually on unchanged lines too, and every one of those is noise.
+`chromiumdiff cl --find` only marks lines the CL changed, for that reason.
 
 A file the CL renamed answers under the old path with the whole file as one
-block and no rename marker. `cl.py` prints `(renamed from ...)` when Gerrit's
-metadata says so; an "empty" diff on a removal is that, more often than not.
+block and no rename marker. `chromiumdiff cl` prints `(renamed from ...)` when
+Gerrit's metadata says so; an "empty" diff on a removal is that, more often
+than not.
 
 ## Four questions a diff answers that nothing else does
 
@@ -153,8 +154,8 @@ This happens, and a disproof is a real finding. Look for these:
 - **The whole diff is `~`.** A reformat.
 - **The change is in the other direction.** The CL removes what the finding
   says was added.
-- **The date is outside the two trees.** `why.py` will not show these now, but
-  a CL you reached from an issue history can be from any milestone.
+- **The date is outside the two trees.** `chromiumdiff why` will not show these
+  now, but a CL you reached from an issue history can be from any milestone.
 
 When one holds, the row is not answered. Go back to the other CLs on it, raise
 `--budget`, or report that the search reached the file but not the cause.
@@ -163,14 +164,14 @@ When one holds, the row is not answered. Go back to the other CLs on it, raise
 
 ```bash
 # what the CL says about itself, and which files it touched
-python3 scripts/cl.py 7982397
+python3 -m chromiumdiff cl 7982397
 
 # the diff of one file, marking only changed lines carrying the value
-python3 scripts/cl.py \
+python3 -m chromiumdiff cl \
   7982397 federated_auth_request.mojom --find 'url.mojom.Url? url'
 
 # the whole diff of that file, no marking
-python3 scripts/cl.py \
+python3 -m chromiumdiff cl \
   7982397 federated_auth_request.mojom --context 0
 ```
 

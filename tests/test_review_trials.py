@@ -167,13 +167,14 @@ class TestTrialRunner(unittest.TestCase):
     def prepare(self, name="trial", **kwargs):
         return review_trials.prepare(self.spec, str(Path(self.tmp.name) / name), self.cache, **kwargs)
 
-    def test_staged_workspace_can_run_shared_helpers(self):
+    def test_staged_workspace_can_run_the_history_commands(self):
         metadata = self.prepare()
         workspace = Path(metadata["workspace"])
-        for name in ("why.py", "cl.py"):
-            result = subprocess.run(
-                [sys.executable, "-I", str(workspace / "scripts" / name), "--help"],
-                cwd=self.tmp.name, capture_output=True, text=True, timeout=20)
+        for name in ("why", "cl"):
+            # -E drops PYTHONPATH so the staged package is the only one that can
+            # answer the import, which is what a trial machine actually has.
+            result = subprocess.run([sys.executable, "-E", "-m", "chromiumdiff", name, "--help"],
+                                    cwd=workspace, capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr)
         with patch.object(review, "__file__", str(workspace / "chromiumdiff/review.py")):
             self.assertEqual(review.implementation_identity()["tool_sha256"],

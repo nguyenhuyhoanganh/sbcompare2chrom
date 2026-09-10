@@ -873,8 +873,8 @@ def read_report(path: str) -> "Report":
 
     `snapshot.py` has always checked the schema stamp and rebuilt a stale
     cache. Nothing checked it on the way in here, and the four commands that
-    load a report -- `report`, `figures`, `serve`, and the skill's `why.py` --
-    each called `Report.from_dict` straight on the parsed file.
+    load a report -- `report`, `figures`, `serve` and `why` -- each called
+    `Report.from_dict` straight on the parsed file.
 
     What that produced is not an error but a wrong report. Rendering a
     version 40 file after the buckets were renamed printed `Compatibility
