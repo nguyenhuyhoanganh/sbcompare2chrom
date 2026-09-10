@@ -129,7 +129,8 @@ def command(args):
             result["filters"] = {"status": args.status, "query": args.query,
                                  "item_kind": args.item_kind, "fact_kinds": args.fact_kind,
                                  "path_prefixes": prefixes}
-            result["path_filter"] = review.path_filter_omission(index, prefixes)
+            result["path_filter"] = review.path_filter_omission(
+                index, prefixes, item_kind=args.item_kind, fact_kinds=args.fact_kind)
             result["retrieval_note"] = ("Filters select retrieval only, not decisions. Fact-kind filters omit "
                                         "source-only changes, and a path prefix omits every item with no path "
                                         "at all -- path_filter counts those by kind.")

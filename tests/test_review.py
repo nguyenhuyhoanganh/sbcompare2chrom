@@ -272,6 +272,15 @@ class TestReviewWorkflow(unittest.TestCase):
         self.assertNotIn("milestone_lead", [row["group"] for row in groups["items"]])
         # Without a prefix nothing is withheld, so there is nothing to report.
         self.assertEqual(self.cli("index", self.directory)[1]["path_filter"], {})
+        # Nor when a kind filter, not the prefix, is what excluded them: the
+        # claim has to name the filter that actually did it.
+        _, kept = self.cli("index", self.directory, "--path-prefix", "engine",
+                           "--item-kind", "finding")
+        self.assertEqual(kept["path_filter"], {})
+        _, asked = self.cli("index", self.directory, "--path-prefix", "engine",
+                            "--item-kind", "milestone_lead")
+        self.assertEqual(asked["items"], [])
+        self.assertEqual(asked["path_filter"]["excluded_without_path"], 1)
         self.assertEqual(sorted(review.path_filter_omission(index, ["engine"])),
                          ["by_kind", "excluded_without_path", "reason"],
                          "scoping.md and its Vietnamese copy name these fields; update both")

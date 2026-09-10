@@ -342,7 +342,22 @@ def item_paths(item: dict) -> list:
     return item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
 
 
-def path_filter_omission(index: dict, prefixes) -> dict:
+def _passes_kind_filters(item: dict, item_kind, fact_kinds) -> bool:
+    """Every filter except the path one, asked in one place.
+
+    `path_filter_omission` has to apply the same kind filters `index_rows`
+    applies, or it reports milestone leads as withheld by a path prefix in a
+    query that excluded them by kind. Two copies of the rule is how they differ.
+    """
+    if item_kind and item["kind"] != item_kind:
+        return False
+    if fact_kinds and (item["kind"] != "finding" or
+                       item["data"]["change"]["kind"] not in fact_kinds):
+        return False
+    return True
+
+
+def path_filter_omission(index: dict, prefixes, item_kind=None, fact_kinds=()) -> dict:
     """What a path prefix removes for carrying no path at all, counted.
 
     A milestone lead has no path, so no prefix can ever match one: a
@@ -354,7 +369,7 @@ def path_filter_omission(index: dict, prefixes) -> dict:
         return {}
     kinds = {}
     for item in index["items"].values():
-        if not any(item_paths(item)):
+        if _passes_kind_filters(item, item_kind, fact_kinds) and not any(item_paths(item)):
             kinds[item["kind"]] = kinds.get(item["kind"], 0) + 1
     if not kinds:
         return {}
@@ -370,10 +385,7 @@ def index_rows(index: dict, ledger: dict, status=None, query="", *,
         state = ledger["dispositions"].get(uid, {}).get("status", "pending")
         if status and state != status:
             continue
-        if item_kind and item["kind"] != item_kind:
-            continue
-        if fact_kinds and (item["kind"] != "finding" or
-                           item["data"]["change"]["kind"] not in fact_kinds):
+        if not _passes_kind_filters(item, item_kind, fact_kinds):
             continue
         if not _matches_paths(item_paths(item), path_prefixes):
             continue
