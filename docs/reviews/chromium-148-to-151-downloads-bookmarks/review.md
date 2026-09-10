@@ -26,8 +26,8 @@ This comparison reads declarations the extractor parses. It does not compare beh
 
 Parsed file suffixes: features.cc, features.h, switches.cc, switches.h, feature_list.cc, feature_list.h, field_trial.cc, field_trial.h, fieldtrial.cc, fieldtrial.h, flags.cc, flags.h, _handler.cc, _util.cc, _manager.cc, pref_names.cc, pref_names.h, prefs.cc, prefs.h, .mojom, .idl, .json5, route.ts, routes.ts, .html, .html.ts, flag-metadata.json.
 
-- from: 8024 of 8094 candidate declarations read; 70 missed.
-- to: 8295 of 8366 candidate declarations read; 71 missed.
+- from: 8024 of 8094 candidate declaration files read; 70 missed.
+- to: 8295 of 8366 candidate declaration files read; 71 missed.
 - Candidates missed by directory (to side): chrome/services 24; chrome/credential_provider 15; chrome/installer 12; third_party/blink 6; chrome/renderer 3; chrome/notification_helper 2; chrome/browser 1; chrome/common 1; and 4 more directories
 - Acquisition: target set wide; partitions none; unconfirmed findings: 0.
 - Unresolved declaration references: 295.

@@ -472,7 +472,7 @@ When a pref or switch disappears and cannot be paired, the tool does **not** cla
 
 A hand-written file list is only correct for the version it was written against. Build the list as it stood at M130 and run it at M151, twenty-one milestones later, and it misses 27% of the pref files and 34% of the feature files that exist there. A third of the coverage is lost over two years, and nothing reports it: a file nobody listed is a file nobody notices.
 
-So on every run the tool asks that version's own tree what exists, and measures the target set against it. Gitiles returns a recursive listing of a directory in one request, so fourteen roots cost about 24 MB and 21 seconds, cached forever because a tag's tree never changes.
+So on every run the tool asks that version's own tree what exists, and measures the target set against it. Gitiles returns a recursive listing of a directory in one request, so the 25 roots cost about 33 MB per version — measured at 151.0.7922.138 — cached forever because a tag's tree never changes.
 
 The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 

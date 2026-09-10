@@ -62,9 +62,12 @@ WEBUI_SURFACES = (
 # So the targets below declare a *rule* -- these roots, this filename shape --
 # and it is resolved against the actual tree of the version being read.
 # Gitiles answers a full recursive listing per root in one request
-# (`?format=JSON&recursive=true`), so all twelve roots cost about 24 MB and 21
-# seconds on a cold cache, against the ~337 MB of source the same run already
-# downloads. A tag's tree is immutable, so the listing is cached forever.
+# (`?format=JSON&recursive=true`), so all 25 roots cost about 33 MB per version
+# -- measured at 151.0.7922.138, summing the cached listings -- against the
+# ~337 MB of source the same run already downloads. A tag's tree is
+# immutable, so the listing is cached forever. Count the roots with
+# `_discovery_rules()` rather than copying the number: it was written when
+# there were twelve and stayed twelve through two rounds of adding roots.
 #
 # The rules stay narrow on purpose. They are matched against filenames, which
 # is a convention rather than a guarantee, so `chromiumdiff catalog` still

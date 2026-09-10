@@ -731,8 +731,16 @@ def coverage_section(index: dict, state: dict) -> list:
     for side in sorted(inputs.get("coverage", {})):
         value = inputs["coverage"][side]
         if isinstance(value, dict) and "candidates" in value:
+            # Files, not declarations: `discover_candidates` keys its result by
+            # path -- "the global denominator, which counts files" -- and
+            # `snapshot.py` logs these same three numbers as "files in this tree
+            # that could declare". How far the two nouns diverge is measured in
+            # README's target-set table and nowhere else, because restating it
+            # here is how the two learn to disagree. The skill tells the agent to
+            # copy this line into the delivered document, where the reader has no
+            # run log to check it against.
             lines.append(f"- {side}: {value['read']} of {value['candidates']} candidate "
-                         f"declarations read; {value['missed']} missed.")
+                         f"declaration files read; {value['missed']} missed.")
     missed = inputs.get("coverage", {}).get("to", {}).get("missed_by_directory") or {}
     if missed:
         top = sorted(missed.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
