@@ -109,7 +109,7 @@ Hai target set phục vụ hai mục đích khác nhau:
 
 | Target set | Dùng khi | Điều cần nhớ |
 |---|---|---|
-| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; khoảng 315 MB mỗi version, và vẫn phải đọc báo cáo coverage kèm theo |
+| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Đọc mọi dạng tên file mà công cụ hiểu, trong các thư mục gốc đã chọn; khoảng 337 MB mỗi version, và vẫn phải đọc báo cáo coverage kèm theo |
 | `smoke` | Kiểm tra công cụ và cache còn chạy đúng không | Ba file; không bao giờ đủ để so sánh hai version |
 
 `analysis` gồm một danh sách file chọn tay cộng với archive của cả thư mục. Riêng danh sách chọn tay tốn khoảng 40 MB mỗi version và đọc chưa tới một nửa số file khai báo; phần archive là thứ bù vào khoảng trống đó, nên nó không tách ra chọn riêng được.

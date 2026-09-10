@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
+description: Compares two Chromium versions with the chromiumdiff tool and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
 ---
 
 # Phân tích một đợt nâng version Chromium
@@ -11,7 +11,7 @@ skill này. Khi chuyển việc sang skill khác, gọi bằng tên skill và n�
 không đọc file reference hay chạy bất cứ thứ gì trong thư mục của skill đó.
 Đọc [reference/handoff.md](reference/handoff.md) khi chuyển một tác vụ.
 
-Script đọc các khai báo ra từ hai version Chromium rồi liệt kê khác biệt. Bạn
+Tool đọc các khai báo ra từ hai version Chromium rồi liệt kê khác biệt. Bạn
 là người tìm ra mỗi khác biệt đó có nghĩa gì, ảnh hưởng tới đâu, và user phải
 kiểm hay sửa gì. Bucket, score, signal và cluster chỉ nói cho bạn biết nên xem
 cái gì trước. Chúng không bao giờ là câu trả lời.
@@ -38,15 +38,16 @@ khi nó chưa đúng. Chưa xong checkpoint của bước trước thì không b
 sau. Chưa tự kiểm checkpoint thì không tick dòng đó.
 
 Đọc hết reference được nêu ở một bước, trước khi bắt đầu bước đó. Nếu trong
-lần chạy này bạn đã đọc rồi thì không cần mở lại. Còn ba reference nữa đọc
+lần chạy này bạn đã đọc rồi thì không cần mở lại. Còn bốn reference nữa đọc
 trong bước 5, khi gặp đúng chủ đề của chúng:
 [signals.md](reference/signals.md) để biết các nhãn của bộ phân loại nghĩa là
 gì, [settings-screen.md](reference/settings-screen.md) cho route, control của
-WebUI và điều kiện chúng hiện ra, và [history.md](reference/history.md) cho CL
-và bug, và trước khi bạn nói vì sao một thay đổi được làm, hoặc nói nó bị
-tách, bị revert hay được merge.
+WebUI và điều kiện chúng hiện ra, [history.md](reference/history.md) cho CL và
+bug, và trước khi bạn nói vì sao một thay đổi được làm, hoặc nói nó bị tách, bị
+revert hay được merge, và [no-row.md](reference/no-row.md) mỗi khi một query hay
+một lần tra cứu trả về rỗng, trước khi bạn nói bất cứ điều gì về cái không có.
 
-`MUST` nghĩa là bắt buộc phải làm. Chạy mọi lệnh từ thư mục gốc của project;
+`MUST` nghĩa là bắt buộc phải làm. Chạy mọi lệnh từ thư mục gốc của repository;
 `python3 -m chromiumdiff` hỏng ở chỗ khác. Đọc file này, chép một lệnh trong
 đó ra, hay chỉ đọc `report.md` — đều chưa đủ để qua bất kỳ checkpoint nào.
 
@@ -65,7 +66,7 @@ tách, bị revert hay được merge.
   **Rollout** là chuyện nó có thật sự dùng được trong sản phẩm đã phát hành
   hay không. Cái này có thể khác với giá trị mặc định viết trong source.
 - **Scope**: các khu vực và quyết định user đưa cho bạn ở bước 1.
-  **Acquisition** là chuyện khác: script tải và đọc bao nhiêu phần Chromium,
+  **Acquisition** là chuyện khác: tool tải và đọc bao nhiêu phần Chromium,
   đặt bằng `--target-set` và `--partition` ở bước 2.
 - **Selection**: danh sách item trong index mà quyết định phải đủ cho phạm vi
   đó, lưu ở bước 7. Phạm vi nói bằng lời của user; selection nói bằng ID item,
@@ -113,7 +114,7 @@ vực hay một loại khai báo, hoặc tự chọn, thì chưa đạt: dừng 
 
 ## Bước 2 — Tạo hoặc mở lần so sánh
 
-Python 3.9 trở lên là đủ. Không cài gì thêm. Script chỉ so bản Windows và
+Python 3.9 trở lên là đủ. Không cài gì thêm. Tool chỉ so bản Windows và
 không có tuỳ chọn nào đổi được điều đó. Ghi lại đúng `from_ref` và `to_ref`
 mà report trả về, vì một số milestone trần có thể trỏ vào bản khác ở lần chạy
 sau.
@@ -128,7 +129,7 @@ python3 -m chromiumdiff review init out/upgrade --directory out/upgrade/review -
 ```
 
 Thay FROM/TO và các đường dẫn bằng phiên bản user yêu cầu. Một lần chạy tải
-khoảng 315 MB mỗi version và đọc mọi file mà target của nó phủ. Nó vẫn không
+khoảng 337 MB mỗi version và đọc mọi file mà target của nó phủ. Nó vẫn không
 đọc hết Chromium, và nó không hiểu mọi loại code nó tải về. `--target-set
 smoke` chỉ đọc ba file; dùng nó để kiểm công cụ có chạy không, đừng bao giờ
 dùng để so hai version. `--partition` tải ít hơn, và chỉ dùng sau khi user
@@ -170,7 +171,7 @@ python3 -m chromiumdiff review overview out/upgrade/review --group-by path --pat
 ```
 
 `check` thoát mã 1 khi còn việc chưa xong. Ở đây như vậy là bình thường. Đọc
-JSON nó in ra. `overview` đếm toàn bộ index đã lưu ngay trong script và chỉ in
+JSON nó in ra. `overview` đếm toàn bộ index đã lưu ngay trong tiến trình của chính nó và chỉ in
 ra con số, không in dòng dữ liệu hay diff. Hãy chọn truy vấn tiếp theo từ
 những con số đó, để không phải kéo hàng nghìn dòng vào context chỉ để biết
 trong đó có gì.
@@ -414,11 +415,12 @@ kiểm đó.
 Đặt phần này dưới một heading riêng, trên cùng trang hoặc trong cùng tài liệu.
 Đừng nhét nó thành một dòng chú thích nhỏ ở cuối.
 
-Chép ba con số này từ `review.md`:
+Chép ba dòng này từ phần `Coverage and limits` của `review.md`:
 
-- mỗi bên đọc được bao nhiêu file khai báo;
-- những thư mục nó đọc được ít nhất;
-- những file không target nào đọc tới.
+- mỗi bên đọc được bao nhiêu file khai báo, và bỏ sót bao nhiêu;
+- những file bỏ sót đó nằm ở thư mục nào — đó là các thư mục không target nào
+  đọc tới;
+- dòng acquisition, và số declaration reference chưa resolve được.
 
 Rồi nói những gì cách làm này vốn không làm được:
 
@@ -479,6 +481,8 @@ gì, hay về mức độ đã phủ. Để tìm code dùng tới một thứ, �
 
 ```bash
 rg -n -F -- 'IDENTIFIER' EXACT_VERSION_ROOT
+# ripgrep không nằm trong yêu cầu của tool; nếu máy không có:
+grep -rn -F -- 'IDENTIFIER' EXACT_VERSION_ROOT
 ```
 
 Kết quả tìm kiếm là những chỗ cần tới xem. Chúng không chứng minh code có

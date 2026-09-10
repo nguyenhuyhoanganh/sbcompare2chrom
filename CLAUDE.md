@@ -48,19 +48,30 @@ exist, and do not state a prohibition the code does not enforce.
 
 Three of the eight have a test now, so the hand check is what a test cannot
 read. 2 and 3: `TestPrintedCommandsExist` checks every printed command and flag
-against the parser, and `TestSkillBoundaries` refuses a skill file that names a
-script path or an unknown subcommand. 1: a field list a reference presents as
-the whole of it gets a test over the function's keys, whose failure message
-names the reference to update -- `selection_check` has one; do the same for the
-next such list rather than checking it by hand again.
+against the parser, plus that every subcommand has a help string, and
+`TestSkillBoundaries` refuses a skill file that names a script path or an
+unknown subcommand. 1: a field list a reference presents as the whole of it gets
+a test over the function's keys, whose failure message names the reference to
+update -- `selection_check` and `path_filter_omission` have one; do the same for
+the next such list rather than checking it by hand again. 7 has one word held,
+not the rule: `script` must mean a Chromium launch wrapper and nothing else in a
+skill file, because renaming the paths out of the repository left the noun behind
+in four of them. Every other word is still a hand check.
 
-Two more failure classes found since have a test for the same reason.
-`TestSkillBoundaries` also holds that every reference is reachable from its
-entrypoint and that the references both skills carry stay byte-equal apart from
-the one filename each skill owns -- there are two copies of each because a skill
-must work installed alone. And a stored key renamed without a new
+Four more failure classes found since have a test for the same reason.
+`TestSkillBoundaries` holds that every reference is *named by its own
+SKILL.md* -- reachability through any chain of links was the weaker check and it
+passed while the one reference about an empty answer sat two hops behind a
+conditional read -- and that the references both skills carry stay byte-equal
+apart from the one filename each skill owns, there being two copies of each
+because a skill must work installed alone. A stored key renamed without a new
 `REVIEW_SCHEMA` loses data silently, which is why
 `TestThePersistedShapeIsPinnedToItsSchemaNumber` fails on a change to either.
+A filter that drops rows for lacking the thing it filters on says so and counts
+them: `--path-prefix` excluded all 78 milestone leads in silence. And an exit
+code that means something must not be reused for a crash -- `cli.main` returns 1
+for any exception while `why` documents 1 as "no matching finding", so the
+history commands turn every unexpected failure into 2.
 
 ## Elsewhere
 

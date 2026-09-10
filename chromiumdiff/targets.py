@@ -63,7 +63,7 @@ WEBUI_SURFACES = (
 # and it is resolved against the actual tree of the version being read.
 # Gitiles answers a full recursive listing per root in one request
 # (`?format=JSON&recursive=true`), so all twelve roots cost about 24 MB and 21
-# seconds on a cold cache, against the ~315 MB of source the same run already
+# seconds on a cold cache, against the ~337 MB of source the same run already
 # downloads. A tag's tree is immutable, so the listing is cached forever.
 #
 # The rules stay narrow on purpose. They are matched against filenames, which
@@ -531,8 +531,9 @@ _ARCHIVE_ROOTS = (
     # compositor, `google_apis/gaia` is sign-in -- and three of those files
     # alone hold 88 base::Feature declarations.
     #
-    # Measured at M151 they cost 22 MB per version on top of 315, which is the
-    # price of the figure meaning what it says.
+    # Measured at M151 they cost 22 MB per version on top of the 315 the rest of
+    # the set costs, which is what takes a run to 337 and the price of the figure
+    # meaning what it says.
     ("base", "base:: features, switches and field trials"),
     ("device", "Bluetooth, gamepad, VR and WebAuthn"),
     ("cc", "the compositor"),
@@ -598,16 +599,15 @@ READABLE_SUFFIXES = (
 def analysis_targets() -> List[FetchTarget]:
     """The set a real comparison uses: curated files plus whole directories.
 
-    Much larger to fetch than the curated files alone: about 315 MB per
+    Much larger to fetch than the curated files alone: about 337 MB per
     version against 40. The archives are filtered as they unpack, so the tree
     kept on disk is 94 MB against roughly 38. The real cost is bandwidth, once
     per version, and a tag is cached forever afterwards.
 
-    Measured at M151, against a recursive listing of that version's own tree:
-    the curated files alone read 42 of 1,039 and this set reads all 1,039,
-    taking base::Feature declarations from 2,062 to 3,951. These are the
-    numbers as of that measurement -- every run prints its own, and that is
-    the one to trust.
+    What that buys, per surface, is measured in README's target-set table and
+    nowhere else, because a file count and a declaration count answer different
+    questions and restating either here is how the two learn to disagree. Every
+    run prints its own coverage, and that is the number to trust.
     """
     return _curated_targets() + [
         FetchTarget(root, "tree", READABLE_SUFFIXES, note=note)

@@ -5,7 +5,7 @@
 - **Exact refs:** `refs/tags/148.0.7778.217` → `refs/tags/151.0.7922.138`.
 - **Nền tảng:** Windows theo bộ so sánh; nhánh Android/ChromeOS chỉ được dùng để phân biệt điều kiện build.
 - **Phạm vi:** History, History Clusters, History Embeddings, History side panels và dependency cần thiết. Review flags/feature params, Mojo interfaces, WebUI controls/gates cùng source-only changes liên quan. “Full” bao gồm thay đổi người dùng thấy, khả năng mới và phần downstream phải thích nghi. Downloads/Bookmarks không nằm trong lần review này.
-- **Skill:** `skills/analyzing-chromium-upgrades/SKILL.md` của project. Dùng comparison có sẵn với acquisition `wide`, không partition, 6.064 findings.
+- **Skill:** `skills/analyzing-chromium-upgrades/SKILL.md` của project. Dùng comparison có sẵn với acquisition `wide` — tên cũ của target set nay gọi là `analysis` — không partition, 6.064 findings.
 - **Thư mục tài liệu:** `docs/reviews/chromium-148-to-151-history/`. [Review đầy đủ](review.md), [yêu cầu đã lưu](request.md).
 - **Kết quả accounting:** 21 events; 111 selected items = 54 findings + 57 source deltas. Trong selection: 82 thuộc event, 15 explained, 14 out_of_scope có lý do (chủ yếu shared files/Android); pending = 0, unresolved decisions = 0, provisional events = 0. `review check --selection` và `review render --require-selection-complete` đều exit 0.
 - **Toàn index vẫn PARTIAL:** 9.326/9.437 mục nằm ngoài selection. “COMPLETE” ở trên chỉ nói các mục History đã chọn được quyết định; không phải đã review toàn Chromium hoặc xác nhận sản phẩm hoạt động.

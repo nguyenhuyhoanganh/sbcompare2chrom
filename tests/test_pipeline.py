@@ -7972,3 +7972,32 @@ class TestPrintedCommandsExist(unittest.TestCase):
                         % (path, line_no, line.strip()))
         self.assertTrue(os.path.isdir(skills))
         self.assertTrue(checked, "no report command found in skills/")
+
+    def test_every_subcommand_says_what_it_does_in_help(self):
+        """`--help` is the only place a reader can look the surface up.
+
+        argparse lists a subparser in the usage line whether or not it was
+        given a help string and describes only the ones that were, so a command
+        added without one is visible and unexplained. Fourteen of `review`'s
+        twenty were in that state, including every command its own workflow
+        runs.
+        """
+        from chromiumdiff.cli import build_parser
+
+        def subparsers(parser):
+            return [a for a in parser._actions
+                    if getattr(a, "choices", None) and isinstance(a.choices, dict)]
+
+        missing, seen = [], 0
+        stack = [("chromiumdiff", build_parser())]
+        while stack:
+            prefix, parser = stack.pop()
+            for action in subparsers(parser):
+                described = {c.dest for c in action._choices_actions if (c.help or "").strip()}
+                for name, child in action.choices.items():
+                    seen += 1
+                    if name not in described:
+                        missing.append(f"{prefix} {name}")
+                    stack.append((f"{prefix} {name}", child))
+        self.assertGreater(seen, 20, "no subcommands found; the check is vacuous")
+        self.assertEqual(sorted(missing), [])

@@ -59,7 +59,7 @@ Three moves, in order. Stop at the first that produces a name.
    flag or the pref. That name is the identifier.
 
 3. **Search the report by path.** If you know roughly where the code lives, the
-   script matches path fragments:
+   search matches path fragments:
 
    ```bash
    python3 -m chromiumdiff why out/DIR downloads

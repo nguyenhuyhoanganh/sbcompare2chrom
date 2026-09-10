@@ -49,7 +49,8 @@ python3 -m chromiumdiff report out/upgrade/report.json --format both --out out/u
 To repeat a saved lookup, add `--retry`; this reuses successful HTTP cache
 entries and applies the new budget. Use `--refresh` to refetch Gerrit data.
 Exit 3 and `lookup.status` identify incomplete/unavailable searches; JSON
-includes the same warnings as text. Exit 2 includes a failed `--save`.
+includes the same warnings as text. Exit 2 is every other failure, a failed `--save` and a broken lookup alike;
+only exit 1 says the search matched nothing.
 
 ## A source change has no finding, or lookup did not explain it
 

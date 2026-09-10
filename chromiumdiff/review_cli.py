@@ -109,7 +109,10 @@ def command(args):
                                                        args.path_depth, prefixes))
             result.update(index_total=len(index["items"]), group_by=args.group_by,
                           path_prefixes=prefixes,
-                          note="Counts from indexed evidence, not semantic review. Path groups may overlap; counts are not events.")
+                          path_filter=review.path_filter_omission(index, prefixes),
+                          note="Counts from indexed evidence, not semantic review. Path groups may overlap; "
+                               "counts are not events. A path prefix drops every item with no path; "
+                               "path_filter counts them by kind.")
         elif action == "index":
             if args.after and args.cursor:
                 raise ValueError("use --after or --cursor, not both")
@@ -126,7 +129,10 @@ def command(args):
             result["filters"] = {"status": args.status, "query": args.query,
                                  "item_kind": args.item_kind, "fact_kinds": args.fact_kind,
                                  "path_prefixes": prefixes}
-            result["retrieval_note"] = "Filters select retrieval only, not decisions. Fact-kind filters omit source-only changes."
+            result["path_filter"] = review.path_filter_omission(index, prefixes)
+            result["retrieval_note"] = ("Filters select retrieval only, not decisions. Fact-kind filters omit "
+                                        "source-only changes, and a path prefix omits every item with no path "
+                                        "at all -- path_filter counts those by kind.")
         elif action == "events":
             rows = [{"id": e["id"], "title": e["title"], "status": e["status"],
                      "member_count": len(e["items"]), "open_questions": len(e["uncertainties"])}
@@ -187,6 +193,27 @@ def command(args):
     return 0
 
 
+# `review --help` is where an agent finds out what it may run. Fourteen of these
+# were added without a help string, so the usage line listed them and nothing
+# said what they do -- including every command the workflow actually uses.
+QUERY_HELP = {
+    "run-trial": "hand a prepared trial to a runner command",
+    "collect-trial": "record a finished trial's answer, hashes and execution",
+    "focus": "build a source-backed candidate packet for chosen path prefixes",
+    "focus-read": "page through the sections of a focus packet",
+    "overview": "count the whole index by fact kind or path, without emitting rows",
+    "index": "list indexed items, filtered by status, kind, path or query",
+    "events": "list recorded events with their member and open-question counts",
+    "inspect": "read one item, graph node or event field by field",
+    "related": "walk the links the parser recorded around one item",
+    "unresolved": "list declaration references the parser could not resolve",
+    "source": "read one file's from, to or diff side at the exact refs",
+    "record": "apply a decision patch: events, dispositions and the item selection",
+    "check": "report accounting completion, validation errors and the selection",
+    "render": "write review.md from the ledger",
+}
+
+
 def add_parser(sub, default_cache):
     parser = sub.add_parser("review", help="resumable evidence investigation and event ledger")
     commands = parser.add_subparsers(dest="review_command", required=True)
@@ -206,7 +233,7 @@ def add_parser(sub, default_cache):
     p.add_argument("--seed", type=int, default=0, help="nonzero: deterministic rank/bucket/order perturbation")
     p.set_defaults(func=command)
     for name in ("run-trial", "collect-trial"):
-        p = commands.add_parser(name)
+        p = commands.add_parser(name, help=QUERY_HELP[name])
         p.add_argument("directory")
         p.add_argument("--runner", required=True, help="runner identity/config JSON; no credentials in this file")
         p.set_defaults(func=command)
@@ -231,7 +258,7 @@ def add_parser(sub, default_cache):
             p.add_argument("--adjudication", help="completed independent assessment JSON")
         p.set_defaults(func=command)
     for name in ("focus", "focus-read", "overview", "index", "events", "inspect", "related", "unresolved", "source", "record", "check", "render"):
-        p = commands.add_parser(name)
+        p = commands.add_parser(name, help=QUERY_HELP[name])
         p.add_argument("directory", help="directory created by review init")
         p.set_defaults(func=command)
         if name in ("focus-read", "overview", "index", "events", "inspect", "related", "unresolved", "source"):

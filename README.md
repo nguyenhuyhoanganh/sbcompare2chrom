@@ -45,7 +45,7 @@ So the real problem is not "how do we compare them" but **"how do we filter down
 https://chromium.googlesource.com/chromium/src/+archive/refs/tags/<version>/<directory>.tar.gz
 ```
 
-About 315 MB per version. A team that already has a checkout or an internal mirror uses `--local-src` instead; nothing else changes.
+About 337 MB per version. A team that already has a checkout or an internal mirror uses `--local-src` instead; nothing else changes.
 
 **Normalize first, compare second.** Between M139 and M143, Chromium changed how the feature-declaration macro is written:
 
@@ -477,10 +477,12 @@ So on every run the tool asks that version's own tree what exists, and measures 
 The result is printed on every run, stored on the snapshot, and carried into the report — `report.json` at `meta.coverage` (`{from, to}`, one measurement per side) together with the unread paths at `meta.uncovered_files`, and `report.md` in its closing *How this was produced* section:
 
 ```
-coverage: reads 3677 of 8366 files in this tree that could declare (43% of files)
-  largest gaps: chrome/browser/ (251 files), components/enterprise/ (50 files)
+coverage: reads 8295 of 8366 files in this tree that could declare (99% of files)
+  largest gaps: chrome/services/ (24 files), chrome/credential_provider/ (15 files), chrome/installer/ (12 files)
   no target reads these; the run cannot see them at all
 ```
+
+That is the 151 side of the 148.0.7778.217 → 151.0.7922.138 run in `docs/reviews/`. The three directories it names are the ones no target reads, which is why the last line says the run cannot see them rather than offering a wider set.
 
 **The numbers in this document are a measurement taken at M151. The number to trust is the one your run prints.**
 
@@ -515,12 +517,9 @@ There is no second list now. The denominator asks each extractor whether it woul
 
 What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded the run against exactly the ground it already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
 
-Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
+Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315, which is what takes a run to 337. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
 
-```
-coverage: reads 8295 of 8366 files in this tree that could declare (99% of files)
-  largest gaps: chrome/services/ (24 files), chrome/credential_provider/ (15 files)
-```
+What the measurement prints after that fix is the block in *Every run measures it* above: 8,295 of 8,366, with the three directories no target reads named.
 
 Fourteen files went the other way, excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree, which the platform rule had been missing by one suffix. They are binaries that ship beside the browser rather than being it, so their switches reach none of our users — the same reason `content/shell/` has always been excluded.
 

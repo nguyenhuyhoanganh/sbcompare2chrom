@@ -51,7 +51,8 @@ python3 -m chromiumdiff report out/upgrade/report.json --format both --out out/u
 
 Thêm `--retry` để tra lại, dùng cache thành công và budget mới. `--refresh`
 lấy lại dữ liệu Gerrit. Mã 3 và `lookup.status` báo lượt tìm chưa đầy đủ hoặc
-không truy cập được; JSON giữ warning như text. Mã 2 bao gồm lỗi `--save`.
+không truy cập được; JSON giữ warning như text. Mã 2 là mọi thất bại khác, cả lỗi `--save` lẫn lần tra cứu hỏng; chỉ mã 1 mới
+nói là lần tìm không khớp gì.
 
 ## Trường hợp thay đổi source không có finding, hoặc tra cứu không giải thích được
 

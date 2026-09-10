@@ -149,7 +149,7 @@ Một tập hợp target, tương ứng với một mức độ quét. ChromiumD
 
 | Target set | Dùng khi nào | Đặc điểm |
 |---|---|---|
-| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Phủ toàn bộ dạng tên file mà bộ đọc hiểu, trong những thư mục gốc đã chọn; khoảng 315 MB mỗi version |
+| `analysis` (mặc định) | Mọi lần so sánh thật giữa hai version | Phủ toàn bộ dạng tên file mà bộ đọc hiểu, trong những thư mục gốc đã chọn; khoảng 337 MB mỗi version |
 | `smoke` | Thử xem công cụ có chạy được không | Rất nhanh, ba file, không đủ để kết luận gì |
 
 ### Partition

@@ -59,7 +59,7 @@ Ba bước, theo thứ tự. Dừng ở bước đầu tiên cho ra một cái t
    Chromium, tìm câu `if` bọc quanh thứ đang thiếu, và guard đó gọi tên flag hoặc
    pref. Cái tên đó chính là identifier.
 
-3. **Tìm trong báo cáo theo đường dẫn.** Nếu biết đại khái code nằm ở đâu, script
+3. **Tìm trong báo cáo theo đường dẫn.** Nếu biết đại khái code nằm ở đâu, lần tìm
    khớp được theo mẩu đường dẫn:
 
    ```bash

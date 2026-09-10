@@ -112,11 +112,11 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
             f"files in this tree that could declare ({pct}% of files)")
         if coverage["missed"]:
             # A file count understates what a run gets, because the files
-            # someone chose are the big ones: measured at M151, the 42 curated
-            # files hold 2,062 of the 3,951 base::Feature declarations in all
-            # 1,039. Both numbers are worth knowing, and neither is the whole
-            # answer, so the log gives the one that can be measured without
-            # fetching, then says why the rest went unread.
+            # someone chose are the big ones: a minority of the files holds a
+            # majority of the declarations, measured per surface in README's
+            # target-set table. Both numbers are worth knowing and neither is
+            # the whole answer, so the log gives the one that can be measured
+            # without fetching, then says why the rest went unread.
             top = list(coverage["missed_by_directory"].items())[:3]
             log("    largest gaps: "
                 + ", ".join(f"{d}/ ({n} files)" for d, n in top))

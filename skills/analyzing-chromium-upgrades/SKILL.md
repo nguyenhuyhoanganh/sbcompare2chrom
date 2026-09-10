@@ -1,6 +1,6 @@
 ---
 name: analyzing-chromium-upgrades
-description: Compares two Chromium versions with the chromiumdiff scripts and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
+description: Compares two Chromium versions with the chromiumdiff tool and explains what changed, what it affects and what to verify or update, scoped to the product areas the user names, then publishes the result to Confluence or hands it back as a document. Use when analyzing a Chromium upgrade or version bump, interpreting a chromiumdiff report.json or review directory, or reviewing one area such as Settings, WebUI, Mojo or feature flags across two milestones. Use investigating-chromium-root-causes instead to trace one identifier or one reported symptom back to its cause.
 ---
 
 # Analyzing Chromium upgrades
@@ -11,7 +11,7 @@ directory. To hand work to another skill, name that skill and its task; do not
 read its reference files or run anything inside its directory.
 Read [reference/handoff.md](reference/handoff.md) when transferring a task.
 
-The script reads declarations out of two Chromium versions and lists the
+The tool reads declarations out of two Chromium versions and lists the
 differences. You work out what each difference means, what it affects, and
 what the user has to check or change. Buckets, scores, signals and clusters
 only tell you what to look at first. They are never the answer.
@@ -38,15 +38,16 @@ do when it is not. Do not start a step until the checkpoint before it is true.
 Do not tick a line until you have checked its checkpoint yourself.
 
 Read the whole reference named on a step before you start that step. If you
-already read it in this run, you do not need to open it again. Three more
+already read it in this run, you do not need to open it again. Four more
 references are read during step 5, when you hit their subject:
 [signals.md](reference/signals.md) for what the classifier labels mean,
 [settings-screen.md](reference/settings-screen.md) for WebUI routes, controls
-and when they show, and [history.md](reference/history.md) for CLs and bugs,
-and before you say why a change was made or that it was split, reverted or
-merged.
+and when they show, [history.md](reference/history.md) for CLs and bugs, and
+before you say why a change was made or that it was split, reverted or merged,
+and [no-row.md](reference/no-row.md) whenever a query or a lookup comes back
+empty, before you say anything about what is not there.
 
-`MUST` means you have to do it. Run every command from the project root;
+`MUST` means you have to do it. Run every command from the repository root;
 `python3 -m chromiumdiff` fails anywhere else. Reading this file, copying a
 command out of it, or reading `report.md` on its own is not enough to pass any
 checkpoint.
@@ -66,7 +67,7 @@ checkpoint.
   **Rollout** is whether it is really available in a shipped product. That can
   differ from the default written in the source.
 - **Scope**: the areas and decisions the user gives you at step 1.
-  **Acquisition** is a different thing: how much of Chromium the script
+  **Acquisition** is a different thing: how much of Chromium the tool
   downloads and reads, set by `--target-set` and `--partition` at step 2.
 - **Selection**: the list of indexed items whose decisions must be complete for
   that scope, recorded at step 7. The scope is in the user's words; the
@@ -116,7 +117,7 @@ kind, or picked one yourself, this does not pass: stop and ask the user.
 
 ## Step 2 — Build or open the comparison
 
-Python 3.9 or newer is enough. Install nothing. The script only compares the
+Python 3.9 or newer is enough. Install nothing. The tool only compares the
 Windows build and has no option to change that. Write down the exact
 `from_ref` and `to_ref` the report gives back, because a plain milestone
 number can point at a different release the next time you run it.
@@ -131,7 +132,7 @@ python3 -m chromiumdiff review init out/upgrade --directory out/upgrade/review -
 ```
 
 Replace FROM/TO and the paths with the versions the user asked for. A run
-downloads about 315 MB per version and reads every file its targets cover. It
+downloads about 337 MB per version and reads every file its targets cover. It
 still does not read all of Chromium, and it does not understand every kind of
 code it downloads. `--target-set smoke` reads only three files; use it to
 check the tool works, never to compare two versions. `--partition` downloads
@@ -173,7 +174,7 @@ python3 -m chromiumdiff review overview out/upgrade/review --group-by path --pat
 ```
 
 `check` exits 1 while there is still work left. That is normal here. Read the
-JSON it prints. `overview` counts the whole saved index inside the script and
+JSON it prints. `overview` counts the whole saved index in its own process and
 prints only numbers, never rows or diffs. Pick your next queries from those
 numbers, so you do not pull thousands of rows into context to find out what is
 there.
@@ -422,11 +423,12 @@ You MUST NOT change a row to verified. Only a person can do that check.
 Put this under its own heading, on the same page or in the same document. Do
 not put it in a small note at the bottom.
 
-Copy these three numbers from `review.md`:
+Copy these three lines from the `Coverage and limits` section of `review.md`:
 
-- how many declaration files the run read on each side;
-- the directories where it read the fewest;
-- the files no target reads at all.
+- how many declaration files the run read on each side, and how many it missed;
+- the directories those missed files are in, which are the ones no target
+  reads;
+- the acquisition line, and the number of unresolved declaration references.
 
 Then say what this method cannot do at all:
 
@@ -488,6 +490,8 @@ much was covered. To find the code that uses something, read the exact
 
 ```bash
 rg -n -F -- 'IDENTIFIER' EXACT_VERSION_ROOT
+# ripgrep is not one of this tool's requirements; without it:
+grep -rn -F -- 'IDENTIFIER' EXACT_VERSION_ROOT
 ```
 
 Search results are places to go and look. They do not prove the code runs. In

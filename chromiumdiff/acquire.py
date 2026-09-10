@@ -6,7 +6,7 @@ per-directory tarballs straight from Gitiles:
 
     https://chromium.googlesource.com/chromium/src/+archive/refs/tags/<tag>/<dir>.tar.gz
 
-Measured at M151 a run is about 315 MB per version, of which the hand-picked
+Measured at M151 a run is about 337 MB per version, of which the hand-picked
 files are 35-40 MB and the whole-directory archives the rest. A two-version
 comparison is minutes on a cold cache and instant on a warm one.
 
@@ -249,7 +249,7 @@ class GitilesSource(Source):
         a path in one response: measured at M151, all of ``components/`` is
         41,436 entries in 7.5 MB and 2.2 seconds. Twelve such roots cover every
         directory this tool reads for 24 MB and about 21 seconds, once per ref
-        -- against the ~315 MB of source the same run already downloads.
+        -- against the ~337 MB of source the same run already downloads.
 
         A tag's tree never changes, so the listing is cached forever.
         """

@@ -76,27 +76,48 @@ class TestSkillBoundaries(unittest.TestCase):
                 for name in INVOCATION.findall(text):
                     self.assertIn(name, known, f"{rel}: unknown subcommand {name}")
 
-    def test_every_reference_is_reachable_from_its_entrypoint(self):
-        """A reference nothing links to is one the agent never opens.
+    def test_no_skill_calls_the_tool_a_script(self):
+        """One word, one meaning: `script` is a Chromium launch wrapper here.
 
-        Each skill keeps its own copy of the shared references, so a reference
-        can be added to one skill and linked from neither -- present, counted in
-        the ablation, and never read.
+        Nothing in this repository is run as a script any more -- the commands
+        are subcommands of one package. The paths were renamed and the noun was
+        not, so `investigating-chromium-root-causes/SKILL.md` said both "how
+        many issues the script fetches" and "Finch, enterprise policy, launch
+        scripts" in one file. The second is the meaning that stays.
+        """
+        # The only allowed sense, in either language. The EN phrase wraps across
+        # lines, so the text is joined before matching.
+        allowed = re.compile(r"launch\s+scripts?|scripts?\s+khởi chạy", re.IGNORECASE)
+        # Skill files only. The guide documents beside them use the word for a
+        # launch or CI script outside Chromium, which is what it still means.
+        skills = [d for base in (ROOT / "skills", ROOT / "docs/chromiumdiff-guide-vi")
+                  for d in sorted(p.parent for p in base.glob("*/SKILL.md"))]
+        self.assertEqual(len(skills), 4, "expected two skills in each language area")
+        for skill in skills:
+            for path in sorted(skill.rglob("*.md")):
+                rel = str(path.relative_to(ROOT))
+                text = allowed.sub("", path.read_text(encoding="utf-8"))
+                found = re.search(r"\b[Ss]cripts?\b", text)
+                self.assertIsNone(found, f"{rel}: calls the tool a script; it is "
+                                         f"`python3 -m chromiumdiff <command>`")
+
+    def test_every_reference_is_named_by_its_own_entrypoint(self):
+        """A reference the entrypoint never names is one the agent never opens.
+
+        Reachability through any chain of links is the weaker check and it
+        passed while `no-row.md` was linked only from `history.md`, itself a
+        conditional read -- so the one reference about an empty answer sat two
+        hops behind a step the agent may skip. SKILL.md has to name each one.
         """
         for base in (ROOT / "skills", ROOT / "docs/chromiumdiff-guide-vi"):
             for entry in sorted(base.glob("*/SKILL.md")):
                 with self.subTest(skill=entry.parent.name, area=base.name):
-                    seen, queue = set(), [entry]
-                    while queue:
-                        path = queue.pop()
-                        if path in seen or not path.is_file():
-                            continue
-                        seen.add(path)
-                        for link in re.findall(r"\]\(([^)\s#]+)\)", path.read_text(encoding="utf-8")):
-                            if "://" not in link:
-                                queue.append((path.parent / link).resolve())
-                    owned = {p.resolve() for p in (entry.parent / "reference").glob("*.md")}
-                    self.assertEqual(sorted(p.name for p in owned - seen), [])
+                    text = entry.read_text(encoding="utf-8")
+                    named = {link.rsplit("/", 1)[-1]
+                             for link in re.findall(r"\]\(([^)\s#]+)\)", text)}
+                    owned = {p.name for p in (entry.parent / "reference").glob("*.md")}
+                    self.assertTrue(owned, "skill has no references; the check is vacuous")
+                    self.assertEqual(sorted(owned - named), [])
 
     def test_the_references_both_skills_carry_do_not_drift_apart(self):
         """Two copies of one procedure are two places for it to be wrong.

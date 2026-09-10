@@ -386,7 +386,7 @@ Uncertainties: Whether every resume path reaches DownloadManagerImpl as the comm
 - `file:components/download/internal/common/in_progress_download_manager.cc` · [from: components/download/internal/common/in_progress_download_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/internal/common/in_progress_download_manager.cc), [to: components/download/internal/common/in_progress_download_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/internal/common/in_progress_download_manager.cc): The added early return on !params->skip_service_worker_interception() with the corruption rationale in the comment.
 - `file:components/download/internal/common/download_response_handler.cc` · [from: components/download/internal/common/download_response_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/components/download/internal/common/download_response_handler.cc), [to: components/download/internal/common/download_response_handler.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/components/download/internal/common/download_response_handler.cc): Records was_fetched_via_service_worker on the handler and on the create info and passes it into HandleRequestCompletionStatus, which is the signal the other file consumes.
 
-## 13. Saving a page as MHTML switches from a duplicated file handle to a Mojo data pipe and refuses to follow symlinks
+## 13. Saving a page as MHTML switches from a duplicated file handle to a Mojo data pipe
 
 Status: confirmed
 
@@ -394,17 +394,19 @@ Before: The browser opened the destination file with FLAG_CREATE_ALWAYS | FLAG_A
 
 After: The file is opened with FLAG_CREATE_ALWAYS | FLAG_APPEND | FLAG_NO_FOLLOW. The job creates a Mojo data pipe and hands the renderer NewProducerHandle instead of a file handle; a new MHTMLDataPipeReader, owned through base::SequenceBound on the download task runner, drains the pipe and writes to the file. The watcher and its handle are removed from the job, and tracing moves to a NamedTrack.
 
-Mechanism: One change with two consequences: the renderer no longer holds a writable file descriptor for the target path, and FLAG_NO_FOLLOW makes the browser refuse to open the path through a symlink. The comments added around Complete() and MarkAsFinished() document the use-after-free and double-finish hazards the new asynchronous ownership introduces and how they are handled.
+Mechanism: The renderer no longer holds a writable file descriptor for the target path: it receives a data pipe producer, and only the browser opens the file. FLAG_NO_FOLLOW is added in the same call, but base/files/file.h documents it as POSIX only and the Windows flag translation in base/files/file_win.cc has no case for it, so on the Windows build this comparison reads the added flag has no observed effect. The comments added around Complete() and MarkAsFinished() document the use-after-free and double-finish hazards the new asynchronous ownership introduces and how they are handled.
 
-Impact: Users see the same Save page as MHTML result. For the product this narrows what a compromised renderer can do with the save target and changes behaviour on a path that goes through a symlink, where the save now fails instead of writing through it. Any downstream patch in mhtml_generation_manager.cc will conflict substantially.
+Impact: Users see the same Save page as MHTML result. For the product this narrows what a compromised renderer can do with the save target, because the renderer no longer receives a handle to it. It does not change how a symlink, junction or other reparse point is treated on Windows. Any downstream patch in mhtml_generation_manager.cc will conflict substantially.
 
-Conditions: No feature flag. FLAG_NO_FOLLOW is meaningful on Windows for reparse points; the exact Windows semantics were not verified against base::File's implementation.
+Conditions: No feature flag. The data pipe change applies on every platform. The FLAG_NO_FOLLOW half of the change does not reach the Windows build this comparison covers.
 
-Action: If the product or its tests save MHTML to a path that is a symlink or a junction, re-test it. Re-base any patch in this file.
+Action: Re-base any patch in content/browser/download/mhtml_generation_manager.cc, and re-test Save page as MHTML around cancellation, renderer exit, large files and write errors, which is where the new asynchronous ownership is. This change does not warrant a symlink or junction re-test on Windows.
 
-Uncertainties: How base::File::FLAG_NO_FOLLOW behaves for Windows junctions and reparse points was not read; base/files/file_win.cc is not in the cache.
+Uncertainties: Whether Windows refuses a reparse-point target through some other mechanism was not established. This comparison shows only that FLAG_NO_FOLLOW is not that mechanism.
 
 - `file:content/browser/download/mhtml_generation_manager.cc` · [from: content/browser/download/mhtml_generation_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/content/browser/download/mhtml_generation_manager.cc), [to: content/browser/download/mhtml_generation_manager.cc](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/content/browser/download/mhtml_generation_manager.cc): Contains the flag change, the MHTMLDataPipeReader class, the NewFileHandle to NewProducerHandle swap and the removal of the SimpleWatcher member.
+- [to: base/files/file.h:84](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/base/files/file.h#84): FLAG_NO_FOLLOW is declared with the comment "POSIX only. Do not follow symbolic links.", which is what limits the security reading of this change to non-Windows builds.
+- [to: base/files/file_win.cc:396](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/base/files/file_win.cc#396): The Windows flag translation handles FLAG_OPEN through FLAG_DELETE_ON_CLOSE and has no case for FLAG_NO_FOLLOW, so the flag reaches no Windows API argument.
 
 ## 14. Save-page quarantine stops passing the source URL for off-the-record saves
 
@@ -434,15 +436,16 @@ After: It declares HttpResponseHeaders? headers, and the struct now imports http
 
 Mechanism: A nullability change on a field of a shared network struct. It reaches this review because the download path consumes URLResponseHead: DownloadResponseHandler::OnReceiveResponse reads head->headers and already guards it with if (head->headers), and CreateDownloadCreateInfo passes head.headers.get() to HandleResponseHeaders.
 
-Impact: An IPC contract change on a struct that every network consumer deserializes. Generated C++ makes the field an optional type, so code that reads it without a null check will not compile after the merge. The download code in this review is already null-safe. This is a declaration change: it does not by itself prove any peer fails, and because the struct is not [Stable], mixed-revision peers were never supported.
+Impact: An IPC contract change on a struct that every network consumer deserializes. It does not produce a compile error: the typemap in services/network/public/cpp/http_response_headers_mojom_traits.h binds the field to scoped_refptr<net::HttpResponseHeaders> with IsNull and SetToNull, the same C++ type the non-nullable field already used, so code that dereferences head->headers without a check still compiles and fails at run time instead. The download code in this review is already null-safe. This is a declaration change: it does not by itself prove any peer fails, and because the struct is not [Stable], mixed-revision peers were never supported.
 
 Conditions: No platform condition. The change matters wherever product code reads URLResponseHead::headers, which is far outside Downloads.
 
-Action: Grep the product tree for URLResponseHead headers accesses and add null handling where the compiler now demands it. This is a whole-tree task, not a downloads task.
+Action: Grep the product tree for URLResponseHead headers accesses and add null handling at every dereference. The compiler will not point them out, so the grep is the whole check. This is a whole-tree task, not a downloads task.
 
 Uncertainties: Which product consumers read this field is unknown: the product's own source is not part of this comparison.
 
 - `mojo_field:network.mojom.URLResponseHead.headers` · [from: services/network/public/mojom/url_response_head.mojom:54](https://chromium.googlesource.com/chromium/src/+/refs/tags/148.0.7778.217/services/network/public/mojom/url_response_head.mojom#54), [to: services/network/public/mojom/url_response_head.mojom:57](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/services/network/public/mojom/url_response_head.mojom#57): Recorded as modified with the type delta HttpResponseHeaders to HttpResponseHeaders?, selected into this packet as a dependency of the download response path.
+- [to: services/network/public/cpp/http_response_headers_mojom_traits.h:18](https://chromium.googlesource.com/chromium/src/+/refs/tags/151.0.7922.138/services/network/public/cpp/http_response_headers_mojom_traits.h#18): StructTraits binds HttpResponseHeadersDataView to scoped_refptr<net::HttpResponseHeaders> and defines IsNull/SetToNull, so nullability is expressed by a null pointer in an unchanged C++ type rather than by a new optional type.
 
 ## 16. Bookmarks sync gains a no-op conflict resolution that keeps the local state
 

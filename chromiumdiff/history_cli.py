@@ -439,15 +439,30 @@ def cl_command(args) -> int:
 
 
 def _run(args) -> int:
-    if args.command == "why":
-        if args.budget < 0 or args.issues < 0 or args.limit < 1:
-            print("budget/issues must be nonnegative and limit must be positive", file=sys.stderr)
+    """Turn any failure here into 2, because 1 already means something.
+
+    `cli.main` returns 1 for every unhandled exception, and these two commands
+    document 1 as "no matching finding". An agent branching on the exit code
+    would read a crash as an established absence and go on to explain what is
+    not there. Every other failure is an operational one, which is 2.
+    """
+    try:
+        if args.command == "why":
+            if args.budget < 0 or args.issues < 0 or args.limit < 1:
+                print("budget/issues must be nonnegative and limit must be positive", file=sys.stderr)
+                return 2
+            return why_command(args)
+        if args.limit < 1 or args.offset < 0:
+            print("limit must be positive and offset must be nonnegative", file=sys.stderr)
             return 2
-        return why_command(args)
-    if args.limit < 1 or args.offset < 0:
-        print("limit must be positive and offset must be nonnegative", file=sys.stderr)
+        return cl_command(args)
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        print(f"{args.command} failed: {exc}", file=sys.stderr)
+        if os.environ.get("CHROMIUMDIFF_DEBUG"):
+            raise
         return 2
-    return cl_command(args)
 
 
 def add_parser(sub, default_cache) -> None:

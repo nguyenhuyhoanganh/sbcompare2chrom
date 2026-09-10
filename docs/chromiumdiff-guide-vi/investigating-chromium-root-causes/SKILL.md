@@ -33,7 +33,7 @@ Gần như mọi câu trả lời sai ở đây đều là một trong ba câu n
 
 ## Trước khi bắt đầu
 
-Chạy mọi lệnh **từ thư mục gốc của repo `chromiumdiff`**: mọi đường dẫn dưới đây đều tương đối so với gốc repo, và `python3 -m chromiumdiff` cần import được package nên ở thư mục khác nó báo `No module named chromiumdiff`.
+Chạy mọi lệnh **từ thư mục gốc của repository**: mọi đường dẫn dưới đây đều tương đối so với gốc repo, và `python3 -m chromiumdiff` cần import được package nên ở thư mục khác nó báo `No module named chromiumdiff`.
 
 Một **finding** là một dòng của báo cáo — một phần tử của mảng `findings` trong `report.json`. Bên trong nó, `change` giữ phần mô tả khai báo đã đổi: `kind`, `signals`, `locations`, `before`, `after`. Nghĩa của từng signal nằm ở **[reference/reading-a-finding.md](reference/reading-a-finding.md)**.
 
@@ -69,7 +69,7 @@ Phần tìm kiếm nhận một uid, một key, một tên, hoặc một mẩu �
 
 ### Bước 3: Lấy CL và issue
 
-Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, script sẽ hỏi Gerrit rồi in kết quả ra; nếu đã tra rồi, nó in ra thứ đã lưu. Các tuỳ chọn:
+Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, command sẽ hỏi Gerrit rồi in kết quả ra; nếu đã tra rồi, nó in ra thứ đã lưu. Các tuỳ chọn:
 
 | Tuỳ chọn | Mặc định | Dùng khi |
 |---|---|---|
@@ -78,14 +78,15 @@ Vẫn là câu lệnh đó. Nếu finding chưa từng được tra, script sẽ
 | `--refresh` | tắt | chạy lại và lấy lại dữ liệu Gerrit; không dùng cùng `--retry` |
 | `--save` | tắt | muốn ghi câu trả lời ngược vào `report.json` |
 | `--json` | tắt | cần khối dữ liệu thô thay vì văn xuôi |
-| `--issues N` | 6 | số issue script đi lấy về cùng lúc; hạ xuống nếu chỉ cần CL |
+| `--issues N` | 6 | số issue `why` đi lấy về cùng lúc; hạ xuống nếu chỉ cần CL |
 | `--limit N` | 15 | số dòng in ra khi tìm kiếm khớp nhiều kết quả |
 | `--cache DIR` | `.chromiumdiff-cache` ở gốc repo, hoặc `CHROMIUMDIFF_CACHE` | source đã tải nằm ở chỗ khác |
 
 `lookup.status` và `lookup.warnings` có trong JSON lẫn text, kể cả kết quả rỗng
 và thử lại thất bại. Mã 3 nghĩa là lịch sử chưa đầy đủ/không truy cập được; 1 là
-không có finding khớp; 2 là lỗi input hoặc lưu file. Mã 0 là tra cứu hoàn tất
-hoặc danh sách để chọn, không xác lập nhân quả. Muốn tra lại kết quả đã có CL,
+không có finding khớp; 2 là mọi thất bại khác: input sai, `--save` lỗi, hoặc
+bản thân lần tra cứu hỏng. Chỉ mã 1 mới xác lập là không có dòng nào. Mã 0 là
+tra cứu hoàn tất hoặc danh sách để chọn, không xác lập nhân quả. Muốn tra lại kết quả đã có CL,
 dùng `--retry` hoặc `--refresh`.
 
 Những gì một phiên `serve` tìm được chỉ được lưu vào `report.json` chứ không vào đâu khác. `report.md` và `report.html` trên đĩa vẫn là những gì lần chạy đã ghi ra, nên hãy render lại trước khi đưa bất kỳ file nào trong hai file đó cho ai:
@@ -98,7 +99,7 @@ python3 -m chromiumdiff report out/M148_to_M151/report.json --format both --out 
 
 Nó cần truy cập mạng tới `chromium-review.googlesource.com`. `python3 -m chromiumdiff check` kiểm tra host đó.
 
-**Serve là lựa chọn thay thế, không phải điều kiện bắt buộc.** `python3 -m chromiumdiff serve <dir>` cho một con người có được đúng phần tra cứu ấy bằng cách bấm vào một dòng. Đề xuất cách đó khi người đọc là con người; dùng script khi người đọc là bạn.
+**Serve là lựa chọn thay thế, không phải điều kiện bắt buộc.** `python3 -m chromiumdiff serve <dir>` cho một con người có được đúng phần tra cứu ấy bằng cách bấm vào một dòng. Đề xuất cách đó khi người đọc là con người; dùng `why` và `cl` khi người đọc là bạn.
 
 **Mỗi CL đều mang một verdict, và verdict đặt trần cho những gì bạn được phép khẳng định.**
 
@@ -112,7 +113,7 @@ Nó cần truy cập mạng tới `chromium-review.googlesource.com`. `python3 -
 | `crowded` | **không nói gì về nguyên nhân.** Những CL này cùng sửa một khai báo; đọc danh sách như lịch sử của khai báo đó |
 | `touched` | **không nói gì về nguyên nhân.** Những CL này chỉ đơn giản là có chạm vào file |
 
-Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nhân. Chính vì vậy script gắn nhãn `LEAD ONLY` cho cả hai.
+Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nhân. Chính vì vậy `why` gắn nhãn `LEAD ONLY` cho cả hai.
 
 ### Bước 4: Đọc chính lời văn và chính bản diff của CL, và issue đứng sau nó
 

@@ -14,7 +14,7 @@ không biết kind kỹ thuật thì dùng câu trả lời theo chức năng s�
 
 Nếu cần xác định tác động riêng với sản phẩm dựa trên Chromium, hỏi về patch,
 component hoặc cấu hình liên quan. Phần chưa biết phải được ghi rõ, không đoán
-sản phẩm đang dùng consumer nào. Script hiện xét điều kiện Windows, không
+sản phẩm đang dùng consumer nào. Tool hiện xét điều kiện Windows, không
 hỗ trợ chọn platform tuỳ ý.
 
 Câu trả lời rõ ràng đã có trong yêu cầu thì dùng luôn. Nếu còn thiếu, MUST
@@ -26,7 +26,7 @@ Sau khi tạo hoặc mở review, lưu `request.md` trong thư mục đó bằng
 file của môi trường. Ghi:
 
 - câu trả lời thực tế của user và version yêu cầu; bổ sung ref chính xác và
-  fingerprint khi script trả về;
+  fingerprint do tool trả về;
 - khu vực, quyết định cần hỗ trợ và kind được ưu tiên nếu có;
 - phần user loại trừ rõ ràng; phân biệt loại trừ với ít ưu tiên hơn;
 - ngữ cảnh sản phẩm/build đã biết và thông tin còn thiếu;
@@ -69,7 +69,7 @@ python3 -m chromiumdiff review overview out/upgrade/review --group-by path --pat
 ```
 
 `check` trả mã 1 khi chưa xong; ban đầu điều này là bình thường. `overview`
-tổng hợp toàn bộ index trong tiến trình script, không in finding thô, nội dung
+tổng hợp toàn bộ index trong tiến trình của chính tool, không in finding thô, nội dung
 diff hoặc ID từng item. `index_total` là số item trước khi lọc; `total` là số
 nhóm tổng hợp của truy vấn. Đọc tiếp bằng `--cursor` đến khi `next_cursor` là
 null. Nhóm đường dẫn có thể trùng item khi finding có nhiều đường dẫn. Các số
@@ -90,8 +90,12 @@ python3 -m chromiumdiff review index out/upgrade/review --status pending --item-
 Với `source_delta` hay `milestone_lead`, dùng `--item-kind`. Lặp `--fact-kind` hoặc
 `--path-prefix` để chọn bất kỳ giá trị nào trong danh sách tương ứng. Các loại
 bộ lọc khác nhau được kết hợp. Lọc fact-kind chỉ trả finding, nên MUST đọc
-thêm source delta liên quan. Bộ lọc chỉ chọn dữ liệu để đọc, không quyết định
-thành viên event, không đánh dấu ngoài phạm vi và không xoá item pending.
+thêm source delta liên quan. Một path prefix chỉ khớp được item có path, nên nó
+loại mọi item không có path nào -- toàn bộ `milestone_lead` -- dù lần quét trông
+như đã đủ; trường `path_filter` trong kết quả đếm số đó theo kind, và
+`--item-kind milestone_lead` không kèm prefix là cách đọc chúng. Bộ lọc chỉ chọn
+dữ liệu để đọc, không quyết định thành viên event, không đánh dấu ngoài phạm vi
+và không xoá item pending.
 
 ## Dùng context cho câu hỏi của user
 

@@ -338,6 +338,31 @@ def _matches_paths(paths, prefixes) -> bool:
                                for path in paths for prefix in prefixes)
 
 
+def item_paths(item: dict) -> list:
+    return item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
+
+
+def path_filter_omission(index: dict, prefixes) -> dict:
+    """What a path prefix removes for carrying no path at all, counted.
+
+    A milestone lead has no path, so no prefix can ever match one: a
+    path-filtered sweep that reads every row it returns still never sees them,
+    and nothing said so. Kind filters announce their own omission in the note;
+    this one could only be found by adding the kinds up by hand.
+    """
+    if not prefixes:
+        return {}
+    kinds = {}
+    for item in index["items"].values():
+        if not any(item_paths(item)):
+            kinds[item["kind"]] = kinds.get(item["kind"], 0) + 1
+    if not kinds:
+        return {}
+    return {"excluded_without_path": sum(kinds.values()), "by_kind": kinds,
+            "reason": "A path prefix matches paths; an item with none cannot match any prefix. "
+                      "Query these kinds without --path-prefix."}
+
+
 def index_rows(index: dict, ledger: dict, status=None, query="", *,
                item_kind=None, fact_kinds=(), path_prefixes=()) -> list:
     rows = []
@@ -350,8 +375,7 @@ def index_rows(index: dict, ledger: dict, status=None, query="", *,
         if fact_kinds and (item["kind"] != "finding" or
                            item["data"]["change"]["kind"] not in fact_kinds):
             continue
-        paths = item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
-        if not _matches_paths(paths, path_prefixes):
+        if not _matches_paths(item_paths(item), path_prefixes):
             continue
         text = " ".join((uid, item.get("name", ""), " ".join(item.get("paths", [])),
                          json.dumps(item.get("data", {}).get("name", ""))))
@@ -381,7 +405,7 @@ def overview_rows(index: dict, ledger: dict, group_by="fact-kind", path_depth=3,
         raise ValueError("group-by must be fact-kind or path; path-depth must be 1..12")
     groups = {}
     for uid, item in sorted(index["items"].items()):
-        paths = item.get("paths", []) if item["kind"] == "finding" else [item.get("path", "")]
+        paths = item_paths(item)
         if not _matches_paths(paths, path_prefixes):
             continue
         if group_by == "fact-kind":

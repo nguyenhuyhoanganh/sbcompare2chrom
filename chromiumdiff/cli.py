@@ -525,7 +525,7 @@ def build_parser() -> argparse.ArgumentParser:
                              "default): a curated file list plus "
                              "whole-directory archives for components/, "
                              "chrome/browser/, services/ and others -- about "
-                             "315 MB per version, and nearly every file an "
+                             "337 MB per version, and nearly every file an "
                              "extractor understands. It reads as much as the "
                              "tool can, which is not a release verdict, and "
                              "the run prints what it missed. smoke: three "

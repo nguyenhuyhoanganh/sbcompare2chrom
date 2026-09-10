@@ -248,6 +248,34 @@ class TestReviewWorkflow(unittest.TestCase):
         self.assertEqual(Path(self.directory, "review.json").read_bytes(), before)
         self.assertFalse(self.cli("check", self.directory)[1]["accounting_complete"])
 
+    def test_a_path_prefix_says_how_many_items_have_no_path_to_match(self):
+        """A prefix can only match a path, so a pathless item is never returned.
+
+        Every `milestone_lead` has no path. A path-filtered sweep read to its
+        last page therefore misses all of them, and the only way to notice used
+        to be adding the kinds up by hand. The count is reported instead.
+        """
+        self.report.summary["milestone_brief"] = [{"title": "A lead with no file"}]
+        write_json(self.path, self.report.to_dict())
+        review.initialize(self.path, self.directory, self.cache, refresh=True)
+        index, _ = review.load(self.directory)
+        brief = [uid for uid in index["items"] if uid.startswith("brief:")]
+        self.assertEqual(len(brief), 1, "no pathless item to filter: the check is vacuous")
+        self.assertEqual(review.item_paths(index["items"][brief[0]]), [""])
+        _, rows = self.cli("index", self.directory, "--path-prefix", "engine")
+        self.assertNotIn(brief[0], [row["id"] for row in rows["items"]])
+        self.assertEqual(rows["path_filter"]["excluded_without_path"], 1)
+        self.assertEqual(rows["path_filter"]["by_kind"], {"milestone_lead": 1})
+        self.assertIn("no path", rows["retrieval_note"])
+        _, groups = self.cli("overview", self.directory, "--path-prefix", "engine")
+        self.assertEqual(groups["path_filter"]["excluded_without_path"], 1)
+        self.assertNotIn("milestone_lead", [row["group"] for row in groups["items"]])
+        # Without a prefix nothing is withheld, so there is nothing to report.
+        self.assertEqual(self.cli("index", self.directory)[1]["path_filter"], {})
+        self.assertEqual(sorted(review.path_filter_omission(index, ["engine"])),
+                         ["by_kind", "excluded_without_path", "reason"],
+                         "scoping.md and its Vietnamese copy name these fields; update both")
+
     def test_invalid_overview_depth_and_absolute_prefix_are_rejected(self):
         for args in (("overview", "--path-depth", "0"), ("overview", "--path-depth", "13"),
                      ("index", "--path-prefix", "/engine"), ("overview", "--path-prefix", "../engine")):

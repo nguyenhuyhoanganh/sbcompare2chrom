@@ -43,7 +43,7 @@ as an answer to 3.
 
 ## Before you start
 
-Run every command **from the root of the `chromiumdiff` repository**: every path below is relative to that root, and `python3 -m chromiumdiff` has to import the package, so anywhere else it reports `No module named chromiumdiff`.
+Run every command **from the repository root**: every path below is relative to that root, and `python3 -m chromiumdiff` has to import the package, so anywhere else it reports `No module named chromiumdiff`.
 
 A **finding** is one row of the report — an element of the `findings` array in `report.json`. Inside it, `change` holds the declaration that moved: `kind`, `signals`, `locations`, `before`, `after`. What each signal means is in **[reference/reading-a-finding.md](reference/reading-a-finding.md)**.
 
@@ -89,7 +89,7 @@ anything about it.
 ### Step 3: Get the CL and the issue
 
 The same command does it. If the finding has not been resolved before, the
-script looks it up against Gerrit and prints the result; if it has, it prints
+command looks it up against Gerrit and prints the result; if it has, it prints
 what is stored. Options:
 
 | Option | Default | Use when |
@@ -99,15 +99,16 @@ what is stored. Options:
 | `--refresh` | off | repeat the lookup and refetch Gerrit data; mutually exclusive with `--retry` |
 | `--save` | off | you want the answer written back into `report.json` |
 | `--json` | off | you need the raw block rather than prose |
-| `--issues N` | 6 | how many issues the script fetches with the CLs; lower it if you only want the reviews |
+| `--issues N` | 6 | how many issues `why` fetches with the CLs; lower it if you only want the reviews |
 | `--limit N` | 15 | how many rows are printed when the search matches several |
 | `--cache DIR` | `.chromiumdiff-cache` at the repository root, or `CHROMIUMDIFF_CACHE` | the fetched source lives somewhere else |
 
 A saved result containing CLs is reused unless `--retry` or `--refresh` is given.
 `lookup.status` and `lookup.warnings` appear in JSON as well as text, including
 empty results and failed retries. Exit 3 means incomplete/unavailable history,
-1 means no matching finding, and 2 means an input or save error. Exit 0 means
-a completed lookup or a selection list; it does not prove causation.
+1 means no matching finding, and 2 means any other failure: bad input, a failed
+`--save`, or the lookup breaking. Only 1 establishes that there is no row. Exit
+0 means a completed lookup or a selection list; it does not prove causation.
 
 What a `serve` session finds is saved to `report.json` and nowhere else.
 `report.md` and `report.html` on disk are still what the run wrote, so
@@ -126,7 +127,7 @@ chromiumdiff check` verifies that host.
 
 **Serving is the alternative, not the requirement.** `python3 -m chromiumdiff
 serve <dir>` gives a human the same lookup by clicking a row. Offer it when a
-person will be reading; use the script when you are.
+person will be reading; use `why` and `cl` when you are.
 
 **Every CL carries a verdict, and the verdict caps what you may claim.**
 
@@ -140,8 +141,8 @@ person will be reading; use the script when you are.
 | `crowded` | **nothing about cause.** These edited the same declaration; read the list as that declaration's history |
 | `touched` | **nothing about cause.** These merely touched the file |
 
-Quoting `crowded` or `touched` as the cause invents a cause. The script labels
-both `LEAD ONLY` for that reason.
+Quoting `crowded` or `touched` as the cause invents a cause. `why` labels both
+`LEAD ONLY` for that reason.
 
 ### Step 4: Read the CL's own words and its own diff, and the issue behind it
 

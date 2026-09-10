@@ -6,7 +6,7 @@ hoặc cache không có nghĩa đã biết user muốn phân tích phần nào.
 
 ## Đọc cấu hình đã lưu
 
-Chạy đoạn dưới đây từ thư mục gốc của repo, chỉ thay đường dẫn thư mục review.
+Chạy đoạn dưới đây từ thư mục gốc của repository, chỉ thay đường dẫn thư mục review.
 Nó in ra các trường cần thiết mà không đưa toàn bộ index vào context.
 
 ```bash
@@ -200,7 +200,7 @@ trước khi làm tiếp, dùng đúng cấu hình đã lưu của nó. CLI **kh
 `--cache` hay `--source-repo` trước đó khi chúng bị bỏ trống ở `review init
 --refresh`.
 
-Chạy đoạn dưới đây từ thư mục gốc của repo sau khi lưu kết quả tra cứu. Nó giữ
+Chạy đoạn dưới đây từ thư mục gốc của repository sau khi lưu kết quả tra cứu. Nó giữ
 đúng cấu hình cho cả review chỉ dùng cache lẫn review có repo Git, không phải
 đoán đường dẫn:
 

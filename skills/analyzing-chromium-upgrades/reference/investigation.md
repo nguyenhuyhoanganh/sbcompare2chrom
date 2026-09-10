@@ -6,7 +6,7 @@ existing report or cache does not by itself establish what the user wants.
 
 ## Read the saved configuration
 
-Run this from the project root, replacing only the review directory. It prints
+Run this from the repository root, replacing only the review directory. It prints
 selected fields without placing the complete index in context.
 
 ```bash
@@ -196,7 +196,7 @@ continuing, using its saved configuration. The CLI does not automatically
 retain a prior `--cache` or `--source-repo` when they are omitted on `review
 init --refresh`.
 
-Run the following from the project root after saving the lookup. It preserves
+Run the following from the repository root after saving the lookup. It preserves
 both cached-only and Git-backed reviews without guessing their paths:
 
 ```bash

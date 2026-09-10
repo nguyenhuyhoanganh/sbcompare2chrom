@@ -12,6 +12,7 @@ from unittest.mock import patch
 from chromiumdiff import history_cli
 from chromiumdiff.cli import main
 from chromiumdiff.model import Change, Finding, Report, read_report, write_json
+from tests.test_review import fixture
 
 
 class TestLookup(unittest.TestCase):
@@ -126,6 +127,34 @@ class TestClPaging(unittest.TestCase):
                 self.assertIn("omitted", out)
         self.assertEqual(paths, [f"engine/{i}.cc" for i in range(7)])
         self.assertEqual(self.run_page("--offset", "7")[0], 2)
+
+
+class TestAFailureIsNotAnAbsence(unittest.TestCase):
+    """Exit 1 is reserved for "no such row", so a crash must not borrow it.
+
+    `cli.main` returns 1 for any unhandled exception and the skill documents 1
+    as "no matching finding". An agent reading only the code would treat a
+    broken lookup as an established absence, open no-row.md and explain a
+    change that is not missing.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        report, _, _, self.cache, self.path = fixture(Path(self.tmp.name))
+        self.uid = report.findings[0].uid
+
+    def test_a_broken_lookup_exits_two_and_a_missing_row_exits_one(self):
+        err = io.StringIO()
+        with redirect_stderr(err), patch.object(
+                history_cli, "matching_findings",
+                side_effect=RuntimeError("gerrit exploded")):
+            self.assertEqual(main(["why", self.path, self.uid, "--cache", self.cache]), 2)
+        self.assertIn("gerrit exploded", err.getvalue())
+        self.assertNotIn("Traceback", err.getvalue())
+        with redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["why", self.path, "no-such-identifier",
+                                   "--cache", self.cache]), 1)
 
 
 if __name__ == "__main__":

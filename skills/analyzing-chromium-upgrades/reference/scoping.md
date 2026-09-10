@@ -15,7 +15,7 @@ proceed with their product-language answer; do not ask them to classify code.
 For a downstream Chromium product, ask for relevant patches, components or
 configuration when needed to decide product-specific impact. Unknown product
 details remain unknown; do not guess which consumers the product ships.
-The current script evaluates Windows conditions, not arbitrary platforms.
+The tool evaluates Windows conditions, not arbitrary platforms.
 
 An explicit answer already in the task is sufficient. Otherwise MUST wait
 for the answer. A selected UI default, silence or a previous unrelated review
@@ -26,7 +26,7 @@ After creating or opening the review, save `request.md` in that directory
 using the environment's file-editing mechanism. Record:
 
 - the user's actual scope answer and requested versions; add resolved refs
-  and the evidence fingerprint from the script once available;
+  and the evidence fingerprint the tool returns once available;
 - selected areas, requested decisions and optional kind preferences;
 - explicit exclusions, if any; distinguish exclusions from lower priorities;
 - known product/build context and missing information;
@@ -72,7 +72,7 @@ python3 -m chromiumdiff review overview out/upgrade/review --group-by path --pat
 ```
 
 `check` exits 1 for unfinished work; this is expected initially. `overview`
-aggregates the complete saved index in the script process. It does not emit
+aggregates the complete saved index in the tool's own process. It does not emit
 raw findings, diff bodies or per-item IDs. `index_total` is the unfiltered
 inventory size; `total` is the number of summary groups in that query.
 Page through the groups with `--cursor` until `next_cursor` is null. Path
@@ -95,8 +95,12 @@ For `source_delta` or `milestone_lead`, use `--item-kind` instead. Repeating it
 selects any listed kind. Repeated `--path-prefix` values likewise mean any
 listed prefix; different filters are combined. A fact-kind filter returns
 findings only, so it MUST be accompanied by source-delta investigation where
-relevant. Paths and kind filters select retrieval, not event membership or
-out-of-scope decisions. They do not modify the index or clear pending items.
+relevant. A path prefix can only match an item that has a path, so it excludes
+every item that has none -- every `milestone_lead` -- however complete the
+sweep looks; `path_filter` in the result counts those by kind, and
+`--item-kind milestone_lead` without a prefix is how to read them. Paths and
+kind filters select retrieval, not event membership or out-of-scope decisions.
+They do not modify the index or clear pending items.
 
 ## Spend context on the user's questions
 
@@ -126,7 +130,7 @@ all important changes have been found.
 ## Before delivery
 
 MUST check that the recorded request matches the user's choice, required
-references were read, and the script commands actually ran. Include paths to
+references were read, and the `chromiumdiff` commands actually ran. Include paths to
 the saved review and request, exact refs, final check results and remaining
 limits. Do not write that a reference was read or a command passed without
 having done so. If the runner exposes execution logs, preserve them for audit.
