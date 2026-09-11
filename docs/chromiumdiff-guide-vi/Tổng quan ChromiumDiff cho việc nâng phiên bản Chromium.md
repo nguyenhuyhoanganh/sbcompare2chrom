@@ -61,7 +61,7 @@ Những thay đổi thực sự về hành vi hoặc contract
         ↓
 Compatibility break / Behaviour change / New declarations / Scheduled / Upstream cleanup
         ↓
-Lọc đúng phần mình cần: theo kind, theo bucket, hoặc theo nhóm hậu quả
+Lọc đúng phần cần xem: theo kind, theo bucket, hoặc theo nhóm hậu quả
         ↓
 Đối chiếu tên liên quan trong Samsung source và cấu hình ngoài repository
         ↓
@@ -170,7 +170,7 @@ Công cụ được chạy bằng `python3 -m chromiumdiff`. Nhìn theo đườn
   tìm trong Samsung source/config, xác nhận ảnh hưởng và tạo đầu việc
 ```
 
-Cần chú ý ranh giới: **pipeline kết thúc ở bước 8, tức là ở báo cáo.** Code hiện tại không có bước nào để AI tự quyết định thay đổi nào chắc chắn làm Samsung Browser lỗi. Bước 9 là việc của con người và của agent được cấp quyền truy cập source Samsung.
+Cần chú ý ranh giới: **pipeline kết thúc ở bước 8, tức là ở báo cáo.** Code không có bước nào để AI tự quyết định thay đổi nào chắc chắn làm Samsung Browser lỗi. Bước 9 là việc của con người và của agent được cấp quyền truy cập source Samsung.
 
 ## 4. Version đến từ đâu?
 
@@ -224,7 +224,7 @@ ChromiumDiff không build Chromium. Nó chỉ đọc những file chứa các kh
 
 Các file đã tải vẫn được đặt đúng vị trí tương đối như trong repository Chromium. Ví dụ, file nằm ở `chrome/browser/...` trên Chromium cũng nằm ở `chrome/browser/...` trong cache. Việc giữ nguyên đường dẫn không phải để cho gọn — nó giúp các bộ đọc xác định đúng loại file và đúng component.
 
-Hiện tại target set (bộ file mà một lần chạy cam kết đọc) có cấu trúc:
+Target set (bộ file mà một lần chạy cam kết đọc) có cấu trúc:
 
 | Bộ file | Số mục được cấu hình | Thành phần | Mục đích |
 |---|---:|---|---|
@@ -536,7 +536,7 @@ Bảng này quan trọng khi trình bày, vì nó cho thấy các khoảng trố
 | C++ `.cc/.h` thông thường | Chưa có parser cho phần thân function | Thay đổi logic bên trong function có thể bị bỏ sót |
 | `BUILD.gn` | Chưa parse toàn bộ build graph | Một số build flag chỉ được ghi là `conditional`; không thể thay build để xác nhận |
 | TypeScript/JavaScript thông thường | Chỉ route và template WebUI được hỗ trợ | Thay đổi về event handling hoặc business logic có thể không xuất hiện |
-| CSS, image, string resource `.grd/.grdp` | Không tạo ra contract mà schema hiện tại so sánh | Report không đánh giá layout, visual hay thay đổi câu chữ |
+| CSS, image, string resource `.grd/.grdp` | Không tạo ra contract mà schema so sánh | Report không đánh giá layout, visual hay thay đổi câu chữ |
 | Output sinh tự động | Dễ tạo nhiễu và có thể tái sinh từ source | Công cụ ưu tiên khai báo gốc trong source |
 | Test, fuzzer, mock | Không ship trong sản phẩm browser | Không đưa feature chỉ phục vụ test vào report sản phẩm |
 | Source chỉ dành cho Android, ChromeOS, iOS, macOS, Linux hoặc Fuchsia | Project đang phân tích Samsung Browser trên Windows | Không để finding của nền tảng khác chiếm ưu tiên; riêng một số pref/switch vẫn được nhìn để nhận ra file move |
@@ -965,7 +965,9 @@ Severity không phải số ngày công, và cũng không phải xác suất x�
 
 Score trả lời một câu khác:
 
-> "Với bằng chứng của **chính lần chạy này**, finding nên được ưu tiên ở mức nào?"
+> "Trong **bản build Windows**, thay đổi này tốn bao nhiêu?"
+
+Câu hỏi về độ tin cậy của bằng chứng được trả lời riêng bằng cờ `unconfirmed` (mục 15.4).
 
 Công thức rút gọn:
 
@@ -976,14 +978,15 @@ severity = severity của leading signal
 score = 0
         nếu declaration không được compile vào Windows ở cả FROM và TO
 
-score = clamp(severity - 15, 0, 100)
-        nếu conclusion dựa trên absence mà run chưa confirm được
-
 score = severity
-        trong các trường hợp còn lại
+        trong mọi trường hợp còn lại
+
+unconfirmed = true
+        nếu conclusion dựa trên absence mà run chưa confirm được
+        (score không đổi)
 ```
 
-Hai tính chất đi cùng nhau: công cụ **không bao giờ cộng điểm vượt quá severity**, và mọi lần trừ điểm đều phải có lý do ghi trong `reasons`. Nghĩa là score luôn bằng hoặc thấp hơn severity, và khoảng chênh lệch luôn giải thích được.
+Score chỉ có hai giá trị: bằng severity, hoặc bằng 0. Khi score bằng 0, `reasons` ghi rằng khai báo nằm ngoài bản build Windows. Độ tin cậy của bằng chứng được ghi riêng bằng cờ `unconfirmed`, vì nó trả lời một câu hỏi khác: thay đổi này có thật không, chứ không phải nó tốn bao nhiêu.
 
 ### 15.3. "Không nằm trong Windows build"
 
@@ -1002,9 +1005,11 @@ Vì vậy coverage được xét riêng cho **từng nhóm file**. Hai con số 
 - Với Web IDL, riêng danh sách file chọn tay đọc **2.166 trên 2.170** file ứng viên ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
 - Với pref và switch, riêng danh sách file chọn tay chỉ đọc **9 trên 529** file ứng viên. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
 
-Ngưỡng xác nhận hiện là **95%**. Nếu coverage thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" bị trừ 15 điểm. Riêng pref và switch chưa xác nhận được sẽ bị đưa về Upstream cleanup **và mang cờ `unconfirmed`**, vì kết luận an toàn lúc này chỉ là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: 303 khi chỉ đọc danh sách file chọn tay, **0 khi chạy `analysis`**. Cờ được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở pref và switch bị đổi bucket.
+Ngưỡng xác nhận là **95%**. Nếu coverage của nhóm file đó ở bản mới thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" mang cờ `unconfirmed` và một dòng lý do; score giữ nguyên. Riêng pref và switch mang cờ sẽ được chuyển sang Upstream cleanup, vì kết luận an toàn duy nhất là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Các dòng mang cờ khác giữ nguyên bucket. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục có cột bucket, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: tại M148 → M151, **0 trên lần chạy `analysis`** và 16 trên lần chạy `--partition downloads`.
 
-Chiều ngược lại thì khác: một khai báo nhìn thấy rõ ở bản mới **không** bị trừ điểm chỉ vì coverage ở bản cũ thấp. Công cụ chỉ hạ độ tin cậy khi bản cũ có lỗi chắc chắn — thiếu file mục tiêu, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
+Lần chạy có `--partition` cũng đo coverage theo cả cây. `--partition downloads` ở M151 đọc 2 trên 529 file pref và switch, nên removal của pref và switch nằm trong bản build Windows đều mang cờ. 220 chrome://flags entry bị gỡ thì vẫn được xác nhận, vì file duy nhất chứa chúng, `flag-metadata.json`, được mọi partition đọc.
+
+Với addition, quy tắc khác: một khai báo quan sát được ở bản mới **không** bị gắn cờ vì coverage ở bản cũ thấp. Công cụ chỉ gắn cờ khi bản cũ có lỗi chắc chắn — thiếu file mục tiêu, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
 
 ### 15.5. Ba ví dụ
 
@@ -1017,17 +1022,17 @@ delta nhìn thấy ở cả hai phía, không dựa trên absence
 score = 80, bucket = Compatibility break
 ```
 
-**Feature flag LNA bị remove khi chỉ đọc danh sách file chọn tay**
+**Feature flag LNA bị remove, trên một lần chạy chỉ đọc khoảng 12% file feature ở bản mới**
 
 ```text
 prior Windows state = enabled
 signal = flag_retired_on, severity 35
 feature-file coverage tại TO ≈ 12%
-removal chưa confirm → -15
-score = 20, bucket = Upstream cleanup, unconfirmed = true
+removal chưa xác nhận → unconfirmed = true
+score = 35, bucket = Upstream cleanup
 ```
 
-Với `analysis`, gần như toàn bộ file feature đều được đọc. Nếu không có lỗi tải hoặc lỗi parser, khoản trừ do thiếu coverage sẽ được bỏ đi.
+Bucket Upstream cleanup ở đây đến từ signal `flag_retired_on`, không phải từ cờ. Với `analysis`, 98,7% file feature ở M151 được đọc, nên nếu không có lỗi tải hoặc lỗi parser, removal này được xác nhận và không mang cờ.
 
 **Android-only declaration đổi**
 
@@ -1293,7 +1298,7 @@ Python code trong `chromiumdiff/` chịu trách nhiệm sáu việc:
 Skill là checklist hướng dẫn engineer hoặc coding agent **đọc và xử lý** report. Nó không tham gia vào việc trích xuất dữ liệu. Nội dung chính:
 
 - Chốt version chính xác và chọn bộ file phù hợp.
-- Đọc report theo bucket, rồi lọc theo phần mình phụ trách.
+- Đọc report theo bucket, rồi lọc theo phần do nhóm phụ trách.
 - Không nhầm việc dọn flag thành việc xoá feature.
 - Lần từ WebUI guard tới feature flag đứng sau nó.
 - Kiểm tra một Web API có thật sự tiếp cận được không.
@@ -1522,7 +1527,7 @@ Cần phát biểu đúng phạm vi: test chứng minh code đang tuân theo đ�
 
 ## 24. Những giới hạn phải nói thẳng
 
-Phần này nên được trình bày chủ động, không nên chờ người khác hỏi. Một công cụ nói rõ giới hạn của mình thì đáng tin hơn một công cụ hứa hẹn quá nhiều.
+Phần này nên được trình bày chủ động, vì người dùng kết quả cần biết giới hạn của công cụ trước khi dựa vào kết quả đó.
 
 ### 24.1. Tool đọc khai báo, không hiểu toàn bộ chương trình như compiler
 
@@ -1593,7 +1598,7 @@ Bảng này trả lời trực tiếp câu hỏi "dùng công cụ tới đâu t
 | Dự báo vùng build/test có rủi ro | Phù hợp | Phải bổ sung thông tin về nơi Samsung đang sử dụng |
 | Tự động ước lượng effort | Chưa đủ | Cần dữ liệu về patch, reference và config của Samsung |
 | Dùng làm release gate duy nhất | Không | Vẫn cần merge, build, test và kiểm tra sản phẩm |
-| Khẳng định "không có impact" từ một lần chạy có partition | Không | Coverage chênh lệch rất lớn giữa các surface |
+| Khẳng định "không có impact" từ một lần chạy có partition | Không | Partition chỉ đọc một phần nhỏ của cây; thay đổi nằm ngoài partition không có trong report |
 
 ## 26. Đề xuất đưa vào quy trình nâng phiên bản Chromium
 
@@ -1639,7 +1644,7 @@ Mở một object `base_feature` để giải thích cách chuẩn hoá. Sau đ�
 
 Trình bày nhóm Local Network Access. Ví dụ này cho thấy nếu chỉ nhìn dòng route bị xoá thì sẽ kết luận sai; phải đọc cùng feature flag và gate liên quan.
 
-**Phút 12–15: thu hẹp report theo phần mình cần**
+**Phút 12–15: thu hẹp report theo phần cần xem**
 
 Trình bày số liệu M148 → M151: IPC có 339 finding nhưng 126 Compatibility break, trong khi Browser C++ có 1.644 finding nhưng chỉ 55 Compatibility break.
 
@@ -1872,6 +1877,8 @@ Mọi lần so sánh thật đều dùng `analysis`; `smoke` không trả lời 
 Dùng partition khi đang phát triển, hoặc khi cần kiểm tra nhanh một khu vực nhỏ.
 
 Không dùng kết quả partition để kết luận cho cả đợt nâng phiên bản, vì một thay đổi của Downloads hoàn toàn có thể nằm ở `content/`, ở Mojo, hoặc ở một file feature dùng chung nằm ngoài partition đó.
+
+Coverage của lần chạy partition được đo theo cả cây, nên pref hoặc switch bị gỡ trong bản build Windows sẽ mang cờ `unconfirmed` và nằm ở Upstream cleanup. Vì vậy, số Compatibility break thấp trên một lần chạy partition không phải là bằng chứng rằng bản nâng cấp an toàn: tại M148 → M151, `--partition downloads` có 2 Compatibility break và 16 dòng `unconfirmed`.
 
 ### "`--complete` có nghĩa toàn Chromium complete không?"
 

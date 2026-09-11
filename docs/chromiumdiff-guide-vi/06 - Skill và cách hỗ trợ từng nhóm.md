@@ -109,7 +109,7 @@ Nếu chỉ có báo cáo mà không có ba trường về source và config, v�
 2. Đọc coverage theo từng surface, danh sách missing target và lỗi trích xuất.
 3. Lọc lấy phần team mình quan tâm — theo `kind`, theo bucket, hoặc theo nhóm hậu quả.
 4. Trong phần đã lọc, đi theo thứ tự: Compatibility break → Behaviour change → New declarations → Scheduled.
-5. Với Upstream cleanup, bỏ qua — trừ mục *Unconfirmed* trong `report.md`, là những removal lần chạy này chưa xác nhận được. Chúng nằm ở đó vì **thiếu bằng chứng**, không phải vì nhỏ.
+5. Với Upstream cleanup, bỏ qua — trừ những dòng trong mục *Unconfirmed* của `report.md`. Mục này liệt kê mọi finding mà lần chạy chưa xác nhận được, kèm bucket của từng dòng. Pref và switch trong đó nằm ở Upstream cleanup vì **thiếu bằng chứng**, không phải vì thay đổi ít quan trọng.
 6. Mở từng finding có khả năng liên quan tới Samsung, đọc `locations`, `deltas`, `signals`, `reasons`.
 7. Tìm trong source và config của Samsung, **rồi mới** gắn nhãn mức độ ảnh hưởng.
 

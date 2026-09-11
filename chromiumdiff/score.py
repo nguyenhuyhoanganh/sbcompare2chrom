@@ -1,31 +1,35 @@
 """Rank the changes, and say why each one ranks where it does.
 
 `diff.py` answers *what happened* and how much that kind of thing normally
-costs.  This stage answers the two questions left, both of which depend on the
-run rather than on the change:
+costs -- the severity.  This stage answers the two questions left, both of
+which depend on the run rather than on the change:
 
   * **Is it in the binary we ship?**  Chromium wraps declarations in
     ``#if BUILDFLAG(IS_WIN)`` chains, and 146 declarations at M151 resolve to
-    "not on Windows".  A change to one of those cannot move anything here.
+    "not on Windows".  A change to one of those cannot move anything here, so
+    it scores zero.
   * **Did this run read enough of the tree to believe a removal?**  A removal
     is an inference from absence, and absence from a tree the run read a
     part of is a much weaker claim than absence from one it read all of.
     Measured M148 -> M151: the curated files alone report 139 preference keys
     gone and a full run still holds 29 of them, so those 29 had simply moved
-    into a file the curated list never opened.
+    into a file the curated list never opened.  The answer is the finding's
+    `unconfirmed` flag and a sentence in its reasons, never a smaller score.
 
 Both are facts about Chromium and about this run.  Neither needs a description
 of who is reading, which is the whole reason the scoring could be rebuilt at
 all: the previous version added points for "we patch the declaring file" and
 "our source references this symbol", and those needed a description of a
-second, modified tree.  Without one, every adjustment was zero, the top bucket
-was unreachable, and the ranking was a second copy of the severity.
+second, modified tree.  Without one, every adjustment was zero and the top
+bucket was unreachable.
 
-**Nothing raises a score.**  Severity is the ceiling -- the most this kind of
-change can cost -- and the modifiers only take away, for reasons that are
-stated on the finding.  So a reader who understands the signal table
-understands the ranking, and every point of difference between the two numbers
-has a sentence next to it.
+**A score is its severity, or zero.**  Severity is what this kind of change
+costs; the score is what it costs in the binary we ship, and the build rule is
+the only thing between them.  Doubt about the evidence is not a cost, so it
+does not change the number: the bucket and the score describe the change as if
+it is real, and `unconfirmed` says the evidence for it is incomplete.  A reader
+who understands the signal table understands the ranking, and the one way the
+two numbers differ has a sentence next to it.
 """
 
 from __future__ import annotations
@@ -46,34 +50,17 @@ from .model import (
 )
 from .extract._cpp import PLATFORM
 
-# How much of a surface a run has to have read before a disappearance from it
-# counts as a disappearance rather than as scope. Per surface, not per run:
-# measured at M151, a full run reaches 99.2% of the candidate files and the
-# curated files alone 44.0%, but that average hides the spread this threshold actually meets --
-# 99.8% of the web API definitions against 1.7% of the pref and switch files.
+# How much of a surface the new snapshot has to have read before a
+# disappearance from it counts as a disappearance rather than as scope. Per
+# surface, not per run: the curated files alone read 99.8% of the web API
+# definitions at M151 and 1.7% of the pref and switch files, and one figure for
+# both is wrong in one direction or the other. An `analysis` snapshot reads
+# every surface at 98.18% or more at M143, M147, M148 and M151, so on those
+# runs this flags nothing; it is here for the pair where a surface falls
+# under it. A partitioned run is measured against the whole tree as well, so a
+# surface it reads only inside its own roots falls under this, and its
+# removals are flagged.
 CONFIRMING_COVERAGE = 0.95
-
-# What an unconfirmed removal loses. A fixed step rather than a share of the
-# severity, because coverage counts *files* and file count is not declaration
-# count: at M151 the curated files alone read 44.0% of the candidate files
-# while finding 2,069 of the 4,243 base::Feature declarations a full run finds, and it
-# reads 1.7% of the pref and switch files. No single proportional scalar is
-# right for surfaces that far apart, which is why `Scope` measures coverage
-# per surface and why this stays a step.
-#
-# The size of the step is a plateau, not a derivation. Re-scored against the
-# real M148 -> M151 curated-only run at 0, 5, 10, 15, 20, 25, 30 and 45: every
-# value from 10 up produces the same top 276 rows, the same 67 swaps against
-# no penalty at all -- 67 Blink runtime features. The two bounds hold across that whole range rather than
-# picking a point in it -- a modification is never penalised, so any step
-# sorts an unconfirmed removal below one of the same weight, and all 67
-# unconfirmed Mojo removals stay in the top half at every value up to 30.
-#
-# What 15 does that 10 does not is drop severity-30 removals to 15, below the
-# 455-row block sitting at 20. That is an effect of where scores bunch on this
-# pair, not a reason. Anything from 10 to 30 behaves the same, and changing it
-# moves every score in the report while settling nothing.
-UNCONFIRMED_PENALTY = 15
 
 # Signals that are *only* an inference from absence, and say so in their own
 # label. These do not merely score lower on a partial read; they are filed
@@ -109,39 +96,35 @@ KIND_SURFACE = {
 
 
 class Scope:
-    """How much of the new version's tree the run read.
+    """What the run read of the new version's tree, and where it has holes.
 
-    Only the new side matters, and only for removals. A fact absent from the
-    new snapshot is a removal only if the new tree was read; the same argument
-    does not run backwards, because an addition is a thing seen rather than a
-    thing not seen, and "it may have existed in a file we did not open" does
-    not make it any less present in the version being adopted.
+    A removal is an absence from the new snapshot, so it is believed only as
+    far as the new snapshot was read. An addition is the mirror -- an absence
+    from the old one -- but it is a thing *seen* in the version being adopted,
+    and "it may have existed in a file we did not open" does not make it any
+    less present there. So coverage only ever doubts a removal, and the old
+    snapshot is asked about holes alone: a target it did not have, or a file
+    it could not parse, which are absences the run knows it produced.
 
     That asymmetry is the documented failure mode of this tool, not a
     hypothetical one: what goes wrong on a partial read is removals reading as
     deletions.
     """
 
-    __slots__ = ("to_ref", "shares", "surfaces", "incomplete",
+    __slots__ = ("to_ref", "share", "surfaces", "incomplete",
                  "from_incomplete")
 
     def __init__(self, coverage: Optional[dict] = None,
                  to_ref: str = "", incomplete: str = "",
                  from_incomplete: str = "") -> None:
-        self.from_incomplete = from_incomplete
         self.to_ref = to_ref
-        # Both sides. A removal is an absence from the new snapshot and an
-        # addition is an absence from the old one, so they are answered by
-        # different measurements -- and reading only the new side judged every
-        # addition by how well the run read the version it was added *to*.
-        self.shares = {}
-        self.surfaces = {}
-        for side in ("from", "to"):
-            row = (coverage or {}).get(side)
-            self.shares[side] = _share(row)
-            rows = (row or {}).get("by_surface") if isinstance(row, dict) else None
-            self.surfaces[side] = {k: _share(v) for k, v in rows.items()} \
-                if isinstance(rows, dict) else {}
+        # The new snapshot's `meta.coverage`: the whole read, and the read of
+        # each surface. Only the new side's, because coverage only ever doubts
+        # a removal, so an old-side figure would be read by nothing.
+        self.share = _share(coverage)
+        rows = coverage.get("by_surface") if isinstance(coverage, dict) else None
+        self.surfaces = ({k: _share(v) for k, v in rows.items()}
+                         if isinstance(rows, dict) else {})
         # Why this run cannot confirm an absence at all, whatever it read.
         # Coverage answers "how much of the tree was in scope"; it says
         # nothing about a file that was in scope and was not there, or one
@@ -150,23 +133,15 @@ class Scope:
         # are zero on every run measured so far, which is the reason to latch
         # it now rather than after the first run where they are not.
         self.incomplete = incomplete
+        self.from_incomplete = from_incomplete
 
-    @staticmethod
-    def _side(change_type: str) -> str:
-        """Which snapshot has to be complete for this evidence to hold."""
-        return "from" if change_type == ADDED else "to"
-
-    def share_for(self, kind: str, change_type: str = "") -> Optional[float]:
-        """The read of the surface, on the side the evidence comes from."""
-        side = self._side(change_type)
+    def share_for(self, kind: str) -> Optional[float]:
+        """The new snapshot's read of the surface this kind is declared on."""
         surface = KIND_SURFACE.get(kind)
-        rows = self.surfaces.get(side) or {}
-        if surface and surface in rows:
-            return rows[surface]
-        share = self.shares.get(side)
-        # An older run recorded only the new side; fall back rather than
-        # treat a missing measurement as a missing surface.
-        return share if share is not None else self.shares.get("to")
+        if surface and surface in self.surfaces:
+            return self.surfaces[surface]
+        # A surface with no row of its own uses the whole read, never a guess.
+        return self.share
 
     def gap_for(self, change_type: str) -> str:
         """The hole that matters for evidence in *this* direction.
@@ -174,40 +149,51 @@ class Scope:
         A removal is "not in the new snapshot", so a hole in the new snapshot
         is what could have invented it; a hole in the old one could not. An
         addition is the mirror. The first version tested both at once, which
-        discounted a removal for a fault on the side its evidence does not
-        come from -- and did the same to additions.
+        doubted a removal for a fault on the side its evidence does not come
+        from -- and did the same to additions.
         """
         if change_type == ADDED:
             return self.from_incomplete
         return self.incomplete
 
-    def confirms_absence(self, kind: str = "", change_type: str = "") -> bool:
-        """Was this kind's surface read completely enough to believe absence?
+    def confirms_absence(self, kind: str = "",
+                         change_type: str = REMOVED) -> bool:
+        """Was the side this evidence rests on read well enough to believe it?
 
-        Per kind, not per run. The overall figure is an average over surfaces
-        read from 1.7% to 99.8%, and using it discounted a web API removal --
-        seen against a near-complete read -- exactly as hard as a preference
-        removal seen against almost none.
+        A hole on that side settles it. Past that, an addition is believed,
+        and a removal is believed as far as the new snapshot read the surface
+        of its kind -- per kind, not per run, because on the curated files the
+        overall figure averaged surfaces read from 1.7% to 99.8%, and using it
+        doubted a web API removal seen against a near-complete read exactly as
+        hard as a preference removal seen against almost none.
         """
-        if change_type and self.gap_for(change_type):
+        if self.gap_for(change_type):
             return False
-        if not change_type and (self.incomplete or self.from_incomplete):
-            return False
-        share = self.share_for(kind, change_type)
+        if change_type == ADDED:
+            return True
+        share = self.share_for(kind)
         return share is None or share >= CONFIRMING_COVERAGE
 
-    def read_percent(self, kind: str = "", change_type: str = "") -> str:
-        share = self.share_for(kind, change_type)
-        return "?" if share is None else f"{share * 100:.0f}%"
+    def read_percent(self, kind: str = "") -> str:
+        share = self.share_for(kind)
+        if share is None:
+            return "?"
+        # One decimal under 1%: a partition that read 2 of 529 pref files
+        # printed "0%", which reads as nothing read at all.
+        pct = share * 100
+        if 0 < pct < 1:
+            return f"{pct:.1f}%" if pct >= 0.05 else "under 0.1%"
+        return f"{pct:.0f}%"
 
 
 def _share(row: Optional[dict]) -> Optional[float]:
     """read / candidates, or None when the run did not measure it.
 
-    None means "unknown", and unknown is treated as complete on purpose: the
-    alternative is to discount every finding of a run that could not measure
-    itself, which turns a missing measurement into a silent, uniform downgrade
-    of the whole report.
+    None means the run did not measure this, and it is treated as complete.
+    Every run measures it except smoke, whose report says it cannot compare
+    two versions; past that, None comes from callers with no run behind them
+    -- a test, or an evaluation that states its own holes -- which want a
+    change judged on its own.
     """
     if not isinstance(row, dict):
         return None
@@ -264,7 +250,6 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         ]
         return finding
 
-    score = change.severity
     bucket = bucket_of(change)
 
     # Both directions rest on an absence. A removal is "not in the new side";
@@ -285,24 +270,23 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
     rests_on_absence = (direction == REMOVED
                         or (direction == ADDED and scope.from_incomplete))
     if rests_on_absence and not scope.confirms_absence(change.kind, direction):
-        score -= UNCONFIRMED_PENALTY
-        # The flag is set wherever the deduction is, not only where the filing
-        # also moves. The two are the same fact -- this run did not read enough
-        # of the tree to confirm the absence the row rests on -- and scoping the
-        # flag to the two `*_left_scan` signals made it name 31 of the 303 rows
-        # that took the penalty at M148 -> M151, while the field's own meaning
-        # covered all of them. The 120 it left out sit in Compatibility break,
-        # the bucket read first.
+        # A flag and a sentence, and the score is left alone. A fixed 15-point
+        # deduction sat here and changed no row of an `analysis` run at
+        # M148 -> M151, while on a hole it could take a severity-10 addition
+        # to 0 -- the number that means "not in the Windows build".
+        #
+        # The flag is set wherever this doubt is, not only where the filing
+        # also moves: scoped to the two `*_left_scan` signals it named 31 of
+        # the 303 doubted rows at M148 -> M151 on the curated files, and left
+        # out 120 Compatibility breaks, the bucket read first.
         finding.unconfirmed = True
         gap = scope.gap_for(direction)
         if gap:
-            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: {gap}, so this "
-                   f"comparison has a hole shaped exactly like the change it "
-                   f"is reporting")
+            why = (f"unconfirmed: {gap}, so the absence this row rests on may "
+                   f"come from those files rather than from Chromium")
         else:
-            why = (f"-{UNCONFIRMED_PENALTY} unconfirmed: this run read "
-                   f"{scope.read_percent(change.kind, direction)} of that surface "
-               f"at "
+            why = (f"unconfirmed: this run read "
+                   f"{scope.read_percent(change.kind)} of that surface at "
                    f"{scope.to_ref or 'the new version'}, so \"gone\" may mean "
                    f"\"moved into a file we never opened\"")
         # For the two signals that are *only* an absence inference, the doubt
@@ -318,15 +302,16 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
         if leading_signal(change) in UNCONFIRMED_SIGNALS:
             bucket = BUCKET_CLEANUP
             why += "; filed as upstream cleanup rather than a compatibility break"
-        # No advice about reading more: an analysis run already fetches every
-        # target there is, so what it missed is not reachable by re-running.
+        # No advice about reading more in the row: an analysis run already
+        # fetches every target there is, and on a partitioned run the sentence
+        # gives the share of the tree the run read.
         reasons.append(why)
 
     if (direction == ADDED and bucket == BUCKET_ADDED
             and scope.from_incomplete):
-        # "New declarations" asserts the thing was not there before, and
-        # docking the score for doubt about that while keeping the label said
-        # two different things on one row.
+        # "New declarations" asserts the thing was not there before, which is
+        # the very claim a hole in the old side leaves unproven, so the row
+        # moves rather than keep a label its own flag contradicts.
         #
         # Only for a hole -- a target the old side did not have, a file that
         # would not parse -- and never for partial coverage. An addition is a
@@ -340,7 +325,7 @@ def score_change(change: Change, scope: Optional[Scope] = None) -> Finding:
             "filed as upstream cleanup rather than a new declaration: this "
             "run cannot show it was absent before")
 
-    finding.score = max(0, min(100, score))
+    finding.score = change.severity
     finding.bucket = bucket
     finding.reasons = reasons
     return finding

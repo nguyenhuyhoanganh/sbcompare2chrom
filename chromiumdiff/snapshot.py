@@ -59,6 +59,45 @@ def _partition_prefixes(partitions: Sequence[str]) -> Tuple[str, ...]:
     return out
 
 
+def measure_coverage(candidates: dict, memberships: dict, targets: Sequence,
+                     partitions: Optional[Sequence[str]] = None
+                     ) -> Tuple[dict, Optional[dict]]:
+    """What a target set reads of the tree, and a partition of its own roots.
+
+    Returns `(tree, own)`. `tree` counts every candidate in the tree,
+    partitioned or not: it is the figure the scoring stage confirms a removal
+    against, and a removal is an absence from the tree. A partition used to be
+    measured against its own roots only, so `--partition downloads` read 2 of
+    2 pref files there and, at M148 -> M151, confirmed six removals that were
+    moves to files outside the partition. `own` is that roots-only figure --
+    the one `--complete` makes 100% -- and None for an unpartitioned run,
+    where the two are the same.
+    """
+    tree = coverage_against(candidates, targets, memberships)
+    if not partitions:
+        return tree, None
+    prefixes = _partition_prefixes(partitions)
+    own = coverage_against({p: v for p, v in candidates.items()
+                            if p.startswith(prefixes)}, targets, memberships)
+    return tree, own
+
+
+def _partition_measured_on_its_roots(cached: dict) -> bool:
+    """A cached partitioned snapshot whose coverage counts only its roots.
+
+    The scorer confirms a removal against `coverage`, so reusing one would
+    confirm removals the partition could not see. It is rebuilt rather than
+    the schema bumped: the schema number also stamps every `report.json`, and
+    the review commands re-read the report their ledger was built from, so a
+    bump would stop every existing report and review from loading to fix a
+    cache that only partitioned runs write. A snapshot with no coverage at
+    all -- smoke -- has nothing to misread.
+    """
+    meta = cached.get("meta") or {}
+    return (bool(meta.get("partitions")) and bool(meta.get("coverage"))
+            and "partition_coverage" not in meta)
+
+
 def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
                    platform: str = "Windows", local_src: Optional[str] = None,
                    refresh: bool = False, partitions: Optional[Sequence[str]] = None,
@@ -70,11 +109,15 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
 
     if os.path.exists(out_path) and not refresh:
         cached = read_json(out_path)
-        if cached.get("schema") == SCHEMA_VERSION:
+        if cached.get("schema") != SCHEMA_VERSION:
+            log(f"  snapshot cache stale (schema {cached.get('schema')} != "
+                f"{SCHEMA_VERSION}), rebuilding")
+        elif _partition_measured_on_its_roots(cached):
+            log("  snapshot cache stale (its partition coverage counted only "
+                "the partition's own roots), rebuilding")
+        else:
             log(f"  snapshot cache hit: {out_path}")
             return Snapshot.from_dict(cached)
-        log(f"  snapshot cache stale (schema {cached.get('schema')} != "
-            f"{SCHEMA_VERSION}), rebuilding")
 
     targets = get_targets(target_set, partitions, complete)
     root = tree_path(cache_dir, resolved)
@@ -95,21 +138,19 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
     # notices. Measuring costs one cached recursive listing per root; it does
     # not change what is fetched, only whether the gap is visible.
     coverage: dict = {}
+    partition_coverage: Optional[dict] = None
     if target_set != "smoke":
         candidates, memberships = discover_candidates(source, log=log)
-        if partitions:
-            # A partitioned run is the one most likely to miss something, so
-            # leaving it unmeasured would put the number where it is least
-            # needed. Scope the candidates to the same roots the partition
-            # fetches from, and the percentage describes that run rather than
-            # a full one it is not.
-            prefixes = _partition_prefixes(partitions)
-            candidates = {p: v for p, v in candidates.items()
-                          if p.startswith(prefixes)}
-        coverage = coverage_against(candidates, targets, memberships)
+        coverage, partition_coverage = measure_coverage(
+            candidates, memberships, targets, partitions)
         pct = coverage["read"] * 100 // max(1, coverage["candidates"])
         log(f"  coverage: reads {coverage['read']} of {coverage['candidates']} "
             f"files in this tree that could declare ({pct}% of files)")
+        if partition_coverage is not None:
+            own = partition_coverage
+            log(f"  inside the partition's roots: reads {own['read']} of "
+                f"{own['candidates']} "
+                f"({own['read'] * 100 // max(1, own['candidates'])}% of files)")
         if coverage["missed"]:
             # A file count understates what a run gets, because the files
             # someone chose are the big ones: a minority of the files holds a
@@ -122,8 +163,8 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
                 + ", ".join(f"{d}/ ({n} files)" for d, n in top))
             # Say which of the two causes it is. There is no wider target set
             # to recommend, so naming one would be advice you cannot act on.
-            log("    these are outside this run's partitions; drop --partition "
-                "to read them" if partitions else
+            log("    these include everything outside this run's partitions; "
+                "drop --partition to read those" if partitions else
                 "    no target reads these; the run cannot see them at all")
     log(f"  {len(targets)} targets")
 
@@ -167,6 +208,13 @@ def build_snapshot(ref: str, cache_dir: str, target_set: str = "analysis",
             # number travels with the snapshot instead of scrolling past.
             "coverage": {k: v for k, v in coverage.items()
                          if k != "missed_paths"},
+            # What a partition read of its own roots, beside the tree figure
+            # the scorer reads. Its presence also marks a partitioned snapshot
+            # as measured against the tree.
+            **({"partition_coverage":
+                    {k: v for k, v in partition_coverage.items()
+                     if k != "missed_paths"}}
+               if partition_coverage is not None else {}),
             "uncovered_files": coverage.get("missed_paths", [])[:400],
             "partitions": sorted(partitions) if partitions else [],
             "complete": complete,

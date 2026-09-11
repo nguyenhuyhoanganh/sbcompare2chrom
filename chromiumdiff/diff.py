@@ -1211,7 +1211,7 @@ def _signals_for(change: Change, old_fact: Optional[Fact],
 
     # A declaration entering or leaving the Windows build, on any kind that
     # can say so. `score._not_in_build` has always known that this is the
-    # change rather than a reason to discount one -- "a declaration entering
+    # change rather than a reason to score one zero -- "a declaration entering
     # or leaving our binary is the change" -- but `platform_state` was
     # compared on three of the sixteen kinds, so a Mojo method or a settings
     # control becoming Android-only produced no row at all. The same two-door

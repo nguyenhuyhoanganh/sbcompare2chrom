@@ -190,8 +190,8 @@ def grit_platform_state(conditions: List[str],
     """"not_compiled" / "compiled" / "conditional" for a set of GRIT guards.
 
     A control behind `<if expr="is_chromeos">` is not in our binary, so a change
-    to it is not a change to our product. Nothing scored those down before,
-    because the penalty reads `platform_state` and only C++ declarations
+    to it is not a change to our product. Nothing scored those zero before,
+    because the build rule reads `platform_state` and only C++ declarations
     carried one.
     """
     return guard_platform_state(conditions, eval_grit_condition, platform)

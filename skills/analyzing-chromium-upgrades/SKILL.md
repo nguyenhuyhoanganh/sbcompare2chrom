@@ -231,8 +231,8 @@ looking at.
 
 A finding's `change` holds `before`, `after`, `deltas`, `paths`, `locations`
 and `signals`. `unconfirmed` means the run did not read enough to be sure the
-thing is really gone. Read the coverage numbers and the reasons before you say
-a declaration was removed.
+thing is really gone; it does not lower the score. Read the coverage numbers
+and the reasons before you say a declaration was removed.
 
 What each kind of evidence can and cannot tell you:
 

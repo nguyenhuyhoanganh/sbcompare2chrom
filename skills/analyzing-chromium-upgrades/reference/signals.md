@@ -114,15 +114,23 @@ event report and do not prove product consequences.
 | Upstream cleanup | Verify whether changes are non-behavioural, platform-excluded or based on incomplete absence evidence |
 
 The leading signal determines the finding's severity and bucket. Without
-signals, the classifier uses the finding kind and direction. The score then
-accounts for recorded platform exclusion and incomplete absence evidence.
-These numbers are priorities, not probabilities, confidence levels or
-measured user impact. Read `reasons` to understand a deduction.
+signals, the classifier uses the finding kind and direction. The score is
+the severity, or zero when Chromium keeps the declaration out of the
+Windows build on both sides. These numbers are priorities, not
+probabilities, confidence levels or measured user impact. Read `reasons` to
+see why a score is zero or why a row is flagged.
 
-`unconfirmed` is separate from bucket and score. It means the comparison
-lacks sufficient absence evidence; it is not a probability that the finding
-is wrong. A wider scan may improve file coverage but cannot establish
-complete parsing or complete behavioural coverage.
+`unconfirmed` is separate from bucket and score, and it never changes the
+score. It means the finding rests on an absence the run could not confirm:
+the new version's read of that kind's files is under 95% of the tree, or a
+missing target or a parse failure left a hole on the side the evidence comes
+from. It is not a probability that the finding is wrong. A flagged removed
+preference or switch is filed as Upstream cleanup; every other flagged row
+keeps its bucket. A `--partition` run is measured against the whole tree, so
+its removals of kinds it reads only inside its own roots are flagged; a row
+that scores zero under the Windows build rule is not checked. A wider scan
+may improve file coverage but cannot establish complete parsing or complete
+behavioural coverage.
 
 Do not change ranking constants as part of analyzing a user's upgrade.
 Explain any disagreement with a classifier label using the actual evidence.

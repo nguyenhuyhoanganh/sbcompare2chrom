@@ -271,14 +271,15 @@ def _redact_proxy(value: str) -> str:
 def scope_for(old, new) -> Scope:
     """What the scoring stage is allowed to conclude from this pair.
 
-    Both trees. A removal is an absence from the new one and an addition is an
-    absence from the old one, so each direction is judged by the read of the
-    side its evidence comes from. `Scope` learned to hold both and the call
-    site kept passing one -- the same two-door mistake as the Mojo ordinal, so
-    it is a named function now and a test drives it rather than reading it.
+    The new tree's coverage, because only a removal is judged by coverage and
+    a removal is an absence from the new tree. Both trees' holes, because each
+    direction rests on an absence from its own side: a hole in the old tree
+    can invent an addition, and one in the new tree a removal. It is a named
+    function that a test drives, because the call site once handed the scorer
+    less than `Scope` could use -- the same two-door mistake as the Mojo
+    ordinal.
     """
-    return Scope({"from": (old.meta or {}).get("coverage") or {},
-                  "to": (new.meta or {}).get("coverage") or {}},
+    return Scope((new.meta or {}).get("coverage") or {},
                  to_ref=new.ref, incomplete=_incomplete_reason(new),
                  from_incomplete=_incomplete_reason(old))
 
@@ -287,8 +288,7 @@ def _incomplete_reason(snapshot) -> str:
     """Why this snapshot cannot settle an absence, beyond how much it read.
 
     A target the source did not have, and a file that would not parse, both
-    leave a hole shaped exactly like a removal: a fact on one side and not the
-    other. Coverage cannot see either -- it measures what was in scope, not
+    produce what a removal produces: a fact on one side and not the other. Coverage cannot see either -- it measures what was in scope, not
     what came back -- so an absence is not confirmed while either is non-zero.
     Both are zero on every version measured so far, which is why this is a
     latch rather than a fix.

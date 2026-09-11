@@ -766,15 +766,16 @@ class Finding:
     reasons: List[str] = field(default_factory=list)
     score: int = 0
     bucket: str = BUCKET_CLEANUP
-    # True when the finding rests on an absence this run did not read enough of
-    # the tree to confirm. It is a property of the *run*, not of the change, so
-    # it cannot be a bucket -- the same change on a partial run carries it and
-    # scores 15 points higher. It is a field rather than a sentence in
-    # ``reasons`` because a reader has to be able to filter for these: 303 of
-    # them at M148 -> M151 on the curated files and 0 on a full run.
-    # Set wherever the 15-point deduction is, so it is not confined to one
-    # bucket -- 120 of those 303 are in Compatibility break, the bucket read
-    # first.
+    # True when the finding rests on an absence this run could not confirm:
+    # the new side read under 95% of the surface a removal came from, or the
+    # side the evidence comes from has a hole. It is a property of the *run*,
+    # not of the change, so it cannot be a bucket -- the same change carries
+    # it on one run and not on another. It is a field rather than a sentence
+    # in ``reasons`` because a reader has to be able to filter for these, and
+    # it never changes the score. At M148 -> M151 an `analysis` run sets it on
+    # 0 rows and `--partition downloads` on 16, all removed preferences and
+    # switches. It is not confined to one bucket: a flagged Mojo or web API
+    # removal stays a Compatibility break.
     unconfirmed: bool = False
     enrichment: Dict[str, Any] = field(default_factory=dict)
 

@@ -30,8 +30,8 @@
       "expected_behavior": [
         "Quotes the coverage recorded in this report's own `meta.coverage`, and not the worked example in SKILL.md, which is a different run and a different figure",
         "Names where the number came from, so a reader can check it against the report rather than the document",
-        "Says that coverage changes the answer and not merely the confidence: on a partial read a removal is penalised, filed as Upstream cleanup rather than a Compatibility break, and marked `unconfirmed`",
-        "States that `Compatibility break: 0` on a partitioned run is not a clean bill of health, and reads `summary.unconfirmed` before saying otherwise"
+        "Says that coverage changes the answer and not merely the confidence: on a partial read a removed preference or switch is marked `unconfirmed` and filed as Upstream cleanup rather than a Compatibility break, while its score stays at its severity",
+        "States that a low Compatibility break count on a partitioned run is not a clean bill of health, and reads `summary.unconfirmed` before saying otherwise"
       ]
     },
     {
@@ -72,16 +72,16 @@
       "skills": [
         "analyzing-chromium-upgrades"
       ],
-      "query": "DebuggingFeaturesRequested scores low, so it is low priority. Can I close it?",
+      "query": "The downloads partition report files DebuggingFeaturesRequested under Upstream cleanup, so it is low priority. Can I close it?",
       "files": [
-        "out/M148_to_M151/report.json"
+        "out/M148_to_M151_downloads/report.json"
       ],
-      "catches": "Reading the score as the verdict, when the score is the severity after a deduction that says the run never settled the question.",
+      "catches": "Reading the bucket as the verdict, when the row is filed there because the run could not confirm the removal.",
       "expected_behavior": [
-        "Quotes the sentence in `reasons` rather than the number, and notes that nothing raises a score, so a score below its severity always carries one",
-        "Reports the deduction as an unconfirmed removal, and repeats the reason's own point that the run read very little of that surface at the newer version, so `gone` may mean `moved into a file we never opened`",
-        "Says the low score records low confidence in the removal, not low consequence, and so does not support closing it",
-        "Says the missing pref files must be read by hand, and notes that every removed pref key on this run is `pref_left_scan`, so none of them is a confirmed deletion"
+        "Reads `unconfirmed` on the row and quotes the sentence in `reasons` rather than the bucket, and notes that the score is still the severity, so the doubt is in the flag and not in the number",
+        "Repeats the reason's own point that the run read very little of that surface at the newer version, so `gone` may mean `moved into a file we never opened`",
+        "Says that Upstream cleanup here records missing evidence, not low consequence, and so does not support closing it",
+        "Says the key must be looked up in the pref files the partition did not read, or the comparison re-run without `--partition`, before it is called a deletion"
       ]
     }
   ],
@@ -92,7 +92,7 @@
       "2": "Verified. The coverage in `meta.coverage` and the worked example in SKILL.md are different figures, so quoting the document instead of the run is detectable.",
       "3": "Mechanism verified, not the dialogue. report.html does reference chromium-review.googlesource.com, which is the call a file:// origin blocks, and `chromiumdiff serve` exists.",
       "4": "Verified. The row carries `flag_retired_on` and is filed under Upstream cleanup, and retirements of that kind outnumber the abandoned ones on this pair.",
-      "5": "Verified. The row scores below its severity and carries the unconfirmed-removal sentence, and every removed pref key on this run is `pref_left_scan`."
+      "5": "Verified on `--partition downloads` at M148 -> M151. The row is `pref_left_scan`, scores its severity of 35, carries `unconfirmed` and the reason line, and is filed under Upstream cleanup. An `analysis` run of the same pair files it as a confirmed Compatibility break at 35."
     }
   }
 }

@@ -61,7 +61,7 @@ In a single file, M139 has 170 of 170 declarations in the old form and M143 has 
 
 **Stop at the evidence.** The deterministic stages — extract, normalize, compare, rank — turn several million changed lines into a few thousand labelled changes, sorted so the ones that cost something are at the top, and then stop. The tool does not conclude "this means X for the product". That takes judgement about a particular product, and it belongs to whoever reads the report, or to an agent running the [`analyzing-chromium-upgrades`](skills/analyzing-chromium-upgrades/SKILL.md) skill. chromiumdiff's job is to make that input complete, ranked and citable.
 
-It is also why nothing in the tool describes *your* codebase. An earlier version took a config file naming the files you patch and the symbols you reference, and added points when a change touched one. It was the right idea and it could not be supplied honestly: with no config the scoring collapsed into a second copy of the severity, its top bucket was unreachable by construction, and 1,384 of 2,800 findings landed in a bucket called "New opportunity" whose rule was "anything added". What is left is what two Chromium trees can establish on their own, and the step it does not take — searching your own tree for the identifier a finding cites — is one command you run yourself.
+It is also why nothing in the tool describes *your* codebase. A ranking that added points for files you patch or symbols you reference would need that description on every run, and without it every one of those points would be zero. The tool therefore reports what two Chromium trees can establish on their own, and the step it does not take — searching your own tree for the identifier a finding cites — is one command you run yourself.
 
 ---
 
@@ -540,17 +540,18 @@ Available: `settings, downloads, bookmarks, history, extensions, passwords, prin
 
 A partition is a **filter over the target list**, not a second list to maintain — add a target and it flows into whichever partitions its path matches. A few entries are kept in every partition because they are cheap and relevant to everything: `pref_names.h`, `flag-metadata.json`, `content_switches.cc`.
 
-A partitioned run prints its own coverage, measured against exactly the roots that partition fetches:
+A partitioned run prints two coverage figures. The first counts every file in the tree that could declare something, as an unpartitioned run does. It is the figure the report shows and the one a removal is confirmed against. The second counts only the files under the partition's own roots. Measured at M151, on the new side of `run 148.0.7778.217 151.0.7922.138 --partition downloads`:
 
 ```
-$ python3 -m chromiumdiff snapshot 151.0.7922.138 --partition downloads
-coverage: reads 3 of 6 files in this tree that could declare (50% of files)
-snapshot: 2692 facts
+coverage: reads 10 of 8366 files in this tree that could declare (0% of files)
+inside the partition's roots: reads 10 of 22 (45% of files)
 ```
+
+A removal is confirmed only when the run read at least 95% of that kind's files in the whole tree (§7). On the downloads partition at M148 → M151, 16 removals carry `unconfirmed`: 15 preference keys and 1 switch. Six of them are still declared in the M151 tree, in files outside the partition. The 220 removed chrome://flags entries are confirmed, because their only file, `flag-metadata.json`, is read by every partition.
 
 **The trade has to be stated plainly:** a partition is faster and less complete, in one direction only. Chromium is not organized by product feature — a change affecting Downloads can live in `content/`, in a Mojo interface, or in a flag file matching no partition at all. Right while iterating on one area; **wrong as a release gate**.
 
-Add `--complete` and the partition fetches whole directory roots instead of filtering a file list, so coverage inside those directories is complete by construction. Measured at M151: `--partition extensions --complete` reads 19 of 19 files. The option is refused for partitions whose roots are entire subsystems (`webplatform`), because Gitiles serves a whole directory or nothing.
+Add `--complete` and the partition fetches whole directory roots instead of filtering a file list, so coverage inside those directories is complete by construction. Measured at M151: `--partition extensions --complete` reads 19 of 19 files inside its roots. The option is refused for partitions whose roots are entire subsystems (`webplatform`), because Gitiles serves a whole directory or nothing.
 
 ### Measuring with a blobless clone — the `catalog` command
 
@@ -615,40 +616,42 @@ That order matters, and it used to be the other way round. Severity was `max(pri
 
 Measured against two real pairs, the prior overrode the signal on 267 of 2,800 findings at M148 → M151 and 345 of 6,787 at M143 → M151 — every one of them upwards. The largest group is the smallest change the tool reports, and the most wrong is four Mojo methods ranked as ABI breaks for a build condition moving.
 
-### Score: what it costs *here*, on *this* run
+### Score: what it costs *here*
 
-Score is the severity after two adjustments, both of them facts rather than opinions:
+Score is the severity, or zero. One rule, based on Chromium's build conditions, decides which:
 
-**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 187 of 3,022 findings at M148 → M151 are in that state.
+**A declaration Chromium keeps out of the Windows build on every side of the change scores zero.** It cannot move anything in a binary it is not in. 441 of 6,064 findings on an `analysis` run at M148 → M151 are in that state.
 
-Chromium says this in three different ways, and for a long time the tool read only the first:
+Chromium says this in three ways, and the tool reads all three:
 
-| How Chromium says it | Looks like | Read since |
-|---|---|---|
-| A preprocessor guard | `#if BUILDFLAG(IS_WIN)` | always |
-| A mojom attribute | `[EnableIf=is_android]` | schema 27 |
-| A directory name | `chrome/browser/ash/`, `.../android/` | schema 28 |
+| How Chromium says it | Looks like |
+|---|---|
+| A preprocessor guard | `#if BUILDFLAG(IS_WIN)` |
+| A mojom attribute | `[EnableIf=is_android]` |
+| A directory name | `chrome/browser/ash/`, `.../android/` |
 
-The second and third are not variations on the first. A `.mojom` file has no preprocessor, and a directory Chromium excludes in BUILD.gn contains **no guard anywhere** — the path is the only evidence there is. So `platform_state` sat on four of the sixteen fact kinds, none of them Mojo, and an Android-only field changing type scored 80 at the top of a Windows report. On an M148 → M151 run, 164 findings were declared under a platform we do not build and not one of them scored zero.
+The second and third are separate rules, not variations on the first. A `.mojom` file has no preprocessor, and a directory Chromium excludes in BUILD.gn contains **no guard anywhere** — the path is the only evidence there is.
 
-The directory rule applies only when *every* declaration of a key sits under one, because five keys at M151 sit both inside and outside — and deduplication keeps the copy we do not build.
+The directory rule applies only when *every* declaration of a key sits under such a directory, because five keys at M151 sit both inside and outside one, and deduplication keeps the copy we do not build.
 
-The words *every side* are what the rule turns on. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change. The previous version read the new side only, so a feature whose Windows guard closed — the case where we lose the feature — was scored *down* 45 points for not being in the Windows build.
+The words *every side* are what the rule turns on. A declaration that **enters or leaves** the Windows build keeps its full severity, because that is the change: a feature whose Windows guard closes is a feature the Windows build loses.
 
-**An unconfirmed removal loses 15.** A removal is an inference from absence, and absence from a tree the run read part of is a much weaker claim than absence from one it read all of. So a removal is discounted unless the run read essentially the whole tree, and the finding says which:
+**An unconfirmed removal keeps its score.** A removal is an inference from absence, and absence from files the run did not read is weak evidence. When the new version's read of that kind's files is under 95% of the tree, or the side the evidence comes from has a hole (a target the source did not have, a file that would not parse), the finding carries `unconfirmed` and a reason line, and its score stays at its severity:
 
 ```
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
+unconfirmed: this run read 0.4% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
     upstream cleanup rather than a compatibility break
 ```
 
-Additions are not discounted. An addition is a thing seen rather than a thing not seen, and "it may have existed in a file we did not open" does not make it any less present in the version being adopted. The asymmetry is the documented failure mode of this tool, not a hypothetical one: what goes wrong on a partial read is removals reading as deletions.
+The score is not reduced, because the score and the flag answer different questions. The score and the bucket state what the change costs if it is real; `unconfirmed` states that the evidence for it is incomplete. This also keeps a single meaning for a score of 0: the declaration is outside the Windows build.
 
-**Nothing raises a score.** Severity is the ceiling — the most this kind of change can cost — and the adjustments only take away, each with a sentence beside it. So a reader who understands the signal table understands the ranking, and every point of difference between the two numbers can be argued with.
+Coverage is not applied to additions. An addition is observed directly in the new version, and a partial read of the old version does not change that. An addition is flagged only when the old side has a hole, because the tool then cannot show that the declaration was absent before; the row is filed as Upstream cleanup with `unconfirmed`. The error a partial read produces is a moved declaration reported as a removal, so coverage is applied to removals only.
+
+**A score is its severity, or zero.** The ranking therefore follows from the signal table, and the one case where the two numbers differ is stated in a reason line.
 
 ### The five buckets
 
@@ -670,20 +673,20 @@ Three placements are worth arguing about explicitly, because each decides whethe
 
 **A date is not an event.** `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and there are 302 of them — a tenth of the report. Filed as cleanup they read as work that happened and did not matter, which is the opposite of what they say.
 
-**An unconfirmed disappearance moves bucket with the coverage, and says so on the row.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends entirely on how much of the tree the run read. Measured on the same pair of versions:
+**A removal the run cannot confirm is filed by what the evidence supports, and says so on the row.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends on how much of the tree the run read. Measured on M148 → M151:
 
-| | Coverage | `pref_left_scan` | Bucket | Score |
+| Run | Pref and switch files read at M151 | `pref_left_scan` rows in the Windows build | Bucket | Score |
 |---|---:|---:|---|---:|
-| curated files alone | 5% | 139 | Upstream cleanup | 20 |
-| `analysis` | 100% | 171 | **Compatibility break** for the 30 in the Windows build | **35** |
+| `analysis` | 99.4% | 30 | **Compatibility break** | 35 |
+| `--partition downloads` | 0.4% | 15 | Upstream cleanup, `unconfirmed` | 35 |
 
-A rule that produced the same answer either way would be wrong in one of the two directions, so the report says which run it is.
+The score is the same on both runs. The bucket and the flag say what each run can support.
 
-That move is a property of the *run*, not of the change, so it cannot be a bucket — and it is not one. The finding carries **`unconfirmed`** as well, a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set wherever the −15 is, not only where the filing moves: at M148 → M151 that is **303 rows reading the curated files alone and 0 on an `analysis` run**, and 120 of the 303 are in Compatibility break, the bucket read first. `summary.unconfirmed` counts them: it says how much of a report is limited by what the run read rather than by what Chromium did.
+The flag describes the run, not the change, so it is a field rather than a bucket. **`unconfirmed`** is a boolean on every row of `report.json`, an outlined badge beside the bucket pill in `report.html` with an `All coverage` filter over it, and a section of its own in `report.md`. It is set on every row whose evidence is incomplete, not only on rows whose bucket changes: only `pref_left_scan` and `switch_left_scan` change bucket, because their own label is an inference from absence, so a flagged Mojo or web API removal stays a Compatibility break. `summary.unconfirmed` counts them — 0 on an `analysis` run at M148 → M151 and 16 on the downloads partition — and says how much of a report is limited by what the run read rather than by what Chromium did.
 
 ### Changing the ranking
 
-`SIGNAL_SEVERITY`, `BASE_SEVERITY` and `SIGNAL_BUCKET` in `chromiumdiff/diff.py`, and the two constants in `chromiumdiff/score.py`, are all plain data. A test holds the three tables to the same set of signals, so a new signal cannot be added to one and forgotten in the others.
+`SIGNAL_SEVERITY`, `BASE_SEVERITY` and `SIGNAL_BUCKET` in `chromiumdiff/diff.py`, and the 95% threshold `CONFIRMING_COVERAGE` in `chromiumdiff/score.py`, are all plain data. A test holds the three tables to the same set of signals, so a new signal cannot be added to one and forgotten in the others.
 
 ---
 
@@ -703,11 +706,11 @@ Read in that order. `report.md` gives the first four a table each and deliberate
 
 Scheduled does get a table, and that is the point of it being its own bucket. `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and while they were filed as cleanup the only way to reach them was to filter `report.json` by signal id.
 
-`report.md` also gives a table to whatever carries **`unconfirmed`** — every row this run did not read enough of the tree to confirm. 303 of them reading the curated files alone, 0 on an `analysis` run. The 163 that sit in Upstream cleanup are there because the evidence is short, not because they are minor.
+`report.md` also gives a table to every row that carries **`unconfirmed`**, with each row's bucket, because the flagged preference and switch removals sit in Upstream cleanup, which has no table. At M148 → M151 an `analysis` run has none and the downloads partition has 16. They are in Upstream cleanup because the evidence is incomplete, not because the change is minor.
 
 What decides a bucket, and the three placements worth arguing about, are in §7.
 
-`report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is what reads as a mass deletion, so the count is restated on every run — including the cached ones, where it used to disappear along with the rest of the first run's output — and `report.md` names them in *How this was produced*.
+`report.json` also carries `meta.missing_targets`, one list per side, naming any file the target set asked for that the source did not have. A target absent from one side and present on the other is what reads as a mass deletion, so the count is restated on every run, including cached ones, and `report.md` names them in *How this was produced*.
 
 Every finding cites **`path:line`** on both sides, not just a filename. `content_features.cc` declares nearly two hundred features, so citing the file leaves the reader to do the finding.
 
@@ -773,16 +776,14 @@ severity 75 — Now ON by default on Windows
 severity 35 — Preference no longer in the file we read — it may have been
     deleted, orphaning stored values, or simply moved to one of the ~100
     pref files outside the scan
--15 unconfirmed: this run read 2% of that surface at refs/tags/151.0.7922.138,
+unconfirmed: this run read 0.4% of that surface at refs/tags/151.0.7922.138,
     so "gone" may mean "moved into a file we never opened"; filed as
     upstream cleanup rather than a compatibility break
 ```
 
-A web API removed on the same run keeps its full 70, because the surface it
-vanished from was read almost completely. The deduction is per surface, not
-per run.
+The second is `enterprise_reporting.extension_request.enabled` on `--partition downloads` at M148 → M151. An `analysis` run finds the key in its new file and reports it as moved, not removed. The check is per surface, not per run: on the same downloads partition the 220 removed chrome://flags entries are confirmed, because their only file, `flag-metadata.json`, is read, while a removed preference is not.
 
-A ranking that cannot be checked is ignored the first time it is wrong. Nothing raises a score, so the first line is always the ceiling and every line under it is a deduction with a reason. §7 says where the numbers come from and how to change them.
+The first line is always the severity. It is also the score, unless a line below states that the declaration is outside the Windows build. The other lines state why a row is flagged or filed where it is. §7 describes where the numbers come from and how to change them.
 
 ### Analyse everything, render at read time
 
@@ -1171,7 +1172,7 @@ python3 -m chromiumdiff snapshot 151.0.7922.138
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
 | `report.json is schema N, and this build reads M` | The report was written by an older build | Re-run. A report cannot be rebuilt from itself, and the bucket ids in it may no longer name buckets — rendering it anyway printed `Compatibility break 0` and dropped 2,553 of 3,022 findings from the counts |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
-| `Compatibility break: 0` on a partitioned run | Normal, and not evidence that nothing is broken | A partition reads a fraction of the tree, and an unconfirmed removal is filed as Upstream cleanup there by design — the row says so with `unconfirmed`, and `summary.unconfirmed` counts them. Drop `--partition` before concluding anything |
+| Few or no Compatibility breaks on a partitioned run | Expected, and not evidence that nothing is broken | A partition is measured against the whole tree, so a preference or switch it reads only inside its own roots and finds removed is filed as Upstream cleanup with `unconfirmed`, and `summary.unconfirmed` counts them: 16 rows on `--partition downloads` at M148 → M151, where Compatibility break is 2. Changes outside the partition are not in the report at all. Drop `--partition` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
 | Different result from the last run | A bare milestone number was used | Always pin the full version for anything official |
 | (Windows) `FileNotFoundError` while unpacking | Hitting the 260-character limit | Put the project on a short path, or `set CHROMIUMDIFF_CACHE=C:\cdcache` |
@@ -1208,9 +1209,10 @@ BREAKS=$(python3 -c "import json,sys; \
 [ "$BREAKS" -eq 0 ] || { echo "$BREAKS compatibility breaks to triage"; exit 1; }
 ```
 
-On a full run `summary.unconfirmed` is 0, so a non-zero value there says the
-run read less of the tree than it was asked to and some removals were filed
-as cleanup for want of evidence.
+On an `analysis` run at M148 → M151 `summary.unconfirmed` is 0. A non-zero
+value means a kind of file was read under 95% or a side had a hole. The
+flagged rows keep their scores, and the removed preferences and switches among
+them are filed as Upstream cleanup, so they are not counted in `contract`.
 
 ---
 
@@ -1237,7 +1239,7 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 - Every attribute that gets compared must produce a label explaining it; a row with a score and an empty "why" column is unreadable. Checked both synthetically — every kind, every whitelisted attribute — and against two real snapshots.
 - Every signal must have a severity, a label **and** a bucket, and every bucket must be reachable. One signal missing from the bucket table would be filed by "something was removed" rather than by what the removal was.
 - Every kind and direction must produce a bucket, including the third of a report that carries no signal at all.
-- No score may exceed its own severity. Severity is the ceiling and the adjustments only subtract, so a score above it would mean a rule had been added without a sentence to explain it.
+- A score is its severity or zero, and on every row `unconfirmed` is set exactly when a reason line starts with `unconfirmed:`. Any other score would mean a rule had been added without a sentence to explain it.
 - Every tag the control rule can admit must have a display word, and every word must name a tag the rule admits.
 - Every fact must point at the line that declares it, and that line number must survive into the report.
 - No command may accept a flag and then ignore it.
@@ -1268,7 +1270,7 @@ chromiumdiff/
   extract/        the extractors, and the C++/GRIT/mojom condition scanner
   diff.py         semantic comparison, labelling, severity, bucketing
   cluster.py      assemble scattered fragments into one change
-  score.py        the two run-dependent adjustments, and the reasons
+  score.py        the Windows build rule, the unconfirmed flag, and the reasons
   catalog.py      measure what the target set is missing; check reference closure
   model.py        shared data structures, the five buckets, JSON read/write
   eligibility.py  one policy for what is product code, shared by discovery and extraction

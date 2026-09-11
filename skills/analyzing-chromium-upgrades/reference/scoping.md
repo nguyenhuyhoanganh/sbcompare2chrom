@@ -48,7 +48,9 @@ For a new comparison, explain the tradeoff before choosing the acquisition:
   not cover all Chromium code or syntax. `--target-set smoke` reads three
   files to check the tool runs; it cannot answer a comparison question.
 - `--partition` reduces acquisition to supported paths for the chosen areas.
-  It is not a complete boundary for their behaviour. Use it only after the
+  It is not a complete boundary for their behaviour, and coverage is still
+  measured against the whole tree, so a removal of a kind it reads only
+  inside its own roots is `unconfirmed`. Use it only after the
   user accepts that narrower acquisition. Confirm available options with
   `python3 -m chromiumdiff run --help`; do not invent a partition for an area
   not supported by the CLI.

@@ -19,7 +19,6 @@ from . import wording
 from ..model import (
     BUCKET_ADDED,
     BUCKET_BEHAVIOUR,
-    BUCKET_CLEANUP,
     BUCKET_CONTRACT,
     BUCKET_LABELS,
     BUCKET_MEANINGS,
@@ -232,34 +231,36 @@ def render(report: Report, platform: str = "windows",
 
 def _render_unconfirmed(report: Report, platform: str,
                         detail_limit: int) -> str:
-    """The removals this run could not confirm.
+    """The findings that rest on an absence this run could not confirm.
 
-    Every one of them is filed under Upstream cleanup, which has no table, and
-    markdown cannot be filtered -- so without this section the only way to
-    reach them is to open `report.json` and know which signal ids to look for.
-    They are there because the evidence is short, not because they are minor:
-    the same rows on a run that read the whole tree are compatibility breaks
-    worth 15 more points.
+    Markdown cannot be filtered, and a flagged preference or switch removal is
+    filed under Upstream cleanup, which has no table here -- so without this
+    section the only way to reach those is to open `report.json` and know
+    which signal ids to look for. Every other flagged row keeps its bucket, so
+    each row prints its own bucket rather than the section naming one.
     """
     findings = [f for f in report.findings if f.unconfirmed]
     if not findings:
         return ""
     out = [f"## Unconfirmed ({len(findings)})", "",
-           f"Filed under {BUCKET_LABELS[BUCKET_CLEANUP]} because this run did "
-           f"not read enough of the tree to tell a deletion from a move, not "
-           f"because nothing happened. Each one needs the file it would have "
-           f"declared in, read by hand.", "",
-
-           "| Score | What changed | Kind | Where |",
-           "|---:|---|---|---|"]
+           "Each row rests on a declaration missing from one side of the "
+           "comparison, and this run cannot tell whether Chromium made that "
+           "change or the declaration sits in a file the run did not read or "
+           "could not parse. The score and the bucket describe the change as "
+           "if it is real. Each one needs the file it would have been "
+           "declared in, read by hand.", "",
+           "| Score | Bucket | What changed | Kind | Where |",
+           "|---:|---|---|---|---|"]
     for finding in findings[:detail_limit]:
         out.append(
-            f"| {finding.score} | {_esc(wording.describe(finding.change))} "
+            f"| {finding.score} "
+            f"| {BUCKET_LABELS.get(finding.bucket, finding.bucket)} "
+            f"| {_esc(wording.describe(finding.change))} "
             f"| {KIND_LABELS.get(finding.change.kind, finding.change.kind)} "
             f"| `{_esc(_location(finding))}` |"
         )
     if len(findings) > detail_limit:
-        out.append(f"| … | _{len(findings) - detail_limit} more_ | | |")
+        out.append(f"| … | | _{len(findings) - detail_limit} more_ | | |")
     out.append("")
     return "\n".join(out)
 
@@ -285,9 +286,9 @@ def _render_stories(report: Report) -> str:
                 # and printing only the second made the table look unsorted:
                 # `Top score` ran 100, 84, 83, 80, 78, 75, 82, 50, 63 down a
                 # column with no visible reason. Severity is what this kind of
-                # change costs and it is the ranking; top score is that after
-                # the build conditions and this run's own coverage weighed in,
-                # so the gap between the two columns is the discount.
+                # change costs and it is the ranking; top score is the highest
+                # score among the rows, so it falls below Severity only when
+                # the heaviest rows are outside the Windows build.
                 "| Count | What happened | Direction | Severity | Top score |",
                 "|---:|---|---|---:|---:|"]
         # Every story, not the top few. There are about fifty in a full upgrade
@@ -684,8 +685,10 @@ def _tree_coverage_lines(report: Report) -> List[str]:
             out.append("  Largest gaps: "
                        + ", ".join(f"`{d}/` ({n:,} files)" for d, n in gaps)
                        + ".")
-    if out and (report.meta or {}).get("target_set") == "smoke":
-        out.append("  This was a smoke run of three files. Re-run without "
+    # Not beneath a coverage line: a smoke run measures none, so the line was
+    # printed on every run except the one it is about.
+    if (report.meta or {}).get("target_set") == "smoke":
+        out.append("- This was a smoke run of three files. Re-run without "
                    "`--target-set smoke` to compare two versions.")
     return out
 

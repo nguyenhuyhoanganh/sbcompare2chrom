@@ -47,8 +47,10 @@ Trước lần so sánh mới, giải thích đánh đổi:
   không phủ toàn bộ code hay ngữ pháp Chromium. `--target-set smoke` đọc ba
   file để kiểm công cụ có chạy không; nó không trả lời được câu hỏi so sánh.
 - `--partition` giới hạn việc tải vào các đường dẫn được công cụ hỗ trợ cho
-  khu vực đã chọn. Nó không bao hết hành vi của khu vực đó. Chỉ dùng sau khi
-  user chấp nhận phạm vi tải hẹp hơn. Kiểm tra tên tuỳ chọn bằng
+  khu vực đã chọn. Nó không bao hết hành vi của khu vực đó, và coverage vẫn
+  đo theo cả cây, nên removal thuộc loại file mà partition chỉ đọc bên trong
+  thư mục gốc của nó sẽ mang cờ `unconfirmed`. Chỉ dùng sau khi user chấp
+  nhận phạm vi tải hẹp hơn. Kiểm tra tên tuỳ chọn bằng
   `python3 -m chromiumdiff run --help`; không tự tạo tên partition mới.
 - Báo cáo rộng đã có có thể được truy vấn mà không tải lại hoặc nạp toàn bộ
   vào context. Không tạo lại chỉ để tập trung vào một khu vực.

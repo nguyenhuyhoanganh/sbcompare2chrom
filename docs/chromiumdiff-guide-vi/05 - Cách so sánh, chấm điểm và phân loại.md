@@ -219,7 +219,7 @@ Một quy tắc phòng nhiễu đáng chú ý: `position` chỉ được coi là
 | `param_removed` | 35 | Compatibility break | Cấu hình nào vẫn tiếp tục đặt param này sẽ im lặng mất tác dụng |
 | `param_rewired` | 35 | Compatibility break | Kiểu hoặc feature sở hữu param đã đổi |
 
-Hai signal `pref_left_scan` và `switch_left_scan` có thể bị bước chấm điểm hạ xuống Upstream cleanup **và gắn cờ `unconfirmed`**, nếu coverage không đủ để xác nhận rằng khai báo thật sự đã bị xoá.
+Hai signal `pref_left_scan` và `switch_left_scan` được bước chấm điểm chuyển sang Upstream cleanup **và gắn cờ `unconfirmed`** nếu coverage không đủ để xác nhận rằng khai báo thật sự đã bị xoá. Score của chúng vẫn bằng severity.
 
 Ngược lại, một trường hợp đổi tên đã ghép được bằng symbol là bằng chứng mạnh hơn hẳn, nên nó không bị hạ theo rule này.
 
@@ -253,7 +253,7 @@ Ngược lại, một trường hợp đổi tên đã ghép được bằng sym
 
 ## Bước 4 — Score được tính thế nào
 
-Đoạn giả mã sau khớp với implementation hiện tại:
+Đoạn giả mã sau mô tả cách tính score và bucket:
 
 ```text
 severity = severity(leading signal)
@@ -272,31 +272,31 @@ nếu delta nằm ở tập overload signature:
     mất đi một signature → coi như removed
     chỉ thêm vào         → coi như added
 
-nếu kết luận dựa trên sự vắng mặt, VÀ coverage của surface đó < 95%
-   hoặc phía tương ứng có lỗ hổng nghiêm trọng khi lấy source:
-    score -= 15
-    ghi rõ lý do vào reasons
-
-nếu leading signal là pref_left_scan hoặc switch_left_scan
-   và sự vắng mặt chưa được xác nhận:
-    bucket = Upstream cleanup
+nếu là removed, VÀ (coverage của surface đó ở bản mới < 95%
+                    hoặc bản mới thiếu file mục tiêu / có file không parse được):
     unconfirmed = true
+    ghi lý do vào reasons
+    nếu leading signal là pref_left_scan hoặc switch_left_scan:
+        bucket = Upstream cleanup
 
-nếu một khai báo mới không chứng minh được là vắng mặt ở bên cũ,
-   vì bên cũ có lỗ hổng nghiêm trọng:
-    bucket = Upstream cleanup
+nếu là added, VÀ bản cũ thiếu file mục tiêu / có file không parse được:
     unconfirmed = true
+    ghi lý do vào reasons
+    nếu bucket là New declarations:
+        bucket = Upstream cleanup
 
-score = clamp(score, 0, 100)
+(score không đổi ở cả hai nhánh trên)
 ```
 
-### Không bao giờ có điểm cộng
+### Score chỉ có hai giá trị: severity hoặc 0
 
-Severity là **trần**. Mọi modifier chỉ có thể trừ điểm hoặc đưa về 0.
+Score bằng severity, trừ khi khai báo nằm ngoài bản build Windows ở mọi phía; khi đó score bằng 0.
 
-Không có rule kiểu "Samsung có patch trong file này nên +20", vì ChromiumDiff không có dữ liệu về source Samsung trong pipeline lõi. Nếu tự cộng điểm cho một thứ mình không quan sát được, con số sẽ tạo cảm giác chính xác giả.
+Không có rule cộng điểm kiểu "Samsung có patch trong file này nên +20", vì ChromiumDiff không có dữ liệu về source Samsung trong pipeline lõi. Cộng điểm cho một yếu tố không quan sát được sẽ tạo ra độ chính xác giả.
 
-Hệ quả kiểm chứng được: mọi chênh lệch giữa severity và score đều phải xuất hiện trong trường `reasons`. Nếu không giải thích được vì sao lệch, đó là bug.
+Độ tin cậy của bằng chứng cũng không làm đổi score. Score và bucket trả lời câu hỏi "nếu thay đổi này là thật thì nó tốn gì". Độ tin cậy của bằng chứng là một câu hỏi khác, và cờ `unconfirmed` trả lời câu đó. Việc tách hai câu hỏi cũng giữ cho giá trị 0 chỉ có một nghĩa: khai báo nằm ngoài bản build Windows.
+
+Hệ quả kiểm chứng được: nếu score khác severity thì `reasons` phải có dòng ghi rằng khai báo nằm ngoài bản build Windows. Nếu không có dòng đó, đây là lỗi của công cụ.
 
 ### Rule về bản build Windows
 
@@ -320,12 +320,14 @@ Ngưỡng để xác nhận một khai báo thật sự vắng mặt là **95%**
 - flags entries;
 - routes, controls, gates.
 
-Điểm tinh tế: **removal và addition hỏi coverage của hai phía khác nhau.**
+Điểm cần chú ý: **chỉ removal bị xét theo coverage.**
 
-- Một kết luận `removed` hỏi coverage của snapshot **mới**: câu "không còn ở bản mới" chỉ đáng tin nếu bản mới đã thật sự được đọc.
-- Một kết luận `added` thường là thứ công cụ nhìn thấy tận mắt ở bản mới, nên nó không bị nghi ngờ chỉ vì target set cũ có coverage một phần như bình thường. Nó chỉ bị hạ khi bên cũ có lỗ hổng nghiêm trọng, khiến công cụ không thể chứng minh thứ đó trước đây chưa tồn tại.
+- Một kết luận `removed` dựa vào coverage của snapshot **mới**: câu "không còn ở bản mới" chỉ đáng tin nếu bản mới đã thật sự được đọc.
+- Một kết luận `added` là khai báo mà công cụ quan sát trực tiếp ở bản mới, nên coverage không được áp dụng cho nó. Nó chỉ bị gắn cờ khi bản cũ thiếu file mục tiêu hoặc có file không parse được, vì khi đó công cụ không chứng minh được rằng khai báo này chưa tồn tại ở bản cũ.
 
-Mức phạt là một con số cố định `15`, không nhân theo phần trăm coverage. Lý do: coverage đếm **file**, không đếm **khai báo**. Danh sách file chọn tay đọc rất ít file, nhưng đó lại là những file chứa phần lớn khai báo feature. Dùng coverage như một xác suất sẽ tạo ra cảm giác chính xác giả.
+Kết quả của rule này là cờ `unconfirmed` và một dòng trong `reasons`. Score không đổi.
+
+Lần chạy có `--partition` cũng đo coverage theo cả cây, không theo thư mục gốc của partition. Ví dụ, `--partition downloads` ở M151 đọc 10 trên 8.366 file ứng viên của cả cây, trong đó có 2 trên 529 file pref và switch, nên pref hoặc switch bị gỡ nằm trong bản build Windows đều mang cờ `unconfirmed`. Log in thêm con số bên trong thư mục gốc của partition: 10 trên 22 file. Trong số các dòng mang cờ, 6 key vẫn còn được khai báo trong cây M151, ở file nằm ngoài partition.
 
 ## Bước 5 — Bucket được chọn thế nào
 
@@ -367,9 +369,9 @@ Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc 
 
 ### `unconfirmed` không phải bucket thứ sáu
 
-Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal sẽ `unconfirmed` khi chỉ đọc danh sách file chọn tay và không `unconfirmed` khi chạy đủ cả archive. Vì vậy nó là một field trên finding, không phải một bucket.
+Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal có cờ `unconfirmed` trên lần chạy `--partition downloads` và không có cờ trên lần chạy `analysis`. Vì vậy nó là một field trên finding, không phải một bucket.
 
-Những dòng đó nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì nhỏ: khi coverage đủ chúng là Compatibility break và cao hơn 15 điểm. `report.md` dành cho chúng một mục riêng, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng — 303 khi chỉ đọc danh sách file chọn tay tại M148 → M151, **0 khi chạy `analysis`**, trong đó 120 dòng nằm ở Compatibility break. Cờ này được bật ở mọi dòng bị trừ 15 điểm, không chỉ ở những dòng bị đổi bucket.
+Pref và switch mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì thay đổi ít quan trọng. Ví dụ, `DebuggingFeaturesRequested` nằm ở Upstream cleanup trên lần chạy partition downloads nhưng là Compatibility break trên lần chạy `analysis`, và score ở cả hai lần đều là 35. Các dòng mang cờ khác, ví dụ removal của Mojo hoặc Web API, giữ nguyên bucket. `report.md` dành cho chúng một mục riêng có cột bucket, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: tại M148 → M151, **0 trên lần chạy `analysis`** và 16 trên lần chạy `--partition downloads`.
 
 ## Bước 6 — Những signal phải sửa ở ngoài repository
 
@@ -444,23 +446,22 @@ score: 35, không phải 75
 
 Đây là minh hoạ trực tiếp cho rule ở Bước 3: **signal cụ thể được ưu tiên hơn điểm nền thô.** Chính vì vậy bảng điểm mới kiểm toán được — mỗi con số truy ngược về đúng một rule.
 
-### Ví dụ D — Pref không còn thấy trong lần quét mặc định
+### Ví dụ D — Pref không còn thấy trong lần chạy có partition
 
 ```text
 signal: pref_left_scan
 severity: 35
-coverage của surface: dưới 95%
-mức phạt: -15
-score: 20
+coverage của surface pref và switch ở bản mới: 0,4% (--partition downloads)
+score: 35
 bucket: Upstream cleanup thay vì Compatibility break, unconfirmed = true
-lý do: có thể khoá này chỉ chuyển sang một file mà target set chưa đọc
+lý do: có thể khoá này chỉ chuyển sang một file mà lần chạy chưa đọc
 ```
 
-**Việc tiếp theo:** đọc file pref mà khoá đó có thể đã chuyển sang. Ba khả năng sẽ lộ ra:
+**Việc tiếp theo:** đọc file pref mà khoá đó có thể đã chuyển sang. Có ba kết quả:
 
-- nếu thấy cùng biến C++ đó ở một đường dẫn mới → đây là **move**;
-- nếu ghép được với một chuỗi mới → đây là **rename**;
-- nếu vẫn mất trong khi coverage đã đủ cao → kết luận **đã bị xoá** lúc này mới đáng tin.
+- thấy cùng biến C++ đó ở một đường dẫn mới → đây là **move**;
+- ghép được với một chuỗi mới → đây là **rename**;
+- không thấy ở đâu trong khi coverage đã đủ cao → kết luận **đã bị xoá** là đáng tin.
 
 ### Ví dụ E — Feature bị dọn sau khi đã BẬT từ trước
 
@@ -488,7 +489,7 @@ Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh 
 ### Những điểm khiến kết quả kiểm toán được
 
 - `Fact` và `Change` là JSON cố định, không phụ thuộc LLM.
-- Mỗi score đều có `reasons`: severity đến từ signal nào, bị trừ điểm vì lý do gì.
+- Mỗi finding đều có `reasons`: severity đến từ signal nào, vì sao score bằng 0 nếu có, và vì sao dòng đó mang cờ `unconfirmed` nếu có.
 - Bảng signal, bảng bucket và danh sách thuộc tính được so đều nằm tập trung trong code, không rải rác.
 - Có test bảo đảm bảng severity của signal và bảng bucket dùng chung một tập khoá; một signal không thể lặng lẽ rơi vào bucket mặc định mà không bị phát hiện.
 - Cùng một cây source phải tạo ra cùng một thứ tự `Fact`; bước loại trùng không phụ thuộc thứ tự file mà hệ điều hành trả về.
@@ -526,7 +527,8 @@ Tóm lại: báo cáo là **bằng chứng đã xếp hạng và đầu vào cho
   },
   "reasons": ["severity 80 — ..."],
   "score": 80,
-  "bucket": "breaking",
+  "bucket": "contract",
+  "unconfirmed": false,
   "enrichment": {}
 }
 ```
@@ -551,7 +553,7 @@ Mặc định bảng được sắp theo score giảm dần; bấm vào tiêu đ
 ### Luồng triage đề xuất
 
 1. Kiểm tra ref của hai bên, target set, coverage, missing target và lỗi trích xuất.
-2. Lọc theo phần mình quan tâm — kind, bucket hoặc nhóm hậu quả.
+2. Lọc theo phần cần xem — kind, bucket hoặc nhóm hậu quả.
 3. Xử lý các finding Compatibility break điểm cao trước — nhưng đọc signal chứ đừng chỉ nhìn con số.
 4. Xem Behaviour change, tập trung vào các luồng mà Samsung có tuỳ biến riêng.
 5. Xem New declarations để lập backlog cho việc test và cân nhắc adopt.

@@ -227,8 +227,8 @@ giải được. Một thay đổi không có finding vẫn phải xem.
 
 Trường `change` của một finding chứa `before`, `after`, `deltas`, `paths`,
 `locations` và `signals`. `unconfirmed` nghĩa là lần chạy chưa đọc đủ để chắc
-rằng thứ đó thật sự mất. Đọc các con số coverage và các lý do trước khi bạn
-nói một khai báo đã bị gỡ.
+rằng thứ đó thật sự mất; cờ này không làm giảm score. Đọc các con số coverage
+và các lý do trước khi bạn nói một khai báo đã bị gỡ.
 
 Từng loại bằng chứng nói được gì và không nói được gì:
 

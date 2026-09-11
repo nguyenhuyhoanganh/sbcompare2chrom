@@ -158,6 +158,8 @@ Giới hạn một lần chạy vào một khu vực chức năng, ví dụ `set
 
 Partition rất tiện khi cần điều tra nhanh một area. Nhưng nó **không phù hợp** làm cửa kiểm tra cuối trước khi release, vì một thay đổi ảnh hưởng Settings hoàn toàn có thể nằm ở một subsystem khác, ngoài partition đang chọn.
 
+Coverage của một lần chạy có partition được đo theo cả cây source. Nếu partition chỉ đọc một phần nhỏ số file của một loại khai báo, ví dụ pref, thì removal thuộc loại đó sẽ mang cờ `unconfirmed`. Log của lần chạy in thêm một con số thứ hai: số file partition đọc được bên trong thư mục gốc của chính nó.
+
 ### `--complete`
 
 Một option áp dụng cho một số partition có thư mục gốc đủ nhỏ. Khi bật, công cụ tải mọi file mà bộ đọc có thể hiểu bên trong thư mục gốc đó.
@@ -184,7 +186,7 @@ Tỷ lệ candidate file mà target set thực sự đọc tới:
 coverage = số candidate file mà target chạm tới / tổng số candidate file nhìn thấy được
 ```
 
-Coverage được tính cả ở mức tổng thể và ở mức từng nhóm (từng surface). Coverage theo từng nhóm mới là con số quan trọng khi đánh giá một kết luận dạng "khai báo này đã biến mất": riêng danh sách file chọn tay đọc gần hết file Web IDL, nhưng chỉ đọc được một phần rất nhỏ file chứa pref và switch; phần archive của `analysis` là thứ bù vào.
+Coverage được tính cả ở mức tổng thể và ở mức từng nhóm (từng surface). Coverage theo từng nhóm mới là con số quan trọng khi đánh giá một kết luận dạng "khai báo này đã biến mất": riêng danh sách file chọn tay đọc gần hết file Web IDL, nhưng chỉ đọc được một phần rất nhỏ file chứa pref và switch; phần archive của `analysis` là thứ bù vào. Một removal chỉ được coi là đã xác nhận khi coverage của đúng nhóm file đó ở phiên bản mới đạt từ 95% trở lên.
 
 ### Missing target
 
@@ -196,7 +198,7 @@ Với version cũ, đây có thể là chuyện hoàn toàn bình thường — 
 
 Một lần lấy source bị lỗi hoặc bị thủng, khiến một file đáng lẽ phải đọc lại không có dữ liệu.
 
-Hậu quả: mọi bằng chứng về việc "đã bị xoá" trong lần chạy đó đều yếu đi, vì "không thấy" lúc này có thể chỉ là do tải hỏng.
+Hậu quả: mọi bằng chứng về việc "đã bị xoá" trong lần chạy đó đều yếu đi, vì khi đó "không thấy" có thể chỉ do file tải về bị lỗi.
 
 ## Nhóm 3 — Kiến trúc của browser
 
@@ -360,7 +362,7 @@ Giới hạn cần nói rõ: ChromiumDiff chỉ nhìn thấy **tên và cách đ
 
 Một flag cho phép tắt nhanh một feature đã ship, phòng khi có sự cố.
 
-Khi Chromium xoá kill switch sau lúc feature đã ổn định, thường thì hành vi đã trở thành cố định từ trước rồi. Việc cần kiểm tra lúc này không phải "hành vi vừa đổi", mà là "còn cấu hình bên ngoài nào vẫn cố override flag đó không".
+Khi Chromium xoá kill switch sau khi feature đã ổn định, hành vi thường đã cố định từ trước. Việc cần kiểm tra khi đó không phải "hành vi vừa đổi", mà là "còn cấu hình bên ngoài nào override flag đó không".
 
 ### Command-line switch
 
@@ -471,9 +473,15 @@ Leading signal quan trọng vì nó quyết định hai thứ: severity và buck
 Hai con số khác nhau, rất hay bị nhầm:
 
 - `severity` là mức quan trọng **cơ sở** của loại thay đổi, lấy từ leading signal, hoặc từ bảng mặc định theo `kind` + hướng thay đổi nếu không có signal nào.
-- `score` là điểm **cuối cùng**, sau khi đã xét thêm hai yếu tố: khai báo có nằm trong bản build Windows không, và bằng chứng cho kết luận "đã biến mất" có đáng tin không.
+- `score` bằng `severity`, trừ một trường hợp: khai báo bị Chromium loại khỏi bản build Windows ở cả hai phía thì `score` bằng 0. Việc bằng chứng cho kết luận "đã biến mất" có đủ hay không được ghi bằng cờ `unconfirmed`, không làm đổi `score`.
 
 Cần nói rõ điều `score` không phải: nó không phải xác suất Samsung bị lỗi, và cũng không phải ước lượng số ngày công.
+
+### `unconfirmed`
+
+Cờ trên một finding. Cờ bật khi finding dựa trên một sự vắng mặt mà lần chạy không xác nhận được: phiên bản mới đọc dưới 95% số file thuộc loại khai báo đó trong cả cây, hoặc phía cung cấp bằng chứng thiếu file mục tiêu hay có file không parse được.
+
+Cờ này không làm đổi `score`. Pref hoặc switch bị gỡ mà mang cờ được xếp vào Upstream cleanup; các dòng mang cờ khác giữ nguyên bucket.
 
 ### Bucket
 

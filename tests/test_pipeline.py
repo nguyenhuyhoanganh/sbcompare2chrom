@@ -254,7 +254,7 @@ class TestScoring(unittest.TestCase):
 
         This is the join the two modules can drift on: mojom resolves
         `[EnableIf=is_android]` and `score._not_in_build` reads
-        `platform_state`, and if either spelling moves the deduction goes back
+        `platform_state`, and if either spelling moves the build rule goes back
         to skipping every Mojo finding in silence -- which is how an
         Android-only field changing type reached the top of a Windows report at
         80 points. Measured on M148 -> M151: seven findings.
@@ -286,12 +286,29 @@ struct Handset {
         self.assertEqual(change.signals, [])
         self.assertEqual(change.severity, 10)
 
-    def test_score_never_rises_above_severity(self):
+    def test_a_score_is_its_severity_or_zero(self):
+        """The build rule is the only thing that moves a score.
+
+        A partial read is said by `unconfirmed` and a reason line, not by the
+        number. The 15 points it once cost changed no row of an `analysis` run
+        at M148 -> M151, and were sized on a curated-only run the command line
+        can no longer make.
+        """
+        outside = [feature("Out", "enabled"), feature("Out", "disabled")]
+        for fact in outside:
+            fact.attrs["platform_state"] = {"windows": "not_compiled"}
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
         findings = score_all(diff_snapshots(
-            snap("148.0.0.0", [feature("A", "disabled"), feature("B", "enabled")]),
-            snap("151.0.0.0", [feature("A", "enabled")]), platform="windows"))
+            snap("148.0.0.0", [feature("A", "disabled"),
+                               feature("Gone", "enabled"), outside[1]]),
+            snap("151.0.0.0", [feature("A", "enabled"), outside[0]]),
+            platform="windows"), partial)
+        self.assertEqual(sorted(f.change.key for f in findings),
+                         ["A", "Gone", "Out"])
         for f in findings:
-            self.assertLessEqual(f.score, f.change.severity)
+            self.assertIn(f.score, (0, f.change.severity), f.reasons)
+        self.assertEqual(
+            [f.score for f in findings if f.change.key == "Out"], [0])
 
     def test_every_adjustment_carries_its_sentence(self):
         finding = score_change(self.change)
@@ -328,27 +345,30 @@ struct Handset {
         self.assertEqual(finding.score, finding.change.severity)
         self.assertGreater(finding.score, 0)
 
-    def test_a_removal_is_discounted_when_the_tree_was_not_read(self):
+    def test_a_removal_on_a_partial_read_is_flagged_not_marked_down(self):
         """Absence from a twentieth of the tree is not evidence of deletion.
 
         Measured M148 -> M151 on the curated files: of 141 preference keys that
-        vanished, 100 had simply moved into a file the run never opened.
+        vanished, 100 had simply moved into a file the run never opened. The
+        doubt is a flag and a sentence; what the removal would cost if it is
+        real does not change with it.
         """
         change = diff_snapshots(snap("148.0.0.0", [feature("Gone", "enabled")]),
                                 snap("151.0.0.0", []), platform="windows")[0]
-        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
-        whole = Scope({"to": {"candidates": 1164, "read": 1164}}, to_ref="151")
-        self.assertLess(score_change(change, partial).score,
-                        score_change(change, whole).score)
-        self.assertEqual(score_change(change, whole).score, change.severity)
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
+        whole = Scope({"candidates": 1164, "read": 1164}, to_ref="151")
+        doubted = score_change(change, partial)
+        self.assertTrue(doubted.unconfirmed)
+        self.assertFalse(score_change(change, whole).unconfirmed)
+        self.assertEqual(doubted.score, change.severity)
 
-    def test_an_addition_is_not_discounted(self):
+    def test_an_addition_is_not_doubted_by_coverage(self):
         """An addition is a thing seen, not a thing not seen."""
         change = diff_snapshots(snap("148.0.0.0", []),
                                 snap("151.0.0.0", [feature("New", "enabled")]),
                                 platform="windows")[0]
-        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
-        self.assertEqual(score_change(change, partial).score, change.severity)
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
+        self.assertFalse(score_change(change, partial).unconfirmed)
 
     def test_an_unconfirmed_disappearance_is_filed_as_cleanup(self):
         """`pref_left_scan` says "deleted, or moved"; coverage says which."""
@@ -357,8 +377,8 @@ struct Handset {
         change = diff_snapshots(snap("148.0.0.0", [key]), snap("151.0.0.0", []),
                                 platform="windows")[0]
         self.assertIn("pref_left_scan", change.signals)
-        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
-        whole = Scope({"to": {"candidates": 1164, "read": 1164}}, to_ref="151")
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
+        whole = Scope({"candidates": 1164, "read": 1164}, to_ref="151")
         self.assertEqual(score_change(change, partial).bucket, "cleanup")
         self.assertEqual(score_change(change, whole).bucket, "contract")
         # The bucket says what the evidence supports; the flag says the
@@ -497,7 +517,7 @@ class TestEverySignalIsClassified(unittest.TestCase):
                                      key="a.b", name="a.b",
                                      paths=["pref_names.h"],
                                      signals=["pref_left_scan"]),
-                       score=20, bucket="cleanup", unconfirmed=True)
+                       score=35, bucket="cleanup", unconfirmed=True)
 
     def test_no_word_names_two_things_on_the_page(self):
         """One word, one meaning -- across every naming vocabulary at once.
@@ -645,8 +665,8 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
 
     The same change carries it on a partial run and not on a full one, so it
     cannot be a bucket -- buckets are decided by the change. It is a field so
-    a reader can filter for it: the rows that carry it sit in Upstream
-    cleanup, the one bucket `report.md` gives no table to.
+    a reader can filter for it: a flagged preference or switch removal sits in
+    Upstream cleanup, the one bucket `report.md` gives no table to.
     """
 
     def _unconfirmed_pref(self):
@@ -654,7 +674,7 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
                    attrs={"var": "kAB"})
         change = diff_snapshots(snap("148.0.0.0", [key]),
                                 snap("151.0.0.0", []), platform="windows")[0]
-        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
         return score_change(change, partial)
 
     def test_it_survives_a_round_trip_through_json(self):
@@ -678,7 +698,7 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
         self.assertEqual(summary["unconfirmed"], 1)
 
     def test_the_markdown_report_gives_them_a_section(self):
-        """They are in the bucket with no table, so without this the only way
+        """Some are in the bucket with no table, so without this the only way
         to reach them is to know which signal ids to grep `report.json` for."""
         from chromiumdiff.model import Report
         from chromiumdiff.report import markdown as md_report
@@ -686,6 +706,29 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
                                        findings=[self._unconfirmed_pref()]))
         self.assertIn("## Unconfirmed (1)", page)
         self.assertIn("read by hand", page)
+
+    def test_the_section_says_where_each_row_is_filed(self):
+        """Only the two `*_left_scan` signals move to Upstream cleanup.
+
+        A Mojo removal the run could not confirm stays a Compatibility break,
+        and the section said every row in it was filed under Upstream cleanup.
+        """
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
+        method = Fact(kind="mojo_method", key="Widget.Ping", name="Ping",
+                      path="widget.mojom", attrs={"signature": "Ping()"})
+        change = diff_snapshots(snap("148.0.0.0", [method]),
+                                snap("151.0.0.0", []), platform="windows")[0]
+        mojo = score_change(change, Scope({"candidates": 1164, "read": 64},
+                                          to_ref="151"))
+        page = md_report.render(Report(from_ref="a", to_ref="b",
+                                       findings=[mojo, self._unconfirmed_pref()]))
+        section = page.split("## Unconfirmed (2)", 1)[1].split("\n## ", 1)[0]
+        rows = {line for line in section.splitlines() if line.startswith("| ")}
+        self.assertTrue(any("Ping" in r and "Compatibility break" in r
+                            for r in rows), section)
+        self.assertTrue(any("a.b" in r and "Upstream cleanup" in r
+                            for r in rows), section)
 
     def test_the_html_row_carries_the_flag_and_offers_the_filter(self):
         from chromiumdiff.model import Report
@@ -697,40 +740,30 @@ class TestUnconfirmedIsAFieldNotABucket(unittest.TestCase):
                          [1])
         self.assertIn('id="fu"', page)
 
-    def test_the_flag_is_set_wherever_the_deduction_is(self):
-        """One fact, said twice, and the two must agree.
+    def test_an_unconfirmed_removal_keeps_its_bucket_and_its_weight(self):
+        """The flag says the evidence is short; the bucket and the score say
+        what the change is if it is real.
 
-        The flag was set only where the filing *also* moved -- the two
-        `*_left_scan` signals -- so it named 31 of the 303 rows that took the
-        penalty at M148 -> M151, while the field's own meaning covers all of
-        them. The 120 it left out sit in Compatibility break, where a reader
-        most wants to know the evidence is short.
+        Only `pref_left_scan` and `switch_left_scan` move bucket, because
+        their own label is an inference from absence. A removed Mojo method's
+        is not, so it stays a Compatibility break at its severity with the
+        doubt on the row. The flag once named only the rows whose filing also
+        moved -- 31 of 303 at M148 -> M151 on the curated files -- and left out
+        120 Compatibility breaks, where a reader most wants to know the
+        evidence is short.
         """
         from chromiumdiff.model import Fact
-        # A removed Mojo method: penalised for the unconfirmed absence, and
-        # NOT one of the two signals that move bucket.
         method = Fact(kind="mojo_method", key="Widget.Ping", name="Ping",
                       path="widget.mojom", attrs={"signature": "Ping()"})
         change = diff_snapshots(snap("148.0.0.0", [method]),
                                 snap("151.0.0.0", []), platform="windows")[0]
-        partial = Scope({"to": {"candidates": 1164, "read": 64}}, to_ref="151")
+        partial = Scope({"candidates": 1164, "read": 64}, to_ref="151")
         finding = score_change(change, partial)
-        docked = [r for r in finding.reasons if r.startswith("-15 unconfirmed")]
-        self.assertTrue(docked, finding.reasons)
         self.assertTrue(finding.unconfirmed)
-        # The bucket does not move: only `pref_left_scan` and
-        # `switch_left_scan` do that.
         self.assertEqual(finding.bucket, "contract")
-
-    def test_nothing_carries_the_flag_without_the_deduction(self):
-        """The other direction of the same invariant."""
-        change = diff_snapshots(snap("148.0.0.0", []),
-                                snap("151.0.0.0", [feature("New", "enabled")]),
-                                platform="windows")[0]
-        finding = score_change(change)
-        self.assertFalse(any(r.startswith("-15 unconfirmed")
-                             for r in finding.reasons))
-        self.assertFalse(finding.unconfirmed)
+        self.assertEqual(finding.score, change.severity)
+        self.assertTrue(any(r.startswith("unconfirmed:")
+                            for r in finding.reasons), finding.reasons)
 
     def test_no_two_filters_share_a_label(self):
         """A control row where two pickers both say "All evidence" is one
@@ -3005,9 +3038,22 @@ class TestTheReportCarriesItsOwnCoverage(unittest.TestCase):
     def test_the_ranking_reads_the_same_measurement_the_report_prints(self):
         from chromiumdiff.score import Scope
         meta = self._report().meta
-        scope = Scope({"to": meta["coverage"]["to"]}, to_ref="refs/tags/151")
+        scope = Scope(meta["coverage"]["to"], to_ref="refs/tags/151")
         self.assertFalse(scope.confirms_absence())
         self.assertEqual(scope.read_percent(), "4%")
+
+    def test_a_smoke_report_says_it_is_not_a_comparison(self):
+        """A smoke run measures no coverage, and the line saying it is not a
+        comparison was printed only beneath a coverage line -- so it never
+        appeared on the one run it is about."""
+        from chromiumdiff.model import Report
+        from chromiumdiff.report import markdown as md_report
+        summary = {"changes": {"total": 0, "by_kind": {}}}
+        summary.update(summarize_findings([]))
+        page = md_report.render(Report(
+            from_ref="refs/tags/148", to_ref="refs/tags/151", findings=[],
+            summary=summary, meta={"target_set": "smoke", "coverage": {}}))
+        self.assertIn("Re-run without `--target-set smoke`", page)
 
     def test_tree_coverage_survives_into_the_report_json(self):
         blob = self._report().to_dict()
@@ -4246,13 +4292,12 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         return diff_snapshots(snap("148.0.0.0", [old]),
                               snap("151.0.0.0", []))[0]
 
-    FULL = {"from": {"candidates": 100, "read": 100},
-            "to": {"candidates": 100, "read": 100}}
+    FULL = {"candidates": 100, "read": 100}
 
     def test_the_latch_asks_the_side_the_evidence_comes_from(self):
         """A removal is an absence from the new side; an addition from the old.
 
-        Testing both at once discounted each for a fault on the side its
+        Testing both at once doubted each for a fault on the side its
         evidence does not come from.
         """
         old_hole = Scope(self.FULL, "r", from_incomplete="2 targets missing")
@@ -4265,8 +4310,7 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         # ...and the mirror for an addition.
         self.assertFalse(old_hole.confirms_absence("switch", ADDED))
         self.assertTrue(new_hole.confirms_absence("switch", ADDED))
-        self.assertEqual(score_change(removed, old_hole).score,
-                         score_change(removed, Scope(self.FULL, "r")).score)
+        self.assertFalse(score_change(removed, old_hole).unconfirmed)
         self.assertEqual(score_change(added, new_hole).bucket, "added")
 
     def test_an_unconfirmed_addition_is_not_called_new_surface(self):
@@ -4276,19 +4320,6 @@ class TestTheThingsFixedWithoutBeingLocked(unittest.TestCase):
         self.assertEqual(finding.bucket, "cleanup")
         self.assertIn("cannot show it was absent before",
                       " ".join(finding.reasons))
-
-    def test_coverage_is_read_from_the_side_that_answers(self):
-        """`share_for` looked only at the new side, whatever the direction."""
-        lopsided = Scope({
-            "from": {"candidates": 1000, "read": 10,
-                     "by_surface": {"preference keys and switches":
-                                    {"candidates": 100, "read": 1}}},
-            "to": {"candidates": 1000, "read": 1000,
-                   "by_surface": {"preference keys and switches":
-                                  {"candidates": 100, "read": 100}}}},
-            to_ref="r")
-        self.assertEqual(lopsided.read_percent("switch", REMOVED), "100%")
-        self.assertEqual(lopsided.read_percent("switch", ADDED), "1%")
 
     # --- platform_state, on a kind that only started comparing it
     def test_a_mojo_method_leaving_the_windows_build_is_a_change(self):
@@ -4452,8 +4483,8 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
 
     Three times in this project the data model learned something and the
     pipeline kept doing without it: the Mojo ordinal, `platform_state`, and
-    the two-sided coverage. Boundary tests are worth more here than more
-    tests of the parts.
+    which side's coverage and holes the scorer is handed. Boundary tests are
+    worth more here than more tests of the parts.
     """
 
     def _mojom_snapshot(self, ref, body, meta=None):
@@ -4461,14 +4492,15 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
         return Snapshot(ref=ref, facts=mojom.extract(body, "t.mojom"),
                         meta=meta or {"target_set": "analysis"})
 
-    def test_the_run_hands_the_scorer_both_sides_of_the_coverage(self):
-        """`Scope` held two sides while the run passed one.
+    def test_the_run_hands_the_scorer_the_new_tree_and_both_holes(self):
+        """`Scope` could use more than the run passed it.
 
         The first version of this read `cmd_run`'s source for the strings
         `"from"` and `"to"`, which appear in it for other reasons -- so
-        dropping the old side from the call left the test green. It drives
-        the function now: two snapshots in, and the object it returns has to
-        answer the two directions differently.
+        dropping a side from the call left the test green. It drives the
+        function: two snapshots in, and the object it returns has to judge a
+        removal by the new tree's read, and each direction by its own side's
+        holes.
         """
         from chromiumdiff.cli import scope_for
 
@@ -4476,14 +4508,21 @@ class TestTheBoundariesThatKeepBeingCrossed(unittest.TestCase):
             "coverage": {"candidates": 100, "read": 1}})
         full = Snapshot(ref="151.0.0.0", facts=[], meta={
             "coverage": {"candidates": 100, "read": 100}})
-        scope = scope_for(thin, full)
-        self.assertEqual(scope.read_percent("switch", REMOVED), "100%")
-        self.assertEqual(scope.read_percent("switch", ADDED), "1%")
-        self.assertEqual(scope.to_ref, "151.0.0.0")
-        # And the mirror, so neither side is hard-coded.
-        mirrored = scope_for(full, thin)
-        self.assertEqual(mirrored.read_percent("switch", REMOVED), "1%")
-        self.assertEqual(mirrored.read_percent("switch", ADDED), "100%")
+        self.assertEqual(scope_for(thin, full).read_percent("switch"), "100%")
+        self.assertEqual(scope_for(full, thin).read_percent("switch"), "1%")
+        self.assertEqual(scope_for(thin, full).to_ref, "151.0.0.0")
+        # Coverage doubts only a removal, however thin the new side's read.
+        self.assertFalse(scope_for(full, thin).confirms_absence("switch"))
+        self.assertTrue(scope_for(full, thin).confirms_absence("switch", ADDED))
+        holed = Snapshot(ref="148.0.0.0", facts=[], meta={
+            "coverage": {"candidates": 100, "read": 100},
+            "missing_targets": ["a.cc"]})
+        old_hole = scope_for(holed, full)
+        self.assertFalse(old_hole.confirms_absence("switch", ADDED))
+        self.assertTrue(old_hole.confirms_absence("switch", REMOVED))
+        new_hole = scope_for(full, holed)
+        self.assertTrue(new_hole.confirms_absence("switch", ADDED))
+        self.assertFalse(new_hole.confirms_absence("switch", REMOVED))
 
     def test_an_unguarded_declaration_equals_one_guarded_onto_windows(self):
         """Same answer, one representation each; comparing the form said
@@ -4593,8 +4632,7 @@ class TestTheCompletenessMatrix(unittest.TestCase):
     for every change.
     """
 
-    FULL = {"from": {"candidates": 100, "read": 100},
-            "to": {"candidates": 100, "read": 100}}
+    FULL = {"candidates": 100, "read": 100}
 
     def _scopes(self):
         return {
@@ -4639,39 +4677,53 @@ class TestTheCompletenessMatrix(unittest.TestCase):
         "variant removed": "new hole",
     }
 
-    def test_each_evidence_shape_is_discounted_by_exactly_one_hole(self):
-        cases = {
+    def _cases(self):
+        return {
             "whole added": self._whole(ADDED),
             "whole removed": self._whole(REMOVED),
             "variant added": self._variant(ADDED),
             "variant removed": self._variant(REMOVED),
         }
-        for name, change in cases.items():
-            clean = score_change(change, self._scopes()["no hole"]).score
-            for hole, scope in self._scopes().items():
-                score = score_change(change, scope).score
-                discounted = score < clean
-                should = hole in ("both", self.EXPECTED_HOLE[name])
-                self.assertEqual(
-                    discounted, should,
-                    f"{name} under {hole}: score {score} against {clean}")
 
-    def test_a_variant_addition_is_not_discounted_by_a_new_side_hole(self):
+    def test_each_evidence_shape_is_doubted_by_exactly_one_hole(self):
+        for name, change in self._cases().items():
+            for hole, scope in self._scopes().items():
+                should = hole in ("both", self.EXPECTED_HOLE[name])
+                self.assertEqual(score_change(change, scope).unconfirmed,
+                                 should, f"{name} under {hole}")
+
+    def test_no_hole_moves_a_score(self):
+        """A hole is said on the row. It does not change what the row weighs."""
+        for name, change in self._cases().items():
+            for hole, scope in self._scopes().items():
+                self.assertEqual(score_change(change, scope).score,
+                                 change.severity, f"{name} under {hole}")
+
+    def test_the_flag_and_its_sentence_travel_together(self):
+        """One fact said twice -- the field a reader filters on and the line a
+        reader reads -- so the two agree on every row, in both directions."""
+        for name, change in self._cases().items():
+            for hole, scope in self._scopes().items():
+                finding = score_change(change, scope)
+                said = any(r.startswith("unconfirmed:")
+                           for r in finding.reasons)
+                self.assertEqual(said, finding.unconfirmed,
+                                 f"{name} under {hole}: {finding.reasons}")
+
+    def test_a_variant_addition_is_not_doubted_by_a_new_side_hole(self):
         """Its evidence is that the old side did not have it.
 
         The narrow case worth naming on its own: an overload appearing was
         being judged by a fault in the snapshot it appears *in*.
         """
         change = self._variant(ADDED)
-        clean = score_change(change, self._scopes()["no hole"]).score
-        self.assertEqual(
-            score_change(change, self._scopes()["new hole"]).score, clean)
+        self.assertFalse(
+            score_change(change, self._scopes()["new hole"]).unconfirmed)
 
     def test_a_removal_survives_a_hole_in_the_side_it_was_present_on(self):
         change = self._whole(REMOVED)
-        clean = score_change(change, self._scopes()["no hole"]).score
-        self.assertEqual(
-            score_change(change, self._scopes()["old hole"]).score, clean)
+        self.assertFalse(
+            score_change(change, self._scopes()["old hole"]).unconfirmed)
 
 
 class TestTheReportIsSafeToOpen(unittest.TestCase):
@@ -4788,16 +4840,16 @@ class TestRemovalConfidenceIsPerSurface(unittest.TestCase):
 
     One scalar for the whole run made a vanished web API -- seen against a
     99.8% read of the IDL -- exactly as doubtful as a vanished preference seen
-    against 1.7% of the pref files. On the curated files that cost 45 real web
-    API removals 15 points each.
+    against 1.7% of the pref files. On the curated files that cast doubt on 45
+    real web API removals.
     """
 
-    COVERAGE = {"to": {
+    COVERAGE = {
         "candidates": 8366, "read": 3677,
         "by_surface": {
             "web API definitions": {"candidates": 2170, "read": 2166},
             "preference keys and switches": {"candidates": 348, "read": 4},
-        }}}
+        }}
 
     def _scope(self):
         return Scope(self.COVERAGE, to_ref="refs/tags/151.0.7922.138")
@@ -4812,17 +4864,27 @@ class TestRemovalConfidenceIsPerSurface(unittest.TestCase):
         self.assertEqual(scope.read_percent("idl_member"), "100%")
         self.assertEqual(scope.read_percent("pref"), "1%")
 
+    def test_a_read_under_one_percent_is_not_printed_as_zero(self):
+        """`--partition downloads` read 2 of 529 pref and switch files in the
+        M151 tree, and the reason line said "0%", which reads as none."""
+        self.assertEqual(Scope({"candidates": 529, "read": 2}).read_percent(),
+                         "0.4%")
+        self.assertEqual(Scope({"candidates": 529, "read": 0}).read_percent(),
+                         "0%")
+        self.assertEqual(Scope({"candidates": 3011, "read": 1}).read_percent(),
+                         "under 0.1%")
+
     def test_a_kind_with_no_row_falls_back_to_the_whole_read(self):
         """Never a guess: an unmeasured surface uses the figure there is."""
         self.assertEqual(self._scope().read_percent("mojo_method"), "44%")
 
-    def test_a_web_api_removal_keeps_its_full_severity(self):
+    def test_a_web_api_removal_is_confirmed_by_its_own_surface(self):
         api = Fact(kind="idl_interface", key="Foo", name="Foo",
                    path="third_party/blink/renderer/core/foo.idl",
                    attrs={"idl_kind": "interface"})
         change = diff_snapshots(snap("148.0.0.0", [api]),
                                 snap("151.0.0.0", []), platform="windows")[0]
-        self.assertEqual(score_change(change, self._scope()).score, 70)
+        self.assertFalse(score_change(change, self._scope()).unconfirmed)
 
 
 class TestAnOverloadSetIsPartOfTheContract(unittest.TestCase):
@@ -5015,7 +5077,7 @@ class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
     removal it cannot see.
     """
 
-    FULL = {"to": {"candidates": 100, "read": 100}}
+    FULL = {"candidates": 100, "read": 100}
 
     def test_a_complete_run_confirms_an_absence(self):
         self.assertTrue(Scope(self.FULL, "refs/tags/151").confirms_absence("pref"))
@@ -5037,7 +5099,7 @@ class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
         self.assertIn("would not parse", reasons)
         self.assertNotIn("of that surface", reasons)
 
-    def test_the_reason_is_built_from_the_snapshot(self):
+    def test_the_hole_reason_is_built_from_the_snapshot(self):
         from chromiumdiff.cli import _incomplete_reason
         clean = Snapshot(ref="r", facts=[], meta={"missing_targets": [],
                                                   "extract_stats": {"_errors": 0}})
@@ -5047,6 +5109,62 @@ class TestAbsenceNeedsMoreThanCoverage(unittest.TestCase):
         self.assertEqual(_incomplete_reason(holed),
                          "2 target(s) the source did not have and "
                          "3 file(s) that would not parse")
+
+
+class TestAPartitionIsMeasuredAgainstTheTree(unittest.TestCase):
+    """A removal is an absence from the tree, so it is confirmed against the
+    tree.
+
+    A partition's coverage was measured against its own roots, so it could
+    read 100% of a surface and still not see a key that moved to a file
+    outside them. Measured on `--partition downloads` at M148 -> M151: it read
+    2 of 2 pref files inside its roots, and 6 of its removals were keys the
+    M151 tree still has in another file, filed as Compatibility breaks and not
+    flagged. `catalog` already measured a partition against the whole tree.
+    """
+
+    SURFACE = "preference keys and switches"
+    CANDIDATES = {
+        "chrome/common/pref_names.h": SURFACE,
+        "chrome/browser/foo/foo_pref_names.h": SURFACE,
+    }
+
+    def _measure(self, partitions):
+        from chromiumdiff.snapshot import measure_coverage
+        from chromiumdiff.targets import get_targets
+        return measure_coverage(self.CANDIDATES, {},
+                                get_targets("analysis", partitions),
+                                partitions)
+
+    def test_the_figure_the_scorer_reads_counts_the_whole_tree(self):
+        tree, _ = self._measure(["downloads"])
+        self.assertEqual(tree["by_surface"][self.SURFACE],
+                         {"candidates": 2, "read": 1})
+
+    def test_the_partition_figure_counts_its_own_roots(self):
+        _, own = self._measure(["downloads"])
+        self.assertEqual(own["by_surface"][self.SURFACE],
+                         {"candidates": 1, "read": 1})
+
+    def test_an_unpartitioned_run_has_one_figure(self):
+        _, own = self._measure(None)
+        self.assertIsNone(own)
+
+    def test_a_cached_partition_measured_on_its_roots_is_rebuilt(self):
+        """Its `coverage` counts only the partition's roots, and the scorer
+        confirms removals against that figure, so it cannot be reused."""
+        from chromiumdiff.snapshot import (
+            _partition_measured_on_its_roots as stale)
+        roots = {"partitions": ["downloads"],
+                 "coverage": {"candidates": 22, "read": 10}}
+        tree = dict(roots, coverage={"candidates": 8366, "read": 10},
+                    partition_coverage={"candidates": 22, "read": 10})
+        self.assertTrue(stale({"meta": roots}))
+        self.assertFalse(stale({"meta": tree}))
+        self.assertFalse(stale({"meta": {
+            "partitions": [], "coverage": {"candidates": 8366, "read": 8295}}}))
+        self.assertFalse(stale({"meta": {"partitions": ["downloads"],
+                                         "coverage": {}}}))
 
 
 class TestTheCoverageDenominatorAsksTheExtractors(unittest.TestCase):
