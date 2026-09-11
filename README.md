@@ -379,9 +379,7 @@ The control's type is the tag name itself — `settings-toggle-button` is a togg
 
 Chromium is migrating WebUI from Polymer (`.html`) to Lit (`.html.ts`), and unevenly: at M151, settings still has 243 Polymer files against 6 Lit, while extensions is 2 against 33 and print_preview 2 against 32. The extractor reads both dialects.
 
-**What counts as a control is a rule, not a list of names.** It used to be 27 tag names typed out by hand, and it decayed the way every hand-written list here has decayed. Measured at M151 across the eight screens the curated file list reads, 471 distinct custom elements appear in the templates 2,462 times, and the list matched 902 of those (36%) — while 41 of the misses bind a real preference, which makes them controls by definition. `settings-collapse-radio-button` writes one 27 times, and `report/wording.py` already carried a display word for that exact tag, so the renderer knew about a control the extractor never produced.
-
-An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. Requiring an identity is why widening the rule costs nothing: an element with no preference, no id and no label can only be identified by its position, which changes whenever a template is reordered. The rule improves on the list it replaced in every measure — 977 controls against 977, 190 preference-bound against 156, and position-only identities down from 130 (14%) to 15 (1%).
+**What counts as a control is a rule, not a list of names.** An element is a control when it binds a preference; or when a hyphen-separated segment of its tag names an interactive component *and* it has a stable identity (an element id or a label); or when it is one of the structural units a page is built from. Matching segments rather than substrings is what separates `cr-icon-button` from `cr-icon`. An identity is required because an element with no preference, no id and no label can only be identified by its position, which changes whenever a template is reordered. At M151 an `analysis` run reads 1,431 controls: 190 of them bind a preference, and 15 (1%) are identified only by their position.
 
 **Identity has to be specific enough to tell things apart.** A loadTimeData key is not unique: at M151, 62 of 668 keys are set by more than one handler — `undoDescription` by both `bookmarks_ui.cc` and `downloads_ui.cc` — and 26 of those set different values. Controls are the same: 98 of 1,256 keys collide between files in the same directory, like `id:nicknameInput` existing in both `credit_card_edit_dialog` and `iban_edit_dialog`. When keys collide one copy is dropped, and which one survives depends on directory walk order. So a gate carries its handler name and a control carries its file name: that recovered 318 declarations that were being thrown away. Routes still join to gates by the bare key, so the three-hop chain is unchanged.
 
@@ -446,7 +444,7 @@ Then it attaches a **meaning label** to every change — this is what turns "a l
 | `feature_symbol_renamed` | No, but… | The C++ identifier changed — our build breaks after the merge |
 | `pref_renamed` | No, but… | A settings key changed — every existing user's stored value is orphaned |
 
-Every attribute that gets compared can produce a label like this. This is enforced by a test: an attribute is in the whitelist because a change to it was decided to matter, so if it moves and the report says nothing, that row is unreadable. Measured M148 → M151, **380 of 709 "modified" changes used to arrive that way**; a test now blocks it, and the same test found nine more attributes drifting out from under it — a `base::Feature`'s build guard among them, 55 rows in M143 → M148.
+Every attribute that gets compared produces a label like this, and a test enforces it. An attribute is in the whitelist because a change to it matters, so a change the report could not name would be a row nobody can read.
 
 The last four labels are the dangerous kind: they **compile cleanly, pass tests, and fail in the field** — or break the build right after the merge, at the latest possible moment.
 
@@ -511,17 +509,13 @@ That is the 151 side of the 148.0.7778.217 → 151.0.7922.138 run in `docs/revie
 
 So the curated list alone reads under half the files but more than half of the `base::Feature` declarations, and the share is very uneven between surfaces: nearly all the Web IDL, a quarter of the Mojo, a fiftieth of the pref and switch files. The archives are what close that gap, and they are why a run costs 337 MB rather than 40. The list is not selectable on its own for exactly that reason.
 
-`analysis` reads nearly the whole tree, and the figure is worth explaining because it has been wrong twice, in the same way both times: **the denominator was a second list, maintained beside the thing it was meant to measure.** First it counted the roots the fetch list lived under rather than the tree, so 139 files the rule admits sat outside the measurement. Then it counted only two filename conventions — prefs, and features-and-switches — while the extractors grew to read `.mojom`, `.idl` and the WebUI templates. That let it report `1,164 / 1,164 (100%)` while 3,798 files carrying **72% of a report's facts** were not being counted at all.
+`analysis` reads nearly the whole tree. The coverage denominator is not a second list maintained beside the target list: it asks each extractor whether it would read a file, so an extractor added later widens the denominator by existing, and the measurement and the extractors cannot disagree.
 
-There is no second list now. The denominator asks each extractor whether it would read the file, so an extractor added tomorrow widens the denominator by existing, and the two cannot disagree. What it still misses has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them.
+The denominator is the whole tree rather than the directories the fetch targets live under, because a measurement built from those directories could only ever return 100%. What an `analysis` run still misses has names — `chrome/services/`, `chrome/credential_provider/`, `chrome/installer/` — and the run prints them: at M151 it reads 8,295 of 8,366 candidate files.
 
-What was wrong was the **denominator**. It was built from the fourteen directory roots the fetch targets happen to live under, so the measurement graded the run against exactly the ground it already covered and could only ever return 100%. `chromiumdiff catalog`, which walks the real tree, counted 1,192 files the same rule admits. The 153 in the gap were invisible to every run however wide, and they were not obscure — `base/base_switches.h`, `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn), `sandbox/policy/features.cc`, `google_apis/gaia/gaia_switches.cc`. Three of those files alone held 88 `base::Feature` declarations no target set was reading.
+Declaration files outside the browser's own directories are fetched for the same reason. `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` hold files such as `base/features.cc`, `cc/base/features.cc` (the compositor), `device/fido/public/features.cc` (WebAuthn) and `sandbox/policy/features.cc`. They add 22 MB per version, which brings a run to 337 MB.
 
-Once the denominator became the tree, the answer came back 88%, and the 139 files it was missing had names. They are now fetched — `base/`, `device/`, `cc/`, `sandbox/`, `storage/`, `google_apis/`, `pdf/`, `mojo/` and Blink's `renderer/platform` — for 22 MB per version on top of 315, which is what takes a run to 337. Two of them were free: the Blink `renderer/core` and `renderer/modules` archives were already being downloaded for their `.idl`, and the 22 declaration files inside them went unread only because the filter asked for one suffix.
-
-What the measurement prints after that fix is the block in *Every run measures it* above: 8,295 of 8,366, with the three directories no target reads named.
-
-Fourteen files went the other way, excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree, which the platform rule had been missing by one suffix. They are binaries that ship beside the browser rather than being it, so their switches reach none of our users — the same reason `content/shell/` has always been excluded.
+Some files are excluded by name rather than fetched: the headless shell, Chrome Remote Desktop, the updater, the enterprise companion, the Windows services, and Fuchsia's own tree. They are binaries that ship beside the browser rather than being it, so their switches reach none of the browser's users; `content/shell/` is excluded for the same reason.
 
 Vendored third-party projects — abseil, grpc, zlib, the WebRTC overrides — are excluded by name rather than by falling outside a root. Fourteen of their files match the naming conventions, they are other people's libraries rather than Chromium's own code, and naming the exclusion is what keeps `catalog` and the per-run measurement describing one population.
 
@@ -605,16 +599,16 @@ Two numbers travel with every finding. Every point of gap between them has a sen
 
 Severity comes from the **leading signal** — the label with the highest weight among the ones the comparison attached. When a change carries no signal at all, and only then, it comes from a coarse prior on the kind and the direction.
 
-That order matters, and it used to be the other way round. Severity was `max(prior, signal)`, so the guess overrode the statement whenever the guess was higher — which is exactly when the guess was wrong:
+The signal takes precedence even when the prior is higher, because the signal states what changed and the prior is only an estimate from the kind and the direction:
 
-| Change | Prior | Signal says | Old | Now |
-|---|---:|---|---:|---:|
-| Mojo method, signature moved | 75 | `ipc_signature_change` | 80 | 80 |
-| Mojo method, `[EnableIfNot=is_win]` added | 75 | `build_gate_changed` | **75** | **35** |
-| chrome://flags removal date slipped | 15 | `flag_expiry_moved` | **15** | **10** |
-| Blink flag moved test → experimental | 40 | `web_api_status_moved` | **40** | **25** |
+| Change | Prior | Signal | Severity |
+|---|---:|---|---:|
+| Mojo method, signature moved | 75 | `ipc_signature_change` | 80 |
+| Mojo method, `[EnableIfNot=is_win]` added | 75 | `build_gate_changed` | 35 |
+| chrome://flags removal date slipped | 15 | `flag_expiry_moved` | 10 |
+| Blink flag moved test → experimental | 40 | `web_api_status_moved` | 25 |
 
-Measured against two real pairs, the prior overrode the signal on 267 of 2,800 findings at M148 → M151 and 345 of 6,787 at M143 → M151 — every one of them upwards. The largest group is the smallest change the tool reports, and the most wrong is four Mojo methods ranked as ABI breaks for a build condition moving.
+On an `analysis` run at M148 → M151 the prior is higher than the leading signal on 681 of 6,064 findings. The largest group is a chrome://flags removal date slipping, 245 rows. Taking the higher of the two would rank every one of them above what its signal states.
 
 ### Score: what it costs *here*
 
@@ -657,21 +651,21 @@ Coverage is not applied to additions. An addition is observed directly in the ne
 
 The leading signal also decides which bucket a finding is filed under, so a row is filed under the sentence it was ranked by.
 
-| Bucket | Meaning | M148 → M151 |
+| Bucket | Meaning | `analysis`, M148 → M151 |
 |---|---|---:|
-| **Compatibility break** | A contract outside the binary no longer holds, and nothing at build time warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 276 |
-| **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 469 |
-| **New declarations** | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence | 1,240 |
+| **Compatibility break** | A contract outside the binary no longer holds, and nothing at build time warns you: stored user data, launch scripts, Finch configs, live websites, the other process | 798 |
+| **Behaviour change** | The Windows build behaves differently. Someone can see a difference | 696 |
+| **New declarations** | A declaration exists in the new version that did not exist in the old. Nothing is switched on by its existence | 2,979 |
 | **Scheduled** | A removal date, not a removal. Chromium has scheduled something for deletion or moved the date. Nothing has happened yet | 302 |
-| **Upstream cleanup** | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | 735 |
+| **Upstream cleanup** | Chromium removed or moved something whose outcome was already settled, or the declaration is not in the Windows build on either side. Nothing observable moved | 1,289 |
 
-All five answer one question — what kind of thing happened — and that matters more than the wording. The four they replaced did not: **Breaking** and **Behaviour change** named a consequence, **New surface** named a direction, and **Housekeeping** named upstream's motive. Three axes produce three concrete problems. `web_api_added_live` (175 rows) sat in New surface and `web_api_shipped` (129) in Behaviour change while both say the same thing about the Windows build. **New surface** used the word the `Surface` column beside it uses for a fact kind. And **Housekeeping** held five states at once — 542 real cleanups, 220 removals no signal could characterise, 187 declarations absent from the Windows build on both sides, 57 deletions Chromium has only scheduled, and 31 removals the run could not confirm — so every document had to explain in prose that it is not the low-score bucket.
+All five answer one question: what kind of thing happened. The ranking is the score's job, and upstream's motive is not recorded. Upstream cleanup therefore holds several kinds of row: changes whose outcome was already settled, such as a retired flag or a moved declaration; removals that no signal describes; declarations outside the Windows build on both sides; and absences the run could not confirm, namely removed preferences and switches, and additions the run cannot show are new. It is not the low-score bucket.
 
 Three placements are worth arguing about explicitly, because each decides whether the report stays readable:
 
-**Retired flags are Upstream cleanup, not a compatibility break.** At M148 → M151, 154 `base::Feature` flags are removed — 72 that had shipped, 60 that were abandoned — and not one of them changes what a user sees. Filing them as breakage puts 132 rows at the top of the report of which none is actionable. The label still says the flag is gone.
+**Retired flags are Upstream cleanup, not a compatibility break.** On an `analysis` run at M148 → M151, 344 `base::Feature` flags are removed. 129 had shipped (`flag_retired_on`) and 125 had never shipped (`flag_retired_off`). Neither kind changes what a user sees, so those 254 rows are filed as Upstream cleanup rather than at the top of the report, and the label still says the flag is gone. The other 90 have no readable prior state (`feature_deleted`); the 6 of them in the Windows build are filed as Behaviour change.
 
-**A date is not an event.** `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and there are 302 of them — a tenth of the report. Filed as cleanup they read as work that happened and did not matter, which is the opposite of what they say.
+**A date is not an event.** `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened: 302 of the 6,064 rows on an `analysis` run at M148 → M151, 57 and 245 respectively. Filed as cleanup they would read as work that happened and did not matter, which is the opposite of what they say.
 
 **A removal the run cannot confirm is filed by what the evidence supports, and says so on the row.** `pref_left_scan` says "deleted, or moved to a file outside the scan", and which of those it is depends on how much of the tree the run read. Measured on M148 → M151:
 
@@ -694,17 +688,19 @@ The flag describes the run, not the change, so it is a field rather than a bucke
 
 ### The five counts at the top
 
+On an `analysis` run at M148 → M151:
+
 ```
-Compatibility break   276   ← a contract outside the binary no longer holds, silently
-Behaviour change      469   ← the Windows build behaves differently
-New declarations     1240   ← exists now, did not before. Nothing is on by it
+Compatibility break   798   ← a contract outside the binary no longer holds, silently
+Behaviour change      696   ← the Windows build behaves differently
+New declarations     2979   ← exists now, did not before. Nothing is on by it
 Scheduled             302   ← a date, not an event. Nothing has happened yet
-Upstream cleanup      735   ← removals and moves whose outcome was already settled
+Upstream cleanup     1289   ← removals and moves whose outcome was already settled
 ```
 
-Read in that order. `report.md` gives the first four a table each and deliberately gives Upstream cleanup none: it is the largest bucket in every report and nothing in it needs doing, so `report.json` and the sortable table in `report.html` hold it instead.
+Read in that order. `report.md` gives the first four a table each and gives Upstream cleanup none, because nothing in it needs doing; `report.json` and the sortable table in `report.html` hold it. The flagged rows in it are listed in the Unconfirmed section.
 
-Scheduled does get a table, and that is the point of it being its own bucket. `flag_expiring` and `flag_expiry_moved` are the only rows in a report about work that has *not* happened, and while they were filed as cleanup the only way to reach them was to filter `report.json` by signal id.
+Scheduled has a table of its own because `flag_expiring` and `flag_expiry_moved` are the only rows about work that has *not* happened, and a reader planning the next milestone needs them in one place.
 
 `report.md` also gives a table to every row that carries **`unconfirmed`**, with each row's bucket, because the flagged preference and switch removals sit in Upstream cleanup, which has no table. At M148 → M151 an `analysis` run has none and the downloads partition has 16. They are in Upstream cleanup because the evidence is incomplete, not because the change is minor.
 
@@ -716,12 +712,9 @@ Every finding cites **`path:line`** on both sides, not just a filename. `content
 
 ### One table, and every row says what it is
 
-`report.html` is **a single table**, filterable and sortable. Two other layouts were tried on top of it and both were worse — recorded here so nobody goes back:
+`report.html` is **a single table**, filterable and sortable, because a table lets a reader see every row at once, sort it and search it. Grouping rows by signal instead would produce many groups whose titles are near-synonyms in Chromium's own vocabulary: `Default flipped on`, `Now ON by default on Windows` and `New feature, on by default` are three different signals.
 
-- **Grouping every finding by signal on one long scrolling page.** It became twenty-one collapsed bars whose titles are near-synonyms in Chromium's own vocabulary: `Default flipped on`, `Now ON by default on Windows`, `New feature, on by default` are three different entries. Eighty bars, three levels deep, before the reader reaches one readable row.
-- **Putting those behind a per-team menu.** The accordion wall went away, and so did the one thing a table is good for: seeing everything at once, sorting it, searching it.
-
-What was missing was not the layout. It was that a row said `id:cancelButton` and left the reader to work out which page, added or removed, what kind of control, and whether it concerns them. So the table keeps its layout and every row carries the answer:
+Every row states what it is — the page, the direction, the kind of control — rather than a bare identifier such as `id:cancelButton`:
 
 ```
 ~  feature flag PrefetchPrerenderIntegration — off → on for Windows
@@ -749,11 +742,11 @@ settings › ai_page — 13 new · 1 changed · 5 gone
   − page /localNetworkAccess
 ```
 
-The data for that was already on the facts and simply never displayed: every control carries its screen, page, file, tag and the pref it writes; every route carries its path and guard; every gate carries the handler that sets it. The same loadTimeData key appears once per handler that sets it, so without this column `webuiRefresh2026` shows up as nine identical rows.
+The data comes from the facts: every control carries its screen, page, file, tag and the pref it writes; every route carries its path and guard; every gate carries the handler that sets it. The same loadTimeData key appears once per handler that sets it, so without this column `webuiRefresh2026` shows up as nine identical rows.
 
 ### The table: an identifier is not a description
 
-The table has six columns, and three of them used to be reachable only by expanding a row, or not present at all:
+The table has six columns:
 
 | Column | Answers |
 |---|---|
@@ -764,7 +757,7 @@ The table has six columns, and three of them used to be reachable only by expand
 | Where | The screen, or the declaring directory |
 | Kind | The fact kind, with its meaning group |
 
-The old `Change` column is gone: direction is now a coloured marker at the start of the What cell, because `~` takes one character and a pill took 112px.
+Direction is a coloured marker at the start of the What cell rather than a column of its own, because one character (`~`) carries it.
 
 ### Every score is explainable
 
@@ -814,7 +807,8 @@ The three groups appear in two places in `report.html`: as a sub-line under each
 
 `enrich/chromestatus.py` fetches the human-written feature descriptions. Matching them per finding barely works — a hit is the exception — because their names are prose and ours are identifiers. So instead of forcing a match, the tool carries the whole "what Chromium shipped in this window" list into the report as background. It is the one source that says what Chromium *intended* to ship, so it sits in the report as context, never as a second opinion on any individual row.
 
-The window is counted back from the version being adopted, and the list is ordered newest milestone first. Both used to be the other way round, and the result was that a 143 → 151 report carried 200 entries covering M144 to M150 and **nothing at all from M151** — the milestone actually being adopted. Truncation now happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` really does hold the rest.
+The window is counted back from the version being adopted, and the list is ordered newest milestone first, so the milestone being adopted is never the part that is cut. Truncation happens only in the renderer, which is the only place that knows what it cut, so the count shown is true and `report.json` holds the rest.
+
 ---
 
 ### Why it changed: the CL and the issue
@@ -848,7 +842,7 @@ The panel prints the denominator with the CL, because `1 of 62` is what makes th
 
 `introduced` is the only verdict whose answer *is* the change rather than a neighbour of it, and it costs nothing extra because the report already holds what it needs. A finding does not merely name a declaration — it records that declaration's two states, `{"type": ["array<url.mojom.Url>", "array<network.mojom.LinkHeader>"]}` — and the CL that made that change is, by construction, a CL whose diff *adds* a line saying `array<network.mojom.LinkHeader>` inside that declaration. Every other verdict asks "did this CL touch the thing?", which any CL that reformatted the file can satisfy. This one asks "did this CL put the new value there?".
 
-It is what finally answers `blink.mojom.TokenError.url`, whose own name is unsearchable because `.mojom` writes `struct TokenError {` and `url.mojom.Url? url;` and never the qualified string. **Zero of its 10 candidate CLs carry the name; exactly one carries the after-value** — CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"*.
+It is the verdict that answers `blink.mojom.TokenError.url`, whose own name is unsearchable because `.mojom` writes `struct TokenError {` and `url.mojom.Url? url;` and never the qualified string. **Zero of its 10 candidate CLs carry the name; exactly one carries the after-value** — CL 7982397, *"[FedCM] Modernize TokenError::url from string to url.mojom.Url"*.
 
 Only the *difference* between the two states is searched for. A value on both sides did not change and would match every CL that touched the declaration for any reason. Values are kept whole when they fit on a line and reduced to the words they gained when they do not, which is how a Mojo method's multi-line parameter list is reached: `CreateLanguageModel` gained `DownloadObserver` and `on_device_model`, and those are single-line strings even though the signature is not.
 
@@ -858,40 +852,40 @@ Measured over the top 150 findings of a real M148 → M151 run: **37 CLs earn `i
 
 `described` is free because descriptions arrive with the candidate list, and it is not a weaker copy of `exact` — the two find different things. It is the thinnest of the five, and deliberately so: over the top 150 findings of a real M148 → M151 run only **2 CLs** earn it, both on rows a diff had already answered, and no row rests on it alone. It is worth keeping because a CL can delete the declaration it is named after and leave the identifier in no surviving line, which is the one shape no diff search can reach.
 
-`moved` exists because a pure rename changes no line and is still the whole cause. CL 7810461 renamed `html_or_foreign_element.idl`, so every member of that interface reads as removed at the old path with nothing in any diff to say so — six findings that came back empty until the rename itself was treated as the evidence.
+`moved` exists because a pure rename changes no line and is still the whole cause. CL 7810461 renamed `html_or_foreign_element.idl`, so every member of that interface reads as removed at the old path with nothing in any diff to say so — six findings whose only evidence is the rename itself.
 
-`declares` exists because a Mojo method whose parameter list changed has its *name* line untouched — the edit is in the body below it. Two fixed radii were tried first and both were wrong in the same way, in opposite directions. Symmetric and 25 lines wide, every edit on a file of nothing but declarations is near every declaration: `AIManager.CreateLanguageModel` drew four unrelated CLs. Forward and three lines wide fixed that — one CL, the right one — but a long parameter list does not fit in three lines, so a method gaining a seventh parameter matched nothing at all.
+`declares` exists because a Mojo method whose parameter list changed has its *name* line untouched — the edit is in the body below it. A fixed number of lines around the name does not find it reliably. A symmetric window 25 lines wide is near every declaration in a file made of declarations: `AIManager.CreateLanguageModel` would draw four unrelated CLs. A window three lines wide, forward only, misses a long parameter list: a method gaining a seventh parameter would match nothing.
 
-So there is no radius. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 337 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
+The scan therefore follows the declaration's own extent. A declaration's body ends at its own closing delimiter, and that is what is scanned: `struct Bar {` to its matching `}`, `Foo(` to the `);` that closes its parameter list, `Type name;` is the one line. Where neither closes — `runtime_enabled_features.json5` names a feature inside a `{ … },` record and nothing after it ever ends in `;` — the region is the innermost block *enclosing* the name instead. That last rule picks **1 of the 337 CLs** touching that file, and it is CL 7895296, "Return empty styles for getComputedStyle() outside flat tree".
 
-Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` — 206 citations across 129 CLs. **147 of the 150 are named by a verdict; 3 hold leads only**, and the first working version of this managed 115.
+Measured over the top 150 findings of a real M148 → M151 run: **150 of 150 carry a CL** — 94 `exact`, 60 `declares`, 37 `introduced`, 6 `moved`, 2 `described` and 7 `touched` — 206 citations across 129 CLs. **147 of the 150 are named by a verdict; 3 hold leads only.**
 
-**A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one change. Two rules used to cut that list without saying so:
+**A row keeps every CL that contributed, not the best one.** 40 of those 150 hold more than one, because a flag that launched, was reverted, relanded, reverted and relanded again is five CLs and one change. Two rules follow from that:
 
-- **A strong hit deleted every `declares` beside it**, on the reading that an `exact` match makes them redundant. It does not: a CL that edited the declaration's body without touching the line naming it is a different CL doing different work. The rule threw away 40 CLs across 18 findings. The scarcity test that gives `declares` its meaning still applies — a crowd of them singles nothing out whether or not a strong hit is present.
-- **The cap took the newest eight**, which is right for a citation and backwards for a chain, where the origin is the oldest. `NtpComposebox` lost *"[ntp-composebox] Add feature flag"* — the CL the chain starts at — while keeping five reverts of it.
+- **A strong hit does not remove the `declares` CLs beside it.** A CL that edited the declaration's body without touching the line naming it is a different CL doing different work. The scarcity test that gives `declares` its meaning applies regardless: a crowd of them singles nothing out whether or not a strong hit is present.
+- **The list keeps up to twelve CLs, chosen strongest first and then newest, and shows them oldest-first.** In a chain the origin is the oldest CL, so a list of several CLs is read in the order they landed. The cap matches the issue block's, and what it cuts is printed (`15 of 19 merged CLs touched this file, newest 12 shown`) rather than folded into the pool count.
 
-So the cap is twelve, matched to the one the issue block already used; what it cuts is now printed (`15 of 19 merged CLs touched this file, newest 12 shown`) rather than folded into the pool count; and a row holding more than one CL reads oldest-first, which is what the `crowded` branch had already worked out for itself. The 40 is a measurement of one run at one budget, not a property of the tool — a smaller `--click-budget` reads fewer diffs and finds fewer of them.
+The 40 is a measurement of one run at one budget, not a property of the tool — a smaller `--click-budget` reads fewer diffs and finds fewer of them.
 
-**A row says what would make its own answer less than sure.** Three things can: a request that failed, a candidate list Gerrit returned at its page limit, and a diff budget that declined the file. None of them makes the row wrong, and all three make it unfinished — so the qualifier sits above the answer rather than inside one branch of it. Written into the empty panel it reached the one shape a partial failure cannot produce, because the floor hands any row with a candidate a lead; the three shapes such a failure does produce were the three that said nothing.
+**A row says what would make its own answer less than sure.** Three things can: a request that failed, a candidate list Gerrit returned at its page limit, and a diff budget that declined the file. None of them makes the row wrong, and all three make it unfinished, so the qualifier sits above the answer in every shape the panel can take rather than inside one branch of it.
 
-It is recorded by the lookup rather than by whoever called it, because it belongs to the answer rather than to whoever asked for it. `serve` used to read the run summary instead, which records nothing at all for a call about one row — so the row that lost a request was exactly the row that said nothing about it.
+It is recorded by the lookup rather than by whoever called it, because it belongs to the answer: the run summary records nothing for a lookup of one row.
 
 #### The last two badges, and why a row always answers
 
-That 150 of 150 is a measurement of one slice of one run, not a property of the tool. Five separate paths could still end with a reader clicking a row and being told nothing was found: a name under four characters long, which is unsearchable; a file the diff budget declined; a crowd of CLs that all edited the same declaration; a diff that matched nothing; and a finding whose name is not written anywhere in the file that declares it.
+That 150 of 150 is a measurement of one slice of one run, not a property of the tool. Five paths can end with a reader clicking a row and receiving no verdict: a name under four characters long, which is unsearchable; a file the diff budget declined; a crowd of CLs that all edited the same declaration; a diff that matched nothing; and a finding whose name is not written anywhere in the file that declares it.
 
-Four of those five had the candidate CLs already in hand. Only the framing was missing — `crowded` and `touched` are that framing. They rank below every badge above them, so they are never reached while real evidence exists, and they can never displace it. The page keeps them apart from evidence in three places: the row gets its own state (`weak`, and the `Has a CL` filter excludes it), the badge is grey rather than borrowing a verdict's colour, and the list is printed under a sentence saying what it is.
+In four of those five the candidate CLs are already known, and `crowded` and `touched` present them. They rank below every badge above them, so they are never reached while real evidence exists, and they can never displace it. The page keeps them apart from evidence in three places: the row gets its own state (`weak`, and the `Has a CL` filter excludes it), the badge is grey rather than borrowing a verdict's colour, and the list is printed under a sentence saying what it is.
 
 **The two do not share that sentence, because they are not the same claim.** `touched` is a lead: these CLs touched the file and nothing ties any of them to the identifier. `crowded` is every CL that edited *this declaration* — which is that declaration's history, so it is ordered oldest-first, headed **How it got here**, and read as the sequence the fact passed through rather than as one citation that failed to appear.
 
-**And a row the diff budget declined is not a row that was searched.** Its leads sit over diffs nobody opened, so the verdicts that name a fact were never attempted on it. Filling it with `touched` made it *read* as exhausted, and took its way out with it: the remedy sentence and the lookup button both lived in the branch that runs only when there are no CLs at all, so the one row that could still be answered lost the way to ask. Such a row now says `Nothing here was read — 147 CLs touched this file, more than the run's diff budget would open`, and keeps the button.
+**A row the diff budget declined is not a row that was searched.** Its leads sit over diffs nobody opened, so the verdicts that name a fact were never attempted on it. Such a row says `Nothing here was read — 147 CLs touched this file, more than the run's diff budget would open` and keeps the lookup button, because it can still be answered; filled with `touched` it would read as exhausted.
 
-This is the trade, stated plainly. `crowded` used to be dropped — eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so four confident wrong answers is worse than none. That reasoning is sound and it is still why the badge is not `declares`. What it got wrong was the conclusion: it answered a reader's question with silence, about a declaration eleven CLs had demonstrably edited. Showing the eleven and saying what they are is strictly more than showing nothing, as long as nothing about them reads as a citation.
+This is a trade. Eleven CLs edited `ai_manager.mojom` and none of them singles out `AIManager.CreateLanguageModel`, so none of them is cited as `declares`: four confident wrong answers would be worse than none. Showing the eleven as `crowded`, under a sentence saying what they are, gives the reader more than silence, as long as nothing about them reads as a citation.
 
 #### There is no such thing as a change without a CL
 
-The two trees differ, so something landed. An empty row is never a fact about Chromium — it is a fact about this search, and phrasing it as an absence invites a reader to conclude that a declaration changed on its own, which cannot happen. An earlier version of this section said *there is nothing to cite*. That was wrong, and the code said it too.
+The two trees differ, so something landed. An empty row is never a fact about Chromium — it is a fact about this search, and phrasing it as an absence invites a reader to conclude that a declaration changed on its own, which cannot happen.
 
 So the question is asked three ways before the answer is no:
 
@@ -931,30 +925,30 @@ The browser only ever talks to this process. Python does the asking, and the sam
 
 ### What it costs
 
-One request per (CL, file) pair, so the bill is set by how *busy* the declaration files are and not by how many findings exist. Because it is a click that asks, you pay for the rows you open and nothing else: a report of 3,022 findings costs nothing until you expand one, and then costs that one file's diffs. Measured on a cold cache, a row at score 45 answered in **5.7 seconds**; over a stratified sample of 183 findings across all sixteen kinds the median file has **8** candidate CLs, and the busiest are `flag-metadata.json` at 662, `about_flags.cc` at 500 and `runtime_enabled_features.json5` at 337.
+One request per (CL, file) pair, so the bill is set by how *busy* the declaration files are and not by how many findings exist. Because it is a click that asks, you pay for the rows you open and nothing else: a report costs nothing until you expand a row, and then costs that one file's diffs. Measured on a cold cache, a row at score 45 answered in **5.7 seconds**; over a stratified sample of 183 findings across all sixteen kinds the median file has **8** candidate CLs, and the busiest are `flag-metadata.json` at 662, `about_flags.cc` at 500 and `runtime_enabled_features.json5` at 337.
 
 Everything is cached forever — a merged CL never changes — so the second row in the same file is instant, and so is the same row tomorrow.
 
-**A stored answer written under a lookup that has since been corrected is asked again rather than served.** Not re-fetching is what makes the second click on a row instant, and the cost of it is a report outliving the bug it was written under. Both known ones are visible in what was stored, so neither needs a flag or a version stamp: a CL with no submit stamp was ordered by the day, and a CL dated after the target left main is not in the tree at all. Measured on one real report, 16 of its 60 resolved rows cite the second kind — `blink.mojom.TokenError.url` led with a cleanup CL that landed a week after M151 branched, and now leads with CL 7982397 at `introduced`, which is the answer the section above claims.
+**A stored answer is asked again rather than served in three cases.** A stored answer is what makes the second click on a row instant, so the checks run on what was stored and need no flag or version stamp: the lookup lost requests; a CL has no submit stamp, so its list was ordered only by the day; or a CL is dated after the target left main, so it is not in the tree at all. On one real report, 16 of its 60 resolved rows cite a CL of the last kind; asked again, `blink.mojom.TokenError.url` is answered by CL 7982397 at `introduced`.
 
 What a session resolves is written back to `report.json`, atomically, through a temporary file in the same directory. The page is rendered from the report this process holds rather than read off the disk, so a reload shows what the clicks have found and a restart still does. An hour of triage is not lost to a closed terminal. `--no-save` opts out. It reaches `report.md` and `report.html` only on the re-render above: until then those two carry no CL at all, however many the session resolved, so whoever reads the files rather than the screen reads the run's first answer. `serve` prints the command when it stops.
 
-Matching is not the bottleneck it was: proving a token *absent* was 83 seconds of the 500-row case, and one search over the joined text settles it before any line is touched. The same work now takes **5.0 seconds** for an identical answer.
+Proving that a token is *absent* is one search over the joined text of a diff, before any line is examined; the 500-row case takes **5.0 seconds**.
 
-### Six defects that produced a confident wrong answer, and what each cost
+### Gerrit responses that need explicit handling
 
-Each produced a confident wrong answer rather than an error, which is the kind that matters here. The first four were found by taking a finding that resolved to nothing and hunting its CL by hand.
+Each case below would otherwise produce a confident wrong answer rather than an error.
 
-- **A renamed file answered with no evidence at all.** Gerrit replies to a diff request for the *old* path with `change_type: MODIFIED` and the whole file as one `{"skip": N}` block — no 404, no rename marker. The parser did not handle `skip` and so saw an empty file. Six removed IDL members read as unattributed when one CL plainly explains all of them.
-- **A reformat counted as an edit.** A block marked `{"a": [...], "b": [...], "common": true}` is Gerrit saying these lines are the same content differing only inside the line — a reindent. Counted as changed, a CL that reformats a file becomes an `exact` match for every declaration in it. 49 such blocks in a 2,329-diff sample.
-- **A file the budget declined looked identical to a file that was scanned.** `diffs_read` was recorded only on rows that already had a CL, so a row nobody looked at came out looking exactly like one that was scanned and genuinely matched nothing. It is now set on every row that was asked about, and the panel says which.
-- **A row whose declaration moved between files printed "3 of 2 merged CLs".** The denominator counted one path while the hits came from both. 60 of 3,022 findings are declared in two files; both are searched, both contribute, and each CL now says which file it was found in.
-- **A qualified key is our construction, not text.** A `.mojom` writes `struct TokenError {` and `url.mojom.Url? url;`, never `blink.mojom.TokenError.url`, and `url` is too short to search for — so 13 diffs were read for a string that cannot occur in any of them, and the result was reported as "no CL edits a line carrying this identifier". True, and deeply misleading. Such a fact now falls back to its enclosing struct, which is kept in its own slot rather than mixed into the token set, because a changed line mentioning `TokenError` is not a changed line declaring `TokenError.url` and must never earn `exact`.
-- **The server filtered the lookup response through its own copy of the field list.** When `issue` became `issues` in the renderer the server went on filtering for `issue`, so every lookup answered with the CLs and dropped the issue history in silence. There is one list now, in the renderer.
+- **A renamed file.** Gerrit answers a diff request for the *old* path with `change_type: MODIFIED` and the whole file as one `{"skip": N}` block — no 404, no rename marker. The parser reads the `skip` block as N unchanged lines. A diff with no changed line makes the lookup ask where the CL moved the file, and the fact is followed to the new path as `moved`.
+- **A reformat.** A block marked `{"a": [...], "b": [...], "common": true}` is Gerrit saying these lines have the same content and differ only inside the line — a reindent. It is not counted as a changed line, so a CL that reformats a file is not an `exact` match for every declaration in it. A sample of 2,329 diffs holds 49 such blocks.
+- **A declined file.** `diffs_read` is set on every row that was asked about, so a row whose file the budget declined is distinguishable from a row that was scanned and matched nothing, and the panel says which.
+- **A declaration in two files.** A declaration that moved between files is searched in both, and each CL records which file it was found in.
+- **A qualified key.** A `.mojom` writes `struct TokenError {` and `url.mojom.Url? url;`, never `blink.mojom.TokenError.url`, and `url` is too short to search for. Such a fact falls back to its enclosing struct, kept apart from the token set: a changed line mentioning `TokenError` is not a changed line declaring `TokenError.url`, so the struct can earn `declares` but never `exact`.
+- **One field list.** The server builds a lookup response with the page's own row renderer and keeps the renderer's `PROVENANCE_KEYS`, so there is one list of fields and the server cannot drop one the page reads.
 
 **The window is taken from the tags, not estimated, and it has two ceilings.** A release tag records where it left main (`Cr-Branched-From:`), so the search starts at the *from* tag's branch point — 2026-04-06 for M148, seven weeks before the tag itself is dated.
 
-The search pinned to `branch:main` stops at the *to* tag's branch point. A CL that lands on main after the release branch is cut is not in the released tree, so it cannot be the cause of anything — and it is not a harmless extra candidate, because it can carry the identifier, earn `exact`, and outrank the CL that really did it. Measured over 105 resolved rows while this ran to the tag date instead: **38 of 160 cited CLs had landed after M151 branched, 11 rows ranked one of them first, and 9 rows cited nothing else.** Five different Autofill flags were attributed to one cleanup CL that M151 does not contain. Correcting the ceiling took all three to zero and shrank the candidate pools by roughly half.
+The search pinned to `branch:main` stops at the *to* tag's branch point. A CL that lands on main after the release branch is cut is not in the released tree, so it cannot be the cause of anything — and it is not a harmless extra candidate, because it can carry the identifier, earn `exact`, and outrank the CL that really did it. Running this search to the tag date instead admits such CLs: over 105 resolved rows, **38 of 160 cited CLs landed after M151 branched, 11 rows would rank one of them first, and 9 rows would cite nothing else**, and five Autofill flags would be attributed to one cleanup CL that M151 does not contain. Stopping at the branch point removes all of them and roughly halves the candidate pools.
 
 The searches with the pin removed — the merge-back retry and the commit-message search — still run to the *to* tag's own date, because merge-backs keep landing on a release branch for weeks after it is cut and those commits *are* in the tree being compared. M151 branched 2026-06-29 and is dated 2026-08-10, so those six weeks belong to that question and to no other.
 
@@ -964,13 +958,13 @@ The searches with the pin removed — the merge-back retry and the commit-messag
 
 **Nearly half of issue links do not open.** Of the 97 distinct issues the top 150 findings of a real M148 → M151 run link, **44 answer HTTP 403** — restricted to Google accounts. An unmarked dead link reads as a broken tool rather than as a restricted issue, so every linked issue is probed once with a `HEAD` (no body either way) and the restricted ones are marked `RESTRICTED` in place. The link is kept, because the reader may have access.
 
-**An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD for exactly that reason: the HEAD cost nothing and told us only that the issue opens, while the same request also carries the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in there too and it is *not* shown: the same walk gave `Blink>AI` for a MacOS memory regression, and a field that is wrong once in eight is worth less than nothing. So `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` now reads: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
+**An issue that opens says what it is about.** The accessibility check is a GET rather than a HEAD because the same request also returns the summary line. issues.chromium.org answers in index-addressed JSON with no field names, so the title is found by the one landmark that is not an index — the array whose second element is the issue number — and verified against eight real issues, all eight correct. A component path is in the response too and it is *not* shown: the same walk gives `Blink>AI` for a MacOS memory regression, so the field is wrong for one of the eight issues checked. For example, `ViewTransitionElement.border_offset` changing from `Vector2d` to `Vector2dF` is shown as: CL 7757059, "VT: Avoid transform rounding in style tracker", against issue 500417362, *"Snapshot positioning pixel rounding error?"*
 
 `Fixed:` and `Bug:` are shown apart, because closing an issue and referencing one are different claims — Chromium writes far more of the latter than the former. `revert_of` and `cherry_pick_of_change` come free in the same response and are printed too: 23 of 534 CLs in a real sample are reverts, and they are what makes a flag's launch–revert–reland history readable without diffing subjects by eye.
 
 ### The payload stops repeating itself
 
-Every interaction on the page was already under 5 ms — filtering 3,022 rows and repainting is 4 ms, expanding the heaviest row is 0.1 ms — so the only thing a reader could feel was the download and the JSON parse. A quarter of that was repetition: `reasons` was 319 KB of text drawn from **66** distinct strings, `signals` 127 KB from 63, and `group` 58 KB from **three**. Stored once and referenced by index, the page falls from 2.01 MB to 1.48 MB — a quarter of it, and the same quarter it was when the pooling was written, though both totals have since moved with everything else on the page.
+Every interaction on the page is under 5 ms — filtering 3,022 rows and repainting takes 4 ms, expanding the heaviest row 0.1 ms — so the cost a reader notices is the download and the JSON parse. `reasons`, `signals` and `group` repeat a small set of strings across rows (66, 63 and 3 distinct values on that 3,022-row report), so each is stored once and referenced by index, which removes about a quarter of the page.
 
 `what` and `paths` are deliberately left alone — they are near-unique per row, so a table of them is the same bytes plus an index. The page puts the five pooled fields back in one pass on load, so nothing downstream knows it happened, and the payload has one reader — `html.payload_of` — rather than a regex in each place that wants it.
 
@@ -988,9 +982,9 @@ A row that carries a CL and a row that does not look identical in the table. So 
 
 A 3px edge on the score cell says the same thing while you scroll. The control starts hidden on a report nothing has been looked up in, and the page unhides it the moment a server answers or the first lookup lands.
 
-**An issue opens where the reader asks for it.** Every CL on the row carries its `Bug:` footer, which is free in the search response, so the row can name every issue without asking the tracker anything. The history behind one — its title, whether it opens, and the other CLs citing it — is fetched only when the reader clicks that CL's issue, which is the click that says which CL they think is the right one. A row citing six issues used to spend twelve requests before the reader had decided which CL mattered.
+**An issue opens where the reader asks for it.** Every CL on the row carries its `Bug:` footer, which is free in the search response, so the row can name every issue without asking the tracker anything. The history behind one — its title, whether it opens, and the other CLs citing it — is fetched only when the reader clicks that CL's issue, which is the click that says which CL they think is the right one.
 
-Each one opens in its own box under the CL it belongs to, and a second does not close the first: a reader comparing two issues is comparing them, not toggling between them. Clicking the same chip again closes only that one. Off a disk there is nothing to ask, so the chip stays the plain tracker link it always was.
+Each one opens in its own box under the CL it belongs to, and a second does not close the first: a reader comparing two issues is comparing them, not toggling between them. Clicking the same chip again closes only that one. Opened from disk, the chip is a plain tracker link.
 
 ```bash
 python3 -m chromiumdiff serve out/M148_to_M151      # then open http://127.0.0.1:8787/
@@ -1068,7 +1062,7 @@ The `route → guard → flag` chain covers the most important part — **page**
 - **A declaration present in the source tree may still not be compiled into the binary.** The tool does not read the GN graph, so it knows what is *declared*, not what is *built*.
 - **A change entirely inside a C++ function body** — the same reason as above, a layer down.
 - **Display strings in `.grd`** — a changed label is not caught.
-- **Extension APIs.** The `.idl` extension serves three different languages in the Chromium tree: Blink's Web IDL, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`) and MIDL (`ichromeaccessible.idl`). The extractor understands only the first, so it reads only under `third_party/blink/renderer/`. It used to read all three and produced 1,081 wrong facts at M151 — 96 of them with an entire nested declaration inside their own signature, the rest labelled "Web API" when no website can call `chrome.fileManagerPrivate`. Reading a dialect wrongly is worse than not reading it; covering the extension surface needs its own extractor and its own fact kind.
+- **Extension APIs.** The `.idl` extension serves three different languages in the Chromium tree: Blink's Web IDL, Chrome Extensions IDL (`chrome/common/extensions/api/`, `extensions/common/api/`) and MIDL (`ichromeaccessible.idl`). The extractor understands only the first, so it reads only under `third_party/blink/renderer/`. Reading the other two with the Web IDL grammar produces wrong facts — 1,081 at M151, 96 of them with an entire nested declaration inside their own signature and the rest labelled "Web API" when no website can call `chrome.fileManagerPrivate`. Reading a dialect wrongly is worse than not reading it; covering the extension surface needs its own extractor and its own fact kind.
 - **Everything outside the repository:** server-side Finch configs, launch scripts, test automation.
 - **Rendered UI** — no screenshots, no layout, no visual regressions.
 - **How often the answer is right, measured rather than asserted.** Over a stratified sample of 183 findings — twelve of each of the sixteen kinds, spread across the score range of a real M148 → M151 run — every one returned at least one CL, and 166 of the 183 carried at least one CL that a changed line or the author's own words tie to the fact. The other 17 are rows whose whole answer is `crowded` or `touched`, which the panel labels as leads in those words.
@@ -1170,7 +1164,7 @@ python3 -m chromiumdiff snapshot 151.0.7922.138
 | `X produced no facts at all` | The ref is wrong, or the checkout has none of the target files | Same check as above. Nothing can be compared against an empty side |
 | `! <ref>: N target(s) absent from that source` | Files the target set asked for were not in that tree | Normal for an older milestone, where Chromium had not created the file yet. Not normal for a local checkout — there it means the tree is partial, and each absent target is a whole file's declarations missing from the comparison |
 | `snapshot cache stale (schema N != M)` | The cache was written by an older build | Normal, it rebuilds itself |
-| `report.json is schema N, and this build reads M` | The report was written by an older build | Re-run. A report cannot be rebuilt from itself, and the bucket ids in it may no longer name buckets — rendering it anyway printed `Compatibility break 0` and dropped 2,553 of 3,022 findings from the counts |
+| `report.json is schema N, and this build reads M` | The report was written by an older build | Re-run. A report cannot be rebuilt from itself, and an older report's bucket ids may not name the current buckets, so rendering it would print wrong bucket counts |
 | `scope: N FILE(S) OUT OF SCOPE` | The tree cache still holds files from a wider earlier run | Re-run that side with `--refresh` |
 | Few or no Compatibility breaks on a partitioned run | Expected, and not evidence that nothing is broken | A partition is measured against the whole tree, so a preference or switch it reads only inside its own roots and finds removed is filed as Upstream cleanup with `unconfirmed`, and `summary.unconfirmed` counts them: 16 rows on `--partition downloads` at M148 → M151, where Compatibility break is 2. Changes outside the partition are not in the report at all. Drop `--partition` before concluding anything |
 | A finding scores 0 | Chromium's build conditions keep the declaration out of the Windows binary on both sides | Working as intended. Its reasons line says so, and the row is still in the JSON and the HTML table |
@@ -1224,7 +1218,7 @@ python3 -m unittest discover -s tests
 
 The suite runs with no network.
 
-The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the awkward shapes that broke earlier versions of the parsers: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
+The fixtures are shortened but structurally accurate excerpts of real Chromium files, including the shapes the parsers have to handle: two-argument macros, defaults wrapped in preprocessor conditions, per-platform states.
 
 Re-run them after any change to `diff.py` or `score.py` — those two hold the classification decisions.
 
@@ -1249,14 +1243,14 @@ Some tests check no behaviour at all but **internal consistency**, because the m
 
 ### Checking against real data
 
-Unit tests only prove the code does what its author thought. To check it against reality, the extractor was rewritten by a deliberately different method — strip every preprocessor directive, split on `;`, different regexes — and run over `content_features.cc` between M148 and M151:
+Unit tests show that the code does what its author intended. To check the extractor against Chromium itself, an independent method — strip every preprocessor directive, split on `;`, different regular expressions — was applied to `content_features.cc` between M148 and M151:
 
 ```
 Independent method :  19 added,  9 removed
-The tool reported  :  19 added,  8 removed
+The tool reports   :  19 added,  8 removed
 ```
 
-Tracking down the difference showed **the tool was right and the cross-check was wrong**: the feature was not deleted, it moved from `content_features.cc` to `media_switches.cc`, and the tool correctly reported `declaration_moved`. The cross-check only looked at one file, so it could not see that.
+The difference is one feature that moved from `content_features.cc` to `media_switches.cc`. The tool reports it as `declaration_moved`; the independent method reads one file and counts it as removed.
 
 ---
 

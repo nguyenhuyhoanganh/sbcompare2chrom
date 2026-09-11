@@ -124,17 +124,18 @@ hoặc bằng 0 khi Chromium loại khai báo khỏi bản build Windows ở c�
 cậy, và không phải tác động đo được tới người dùng. Đọc `reasons` để biết vì sao
 score bằng 0, hoặc vì sao dòng đó bị gắn cờ.
 
-`unconfirmed` tách biệt với bucket và score, và không bao giờ làm đổi score. Nó
-nghĩa là finding dựa trên một sự vắng mặt mà lần chạy không xác nhận được: phiên
-bản mới đọc dưới 95% số file thuộc loại đó trong cả cây, hoặc phía cung cấp bằng
-chứng có lỗ hổng (thiếu file mục tiêu, hoặc có file không parse được). Nó không
-phải xác suất finding sai. Pref hoặc switch bị gỡ mà mang cờ này được xếp vào
-Upstream cleanup; mọi dòng mang cờ khác giữ nguyên bucket. Lần chạy
-`--partition` được đo coverage theo cả cây, nên removal thuộc loại file mà
-partition chỉ đọc bên trong thư mục gốc của nó sẽ bị gắn cờ; dòng có score 0
-theo quy tắc build Windows thì không được xét. Quét rộng hơn cải thiện coverage
-theo file, nhưng không xác lập rằng parser đã đọc hết ngữ pháp hay đã phủ hết
-hành vi.
+`unconfirmed` tách biệt với bucket và score, và không bao giờ làm thay đổi
+score. Cờ này nghĩa là kết luận của finding dựa vào việc không thấy một khai báo
+ở một phía, nhưng lần chạy chưa đủ căn cứ để khẳng định: ở phiên bản mới, lần
+chạy đọc chưa tới 95% số file chứa loại khai báo đó trong toàn bộ cây, hoặc
+phía cung cấp bằng chứng bị thiếu target hay có file không parse được. Cờ này
+không phải xác suất finding sai. Pref hoặc switch bị gỡ mà có cờ này được xếp
+vào Upstream cleanup; các finding có cờ còn lại giữ nguyên bucket. Coverage của
+lần chạy `--partition` vẫn tính trên toàn bộ cây, nên removal của những loại
+file mà partition chỉ đọc trong thư mục gốc của nó sẽ bị gắn cờ; finding có
+score 0 theo quy tắc build Windows thì không được xét. Quét rộng hơn cải thiện
+coverage theo file, nhưng không xác lập rằng parser đã đọc hết ngữ pháp hay đã
+phủ hết hành vi.
 
 **Đừng sửa các hằng số xếp hạng** trong lúc phân tích một đợt nâng version của
 user. Không đồng ý với nhãn của classifier thì giải thích bằng bằng chứng thật.

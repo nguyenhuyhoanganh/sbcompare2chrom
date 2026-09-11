@@ -136,7 +136,7 @@ Trích `crowded` hay `touched` như nguyên nhân là bịa ra một nguyên nh�
 
 ### Bước 5: Kiểm tra khẳng định nhân quả với triệu chứng
 
-Trước khi viết câu trả lời, đem khẳng định đó đối chiếu với những điểm sau. Mỗi điểm đều đã từng tạo ra một câu trả lời sai mà tự tin.
+Trước khi viết câu trả lời, đối chiếu khẳng định đó với những điểm sau. Bỏ qua bất kỳ điểm nào cũng có thể dẫn tới một câu trả lời sai mà người viết vẫn tin là đúng.
 
 - **Ngày tháng có khớp không, ở cả hai đầu?** Một CL được merge trước điểm rẽ nhánh của version *from* thì có mặt trong cả hai cây và không thể giải thích một sự khác biệt. Một CL được merge sau điểm rẽ nhánh của version *to* thì hoàn toàn không có trong cây đã phát hành — `Cr-Branched-From` trong mỗi tag cho cả hai mốc ngày. Phần tra cứu ép cả hai điều kiện, và một dòng đã serve nhưng được ghi theo cửa sổ cũ và rộng hơn sẽ bị nhận ra và hỏi lại chứ không phục vụ nguyên trạng — nên một ngày vượt quá điểm rẽ nhánh của version đích trên một dòng đã serve là dấu hiệu của chuyện khác, và đáng báo lại.
 - **Chiều có khớp không?** Một flag đi từ `enabled → disabled` thì không được giải thích bởi một CL có tiêu đề "Enable …". Kiểm tra xem phần chênh lệch thật sự đi theo chiều nào.

@@ -1166,7 +1166,8 @@ def _label(finding: Finding, path: str) -> str:
 def _prune(hits: List[dict]) -> List[dict]:
     """Keep the evidence that identifies something; demote the rest.
 
-    An `exact` hit makes every `declares` one on the same finding redundant.
+    A strong hit does not make the `declares` hits on the same finding
+    redundant; they are kept while there are at most ``DECL_MAX`` of them.
     More than ``DECL_MAX`` of them and no strong one means the declaration was
     edited by a crowd -- on `ai_manager.mojom` all 11 candidate CLs edit some
     method -- so they no longer single anything out.

@@ -105,11 +105,11 @@ ChromiumDiff không biết:
 
 ### Cách phát biểu đúng
 
-Vì vậy, câu **sai** là: *"276 Compatibility break nghĩa là Samsung có 276 bug."*
+Vì vậy, câu **sai** là: *"798 Compatibility break nghĩa là Samsung có 798 bug."*
 
 Câu **đúng** là:
 
-> "Chromium gốc có 276 thay đổi về API, IPC hoặc cấu trúc dữ liệu cần đối chiếu với Samsung Browser. ChromiumDiff đã phân loại, xếp thứ tự và chỉ ra vị trí khai báo; bước tiếp theo là tìm nơi Samsung đang sử dụng và giao cho owner xác nhận ảnh hưởng."
+> "Chromium gốc có 798 thay đổi về API, IPC hoặc cấu trúc dữ liệu cần đối chiếu với Samsung Browser. ChromiumDiff đã phân loại, xếp thứ tự và chỉ ra vị trí khai báo; bước tiếp theo là tìm nơi Samsung đang sử dụng và giao cho owner xác nhận ảnh hưởng."
 
 ## 3. Luồng end-to-end
 
@@ -271,7 +271,7 @@ Bảy lớp bảo vệ chính:
 
 Thư mục `trees/` được dùng chung giữa các bộ file. Điều này tạo ra một rủi ro, và công cụ có cách chặn:
 
-Bước trích xuất **không** đọc tất cả những gì đang có trong cache. Nó chỉ đọc những đường dẫn mà bộ file hiện tại cho phép. Cơ chế này ngăn các file còn sót lại từ một lần chạy `analysis` lọt vào kết quả `smoke` rồi tạo ra hàng nghìn thay đổi giả.
+Bước trích xuất **không** đọc tất cả những gì đang có trong cache. Nó chỉ đọc những đường dẫn mà bộ file của lần chạy cho phép. Cơ chế này ngăn các file còn sót lại từ một lần chạy `analysis` lọt vào kết quả `smoke` rồi tạo ra hàng nghìn thay đổi giả.
 
 ### 5.5. Cây thư mục được lấy như thế nào?
 
@@ -282,7 +282,7 @@ Có hai bước khác nhau, và không nên nhầm chúng với nhau:
 
 Các thư mục gốc bao gồm những vùng như `chrome`, `components`, `content`, `extensions`, `services`, Blink, `base`, `device`, `cc`, `sandbox`, `storage` và `mojo`.
 
-Mỗi extractor tự khai báo đường dẫn nào nó có thể đọc. Nhờ vậy, công cụ vừa lập được danh sách file ứng viên, vừa tính được coverage bằng **đúng tiêu chí** mà bước trích xuất sử dụng — chứ không phải bằng một danh sách viết tay có thể lệch theo thời gian.
+Mỗi extractor tự khai báo đường dẫn nào nó có thể đọc. Nhờ vậy, công cụ vừa lập được danh sách candidate file, vừa tính được coverage bằng **đúng tiêu chí** mà bước trích xuất sử dụng — chứ không phải bằng một danh sách viết tay có thể lệch theo thời gian.
 
 ## 6. Bộ lọc file hoạt động theo nhiều lớp
 
@@ -322,7 +322,7 @@ Mỗi extractor định nghĩa chính xác đường dẫn nào nó có thể đ
 
 Ngay cả khi file đã được mở, extractor chỉ tạo `Fact` cho những mẫu khai báo mà parser của nó hỗ trợ.
 
-Hệ quả cần nhớ: **đọc được 99% số file ứng viên không có nghĩa công cụ hiểu 99% mọi cú pháp nằm trong các file đó.** Đây là khác biệt giữa coverage theo file và coverage theo cú pháp, và nó quay lại nhiều lần trong tài liệu này.
+Hệ quả cần nhớ: **đọc được 99% số candidate file không có nghĩa công cụ hiểu 99% mọi cú pháp nằm trong các file đó.** Đây là khác biệt giữa coverage theo file và coverage theo cú pháp, và nó quay lại nhiều lần trong tài liệu này.
 
 ## 7. Tool đọc những loại file nào, và mỗi loại dùng để làm gì?
 
@@ -550,7 +550,7 @@ Khi reviewer hoặc owner nghi ngờ một finding bị thiếu, có thể kiể
 2. `applies_to(path)` của extractor có nhận đúng đường dẫn và tên file không?
 3. Lần chạy có kèm `--partition` không, và đường dẫn có nằm trong phạm vi được tải không?
 4. File có bị loại vì là test, vì thuộc binary khác, vì là third-party, hoặc vì thuộc nền tảng ngoài Windows không?
-5. Coverage của đúng nhóm file ở version đó là bao nhiêu, và report có ghi nhận file mục tiêu bị thiếu hoặc lỗi parser nào không?
+5. Coverage của đúng nhóm file ở version đó là bao nhiêu, và report có ghi nhận target bị thiếu hoặc lỗi parser nào không?
 
 Nếu có bất kỳ câu trả lời nào là "không", báo cáo **không** được dùng để kết luận rằng đối tượng chắc chắn không tồn tại hoặc đã bị xoá.
 
@@ -965,7 +965,7 @@ Severity không phải số ngày công, và cũng không phải xác suất x�
 
 Score trả lời một câu khác:
 
-> "Trong **bản build Windows**, thay đổi này tốn bao nhiêu?"
+> "Trong **bản build Windows**, thay đổi này quan trọng tới mức nào?"
 
 Câu hỏi về độ tin cậy của bằng chứng được trả lời riêng bằng cờ `unconfirmed` (mục 15.4).
 
@@ -986,7 +986,7 @@ unconfirmed = true
         (score không đổi)
 ```
 
-Score chỉ có hai giá trị: bằng severity, hoặc bằng 0. Khi score bằng 0, `reasons` ghi rằng khai báo nằm ngoài bản build Windows. Độ tin cậy của bằng chứng được ghi riêng bằng cờ `unconfirmed`, vì nó trả lời một câu hỏi khác: thay đổi này có thật không, chứ không phải nó tốn bao nhiêu.
+Score chỉ có hai giá trị: bằng severity, hoặc bằng 0. Khi score bằng 0, `reasons` ghi rằng khai báo nằm ngoài bản build Windows. Độ tin cậy của bằng chứng được ghi riêng bằng cờ `unconfirmed`, vì nó trả lời một câu hỏi khác: thay đổi này có thật hay không, chứ không phải nó quan trọng tới mức nào.
 
 ### 15.3. "Không nằm trong Windows build"
 
@@ -1002,14 +1002,14 @@ Công cụ đánh dấu `removed` khi thấy một `Fact` ở bản cũ nhưng k
 
 Vì vậy coverage được xét riêng cho **từng nhóm file**. Hai con số dưới đây cho thấy sự chênh lệch lớn đến mức nào, và vì sao không thể dùng một con số tổng:
 
-- Với Web IDL, riêng danh sách file chọn tay đọc **2.166 trên 2.170** file ứng viên ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
-- Với pref và switch, riêng danh sách file chọn tay chỉ đọc **9 trên 529** file ứng viên. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
+- Với Web IDL, riêng danh sách file chọn tay đọc **2.166 trên 2.170** candidate file ở M151. Mức này gần như đủ để tin rằng một API thực sự đã biến mất.
+- Với pref và switch, riêng danh sách file chọn tay chỉ đọc **9 trên 529** candidate file. Mức này hoàn toàn không đủ để kết luận một key đã bị xoá.
 
 Ngưỡng xác nhận là **95%**. Nếu coverage của nhóm file đó ở bản mới thấp hơn ngưỡng, finding dựa trên việc "không còn thấy" mang cờ `unconfirmed` và một dòng lý do; score giữ nguyên. Riêng pref và switch mang cờ sẽ được chuyển sang Upstream cleanup, vì kết luận an toàn duy nhất là *"đã xoá, hoặc đã chuyển sang nơi chưa đọc"*. Các dòng mang cờ khác giữ nguyên bucket. Cờ đó là thuộc tính của **lần chạy**, không phải của thay đổi — nên nó là một field chứ không phải bucket thứ sáu. `report.md` dành riêng cho chúng một mục có cột bucket, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: tại M148 → M151, **0 trên lần chạy `analysis`** và 16 trên lần chạy `--partition downloads`.
 
 Lần chạy có `--partition` cũng đo coverage theo cả cây. `--partition downloads` ở M151 đọc 2 trên 529 file pref và switch, nên removal của pref và switch nằm trong bản build Windows đều mang cờ. 220 chrome://flags entry bị gỡ thì vẫn được xác nhận, vì file duy nhất chứa chúng, `flag-metadata.json`, được mọi partition đọc.
 
-Với addition, quy tắc khác: một khai báo quan sát được ở bản mới **không** bị gắn cờ vì coverage ở bản cũ thấp. Công cụ chỉ gắn cờ khi bản cũ có lỗi chắc chắn — thiếu file mục tiêu, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
+Với addition, quy tắc khác: một khai báo quan sát được ở bản mới **không** bị gắn cờ vì coverage ở bản cũ thấp. Công cụ chỉ gắn cờ khi bản cũ có lỗi chắc chắn — thiếu target, hoặc parser thất bại — vì khi đó nó không thể chứng minh khai báo này thực sự mới.
 
 ### 15.5. Ba ví dụ
 
@@ -1050,7 +1050,7 @@ Công cụ tính lại coverage cho từng version, theo năm bước:
 1. Lấy toàn bộ danh sách đường dẫn của đúng Git ref.
 2. Hỏi từng extractor xem nó có thể đọc file nào.
 3. Loại các file không thuộc sản phẩm browser hoặc không liên quan Windows.
-4. Chia các file ứng viên theo nhóm: Mojo, Web IDL, pref/switch, WebUI...
+4. Chia các candidate file theo nhóm: Mojo, Web IDL, pref/switch, WebUI...
 5. Đối chiếu với bộ file đang chạy để tính số file đã đọc và số file chưa đọc.
 
 Kết quả được lưu trong snapshot và trong report, chứ không chỉ in ra log.
@@ -1071,8 +1071,8 @@ Kết quả được lưu trong snapshot và trong report, chứ không chỉ in
 
 Tổng thể:
 
-- danh sách file chọn tay: 3,677 / 8,366 file ứng viên, tức 43,95%.
-- `analysis`: 8,295 / 8,366 file ứng viên, tức 99,15%.
+- danh sách file chọn tay: 3,677 / 8,366 candidate file, tức 43,95%.
+- `analysis`: 8,295 / 8,366 candidate file, tức 99,15%.
 
 **Một điểm rất dễ hiểu sai về bảng trên:** số file không phản ánh trực tiếp số khai báo lấy được.
 
@@ -1170,7 +1170,7 @@ Phần `meta` chứa:
 - Bộ file, partition và cờ `complete`.
 - Số `Fact` của bản cũ và bản mới.
 - Coverage tổng và coverage của từng nhóm, ở cả hai phía.
-- File chưa đọc, file mục tiêu bị thiếu, và các liên kết chưa tìm thấy đầu còn lại.
+- File chưa đọc, target bị thiếu, và các liên kết chưa tìm thấy đầu còn lại.
 - Những `Fact` bị phát hiện nằm ngoài phạm vi đã khai báo.
 
 Mỗi `finding` có dạng:
@@ -1336,34 +1336,34 @@ python3 -m chromiumdiff run \
   --no-enrich
 ```
 
-Snapshot và report khi chỉ đọc danh sách file chọn tay:
+Snapshot và report của lần chạy `analysis` này:
 
 | Metric | Kết quả |
 |---|---:|
-| Facts FROM | 28,507 |
-| Facts TO | 29,138 |
-| Semantic changes | 3,022 |
-| Compatibility break | 276 |
-| Behaviour change | 469 |
-| New declarations | 1,240 |
+| Facts FROM | 52,367 |
+| Facts TO | 54,298 |
+| Semantic changes | 6,064 |
+| Compatibility break | 798 |
+| Behaviour change | 696 |
+| New declarations | 2,979 |
 | Scheduled | 302 |
-| Upstream cleanup | 735 |
-| Not in Windows build | 187 |
-| Clusters | 72, cluster lớn nhất 7 finding |
+| Upstream cleanup | 1,289 |
+| Not in Windows build | 441 |
+| Clusters | 153, cluster lớn nhất 17 finding |
 
 Số lượng theo loại khai báo:
 
 | Nhóm `kind` | Total | Compatibility break |
 |---|---:|---:|
-| `mojo_*` | 339 | 126 |
+| `mojo_*` | 2,110 | 562 |
 | `idl_*`, `blink_runtime_feature` | 762 | 94 |
-| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | 1,644 | 55 |
-| `webui_*` | 277 | 1 |
-| phải sửa ngoài repository (theo signal) | 530 | 53 |
+| `base_feature`, `feature_param`, `pref`, `switch`, `flag_entry` | 2,804 | 141 |
+| `webui_*` | 388 | 1 |
+| phải sửa ngoài repository (theo signal) | 699 | 96 |
 
-**Bảng thứ hai là lập luận mạnh nhất cho việc phải lọc trước khi đọc.** Nhóm flag/pref/switch có nhiều finding nhất — 1.644 — nhưng chỉ 55 trong số đó là Compatibility break, tức 3%. Ngược lại, IPC chỉ có 339 finding, nhưng 126 trong số đó là Compatibility break, tức 37%.
+**Bảng thứ hai cho thấy vì sao cần lọc trước khi đọc.** Nhóm flag/pref/switch có nhiều finding nhất — 2.804 — nhưng chỉ 141 trong số đó là Compatibility break, tức 5%. Ngược lại, IPC có 2.110 finding, và 562 trong số đó là Compatibility break, tức 27%.
 
-Nếu chỉ nhìn tổng số dòng, hoặc nhìn kích thước Git diff, team sẽ dồn công sức vào đúng khu vực ít rủi ro nhất.
+Nếu chỉ nhìn tổng số dòng, hoặc nhìn kích thước Git diff, team sẽ dồn công sức vào khu vực ít rủi ro hơn.
 
 ### Một finding C++ dễ hiểu
 
@@ -1474,7 +1474,7 @@ Không có một con số duy nhất chứng minh report đúng. Độ tin cậy
 
 ### 23.3. Coverage evidence
 
-- Tổng số file ứng viên được tính từ cây thư mục thật của từng version.
+- Tổng số candidate file được tính từ cây thư mục thật của từng version.
 - Tiêu chí "file nào đọc được" lấy từ chính các extractor, không phải từ một danh sách viết tay.
 - Coverage tổng và coverage của từng nhóm đều được lưu trong report.
 - File bị thiếu, lỗi parser, và liên kết chưa tìm thấy đầu còn lại đều được ghi rõ.
@@ -1543,7 +1543,7 @@ Một số loại khai báo hiện chưa được chuyển thành `Fact`:
 - Mojo `feature` block và constant.
 - Một số trường hợp cú pháp hiếm, cùng các quan hệ lồng nhau hoặc kế thừa phức tạp.
 
-Vì vậy, dù `analysis` đọc 99% file ứng viên, điều đó **không** có nghĩa parser hiểu 99% mọi khai báo trong các file đó.
+Vì vậy, dù `analysis` đọc 99% candidate file, điều đó **không** có nghĩa parser hiểu 99% mọi khai báo trong các file đó.
 
 ### 24.3. Không đọc implementation body
 

@@ -219,7 +219,7 @@ Một quy tắc phòng nhiễu đáng chú ý: `position` chỉ được coi là
 | `param_removed` | 35 | Compatibility break | Cấu hình nào vẫn tiếp tục đặt param này sẽ im lặng mất tác dụng |
 | `param_rewired` | 35 | Compatibility break | Kiểu hoặc feature sở hữu param đã đổi |
 
-Hai signal `pref_left_scan` và `switch_left_scan` được bước chấm điểm chuyển sang Upstream cleanup **và gắn cờ `unconfirmed`** nếu coverage không đủ để xác nhận rằng khai báo thật sự đã bị xoá. Score của chúng vẫn bằng severity.
+Nếu coverage không đủ để xác nhận khai báo thật sự đã bị xoá, bước chấm điểm chuyển finding mang signal `pref_left_scan` hoặc `switch_left_scan` sang Upstream cleanup **và gắn cờ `unconfirmed`**. Score của finding vẫn bằng severity.
 
 Ngược lại, một trường hợp đổi tên đã ghép được bằng symbol là bằng chứng mạnh hơn hẳn, nên nó không bị hạ theo rule này.
 
@@ -273,13 +273,13 @@ nếu delta nằm ở tập overload signature:
     chỉ thêm vào         → coi như added
 
 nếu là removed, VÀ (coverage của surface đó ở bản mới < 95%
-                    hoặc bản mới thiếu file mục tiêu / có file không parse được):
+                    hoặc bản mới thiếu target / có file không parse được):
     unconfirmed = true
     ghi lý do vào reasons
     nếu leading signal là pref_left_scan hoặc switch_left_scan:
         bucket = Upstream cleanup
 
-nếu là added, VÀ bản cũ thiếu file mục tiêu / có file không parse được:
+nếu là added, VÀ bản cũ thiếu target / có file không parse được:
     unconfirmed = true
     ghi lý do vào reasons
     nếu bucket là New declarations:
@@ -294,7 +294,7 @@ Score bằng severity, trừ khi khai báo nằm ngoài bản build Windows ở 
 
 Không có rule cộng điểm kiểu "Samsung có patch trong file này nên +20", vì ChromiumDiff không có dữ liệu về source Samsung trong pipeline lõi. Cộng điểm cho một yếu tố không quan sát được sẽ tạo ra độ chính xác giả.
 
-Độ tin cậy của bằng chứng cũng không làm đổi score. Score và bucket trả lời câu hỏi "nếu thay đổi này là thật thì nó tốn gì". Độ tin cậy của bằng chứng là một câu hỏi khác, và cờ `unconfirmed` trả lời câu đó. Việc tách hai câu hỏi cũng giữ cho giá trị 0 chỉ có một nghĩa: khai báo nằm ngoài bản build Windows.
+Mức độ tin cậy của bằng chứng cũng không làm thay đổi score. Score và bucket trả lời câu hỏi "nếu thay đổi này là thật thì nó ảnh hưởng tới đâu". Bằng chứng có đủ hay không là một câu hỏi khác, do cờ `unconfirmed` trả lời. Tách riêng hai câu hỏi này còn giúp giá trị 0 chỉ mang một nghĩa: khai báo nằm ngoài bản build Windows.
 
 Hệ quả kiểm chứng được: nếu score khác severity thì `reasons` phải có dòng ghi rằng khai báo nằm ngoài bản build Windows. Nếu không có dòng đó, đây là lỗi của công cụ.
 
@@ -323,11 +323,11 @@ Ngưỡng để xác nhận một khai báo thật sự vắng mặt là **95%**
 Điểm cần chú ý: **chỉ removal bị xét theo coverage.**
 
 - Một kết luận `removed` dựa vào coverage của snapshot **mới**: câu "không còn ở bản mới" chỉ đáng tin nếu bản mới đã thật sự được đọc.
-- Một kết luận `added` là khai báo mà công cụ quan sát trực tiếp ở bản mới, nên coverage không được áp dụng cho nó. Nó chỉ bị gắn cờ khi bản cũ thiếu file mục tiêu hoặc có file không parse được, vì khi đó công cụ không chứng minh được rằng khai báo này chưa tồn tại ở bản cũ.
+- Với kết luận `added`, công cụ nhìn thấy khai báo ngay trong bản mới, nên coverage không được dùng để nghi ngờ nó. Finding `added` chỉ bị gắn cờ khi bản cũ thiếu target hoặc có file không parse được, vì khi đó công cụ không chứng minh được khai báo này chưa có ở bản cũ.
 
-Kết quả của rule này là cờ `unconfirmed` và một dòng trong `reasons`. Score không đổi.
+Khi rule này áp dụng, finding được gắn cờ `unconfirmed` và có thêm một dòng trong `reasons`; score không đổi.
 
-Lần chạy có `--partition` cũng đo coverage theo cả cây, không theo thư mục gốc của partition. Ví dụ, `--partition downloads` ở M151 đọc 10 trên 8.366 file ứng viên của cả cây, trong đó có 2 trên 529 file pref và switch, nên pref hoặc switch bị gỡ nằm trong bản build Windows đều mang cờ `unconfirmed`. Log in thêm con số bên trong thư mục gốc của partition: 10 trên 22 file. Trong số các dòng mang cờ, 6 key vẫn còn được khai báo trong cây M151, ở file nằm ngoài partition.
+Lần chạy có `--partition` cũng tính coverage trên toàn bộ cây, không chỉ trong các thư mục gốc của partition. Ví dụ, ở M151, `--partition downloads` đọc 10 trong 8.366 candidate file của cả cây, trong đó có 2 trong 529 file pref và switch. Vì vậy, mọi pref hoặc switch bị gỡ nằm trong bản build Windows đều bị gắn cờ `unconfirmed`. Log in thêm con số tính riêng trong các thư mục gốc của partition: 10 trên 22 file. Trong các finding bị gắn cờ, có 6 key thực ra vẫn được khai báo trong cây M151, chỉ là ở file nằm ngoài partition.
 
 ## Bước 5 — Bucket được chọn thế nào
 
@@ -365,13 +365,13 @@ Upstream đã lên lịch xoá một `chrome://flags` entry, hoặc dời cái l
 
 Upstream dọn thứ đã ngã ngũ, chuyển khai báo sang file khác, hoặc khai báo không nằm trong build Windows ở cả hai phía. Không có gì quan sát được thay đổi.
 
-Đây là bucket lớn nhất trong mọi báo cáo và là bucket không cần đọc từng dòng — trừ những dòng mang cờ `unconfirmed`.
+Đây là bucket không cần đọc từng dòng, trừ những dòng mang cờ `unconfirmed`.
 
 ### `unconfirmed` không phải bucket thứ sáu
 
-Việc lần chạy này có xác nhận được sự vắng mặt hay không là thuộc tính của **lần chạy**, không phải của thay đổi: cùng một removal có cờ `unconfirmed` trên lần chạy `--partition downloads` và không có cờ trên lần chạy `analysis`. Vì vậy nó là một field trên finding, không phải một bucket.
+Xác nhận được hay không là đặc điểm của **lần chạy**, không phải của thay đổi: cùng một removal có cờ `unconfirmed` trên lần chạy `--partition downloads` nhưng không có cờ trên lần chạy `analysis`. Vì vậy nó là một field của finding, không phải một bucket.
 
-Pref và switch mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì thay đổi ít quan trọng. Ví dụ, `DebuggingFeaturesRequested` nằm ở Upstream cleanup trên lần chạy partition downloads nhưng là Compatibility break trên lần chạy `analysis`, và score ở cả hai lần đều là 35. Các dòng mang cờ khác, ví dụ removal của Mojo hoặc Web API, giữ nguyên bucket. `report.md` dành cho chúng một mục riêng có cột bucket, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: tại M148 → M151, **0 trên lần chạy `analysis`** và 16 trên lần chạy `--partition downloads`.
+Pref và switch mang cờ nằm trong Upstream cleanup vì **thiếu bằng chứng**, không phải vì thay đổi ít quan trọng. Ví dụ, `DebuggingFeaturesRequested` nằm ở Upstream cleanup trên lần chạy partition downloads nhưng là Compatibility break trên lần chạy `analysis`, và score ở cả hai lần đều là 35. Các finding có cờ còn lại, ví dụ removal của Mojo hoặc Web API, vẫn giữ bucket của mình. `report.md` dành cho chúng một mục riêng có cột bucket, `report.html` gắn badge cạnh pill bucket kèm bộ lọc *All coverage*, và `summary.unconfirmed` đếm chúng: tại M148 → M151, **0 trên lần chạy `analysis`** và 16 trên lần chạy `--partition downloads`.
 
 ## Bước 6 — Những signal phải sửa ở ngoài repository
 
@@ -489,7 +489,7 @@ Finding vẫn được giữ lại để kiểm toán, nhưng nó không cạnh 
 ### Những điểm khiến kết quả kiểm toán được
 
 - `Fact` và `Change` là JSON cố định, không phụ thuộc LLM.
-- Mỗi finding đều có `reasons`: severity đến từ signal nào, vì sao score bằng 0 nếu có, và vì sao dòng đó mang cờ `unconfirmed` nếu có.
+- Mỗi finding đều có `reasons`, ghi severity đến từ signal nào, vì sao score bằng 0 (nếu có), và vì sao finding bị gắn cờ `unconfirmed` (nếu có).
 - Bảng signal, bảng bucket và danh sách thuộc tính được so đều nằm tập trung trong code, không rải rác.
 - Có test bảo đảm bảng severity của signal và bảng bucket dùng chung một tập khoá; một signal không thể lặng lẽ rơi vào bucket mặc định mà không bị phát hiện.
 - Cùng một cây source phải tạo ra cùng một thứ tự `Fact`; bước loại trùng không phụ thuộc thứ tự file mà hệ điều hành trả về.

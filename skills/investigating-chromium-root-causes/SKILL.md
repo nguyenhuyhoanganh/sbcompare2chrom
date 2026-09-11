@@ -184,8 +184,8 @@ note the closed door; do not report the tool as broken.
 
 ### Step 5: Test the causal claim against the symptom
 
-Before writing an answer, put the claim against these. Each one has produced a
-confident wrong answer.
+Before writing an answer, put the claim against these. Each one is a known
+source of a confident wrong answer.
 
 - **Does the date fit, at both ends?** A CL merged before the *from* version's
   branch point is in both trees and cannot explain a difference. A CL merged

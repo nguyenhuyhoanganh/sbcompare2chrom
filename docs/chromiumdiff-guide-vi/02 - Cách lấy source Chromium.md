@@ -174,7 +174,7 @@ route.ts
 routes.ts
 ```
 
-Cần đọc điều này cho đúng. Nó **không** có nghĩa là các file còn lại vô dụng với browser. Nó chỉ có nghĩa là extractor hiện tại không đọc phần implementation viết bằng TypeScript, không đọc CSS và không đọc ảnh — nên tải chúng về cũng không làm snapshot có thêm được `Fact` nào, chỉ tốn dung lượng.
+Cần đọc điều này cho đúng. Nó **không** có nghĩa là các file còn lại vô dụng với browser. Nó chỉ có nghĩa là extractor không đọc phần implementation viết bằng TypeScript, không đọc CSS và không đọc ảnh — nên tải chúng về cũng không làm snapshot có thêm được `Fact` nào, chỉ tốn dung lượng.
 
 ### Chạy song song và thử lại
 
@@ -232,7 +232,7 @@ Cache dùng chung một cây thư mục cho mỗi ref. Điều đó tạo ra m�
 }
 ```
 
-Extractor chỉ được phép đọc những file mà phạm vi hiện tại chạm tới. Nhờ đó nhãn của snapshot luôn đúng với dữ liệu bên trong nó.
+Extractor chỉ được phép đọc những file mà target set của lần chạy chạm tới. Nhờ đó nhãn của snapshot luôn đúng với dữ liệu bên trong nó.
 
 ## Bước 8 — Những file bị loại vì không thuộc sản phẩm
 

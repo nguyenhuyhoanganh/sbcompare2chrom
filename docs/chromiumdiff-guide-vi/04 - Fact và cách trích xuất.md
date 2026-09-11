@@ -65,7 +65,7 @@ Cần nói rõ ngay: chuẩn hoá ở đây **không** phải dịch text, và *
 5. Giữ cùng một schema cho nhiều dạng khai báo cũ và mới.
 6. Bỏ những thuộc tính chỉ phản ánh cách viết mà không đổi hành vi.
 
-Ví dụ rõ nhất là quy tắc 1 và 5. Chromium đã từng viết cùng một feature theo ba dạng:
+Ví dụ rõ nhất là quy tắc 1 và 5. Ở các phiên bản khác nhau, Chromium viết cùng một feature theo ba dạng:
 
 ```cpp
 BASE_FEATURE(kFoo, "Foo", base::FEATURE_ENABLED_BY_DEFAULT);
@@ -112,7 +112,7 @@ Sau lượt ghép cơ bản này, còn hai bước ghép đặc biệt nữa, d�
 | `webui_controls` | `webui_control` |
 | `webui_gates` | `webui_gate` |
 
-Các ví dụ dưới đây là **đầu ra thật** của extractor hiện tại, chạy trên đầu vào tối giản.
+Các ví dụ dưới đây là **đầu ra thật** của extractor, chạy trên đầu vào tối giản.
 
 ## 1. `base_feature`
 

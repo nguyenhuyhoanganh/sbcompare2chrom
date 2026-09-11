@@ -158,7 +158,7 @@ Giới hạn một lần chạy vào một khu vực chức năng, ví dụ `set
 
 Partition rất tiện khi cần điều tra nhanh một area. Nhưng nó **không phù hợp** làm cửa kiểm tra cuối trước khi release, vì một thay đổi ảnh hưởng Settings hoàn toàn có thể nằm ở một subsystem khác, ngoài partition đang chọn.
 
-Coverage của một lần chạy có partition được đo theo cả cây source. Nếu partition chỉ đọc một phần nhỏ số file của một loại khai báo, ví dụ pref, thì removal thuộc loại đó sẽ mang cờ `unconfirmed`. Log của lần chạy in thêm một con số thứ hai: số file partition đọc được bên trong thư mục gốc của chính nó.
+Coverage của lần chạy có partition vẫn được tính trên toàn bộ cây source. Vì vậy, nếu partition chỉ đọc được một phần nhỏ trong số file chứa một loại khai báo (ví dụ pref), các removal thuộc loại đó sẽ bị gắn cờ `unconfirmed`. Log của lần chạy in thêm một con số nữa: số file mà partition đọc được bên trong các thư mục gốc của nó.
 
 ### `--complete`
 
@@ -473,15 +473,15 @@ Leading signal quan trọng vì nó quyết định hai thứ: severity và buck
 Hai con số khác nhau, rất hay bị nhầm:
 
 - `severity` là mức quan trọng **cơ sở** của loại thay đổi, lấy từ leading signal, hoặc từ bảng mặc định theo `kind` + hướng thay đổi nếu không có signal nào.
-- `score` bằng `severity`, trừ một trường hợp: khai báo bị Chromium loại khỏi bản build Windows ở cả hai phía thì `score` bằng 0. Việc bằng chứng cho kết luận "đã biến mất" có đủ hay không được ghi bằng cờ `unconfirmed`, không làm đổi `score`.
+- `score` bằng `severity`, chỉ trừ một trường hợp: nếu Chromium loại khai báo khỏi bản build Windows ở cả hai phía thì `score` bằng 0. Khi bằng chứng cho kết luận "đã biến mất" chưa đủ, finding được gắn cờ `unconfirmed`; cờ này không làm thay đổi `score`.
 
 Cần nói rõ điều `score` không phải: nó không phải xác suất Samsung bị lỗi, và cũng không phải ước lượng số ngày công.
 
 ### `unconfirmed`
 
-Cờ trên một finding. Cờ bật khi finding dựa trên một sự vắng mặt mà lần chạy không xác nhận được: phiên bản mới đọc dưới 95% số file thuộc loại khai báo đó trong cả cây, hoặc phía cung cấp bằng chứng thiếu file mục tiêu hay có file không parse được.
+Một cờ trên finding. Cờ được bật khi kết luận của finding dựa vào việc *không thấy* một khai báo ở một phía của phép so sánh, nhưng lần chạy chưa đủ căn cứ để khẳng định điều đó. Có hai trường hợp: ở phiên bản mới, lần chạy đọc chưa tới 95% số file chứa loại khai báo đó trong toàn bộ cây; hoặc phía cung cấp bằng chứng bị thiếu target hay có file không parse được.
 
-Cờ này không làm đổi `score`. Pref hoặc switch bị gỡ mà mang cờ được xếp vào Upstream cleanup; các dòng mang cờ khác giữ nguyên bucket.
+Cờ này không làm thay đổi `score`. Pref hoặc switch bị gỡ mà có cờ này sẽ được xếp vào Upstream cleanup; các finding có cờ còn lại vẫn giữ bucket của mình.
 
 ### Bucket
 

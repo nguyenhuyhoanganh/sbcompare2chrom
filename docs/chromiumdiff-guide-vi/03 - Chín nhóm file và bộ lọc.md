@@ -120,7 +120,7 @@ _util          _handler       _manager
 
 Những tên chứa `_unittest.`, `_browsertest.`, `_test.`, `_testing.`, `test_util.`, `_test_util.` hoặc `_test_helper.` bị loại.
 
-Ở đây có một quyết định thiết kế đáng chú ý: **không chỉ đọc `*_features.cc`**. Chromium đặt feature thật trong `*_fieldtrial.cc`, `*_util.cc`, `*_handler.cc` và nhiều quy ước khác. Việc chỉ bám vào một hậu tố hẹp đã từng khiến công cụ bỏ sót phần lớn feature nằm trong `chrome/browser/ui/webui`.
+Ở đây có một quyết định thiết kế đáng chú ý: **không chỉ đọc `*_features.cc`**. Chromium đặt feature thật trong `*_fieldtrial.cc`, `*_util.cc`, `*_handler.cc` và nhiều quy ước khác. Nếu chỉ đọc các file có một hậu tố như `_features.cc`, công cụ sẽ bỏ sót phần lớn feature nằm trong `chrome/browser/ui/webui`.
 
 ### Khai báo nào tạo `Fact`
 
@@ -469,6 +469,6 @@ Bốn cách, xếp từ rẻ tới đắt:
 
 ### Một cảnh báo về con số coverage
 
-Coverage 100% chỉ nói lên đúng một điều: **đã đọc mọi file mà rule hiện tại gọi là candidate.**
+Coverage 100% chỉ nói lên đúng một điều: **đã đọc mọi file mà rule gọi là candidate.**
 
 Nó không chứng minh parser hiểu 100% grammar bên trong những file đó, và cũng không chứng minh rule không bỏ quên một quy ước đặt tên mới xuất hiện. Vì vậy hai thứ phải tồn tại song song: kiểm tra catalog để canh rule, và test parser để canh grammar.
