@@ -44,19 +44,25 @@ In code: `BookmarksSeed().url("A", url).folder("F", [Bm("B", url2), Folder("Empt
 | URL | Use |
 |-----|-----|
 | `site.page("Alpha")` | page whose `<title>` and `h1#title` are `Alpha` - unique history/bookmark entries |
-| `site.url("/pages/page1.html")` | static pages 1..3 with `#next` links |
-| `site.url("/form.html")` | inputs, select, checkbox, radio, file input, submit to `/echo` |
-| `site.url("/dialogs.html")` | alert / confirm / prompt / beforeunload / print / `<dialog>` |
+| `site.url("/pages/page1.html")` | static pages 1..3 with `#next` links, `#body` paragraph |
+| `site.url("/form.html")` | all form controls + file input, submits multipart to `/upload` |
+| `site.url("/inputs.html")` | text/number/date/range/multi-select/contenteditable/disabled, key log `#last-key` |
+| `site.url("/mouse.html")` | click, double click, page context menu, hover menu, far element |
+| `site.url("/upload.html")` | `#file` input, `#pick` button -> OS Open dialog (`#picked`), `#drop-zone` for Explorer drags (`#dropped`) |
+| `site.url("/dialogs.html")` | alert / confirm / prompt / beforeunload / print (async) / `<dialog>` |
 | `site.url("/dragdrop.html")` | HTML5 DnD, sortable list, mouse drag box |
-| `site.url("/popups.html")` | target=_blank link, window.open |
-| `site.url("/downloads.html")` | `#dl-txt` 2 KB, `#dl-bin` 100 KB, `#dl-slow` 10 MB slow, `#dl-attr` download attr |
+| `site.url("/popups.html")` | target=_blank link, window.open, same-tab link |
+| `site.url("/downloads.html")` | `#dl-txt` 2 KB, `#dl-bin` 100 KB, `#dl-slow` 10 MB slow, `#dl-attr` download attribute |
+| `site.url("/frames.html")` | iframe `#inner` with input/button posting to the parent |
+| `site.url("/permissions.html")` | notification and location permission requests |
+| `site.url("/toast.html")` | in-page toast |
+| `site.url("/shadow.html")` | nested custom elements (locator practice) |
 | `site.download("a.pdf", 4096, "application/pdf")` | any attachment |
 | `site.slow_download("big.bin", size, chunk, delay)` | in-progress downloads (pause/cancel) |
-| `site.url("/redirect", to="/page?title=X")` | redirects |
-| `site.url("/status", code=404)` | error pages |
-| `site.url("/toast.html")` | in-page toast + Notification permission |
-| `site.url("/shadow.html")` | nested custom elements (locator practice) |
-| `/echo` | GET/POST echo as JSON |
+| `site.url("/redirect", to="/page?title=X")` / `site.url("/status", code=404)` | redirects / error pages |
+| `site.url("/basic-auth")` | HTTP sign-in prompt, user `sbtest` / password `sbtest` |
+| `site.url("/delayed", ms=1500, text="Ready")` | `#late` appears after a delay |
+| `/echo` (GET/POST form) , `/upload` (POST multipart) | server echoes what it received as JSON |
 
 Need a new page? Add an HTML file under `test_site/` (static) or a route in
 `sbtest/server/local_site.py` (dynamic), with ids on everything the tests touch.
@@ -88,7 +94,9 @@ settings page). Pref names: open `chrome://prefs-internals` in the browser.
 
 ## Add-ons
 
-Put unpacked add-ons in `test_data/extensions/<name>/` (manifest v3). `sample_addon` has a
+`test_data/addons.yaml`: `sample` (name, unpacked folder, `.crx`) and `webstore` (id, name).
+Put unpacked add-ons in `test_data/extensions/<name>/` (manifest v3); pack a `.crx` with
+`chrome.exe --pack-extension=<folder>` (Chrome for Testing from `browsers/chrome/` works). `sample_addon` has a
 popup, an options page and a content script that sets `<html data-sb-addon="active">` on
 `http://127.0.0.1/*`. Installing from a store needs internet - not used in automated tests;
 test the install *flow* with a local `.crx` only if the build allows it.

@@ -10,7 +10,7 @@
 - Expected:
   - "SB Sample Addon" is listed and enabled
   - The page is marked by the add-on content script
-- Automated: tests/addons/test_addons.py::test_addon_listed_and_active
+- Automated: tests/features/addons/test_addons.py::test_addon_listed_and_active
 
 ## ADD-002 Disable an add-on
 - Priority: High
@@ -20,7 +20,7 @@
   2. Open a local test page
 - Expected:
   - The add-on state is DISABLED; the page is not marked
-- Automated: tests/addons/test_addons.py::test_disable_addon
+- Automated: tests/features/addons/test_addons.py::test_disable_addon
 
 ## ADD-003 Details page
 - Priority: Low
@@ -29,7 +29,7 @@
   1. Click Details on "SB Sample Addon"
 - Expected:
   - The details view shows the description and version 1.0.0
-- Automated: tests/addons/test_addons.py::test_details_page
+- Automated: tests/features/addons/test_addons.py::test_details_page
 
 ## ADD-010 Remove an add-on (native confirmation)
 - Priority: High
@@ -38,7 +38,7 @@
   1. Click Remove on "SB Sample Addon", confirm in the dialog
 - Expected:
   - The add-on is gone from the list
-- Automated: tests/addons/test_addons.py::test_remove_addon_native_confirm
+- Automated: tests/features/addons/test_addons.py::test_remove_addon_native_confirm
 
 ## ADD-020 Install an add-on with "Load unpacked"
 - Priority: High
@@ -48,7 +48,7 @@
   2. Click "Load unpacked", choose the folder test_data/extensions/sample_addon
 - Expected:
   - "SB Sample Addon" is listed and enabled
-- Automated: tests/addons/test_addon_install.py::test_load_unpacked
+- Automated: tests/features/addons/test_addon_install.py::test_load_unpacked
 
 ## ADD-021 Install an add-on by dropping a .crx file
 - Priority: High
@@ -59,7 +59,7 @@
   3. Confirm "Add extension" in the prompt
 - Expected:
   - "SB Sample Addon" is installed
-- Automated: tests/addons/test_addon_install.py::test_drop_crx
+- Automated: tests/features/addons/test_addon_install.py::test_drop_crx
 
 ## ADD-022 Install an add-on from Chrome Web Store
 - Priority: High
@@ -70,4 +70,4 @@
   2. Confirm "Add extension" in the prompt
 - Expected:
   - The store shows the remove button; the add-on is listed on the add-ons page
-- Automated: tests/addons/test_addon_install.py::test_install_from_web_store
+- Automated: tests/features/addons/test_addon_install.py::test_install_from_web_store

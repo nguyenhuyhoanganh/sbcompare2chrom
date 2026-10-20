@@ -1,38 +1,32 @@
 # General browsing (sample cases)
 
+Generic interactions (forms, uploads, dialogs, drag & drop, file dialogs, prompts ...) are
+demonstrated by the reference suite in tests/reference/ - they need no case documents.
+
 ## GEN-001 Back and forward navigation
-- Steps: open page 1, page 2; Back; Forward
-- Expected: titles follow page 1 -> page 2 -> page 1 -> page 2
-- Automated: tests/general/test_navigation.py::test_back_forward
+- Priority: High
+- Type: web
+- Steps:
+  1. Open "Static page 1", follow the link to "Static page 2"
+  2. Go back, then forward
+- Expected:
+  - Titles follow page 1 -> page 2 -> page 1 -> page 2
+- Automated: tests/features/general/test_navigation.py::test_back_forward
 
 ## GEN-002 Link with target=_blank opens a new tab
-- Steps: click "Open page 2 in new tab"
-- Expected: a second tab with "Static page 2"
-- Automated: tests/general/test_navigation.py::test_link_opens_new_tab
+- Priority: Medium
+- Type: web
+- Steps:
+  1. On the popups page click "Open page 2 in new tab"
+- Expected:
+  - A new tab shows "Static page 2"; closing it returns to the first tab
+- Automated: tests/features/general/test_navigation.py::test_link_opens_new_tab
 
-## GEN-003 JavaScript alert / confirm / prompt
-- Steps: trigger each dialog; accept / dismiss / type a value
-- Expected: page shows the matching result
-- Automated: tests/general/test_page_interactions.py::test_js_dialogs
-
-## GEN-004 Fill and submit a form with a file upload
-- Steps: fill text, select, checkbox, radio, file; submit
-- Expected: the server echoes the submitted values
-- Automated: tests/general/test_page_interactions.py::test_form_submit
-
-## GEN-005 HTML5 drag and drop
-- Steps: drag the item onto the drop zone
-- Expected: "dropped:html5"
-- Automated: tests/general/test_page_interactions.py::test_drag_and_drop_html5
-
-## GEN-010 Type a URL in the address bar (native)
+## GEN-010 Type a URL in the address bar
+- Priority: High
 - Type: native
-- Steps: focus the omnibox, type a local URL, Enter
-- Expected: the page loads, the omnibox shows the URL
-- Automated: tests/general/test_native_ui.py::test_omnibox_navigation
-
-## GEN-011 Save page with Ctrl+S (native Save As)
-- Type: native
-- Steps: open page 1, Ctrl+S, save to a temp folder
-- Expected: the .html file exists
-- Automated: tests/general/test_native_ui.py::test_save_page_as
+- Steps:
+  1. Focus the address bar, type a local URL, press Enter
+- Expected:
+  - The page loads and the address bar shows its URL
+- Automated: tests/features/general/test_navigation.py::test_omnibox_navigation

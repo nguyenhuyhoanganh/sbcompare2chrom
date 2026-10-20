@@ -1,6 +1,11 @@
-# Default settings. Do NOT put machine-specific paths here: copy
-# config/local.example.yaml to config/local.yaml (git-ignored) or pass CLI flags.
-# Priority: CLI flags > environment variables (SB_*) > local.yaml > default.yaml
+# Common settings for every target. Layers, later wins:
+#   default.yaml < targets/<target>.yaml < local.yaml (+ its targets.<target> section)
+#   < environment variables (SB_*) < CLI flags
+# Machine-specific paths go to config/local.yaml (git-ignored), see local.example.yaml.
+
+# samsung = Samsung Internet build under test; chrome = Google Chrome / Chrome for Testing,
+# the upstream reference (same Chromium base). Flag: --target, env: SB_TARGET.
+target: samsung
 
 browser:
   # Path to SamsungInternet.exe (env: SB_EXE, flag: --exe)
@@ -56,10 +61,8 @@ server:
   host: 127.0.0.1
   port: 0                     # 0 = random free port
 
-# Internal pages. Samsung Internet uses internet:// (internet://extensions ...).
-# Upstream Chromium (used to self-test the framework) needs scheme: chrome in local.yaml.
+# Internal page paths; the scheme (internet:// or chrome://) comes from the target file.
 pages:
-  scheme: internet
   bookmarks: bookmarks
   history: history
   downloads: downloads
@@ -80,10 +83,7 @@ native:
   # Enable pywinauto based checks (auto-disabled on non-Windows).
   enabled: true
   backend: uia
-  # Logical name -> UIA search criteria of the browser's own (Views) UI.
-  # Values are passed to pywinauto child_window(**criteria). Verify with:
-  #   python -m sbtest.tools.uia_dump
-  ui_map: config/native_ui.yaml
+  # ui_map (logical name -> UIA criteria of the browser's own UI) is set per target.
 
 report:
   screenshot_on_failure: true
@@ -101,12 +101,3 @@ network:
   browser_proxy: ""             # e.g. http://proxy.company.com:8080
   proxy_bypass: "127.0.0.1;localhost;<local>"
   download_proxy: ""            # proxy for chromedriver download; empty = env vars
-
-# Confluence / Jira Server or Data Center. Token comes from the env var, never from files.
-atlassian:
-  confluence_url: ""            # e.g. https://confluence.company.com
-  jira_url: ""                  # e.g. https://jira.company.com
-  token_env: SB_ATLASSIAN_TOKEN # Personal Access Token (Bearer)
-  verify_ssl: true              # or path to the company CA bundle (.pem)
-  report_space: ""              # space key where run reports are created
-  report_parent_id: ""          # page id under which run reports are created

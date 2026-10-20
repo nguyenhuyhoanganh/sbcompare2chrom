@@ -1,0 +1,8 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Frames page</title></head>
+<body>
+<h1 id="title">Frames</h1>
+<iframe id="inner" src="/frame_inner.html" width="500" height="160"></iframe>
+<p>From frame: <span id="from-frame"></span></p>
+<script>window.addEventListener('message', e => document.getElementById('from-frame').textContent = e.data);</script>
+</body></html>

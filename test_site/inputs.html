@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Inputs page</title>
+<style>label{display:block;margin:6px 0} #editor{border:1px solid #888;min-height:40px;padding:4px}</style></head>
+<body>
+<h1>Inputs</h1>
+<label>Text <input id="text" type="text" value="initial"></label>
+<label>Number <input id="number" type="number" min="0" max="10"></label>
+<label>Date <input id="date" type="date"></label>
+<label>Range <input id="range" type="range" min="0" max="100" value="10"></label>
+<label>Disabled <input id="disabled" type="text" disabled value="locked"></label>
+<label>Multi select <select id="multi" multiple size="4">
+  <option value="a">Apple</option><option value="b">Banana</option><option value="c">Cherry</option><option value="d">Durian</option>
+</select></label>
+<div id="editor" contenteditable="true"></div>
+<label>Key log target <input id="keys" type="text"></label>
+<p>Last key: <span id="last-key"></span></p>
+<p>Range value: <span id="range-value">10</span></p>
+<script>
+document.getElementById('keys').addEventListener('keydown', e => {
+  const mods = ['ctrl', 'shift', 'alt'].filter(m => e[m + 'Key']);
+  document.getElementById('last-key').textContent = [...mods, e.key].join('+');
+});
+document.getElementById('range').addEventListener('input', e =>
+  document.getElementById('range-value').textContent = e.target.value);
+</script>
+</body></html>

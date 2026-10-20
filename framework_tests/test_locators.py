@@ -1,6 +1,6 @@
 from selenium.webdriver.common.by import By
 
-from sbtest.core.locators import Locator, parse
+from sbtest.web.locators import Locator, parse
 
 
 def test_default_is_css():

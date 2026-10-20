@@ -1,6 +1,6 @@
 """Wrappers for native dialogs: generic browser prompts/bubbles and Windows common dialogs.
 
-    dlg = native.wait_dialog("add_extension")      # logical name from native_ui.yaml
+    dlg = native.wait_dialog("add_extension")      # logical name from config/native_ui/<target>.yaml
     assert "Read and change" in " ".join(dlg.texts())
     dlg.click("Add extension")
 
@@ -51,6 +51,19 @@ class Dialog:
                 b.invoke()
             except Exception:  # noqa: BLE001 - some Views buttons only react to real input
                 b.click_input()
+
+    def click_any(self, *names: str) -> str:
+        """Click the first button whose name matches one of ``names`` (labels change between
+        versions, e.g. "Allow" / "Allow while visiting the site"). Returns the label used."""
+        for name in names:
+            b = uia.find_in([self.el], 0, control_type="Button", title_re=f"(?i){re.escape(name)}")
+            if b is not None:
+                try:
+                    b.invoke()
+                except Exception:  # noqa: BLE001
+                    b.click_input()
+                return b.element_info.name
+        raise LookupError(f"none of the buttons {names} in dialog {self.title!r}: {self.texts()}")
 
     def set_checkbox(self, name: str, checked: bool = True) -> None:
         cb = self.find(control_type="CheckBox", title_re=f"(?i){re.escape(name)}")

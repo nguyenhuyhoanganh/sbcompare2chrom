@@ -29,7 +29,8 @@ chromedriver log is in `artifacts/logs/`. Read these before editing code.
 | works alone, fails in a run | shared state: use `unique()` names, don't depend on order, avoid `--browser-scope session` for this test (add a `browser()` marker) |
 | `StaleElementReferenceException` | list re-rendered: re-find inside the wait, read rows in one JS call |
 | `ElementClickInterceptedException` | overlay/toast/menu over it: wait for it to close; `web.click` already falls back to JS click |
-| native dialog not found | different title in Samsung build -> `uia_dump --find`; window not foreground (RDP/lock screen) |
+| native dialog not found | different title in Samsung build -> `uia_dump --find`, fix `config/native_ui/samsung.yaml`; window not foreground (RDP/lock screen) |
+| works on `--target chrome`, fails on samsung | Samsung changed that page/UI: override in `sbtest/pages/samsung/<page>.py` |
 | typing into cr-input does nothing | target the inner `>>> input` |
 | `session not created: This version of ChromeDriver only supports Chrome version N` | driver/browser mismatch: set `browser.chromedriver` or `browser.chromium_version`, or delete `artifacts/.cache/chromium_version.json` after a new build |
 | `unrecognized Chrome version` / `cannot parse ... Browser` with Google's chromedriver | the fork reports a non-Chrome product name in DevTools `/json/version`: use a chromedriver built from the fork (`browser.chromedriver`) |
@@ -55,5 +56,7 @@ python run.py --case BM-004 --keep-profile -- -x -s --log-cli-level=INFO
 1. Run `python run.py --all --reruns 1` on the new build.
 2. Group failures by page object; most breakages are renamed ids/tags in WebUI.
 3. For each: `dom` tool on the page, update selector constants, re-run that feature.
-4. Native: `uia_dump` and update `config/native_ui.yaml`.
-5. A failure that is real product behaviour change -> report, don't "fix" the test.
+4. Native: `uia_dump` and update `config/native_ui/samsung.yaml`.
+5. Run `--target chrome --suite reference` on the matching Chrome for Testing: if it fails
+   there too, the change is upstream Chromium - fix the framework/reference first.
+6. A failure that is real product behaviour change -> report, don't "fix" the test.

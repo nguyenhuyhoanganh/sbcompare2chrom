@@ -7,20 +7,29 @@ Static files come from ``test_site/``. Dynamic routes:
     /slow-download?name=big.bin&size=N&chunk=K&delay=S  streamed slowly (pause/resume/cancel)
     /redirect?to=/page?title=X    302 redirect
     /echo                         GET/POST -> JSON of query + form fields
+    /upload                       POST multipart -> JSON {fields, files: [{field, name, size}]}
     /status?code=404              any HTTP status
+    /basic-auth                   HTTP Basic auth, user "sbtest" / password "sbtest" (browser sign-in prompt)
+    /delayed?ms=1500&text=Ready   page whose #late element appears after ms (wait examples)
 
     site = LocalSite(root).start();  site.url("/page", title="Hello")  ->  http://127.0.0.1:PORT/page?title=Hello
 """
 from __future__ import annotations
 
+import base64
 import html
 import json
 import threading
 import time
+from email.parser import BytesParser
+from email.policy import default as email_default
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse
+
+
+AUTH_USER = AUTH_PASSWORD = "sbtest"
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -69,13 +78,42 @@ class _Handler(SimpleHTTPRequestHandler):
             return self._send(code, f"<h1>Status {code}</h1>".encode())
         if route == "/echo":
             return self._send(200, json.dumps({"method": "GET", "query": q}).encode(), "application/json")
+        if route == "/basic-auth":
+            expected = "Basic " + base64.b64encode(f"{AUTH_USER}:{AUTH_PASSWORD}".encode()).decode()
+            if self.headers.get("Authorization") != expected:
+                return self._send(401, b"<h1>Authentication required</h1>",
+                                  headers={"WWW-Authenticate": 'Basic realm="sbtest"'})
+            return self._send(200, b"<!doctype html><title>Signed in</title><h1 id='title'>Signed in</h1>")
+        if route == "/delayed":
+            ms, text = int(q.get("ms", "1500")), html.escape(q.get("text", "Ready"))
+            page = (f"<!doctype html><title>Delayed</title><h1>Delayed</h1><script>setTimeout(() => {{"
+                    f"const p = document.createElement('p'); p.id = 'late'; p.textContent = '{text}';"
+                    f"document.body.appendChild(p); }}, {ms});</script>")
+            return self._send(200, page.encode())
         return super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
+        if self.headers.get("Content-Type", "").startswith("multipart/form-data"):
+            return self._multipart(self.rfile.read(length))
         raw = self.rfile.read(length).decode("utf-8", "replace")
         form = {k: v[-1] for k, v in parse_qs(raw, keep_blank_values=True).items()}
         return self._send(200, json.dumps({"method": "POST", "form": form, "query": self._qs()}).encode(),
+                          "application/json")
+
+    def _multipart(self, body: bytes) -> None:
+        msg = BytesParser(policy=email_default).parsebytes(
+            f"Content-Type: {self.headers['Content-Type']}\r\n\r\n".encode() + body)
+        fields, uploaded = {}, []
+        for part in msg.iter_parts():
+            name = part.get_param("name", header="content-disposition")
+            filename = part.get_filename()
+            payload = part.get_payload(decode=True) or b""
+            if filename:
+                uploaded.append({"field": name, "name": filename, "size": len(payload)})
+            elif name:
+                fields[name] = payload.decode("utf-8", "replace")
+        return self._send(200, json.dumps({"method": "POST", "fields": fields, "files": uploaded}).encode(),
                           "application/json")
 
     def _slow_download(self, q: dict) -> None:

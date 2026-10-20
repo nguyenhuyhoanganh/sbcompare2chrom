@@ -4,7 +4,7 @@
     nb.hotkey("^d")                          # Ctrl+D -> bookmark bubble
     bubble = nb.wait_dialog("bookmark_added")
     bubble.click("Done")
-    nb.click("bookmark_star")                # logical name from config/native_ui.yaml
+    nb.click("bookmark_star")                # logical name from config/native_ui/<target>.yaml
     nb.menu("History", "History")            # app menu path
     nb.context_menu_web(web, "#link", "Open link in new tab")
     nb.file_dialog("save").save_as(path)
@@ -108,7 +108,7 @@ class NativeBrowser:
         return dict(self.ui_map[name_or_criteria])
 
     def element(self, name_or_criteria, timeout: float | None = None, in_main: bool = True):
-        """Element of the browser UI by logical name (native_ui.yaml) or criteria dict."""
+        """Element of the browser UI by logical name (config/native_ui/<target>.yaml) or criteria dict."""
         crit = self.criteria(name_or_criteria)
         roots = (lambda: [self.main_window()]) if in_main else self.windows
         return uia.find_in(roots, self.timeout if timeout is None else timeout, **crit)
@@ -146,10 +146,25 @@ class NativeBrowser:
 
     # -- menus -------------------------------------------------------------------
     def select_menu_items(self, *path: str, timeout: float | None = None) -> None:
-        """Click through an *already open* native menu by item names (regex, case-insensitive)."""
+        """Click through an *already open* native menu by item names (regex prefix, case-insensitive).
+
+        Items already clicked are skipped, so ``("History", "History")`` opens the History
+        sub menu and then picks the History entry inside it."""
+        clicked: list = []
+
+        def _next(rx):
+            def _find():
+                for w in self.windows():
+                    for mi in uia.descendants(w, control_type="MenuItem", title_re=rx):
+                        if mi.element_info.runtime_id not in clicked and mi.is_visible():
+                            return mi
+                return None
+            return _find
+
         for item in path:
-            mi = uia.find_in(self.windows, self.timeout if timeout is None else timeout,
-                             control_type="MenuItem", title_re=f"(?i)^{item}")
+            mi = poll(_next(f"(?i)^{item}"), self.timeout if timeout is None else timeout, 0.3,
+                      f"menu item /{item}/ (open items: {self.menu_items()})")
+            clicked.append(mi.element_info.runtime_id)
             mi.click_input()
             time.sleep(0.3)
 
@@ -176,7 +191,7 @@ class NativeBrowser:
 
     # -- dialogs / bubbles -------------------------------------------------------
     def wait_dialog(self, name_or_regex: str, timeout: float | None = None) -> Dialog:
-        """A dialog/bubble/prompt by logical name (``native_ui.yaml: dialogs``) or title regex.
+        """A dialog/bubble/prompt by logical name (``config/native_ui/<target>.yaml: dialogs``) or title regex.
 
         Searches top-level windows of the process first, then panes/dialogs inside them
         (Views bubbles are often child panes of the frame)."""
@@ -279,6 +294,27 @@ class NativeBrowser:
         self.focus()
         self.drag(self.web_point(web, src), self.web_point(web, dst, offset))
 
+    def wait_explorer(self, folder_name: str, timeout: float | None = None) -> Dialog:
+        """A File Explorer window showing ``folder_name`` (e.g. opened by "Show in folder")."""
+        def _find():
+            for w in self.desktop.windows(class_name="CabinetWClass"):
+                if folder_name.lower() in (w.element_info.name or "").lower():
+                    return w
+            return None
+        return Dialog(poll(_find, self.timeout if timeout is None else timeout, 0.5, f"Explorer '{folder_name}'"),
+                      self.timeout)
+
+    def explorer_selected(self, explorer: Dialog) -> list[str]:
+        """Names of the selected items in an Explorer window."""
+        out = []
+        for item in uia.descendants(explorer.el, control_type="ListItem"):
+            try:
+                if item.is_selected():
+                    out.append(item.element_info.name)
+            except Exception:  # noqa: BLE001 - item without SelectionItem pattern
+                pass
+        return out
+
     def drag_file_from_explorer(self, path: str | Path, web=None, target=None) -> None:
         """Real OS drag of a file/folder from File Explorer into the browser.
 
@@ -325,7 +361,7 @@ class NativeBrowser:
 
     # -- evidence ----------------------------------------------------------------
     def dump(self, path: str | Path | None = None) -> str:
-        """UIA tree of every browser window. Use it to discover names for native_ui.yaml."""
+        """UIA tree of every browser window. Use it to discover names for config/native_ui/<target>.yaml."""
         text = "\n\n".join(uia.dump(w) for w in self.windows())
         if path:
             Path(path).parent.mkdir(parents=True, exist_ok=True)

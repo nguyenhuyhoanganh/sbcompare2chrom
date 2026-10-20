@@ -10,7 +10,7 @@
   3. Enter a name and a URL, click Save
 - Expected:
   - The new bookmark is listed with the given name
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_add_bookmark
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_add_bookmark
 
 ## BM-002 Add a folder
 - Priority: High
@@ -21,7 +21,7 @@
   2. Organize menu > "Add new folder", enter a name, Save
 - Expected:
   - The folder is listed in the list and in the folder tree
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_add_folder
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_add_folder
 
 ## BM-003 Edit a bookmark
 - Priority: High
@@ -33,7 +33,7 @@
   3. Change the name to a new value, Save
 - Expected:
   - The list shows the new name, the old name is gone
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_edit_bookmark
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_edit_bookmark
 
 ## BM-004 Delete a bookmark and undo
 - Priority: High
@@ -46,7 +46,7 @@
 - Expected:
   - After step 2 the item is gone and a toast says it was deleted
   - After step 3 the item is back
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_delete_and_undo
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_delete_and_undo
 
 ## BM-005 Search bookmarks
 - Priority: Medium
@@ -57,7 +57,7 @@
   2. Type "ta" in the search box
 - Expected:
   - Only "Beta" and "Delta" are listed
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_search
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_search
 
 ## BM-006 Open a sub folder
 - Priority: Medium
@@ -67,7 +67,7 @@
   1. Open the bookmark manager, select folder "Work" in the tree
 - Expected:
   - The list shows exactly "Form page" and "Dialogs page"
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_open_folder
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_open_folder
 
 ## BM-010 Bookmark the current page with Ctrl+D
 - Priority: High
@@ -80,4 +80,4 @@
 - Expected:
   - The bubble is shown after step 2
   - "Static page 1" is listed in the bookmark manager
-- Automated: tests/bookmarks/test_bookmark_native.py::test_ctrl_d_bookmarks_page
+- Automated: tests/features/bookmarks/test_bookmark_native.py::test_ctrl_d_bookmarks_page

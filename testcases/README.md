@@ -1,5 +1,7 @@
 # Test case documents (input for test authors / agents)
 
+Product test cases for Samsung Internet. Raw copies of source documents (Confluence pages,
+exports) go to `_inbox/`; the normalized cases below are what tests and coverage use.
 Put one markdown file per feature area (or per doc you receive) under the matching folder:
 
 ```
@@ -9,7 +11,7 @@ testcases/
 
 Convert any source doc (Excel, Word, Confluence...) into this format. Each case **must** have
 a unique ID with the feature prefix; the automated test carries the same ID via
-`@pytest.mark.case("BM-001")`, so coverage can be tracked and a single case can be run
+`@pytest.mark.case("BM-001")` (tests in `tests/features/<feature>/`), so coverage can be tracked and a single case can be run
 with `python run.py --case BM-001`.
 
 | Feature    | Prefix | Folder              |
@@ -34,7 +36,7 @@ with `python run.py --case BM-001`.
   3. Enter name "My new bookmark" and the URL, click Save
 - Expected:
   - The bookmark "My new bookmark" is listed in Bookmarks bar
-- Automated: tests/bookmarks/test_bookmark_manager.py::test_add_bookmark   (filled in when automated)
+- Automated: tests/features/bookmarks/test_bookmark_manager.py::test_add_bookmark   (filled in when automated)
 ```
 
 `python -m sbtest.tools.coverage` lists which IDs are automated, missing, or orphaned.

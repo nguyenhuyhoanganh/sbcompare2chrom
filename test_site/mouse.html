@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Mouse page</title>
+<style>
+.target{display:inline-block;padding:10px 16px;margin:6px;border:1px solid #888;user-select:none}
+#hover-menu .submenu{display:none} #hover-menu:hover .submenu{display:block}
+#ctx-menu{display:none;position:fixed;border:1px solid #444;background:#fff;padding:4px}
+#far{margin-top:2000px}
+</style></head>
+<body>
+<h1>Mouse</h1>
+<div id="click-me" class="target">Click me</div>
+<div id="dbl" class="target">Double click me</div>
+<div id="ctx" class="target">Right click me</div>
+<div id="hover-menu" class="target">Hover menu<div class="submenu"><a id="sub-item" href="#sub">Sub item</a></div></div>
+<p>Result: <span id="result"></span></p>
+<div id="ctx-menu"><div id="ctx-copy" class="target">Copy</div></div>
+<div id="far" class="target">Far away element</div>
+<script>
+const out = t => document.getElementById('result').textContent = t;
+document.getElementById('click-me').onclick = () => out('clicked');
+document.getElementById('dbl').ondblclick = () => out('double clicked');
+document.getElementById('ctx').oncontextmenu = e => { e.preventDefault();
+  const m = document.getElementById('ctx-menu'); m.style.display = 'block'; m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; };
+document.getElementById('ctx-copy').onclick = () => { out('menu: copy'); document.getElementById('ctx-menu').style.display = 'none'; };
+document.getElementById('sub-item').onclick = e => { e.preventDefault(); out('sub item'); };
+document.getElementById('far').onclick = () => out('far clicked');
+</script>
+</body></html>

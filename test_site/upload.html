@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Upload page</title>
+<style>#drop-zone{width:420px;height:160px;border:3px dashed #888;display:flex;align-items:center;justify-content:center}
+#drop-zone.over{border-color:#06c}</style></head>
+<body>
+<h1>Upload</h1>
+<!-- 1. visible input: web.upload() sets files directly -->
+<form id="upload-form" method="post" action="/upload" enctype="multipart/form-data">
+  <input id="file" name="file" type="file" multiple>
+  <input name="note" value="from sbtest">
+  <button id="submit" type="submit">Upload</button>
+</form>
+<!-- 2. hidden input opened by a button: the OS "Open" dialog appears (native) -->
+<input id="hidden-file" type="file" multiple style="display:none">
+<button id="pick">Choose files...</button>
+<p>Picked: <span id="picked"></span></p>
+<!-- 3. drop zone for files dragged from File Explorer (native drag) -->
+<div id="drop-zone">Drop files here</div>
+<p>Dropped: <span id="dropped"></span></p>
+<script>
+const names = files => Array.from(files).map(f => f.name).join(',');
+document.getElementById('pick').onclick = () => document.getElementById('hidden-file').click();
+document.getElementById('hidden-file').onchange = e => document.getElementById('picked').textContent = names(e.target.files) || '(none)';
+const zone = document.getElementById('drop-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('over');
+  document.getElementById('dropped').textContent = names(e.dataTransfer.files); });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+</script>
+</body></html>

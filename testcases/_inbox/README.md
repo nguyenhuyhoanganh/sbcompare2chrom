@@ -1,4 +1,5 @@
 # _inbox
 
-Raw copies written by `python -m sbtest.tools.atlassian_read <link>` (Confluence/Jira -> Markdown).
-Not read by tests or coverage: normalize them into `testcases/<feature>/*.md` (skill `sbtest-intake`).
+Raw copies of source documents (Confluence pages read with the Confluence skill, exports,
+pasted text), first line = source link. Not read by tests or coverage: normalize them into
+`testcases/<feature>/*.md` (skill `sbtest-intake`).

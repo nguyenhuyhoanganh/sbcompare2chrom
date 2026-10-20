@@ -1,0 +1,9 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Permissions page</title></head>
+<body>
+<h1>Permissions</h1>
+<button id="notify" onclick="Notification.requestPermission().then(p => { document.getElementById('notify-state').textContent = p; if (p === 'granted') new Notification('sbtest notification', {body: 'Hello from sbtest'}); })">Ask notifications</button>
+<p>Notifications: <span id="notify-state"></span></p>
+<button id="geo" onclick="navigator.geolocation.getCurrentPosition(() => document.getElementById('geo-state').textContent = 'allowed', e => document.getElementById('geo-state').textContent = 'denied:' + e.code)">Ask location</button>
+<p>Location: <span id="geo-state"></span></p>
+</body></html>

@@ -1,0 +1,9 @@
+# Samsung Internet for Windows - the product under test.
+browser:
+  exe: ""                        # set in config/local.yaml: <build folder>\SamsungInternet.exe
+pages:
+  scheme: internet               # internet://bookmarks, internet://extensions ...
+native:
+  ui_map: config/native_ui/samsung.yaml
+# Page object implementation used by the `pages` fixture (sbtest/pages/samsung/).
+page_objects: samsung

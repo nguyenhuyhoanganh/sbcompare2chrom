@@ -1,0 +1,6 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Inner frame</title></head>
+<body>
+<h2 id="inner-title">Inside the frame</h2>
+<input id="inner-input"><button id="inner-send" onclick="parent.postMessage(document.getElementById('inner-input').value, '*')">Send to parent</button>
+</body></html>

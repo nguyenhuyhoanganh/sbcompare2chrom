@@ -1,111 +1,103 @@
-# sbtest: Auto test sanity cho Samsung Internet (Windows, fork Chromium)
+# sbtest: Auto test sanity cho Samsung Internet (Windows)
 
-Tool chạy lại các sanity test cơ bản (bookmarks, history, downloads, settings, add-ons,
-duyệt web chung) mỗi lần merge một bản Chromium mới. Đầu vào là `SamsungInternet.exe`.
-Có thể chạy toàn bộ, theo từng feature, hoặc theo từng mã test case.
+Mỗi lần merge một bản Chromium mới vào Samsung Internet, bộ test này chạy lại các sanity
+test cơ bản theo từng feature: add-ons, bookmarks, downloads, history, settings, duyệt web chung.
 
-- **Selenium + chromedriver** điều khiển nội dung web, kể cả các trang nội bộ chrome://
-  (bookmarks, history...). Các trang này dựng bằng Shadow DOM, framework xử lý sẵn.
-- **pywinauto (UI Automation)** điều khiển phần native: toolbar, omnibox, menu,
-  bubble/prompt của trình duyệt, dialog Save As/Open/Print, toast của Windows, phím tắt
-  (Ctrl+D, Ctrl+H...), chuột thật cho drag & drop.
-- **Skill cho agent** (`.claude/skills/`): agent nhận danh sách test case, tự khám phá UI
-  và tự viết script test.
+- **Lớp web (Selenium):** điều khiển nội dung trang, kể cả các trang nội bộ `internet://`.
+- **Lớp native (pywinauto):** điều khiển phần không phải web: toolbar, menu, bubble/prompt,
+  dialog Open/Save As/chọn thư mục, File Explorer, print, toast của Windows, phím tắt, chuột thật.
+- **Hai target:** `samsung` là sản phẩm cần test. `chrome` (Chrome for Testing, cùng nền
+  Chromium) dùng làm bản tham chiếu, đã kiểm chứng.
+- **Skill cho agent** (`.claude/skills/`) để agent tự viết, chạy và báo cáo test.
 
-## Cài đặt (Windows, chỉ chạy trên Windows)
+## Cấu trúc
 
-```bat
-setup.bat                                   & rem tạo .venv, cài thư viện, tạo config\local.yaml
-notepad config\local.yaml                   & rem browser.exe = <thư mục build>\SamsungInternet.exe
-.venv\Scripts\activate
-python -m sbtest.tools.doctor               & rem kiểm tra từng bước, chụp ảnh vào artifacts\doctor\
+```
+run.py                       chạy test (target, suite, feature, case)
+setup.bat                    cài đặt lần đầu trên Windows
+config/
+  default.yaml               cấu hình chung
+  targets/samsung.yaml       internet://, page object Samsung, map UI native Samsung
+  targets/chrome.yaml        chrome://, page object Chromium, map UI native Chrome
+  native_ui/*.yaml           tên logic -> tiêu chí UIA (toolbar, dialog, prompt...)
+  local.yaml                 cấu hình riêng của máy (đường dẫn exe, proxy), không đưa lên git
+sbtest/                      framework
+  browser/                   khởi động browser, profile, version Chromium, chromedriver
+  web/                       lớp web: locator (xuyên Shadow DOM), wait, action, đọc nội dung, tab, iframe
+  native/                    lớp native: UI của browser, dialog Windows, Explorer, toast
+  pages/chromium/            page object các trang chrome:// (tham chiếu, đã kiểm chứng)
+  pages/samsung/             page object các trang internet:// (kế thừa chromium, sửa phần khác)
+  data/  server/             dữ liệu mẫu, web server local
+  reporting/                 bằng chứng lỗi, results.json, thư mục report cho Confluence
+  tools/                     doctor, dom, uia_dump, coverage, get_chrome, confluence_export
+tests/
+  features/                  test sản phẩm, mỗi feature một thư mục
+    addons/  bookmarks/  downloads/  history/  settings/  general/
+  reference/                 bộ thao tác mẫu trên Chrome (xem tests/reference/README.md)
+    web/                     điều hướng, tab, input, chuột, phím, drag-drop, JS dialog, iframe, upload/download
+    files/                   hộp Open, Save As, chọn thư mục, kéo file từ Explorer, Show in folder
+    native/                  thanh địa chỉ, nút toolbar, menu, phím tắt, đăng nhập HTTP, quyền, print, toast
+testcases/<feature>/*.md     test case dạng tài liệu, mỗi case có mã (ADD-001...)
+test_site/  test_data/       trang web test local, add-on mẫu (.crx + unpacked), dữ liệu
+framework_tests/             unit test của framework
 ```
 
-Sau proxy công ty thì đặt `HTTPS_PROXY` trước khi chạy `setup.bat`. Nếu cần, đặt thêm
-`network.download_proxy` trong `config/local.yaml`. Kết nối tới localhost (chromedriver,
-web server local) tự động không đi qua proxy.
+## Cài đặt (Windows)
 
-**chromedriver** phải cùng major version Chromium với bản build. Framework tự xử lý theo
-thứ tự:
+```bat
+setup.bat
+notepad config\local.yaml        & rem targets.samsung.browser.exe = <thư mục build>\SamsungInternet.exe
+.venv\Scripts\activate
+python -m sbtest.tools.doctor    & rem kiểm tra từng bước, ảnh chụp lưu ở artifacts\doctor\
+```
 
-1. `browser.chromedriver` trong `config/local.yaml` (hoặc `--driver`).
-2. `drivers/<major>/chromedriver.exe` (dùng cho máy offline).
-3. Tự phát hiện version Chromium của exe (qua DevTools `/json/version`), rồi tải driver của
-   Google (Chrome for Testing) cùng build, qua proxy.
+Bản tham chiếu Chrome dùng `python -m sbtest.tools.get_chrome`. Lệnh này tải Chrome for
+Testing cùng major Chromium với bản Samsung, kèm chromedriver khớp version, rồi
+`python -m sbtest.tools.doctor --target chrome`.
 
-Nếu chromedriver của Google báo `unrecognized Chrome version`, nghĩa là bản fork không
-khai báo mình là "Chrome". Khi đó build target `chromedriver` từ chính source fork rồi trỏ
-`browser.chromedriver` vào file đó.
-
-Các trang nội bộ dùng `internet://` (cấu hình `pages.scheme`).
+Về chromedriver: framework tự dò version Chromium của exe rồi tải driver của Google qua proxy
+(biến `HTTPS_PROXY`). Nếu driver của Google không nhận bản Samsung (lỗi `unrecognized Chrome
+version`), hãy build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`.
 
 ## Chạy
 
 ```bat
-python run.py --exe "C:\SI\SamsungInternet.exe" --all
-python run.py --exe ... --feature bookmarks,history
-python run.py --exe ... --case BM-001,DL-004
-python run.py --exe ... --sanity             & rem chỉ chạy bộ nhanh
-python run.py --exe ... --all --reruns 1     & rem chạy lại test fail 1 lần để tách lỗi flaky
-python run.py --exe ... --no-native          & rem bỏ các test cần UI native (máy không có desktop)
-python run.py --list                         & rem case nào đã được tự động hoá
+python run.py --all                               & rem Samsung, toàn bộ tests\features
+python run.py --feature addons,bookmarks
+python run.py --case ADD-001,DL-004
+python run.py --sanity --reruns 1
+python run.py --all --screenshot-steps            & rem chụp ảnh sau mỗi bước
+python run.py --target chrome --suite reference   & rem bộ thao tác mẫu trên Chrome
+python run.py --list                              & rem case nào đã được tự động hoá
 ```
 
-Kết quả nằm ở `artifacts/runs/<thời gian>/`:
+Kết quả nằm ở `artifacts\runs\<thời gian>\`:
 
-- `report.html`: ảnh chụp lỗi nhúng thẳng trong report.
-- `junit.xml`, `results.json`.
-- `failures/<test>/` cho mỗi test fail:
-  - `failure.txt`: case, bước fail, kết quả mong đợi, lỗi, phần tử cuối cùng được thao tác.
-  - `page.png`: ảnh tab, phần tử đang thao tác được **khoanh đỏ**.
-  - `screen.png`: **toàn màn hình Windows**, thấy được cả dialog/bubble native.
-  - `dom.txt`, `page.html`, `uia.txt`, `alert.txt`.
-- `--screenshot-steps`: chụp thêm ảnh sau **mỗi bước** vào `steps/<test>/`.
-- `--publish`: tạo **một trang Confluence mới** cho lần chạy, gồm bảng theo feature/mã case
-  và ảnh lỗi đính kèm. Cần `SB_ATLASSIAN_TOKEN` (Personal Access Token) và mục `atlassian`
-  trong `config/local.yaml`. Xem trước bằng
-  `python -m sbtest.tools.confluence_report artifacts\runs\<ts> --dry-run`.
+| | |
+|---|---|
+| `report.html` | report HTML, có nhúng ảnh lỗi |
+| `failures\<test>\failure.txt` | case, bước fail, kết quả mong đợi, lỗi, phần tử đang thao tác |
+| `failures\<test>\page.png` | ảnh tab, **phần tử lỗi được khoanh đỏ** |
+| `failures\<test>\screen.png` | **toàn màn hình Windows**, thấy được cả dialog native |
+| `failures\<test>\dom.txt`, `uia.txt` | cây DOM và cây UI native lúc fail |
+| `steps\<test>\` | ảnh từng bước (khi chạy với `--screenshot-steps`) |
+| `results.json`, `junit.xml` | kết quả dạng máy đọc |
+| `confluence\` | trang report đã soạn sẵn (`page.storage.html`/`page.md` + `attachments\`), dùng skill Confluence để tạo trang và upload |
 
 Test native cần desktop Windows đang mở và không bị khoá. Đừng chạy qua RDP đang thu nhỏ.
 
-## Cấu trúc
+## Làm việc với agent (Claude Code chạy trên máy Windows có bản build)
 
-| Đường dẫn | Nội dung |
-|-----------|----------|
-| `run.py` | CLI chạy test |
-| `config/default.yaml` | mọi cấu hình: args, prefs, timeout, URL các trang nội bộ (`pages`) |
-| `config/native_ui.yaml` | tên logic → tiêu chí UIA của toolbar, dialog… (sửa ở đây khi Samsung đổi tên) |
-| `sbtest/browser/` | khởi động/attach browser, profile riêng cho mỗi test, dò version, resolve chromedriver |
-| `sbtest/core/` | lớp web: locator (CSS, XPath, `>>>` xuyên shadow, `text=`, `aria=`), wait, action, đọc nội dung, tab, JS dialog |
-| `sbtest/native/` | lớp native: phím tắt, toolbar, menu, context menu, bubble, file dialog, toast, chuột thật, dump UIA |
-| `sbtest/pages/` | page object: bookmarks, history, downloads, settings, extensions |
-| `sbtest/data/`, `test_data/` | dữ liệu mẫu: seed bookmarks, prefs, add-on mẫu, sinh file |
-| `sbtest/server/`, `test_site/` | web server local: trang form, dialog, drag-drop, popup, download (không cần internet) |
-| `sbtest/tools/` | `doctor` (kiểm tra máy), `dom` (khám phá DOM), `uia_dump` (khám phá UI native), `coverage`, `atlassian_read` (đọc link Confluence/Jira), `confluence_report` (đẩy report) |
-| `sbtest/atlassian.py` | client Confluence/Jira Server/DC, xác thực bằng PAT |
-| `testcases/<feature>/*.md` | test case dạng tài liệu, mỗi case có mã (BM-001…) |
-| `tests/<feature>/` | script test, gắn `@pytest.mark.case("BM-001")` |
-| `framework_tests/` | unit test của chính framework |
-| `.claude/skills/` | `sbtest-intake` (link Confluence/Jira → test case), `sbtest-author` (test case → script), `sbtest-run` (chạy, phân loại lỗi, report) |
-
-## Quy trình với agent (chạy Claude Code trên máy Windows có bản build)
-
-1. Đặt token: `set SB_ATLASSIAN_TOKEN=<PAT>`.
-2. Đưa link cho agent: *"Đọc test case add-ons ở <link Confluence> và tự động hoá"*.
-   - Skill `sbtest-intake` đọc link, chuẩn hoá nội dung thành `testcases/addons/*.md`, mỗi case có mã.
-   - Skill `sbtest-author` tự mở browser, khám phá UI (`sbtest.tools.dom`, `uia_dump`), sửa
-     page object theo trang thật của Samsung, viết test, rồi chạy `python run.py --case ...`
-     cho tới khi pass ổn định.
-3. Chạy bộ test sau mỗi lần merge Chromium: `python run.py --all --publish` (skill `sbtest-run`).
+- *"Đọc test case add-ons ở <link Confluence> và tự động hoá"*:
+  - `sbtest-intake` đọc link qua skill Confluence và chuẩn hoá thành `testcases\addons\*.md`.
+  - `sbtest-author` tự mở browser, khám phá UI, sửa page object Samsung, viết test vào
+    `tests\features\addons\` rồi chạy cho tới khi pass ổn định.
+- *"Chạy sanity cho bản build mới và đẩy report lên Confluence"*: `sbtest-run` chạy test,
+  phân loại lỗi rồi tạo trang Confluence từ thư mục `confluence\`.
 
 ## Ghi chú
 
-- Mỗi test chạy trên profile mới. Điều kiện ban đầu khai báo bằng
-  `@pytest.mark.browser(bookmarks=..., prefs=..., extensions=[...])`.
-- Add-ons có ba luồng cài dựng sẵn: Load unpacked (hộp chọn thư mục của Windows), kéo thả
-  `.crx` từ File Explorer (chuột thật), và Chrome Web Store (qua proxy, xác nhận bằng prompt native).
-- **Page object hiện được viết theo Chromium gốc.** Samsung đã viết lại nhiều trang, nên
-  agent phải kiểm tra lại và sửa selector trên bản build thật. Phần lõi (locator, wait,
-  action, native, report) không phụ thuộc vào cấu trúc trang.
-- Đã chạy thật trên Chromium 141 (Linux). Phần pywinauto/Windows chưa được chạy trên
-  Windows thật, `python -m sbtest.tools.doctor` sẽ cho thấy chỗ nào cần chỉnh.
+- Page object Samsung hiện **kế thừa nguyên bản Chromium và chưa được kiểm chứng**. Agent sửa
+  từng trang khi viết test cho trang đó.
+- Đã chạy thật trên Chromium 141 (Linux): test feature và phần web của bộ tham chiếu.
+  Các test native/files (Windows) đã viết sẵn nhưng chưa được chạy trên Windows thật.

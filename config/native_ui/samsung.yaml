@@ -1,0 +1,54 @@
+# Native UI of Samsung Internet. STARTED AS A COPY OF chromium.yaml - verify every entry on
+# the real build (python -m sbtest.tools.uia_dump) and fix names Samsung changed.
+# Find the real values with:  python -m sbtest.tools.uia_dump --out uia.txt
+# Keys you can use: title, title_re, control_type, auto_id, class_name, found_index
+
+main_window:
+  class_name: Chrome_WidgetWin_1
+
+omnibox:
+  control_type: Edit
+  title_re: "(?i)address and search bar|address bar|search or type.*"
+
+back_button:
+  control_type: Button
+  title_re: "(?i)^back$"
+forward_button:
+  control_type: Button
+  title_re: "(?i)^forward$"
+reload_button:
+  control_type: Button
+  title_re: "(?i)^reload$"
+bookmark_star:
+  control_type: Button
+  title_re: "(?i)bookmark this tab|edit bookmark for this tab|add to bookmarks"
+app_menu_button:
+  control_type: Button
+  title_re: "(?i)chromium|customize and control.*|samsung internet|menu"
+extensions_button:
+  control_type: Button
+  title_re: "(?i)^extensions$|^add-ons$"
+downloads_button:
+  control_type: Button
+  title_re: "(?i)^downloads?$"
+tab_strip:
+  control_type: Tab
+new_tab_button:
+  control_type: Button
+  title_re: "(?i)^new tab$"
+bookmarks_bar:
+  control_type: ToolBar
+  title_re: "(?i)bookmarks"
+
+# Dialog / bubble names (title_re of the dialog container)
+dialogs:
+  bookmark_added: "(?i)bookmark added|edit bookmark|bookmark saved"
+  add_extension: "(?i)add .*\\?"
+  remove_extension: "(?i)remove .*\\?"
+  file_save: "(?i)save as"
+  file_open: "(?i)^open$"
+  print: "(?i)^print$"
+  leave_site: "(?i)leave site\\?|reload site\\?"
+  download_bubble: "(?i)downloads?"
+  http_auth: "(?i)sign in"
+  permission_prompt: "(?i)wants to|show notifications|know your location|use your camera|use your microphone"

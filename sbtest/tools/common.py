@@ -15,6 +15,7 @@ from sbtest.server import LocalSite
 
 def base_parser(description: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=description)
+    p.add_argument("--target", choices=["samsung", "chrome"], help="browser target (default from config)")
     p.add_argument("--exe", help="browser exe (default: config/env SB_EXE)")
     p.add_argument("--driver", help="chromedriver path")
     p.add_argument("--headless", action="store_true", default=None)
@@ -25,7 +26,7 @@ def base_parser(description: str) -> argparse.ArgumentParser:
 def make_config(args):
     logging.basicConfig(level=logging.DEBUG if getattr(args, "verbose", False) else logging.INFO,
                         format="%(levelname)s %(name)s: %(message)s")
-    return load_config({"browser.exe": args.exe, "browser.chromedriver": args.driver,
+    return load_config({"target": args.target, "browser.exe": args.exe, "browser.chromedriver": args.driver,
                         "browser.headless": args.headless})
 
 

@@ -1,117 +1,106 @@
 ---
 name: sbtest-author
-description: Turn manual test cases for Samsung Internet for Windows (a Chromium fork) into automated pytest scripts with the sbtest framework (Selenium for web content, pywinauto for native browser UI / OS dialogs). Use when given a list of test cases, test case IDs, or a test doc for bookmarks, history, downloads, settings, add-ons or general browsing, or when asked to add, fix or extend an automated browser test, page object, test data or native dialog handling in this repo.
+description: Turn manual test cases for Samsung Internet for Windows (a Chromium fork) into automated pytest scripts with the sbtest framework (Selenium for web content, pywinauto for browser UI and Windows dialogs). Use when given test cases or case IDs for add-ons, bookmarks, downloads, history, settings or general browsing, or when asked to add, fix or extend a test, a page object, test data or native UI handling in this repo.
 ---
 
 # Writing sbtest scripts from test cases
 
-**Where you run:** on the Windows machine that has the Samsung Internet build (a build
-folder with `SamsungInternet.exe`, path in `config/local.yaml`). Samsung Internet exists only
-for Windows. You can and should launch the browser yourself with the tools below, look at
-screenshots, and iterate until the test passes.
+**Where you work:** on the Windows machine with the Samsung Internet build (Samsung Internet
+is Windows-only). Launch the browser yourself with the tools below, look at screenshots and
+dumps, and iterate until the test passes.
 
-**Samsung rewrote many internal pages** (`internet://extensions`, `internet://bookmarks`, ...).
-The page objects shipped in `sbtest/pages/` were written against *upstream Chromium* and
-are a starting point only. The first time you touch a page: explore it on the real build
-(`dom` tool), then rewrite that page object's selectors/methods to match. Never assume a
-Chromium id/tag exists in the Samsung page until you have seen it in a dump.
+**Two targets, one code base.** `--target samsung` (the product) and `--target chrome`
+(Chrome for Testing, same Chromium base). Tests in `tests/features/` run on both; the
+`pages` fixture picks `sbtest/pages/samsung/` or `sbtest/pages/chromium/` by target.
 
-Input links: if the user gives Confluence/Jira links instead of cases, run the
-`sbtest-intake` skill first.
+**Samsung rewrote many internal pages** (`internet://extensions`, `internet://bookmarks` ...).
+`sbtest/pages/samsung/*` start as subclasses of the verified Chromium page objects. The first
+time a test touches a Samsung page: explore it on the build, then override the selectors /
+methods that differ in the Samsung class and update its STATUS docstring. Keep the parent's
+method names and return types.
 
-You receive test cases (a doc, a table, IDs, or prose). You produce: the case in
-`testcases/<feature>/*.md`, a passing test in `tests/<feature>/`, and any page-object /
-data / config additions it needed. Work case by case; verify each against the real browser.
+**Need an interaction you have not done before?** Find it in `tests/reference/README.md`
+(upload via Open dialog, Save As, folder picker, Explorer drag, prompts, print, shortcuts,
+menus, iframes, JS dialogs ...) - working examples on Chrome - and copy the pattern.
 
-Read first (short): `references/framework-map.md`. Then open the other references only
-when the step needs them:
+If the user gives links or raw docs instead of cases, run the `sbtest-intake` skill first.
+
+Read first: `references/framework-map.md`. Then only what the step needs:
 
 | Need | Read |
 |------|------|
-| locators, Shadow DOM, waits, clicks/typing/drag, reading text, tabs, JS dialogs | `references/web-api.md` |
-| toolbar/omnibox/menus, bubbles, Save As/Open/Print, OS toasts, shortcuts, real mouse | `references/native-ui.md` |
-| preconditions: seeded bookmarks/prefs/extensions, local pages, files, unique values | `references/test-data.md` |
-| adding/updating a page object | `references/page-objects.md` |
-| feature specifics (bookmarks, history, downloads, settings, add-ons) + known traps | `references/feature-notes.md` |
-| test layout, naming, markers, assertions, the template | `references/conventions.md` |
-| a test fails / flaky / version mismatch / selector broke after a Chromium merge | `references/debugging.md` |
+| locators, Shadow DOM, waits, clicks/typing/drag, reading text, tabs, frames, JS dialogs | `references/web-api.md` |
+| toolbar/omnibox/menus, bubbles/prompts, Save As/Open/folder, Explorer, toasts, shortcuts | `references/native-ui.md` |
+| preconditions: seeded bookmarks/prefs/add-ons, local pages, files, unique values | `references/test-data.md` |
+| adding or adapting a page object (Chromium vs Samsung) | `references/page-objects.md` |
+| feature specifics and traps (add-ons, bookmarks, downloads, history, settings) | `references/feature-notes.md` |
+| layout, naming, markers, assertions, template | `references/conventions.md` |
+| a test fails / is flaky / a selector broke after a Chromium merge | `references/debugging.md` |
 
 ## Workflow (per test case)
 
-1. **Normalize the case.** Make sure it exists in `testcases/<feature>/<area>.md` in the format
-   of `testcases/README.md`, with a unique ID (`BM-`, `HIS-`, `DL-`, `SET-`, `ADD-`, `GEN-`).
-   Keep the author's wording of steps and expected results; only add the ID and structure.
-   If an ID already exists, never renumber.
-2. **Check coverage.** `python -m sbtest.tools.coverage --feature <feature>`: skip cases that
-   are already automated unless asked to fix them.
-3. **Classify every step** as *web* (inside a tab, including chrome:// pages) or *native*
-   (browser frame UI, bubbles, context menus, OS dialogs, keyboard shortcuts handled by
-   the browser). Use the mapping table below. A case with any native step gets
-   `@pytest.mark.native`.
-4. **Plan preconditions as data, not clicks.** Seed bookmarks/prefs/extensions with
-   `@pytest.mark.browser(...)` and visit local pages for history. Only the step *under test*
-   goes through the UI. See `references/test-data.md`.
-5. **Explore the real UI before writing selectors.** Never guess selectors.
-   - Web: `python -m sbtest.tools.dom <page> --interactive [--seed-bookmarks f.yaml:key] [--exec "..."]`
-     prints every element through shadow roots with a ready locator after `=>`.
-   - Native: `python -m sbtest.tools.uia_dump --url ... --keys "^d" --find "(?i)bookmark"`.
-6. **Reuse, then extend page objects.** Look in `sbtest/pages/<page>.py` for a method that
-   already does the step. If not, add a method (selectors as class constants), not raw
-   selectors in the test. New internal page -> new page object + `Pages.REGISTRY`.
-7. **Write the test** from `templates/test_template.py`: one test per case, `@pytest.mark.case("ID")`,
-   each doc step wrapped in `with step("N. ...", expected="..."):`, assertions = the doc's
-   Expected lines. Assert on state (list contents, prefs, files on disk), not on timing.
-8. **Run it for real**: `python run.py --case <ID>`, then run it 3 times in a row to prove
-   it is stable. Fix until green every time. On failure open
-   `artifacts/runs/<ts>/failures/<test>/failure.txt` first (failed step, error, last element),
-   then look at `page.png` (the element the step used is outlined in red) and `screen.png`
-   (whole screen, shows native dialogs). `--screenshot-steps` saves a picture after every step. On failure read `artifacts/runs/<ts>/failures/<test>/`
-   (`dom.txt`, `page.png`, `uia.txt`, `screen.png`) before changing code.
-9. **Record it**: set `- Automated: tests/...::test_name` under the case in the doc; re-run
-   coverage. Report per case: automated / blocked (with the reason and what is needed).
+1. **Case doc.** It exists in `testcases/<feature>/<area>.md` with an ID (else `sbtest-intake`).
+2. **Coverage.** `python -m sbtest.tools.coverage --feature <feature>`; skip automated ones
+   unless asked to fix them.
+3. **Classify each step** web or native (table below). Any native step -> `@pytest.mark.native`.
+4. **Preconditions as data**: `@pytest.mark.browser(bookmarks=..., prefs=..., extensions=[...])`,
+   visit local pages for history. Only the step under test goes through the UI.
+5. **Explore, never guess selectors**:
+   `python -m sbtest.tools.dom <page> --interactive [--exec "..."]` (DOM through shadow roots,
+   each line ends with a ready locator) and `python -m sbtest.tools.uia_dump --find "(?i)..."`
+   (native UI). Compare with `--target chrome` to see what Samsung changed.
+6. **Page object first**: reuse a method; else add it to the Samsung class (and to the Chromium
+   class too when the behaviour is generic). Selectors are class constants, never in tests.
+7. **Write the test** in `tests/features/<feature>/test_<area>.py` from
+   `templates/test_template.py`: `@pytest.mark.case("ID")`, each doc step in
+   `with step("N. ...", expected="..."):`, assertions = the doc's Expected lines, on state.
+8. **Run for real**: `python run.py --case <ID>`, then 3 more times - green every time. On a
+   failure read `artifacts/runs/<ts>/failures/<test>/failure.txt`, then `page.png` (the
+   element used is outlined red) and `screen.png` (whole screen). `--screenshot-steps` shows
+   every step. If it is generic, check it on `--target chrome` too.
+9. **Record**: `- Automated: tests/features/...::test_name` under the case; re-run coverage.
+   Report per case: automated / blocked (reason, what is needed).
 
-## Step -> API mapping (most common)
+## Step -> API mapping
 
 | Test case says | Use |
 |----------------|-----|
-| open bookmark manager / history / downloads / settings / extensions | `pages.bookmarks.open()` ... (`pages.settings.open_section("downloads")`) |
+| open add-ons / bookmarks / history / downloads / settings | `pages.extensions.open()` ... `pages.settings.open_section("downloads")` |
 | open a web page | `web.open(site.page("Title"))`, `web.open(site.url("/form.html"))` |
-| click / type / select / check in a page | `web.click(loc)`, `web.type(loc, text)`, `web.select(loc, text=..)`, `web.set_checked(loc, True)` |
-| item menu (⋮) on a row, Organize menu | page object `item_menu(title, "Edit")`, `organize("Add new folder")` |
-| a toast "... deleted" + Undo (in WebUI page) | `page.wait_toast("deleted")`, `page.toast_action("Undo")` |
-| dialog inside chrome:// page (Edit bookmark, Remove selected) | `page.open_dialog()`, `page.dialog_input("name")`, `page.dialog_button("Save")` |
-| JS alert / confirm / prompt / leave-site | `web.accept_alert(prompt_text=..)`, `web.dismiss_alert()`, `web.alert_text()` |
-| press Ctrl+D / Ctrl+H / Ctrl+J / Ctrl+T / Ctrl+Shift+Del | `native.hotkey("^d")` (browser shortcuts never go through `web.press`) |
-| press Enter / Esc / Ctrl+A inside a page | `web.press("ENTER")`, `web.press(Keys.CONTROL, "a")` |
-| click star / toolbar button / address bar | `native.click("bookmark_star")`, `native.navigate(url)`, `native.omnibox_text()` |
-| app menu > Bookmarks > ... | `native.menu("Bookmarks", "Bookmark manager")` |
-| right click a link > Open in new tab | `native.context_menu_web(web, loc, "Open link in new tab")` |
-| bookmark bubble / "Add extension?" / any browser prompt | `native.wait_dialog("bookmark_added")` -> `.texts()`, `.click("Done")` |
-| Save As / Open file / choose folder | `native.file_dialog("save").save_as(path)`, `.open(file)`, `.select_folder(dir)` |
-| upload a file via `<input type=file>` | `web.upload(loc, path)` (no OS dialog needed) |
-| install add-on: Load unpacked / drop .crx / Web Store | `pages.extensions.load_unpacked(native, dir)`, `.drop_crx(native, crx)`, `pages.webstore.install(id, native)` |
-| drag a file from Explorer into the browser | `native.drag_file_from_explorer(path, web=web, target=loc)` |
-| drag item A onto B in a page | `web.drag_and_drop(a, b, method="html5"|"actions"|"native")` |
-| drag a link to the bookmarks bar | `native.drag_web_to_ui(web, loc, "bookmarks_bar")` |
-| restart the browser / check persistence | `session.restart()` then rebuild page objects from `session.web` |
-| new tab / switch tab / close tab | `web.wait_new_tab(before)`, `web.switch_tab(title=..)`, `web.close_tab()` |
+| click / type / select / check | `web.click(loc)`, `web.type(loc, text)`, `web.select(loc, text=..)`, `web.set_checked(loc, True)` |
+| row menu (⋮), toolbar menu | page object `item_menu(title, "Edit")`, `organize("Add new folder")` |
+| toast "... deleted" + Undo (internal page) | `page.wait_toast("deleted")`, `page.toast_action("Undo")` |
+| dialog inside an internal page | `page.open_dialog()`, `page.dialog_input("name")`, `page.dialog_button("Save")` |
+| JS alert / confirm / prompt | `web.accept_alert(prompt_text=..)`, `web.dismiss_alert()`; navigation behind a browser prompt: `web.open(url, blocking=False)` |
+| "Leave site?" (beforeunload) | not observable: chromedriver accepts it automatically -> `Automated: no (WebDriver auto-accepts beforeunload)` |
+| iframe content | `with web.frame("#frame"): ...` |
+| Ctrl+D / Ctrl+H / Ctrl+J / Ctrl+T / Ctrl+W / Ctrl+L | `native.hotkey("^d")` (never `web.press`) |
+| Enter / Esc / Ctrl+A inside a page | `web.press("ENTER")`, `web.press(Keys.CONTROL, "a")` |
+| star / back / reload / new tab button / address bar | `native.click("bookmark_star")`, `native.navigate(url)`, `native.omnibox_text()` |
+| app menu > X > Y | `native.menu("X", "Y")` |
+| right click > menu item | `native.context_menu_web(web, loc, "Open link in new tab")` |
+| bubble / prompt / permission / sign-in dialog | `native.wait_dialog("bookmark_added")` -> `.texts()`, `.set_text(..)`, `.click("Done")`, `.click_any("Allow", ..)` |
+| upload through a button (Open dialog) | `web.click(button)` then `native.file_dialog("open").open(f1, f2)` |
+| upload through `<input type=file>` | `web.upload(loc, path)` |
+| Save As / save page / download with "ask where" | `native.file_dialog("save").save_as(path)` |
+| choose a folder | `native.file_dialog("open").select_folder(dir)` |
+| drag a file from File Explorer | `native.drag_file_from_explorer(path, web=web, target=loc)` |
+| "Show in folder" | `native.wait_explorer(folder)`, `native.explorer_selected(win)` |
+| install add-on: unpacked / .crx / Web Store | `pages.extensions.load_unpacked(native, dir)`, `.drop_crx(native, crx)`, `pages.webstore.install(id, native)` |
+| drag & drop in a page | `web.drag_and_drop(a, b, method="html5"|"actions"|"native")` |
+| restart browser, check persistence | `session.restart()`; then `pages.of(session.web)` |
+| tabs | `before = web.tabs` ... `web.wait_new_tab(before)`, `web.switch_tab(title=..)`, `web.close_tab()` |
 | file downloaded | `web.wait_file(downloads_dir, "name.ext")` |
-| verify a setting really changed | `pages.settings.get_pref("download.prompt_for_download")` |
-| Windows notification toast | `native.wait_os_toast("(?i)text")` |
+| print preview | `native.wait_dialog("print")` -> `.click_any("Cancel")` |
+| Windows notification | `native.wait_os_toast("(?i)text")` |
 
 ## Hard rules
 
-- No `time.sleep` in tests; wait for a condition (`web.wait_*`, `page.wait_*`, `web.wait_until`).
-- No internet. Content comes from the local site (`site`) or `test_data/`.
-- Tests are independent: any order, any subset, fresh profile by default. Never rely on
-  another test's data. Use `unique("Name")` for values the test creates.
-- Selectors live in page objects / `config/native_ui.yaml`, not scattered in tests
-  (exception: one-off selectors for local test-site pages).
-- Native names (Samsung may rename "Bookmark this tab" etc.) go in `config/native_ui.yaml`;
-  verify with `uia_dump` on the real Samsung build, never trust upstream Chromium names.
-- Internal page URLs come from `cfg.page_url(name)` (config `pages`, scheme `internet://`) -
-  never hardcode `internet://` or `chrome://` in tests.
-- Don't weaken an assertion to make a test pass. If the product behaves differently from
-  the doc, report it as a possible bug with evidence (paths under `artifacts/`).
-- A case you cannot automate (needs real account/sync, hardware, internet) -> leave the
-  doc entry, mark it `- Automated: no (reason)` and say so in your report.
+- No `time.sleep`; wait for a condition (`web.wait_*`, page `wait_*`, `web.wait_until`).
+- No internet except the Web Store case. Content comes from `site` / `test_data/`.
+- Tests are independent (any order, any subset, fresh profile). Use `unique("Name")`.
+- No selectors, URLs (`internet://`), machine paths or native UI names in tests: page
+  objects, `config/targets/*.yaml`, `config/native_ui/*.yaml`, `config/local.yaml`.
+- Never weaken an assertion to pass. Product differs from the doc -> report it with the
+  evidence paths.
+- Not automatable -> `- Automated: no (<reason>)` in the doc and in your report.

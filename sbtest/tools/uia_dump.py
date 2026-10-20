@@ -1,4 +1,4 @@
-"""(Windows) Dump the UI Automation tree of the browser - to find names for native_ui.yaml.
+"""(Windows) Dump the UI Automation tree of the browser - to find names for config/native_ui/<target>.yaml.
 
     python -m sbtest.tools.uia_dump                         # start browser, dump main window
     python -m sbtest.tools.uia_dump --url /pages/page1.html --keys "^d" --out artifacts/uia_bubble.txt

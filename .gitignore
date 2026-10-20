@@ -8,3 +8,4 @@ drivers/*
 .venv/
 venv/
 *.log
+browsers/

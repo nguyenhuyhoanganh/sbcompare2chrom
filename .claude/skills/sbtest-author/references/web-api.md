@@ -93,7 +93,12 @@ web.new_tab(url) / web.close_tab()
 web.accept_alert() -> text / web.accept_alert(prompt_text="x") / web.dismiss_alert() / web.has_alert()
 web.js("return document.title") / web.cdp("Browser.getVersion") / web.screenshot(path)
 web.open(url) / web.open_internal("history") / web.back() / web.forward() / web.refresh()
+web.open(url, blocking=False)    # navigation that stops at a browser prompt (HTTP sign-in)
+with web.frame("#iframe"):       # inside an iframe, back to the page afterwards
+    web.click("#inner-button")
 ```
+
+Examples of all of these: `tests/reference/web/`.
 
 Browser-owned dialogs that are **not** JS dialogs (bubbles, permission prompts, Save As,
 print preview, "Add extension?") are native: see native-ui.md.

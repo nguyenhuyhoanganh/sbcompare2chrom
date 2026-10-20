@@ -1,4 +1,9 @@
-"""Configuration loading: default.yaml < local.yaml < SB_* env vars < CLI overrides."""
+"""Configuration loading.
+
+Layers (later wins): default.yaml < targets/<target>.yaml < local.yaml < local.yaml
+``targets.<target>`` section < SB_* env vars < CLI overrides. The target (samsung | chrome)
+comes from the CLI, SB_TARGET, local.yaml or default.yaml, in that order.
+"""
 from __future__ import annotations
 
 import copy
@@ -13,6 +18,7 @@ CONFIG_DIR = ROOT / "config"
 
 # env var -> dotted config key
 ENV_MAP = {
+    "SB_TARGET": "target",
     "SB_EXE": "browser.exe",
     "SB_DRIVER": "browser.chromedriver",
     "SB_MODE": "browser.mode",
@@ -77,6 +83,10 @@ class Config:
         p = Path(str(self.get(dotted)))
         return p if p.is_absolute() else ROOT / p
 
+    @property
+    def target(self) -> str:
+        return self.get("target", "samsung")
+
     def page_url(self, name: str) -> str:
         """URL of an internal page by logical name, e.g. ``page_url("bookmarks")``."""
         pages = self.get("pages", {})
@@ -95,16 +105,26 @@ class Config:
         return bool(self.get("native.enabled")) and self.is_windows and not self.get("browser.headless")
 
 
+def _read(path: Path) -> dict:
+    return (yaml.safe_load(path.read_text(encoding="utf-8")) or {}) if path.exists() else {}
+
+
 def load_config(overrides: dict | None = None, config_dir: Path = CONFIG_DIR) -> Config:
-    data: dict = {}
-    for name in ("default.yaml", "local.yaml"):
-        f = config_dir / name
-        if f.exists():
-            data = deep_merge(data, yaml.safe_load(f.read_text(encoding="utf-8")) or {})
+    overrides = {k: v for k, v in (overrides or {}).items() if v is not None}
+    default, local = _read(config_dir / "default.yaml"), _read(config_dir / "local.yaml")
+    target = overrides.get("target") or os.environ.get("SB_TARGET") or local.get("target") \
+        or default.get("target") or "samsung"
+    target_file = config_dir / "targets" / f"{target}.yaml"
+    if (config_dir / "targets").exists() and not target_file.exists():
+        known = sorted(p.stem for p in (config_dir / "targets").glob("*.yaml"))
+        raise ValueError(f"Unknown target {target!r}; known: {known}")
+    data = deep_merge(default, _read(target_file))
+    data = deep_merge(data, {k: v for k, v in local.items() if k != "targets"})
+    data = deep_merge(data, (local.get("targets") or {}).get(target) or {})
     for env, key in ENV_MAP.items():
         if os.environ.get(env):
             set_dotted(data, key, _coerce(os.environ[env]))
-    for key, value in (overrides or {}).items():
-        if value is not None:
-            set_dotted(data, key, value)
+    for key, value in overrides.items():
+        set_dotted(data, key, value)
+    data["target"] = target
     return Config(data)

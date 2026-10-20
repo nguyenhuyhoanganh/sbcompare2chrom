@@ -9,7 +9,7 @@
 - Expected:
   - The file exists on disk with the right size
   - "sample.txt" is listed
-- Automated: tests/downloads/test_downloads.py::test_download_file
+- Automated: tests/features/downloads/test_downloads.py::test_download_file
 
 ## DL-002 Remove an entry from the list
 - Priority: High
@@ -19,7 +19,7 @@
   2. Click "Delete from history" on the entry
 - Expected:
   - The entry is gone from the list; the file stays on disk
-- Automated: tests/downloads/test_downloads.py::test_remove_entry_keeps_file
+- Automated: tests/features/downloads/test_downloads.py::test_remove_entry_keeps_file
 
 ## DL-003 Clear all
 - Priority: Medium
@@ -28,7 +28,7 @@
   1. Download two files; open Downloads; click "Clear all"
 - Expected:
   - The list is empty
-- Automated: tests/downloads/test_downloads.py::test_clear_all
+- Automated: tests/features/downloads/test_downloads.py::test_clear_all
 
 ## DL-004 Pause and resume
 - Priority: Medium
@@ -38,7 +38,7 @@
   2. Pause it, then Resume
 - Expected:
   - Status shows "Paused" after pause, the download completes after resume
-- Automated: tests/downloads/test_downloads.py::test_pause_resume
+- Automated: tests/features/downloads/test_downloads.py::test_pause_resume
 
 ## DL-010 Ask where to save -> Save As dialog
 - Priority: Medium
@@ -49,4 +49,4 @@
   2. In the Save As dialog enter a new file name, Save
 - Expected:
   - The file is saved with the chosen name
-- Automated: tests/downloads/test_downloads.py::test_save_as_dialog
+- Automated: tests/features/downloads/test_downloads.py::test_save_as_dialog

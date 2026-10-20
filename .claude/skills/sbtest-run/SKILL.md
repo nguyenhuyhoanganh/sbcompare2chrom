@@ -1,54 +1,61 @@
 ---
 name: sbtest-run
-description: Run the Samsung Internet automated sanity suite (all, by feature, or by test case id) against a SamsungInternet.exe build and triage the results - e.g. after merging a new Chromium release. Use when asked to run/execute the tests, check a new build, re-run failures, or explain why tests failed.
+description: Run the Samsung Internet automated tests (all, by feature, or by test case id) against a build, or the Chrome reference suite, triage the failures and publish the run report to Confluence. Use when asked to run/execute the tests, check a new build after a Chromium merge, re-run failures, explain failures, or share results.
 ---
 
-# Running and triaging the sanity suite
+# Run, triage, report
+
+## First time on a machine
+
+`setup.bat`, set `targets.samsung.browser.exe` in `config/local.yaml`, then
+`python -m sbtest.tools.doctor` and fix every FAIL. For the Chrome reference target:
+`python -m sbtest.tools.get_chrome` then `python -m sbtest.tools.doctor --target chrome`.
 
 ## Run
 
 ```
-python run.py --exe "<path>\SamsungInternet.exe" --all
-python run.py --exe ... --feature bookmarks,history
-python run.py --exe ... --case BM-001,DL-004
-python run.py --exe ... --sanity                  # quick pass (@sanity tests)
-python run.py --exe ... --all --reruns 1          # re-run failures once to separate flakes
-python run.py --list                              # cases per feature and what is automated
-python run.py --exe ... --feature downloads -- -x -k pause    # raw pytest args after --
-python run.py --exe ... --all --screenshot-steps  # picture after every step (for review)
-python run.py --exe ... --all --publish           # then create a Confluence report page
-python -m sbtest.tools.confluence_report artifacts/runs/<ts> [--dry-run]   # publish an earlier run
+python run.py --all                                # Samsung build, tests/features
+python run.py --feature addons,bookmarks
+python run.py --case ADD-001,BM-004
+python run.py --sanity                             # quick pass
+python run.py --all --reruns 1                     # re-run failures once to separate flakes
+python run.py --all --screenshot-steps             # picture after every step
+python run.py --target chrome --suite reference    # interaction reference suite on Chrome
+python run.py --target chrome                      # reference + feature tests on Chrome
+python run.py --list                               # cases and automation status
+python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 ```
 
-The exe can also come from `SB_EXE` or `config/local.yaml`. chromedriver is resolved
-automatically (config -> `drivers/<major>/` -> download); offline machines need
-`browser.chromedriver` or a driver in `drivers/<major>/chromedriver.exe`. Best: build the
-`chromedriver` target from the same fork checkout as the browser.
+Native tests need an unlocked, visible Windows desktop (not a minimized RDP session).
+`--no-native` skips them; say so in the report when you use it.
 
-Native tests need an interactive, unlocked Windows desktop; on headless / CI agents
-without a desktop use `--no-native` and report that native cases were not run.
+## Outputs: `artifacts/runs/<timestamp>/`
 
-## Output
+| path | content |
+|------|---------|
+| `report.html` | self-contained HTML report, failure screenshots embedded |
+| `results.json` | every test: outcome, case ids, steps, failed step, error, evidence paths |
+| `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (whole screen, native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
+| `steps/<test>/` | per-step screenshots (`--screenshot-steps`) |
+| `confluence/` | `manifest.json`, `page.storage.html`, `page.md`, `attachments/` |
 
-`artifacts/runs/<timestamp>/`: `report.html` (self-contained, screenshots embedded),
-`junit.xml`, `results.json`, `failures/<test>/` (`failure.txt`, `page.png` with the failing
-element outlined, `screen.png` whole screen, `dom.txt`, `page.html`, `uia.txt`, `alert.txt`).
-The Confluence report (`--publish`, needs `SB_ATLASSIAN_TOKEN` + `atlassian.*` config) is a
-new page per run under `atlassian.report_parent_id` with per-feature tables and the
-failure screenshots attached.
-Console has, per failure, the `sbtest steps` section showing the failed doc step.
+## Triage: each failure into exactly one bucket
 
-## Triage each failure into exactly one bucket
-
-1. **Product regression** - behaviour differs from the case's Expected (wrong data, missing
-   item, crash). Evidence: screenshot + step + case ID. Do not touch the test.
-2. **UI changed, test outdated** - element renamed/moved after the merge, expected behaviour
-   unchanged. Fix selectors in the page object / `native_ui.yaml` (see
-   `.claude/skills/sbtest-author/references/debugging.md`), re-run the feature.
-3. **Environment** - driver/browser version mismatch, no desktop for native tests, machine
-   crash, network. Fix the setup, re-run.
-4. **Flaky test** - passes on re-run with no product change. Find the race (missing wait,
+1. **Product regression** - behaviour differs from the case's Expected. Evidence: case id,
+   failed step, screenshots. Do not touch the test.
+2. **UI changed, test outdated** - same behaviour, different markup/labels after the merge.
+   Fix the Samsung page object (`sbtest/pages/samsung/`) or `config/native_ui/samsung.yaml`
+   (see `sbtest-author` -> `references/debugging.md`), re-run the feature.
+3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
+   Fix the setup (`doctor`), re-run.
+4. **Flaky test** - passes on re-run with no product change: find the race (missing wait,
    stale list read, shared data) and fix it; never add sleeps.
 
-Report as a table: case ID | test | bucket | one-line reason | evidence path. Totals per
-feature (passed / failed / skipped-native / not automated from `python run.py --list`).
+## Report
+
+Use the **Confluence skill** to create a new page from `artifacts/runs/<ts>/confluence/`:
+title from `manifest.json`, body `page.storage.html` (Confluence storage format; use
+`page.md` if the skill takes Markdown), and upload every file in `attachments/` to that
+page (the body already references them by file name). Put it where the user asked
+(space / parent page). Then reply with a short table: case id | test | bucket | reason,
+totals per feature, and the page link.

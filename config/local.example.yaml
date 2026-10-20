@@ -1,21 +1,17 @@
-# Copy to config/local.yaml (git-ignored) and adjust for your machine.
-browser:
-  # SamsungInternet.exe inside the build folder
-  exe: 'C:\build\out\Release\SamsungInternet.exe'
-  # chromedriver: 'C:\tools\chromedriver\141\chromedriver.exe'
-  # chromium_version: "141.0.7390.37"     # skip auto-detection
+# Copy to config/local.yaml (git-ignored) and adjust for this machine.
+# target: samsung                       # default target when --target is not given
+
+targets:
+  samsung:
+    browser:
+      exe: 'C:\build\out\Release\SamsungInternet.exe'
+      # chromedriver: 'C:\tools\chromedriver\141\chromedriver.exe'
+      # chromium_version: "141.0.7390.37"   # skip auto-detection
+  chrome:
+    browser:
+      # exe: 'C:\Program Files\Google\Chrome\Application\chrome.exe'   # branded Chrome
+      exe: browsers/chrome/chrome.exe                                     # Chrome for Testing
 
 network:
   # browser_proxy: http://proxy.company.com:8080
   # download_proxy: http://proxy.company.com:8080
-
-atlassian:
-  confluence_url: https://confluence.company.com
-  jira_url: https://jira.company.com
-  report_space: QA
-  report_parent_id: "123456"
-  # verify_ssl: 'C:\certs\company-ca.pem'
-
-# Upstream Chromium instead of Samsung (framework self-test):
-# pages:
-#   scheme: chrome

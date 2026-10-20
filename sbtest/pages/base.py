@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from selenium.webdriver.remote.webelement import WebElement
 
-from sbtest.core.web import Web
+from sbtest.web.web import Web
 
 
 def q(value: str) -> str:

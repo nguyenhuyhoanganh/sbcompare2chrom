@@ -2,11 +2,11 @@
 
     python -m sbtest.tools.doctor                 # uses config/local.yaml
     python -m sbtest.tools.doctor --exe "C:\\build\\SamsungInternet.exe"
-    python -m sbtest.tools.doctor --skip-native --skip-atlassian
+    python -m sbtest.tools.doctor --target chrome     # check the Chrome reference setup
 
 Checks: Python + packages, exe, Chromium version detection, chromedriver, browser start,
-internal page scheme (internet://...), native UI (pywinauto finds the window and toolbar),
-proxy variables, Confluence/Jira token. Screenshots of the browser and the screen are saved
+internal page scheme (internet://... / chrome://...), native UI (pywinauto finds the window
+and the toolbar entries of the target's native_ui map), proxy variables. Screenshots of the browser and the screen are saved
 to artifacts/doctor/ so a human or agent can see what the browser looked like.
 """
 from __future__ import annotations
@@ -32,12 +32,12 @@ def report(status: str, name: str, detail: str = "") -> None:
 def main(argv=None) -> int:
     p = base_parser(__doc__.split("\n")[0])
     p.add_argument("--skip-native", action="store_true")
-    p.add_argument("--skip-atlassian", action="store_true")
     args = p.parse_args(argv)
     cfg = make_config(args)
     out = ROOT / "artifacts" / "doctor"
     out.mkdir(parents=True, exist_ok=True)
 
+    report(OK, "target", f"{cfg.target} (page objects: {cfg.get('page_objects')}, ui map: {cfg.get('native.ui_map')})")
     report(OK if sys.version_info >= (3, 10) else FAIL, "python", sys.version.split()[0] + " (need 3.10+)")
     for mod in ("selenium", "pytest", "yaml", "psutil", "PIL", "pytest_html"):
         report(OK if importlib.util.find_spec(mod) else FAIL, f"package {mod}",
@@ -50,9 +50,11 @@ def main(argv=None) -> int:
         if os.environ.get(var) or os.environ.get(var.lower()):
             report(OK, f"env {var}", os.environ.get(var) or os.environ.get(var.lower()))
 
-    exe = cfg.get("browser.exe")
+    exe = str(cfg.path("browser.exe")) if cfg.get("browser.exe") else ""
     if not exe or not os.path.exists(exe):
-        report(FAIL, "browser exe", f"{exe!r} not found - set browser.exe in config/local.yaml or --exe")
+        hint = "python -m sbtest.tools.get_chrome" if cfg.target == "chrome" else \
+            "set targets.samsung.browser.exe in config/local.yaml or --exe"
+        report(FAIL, "browser exe", f"{exe!r} not found - {hint}")
         return _summary()
     report(OK, "browser exe", exe)
 
@@ -109,7 +111,7 @@ def main(argv=None) -> int:
                     for key in ("omnibox", "back_button", "reload_button", "app_menu_button", "bookmark_star"):
                         found = nb.exists(key)
                         report(OK if found else WARN, f"native ui_map {key}",
-                               "" if found else "not found - fix config/native_ui.yaml (python -m sbtest.tools.uia_dump)")
+                               "" if found else "not found - fix config/native_ui/<target>.yaml (python -m sbtest.tools.uia_dump)")
                     nb.dump(out / "uia.txt")
                     nb.screenshot(out / "screen.png")
             except Exception as e:  # noqa: BLE001
@@ -117,18 +119,6 @@ def main(argv=None) -> int:
     finally:
         session.stop()
 
-    if not args.skip_atlassian:
-        if not cfg.get("atlassian.confluence_url"):
-            report(WARN, "confluence", "atlassian.confluence_url not set (needed for intake/report)")
-        else:
-            try:
-                from sbtest.atlassian import Atlassian
-
-                at = Atlassian.from_config(cfg)
-                at.request("GET", f"{at.confluence_url}/rest/api/space?limit=1")
-                report(OK, "confluence", at.confluence_url)
-            except Exception as e:  # noqa: BLE001
-                report(FAIL, "confluence", f"{e}")
     print(f"\nScreenshots and dumps: {out}")
     return _summary()
 

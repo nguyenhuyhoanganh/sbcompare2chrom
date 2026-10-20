@@ -76,7 +76,7 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 
 - Tabs opened by the page: capture `before = web.tabs` first, then `web.wait_new_tab(before)`.
 - `window.open` popups are windows; they also appear in `web.tabs`.
-- `beforeunload` "Leave site?" is a JS dialog for WebDriver: `web.accept_alert()` after
-  navigating away (needs a user gesture on the page first - click something).
+- `beforeunload` "Leave site?" is accepted automatically by chromedriver (WebDriver spec): the
+  prompt can't be observed or dismissed; cases about it are not automatable with this stack.
 - `window.print()` opens print preview (browser UI) -> native; close with `{ESC}`.
 - Permission prompts (notifications, location) are native bubbles.

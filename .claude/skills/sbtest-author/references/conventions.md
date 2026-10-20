@@ -2,9 +2,11 @@
 
 ## Files and names
 
-- `tests/<feature>/test_<area>.py` - feature = folder (`bookmarks`, `history`, `downloads`,
-  `settings`, `addons`, `general`). New feature area -> new folder + add it to
-  `FEATURES` in `sbtest/pytest_plugin.py` and a `testcases/<feature>/` folder.
+- Product tests: `tests/features/<feature>/test_<area>.py` - feature = folder (`addons`,
+  `bookmarks`, `downloads`, `history`, `settings`, `general`). New feature area -> new
+  folder + `FEATURES` in `sbtest/pytest_plugin.py` + `testcases/<feature>/`.
+- Interaction examples (no case ids, run on Chrome): `tests/reference/web|files|native/`.
+  Add one there when you build a new kind of interaction, and list it in its README.
 - Native-only cases may live in `test_<area>_native.py` or in the same file with
   `@pytest.mark.native`; either is fine, be consistent within a feature.
 - Test name: `test_<what_it_verifies>` in snake case (`test_delete_and_undo`), not the ID.
@@ -47,17 +49,17 @@ import pytest
 from sbtest.steps import step
 from sbtest.utils import unique
 from sbtest.data import files                      # generated files
-from sbtest.core import Keys                       # web.press(Keys.CONTROL, "a")
-from sbtest.pages import SettingsPage              # only when rebuilding after restart
+from sbtest.web import Keys                       # web.press(Keys.CONTROL, "a")
 ```
 
 ## Doc update
 
 Under the case in `testcases/<feature>/<file>.md` set
-`- Automated: tests/<feature>/test_x.py::test_name` (or `no (<reason>)`).
+`- Automated: tests/features/<feature>/test_x.py::test_name` (or `no (<reason>)`).
 
 ## Before you finish
 
-- `python run.py --case <IDs>` green 3x in a row on the real build.
+- `python run.py --case <IDs>` green 3x in a row on the real build
+  (and on `--target chrome` when the behaviour is not Samsung-specific).
 - `python -m pytest framework_tests -q` green if you touched `sbtest/`.
 - `python -m sbtest.tools.coverage --feature <feature>` shows the IDs as OK.

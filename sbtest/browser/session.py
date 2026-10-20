@@ -21,7 +21,7 @@ from sbtest.browser.driver_resolver import resolve_chromedriver
 from sbtest.browser.profile import Profile
 from sbtest.browser.version import detect_chromium_version, wait_devtools_port
 from sbtest.config import Config
-from sbtest.core.web import Web
+from sbtest.web.web import Web
 from sbtest.utils import find_browser_pid, kill_tree, log, poll
 
 _RESOLVED: dict[str, tuple[str, str]] = {}  # exe -> (chromium_version, chromedriver) per process
@@ -56,12 +56,14 @@ class BrowserSession:
     # -- resolution --------------------------------------------------------------
     @property
     def exe(self) -> str:
-        exe = self.cfg.get("browser.exe")
-        if not exe:
-            raise RuntimeError("Browser exe not set: use --exe, SB_EXE or config/local.yaml browser.exe")
-        if not Path(exe).exists():
-            raise FileNotFoundError(f"Browser exe not found: {exe}")
-        return exe
+        if not self.cfg.get("browser.exe"):
+            raise RuntimeError(f"Browser exe not set for target {self.cfg.target!r}: use --exe, SB_EXE or "
+                               f"config/local.yaml targets.{self.cfg.target}.browser.exe")
+        exe = self.cfg.path("browser.exe")  # relative paths are relative to the repo root
+        if not exe.exists():
+            hint = " (run: python -m sbtest.tools.get_chrome)" if self.cfg.target == "chrome" else ""
+            raise FileNotFoundError(f"Browser exe not found: {exe}{hint}")
+        return str(exe)
 
     def resolve(self) -> tuple[str, str]:
         exe = self.exe

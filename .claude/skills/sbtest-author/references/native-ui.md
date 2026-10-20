@@ -14,7 +14,8 @@ python -m sbtest.tools.dom bookmarks --uia artifacts/uia.txt   # DOM + UIA in on
 ```
 
 Lines look like `Button 'Done' auto_id='' class='MdTextButton' rect=(..)`. Put stable
-criteria into `config/native_ui.yaml` (logical name -> criteria) and use the name:
+criteria into the target's map - `config/native_ui/samsung.yaml` (Samsung) or
+`config/native_ui/chromium.yaml` (Chrome) - and use the logical name:
 
 ```yaml
 bookmark_star:
@@ -35,7 +36,7 @@ browser is forced to en-US by `--lang=en-US` in config.
 native.hotkey("^d")            # browser shortcut (focuses the frame first). ^ Ctrl, + Shift, % Alt
 native.hotkey("^+{DELETE}")    # Ctrl+Shift+Del ; {ENTER} {ESC} {TAB} {F5} {DOWN}
 native.type_text("literal text")
-native.click("bookmark_star")  # logical name from native_ui.yaml, or a criteria dict
+native.click("bookmark_star")  # logical name from the target native_ui map, or a criteria dict
 native.element("omnibox") / native.exists("downloads_button")
 native.navigate(url)           # Ctrl+L, type, Enter - like a user in the address bar
 native.omnibox_text()
@@ -45,9 +46,10 @@ native.select_menu_items("Open link in new tab")   # in an already open native m
 native.menu_items()            # names in the open menu(s)
 native.context_menu_web(web, "#link", "Open link in new tab")   # real right click on DOM element
 
-dlg = native.wait_dialog("bookmark_added")     # logical name (native_ui.yaml dialogs) or regex
+dlg = native.wait_dialog("bookmark_added")     # logical name (native_ui map "dialogs") or regex
 dlg.texts() / dlg.text() / dlg.title
-dlg.click("Done") / dlg.set_checkbox("Show bookmarks bar", True) / dlg.set_text("x", auto_id="..")
+dlg.click("Done") / dlg.click_any("Allow while visiting", "Allow") / dlg.set_checkbox("Show bookmarks bar", True)
+dlg.set_text("x") (first Edit) / dlg.set_text("x", title_re="(?i)user") / dlg.set_text("x", auto_id="..")
 dlg.press("{ESC}") / dlg.close() / dlg.wait_closed() / dlg.dump()
 
 fd = native.file_dialog("save")   # Windows common dialog opened by the browser
@@ -55,6 +57,8 @@ fd.save_as(tmp_path / "page.html")  # handles "replace?" confirmation
 fd = native.file_dialog("open"); fd.open(file) / fd.open(f1, f2) / fd.cancel()
 fd.select_folder(folder)            # "Load unpacked", "Change download location"
 
+native.wait_explorer("Downloads")         # File Explorer window (e.g. after "Show in folder")
+native.explorer_selected(explorer)        # selected item names in it
 native.wait_text(r"(?i)bookmark added")   # any element name in any browser window
 native.has_text(r"(?i)downloading")
 native.wait_os_toast(r"(?i)sbtest notification")
@@ -67,7 +71,7 @@ native.drag_file_from_explorer(path, web=web, target=loc)   # real OS file drag 
 native.screenshot(path) / native.dump(path) / native.close_stray_dialogs()
 ```
 
-## Patterns
+## Patterns (complete runnable examples: `tests/reference/files/` and `tests/reference/native/`)
 
 **Bubble after a shortcut**
 ```python
@@ -96,6 +100,19 @@ before = web.tabs; native.hotkey("^h"); web.wait_new_tab(before)
 pages.extensions.click_remove(name)
 native.wait_dialog("remove_extension").click("Remove")
 pages.extensions.wait_gone(name)
+```
+
+**Upload through a page button (Windows Open dialog)**
+```python
+web.click("#pick")                         # page calls input.click()
+native.file_dialog("open").open(f1, f2)    # one or several files of one folder
+```
+
+**HTTP sign-in prompt**
+```python
+web.open(site.url("/basic-auth"), blocking=False)
+dlg = native.wait_dialog("http_auth")
+dlg.set_text("sbtest", title_re="(?i)user"); dlg.set_text("sbtest", title_re="(?i)pass"); dlg.click("Sign in")
 ```
 
 ## Traps
