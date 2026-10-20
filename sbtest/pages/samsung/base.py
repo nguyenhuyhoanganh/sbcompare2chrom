@@ -67,6 +67,10 @@ class SamsungPageMixin:
     def toolbar(self, label: str) -> None:
         self.web.click(self.toolbar_button(label))
 
+    def cancel_selection(self) -> None:
+        """The "<" (Cancel) button of the selection toolbar ("2 selected")."""
+        self.web.click(self.web.find("deepcss=#back-icon-button", within=self.web.find(self.TOOLBAR)))
+
     def toolbar_enabled(self, label: str) -> bool:
         host = self.web.js("return arguments[0].getRootNode().host", self.toolbar_button(label))
         return not self.web.js("return arguments[0].hasAttribute('disabled')", host)

@@ -9,20 +9,22 @@ Kết quả lấy từ lần chạy ngày 2026-10-20 trên Windows 11 (arm64):
 
 ## Tổng quan
 
-**58 test case**, tất cả đã có script tự động hoá (44 web, 14 native).
+**76 test case**, tất cả đã có script tự động hoá (59 web, 17 native).
 
 | Feature | Prefix | Số case | Web | Native | Sanity | Cả hai target | Chỉ Samsung | Chỉ Chrome | Trên Samsung |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| Add-ons | ADD | 13 | 7 | 6 | 4 | 9 | 4 | 0 | ✅ đã kiểm chứng |
-| Bookmarks | BM | 15 | 12 | 3 | 7 | 8 | 5 | 2 | ✅ đã kiểm chứng |
-| Downloads | DL | 11 | 8 | 3 | 3 | 8 | 3 | 0 | ✅ đã kiểm chứng |
-| History | HIS | 12 | 11 | 1 | 5 | 7 | 5 | 0 | ✅ đã kiểm chứng |
+| Add-ons | ADD | 17 | 11 | 6 | 5 | 9 | 8 | 0 | ✅ đã kiểm chứng |
+| Bookmarks | BM | 21 | 17 | 4 | 8 | 10 | 10 | 1 | ✅ đã kiểm chứng |
+| Downloads | DL | 16 | 11 | 5 | 4 | 10 | 6 | 0 | ✅ đã kiểm chứng |
+| History | HIS | 15 | 14 | 1 | 5 | 9 | 6 | 0 | ✅ đã kiểm chứng |
 | Settings | SET | 4 | 4 | 0 | 1 | 4 | 0 | 0 | ⏳ chưa kiểm chứng |
 | General | GEN | 3 | 2 | 1 | 1 | 3 | 0 | 0 | ⏳ chưa kiểm chứng |
-| **Tổng** | | **58** | **44** | **14** | **21** | **39** | **17** | **2** | |
+| **Tổng** | | **76** | **59** | **17** | **24** | **45** | **30** | **1** | |
 
-Lần chạy cuối trên Samsung, 4 feature add-ons/bookmarks/downloads/history: **49 pass, 0 fail,**
-**2 skip** (BM-001 và BM-010 chỉ áp dụng cho Chrome).
+Lần chạy toàn bộ cuối trên Samsung (4 feature add-ons/bookmarks/downloads/history): **67 pass,
+1 fail, 1 skip**. Test fail là ADD-020 (Load unpacked), do hộp chọn thư mục của Windows làm rơi
+một phím khi gõ đường dẫn. Framework giờ tự kiểm tra và gõ lại; chạy lại 3 lần đều pass. Test
+bị skip là BM-010 (bubble Ctrl+D kiểu Chrome). Trên Chrome: 46 pass, 30 skip (case chỉ của Samsung).
 
 Settings và General chưa được kiểm chứng trên Samsung. Page object Settings của Samsung vẫn kế
 thừa bản Chromium nên chưa dùng được: SET-001 đã fail khi tình cờ chạy trên Samsung (không tìm
@@ -47,7 +49,7 @@ python run.py --sanity                                       & rem lượt sanit
 python run.py --target chrome --feature bookmarks            & rem trên Chrome
 ```
 
-## Add-ons (ADD) - 13 case
+## Add-ons (ADD) - 17 case
 
 | ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
 |---|---|---|---|---|:-:|---|---|
@@ -64,6 +66,10 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 | ADD-104 | Disabled state is kept after restart | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
 | ADD-105 | Cancel removal keeps the add-on | Medium | native | Samsung |  | ✅ Pass | N/A |
 | ADD-106 | Open Add-ons from the app menu | Medium | native | Samsung |  | ✅ Pass | N/A |
+| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web | Samsung |  | ✅ Pass | N/A |
+| ADD-108 | Pack an add-on into a .crx | Medium | web | Samsung | ✔ | ✅ Pass | N/A |
+| ADD-109 | Reload an unpacked add-on | Medium | web | Samsung |  | ✅ Pass | N/A |
+| ADD-110 | "Get add-ons" opens the add-on store | Low | web | Samsung |  | ✅ Pass | N/A |
 
 <details><summary><b>ADD-001</b> Installed add-on is listed and active</summary>
 
@@ -285,11 +291,78 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
-## Bookmarks (BM) - 15 case
+<details><summary><b>ADD-107</b> Keyboard shortcuts page lists the add-on</summary>
+
+**Precondition:** "SB Sample Addon" installed
+
+**Steps:**
+
+1. Add-ons > Keyboard shortcuts (side bar)
+
+**Expected:**
+
+- "Activate add-on for SB Sample Addon" is listed with "Not set" and an Edit button
+
+**Nguồn:** `testcases/addons/sanity.md`  
+**Script:** `tests/features/addons/test_addons_sanity.py::test_keyboard_shortcuts`
+
+</details>
+
+<details><summary><b>ADD-108</b> Pack an add-on into a .crx</summary>
+
+**Steps:**
+
+1. Developer mode on, toolbar "Pack add-on"
+2. Enter the root directory of a copy of the sample add-on, click "Pack extension"
+
+**Expected:**
+
+- The dialog asks for the extension root directory and an optional private key file;
+- <folder>.crx and <folder>.pem are created next to the folder
+
+**Nguồn:** `testcases/addons/sanity.md`  
+**Script:** `tests/features/addons/test_addons_sanity.py::test_pack_creates_crx`
+
+</details>
+
+<details><summary><b>ADD-109</b> Reload an unpacked add-on</summary>
+
+**Precondition:** "SB Sample Addon" installed (unpacked), Developer mode on
+
+**Steps:**
+
+1. Click the reload icon on the card
+2. Open a local page
+
+**Expected:**
+
+- The add-on stays enabled and its content script still runs
+
+**Nguồn:** `testcases/addons/sanity.md`  
+**Script:** `tests/features/addons/test_addons_sanity.py::test_reload_unpacked`
+
+</details>
+
+<details><summary><b>ADD-110</b> "Get add-ons" opens the add-on store</summary>
+
+**Steps:**
+
+1. Click "Get add-ons" under the list
+
+**Expected:**
+
+- A new tab opens the Chrome Web Store extensions page
+
+**Nguồn:** `testcases/addons/sanity.md`  
+**Script:** `tests/features/addons/test_addons_sanity.py::test_get_addons_opens_store`
+
+</details>
+
+## Bookmarks (BM) - 21 case
 
 | ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
 |---|---|---|---|---|:-:|---|---|
-| BM-001 | Add a bookmark from the bookmark manager | High | web | Chrome | ✔ | N/A | ✅ Pass |
+| BM-001 | Add a bookmark from the bookmark manager | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
 | BM-002 | Add a folder | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
 | BM-003 | Edit a bookmark | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
 | BM-004 | Delete a bookmark and undo | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
@@ -304,6 +377,12 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 | BM-106 | Select all and delete | Medium | web | Samsung |  | ✅ Pass | N/A |
 | BM-107 | Open a bookmark from the manager | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
 | BM-108 | Bookmarks are kept after restarting the browser | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
+| BM-109 | Add a bookmark into a sub folder | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
+| BM-110 | Sort by name | Medium | web | Samsung |  | ✅ Pass | N/A |
+| BM-111 | Delete a folder with its bookmarks and undo | High | web | Samsung | ✔ | ✅ Pass | N/A |
+| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web | Samsung |  | ✅ Pass | N/A |
+| BM-113 | Export bookmarks to an HTML file | Medium | native | Samsung |  | ✅ Pass | N/A |
+| BM-114 | "Import bookmarks" opens the import settings | Low | web | Samsung |  | ✅ Pass | N/A |
 
 <details><summary><b>BM-001</b> Add a bookmark from the bookmark manager</summary>
 
@@ -590,7 +669,113 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
-## Downloads (DL) - 11 case
+<details><summary><b>BM-109</b> Add a bookmark into a sub folder</summary>
+
+**Precondition:** Bookmark bar contains folder "Work"
+
+**Steps:**
+
+1. Open the bookmark manager, select folder "Work" in the tree
+2. Right ⋮ > Add bookmark, enter Name and Web address, Save
+
+**Expected:**
+
+- The bookmark is listed in "Work" with the given address
+- It is not listed in Bookmark bar
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder`
+
+</details>
+
+<details><summary><b>BM-110</b> Sort by name</summary>
+
+**Precondition:** Bookmark bar contains Alpha, Beta, Gamma, Delta and folder "Folder X" (in that order)
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Right ⋮ > Sort by name
+
+**Expected:**
+
+- The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name`
+
+</details>
+
+<details><summary><b>BM-111</b> Delete a folder with its bookmarks and undo</summary>
+
+**Precondition:** Folder "Work" contains "Form page" and "Dialogs page"
+
+**Steps:**
+
+1. Tick "Work", click Delete
+2. Click Undo on the snack bar
+
+**Expected:**
+
+- After step 1 "Work" is gone from the list and the tree
+- After step 2 "Work" is back with both bookmarks inside
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo`
+
+</details>
+
+<details><summary><b>BM-112</b> Open all bookmarks of a folder in new tabs</summary>
+
+**Precondition:** Folder "Work" contains 2 bookmarks
+
+**Steps:**
+
+1. Right click "Work" > Open all (2) in new tab
+
+**Expected:**
+
+- Two new tabs open: "Form page" and "Dialogs page"
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs`
+
+</details>
+
+<details><summary><b>BM-113</b> Export bookmarks to an HTML file</summary>
+
+**Precondition:** Bookmark bar contains Static page 1, Static page 2, Work
+
+**Steps:**
+
+1. Left ⋮ > Export bookmarks
+2. In the Windows Save As dialog (default name "bookmarks_<date>", HTML) save to a test folder
+
+**Expected:**
+
+- The HTML file is written and contains the bookmark titles and addresses
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks`
+
+</details>
+
+<details><summary><b>BM-114</b> "Import bookmarks" opens the import settings</summary>
+
+**Steps:**
+
+1. Left ⋮ > Import bookmarks
+
+**Expected:**
+
+- Settings opens in a new tab on the import page
+
+**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_import_opens_settings`
+
+</details>
+
+## Downloads (DL) - 16 case
 
 | ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
 |---|---|---|---|---|:-:|---|---|
@@ -605,6 +790,11 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 | DL-104 | Cancel a download in progress | High | web | Samsung | ✔ | ✅ Pass | N/A |
 | DL-105 | Open Downloads with Ctrl+J | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
 | DL-106 | "Show in folder" opens File Explorer on the file | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
+| DL-107 | Remove an entry and undo | Medium | web | Samsung |  | ✅ Pass | N/A |
+| DL-108 | Same file downloaded twice gets a new name | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
+| DL-109 | "Copy link" copies the download address | Low | native | Samsung |  | ✅ Pass | N/A |
+| DL-110 | Toolbar Downloads bubble lists the finished file | Medium | native | Samsung |  | ✅ Pass | N/A |
+| DL-111 | Link with a download attribute saves under that name | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
 
 <details><summary><b>DL-001</b> Download a file</summary>
 
@@ -709,12 +899,12 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 **Steps:**
 
-1. Download sample.txt and data.bin
-2. Open Downloads, choose Document, Others, Image in the side bar
+1. Download sample.txt, data.bin and photo.png (image/png)
+2. Open Downloads, choose Document, Others, Image, Video in the side bar
 
 **Expected:**
 
-- Document lists sample.txt only, Others lists data.bin only, Image lists nothing
+- Document lists sample.txt only, Others data.bin only, Image photo.png only, Video nothing
 
 **Nguồn:** `testcases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_category_filter`
@@ -786,7 +976,84 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
-## History (HIS) - 12 case
+<details><summary><b>DL-107</b> Remove an entry and undo</summary>
+
+**Steps:**
+
+1. Download photo.png, open Downloads
+2. Click X on the row, then Undo on the snack bar
+
+**Expected:**
+
+- After X the row is gone; after Undo it is back
+
+**Nguồn:** `testcases/downloads/sanity.md`  
+**Script:** `tests/features/downloads/test_downloads_sanity.py::test_remove_and_undo`
+
+</details>
+
+<details><summary><b>DL-108</b> Same file downloaded twice gets a new name</summary>
+
+**Steps:**
+
+1. Download sample.txt twice
+
+**Expected:**
+
+- The folder has sample.txt and "sample (1).txt"; both are listed
+
+**Nguồn:** `testcases/downloads/sanity.md`  
+**Script:** `tests/features/downloads/test_downloads_sanity.py::test_duplicate_name`
+
+</details>
+
+<details><summary><b>DL-109</b> "Copy link" copies the download address</summary>
+
+**Steps:**
+
+1. Download sample.txt, open Downloads
+2. Click the "Copy link" icon of the row
+
+**Expected:**
+
+- The Windows clipboard holds the address the file was downloaded from
+
+**Nguồn:** `testcases/downloads/sanity.md`  
+**Script:** `tests/features/downloads/test_downloads_sanity.py::test_copy_link`
+
+</details>
+
+<details><summary><b>DL-110</b> Toolbar Downloads bubble lists the finished file</summary>
+
+**Steps:**
+
+1. Download sample.txt from a page
+
+**Expected:**
+
+- The toolbar Downloads bubble opens with "sample.txt 2,048 B • Done"
+
+**Nguồn:** `testcases/downloads/sanity.md`  
+**Script:** `tests/features/downloads/test_downloads_sanity.py::test_toolbar_bubble`
+
+</details>
+
+<details><summary><b>DL-111</b> Link with a download attribute saves under that name</summary>
+
+**Steps:**
+
+1. Click a link to page1.html that has download="saved-page1.html"
+
+**Expected:**
+
+- saved-page1.html is in the download folder and listed in Downloads
+
+**Nguồn:** `testcases/downloads/sanity.md`  
+**Script:** `tests/features/downloads/test_downloads_sanity.py::test_download_attribute`
+
+</details>
+
+## History (HIS) - 15 case
 
 | ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
 |---|---|---|---|---|:-:|---|---|
@@ -802,6 +1069,9 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 | HIS-104 | Delete a whole day | Medium | web | Samsung |  | ✅ Pass | N/A |
 | HIS-105 | History is kept after restarting the browser | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
 | HIS-106 | "Clear browsing data" link | Low | web | Samsung |  | ✅ Pass | N/A |
+| HIS-107 | Search with no match | Low | web | Cả hai |  | ✅ Pass | ✅ Pass |
+| HIS-108 | Cancel a selection | Low | web | Samsung |  | ✅ Pass | N/A |
+| HIS-109 | Visiting a page again moves it to the top | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
 
 <details><summary><b>HIS-001</b> Visited pages are listed newest first</summary>
 
@@ -1001,6 +1271,54 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 **Nguồn:** `testcases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_clear_browsing_data_link`
+
+</details>
+
+<details><summary><b>HIS-107</b> Search with no match</summary>
+
+**Steps:**
+
+1. Visit Alpha, open History
+2. Search "zzzz"
+
+**Expected:**
+
+- No entry is listed
+
+**Nguồn:** `testcases/history/sanity.md`  
+**Script:** `tests/features/history/test_history_sanity.py::test_search_no_match`
+
+</details>
+
+<details><summary><b>HIS-108</b> Cancel a selection</summary>
+
+**Steps:**
+
+1. Tick Alpha (the toolbar switches to "1 selected")
+2. Click "<" (Cancel)
+
+**Expected:**
+
+- No entry is ticked; Delete is disabled again
+
+**Nguồn:** `testcases/history/sanity.md`  
+**Script:** `tests/features/history/test_history_sanity.py::test_cancel_selection`
+
+</details>
+
+<details><summary><b>HIS-109</b> Visiting a page again moves it to the top</summary>
+
+**Steps:**
+
+1. Visit Alpha, Beta, then Alpha again
+2. Open History
+
+**Expected:**
+
+- Alpha is listed above Beta
+
+**Nguồn:** `testcases/history/sanity.md`  
+**Script:** `tests/features/history/test_history_sanity.py::test_revisit_moves_to_top`
 
 </details>
 

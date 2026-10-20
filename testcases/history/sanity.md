@@ -69,3 +69,33 @@ Basics shared with Chrome are in history.md (HIS-001..HIS-010).
 - Expected:
   - Settings > Clear browsing data opens
 - Automated: tests/features/history/test_history_sanity.py::test_clear_browsing_data_link
+
+## HIS-107 Search with no match
+- Priority: Low
+- Type: web
+- Steps:
+  1. Visit Alpha, open History
+  2. Search "zzzz"
+- Expected:
+  - No entry is listed
+- Automated: tests/features/history/test_history_sanity.py::test_search_no_match
+
+## HIS-108 Cancel a selection
+- Priority: Low
+- Type: web
+- Steps:
+  1. Tick Alpha (the toolbar switches to "1 selected")
+  2. Click "<" (Cancel)
+- Expected:
+  - No entry is ticked; Delete is disabled again
+- Automated: tests/features/history/test_history_sanity.py::test_cancel_selection
+
+## HIS-109 Visiting a page again moves it to the top
+- Priority: Medium
+- Type: web
+- Steps:
+  1. Visit Alpha, Beta, then Alpha again
+  2. Open History
+- Expected:
+  - Alpha is listed above Beta
+- Automated: tests/features/history/test_history_sanity.py::test_revisit_moves_to_top

@@ -100,3 +100,68 @@ Bookmark manager basics shared with Chrome are in bookmark_manager.md (BM-001..B
 - Expected:
   - The folder and the renamed bookmark are still listed
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_bookmarks_survive_restart
+
+## BM-109 Add a bookmark into a sub folder
+- Priority: High
+- Type: web
+- Precondition: Bookmark bar contains folder "Work"
+- Steps:
+  1. Open the bookmark manager, select folder "Work" in the tree
+  2. Right ⋮ > Add bookmark, enter Name and Web address, Save
+- Expected:
+  - The bookmark is listed in "Work" with the given address
+  - It is not listed in Bookmark bar
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder
+
+## BM-110 Sort by name
+- Priority: Medium
+- Type: web
+- Precondition: Bookmark bar contains Alpha, Beta, Gamma, Delta and folder "Folder X" (in that order)
+- Steps:
+  1. Open the bookmark manager
+  2. Right ⋮ > Sort by name
+- Expected:
+  - The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name
+
+## BM-111 Delete a folder with its bookmarks and undo
+- Priority: High
+- Type: web
+- Precondition: Folder "Work" contains "Form page" and "Dialogs page"
+- Steps:
+  1. Tick "Work", click Delete
+  2. Click Undo on the snack bar
+- Expected:
+  - After step 1 "Work" is gone from the list and the tree
+  - After step 2 "Work" is back with both bookmarks inside
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo
+
+## BM-112 Open all bookmarks of a folder in new tabs
+- Priority: Medium
+- Type: web
+- Precondition: Folder "Work" contains 2 bookmarks
+- Steps:
+  1. Right click "Work" > Open all (2) in new tab
+- Expected:
+  - Two new tabs open: "Form page" and "Dialogs page"
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs
+
+## BM-113 Export bookmarks to an HTML file
+- Priority: Medium
+- Type: native
+- Precondition: Bookmark bar contains Static page 1, Static page 2, Work
+- Steps:
+  1. Left ⋮ > Export bookmarks
+  2. In the Windows Save As dialog (default name "bookmarks_<date>", HTML) save to a test folder
+- Expected:
+  - The HTML file is written and contains the bookmark titles and addresses
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks
+
+## BM-114 "Import bookmarks" opens the import settings
+- Priority: Low
+- Type: web
+- Steps:
+  1. Left ⋮ > Import bookmarks
+- Expected:
+  - Settings opens in a new tab on the import page
+- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_import_opens_settings

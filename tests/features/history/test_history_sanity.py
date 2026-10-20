@@ -86,3 +86,39 @@ def test_clear_browsing_data_link(web, pages):
     with step("1. Click 'Clear browsing data'", expected="settings clearBrowserData"):
         web.click(h.CLEAR_DATA_LINK)
         web.switch_tab(url="clearBrowserData")
+
+
+@pytest.mark.case("HIS-107")
+def test_search_no_match(web, pages, site):
+    visit(web, site, "Alpha")
+    h = pages.history.open()
+    h.wait_item("Alpha")
+    with step("2. Search 'zzzz'", expected="nothing listed"):
+        h.search("zzzz")
+        web.wait_until(lambda: not h.titles(), message="no entry listed")
+
+
+@samsung_only
+@pytest.mark.case("HIS-108")
+def test_cancel_selection(web, pages, site):
+    visit(web, site, "Alpha")
+    h = pages.history.open()
+    h.wait_item("Alpha")
+    tick = lambda: web.find("deep=si-select#select", within=h.item("Alpha"))  # noqa: E731
+    with step("1. Tick Alpha", expected="Delete enabled"):
+        h.select("Alpha")
+        web.wait_until(lambda: h.toolbar_enabled("Delete"), message="Delete enabled")
+    with step("2. Cancel (<)", expected="nothing ticked, Delete disabled"):
+        h.cancel_selection()
+        web.wait_until(lambda: not web.is_checked(tick()), message="Alpha unticked")
+        assert not h.toolbar_enabled("Delete")
+
+
+@pytest.mark.case("HIS-109")
+def test_revisit_moves_to_top(web, pages, site):
+    visit(web, site, "Alpha", "Beta", "Alpha")
+    h = pages.history.open()
+    h.wait_item("Beta")
+    with step("2. Open History", expected="Alpha above Beta"):
+        titles = h.titles()
+        assert titles.index("Alpha") < titles.index("Beta"), titles

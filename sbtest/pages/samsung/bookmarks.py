@@ -4,13 +4,16 @@ STATUS: verified on Samsung Browser 31.0.0.55 (Chromium 148).
 
 How it differs from Chromium:
 - rows are selected with a round check box (si-select); Edit / Share / Delete / Select all
-  live in the page toolbar and act on the selection (no â‹® per row)
+  live in the page toolbar and act on the selection (no ⋮ per row)
 - right click on a row opens a menu: Edit, Delete, Open all (n) in new tab / window / Secret mode
-- there is NO "Add new bookmark" in the manager: bookmarks are added with Ctrl+D or the star
+- right ⋮ (toolbar): Add bookmark (same dialog as Edit), Sort by name, Open all (n) in new
+  tabs / new window / Secret mode
 - "Create folder" adds "Folder 1" in the selected folder, opens it and puts its name in edit
   mode in the left tree (type the name + Enter)
 - Delete removes at once and shows a snack bar "1 bookmark deleted" with Undo
-- left â‹® (Options): Create folder in selected folder, Sort by name, Import / Export bookmarks
+- left ⋮ (Options): Create folder in selected folder, Sort by name, Import bookmarks (opens
+  Settings in a new tab), Export bookmarks (Windows Save As, HTML)
+- Sort by name puts folders first, then bookmarks A-Z
 - root folders: "PC bookmarks" > "Bookmark bar"
 """
 from __future__ import annotations
@@ -26,10 +29,12 @@ from sbtest.pages.samsung.base import SamsungPageMixin
 class BookmarksPage(SamsungPageMixin, ChromiumBookmarksPage):
     TOOLBAR = "bookmarks-app >>> bookmarks-toolbar"
     OPTIONS_MENU = "bookmarks-app >>> bookmarks-toolbar >>> si-toolbar.bookmarks-toolbar >>> #moreMenuButton"
+    RIGHT_MENU = "bookmarks-app >>> bookmarks-toolbar >>> #menuButton"
     TREE_ITEM = "deepcss=#container[role=treeitem]"
     EDIT_DIALOG = "bookmarks-app >>> bookmarks-command-manager >>> bookmarks-edit-dialog"
     UNDO = "bookmarks-app >>> #undoButton"
     ROOT_FOLDERS = ("PC bookmarks", "Bookmark bar")
+    BAR_FOLDER = "Bookmark bar"
 
     # -- reading -----------------------------------------------------------------
     def item_url(self, title: str) -> str:
@@ -81,7 +86,7 @@ class BookmarksPage(SamsungPageMixin, ChromiumBookmarksPage):
         self.web.click(self.UNDO)
 
     def organize(self, action: str) -> None:
-        """Left â‹® menu: ``Create folder in selected folder`` | ``Sort by name`` |
+        """Left ⋮ menu: ``Create folder in selected folder`` | ``Sort by name`` |
         ``Import bookmarks`` | ``Export bookmarks``."""
         self.web.click(self.OPTIONS_MENU)
         self.click_menu_item(action)
@@ -149,7 +154,25 @@ class BookmarksPage(SamsungPageMixin, ChromiumBookmarksPage):
             self.open_folder(parent)
         self.wait_item(name)
 
+    def options(self, action: str) -> None:
+        """Right ⋮ menu of the list: ``Add bookmark`` | ``Sort by name`` | ``Open all (n) in new
+        tabs`` / ``... new window`` / ``... Secret mode`` (prefix match)."""
+        self.web.click(self.RIGHT_MENU)
+        items = self.web.wait_until(lambda: self.menu_items() or None, message="options menu")
+        match = next((i for i in items if i == action), None) or next((i for i in items if i.startswith(action)), None)
+        if match is None:
+            raise LookupError(f"{action!r} not in options menu {items}")
+        self.click_menu_item(match)
+
     def add_bookmark(self, name: str, url: str) -> None:
-        raise NotImplementedError(
-            "Samsung's bookmark manager has no 'Add bookmark' command: open the page and press "
-            "Ctrl+D (native.hotkey('^d')) or click the star, then rename it here with edit().")
+        """Right ⋮ > Add bookmark -> Name + Web address -> Save (into the open folder)."""
+        self.options("Add bookmark")
+        self.open_dialog()
+        self._fill_edit_dialog(name, url)
+        self.save_dialog()
+        self.wait_item(name)
+
+    def export(self, native, path) -> None:
+        """Left ⋮ > Export bookmarks -> Windows Save As (HTML file)."""
+        self.organize("Export bookmarks")
+        native.file_dialog("save").save_as(path)

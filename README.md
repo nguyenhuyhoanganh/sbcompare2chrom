@@ -108,5 +108,5 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
   - WebDriver phải mở `chrome://...`, thanh địa chỉ hiển thị `internet://...`.
   - chromedriver không tự khởi chạy được Samsung, nên target samsung dùng `browser.mode: attach`.
   - Profile mới hiện bubble "Samsung Browser has been updated." và fixture `native` tự đóng nó.
-- Luồng chỉ một bên có (vd. Samsung không có "Add bookmark" trong manager): đánh dấu
+- Luồng chỉ một bên có (vd. Ctrl+D trên Samsung hiện toast thay vì bubble như Chrome): đánh dấu
   `@pytest.mark.targets("samsung")` hoặc `("chrome")`.

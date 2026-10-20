@@ -21,8 +21,8 @@ Read `references/feature-notes.md` "Samsung" bullets before writing a step. When
 changes: explore it on the build, override what differs in the Samsung class, update its
 STATUS docstring, keep the parent's method names and return types.
 
-**A flow only one product has** (Samsung has no "Add bookmark" in the manager, Chrome has no
-"Add-ons" menu entry...): mark the test `@pytest.mark.targets("samsung")` (or `"chrome"`) -
+**A flow only one product has** (Samsung's Ctrl+D shows a toast instead of Chrome's bubble,
+Chrome has no "Add-ons" menu entry...): mark the test `@pytest.mark.targets("samsung")` (or `"chrome"`) -
 it is skipped, with the reason, on the other target. Prefer one test for both when only the
 labels differ (put the labels in the page object / ui map).
 

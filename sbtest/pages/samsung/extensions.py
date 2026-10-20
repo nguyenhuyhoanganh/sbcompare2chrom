@@ -56,6 +56,51 @@ class ExtensionsPage(SamsungPageMixin, ChromiumExtensionsPage):
         self.toolbar("Load Unpacked")
         native.file_dialog("open").select_folder(folder)
 
+    SHORTCUTS = "extensions-manager >>> #sidebar >>> #shortcutButton"
+
+    def open_shortcuts(self) -> None:
+        self.web.click(self.SHORTCUTS)
+        self.web.wait_url("/shortcuts")
+
+    def shortcuts(self) -> dict[str, str]:
+        """Keyboard shortcuts page: ``{"Activate add-on for <name>": "Not set" | "Ctrl+..."}``."""
+        out = {}
+        for el in self.web.find_all('deepcss=[aria-label^="Shortcut "]'):
+            # an empty shortcut shows "Not set" as the input placeholder
+            out[self.web.attr(el, "aria-label")[len("Shortcut "):]] = (
+                self.web.value(el) or self.web.text(el) or self.web.attr(el, "placeholder") or "")
+        return out
+
+    def open_pack_dialog(self) -> None:
+        """Developer mode -> toolbar "Pack add-on" -> Pack extension dialog (si-dialog)."""
+        self.set_dev_mode(True)
+        self.toolbar("Pack add-on")
+        self.open_dialog()
+
+    def pack_inputs(self):
+        """(root directory input, private key input) of the open Pack extension dialog."""
+        inputs = self.web.find_all("deepcss=input", within=self._dialog_host())
+        return inputs[0], inputs[1]
+
+    def pack_button_enabled(self) -> bool:
+        btn = self.find_by_text("dialog-button-si, si-flat-button, button", "Pack extension",
+                                within=self._dialog_host())
+        return not self.web.js("return arguments[0].hasAttribute('disabled') || "
+                               "(arguments[0].shadowRoot && !!arguments[0].shadowRoot.querySelector('button[disabled]'))", btn)
+
+    def pack(self, folder) -> None:
+        """Pack an unpacked add-on folder: writes <folder>.crx and <folder>.pem next to it."""
+        self.open_pack_dialog()
+        self.web.type(self.pack_inputs()[0], str(folder))
+        self.web.wait_until(self.pack_button_enabled, message="Pack extension enabled")
+        self.dialog_button("Pack extension")
+
+    def get_addons(self) -> None:
+        """"Get add-ons" under the list: opens the add-on store in a new tab (switched to)."""
+        before = self.web.tabs
+        self.web.click(self.GET_ADDONS)
+        self.web.wait_new_tab(before)
+
     def dev_toolbar(self) -> list[str]:
         """Labels of the toolbar buttons shown (developer mode adds Load Unpacked / Pack / Update)."""
         return [self.web.attr(e, "aria-label")

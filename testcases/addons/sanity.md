@@ -67,3 +67,45 @@ widely used extensions only (test_data/addons.yaml: Dark Reader).
 - Expected:
   - The Add-ons page opens
 - Automated: tests/features/addons/test_addons_sanity.py::test_open_from_app_menu
+
+## ADD-107 Keyboard shortcuts page lists the add-on
+- Priority: Low
+- Type: web
+- Precondition: "SB Sample Addon" installed
+- Steps:
+  1. Add-ons > Keyboard shortcuts (side bar)
+- Expected:
+  - "Activate add-on for SB Sample Addon" is listed with "Not set" and an Edit button
+- Automated: tests/features/addons/test_addons_sanity.py::test_keyboard_shortcuts
+
+## ADD-108 Pack an add-on into a .crx
+- Priority: Medium
+- Type: web
+- Steps:
+  1. Developer mode on, toolbar "Pack add-on"
+  2. Enter the root directory of a copy of the sample add-on, click "Pack extension"
+- Expected:
+  - The dialog asks for the extension root directory and an optional private key file;
+    "Pack extension" is disabled while the directory is empty
+  - <folder>.crx and <folder>.pem are created next to the folder
+- Automated: tests/features/addons/test_addons_sanity.py::test_pack_creates_crx
+
+## ADD-109 Reload an unpacked add-on
+- Priority: Medium
+- Type: web
+- Precondition: "SB Sample Addon" installed (unpacked), Developer mode on
+- Steps:
+  1. Click the reload icon on the card
+  2. Open a local page
+- Expected:
+  - The add-on stays enabled and its content script still runs
+- Automated: tests/features/addons/test_addons_sanity.py::test_reload_unpacked
+
+## ADD-110 "Get add-ons" opens the add-on store
+- Priority: Low
+- Type: web (needs internet)
+- Steps:
+  1. Click "Get add-ons" under the list
+- Expected:
+  - A new tab opens the Chrome Web Store extensions page
+- Automated: tests/features/addons/test_addons_sanity.py::test_get_addons_opens_store

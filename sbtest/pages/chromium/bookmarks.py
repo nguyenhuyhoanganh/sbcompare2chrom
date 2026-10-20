@@ -16,6 +16,8 @@ class BookmarksPage(BasePage):
     ITEM_TITLE = "bookmarks-app >>> bookmarks-list >>> bookmarks-item >>> #website-title"
     SIDEBAR_FOLDER = "deepcss=bookmarks-folder-node"
     EDIT_DIALOG = "bookmarks-app >>> bookmarks-command-manager >>> bookmarks-edit-dialog"
+    #: name of the bookmarks bar folder in the tree
+    BAR_FOLDER = "Bookmarks bar"
 
     # -- reading -----------------------------------------------------------------
     def titles(self) -> list[str]:

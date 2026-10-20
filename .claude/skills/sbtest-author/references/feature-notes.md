@@ -37,7 +37,10 @@ Upstream bullets: Chromium 141 WebUI. **Samsung** bullets: Samsung Browser 31.0.
 - **Samsung**: roots "PC bookmarks" > "Bookmark bar"; tree is expanded. Rows have a round check
   box; Edit / Share / Delete / Select all are toolbar buttons acting on the selection ("Delete
   all" / "Deselect all" when everything is selected). Right click a row: Edit, Delete, Open all
-  (n) in new tab / new window / Secret mode. No "Add bookmark" in the manager (Ctrl+D or star).
+  (n) in new tab / new window / Secret mode. Right ⋮: Add bookmark (`add_bookmark`, same dialog
+  as Edit), Sort by name (folders first), Open all. Left ⋮: Create folder in selected folder,
+  Sort by name, Import bookmarks (opens Settings in a new tab), Export bookmarks (Save As, HTML:
+  `export(native, path)`).
   "Create folder" adds "Folder N" in the selected folder, opens it and edits its name in the tree
   (`add_folder(name)` types over it). Delete is immediate: snack bar "1 bookmark deleted" + Undo.
   Clicking a bookmark opens it in a NEW TAB.

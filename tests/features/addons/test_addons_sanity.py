@@ -92,3 +92,60 @@ def test_open_from_app_menu(web, native, cfg):
     with step("1. App menu > Add-ons", expected="Add-ons page"):
         native.menu("Add-ons")
         web.switch_tab(url=cfg.page_url("extensions"))
+
+
+@samsung_only
+@uses_addon
+@pytest.mark.case("ADD-107")
+def test_keyboard_shortcuts(pages, web):
+    e = pages.extensions.open()
+    with step("1. Keyboard shortcuts", expected="'Activate add-on for SB Sample Addon': Not set"):
+        e.open_shortcuts()
+        web.wait_until(lambda: e.shortcuts().get(f"Activate add-on for {ADDON}") == "Not set",
+                       message="shortcut listed as Not set")
+        assert web.find(f'deepcss=[aria-label="Edit shortcut Activate add-on for {ADDON}"]')
+
+
+@samsung_only
+@pytest.mark.sanity
+@pytest.mark.case("ADD-108")
+def test_pack_creates_crx(pages, web, tmp_path):
+    import shutil
+
+    from sbtest.config import ROOT
+
+    src = tmp_path / "addon"
+    shutil.copytree(ROOT / "test_data" / "extensions" / "sample_addon", src)
+    e = pages.extensions.open()
+    with step("1. Developer mode, Pack add-on", expected="'Pack extension' disabled while the directory is empty"):
+        e.open_pack_dialog()
+        assert not e.pack_button_enabled()
+    with step("2. Root directory, Pack extension", expected="addon.crx + addon.pem next to the folder"):
+        web.type(e.pack_inputs()[0], str(src))
+        web.wait_until(e.pack_button_enabled, message="Pack extension enabled")
+        e.dialog_button("Pack extension")
+        web.wait_file(tmp_path, "addon.crx")
+        web.wait_file(tmp_path, "addon.pem")
+
+
+@samsung_only
+@uses_addon
+@pytest.mark.case("ADD-109")
+def test_reload_unpacked(pages, web, site):
+    e = pages.extensions.open()
+    e.set_dev_mode(True)
+    with step("1. Reload icon", expected="still enabled"):
+        web.click(web.find("deep=#dev-reload-button", within=e.item(ADDON)))
+        web.wait_until(lambda: e.is_enabled(ADDON), message="enabled after reload")
+    with step("2. Open a local page", expected="content script still runs"):
+        web.wait_until(lambda: page_marked(web, site), message="content script ran")
+
+
+@samsung_only
+@pytest.mark.slow
+@pytest.mark.case("ADD-110")
+def test_get_addons_opens_store(pages, web):
+    e = pages.extensions.open()
+    with step("1. Get add-ons", expected="Chrome Web Store extensions page in a new tab"):
+        e.get_addons()
+        web.wait_url("chromewebstore.google.com")

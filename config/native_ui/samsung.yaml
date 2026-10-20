@@ -47,6 +47,8 @@ tab_strip:
   control_type: Tab
 new_tab_button:
   class_name: NewTabButton
+download_bubble_item:        # row of the toolbar Downloads bubble: "<name> <size> • Done"
+  class_name: DownloadBubbleTransparentButton
 bookmarks_bar:
   control_type: ToolBar
   title_re: "(?i)bookmarks"

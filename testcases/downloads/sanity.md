@@ -18,10 +18,10 @@ Basics shared with Chrome are in downloads.md (DL-001..DL-010).
 - Priority: Medium
 - Type: web
 - Steps:
-  1. Download sample.txt and data.bin
-  2. Open Downloads, choose Document, Others, Image in the side bar
+  1. Download sample.txt, data.bin and photo.png (image/png)
+  2. Open Downloads, choose Document, Others, Image, Video in the side bar
 - Expected:
-  - Document lists sample.txt only, Others lists data.bin only, Image lists nothing
+  - Document lists sample.txt only, Others data.bin only, Image photo.png only, Video nothing
 - Automated: tests/features/downloads/test_downloads_sanity.py::test_category_filter
 
 ## DL-103 Search downloads
@@ -64,3 +64,50 @@ Basics shared with Chrome are in downloads.md (DL-001..DL-010).
 - Expected:
   - File Explorer opens the download folder with sample.txt selected
 - Automated: tests/features/downloads/test_downloads_sanity.py::test_show_in_folder
+
+## DL-107 Remove an entry and undo
+- Priority: Medium
+- Type: web
+- Steps:
+  1. Download photo.png, open Downloads
+  2. Click X on the row, then Undo on the snack bar
+- Expected:
+  - After X the row is gone; after Undo it is back
+- Automated: tests/features/downloads/test_downloads_sanity.py::test_remove_and_undo
+
+## DL-108 Same file downloaded twice gets a new name
+- Priority: High
+- Type: web
+- Steps:
+  1. Download sample.txt twice
+- Expected:
+  - The folder has sample.txt and "sample (1).txt"; both are listed
+- Automated: tests/features/downloads/test_downloads_sanity.py::test_duplicate_name
+
+## DL-109 "Copy link" copies the download address
+- Priority: Low
+- Type: native
+- Steps:
+  1. Download sample.txt, open Downloads
+  2. Click the "Copy link" icon of the row
+- Expected:
+  - The Windows clipboard holds the address the file was downloaded from
+- Automated: tests/features/downloads/test_downloads_sanity.py::test_copy_link
+
+## DL-110 Toolbar Downloads bubble lists the finished file
+- Priority: Medium
+- Type: native
+- Steps:
+  1. Download sample.txt from a page
+- Expected:
+  - The toolbar Downloads bubble opens with "sample.txt 2,048 B • Done"
+- Automated: tests/features/downloads/test_downloads_sanity.py::test_toolbar_bubble
+
+## DL-111 Link with a download attribute saves under that name
+- Priority: Medium
+- Type: web
+- Steps:
+  1. Click a link to page1.html that has download="saved-page1.html"
+- Expected:
+  - saved-page1.html is in the download folder and listed in Downloads
+- Automated: tests/features/downloads/test_downloads_sanity.py::test_download_attribute

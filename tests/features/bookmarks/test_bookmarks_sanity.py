@@ -131,3 +131,83 @@ def test_bookmarks_survive_restart(session, pages):
         bm = pages.of(session.web).bookmarks.open()
         bm.wait_item(folder)
         bm.wait_item(name)
+
+
+@pytest.mark.case("BM-109")
+@pytest.mark.browser(bookmarks="seed_basic")
+def test_add_bookmark_into_folder(pages, site):
+    bm = pages.bookmarks.open()
+    name, url = unique("In Work"), site.page("In Work page")
+    with step("1. Select folder 'Work'"):
+        bm.open_folder("Work")
+    with step("2. Add bookmark: name + address, Save", expected="listed in Work with its address"):
+        bm.add_bookmark(name, url)
+        assert bm.item_url(name) == url
+    with step("check the bookmarks bar folder", expected="not listed there"):
+        bm.open_folder(bm.BAR_FOLDER)
+        bm.wait_item("Static page 1")
+        assert name not in bm.titles()
+
+
+@samsung_only
+@pytest.mark.case("BM-110")
+@pytest.mark.browser(bookmarks="seed_many")
+def test_sort_by_name(pages):
+    bm = pages.bookmarks.open()
+    bm.wait_titles(["Alpha", "Beta", "Gamma", "Delta", "Folder X"])
+    with step("2. Right ⋮ > Sort by name", expected="folders first, then A-Z"):
+        bm.options("Sort by name")
+        bm.wait_titles(["Folder X", "Alpha", "Beta", "Delta", "Gamma"])
+
+
+@samsung_only
+@pytest.mark.sanity
+@pytest.mark.case("BM-111")
+@pytest.mark.browser(bookmarks="seed_basic")
+def test_delete_folder_and_undo(pages, web):
+    bm = pages.bookmarks.open()
+    with step("1. Delete folder 'Work'", expected="gone from list and tree"):
+        bm.delete("Work")
+        web.wait_until(lambda: "Work" not in bm.folders(), message="'Work' gone from the tree")
+    with step("2. Undo", expected="'Work' back with its 2 bookmarks"):
+        bm.undo()
+        bm.wait_item("Work")
+        bm.open_folder("Work")
+        bm.wait_titles(["Form page", "Dialogs page"])
+
+
+@samsung_only
+@pytest.mark.case("BM-112")
+@pytest.mark.browser(bookmarks="seed_basic")
+def test_open_all_in_new_tabs(pages, web):
+    bm = pages.bookmarks.open()
+    before = web.tabs
+    with step("1. Right click 'Work' > Open all (2) in new tab", expected="2 new tabs"):
+        bm.item_menu("Work", "Open all (2) in new tab")
+        web.wait_until(lambda: len(web.tabs) == len(before) + 2, message="2 new tabs")
+    web.switch_tab(title="Form page")
+    web.switch_tab(title="Dialogs page")
+
+
+@samsung_only
+@pytest.mark.native
+@pytest.mark.case("BM-113")
+@pytest.mark.browser(bookmarks="seed_basic")
+def test_export_bookmarks(pages, native, web, site, tmp_path):
+    bm = pages.bookmarks.open()
+    target = tmp_path / "exported_bookmarks.html"
+    with step("1-2. Left ⋮ > Export bookmarks, Save As", expected="HTML file written"):
+        bm.export(native, target)
+        web.wait_file(tmp_path, target.name)
+    html = target.read_text(encoding="utf-8", errors="ignore")
+    for text in ("Static page 1", "Static page 2", "Work", site.url("/pages/page1.html")):
+        assert text in html, text
+
+
+@samsung_only
+@pytest.mark.case("BM-114")
+def test_import_opens_settings(pages, web):
+    bm = pages.bookmarks.open()
+    with step("1. Left ⋮ > Import bookmarks", expected="Settings import page"):
+        bm.organize("Import bookmarks")
+        web.switch_tab(url="settings")

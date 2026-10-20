@@ -30,9 +30,11 @@ def test_entry_details(web, pages, site, downloads_dir):
 def test_category_filter(web, pages, site, downloads_dir):
     download(web, site, downloads_dir, "dl-txt", "sample.txt")
     download(web, site, downloads_dir, "dl-bin", "data.bin")
+    download(web, site, downloads_dir, "dl-png", "photo.png")
     d = pages.downloads.open()
-    d.wait_item("data.bin")
-    for category, expected in (("Document", ["sample.txt"]), ("Others", ["data.bin"]), ("Image", [])):
+    d.wait_item("photo.png")
+    for category, expected in (("Document", ["sample.txt"]), ("Others", ["data.bin"]), ("Image", ["photo.png"]),
+                               ("Video", [])):
         with step(f"2. Filter {category}", expected=f"{expected}"):
             d.filter_category(category)
             web.wait_until(lambda: sorted(d.names()) == expected, message=f"{category} lists {expected}")
@@ -85,3 +87,59 @@ def test_show_in_folder(web, native, pages, site, downloads_dir):
         web.wait_until(lambda: native.explorer_has_selected(explorer, "sample.txt"), message="sample.txt selected")
     finally:
         explorer.close()
+
+
+@samsung_only
+@pytest.mark.case("DL-107")
+def test_remove_and_undo(web, pages, site, downloads_dir):
+    download(web, site, downloads_dir, "dl-png", "photo.png")
+    d = pages.downloads.open()
+    d.wait_item("photo.png")
+    with step("2a. X on the row", expected="row gone"):
+        d.remove("photo.png")
+    with step("2b. Undo", expected="row back"):
+        d.toast_action("Undo")
+        d.wait_item("photo.png")
+
+
+@pytest.mark.sanity
+@pytest.mark.case("DL-108")
+def test_duplicate_name(web, pages, site, downloads_dir):
+    download(web, site, downloads_dir, "dl-txt", "sample.txt")
+    with step("1. Download sample.txt again", expected="saved as 'sample (1).txt'"):
+        web.click("#dl-txt")
+        web.wait_file(downloads_dir, "sample (1).txt")
+    d = pages.downloads.open()
+    d.wait_item("sample (1).txt")
+    assert "sample.txt" in d.names()
+
+
+@samsung_only
+@pytest.mark.native
+@pytest.mark.case("DL-109")
+def test_copy_link(web, pages, site, downloads_dir):
+    from pywinauto import clipboard
+
+    download(web, site, downloads_dir, "dl-txt", "sample.txt")
+    d = pages.downloads.open()
+    url = d.wait_complete("sample.txt")["url"]
+    with step("2. Copy link", expected="clipboard = download address"):
+        d.action("sample.txt", "Copy link")
+        web.wait_until(lambda: clipboard.GetData() == url, message="download address on the clipboard")
+
+
+@samsung_only
+@pytest.mark.native
+@pytest.mark.case("DL-110")
+def test_toolbar_bubble(web, native, site, downloads_dir):
+    with step("1. Download sample.txt", expected="bubble: 'sample.txt 2,048 B • Done'"):
+        download(web, site, downloads_dir, "dl-txt", "sample.txt")
+        row = native.element({**native.criteria("download_bubble_item"), "title_re": r"^sample\.txt "})
+    assert "Done" in row.element_info.name and "2,048 B" in row.element_info.name, row.element_info.name
+
+
+@pytest.mark.case("DL-111")
+def test_download_attribute(web, pages, site, downloads_dir):
+    with step("1. Click the link with download='saved-page1.html'", expected="saved under that name"):
+        download(web, site, downloads_dir, "dl-attr", "saved-page1.html")
+    pages.downloads.open().wait_item("saved-page1.html")

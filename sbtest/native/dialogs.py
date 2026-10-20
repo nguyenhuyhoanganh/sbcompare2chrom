@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from sbtest.native import uia
-from sbtest.utils import poll
+from sbtest.utils import log, poll
 
 
 class Dialog:
@@ -137,10 +137,18 @@ class FileDialog(Dialog):
     def set_filename(self, path: str | Path) -> None:
         # Real keystrokes: the Save As dialog ignores text set through the UIA ValuePattern
         # (the edit shows it, but Save keeps the suggested name or does nothing).
+        # Keystrokes are occasionally dropped while the path autocomplete pops up: check the
+        # field and type again, slower, when it does not hold the full path.
         edit = self._filename_edit()
-        edit.set_focus()
-        edit.type_keys("^a{BACKSPACE}" + _escape_keys(str(path)), with_spaces=True, pause=0.01)
-        poll(lambda: _value(edit) == str(path), 5, 0.2, f"file name typed {str(path)!r}")
+        for pause in (0.01, 0.04, 0.08):
+            edit.set_focus()
+            edit.type_keys("^a{BACKSPACE}" + _escape_keys(str(path)), with_spaces=True, pause=pause)
+            try:
+                poll(lambda: _value(edit) == str(path), 2, 0.2, f"file name typed {str(path)!r}")
+                return
+            except TimeoutError:
+                log.warning("file name field holds %r, typing %r again", _value(edit), str(path))
+        raise TimeoutError(f"file name field holds {_value(edit)!r} instead of {str(path)!r}")
 
     def _confirm(self, *labels: str) -> None:
         btn = uia.find_in([self.el], 0, auto_id="1", control_type="Button")
