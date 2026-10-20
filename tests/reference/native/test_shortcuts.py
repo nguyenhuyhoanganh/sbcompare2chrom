@@ -16,10 +16,8 @@ def test_ctrl_t_and_ctrl_w(web, native, site):
 
 @pytest.mark.parametrize("keys,page", [("^h", "history"), ("^j", "downloads")])
 def test_shortcut_opens_internal_page(web, native, cfg, keys, page):
-    before = web.tabs
     native.hotkey(keys)
-    web.wait_new_tab(before)
-    web.wait_url(cfg.page_url(page))
+    web.switch_tab(url=cfg.page_url(page))        # new tab, or the blank start tab on Chrome
 
 
 def test_ctrl_l_focuses_address_bar(web, native, site):
@@ -36,4 +34,6 @@ def test_ctrl_d_bookmark_bubble_rename(web, native, site, pages):
     bubble = native.wait_dialog("bookmark_added")
     bubble.set_text("Renamed in bubble")          # first Edit = name
     bubble.click("Done")
-    pages.bookmarks.open().wait_item("Renamed in bubble")
+    bm = pages.bookmarks.open()
+    bm.search("Renamed in bubble")                # saved to "Other bookmarks" when the bar is hidden
+    bm.wait_item("Renamed in bubble")

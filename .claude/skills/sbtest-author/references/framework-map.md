@@ -6,10 +6,11 @@ run.py                         CLI: --target samsung|chrome, --suite features|re
 setup.bat                      one-time setup on Windows (venv, requirements, config/local.yaml)
 config/
   default.yaml                 common settings (args, prefs, timeouts, page paths, report, network)
-  targets/samsung.yaml         internet:// scheme, Samsung page objects, Samsung native UI map
+  targets/samsung.yaml         attach mode, chrome:// navigation (shown as internet://), Samsung
+                               page objects, Samsung native UI map
   targets/chrome.yaml          chrome:// scheme, Chromium page objects, Chromium native UI map
   native_ui/chromium.yaml      logical names -> UIA criteria (upstream Chrome UI)
-  native_ui/samsung.yaml       same for Samsung (verify on the build)
+  native_ui/samsung.yaml       same for Samsung (verified on Samsung Browser 31), startup_bubbles
   local.yaml                   this machine (git-ignored): exe paths per target, proxy
 sbtest/
   config.py                    load_config(): default < target < local < env < CLI; cfg.page_url(name)

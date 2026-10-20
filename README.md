@@ -97,7 +97,16 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
 
 ## Ghi chú
 
-- Page object Samsung hiện **kế thừa nguyên bản Chromium và chưa được kiểm chứng**. Agent sửa
-  từng trang khi viết test cho trang đó.
-- Đã chạy thật trên Chromium 141 (Linux): test feature và phần web của bộ tham chiếu.
-  Các test native/files (Windows) đã viết sẵn nhưng chưa được chạy trên Windows thật.
+- Đã chạy thật trên Windows 11 (arm64) với **Samsung Browser 31.0.0.55 (Chromium 148)** bản
+  public (browser.samsung.com): add-ons, bookmarks, downloads, history pass hết (49 pass,
+  2 skip vì chỉ áp dụng cho Chrome). Page object Samsung của 4 trang này đã kiểm chứng; trang
+  Settings của Samsung chưa.
+- Chrome for Testing 141 trên Windows: test feature + toàn bộ bộ tham chiếu (web, files, native) pass.
+- Bộ sanity cho Samsung: `testcases\<feature>\sanity.md` (ID dạng BM-1xx, HIS-1xx, DL-1xx,
+  ADD-1xx) và `tests\features\<feature>\test_<feature>_sanity.py`.
+- Khác biệt Samsung cần biết (chi tiết trong `.claude\skills\sbtest-author\references\feature-notes.md`):
+  - WebDriver phải mở `chrome://...`, thanh địa chỉ hiển thị `internet://...`.
+  - chromedriver không tự khởi chạy được Samsung, nên target samsung dùng `browser.mode: attach`.
+  - Profile mới hiện bubble "Samsung Browser has been updated." và fixture `native` tự đóng nó.
+- Luồng chỉ một bên có (vd. Samsung không có "Add bookmark" trong manager): đánh dấu
+  `@pytest.mark.targets("samsung")` hoặc `("chrome")`.

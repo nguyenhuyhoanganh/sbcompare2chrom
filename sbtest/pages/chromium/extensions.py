@@ -76,7 +76,11 @@ class ExtensionsPage(BasePage):
         self.set_dev_mode(True)
         native.drag_file_from_explorer(crx, web=self.web)
         dlg = native.wait_dialog("add_extension", timeout=self.web.long_timeout)
-        dlg.click("Add extension" if confirm else "Cancel")
+        # Chrome: [Add extension] [Cancel]; Samsung: [Add] [Not now]
+        if confirm:
+            dlg.click_any("Add extension", "Add")
+        else:
+            dlg.click_any("Cancel", "Not now")
 
     def wait_gone(self, name: str, timeout: float | None = None) -> None:
         self.web.wait_until(lambda: name not in [e["name"] for e in self.info()], timeout, f"{name!r} removed")

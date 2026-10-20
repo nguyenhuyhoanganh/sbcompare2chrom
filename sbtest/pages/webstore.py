@@ -45,6 +45,10 @@ class WebStorePage(BasePage):
         self.open_item(ext_id)
         self.web.click(self._add_button())
         dlg = native.wait_dialog("add_extension", timeout=self.web.long_timeout)
-        dlg.click("Add extension" if confirm else "Cancel")
+        # Chrome: [Add extension] [Cancel]; Samsung: 'Add "<name>"?' [Add] [Not now]
+        if confirm:
+            dlg.click_any("Add extension", "Add")
+        else:
+            dlg.click_any("Cancel", "Not now")
         if confirm:
             self.web.wait_until(self.is_installed, self.web.long_timeout, "store shows the extension as installed")

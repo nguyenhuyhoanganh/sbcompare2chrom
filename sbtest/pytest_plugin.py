@@ -15,6 +15,7 @@ Markers:
     @pytest.mark.native           drives native UI (Windows, not headless)
     @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name")
                                   preconditions applied BEFORE the browser starts
+    @pytest.mark.targets("samsung")  only on these targets (a flow the other product does not have)
     @pytest.mark.sanity / slow
     Feature markers come from the folder: tests/features/<feature>/ -> <feature>;
     tests/reference/** -> reference.
@@ -63,6 +64,7 @@ def pytest_configure(config):
     for line in ("reference: interaction reference suite (auto from tests/reference/)",
                  "case(*ids): test case ids from testcases/", "native: drives native Windows UI (pywinauto)",
                  "browser(**opts): per-test browser preconditions", "slow: long running",
+                 "targets(*names): only run on these targets (samsung, chrome) - flows one product lacks",
                  "sanity: part of the quick sanity pass"):
         config.addinivalue_line("markers", line)
     cfg = load_config({
@@ -109,6 +111,9 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(getattr(pytest.mark, feat))
         if item.get_closest_marker("native") and not cfg.native_enabled:
             item.add_marker(pytest.mark.skip(reason=SKIP_NATIVE))
+        only = item.get_closest_marker("targets")
+        if only and cfg.target not in only.args:
+            item.add_marker(pytest.mark.skip(reason=f"not applicable to target {cfg.target} (only {', '.join(only.args)})"))
         keep = (not features or feat in features) and (not cases or cases & {c.upper() for c in case_ids(item)})
         (selected if keep else deselected).append(item)
     if deselected:
@@ -234,6 +239,7 @@ def web(session):
 def native(session):
     if session.native is None:
         pytest.skip(SKIP_NATIVE)
+    session.native.dismiss_startup_bubbles()
     return session.native
 
 

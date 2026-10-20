@@ -5,8 +5,11 @@ targets:
   samsung:
     browser:
       exe: 'C:\build\out\Release\SamsungInternet.exe'
-      # chromedriver: 'C:\tools\chromedriver\141\chromedriver.exe'
-      # chromium_version: "141.0.7390.37"   # skip auto-detection
+      # public build (browser.samsung.com): 'C:\Program Files\Samsung\Internet\Application\samsunginternet.exe'
+      # chromedriver: 'C:\tools\chromedriver\148\chromedriver.exe'
+      # chromium_version: "148.0.7778.217"   # skip auto-detection
+    # pages:
+    #   scheme: internet     # only if your build accepts internet:// from WebDriver (public 31.0 does not)
   chrome:
     browser:
       # exe: 'C:\Program Files\Google\Chrome\Application\chrome.exe'   # branded Chrome

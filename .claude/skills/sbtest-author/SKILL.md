@@ -13,11 +13,18 @@ dumps, and iterate until the test passes.
 (Chrome for Testing, same Chromium base). Tests in `tests/features/` run on both; the
 `pages` fixture picks `sbtest/pages/samsung/` or `sbtest/pages/chromium/` by target.
 
-**Samsung rewrote many internal pages** (`internet://extensions`, `internet://bookmarks` ...).
-`sbtest/pages/samsung/*` start as subclasses of the verified Chromium page objects. The first
-time a test touches a Samsung page: explore it on the build, then override the selectors /
-methods that differ in the Samsung class and update its STATUS docstring. Keep the parent's
-method names and return types.
+**Samsung rewrote the internal pages** with its own `si-*` components (bookmarks, history,
+downloads, add-ons are verified on Samsung Browser 31 / Chromium 148; settings is not yet).
+`sbtest/pages/samsung/*` subclass the Chromium page objects + `SamsungPageMixin`
+(`sbtest/pages/samsung/base.py`: toolbar buttons, snack bar, si-dialog, context menu, side bar).
+Read `references/feature-notes.md` "Samsung" bullets before writing a step. When a page
+changes: explore it on the build, override what differs in the Samsung class, update its
+STATUS docstring, keep the parent's method names and return types.
+
+**A flow only one product has** (Samsung has no "Add bookmark" in the manager, Chrome has no
+"Add-ons" menu entry...): mark the test `@pytest.mark.targets("samsung")` (or `"chrome"`) -
+it is skipped, with the reason, on the other target. Prefer one test for both when only the
+labels differ (put the labels in the page object / ui map).
 
 **Need an interaction you have not done before?** Find it in `tests/reference/README.md`
 (upload via Open dialog, Save As, folder picker, Explorer drag, prompts, print, shortcuts,
@@ -85,11 +92,12 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 | Save As / save page / download with "ask where" | `native.file_dialog("save").save_as(path)` |
 | choose a folder | `native.file_dialog("open").select_folder(dir)` |
 | drag a file from File Explorer | `native.drag_file_from_explorer(path, web=web, target=loc)` |
-| "Show in folder" | `native.wait_explorer(folder)`, `native.explorer_selected(win)` |
+| "Show in folder" | `native.wait_explorer(folder)`, `native.explorer_has_selected(win, "a.txt")` |
 | install add-on: unpacked / .crx / Web Store | `pages.extensions.load_unpacked(native, dir)`, `.drop_crx(native, crx)`, `pages.webstore.install(id, native)` |
 | drag & drop in a page | `web.drag_and_drop(a, b, method="html5"|"actions"|"native")` |
 | restart browser, check persistence | `session.restart()`; then `pages.of(session.web)` |
 | tabs | `before = web.tabs` ... `web.wait_new_tab(before)`, `web.switch_tab(title=..)`, `web.close_tab()` |
+| page opened by a shortcut / link "in a tab" (Samsung: new tab, Chrome: may reuse a blank tab) | `web.switch_tab(url=cfg.page_url("history"))` - works for both |
 | file downloaded | `web.wait_file(downloads_dir, "name.ext")` |
 | print preview | `native.wait_dialog("print")` -> `.click_any("Cancel")` |
 | Windows notification | `native.wait_os_toast("(?i)text")` |

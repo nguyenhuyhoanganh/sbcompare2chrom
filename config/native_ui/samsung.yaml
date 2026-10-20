@@ -1,14 +1,20 @@
-# Native UI of Samsung Internet. STARTED AS A COPY OF chromium.yaml - verify every entry on
-# the real build (python -m sbtest.tools.uia_dump) and fix names Samsung changed.
-# Find the real values with:  python -m sbtest.tools.uia_dump --out uia.txt
+# Native UI of Samsung Browser for Windows. Verified on Samsung Browser 31.0.0.55
+# (Chromium 148, arm64). Re-check after UI changes with:  python -m sbtest.tools.uia_dump --out uia.txt
 # Keys you can use: title, title_re, control_type, auto_id, class_name, found_index
+#
+# Differences from Chrome worth knowing:
+# - the omnibox is a Group named "Address and search bar, <url>" (no Edit control)
+# - Ctrl+D bookmarks at once and shows a "Page bookmarked. [Edit]" toast (no bubble)
+# - the star (StarView) only exists while the page is bookmarked ("Remove from Bookmarks")
+# - app menu button is named "Samsung Browser"; menu items carry the shortcut in their
+#   name ("Downloads Ctrl+J"), menus match by prefix so "Downloads" works
+# - the address bar shows internet://..., WebDriver/CDP report chrome://...
 
 main_window:
   class_name: Chrome_WidgetWin_1
 
 omnibox:
-  control_type: Edit
-  title_re: "(?i)address and search bar|address bar|search or type.*"
+  class_name: OmniboxViewViews
 
 back_button:
   control_type: Button
@@ -19,12 +25,18 @@ forward_button:
 reload_button:
   control_type: Button
   title_re: "(?i)^reload$"
+home_button:
+  class_name: HomeButton
 bookmark_star:
-  control_type: Button
-  title_re: "(?i)bookmark this tab|edit bookmark for this tab|add to bookmarks"
+  class_name: StarView
+bookmarks_button:            # toolbar star-list button -> bookmarks panel
+  class_name: BookmarksButton
 app_menu_button:
-  control_type: Button
-  title_re: "(?i)chromium|customize and control.*|samsung internet|menu"
+  class_name: BrowserAppMenuButton
+tab_search_button:
+  class_name: TabsToolbarButton
+side_bar:
+  class_name: MobileSideBar
 extensions_button:
   control_type: Button
   title_re: "(?i)^extensions$|^add-ons$"
@@ -34,17 +46,16 @@ downloads_button:
 tab_strip:
   control_type: Tab
 new_tab_button:
-  control_type: Button
-  title_re: "(?i)^new tab$"
+  class_name: NewTabButton
 bookmarks_bar:
   control_type: ToolBar
   title_re: "(?i)bookmarks"
 
-# Dialog / bubble names (title_re of the dialog container)
+# Dialog / bubble names (title_re of the dialog container, or of a text inside it)
 dialogs:
-  bookmark_added: "(?i)bookmark added|edit bookmark|bookmark saved"
+  bookmark_added: "(?i)page bookmarked"
   add_extension: "(?i)add .*\\?"
-  remove_extension: "(?i)remove .*\\?"
+  remove_extension: "(?i)(delete|remove) .*\\?"   # Samsung: "Delete <name>?" [Remove] [Cancel]
   file_save: "(?i)save as"
   file_open: "(?i)^open$"
   print: "(?i)^print$"
@@ -52,3 +63,9 @@ dialogs:
   download_bubble: "(?i)downloads?"
   http_auth: "(?i)sign in"
   permission_prompt: "(?i)wants to|show notifications|know your location|use your camera|use your microphone"
+
+# Bubbles a fresh profile may show on start; dismissed by the `native` fixture.
+# Each entry: text (regex of a label inside the bubble) + button to press.
+startup_bubbles:
+  - text: "(?i)has been updated"
+    button: Close

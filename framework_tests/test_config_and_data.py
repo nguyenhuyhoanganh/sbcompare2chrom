@@ -90,3 +90,16 @@ def test_pages_factory_picks_target_implementation():
     web = SimpleNamespace(cfg=SimpleNamespace(get=lambda k, d=None: "samsung" if k == "page_objects" else d))
     page = Pages(web).extensions
     assert isinstance(page, samsung.ExtensionsPage) and isinstance(page, chromium.ExtensionsPage)
+
+
+def test_display_url_vs_navigation_url(tmp_path, monkeypatch):
+    monkeypatch.delenv("SB_TARGET", raising=False)
+    (tmp_path / "targets").mkdir()
+    (tmp_path / "default.yaml").write_text(yaml.safe_dump({"target": "samsung", "pages": {"history": "history"}}))
+    (tmp_path / "targets" / "samsung.yaml").write_text(
+        yaml.safe_dump({"pages": {"scheme": "chrome", "display_scheme": "internet"}}))
+    (tmp_path / "targets" / "chrome.yaml").write_text(yaml.safe_dump({"pages": {"scheme": "chrome"}}))
+    sam = load_config(config_dir=tmp_path)
+    assert (sam.page_url("history"), sam.display_url("history")) == ("chrome://history", "internet://history")
+    chrome = load_config({"target": "chrome"}, config_dir=tmp_path)
+    assert chrome.display_url("history") == "chrome://history"

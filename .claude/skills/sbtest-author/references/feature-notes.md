@@ -1,7 +1,21 @@
 # Feature notes (what works, what bites)
 
-Verified against upstream Chromium 141 WebUI. Samsung rewrote many of these pages - confirm with
-the `dom` / `uia_dump` tools on the real build and update page objects.
+Upstream bullets: Chromium 141 WebUI. **Samsung** bullets: Samsung Browser 31.0.0.55
+(Chromium 148, Windows arm64), verified by the sanity suite (`testcases/<feature>/sanity.md`).
+
+## Samsung Browser - whole product
+
+- WebDriver URLs are `chrome://...` (`pages.scheme: chrome`); the address bar *shows*
+  `internet://...` (`pages.display_scheme`, `cfg.display_url(name)` for omnibox asserts).
+  `driver.get("internet://...")` does nothing.
+- chromedriver cannot launch the exe (hangs on DevTools) -> target uses `browser.mode: attach`.
+- Fresh profiles show a "Samsung Browser has been updated." bubble: the `native` fixture closes
+  it (`startup_bubbles` in `config/native_ui/samsung.yaml`). Web-only tests are not affected.
+- Native bubbles fade in and ignore UIA Invoke while animating: `Dialog.click()` waits and uses
+  the real mouse for Views buttons. Bubbles with no title are found by a Text inside.
+- Internal pages share `si-*` components: toolbar buttons (`page.toolbar("Delete")`),
+  snack bar (`page.wait_toast("deleted")`), `si-dialog`, right-click `si-action-menu`,
+  left side bar with search + filters (`page.side_bar("Image")`).
 
 ## Bookmarks (`internet://bookmarks`, prefix BM)
 
@@ -18,6 +32,18 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
   `bookmark_bar.show_on_all_tabs`.
 - Drag & drop inside the manager uses Chromium's own drag API: `method="native"` is the
   reliable option on Windows; `html5` synthesized events are often ignored there.
+- Chrome on Windows: Ctrl+D saves to "Other bookmarks" while the bookmarks bar is hidden -
+  find the new bookmark with `search()`.
+- **Samsung**: roots "PC bookmarks" > "Bookmark bar"; tree is expanded. Rows have a round check
+  box; Edit / Share / Delete / Select all are toolbar buttons acting on the selection ("Delete
+  all" / "Deselect all" when everything is selected). Right click a row: Edit, Delete, Open all
+  (n) in new tab / new window / Secret mode. No "Add bookmark" in the manager (Ctrl+D or star).
+  "Create folder" adds "Folder N" in the selected folder, opens it and edits its name in the tree
+  (`add_folder(name)` types over it). Delete is immediate: snack bar "1 bookmark deleted" + Undo.
+  Clicking a bookmark opens it in a NEW TAB.
+- **Samsung** Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`),
+  star becomes `StarView` "Remove from Bookmarks"; clicking it removes the bookmark. The toast
+  can cover the star: `native.click("bookmark_star", real_mouse=False)`.
 
 ## History (`internet://history`, prefix HIS)
 
@@ -26,7 +52,12 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Delete selected -> confirmation `cr-dialog` ("Remove" / "Cancel") handled by `delete_selected()`.
 - "Delete browsing data" opens settings (new tab in upstream) -> `web.wait_new_tab(before)`.
 - Search is debounced; wait on the result (`web.wait_until(lambda: h.titles() == [...])`).
-- Ctrl+H is a browser shortcut -> native.
+- Ctrl+H is a browser shortcut -> native. Samsung opens a new tab; Chrome reuses a blank tab:
+  `web.switch_tab(url=cfg.page_url("history"))`.
+- **Samsung**: each row has a round check box (`select()`), the day header has its own
+  (`#all-select`). Toolbar: Share, Delete (no confirmation), Clear history. Side bar time
+  filters are CHECK BOXES (several ranges add up): `filter_time("Last hour")` leaves exactly
+  the given ones ticked. "Clear browsing data" -> settings `clearBrowserData`.
 
 ## Downloads (`internet://downloads`, prefix DL)
 
@@ -39,6 +70,12 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
   with `native` only if really required and close the window afterwards.
 - Download bubble/toolbar icon is native (`downloads_button`, dialog `download_bubble`).
 - Dangerous/blocked file types show a warning instead of finishing - pick safe types.
+- **Samsung**: side bar search + categories (All, Image, Video, Audio, Document, Others:
+  `filter_category()`). Finished row: name, size ("2.05 KB"), source link, icons "Copy link",
+  "Show in folder", X (remove, snack bar + Undo). In-progress row: progress bar + text buttons
+  Pause/Resume, Cancel (`action(name, "Pause")`). Cancel REMOVES the row ("x removed from
+  Downloads." + Undo); the toolbar Downloads bubble shows "Canceled". Toolbar: "Clear download
+  history". A finished download opens the toolbar bubble over the page.
 
 ## Settings (`internet://settings`, prefix SET)
 
@@ -51,7 +88,14 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Some subpages open `cr-dialog`s (Clear browsing data, Add search engine): `open_dialog()`,
   `dialog_button("Delete data")`.
 
-## Add-ons (`internet://extensions`, prefix ADD) - Samsung's own page, re-verify selectors
+## Add-ons (`internet://extensions`, prefix ADD)
+
+- **Samsung**: page title "Add-ons". Developer mode is a toggle in the LEFT side bar; on, the
+  toolbar shows Load Unpacked, Pack add-on, Update and cards show the version. Card buttons
+  Details / Remove (si-flat-button). Remove -> native bubble 'Delete <name>?' [Remove] [Cancel].
+  Install prompt (store and .crx drop) -> 'Add "<name>"?' [Add] [Not now]; the store also shows
+  Google's "Switch to Chrome?" bubble (ignore it). App menu has "Add-ons".
+- Store installs: free, popular extensions only (Dark Reader in `test_data/addons.yaml`).
 
 - Load with `browser(extensions=["sample_addon"])` (unpacked). `info()` returns state from
   `chrome.developerPrivate` (`ENABLED`/`DISABLED`).

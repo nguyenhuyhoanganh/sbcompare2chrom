@@ -5,6 +5,7 @@ from sbtest.steps import step
 
 
 @pytest.mark.native
+@pytest.mark.targets("chrome")  # Samsung shows a "Page bookmarked." toast instead (Samsung: BM-101)
 @pytest.mark.case("BM-010")
 def test_ctrl_d_bookmarks_page(web, native, pages, site):
     with step("1. Open 'Static page 1'"):
@@ -14,6 +15,8 @@ def test_ctrl_d_bookmarks_page(web, native, pages, site):
         bubble = native.wait_dialog("bookmark_added")
         bubble.click("Done")
         bubble.wait_closed()
-    with step("3. Open the bookmark manager", expected="'Static page 1' listed"):
-        pages.bookmarks.open()
-        pages.bookmarks.wait_item("Static page 1")
+    with step("3. Open the bookmark manager, search it", expected="'Static page 1' listed"):
+        # the target folder depends on the bookmarks bar visibility ("Other bookmarks" when hidden)
+        bm = pages.bookmarks.open()
+        bm.search("Static page 1")
+        bm.wait_item("Static page 1")

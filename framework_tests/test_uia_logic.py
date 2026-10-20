@@ -34,9 +34,12 @@ class Fake:
     def invoke(self):
         self.invoked = True
 
+    def click_input(self):
+        self.clicked = True
 
-def tree():
-    done = Fake("Button", "Done")
+
+def tree(button_class="Button"):
+    done = Fake("Button", "Done", class_name=button_class)
     return Fake("Window", "Bookmark added", kids=[
         Fake("Text", "Bookmark added"),
         Fake("Edit", "Name", auto_id="name", value="Static page 1"),
@@ -59,9 +62,15 @@ def test_texts_and_dump():
 
 
 def test_dialog_click_by_partial_name():
-    root, done = tree()
+    root, done = tree()  # Win32 button: UIA Invoke
     Dialog(root, timeout=0.5).click("done")
     assert done.invoked
+
+
+def test_dialog_click_views_button_uses_mouse():
+    root, done = tree(button_class="OneUITextButton")  # browser bubble: ignores Invoke while fading in
+    Dialog(root, timeout=0.5).click("done")
+    assert getattr(done, "clicked", False) and not done.invoked
 
 
 def test_escape_keys():

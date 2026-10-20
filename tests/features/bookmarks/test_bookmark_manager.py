@@ -6,6 +6,7 @@ from sbtest.utils import unique
 
 
 @pytest.mark.sanity
+@pytest.mark.targets("chrome")  # Samsung's manager has no "Add bookmark" (Samsung: BM-101)
 @pytest.mark.case("BM-001")
 def test_add_bookmark(pages, site):
     bm = pages.bookmarks

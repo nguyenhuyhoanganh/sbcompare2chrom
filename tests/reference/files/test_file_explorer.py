@@ -25,6 +25,6 @@ def test_show_in_folder_opens_explorer(web, native, pages, site, downloads_dir):
         d.action("sample.txt", "Show in folder")
         explorer = native.wait_explorer(downloads_dir.name)
     try:
-        assert "sample.txt" in native.explorer_selected(explorer)
+        assert native.explorer_has_selected(explorer, "sample.txt")
     finally:
         explorer.close()

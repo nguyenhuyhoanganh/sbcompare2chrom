@@ -44,7 +44,11 @@ class Dialog:
     def click(self, name: str, exact: bool = False, real_mouse: bool = False) -> None:
         """Click a button by (partial, case-insensitive) name."""
         b = self.button(name, exact)
-        if real_mouse:
+        if real_mouse or b.element_info.class_name != "Button":
+            # browser (Views) bubbles fade in and ignore UIA Invoke until they are fully shown,
+            # so wait for the animation and use the real mouse; Win32 buttons ("Button") invoke fine
+            if not real_mouse:
+                time.sleep(0.5)
             b.click_input()
         else:
             try:
@@ -58,10 +62,14 @@ class Dialog:
         for name in names:
             b = uia.find_in([self.el], 0, control_type="Button", title_re=f"(?i){re.escape(name)}")
             if b is not None:
-                try:
-                    b.invoke()
-                except Exception:  # noqa: BLE001
+                if b.element_info.class_name != "Button":  # Views bubble: see click()
+                    time.sleep(0.5)
                     b.click_input()
+                else:
+                    try:
+                        b.invoke()
+                    except Exception:  # noqa: BLE001
+                        b.click_input()
                 return b.element_info.name
         raise LookupError(f"none of the buttons {names} in dialog {self.title!r}: {self.texts()}")
 
@@ -91,7 +99,13 @@ class Dialog:
             self.press("{ESC}")
 
     def is_open(self) -> bool:
+        # A stale UIA element can keep reporting is_visible() after its window is destroyed,
+        # so check the HWND when there is one (common dialogs, top-level windows).
         try:
+            handle = self.el.element_info.handle
+            if handle:
+                from pywinauto import handleprops
+                return bool(handleprops.iswindow(handle) and handleprops.isvisible(handle))
             return self.el.is_visible()
         except Exception:  # noqa: BLE001 - element gone
             return False
@@ -106,25 +120,27 @@ class Dialog:
 class FileDialog(Dialog):
     """Windows common Open / Save As / Select Folder dialog (#32770)."""
 
-    FILENAME_IDS = ("1001", "1148")  # Edit (Save As) / ComboBox (Open)
+    # ComboBox 1148 (Open) / Edit 1001 (Save As) / Edit 1152 "Folder:" (Select Folder). The ids
+    # are reused by other controls (Windows 11 has a ToolBar with id 1001 in the Open dialog),
+    # so match the type too.
+    FILENAME_IDS = (("1148", "ComboBox"), ("1001", "Edit"), ("1152", "Edit"))
 
     def _filename_edit(self):
-        for aid in self.FILENAME_IDS:
-            el = uia.find_in([self.el], 0, auto_id=aid)
+        for aid, ctype in self.FILENAME_IDS:
+            el = uia.find_in([self.el], 0, auto_id=aid, control_type=ctype)
             if el is not None:
-                if el.element_info.control_type == "ComboBox":
-                    inner = uia.find_in([el], 0, control_type="Edit")
-                    el = inner or el
+                if ctype == "ComboBox":
+                    el = uia.find_in([el], 0, control_type="Edit") or el
                 return el
         return self.find(control_type="Edit", title_re="(?i)file name")
 
     def set_filename(self, path: str | Path) -> None:
+        # Real keystrokes: the Save As dialog ignores text set through the UIA ValuePattern
+        # (the edit shows it, but Save keeps the suggested name or does nothing).
         edit = self._filename_edit()
-        try:
-            edit.set_edit_text(str(path))
-        except Exception:  # noqa: BLE001
-            edit.click_input()
-            edit.type_keys("^a{BACKSPACE}" + _escape_keys(str(path)), with_spaces=True)
+        edit.set_focus()
+        edit.type_keys("^a{BACKSPACE}" + _escape_keys(str(path)), with_spaces=True, pause=0.01)
+        poll(lambda: _value(edit) == str(path), 5, 0.2, f"file name typed {str(path)!r}")
 
     def _confirm(self, *labels: str) -> None:
         btn = uia.find_in([self.el], 0, auto_id="1", control_type="Button")
@@ -162,7 +178,15 @@ class FileDialog(Dialog):
         self._confirm("open")
 
     def select_folder(self, folder: str | Path) -> None:
+        """Folder picker: Enter on the typed path opens that folder, then "Select Folder" with an
+        empty field picks the open folder (clicking it straight after typing is swallowed by
+        the path autocomplete drop-down)."""
         self.set_filename(Path(folder).resolve())
+        self._filename_edit().type_keys("{ENTER}")
+        time.sleep(0.8)
+        edit = self._filename_edit()
+        edit.set_focus()
+        edit.type_keys("^a{BACKSPACE}")
         self._confirm("select folder", "ok")
 
     def cancel(self) -> None:
@@ -171,6 +195,13 @@ class FileDialog(Dialog):
             btn.click_input()
         else:
             self.press("{ESC}")
+
+
+def _value(edit) -> str:
+    try:
+        return edit.get_value() or ""
+    except Exception:  # noqa: BLE001
+        return edit.window_text() or ""
 
 
 def _escape_keys(text: str) -> str:

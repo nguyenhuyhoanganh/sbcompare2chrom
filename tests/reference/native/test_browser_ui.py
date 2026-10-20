@@ -37,11 +37,10 @@ def test_new_tab_button_and_tab_titles(web, native, site):
 
 
 def test_app_menu_opens_history(web, native, cfg):
-    before = web.tabs
-    with step("App menu > History > History", expected="History page in a new tab"):
+    with step("App menu > History > History", expected="History page"):
         native.menu("History", "History")
-        web.wait_new_tab(before)
-        web.wait_url(cfg.page_url("history"))
+        # a new tab, or the current tab when it is blank (Chrome reuses an empty tab)
+        web.switch_tab(url=cfg.page_url("history"))
 
 
 def test_bookmark_star_bubble(web, native, site, pages):
@@ -51,4 +50,6 @@ def test_bookmark_star_bubble(web, native, site, pages):
     assert "Starred page" in bubble.texts()       # name field value
     bubble.click("Done")
     bubble.wait_closed()
-    pages.bookmarks.open().wait_item("Starred page")
+    bm = pages.bookmarks.open()
+    bm.search("Starred page")                     # saved to "Other bookmarks" when the bar is hidden
+    bm.wait_item("Starred page")

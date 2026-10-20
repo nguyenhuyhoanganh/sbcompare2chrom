@@ -58,7 +58,7 @@ fd = native.file_dialog("open"); fd.open(file) / fd.open(f1, f2) / fd.cancel()
 fd.select_folder(folder)            # "Load unpacked", "Change download location"
 
 native.wait_explorer("Downloads")         # File Explorer window (e.g. after "Show in folder")
-native.explorer_selected(explorer)        # selected item names in it
+native.explorer_has_selected(explorer, "a.txt")   # selected? (extension may be hidden)
 native.wait_text(r"(?i)bookmark added")   # any element name in any browser window
 native.has_text(r"(?i)downloading")
 native.wait_os_toast(r"(?i)sbtest notification")

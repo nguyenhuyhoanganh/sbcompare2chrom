@@ -28,6 +28,36 @@ from sbtest.native.dialogs import Dialog, FileDialog
 from sbtest.utils import log, poll
 
 
+def _explorer_item(explorer, path: Path):
+    """ListItem of ``path`` in an Explorer window when extensions are hidden: the selected
+    item named like the stem (explorer.exe /select selects it), else the first stem match."""
+    hits = uia.descendants(explorer, control_type="ListItem", title=path.stem)
+    for h in hits:
+        try:
+            if h.is_selected():
+                return h
+        except Exception:  # noqa: BLE001
+            pass
+    if not hits:
+        raise LookupError(f"{path.name} not listed in Explorer {explorer.element_info.name!r}")
+    return hits[0]
+
+
+def _bubble_of(el):
+    """Nearest ancestor that is a Views bubble (its own Chrome_WidgetWin_1 / RootView)."""
+    node = el
+    for _ in range(12):
+        try:
+            node = node.parent()
+        except Exception:  # noqa: BLE001
+            return None
+        if node is None:
+            return None
+        if node.element_info.class_name in ("Chrome_WidgetWin_1", "RootView", "BubbleFrameView"):
+            return node
+    return None
+
+
 class NativeBrowser:
     def __init__(self, pid: int, cfg: Config) -> None:
         require()
@@ -130,8 +160,9 @@ class NativeBrowser:
         el = self.element("omnibox")
         try:
             return el.get_value()
-        except Exception:  # noqa: BLE001
-            return el.window_text()
+        except Exception:  # noqa: BLE001 - no ValuePattern (Samsung: Group "Address and search bar, <url>")
+            name = el.element_info.name or el.window_text() or ""
+            return name.split(", ", 1)[1] if re.match(r"(?i)address and search bar, ", name) else name
 
     def navigate(self, url: str) -> None:
         """Type a URL into the omnibox like a user (Ctrl+L, text, Enter)."""
@@ -208,6 +239,11 @@ class NativeBrowser:
                     hits = uia.descendants(w, control_type=ct, title_re=pattern)
                     if hits:
                         return hits[0]
+            # unnamed bubbles (Samsung: "Delete X?", "Page bookmarked."): match a text inside
+            # and return the bubble's own widget window
+            for w in wins:
+                for label in uia.descendants(w, control_type="Text", title_re=pattern):
+                    return _bubble_of(label) or w
             return None
 
         el = poll(_find, self.timeout if timeout is None else timeout, 0.3, f"native dialog /{pattern}/")
@@ -241,8 +277,15 @@ class NativeBrowser:
         return uia.find_in(self.windows(), 0, title_re=pattern) is not None
 
     def wait_os_toast(self, pattern: str, timeout: float | None = None):
-        """Windows notification toast (shown by the shell, not by the browser process)."""
+        """Web notification popup: drawn by the browser itself (an unnamed Chrome_WidgetWin_1
+        bottom right - Chrome for Testing does this) or a Windows shell toast."""
         def _find():
+            for w in self.windows():
+                if w.element_info.name:  # browser frames have a title; notification popups do not
+                    continue
+                hit = uia.descendants(w, title_re=pattern)
+                if hit:
+                    return hit[0]
             for w in self.desktop.windows():
                 n = w.element_info.name or ""
                 if "notification" in n.lower() or w.element_info.class_name == "Windows.UI.Core.CoreWindow":
@@ -258,7 +301,16 @@ class NativeBrowser:
         main = self.main_window()
         hits = uia.descendants(main, class_name="Chrome_RenderWidgetHostHWND")
         hits = [h for h in hits if h.is_visible()] or uia.descendants(main, control_type="Document")
-        return hits[0].rectangle()
+        if hits:
+            return hits[0].rectangle()
+        # Chrome builds its UIA tree for web content lazily: ask Win32 for the render widget
+        from pywinauto import findwindows, handleprops
+        handles = [h for h in findwindows.find_windows(parent=main.handle, class_name="Chrome_RenderWidgetHostHWND",
+                                                       top_level_only=False) if handleprops.isvisible(h)]
+        if not handles:
+            raise LookupError("web content area not found (no Chrome_RenderWidgetHostHWND / Document)")
+        rects = [handleprops.rectangle(h) for h in handles]
+        return max(rects, key=lambda r: r.width() * r.height())
 
     def viewport_origin(self) -> tuple[int, int]:
         r = self.viewport_rect()
@@ -315,6 +367,12 @@ class NativeBrowser:
                 pass
         return out
 
+    def explorer_has_selected(self, explorer: Dialog, filename: str) -> bool:
+        """Is ``filename`` selected in Explorer? Matches the name with or without its extension
+        (Explorer hides known extensions by default)."""
+        stem = Path(filename).stem
+        return any(n in (filename, stem) for n in self.explorer_selected(explorer))
+
     def drag_file_from_explorer(self, path: str | Path, web=None, target=None) -> None:
         """Real OS drag of a file/folder from File Explorer into the browser.
 
@@ -337,16 +395,23 @@ class NativeBrowser:
         try:
             HwndWrapper(explorer.handle).move_window(0, 0, 700, 600)
             HwndWrapper(main.handle).move_window(710, 0, 1200, 900)
-            time.sleep(0.5)
-            item = uia.find_in([explorer], self.timeout, control_type="ListItem", title=path.name)
-            start = item.rectangle().mid_point()
+            time.sleep(1.0)
+            # Explorer hides known extensions by default ("sample_addon" for sample_addon.crx,
+            # next to a folder of the same name): prefer the exact name, then the stem
+            item = (uia.find_in([explorer], 2, control_type="ListItem", title=path.name)
+                    if uia.find_in([explorer], 0, control_type="ListItem", title=path.name)
+                    else _explorer_item(explorer, path))
+            # the item rectangle can span past the (just shrunk) window in Details view: press
+            # on the start of the name, clamped inside the Explorer window
+            ir, er = item.rectangle(), explorer.rectangle()
+            start = (min(ir.left + 60, er.right - 30), (ir.top + ir.bottom) // 2)
             if web is not None and target is not None:
                 end = self.web_point(web, web.find(target))
             else:
                 r = self.viewport_rect()
                 end = (r.mid_point().x, r.mid_point().y)
             explorer.set_focus()
-            self.drag((start.x, start.y), end, steps=30)
+            self.drag(start, end, steps=30)
         finally:
             try:
                 explorer.close()
@@ -376,6 +441,36 @@ class NativeBrowser:
         path.parent.mkdir(parents=True, exist_ok=True)
         ImageGrab.grab(all_screens=True).save(path)
         return path
+
+    def dismiss_startup_bubbles(self, timeout: float = 3) -> list[str]:
+        """Close the bubbles a fresh profile shows on start (``startup_bubbles`` in the
+        ui map, e.g. Samsung's "has been updated"), so they do not cover the page or toolbar."""
+        rules = self.ui_map.get("startup_bubbles") or []
+        closed: list[str] = []
+        deadline = time.time() + timeout
+        while rules and time.time() < deadline and len(closed) < len(rules):
+            for rule in rules:
+                if rule["text"] in closed:
+                    continue
+                for w in self.windows():
+                    label = uia.find_in([w], 0, title_re=rule["text"])
+                    if label is None:
+                        continue
+                    # the button lives in the same bubble: walk up until a container has it
+                    node = label
+                    for _ in range(6):
+                        node = node.parent()
+                        if node is None:
+                            break
+                        btn = uia.find_in([node], 0, control_type="Button", title=rule["button"])
+                        if btn is not None:
+                            btn.invoke()
+                            closed.append(rule["text"])
+                            log.info("dismissed startup bubble /%s/", rule["text"])
+                            break
+                    break
+            time.sleep(0.3)
+        return closed
 
     def close_stray_dialogs(self) -> int:
         """Press Esc on leftover bubbles/dialogs so the next step starts clean."""

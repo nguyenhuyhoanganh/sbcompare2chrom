@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +96,13 @@ class Config:
         if "://" in path:
             return path
         return f"{scheme}://{path}"
+
+    def display_url(self, name: str) -> str:
+        """What the address bar shows for an internal page (Samsung shows internet://
+        while navigation uses chrome://). Use it to assert on ``native.omnibox_text()``."""
+        url = self.page_url(name)
+        display = self.get("pages", {}).get("display_scheme")
+        return re.sub(r"^[a-z-]+://", f"{display}://", url) if display else url
 
     @property
     def is_windows(self) -> bool:

@@ -117,6 +117,8 @@ class BrowserSession:
         log_dir.mkdir(parents=True, exist_ok=True)
         service = Service(driver_path, log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
         if self.cfg.get("browser.mode") == "attach":
+            # restart(): the previous run's port file would point chromedriver at a dead port
+            (self.profile.dir / "DevToolsActivePort").unlink(missing_ok=True)
             self._attach_proc = subprocess.Popen([self.exe, *self._browser_args(), "--remote-debugging-port=0",
                                                   "about:blank"])
             port = wait_devtools_port(self.profile.dir)

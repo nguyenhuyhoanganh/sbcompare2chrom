@@ -108,7 +108,8 @@ def main(argv=None) -> int:
                 else:
                     main_win = nb.main_window()
                     report(OK, "native main window", f"{main_win.element_info.name!r}")
-                    for key in ("omnibox", "back_button", "reload_button", "app_menu_button", "bookmark_star"):
+                    # bookmark_star is not checked: Samsung only shows it on a bookmarked page
+                    for key in ("omnibox", "back_button", "reload_button", "app_menu_button"):
                         found = nb.exists(key)
                         report(OK if found else WARN, f"native ui_map {key}",
                                "" if found else "not found - fix config/native_ui/<target>.yaml (python -m sbtest.tools.uia_dump)")

@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import base64
 import os
+import threading
 from pathlib import Path
 
 from sbtest.utils import log, slug
+
+#: seconds allowed for the WebDriver part of the failure evidence
+WEB_EVIDENCE_BUDGET = 30
 
 
 def screen_grab(path: Path) -> Path:
@@ -46,9 +50,17 @@ def collect_failure(session, cfg, run_dir: Path, res: dict) -> tuple[Path, list[
             log.warning("evidence %s failed: %s", name, e)
 
     alive = session is not None and session.driver is not None
-    if alive and session.web.has_alert():
-        _try("alert.txt", lambda: (out / "alert.txt").write_text(session.web.alert_text(timeout=1), encoding="utf-8"))
-    elif alive:
+    # OS-level evidence first: it never depends on the page (a print preview or another
+    # modal browser UI can block every WebDriver command)
+    if can_grab_screen(cfg) and cfg.get("report.screenshot_on_failure", True):
+        _try("screen.png", lambda: screen_grab(out / "screen.png"))
+    if alive and session.native is not None and cfg.get("report.uia_on_failure", True):
+        _try("uia.txt", lambda: session.native.dump(out / "uia.txt"))
+
+    def _web_evidence():
+        if session.web.has_alert():
+            _try("alert.txt", lambda: (out / "alert.txt").write_text(session.web.alert_text(timeout=1), encoding="utf-8"))
+            return
         web = session.web
         if cfg.get("report.highlight_on_failure", True):
             web.highlight()
@@ -60,10 +72,18 @@ def collect_failure(session, cfg, run_dir: Path, res: dict) -> tuple[Path, list[
             _try("dom.txt", lambda: (out / "dom.txt").write_text(
                 f"# URL: {web.url}\n# TITLE: {web.title}\n# TABS: {len(web.tabs)}\n" + dump_dom(web), encoding="utf-8"))
             _try("page.html", lambda: (out / "page.html").write_text(session.driver.page_source, encoding="utf-8"))
-    if can_grab_screen(cfg) and cfg.get("report.screenshot_on_failure", True):
-        _try("screen.png", lambda: screen_grab(out / "screen.png"))
-    if alive and session.native is not None and cfg.get("report.uia_on_failure", True):
-        _try("uia.txt", lambda: session.native.dump(out / "uia.txt"))
+
+    if alive:
+        worker = threading.Thread(target=_web_evidence, daemon=True)
+        worker.start()
+        worker.join(WEB_EVIDENCE_BUDGET)
+        if worker.is_alive():
+            alive = False  # the page does not answer; do not touch the driver again here
+            log.warning("web evidence skipped: page unresponsive after %ss (modal browser UI?)", WEB_EVIDENCE_BUDGET)
+            (out / "page_unresponsive.txt").write_text(
+                "WebDriver did not answer while collecting evidence: a modal browser UI (print preview, "
+                "a native dialog) is probably blocking the page. See screen.png / uia.txt.\n", encoding="utf-8")
+            saved.append("page_unresponsive.txt")
 
     target = session.web.last_target if alive else None
     if target and target[1] is not None and target[0].startswith("<selenium"):
