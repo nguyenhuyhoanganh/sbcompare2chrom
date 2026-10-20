@@ -44,6 +44,7 @@ def main(argv=None) -> int:
                "" if importlib.util.find_spec(mod) else "pip install -r requirements.txt")
     if os.name == "nt":
         report(OK if importlib.util.find_spec("pywinauto") else FAIL, "package pywinauto")
+        _check_typing()
     else:
         report(WARN, "platform", "not Windows: native UI checks are skipped (Samsung Internet is Windows-only)")
     for var in ("HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"):
@@ -122,6 +123,29 @@ def main(argv=None) -> int:
 
     print(f"\nScreenshots and dumps: {out}")
     return _summary()
+
+
+IME_PROCESSES = {"unikeynt.exe": "UniKey", "unikey.exe": "UniKey", "evkey.exe": "EVKey", "evkey64.exe": "EVKey",
+                 "openkey.exe": "OpenKey", "gotiengviet.exe": "GoTiengViet"}
+
+
+def _check_typing() -> None:
+    """Native steps type paths and names with the real keyboard: an input method (Vietnamese
+    Telex/VNI tools, a non-English layout) rewrites what is typed and breaks those steps."""
+    try:
+        import ctypes
+
+        import psutil
+
+        layout = ctypes.windll.user32.GetKeyboardLayout(0) & 0xFFFF
+        report(OK if layout == 0x0409 else WARN, "keyboard layout",
+               f"0x{layout:04x}" + ("" if layout == 0x0409 else " - switch to English (US) while tests run"))
+        running = sorted({IME_PROCESSES[p.info["name"].lower()] for p in psutil.process_iter(["name"])
+                          if (p.info["name"] or "").lower() in IME_PROCESSES})
+        report(WARN if running else OK, "input method",
+               f"{', '.join(running)} running - turn it off (English mode) while tests run" if running else "none")
+    except Exception as e:  # noqa: BLE001 - informative only
+        report(WARN, "keyboard check", f"{type(e).__name__}: {e}")
 
 
 def _summary() -> int:

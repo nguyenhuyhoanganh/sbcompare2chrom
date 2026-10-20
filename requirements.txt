@@ -7,3 +7,4 @@ psutil>=5.9
 pillow>=10.0
 pywinauto>=0.6.8; sys_platform == "win32"
 comtypes>=1.2; sys_platform == "win32"
+pywin32>=306; sys_platform == "win32"

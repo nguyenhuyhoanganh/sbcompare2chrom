@@ -44,6 +44,8 @@ framework_tests/             unit test của framework
 
 ## Cài đặt (Windows)
 
+Hướng dẫn đầy đủ cho máy mới (yêu cầu, proxy, bộ gõ, kiểm tra, chạy, báo cáo): **[SETUP.md](SETUP.md)**. Tóm tắt:
+
 ```bat
 setup.bat
 notepad config\local.yaml        & rem targets.samsung.browser.exe = <thư mục build>\SamsungInternet.exe
