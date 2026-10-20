@@ -1,0 +1,11 @@
+# Add-on test data. Local add-ons live in test_data/extensions/.
+sample:
+  name: SB Sample Addon
+  folder: extensions/sample_addon          # unpacked (Load unpacked / browser marker)
+  crx: extensions/sample_addon.crx         # packed with: chrome --pack-extension=<folder>
+
+# A small, stable public extension used for the Web Store install case.
+# Change it if the company proxy blocks it or the item is removed.
+webstore:
+  id: eimadpbcbfnmbkopoojfekhnkhdbieeh     # Dark Reader
+  name: Dark Reader

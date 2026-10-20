@@ -39,3 +39,35 @@
 - Expected:
   - The add-on is gone from the list
 - Automated: tests/addons/test_addons.py::test_remove_addon_native_confirm
+
+## ADD-020 Install an add-on with "Load unpacked"
+- Priority: High
+- Type: native
+- Steps:
+  1. Open the add-ons page, turn on Developer mode
+  2. Click "Load unpacked", choose the folder test_data/extensions/sample_addon
+- Expected:
+  - "SB Sample Addon" is listed and enabled
+- Automated: tests/addons/test_addon_install.py::test_load_unpacked
+
+## ADD-021 Install an add-on by dropping a .crx file
+- Priority: High
+- Type: native
+- Steps:
+  1. Open the add-ons page, turn on Developer mode
+  2. Drag test_data/extensions/sample_addon.crx from File Explorer onto the page
+  3. Confirm "Add extension" in the prompt
+- Expected:
+  - "SB Sample Addon" is installed
+- Automated: tests/addons/test_addon_install.py::test_drop_crx
+
+## ADD-022 Install an add-on from Chrome Web Store
+- Priority: High
+- Type: native
+- Precondition: internet through the company proxy; extension id in test_data/addons.yaml
+- Steps:
+  1. Open the store page of the extension, click "Add to ..."
+  2. Confirm "Add extension" in the prompt
+- Expected:
+  - The store shows the remove button; the add-on is listed on the add-ons page
+- Automated: tests/addons/test_addon_install.py::test_install_from_web_store

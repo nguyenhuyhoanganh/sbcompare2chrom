@@ -27,7 +27,9 @@ class WaitsMixin:
     def find(self, loc, timeout: float | None = None, visible: bool = True, within: WebElement | None = None) -> WebElement:
         """First element matching ``loc`` (waits for it; visible by default)."""
         if isinstance(loc, WebElement):
+            self.last_target = (str(loc), loc)
             return loc
+        self.last_target = (str(loc), None)  # kept for failure reports even if not found
 
         def _get():
             for el in find_all(self.driver, loc, within):
@@ -35,7 +37,9 @@ class WaitsMixin:
                     return el
             return None
 
-        return poll(_get, self._t(timeout), self.interval, f"element {'visible ' if visible else ''}{loc}")
+        el = poll(_get, self._t(timeout), self.interval, f"element {'visible ' if visible else ''}{loc}")
+        self.last_target = (str(loc), el)
+        return el
 
     def find_all(self, loc, visible: bool = True, within: WebElement | None = None) -> list[WebElement]:
         """All matches right now (no waiting). Combine with ``wait_count`` when needed."""

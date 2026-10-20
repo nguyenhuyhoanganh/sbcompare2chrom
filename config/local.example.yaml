@@ -1,5 +1,21 @@
 # Copy to config/local.yaml (git-ignored) and adjust for your machine.
 browser:
-  exe: 'C:\SamsungInternet\Application\SamsungInternet.exe'
-  # chromedriver: 'D:\fork\out\Release\chromedriver.exe'
-  # chromium_version: "141.0.7390.37"
+  # SamsungInternet.exe inside the build folder
+  exe: 'C:\build\out\Release\SamsungInternet.exe'
+  # chromedriver: 'C:\tools\chromedriver\141\chromedriver.exe'
+  # chromium_version: "141.0.7390.37"     # skip auto-detection
+
+network:
+  # browser_proxy: http://proxy.company.com:8080
+  # download_proxy: http://proxy.company.com:8080
+
+atlassian:
+  confluence_url: https://confluence.company.com
+  jira_url: https://jira.company.com
+  report_space: QA
+  report_parent_id: "123456"
+  # verify_ssl: 'C:\certs\company-ca.pem'
+
+# Upstream Chromium instead of Samsung (framework self-test):
+# pages:
+#   scheme: chrome

@@ -15,6 +15,9 @@ python run.py --exe ... --sanity                  # quick pass (@sanity tests)
 python run.py --exe ... --all --reruns 1          # re-run failures once to separate flakes
 python run.py --list                              # cases per feature and what is automated
 python run.py --exe ... --feature downloads -- -x -k pause    # raw pytest args after --
+python run.py --exe ... --all --screenshot-steps  # picture after every step (for review)
+python run.py --exe ... --all --publish           # then create a Confluence report page
+python -m sbtest.tools.confluence_report artifacts/runs/<ts> [--dry-run]   # publish an earlier run
 ```
 
 The exe can also come from `SB_EXE` or `config/local.yaml`. chromedriver is resolved
@@ -27,8 +30,12 @@ without a desktop use `--no-native` and report that native cases were not run.
 
 ## Output
 
-`artifacts/runs/<timestamp>/`: `report.html` (self-contained), `junit.xml`,
-`failures/<test>/` (`page.png`, `dom.txt`, `page.html`, `screen.png`, `uia.txt`, `alert.txt`).
+`artifacts/runs/<timestamp>/`: `report.html` (self-contained, screenshots embedded),
+`junit.xml`, `results.json`, `failures/<test>/` (`failure.txt`, `page.png` with the failing
+element outlined, `screen.png` whole screen, `dom.txt`, `page.html`, `uia.txt`, `alert.txt`).
+The Confluence report (`--publish`, needs `SB_ATLASSIAN_TOKEN` + `atlassian.*` config) is a
+new page per run under `atlassian.report_parent_id` with per-feature tables and the
+failure screenshots attached.
 Console has, per failure, the `sbtest steps` section showing the failed doc step.
 
 ## Triage each failure into exactly one bucket

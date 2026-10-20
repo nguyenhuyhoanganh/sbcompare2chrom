@@ -15,10 +15,17 @@ import time
 from sbtest.utils import log
 
 _current: list[dict] = []
+# called with the step record when a step ends (set by the pytest plugin, e.g. screenshots)
+_listener = None
 
 
 def reset() -> None:
     _current.clear()
+
+
+def set_listener(fn) -> None:
+    global _listener
+    _listener = fn
 
 
 def history() -> list[dict]:
@@ -42,3 +49,8 @@ def step(title: str, expected: str = ""):
         rec["status"] = "passed"
     finally:
         rec["duration"] = round(time.time() - rec["start"], 2)
+        if _listener is not None:
+            try:
+                _listener(rec, len(_current))
+            except Exception as e:  # noqa: BLE001 - evidence must never break a test
+                log.warning("step listener failed: %s", e)

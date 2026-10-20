@@ -27,6 +27,14 @@ from sbtest.utils import find_browser_pid, kill_tree, log, poll
 _RESOLVED: dict[str, tuple[str, str]] = {}  # exe -> (chromium_version, chromedriver) per process
 
 
+def _bypass_proxy_for_localhost() -> None:
+    """HTTP(S)_PROXY env vars (company proxy) must not be used to reach the local
+    chromedriver, DevTools or the local test site."""
+    for var in ("NO_PROXY", "no_proxy"):
+        current = [h.strip() for h in os.environ.get(var, "").split(",") if h.strip()]
+        os.environ[var] = ",".join(current + [h for h in ("localhost", "127.0.0.1") if h not in current])
+
+
 class BrowserSession:
     def __init__(self, cfg: Config, name: str = "", profile: Profile | None = None,
                  extra_args: list[str] | None = None, extensions: list[str | Path] | None = None,
@@ -62,7 +70,8 @@ class BrowserSession:
             driver = self.cfg.get("browser.chromedriver") or ""
             if not driver and not version:
                 version = detect_chromium_version(exe, self.artifacts / ".cache", self._browser_args(probe=True))
-            _RESOLVED[exe] = (version, resolve_chromedriver(driver, version))
+            _RESOLVED[exe] = (version, resolve_chromedriver(driver, version,
+                                                            proxy=self.cfg.get("network.download_proxy") or ""))
             log.info("Browser %s | chromium %s | chromedriver %s", exe, *_RESOLVED[exe])
         return _RESOLVED[exe]
 
@@ -77,6 +86,9 @@ class BrowserSession:
             return args
         w, h = self.cfg.get("browser.window_size") or (1400, 900)
         args += [f"--window-size={w},{h}", f"--user-data-dir={self.profile.dir}"]
+        proxy = self.cfg.get("network.browser_proxy")
+        if proxy:
+            args += [f"--proxy-server={proxy}", f"--proxy-bypass-list={self.cfg.get('network.proxy_bypass') or '<local>'}"]
         if self.extensions:
             joined = ",".join(self.extensions)
             # Chromium 137+ gates --load-extension behind this feature
@@ -113,6 +125,7 @@ class BrowserSession:
                 opts.add_argument(a)
             if self.cfg.get("browser.exclude_switches"):
                 opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
+        _bypass_proxy_for_localhost()
         self.driver = webdriver.Chrome(options=opts, service=service)
         self.driver.set_page_load_timeout(float(self.cfg.get("timeouts.page_load", 30)))
         self.pid = self._attach_proc.pid if self._attach_proc else find_browser_pid(str(self.profile.dir))

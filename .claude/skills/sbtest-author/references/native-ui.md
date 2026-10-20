@@ -63,6 +63,7 @@ native.click_web_element(web, loc)        # real mouse click on a DOM element
 native.drag_web_element(web, src, dst)    # real mouse drag inside the page
 native.drag_web_to_ui(web, "#link", "bookmarks_bar")
 native.drag((x1, y1), (x2, y2))
+native.drag_file_from_explorer(path, web=web, target=loc)   # real OS file drag (e.g. .crx onto add-ons page)
 native.screenshot(path) / native.dump(path) / native.close_stray_dialogs()
 ```
 

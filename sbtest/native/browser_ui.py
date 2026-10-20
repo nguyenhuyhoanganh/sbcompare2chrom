@@ -238,12 +238,15 @@ class NativeBrowser:
         return poll(_find, self.timeout if timeout is None else timeout, 0.5, f"OS toast /{pattern}/")
 
     # -- mouse on web content ----------------------------------------------------
-    def viewport_origin(self) -> tuple[int, int]:
-        """Screen position (physical px) of the web content area of the active tab."""
+    def viewport_rect(self):
+        """Screen rectangle (physical px) of the web content area of the active tab."""
         main = self.main_window()
         hits = uia.descendants(main, class_name="Chrome_RenderWidgetHostHWND")
         hits = [h for h in hits if h.is_visible()] or uia.descendants(main, control_type="Document")
-        r = hits[0].rectangle()
+        return hits[0].rectangle()
+
+    def viewport_origin(self) -> tuple[int, int]:
+        r = self.viewport_rect()
         return r.left, r.top
 
     def web_point(self, web, el, offset: tuple[int, int] = (0, 0)) -> tuple[int, int]:
@@ -275,6 +278,45 @@ class NativeBrowser:
     def drag_web_element(self, web, src, dst, offset: tuple[int, int] = (0, 0)) -> None:
         self.focus()
         self.drag(self.web_point(web, src), self.web_point(web, dst, offset))
+
+    def drag_file_from_explorer(self, path: str | Path, web=None, target=None) -> None:
+        """Real OS drag of a file/folder from File Explorer into the browser.
+
+        This is the only way to test "drop a .crx (or an unpacked folder) on the add-ons
+        page": the browser installs from the OS drag data, synthetic JS/CDP drops are ignored.
+        Explorer is opened on the file and placed on the left, the browser on the right,
+        then the item is dragged onto ``target`` (web locator) or the middle of the page.
+        """
+        import subprocess
+
+        from pywinauto.controls.hwndwrapper import HwndWrapper
+
+        path = Path(path).resolve()
+        subprocess.Popen(["explorer.exe", f"/select,{path}"])
+        explorer = poll(lambda: next((w for w in self.desktop.windows(class_name="CabinetWClass")
+                                      if path.parent.name.lower() in (w.element_info.name or "").lower()), None),
+                        self.timeout, 0.5, f"File Explorer window for {path.parent}")
+        main = self.main_window()
+        old = main.rectangle()
+        try:
+            HwndWrapper(explorer.handle).move_window(0, 0, 700, 600)
+            HwndWrapper(main.handle).move_window(710, 0, 1200, 900)
+            time.sleep(0.5)
+            item = uia.find_in([explorer], self.timeout, control_type="ListItem", title=path.name)
+            start = item.rectangle().mid_point()
+            if web is not None and target is not None:
+                end = self.web_point(web, web.find(target))
+            else:
+                r = self.viewport_rect()
+                end = (r.mid_point().x, r.mid_point().y)
+            explorer.set_focus()
+            self.drag((start.x, start.y), end, steps=30)
+        finally:
+            try:
+                explorer.close()
+            except Exception:  # noqa: BLE001
+                pass
+            HwndWrapper(main.handle).move_window(old.left, old.top, old.width(), old.height())
 
     def drag_web_to_ui(self, web, src, ui_name) -> None:
         """Drag a web element (e.g. a link) onto browser UI such as the bookmarks bar."""

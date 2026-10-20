@@ -26,7 +26,7 @@ class BookmarksPage(BasePage):
 | `open_dialog()` / `dialog_text()` / `dialog_input(id)` / `dialog_button(text)` / `wait_dialog_closed()` | `cr-dialog` |
 | `q(value)` | quote a value for CSS attribute selectors: `f"[aria-label={q(name)}]"` |
 
-## Existing page objects (read the file for the full list)
+## Existing page objects (upstream Chromium reference - adapt to Samsung)
 
 - `pages.bookmarks`: `titles, item, has_item, wait_titles, wait_item, folders, expand_tree,
   open_folder, open_item, organize(action), add_bookmark, add_folder, item_menu(title, action),
@@ -38,7 +38,18 @@ class BookmarksPage(BasePage):
 - `pages.settings`: `open_section(name), menu(label), toggle/is_on/set_toggle(label), radio/choose_radio,
   dropdown/choose(label, option), get_pref(name), set_pref(name, value)`
 - `pages.extensions`: `info() -> [{id,name,version,state,...}], names, item, ext_id, is_enabled,
-  set_enabled, set_dev_mode, open_details, click_remove, wait_gone`
+  set_enabled, set_dev_mode, open_details, click_remove, wait_installed, wait_gone,
+  load_unpacked(native, dir), drop_crx(native, crx)`
+- `pages.webstore`: `open_item(id), is_installed, install(id, native)` (text based, store site)
+
+Note `info()` / `get_pref()` call private Chromium APIs (`chrome.developerPrivate`,
+`chrome.settingsPrivate`) that the rewritten Samsung pages may not expose; check with
+`web.js("return typeof chrome.developerPrivate")` and fall back to reading the UI.
+
+Pages built with React/Vue/plain DOM instead of Polymer/Lit: the same locators work
+(`>>>` is only needed where a shadow root exists; `text=`, `aria=`, `deepcss=` work
+everywhere). Prefer `data-*`/`id`/`aria-*` attributes; generated class names
+(`css-1x2y3z`, `_a1b2`) change every build - never use them.
 
 ## Adding a page object
 

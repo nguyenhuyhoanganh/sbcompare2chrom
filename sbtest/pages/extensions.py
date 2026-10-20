@@ -58,5 +58,25 @@ class ExtensionsPage(BasePage):
         """Clicks Remove; confirm in the native dialog (or the cr-dialog in forks that use one)."""
         self.web.click(self.web.find("deep=#removeButton", within=self.item(name)))
 
+    def wait_installed(self, name: str, timeout: float | None = None) -> dict:
+        """Wait until the extension system reports ``name`` (any state); returns its info."""
+        return self.web.wait_until(lambda: next((e for e in self.info() if e["name"] == name), None),
+                                   timeout or self.web.long_timeout, f"{name!r} installed")
+
+    # -- install flows (native parts need the `native` fixture) -------------------
+    def load_unpacked(self, native, folder) -> None:
+        """Developer mode -> "Load unpacked" -> Windows folder picker -> folder."""
+        self.set_dev_mode(True)
+        self.web.click(self.LOAD_UNPACKED)
+        native.file_dialog("open").select_folder(folder)
+
+    def drop_crx(self, native, crx, confirm: bool = True) -> None:
+        """Drag a .crx from File Explorer onto this page (real OS drag), then answer the
+        native "Add <name>?" prompt. Developer mode must be on for drops to be accepted."""
+        self.set_dev_mode(True)
+        native.drag_file_from_explorer(crx, web=self.web)
+        dlg = native.wait_dialog("add_extension", timeout=self.web.long_timeout)
+        dlg.click("Add extension" if confirm else "Cancel")
+
     def wait_gone(self, name: str, timeout: float | None = None) -> None:
         self.web.wait_until(lambda: name not in [e["name"] for e in self.info()], timeout, f"{name!r} removed")

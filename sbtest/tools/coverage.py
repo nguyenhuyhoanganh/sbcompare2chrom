@@ -14,15 +14,15 @@ from pathlib import Path
 
 from sbtest.config import ROOT
 
-CASE_HEADER = re.compile(r"^#{2,3}\s+([A-Z]{2,5}-\d{3,4})\b\s*(.*)$")
+CASE_HEADER = re.compile(r"^#{2,3}\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b\s*(.*)$")  # BM-001, SI-ADD-012
 
 
 def doc_cases(folder: Path = ROOT / "testcases") -> dict[str, dict]:
     """``{id: {title, feature, file, type, priority}}`` from the markdown docs."""
     out: dict[str, dict] = {}
     for md in sorted(folder.rglob("*.md")):
-        if md.name.lower() == "readme.md":
-            continue
+        if md.name.lower() == "readme.md" or "_inbox" in md.relative_to(folder).parts:
+            continue  # _inbox = raw Confluence/Jira copies, not normalized cases
         feature = md.relative_to(folder).parts[0] if len(md.relative_to(folder).parts) > 1 else ""
         current = None
         for line in md.read_text(encoding="utf-8").splitlines():

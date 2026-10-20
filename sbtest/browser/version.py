@@ -40,7 +40,8 @@ def _cache_key(exe: Path) -> str:
 
 
 def read_devtools_version(port: int, host: str = "127.0.0.1", timeout: float = 5) -> dict:
-    with urllib.request.urlopen(f"http://{host}:{port}/json/version", timeout=timeout) as r:
+    no_proxy = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # never via company proxy
+    with no_proxy.open(f"http://{host}:{port}/json/version", timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
 

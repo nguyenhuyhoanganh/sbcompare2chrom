@@ -42,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scope", choices=["function", "module", "session"], help="browser reuse scope")
     p.add_argument("--reruns", type=int, default=0, help="re-run failed tests N times (flaky env)")
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
+    p.add_argument("--screenshot-steps", action="store_true", help="screenshot after every test step")
+    p.add_argument("--publish", action="store_true", help="publish the run report to Confluence afterwards")
     p.add_argument("--list", action="store_true", help="print features/cases and coverage, then exit")
     args = p.parse_args(argv)
 
@@ -71,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
         pargs += ["--browser-scope", args.scope]
     if args.keep_profile:
         pargs += ["--keep-profile"]
+    if args.screenshot_steps:
+        pargs += ["--screenshot-steps"]
     marks = []
     if args.sanity:
         marks.append("sanity")
@@ -84,6 +88,9 @@ def main(argv: list[str] | None = None) -> int:
     print("pytest", " ".join(pargs))
     code = pytest.main(pargs)
     print(f"\nArtifacts: {run_dir}")
+    if args.publish:
+        from sbtest.tools.confluence_report import main as publish_main
+        publish_main([str(run_dir)])
     return int(code)
 
 

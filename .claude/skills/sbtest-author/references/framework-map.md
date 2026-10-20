@@ -16,7 +16,9 @@ sbtest/
   native/browser_ui.py     NativeBrowser (`native`): hotkeys, toolbar, menus, dialogs, mouse, dump
   native/dialogs.py        Dialog (generic native window), FileDialog (Save As/Open/folder)
   native/uia.py            UIA search/dump helpers
-  pages/                   page objects: bookmarks, history, downloads, settings, extensions
+  pages/                   page objects: bookmarks, history, downloads, settings, extensions, webstore
+                           (written against upstream Chromium - re-verify on the Samsung build)
+  atlassian.py             Confluence/Jira Server/DC client (PAT) + storage->Markdown
   data/                    BookmarksSeed, load_data("feature"), files.* generators
   server/local_site.py     LocalSite: static test_site/ + /page /download /slow-download /echo ...
   steps.py                 step("N. ...", expected=...) context manager
@@ -24,12 +26,15 @@ sbtest/
   tools/dom.py             DOM explorer through shadow roots (prints locators)
   tools/uia_dump.py        native UIA explorer (Windows)
   tools/coverage.py        doc case ids vs automated tests
+  tools/atlassian_read.py  Confluence/Jira link -> testcases/_inbox/*.md
+  tools/confluence_report  results.json -> new Confluence page with failure screenshots
 test_site/                 local pages: form, dialogs, dragdrop, popups, downloads, toast, shadow, pages/1..3
 test_data/                 <feature>.yaml data, extensions/sample_addon, profiles/<template>
 testcases/<feature>/*.md   the manual cases (input), with IDs
 tests/<feature>/test_*.py  automated tests; folder name = feature marker
 framework_tests/           unit tests of the framework itself (no browser needed)
-artifacts/                 runs/<ts>/report.html, junit.xml, failures/<test>/..., profiles, logs
+artifacts/                 runs/<ts>/report.html, junit.xml, results.json, failures/<test>/...,
+                           steps/<test>/ (with --screenshot-steps), profiles, logs
 ```
 
 ## Fixtures (ask for them by name in the test signature)

@@ -5,6 +5,7 @@ from sbtest.pages.downloads import DownloadsPage
 from sbtest.pages.extensions import ExtensionsPage
 from sbtest.pages.history import HistoryPage
 from sbtest.pages.settings import SettingsPage
+from sbtest.pages.webstore import WebStorePage
 
 
 class Pages:
@@ -16,6 +17,7 @@ class Pages:
         "downloads": DownloadsPage,
         "settings": SettingsPage,
         "extensions": ExtensionsPage,
+        "webstore": WebStorePage,
     }
 
     def __init__(self, web) -> None:
@@ -29,4 +31,4 @@ class Pages:
 
 
 __all__ = ["BasePage", "BookmarksPage", "DownloadsPage", "ExtensionsPage", "HistoryPage", "Pages",
-           "SettingsPage", "q"]
+           "SettingsPage", "WebStorePage", "q"]

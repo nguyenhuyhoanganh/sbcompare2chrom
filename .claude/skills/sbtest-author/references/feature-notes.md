@@ -1,9 +1,9 @@
 # Feature notes (what works, what bites)
 
-Verified against upstream Chromium 141 WebUI. Samsung Internet may differ - confirm with
+Verified against upstream Chromium 141 WebUI. Samsung rewrote many of these pages - confirm with
 the `dom` / `uia_dump` tools on the real build and update page objects.
 
-## Bookmarks (`chrome://bookmarks`, prefix BM)
+## Bookmarks (`internet://bookmarks`, prefix BM)
 
 - Seed with `@pytest.mark.browser(bookmarks=...)`. Root "Bookmarks bar" is selected on open.
 - Folder tree is collapsed by default: `open_folder()` / `folders()` call `expand_tree()`.
@@ -19,7 +19,7 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Drag & drop inside the manager uses Chromium's own drag API: `method="native"` is the
   reliable option on Windows; `html5` synthesized events are often ignored there.
 
-## History (`chrome://history`, prefix HIS)
+## History (`internet://history`, prefix HIS)
 
 - Seed by visiting `site.page(title)`; wait for the title before the next visit.
 - Entries are newest first, grouped by day; `rows()` reads them in one call.
@@ -28,7 +28,7 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Search is debounced; wait on the result (`web.wait_until(lambda: h.titles() == [...])`).
 - Ctrl+H is a browser shortcut -> native.
 
-## Downloads (`chrome://downloads`, prefix DL)
+## Downloads (`internet://downloads`, prefix DL)
 
 - The session downloads into its own folder (`downloads_dir`); prompt is off by default.
   Turn on Save As with `browser(prefs={"download.prompt_for_download": True})` + native `file_dialog`.
@@ -40,7 +40,7 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Download bubble/toolbar icon is native (`downloads_button`, dialog `download_bubble`).
 - Dangerous/blocked file types show a warning instead of finishing - pick safe types.
 
-## Settings (`chrome://settings`, prefix SET)
+## Settings (`internet://settings`, prefix SET)
 
 - Sections: `open_section("downloads"|"onStartup"|"appearance"|"search"|"privacy"|"clearBrowserData"...)`.
 - Toggles: by visible label = `cr-toggle[aria-label]`: `set_toggle(label, True)`, `is_on(label)`.
@@ -51,7 +51,7 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
 - Some subpages open `cr-dialog`s (Clear browsing data, Add search engine): `open_dialog()`,
   `dialog_button("Delete data")`.
 
-## Add-ons (`chrome://extensions`, prefix ADD)
+## Add-ons (`internet://extensions`, prefix ADD) - Samsung's own page, re-verify selectors
 
 - Load with `browser(extensions=["sample_addon"])` (unpacked). `info()` returns state from
   `chrome.developerPrivate` (`ENABLED`/`DISABLED`).
@@ -59,8 +59,16 @@ the `dom` / `uia_dump` tools on the real build and update page objects.
   not only through the toggle.
 - Remove -> native confirmation dialog (upstream) -> `native.wait_dialog("remove_extension")`.
 - Details: `open_details(name)` -> URL `?id=...`; read with `web.wait_page_text`.
-- Load unpacked via UI: `set_dev_mode(True)`, click `LOAD_UNPACKED`, then
-  `native.file_dialog("open").select_folder(path)`.
+- Install flows (all native):
+  - Load unpacked: `pages.extensions.load_unpacked(native, folder)` (dev mode, button, Windows folder picker).
+  - Drop .crx: `pages.extensions.drop_crx(native, crx)` - real drag from File Explorer; synthetic
+    JS/CDP drops are ignored by the browser (verified on Chromium). Needs developer mode.
+    `test_data/extensions/sample_addon.crx` is packed from `sample_addon/`.
+  - Web Store: `pages.webstore.install(ext_id, native)` - through the company proxy; button
+    text from config `webstore.add_button_texts`; then the native "Add extension" prompt.
+  - Data: `test_data/addons.yaml` (`sample`, `webstore` ids).
+- Off-store .crx installs can be blocked by policy on branded builds - if the prompt never
+  shows, check `internet://policy` and report it rather than working around it.
 - Toolbar puzzle icon / pin / popup are native; a popup page can be opened directly in
   a tab: `web.open(f"chrome-extension://{ext_id}/popup.html")`.
 

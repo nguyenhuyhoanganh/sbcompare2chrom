@@ -64,7 +64,14 @@ class BasePage:
         return self
 
     def wait_loaded(self) -> None:
-        self.web.wait_present(self.ROOT, timeout=self.web.long_timeout)
+        try:
+            self.web.wait_present(self.ROOT, timeout=self.web.long_timeout)
+        except TimeoutError as e:
+            raise TimeoutError(
+                f"{type(self).__name__} did not render at {self.web.url!r} (expected {self.url}): {e}. "
+                "If the URL is wrong check config pages.scheme / pages.<name>; if the page loaded, "
+                f"ROOT={self.ROOT!r} no longer matches - re-explore with `python -m sbtest.tools.dom {self.page}`."
+            ) from e
 
     def is_open(self) -> bool:
         return self.web.url.startswith(self.url)

@@ -35,8 +35,17 @@ def cft_platform() -> str:
     return "linux64"
 
 
+_PROXY: str = ""  # set by resolve_chromedriver from config network.download_proxy
+
+
+def _open(url: str, timeout: float):
+    """urlopen honouring HTTPS_PROXY/HTTP_PROXY env vars, or an explicit proxy."""
+    handlers = [urllib.request.ProxyHandler({"http": _PROXY, "https": _PROXY})] if _PROXY else []
+    return urllib.request.build_opener(*handlers).open(url, timeout=timeout)
+
+
 def _get_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=60) as r:
+    with _open(url, 60) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
@@ -65,7 +74,7 @@ def chromedriver_url(chromium_version: str, plat: str | None = None) -> tuple[st
 def download_chromedriver(chromium_version: str, target_dir: Path) -> Path:
     version, url = chromedriver_url(chromium_version)
     log.info("Downloading chromedriver %s for Chromium %s: %s", version, chromium_version, url)
-    with urllib.request.urlopen(url, timeout=300) as r:
+    with _open(url, 300) as r:
         data = r.read()
     target_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(io.BytesIO(data)) as z:
@@ -77,7 +86,10 @@ def download_chromedriver(chromium_version: str, target_dir: Path) -> Path:
     return out
 
 
-def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_dir: Path = ROOT / "drivers") -> str:
+def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_dir: Path = ROOT / "drivers",
+                         proxy: str = "") -> str:
+    global _PROXY
+    _PROXY = proxy or ""
     if configured:
         if not Path(configured).exists():
             raise FileNotFoundError(f"Configured chromedriver not found: {configured}")
@@ -87,4 +99,10 @@ def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_
     local = drivers_dir / str(major(chromium_version)) / EXE_NAME
     if local.exists():
         return str(local)
-    return str(download_chromedriver(chromium_version, local.parent))
+    try:
+        return str(download_chromedriver(chromium_version, local.parent))
+    except Exception as e:
+        raise RuntimeError(
+            f"Could not download chromedriver for Chromium {chromium_version} ({e}). Behind a proxy set "
+            f"HTTPS_PROXY or network.download_proxy, or put the driver at {local} / set browser.chromedriver."
+        ) from e

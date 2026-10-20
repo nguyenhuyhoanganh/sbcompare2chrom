@@ -52,6 +52,7 @@ def pytest_addoption(parser):
     g.addoption("--case", help="comma list of test case ids, e.g. BM-001,HIS-003")
     g.addoption("--keep-profile", action="store_true", default=None, help="keep profile dirs for debugging")
     g.addoption("--run-dir", help="artifacts folder of this run (default artifacts/runs/<timestamp>)")
+    g.addoption("--screenshot-steps", action="store_true", default=False, help="screenshot after every step()")
 
 
 def pytest_configure(config):
@@ -70,6 +71,10 @@ def pytest_configure(config):
         "browser.scope": config.getoption("--browser-scope"),
         "browser.keep_profile": config.getoption("--keep-profile"),
     })
+    if config.getoption("--screenshot-steps"):
+        config._sb_cfg.data.setdefault("report", {})["screenshot_steps"] = True
+    config._sb_results = {}
+    config._sb_meta = {"started": _dt.datetime.now().isoformat(timespec="seconds")}
     run_dir = config.getoption("--run-dir")
     config._sb_run_dir = Path(run_dir) if run_dir else config._sb_cfg.path("paths.artifacts") / "runs" / RUN_ID
 
@@ -168,7 +173,16 @@ def _build_session(cfg, site, request) -> BrowserSession:
             feature, _, key = bm.rpartition(":")
             bm = load_data(feature or _feature_of(request.node) or "bookmarks", site)[key]
         session.profile.bookmarks(format_data(bm, {"site": site.base}))
-    return session.start()
+    session.start()
+    meta = request.config._sb_meta
+    if "browser_version" not in meta:
+        try:
+            meta["browser_version"] = session.driver.capabilities.get("browserVersion", "")
+            meta["user_agent"] = session.web.js("return navigator.userAgent")
+            meta["chromedriver"] = (session.driver.capabilities.get("chrome") or {}).get("chromedriverVersion", "")
+        except Exception:  # noqa: BLE001
+            pass
+    return session
 
 
 @pytest.fixture
@@ -206,10 +220,6 @@ def _reset_shared(s: BrowserSession) -> None:
         s.stop()
 
 
-def pytest_sessionfinish(session, exitstatus):
-    _shared.close_except(None)
-
-
 @pytest.fixture
 def web(session):
     return session.web
@@ -233,37 +243,84 @@ def downloads_dir(session) -> Path:
 
 
 @pytest.fixture(autouse=True)
-def _steps_reset():
+def _steps_reset(request, cfg):
     steps.reset()
+    if cfg.get("report.screenshot_steps"):
+        steps.set_listener(lambda rec, n: _step_screenshot(request.node, rec, n))
     yield
+    steps.set_listener(None)
 
 
-# ------------------------------------------------------------------ failure evidence
+def _step_screenshot(item, rec: dict, n: int) -> None:
+    """``--screenshot-steps``: picture of the tab (and the screen on Windows) after each step."""
+    s: BrowserSession | None = getattr(item, "_sb_session", None)
+    if s is None or s.driver is None or s.web.has_alert():
+        return
+    out = item.config._sb_run_dir / "steps" / slug(item.nodeid, 150)
+    name = f"{n:02d}_{rec['status']}_{slug(rec['title'], 50)}"
+    rec["screenshot"] = str(s.web.screenshot(out / f"{name}.png"))
+    if os.name == "nt" and not s.cfg.get("browser.headless"):
+        rec["screen"] = str(_screen_grab(out / f"{name}_screen.png"))
+
+
+def _screen_grab(path: Path) -> Path:
+    from PIL import ImageGrab
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ImageGrab.grab(all_screens=True).save(path)
+    return path
+
+
+# ------------------------------------------------------------------ results + failure evidence
+def _result(item) -> dict:
+    results = item.config._sb_results
+    if item.nodeid not in results:
+        results[item.nodeid] = {
+            "nodeid": item.nodeid, "name": item.name, "feature": _feature_of(item), "cases": _case_ids(item),
+            "native": bool(item.get_closest_marker("native")), "outcome": "passed", "duration": 0.0,
+            "message": "", "failed_step": "", "expected": "", "steps": [], "evidence_dir": "", "evidence": [],
+        }
+    return results[item.nodeid]
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
+    res = _result(item)
+    res["duration"] = round(res["duration"] + rep.duration, 2)
     if rep.when == "call" or (rep.when == "setup" and rep.failed):
         hist = steps.history()
+        res["steps"] = [{k: v for k, v in st.items() if k != "start"} for st in hist]
         if hist:
             rep.sections.append(("sbtest steps", "\n".join(
-                f"[{s['status']:>7}] {s['title']}" + (f"  (expected: {s['expected']})" if s["expected"] else "")
-                + (f"\n          {s['error']}" if s.get("error") else "") for s in hist)))
-    if rep.failed and rep.when in ("setup", "call"):
-        try:
-            _collect_evidence(item, rep)
-        except Exception as e:  # noqa: BLE001 - never let evidence break the run
-            rep.sections.append(("sbtest evidence", f"evidence collection failed: {type(e).__name__}: {e}"))
+                f"[{st['status']:>7}] {st['title']}" + (f"  (expected: {st['expected']})" if st["expected"] else "")
+                + (f"\n          {st['error']}" if st.get("error") else "") for st in hist)))
+        failed = [st for st in hist if st["status"] == "failed"]
+        if failed:
+            res["failed_step"], res["expected"] = failed[-1]["title"], failed[-1]["expected"]
+    if rep.when == "call" and rep.passed:  # also resets a failure from an earlier rerun
+        res.update(outcome="passed", message="", failed_step="", expected="", evidence_dir="", evidence=[])
+    if rep.skipped:
+        res["outcome"] = "skipped"
+        res["message"] = str(rep.longrepr[-1]) if isinstance(rep.longrepr, tuple) else str(rep.longrepr or "")
+    elif rep.failed:
+        res["outcome"] = "error" if rep.when != "call" else "failed"
+        crash = getattr(rep.longrepr, "reprcrash", None)
+        lines = (rep.longreprtext or "").strip().splitlines()
+        res["message"] = (crash.message if crash else (lines[-1] if lines else ""))[:800]
+        if rep.when in ("setup", "call"):
+            try:
+                _collect_evidence(item, rep, res)
+            except Exception as e:  # noqa: BLE001 - never let evidence break the run
+                rep.sections.append(("sbtest evidence", f"evidence collection failed: {type(e).__name__}: {e}"))
 
 
-def _collect_evidence(item, rep) -> None:
+def _collect_evidence(item, rep, res: dict) -> None:
     s: BrowserSession | None = getattr(item, "_sb_session", None)
-    if s is None or s.driver is None:
-        return
-    cfg = s.cfg
     out = item.config._sb_run_dir / "failures" / slug(item.nodeid, 150)
     out.mkdir(parents=True, exist_ok=True)
-    saved = []
+    saved: list[str] = []
 
     def _try(name, fn):
         try:
@@ -272,9 +329,13 @@ def _collect_evidence(item, rep) -> None:
         except Exception as e:  # noqa: BLE001 - evidence is best effort
             log.warning("evidence %s failed: %s", name, e)
 
-    if s.web.has_alert():
-        _try("alert.txt", lambda: (out / "alert.txt").write_text(s.web.alert_text(timeout=1)))
-    else:
+    cfg = item.config._sb_cfg
+    alive = s is not None and s.driver is not None
+    if alive and s.web.has_alert():
+        _try("alert.txt", lambda: (out / "alert.txt").write_text(s.web.alert_text(timeout=1), encoding="utf-8"))
+    elif alive:
+        if cfg.get("report.highlight_on_failure", True):
+            s.web.highlight()
         if cfg.get("report.screenshot_on_failure", True):
             _try("page.png", lambda: s.web.screenshot(out / "page.png"))
         if cfg.get("report.dom_on_failure", True):
@@ -284,21 +345,63 @@ def _collect_evidence(item, rep) -> None:
                 f"# URL: {s.web.url}\n# TITLE: {s.web.title}\n# TABS: {len(s.web.tabs)}\n" + dump_dom(s.web),
                 encoding="utf-8"))
             _try("page.html", lambda: (out / "page.html").write_text(s.driver.page_source, encoding="utf-8"))
-    if s.native is not None and cfg.get("report.uia_on_failure", True):
-        _try("screen.png", lambda: s.native.screenshot(out / "screen.png"))
+    # whole screen: shows native dialogs/bubbles a WebDriver screenshot cannot see
+    if os.name == "nt" and not cfg.get("browser.headless") and cfg.get("report.screenshot_on_failure", True):
+        _try("screen.png", lambda: _screen_grab(out / "screen.png"))
+    if alive and s.native is not None and cfg.get("report.uia_on_failure", True):
         _try("uia.txt", lambda: s.native.dump(out / "uia.txt"))
-    rep.sections.append(("sbtest evidence", f"{out}\n" + ", ".join(saved)))
-    try:
-        from pytest_html import extras  # optional
 
-        extra = getattr(rep, "extras", [])
-        if (out / "page.png").exists():
-            extra.append(extras.image(str((out / "page.png").relative_to(item.config._sb_run_dir))))
-        if (out / "screen.png").exists():
-            extra.append(extras.image(str((out / "screen.png").relative_to(item.config._sb_run_dir))))
-        rep.extras = extra
+    target = s.web.last_target if alive else None
+    summary = [
+        f"test: {item.nodeid}",
+        f"cases: {', '.join(res['cases']) or '-'}",
+        f"failed step: {res['failed_step'] or '-'}",
+        f"expected: {res['expected'] or '-'}",
+        f"error: {res['message'] or '-'}",
+        f"last element: {target[0] if target else '-'}" + ("" if not target or target[1] is not None else "  (NOT FOUND)"),
+    ]
+    if alive:
+        try:
+            summary.append(f"url: {s.web.url}")
+        except Exception:  # noqa: BLE001
+            pass
+    (out / "failure.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
+    saved.insert(0, "failure.txt")
+    res["evidence_dir"], res["evidence"] = str(out), saved
+    rep.sections.append(("sbtest evidence", f"{out}\n" + ", ".join(saved)))
+    _attach_html_images(rep, [out / "page.png", out / "screen.png"])
+
+
+def _attach_html_images(rep, paths: list[Path]) -> None:
+    """Embed screenshots into the self-contained pytest-html report."""
+    try:
+        from pytest_html import extras
     except ImportError:
-        pass
+        return
+    import base64
+
+    extra = getattr(rep, "extras", [])
+    for p in paths:
+        if p.exists():
+            extra.append(extras.png(base64.b64encode(p.read_bytes()).decode("ascii"), name=p.name))
+    rep.extras = extra
+
+
+def pytest_sessionfinish(session, exitstatus):
+    _shared.close_except(None)
+    config = session.config
+    if not getattr(config, "_sb_results", None):
+        return
+    import json
+    import platform
+
+    meta = dict(config._sb_meta)
+    meta.update({"finished": _dt.datetime.now().isoformat(timespec="seconds"), "exit_status": int(exitstatus),
+                 "machine": platform.node(), "os": platform.platform(),
+                 "exe": config._sb_cfg.get("browser.exe"), "run_dir": str(config._sb_run_dir)})
+    data = {"meta": meta, "tests": list(config._sb_results.values())}
+    config._sb_run_dir.mkdir(parents=True, exist_ok=True)
+    (config._sb_run_dir / "results.json").write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
 
 def pytest_report_header(config):

@@ -56,9 +56,10 @@ server:
   host: 127.0.0.1
   port: 0                     # 0 = random free port
 
-# Internal pages. Samsung Internet may use another scheme or path; change here only.
+# Internal pages. Samsung Internet uses internet:// (internet://extensions ...).
+# Upstream Chromium (used to self-test the framework) needs scheme: chrome in local.yaml.
 pages:
-  scheme: chrome
+  scheme: internet
   bookmarks: bookmarks
   history: history
   downloads: downloads
@@ -67,6 +68,13 @@ pages:
   newtab: newtab
   version: version
   flags: flags
+
+# Chrome Web Store (add-on install from the store; needs internet through the proxy)
+webstore:
+  item_url: "https://chromewebstore.google.com/detail/{id}"
+  # visible text of the install / remove button - Samsung may rebrand it
+  add_button_texts: ["Add to Chrome", "Add to Samsung Internet", "Add to browser"]
+  remove_button_texts: ["Remove from Chrome", "Remove from Samsung Internet", "Remove from browser"]
 
 native:
   # Enable pywinauto based checks (auto-disabled on non-Windows).
@@ -79,5 +87,26 @@ native:
 
 report:
   screenshot_on_failure: true
+  # red outline on the element the failing step was using (visible in page.png)
+  highlight_on_failure: true
   dom_on_failure: true
   uia_on_failure: true
+  # screenshot after every step(...) block, pass or fail (flag: --screenshot-steps)
+  screenshot_steps: false
+
+# Company proxy. The browser uses the Windows system proxy by default; set
+# browser_proxy only to force one. driver downloads use HTTPS_PROXY/HTTP_PROXY env vars
+# or download_proxy below.
+network:
+  browser_proxy: ""             # e.g. http://proxy.company.com:8080
+  proxy_bypass: "127.0.0.1;localhost;<local>"
+  download_proxy: ""            # proxy for chromedriver download; empty = env vars
+
+# Confluence / Jira Server or Data Center. Token comes from the env var, never from files.
+atlassian:
+  confluence_url: ""            # e.g. https://confluence.company.com
+  jira_url: ""                  # e.g. https://jira.company.com
+  token_env: SB_ATLASSIAN_TOKEN # Personal Access Token (Bearer)
+  verify_ssl: true              # or path to the company CA bundle (.pem)
+  report_space: ""              # space key where run reports are created
+  report_parent_id: ""          # page id under which run reports are created

@@ -5,6 +5,20 @@ description: Turn manual test cases for Samsung Internet for Windows (a Chromium
 
 # Writing sbtest scripts from test cases
 
+**Where you run:** on the Windows machine that has the Samsung Internet build (a build
+folder with `SamsungInternet.exe`, path in `config/local.yaml`). Samsung Internet exists only
+for Windows. You can and should launch the browser yourself with the tools below, look at
+screenshots, and iterate until the test passes.
+
+**Samsung rewrote many internal pages** (`internet://extensions`, `internet://bookmarks`, ...).
+The page objects shipped in `sbtest/pages/` were written against *upstream Chromium* and
+are a starting point only. The first time you touch a page: explore it on the real build
+(`dom` tool), then rewrite that page object's selectors/methods to match. Never assume a
+Chromium id/tag exists in the Samsung page until you have seen it in a dump.
+
+Input links: if the user gives Confluence/Jira links instead of cases, run the
+`sbtest-intake` skill first.
+
 You receive test cases (a doc, a table, IDs, or prose). You produce: the case in
 `testcases/<feature>/*.md`, a passing test in `tests/<feature>/`, and any page-object /
 data / config additions it needed. Work case by case; verify each against the real browser.
@@ -48,7 +62,10 @@ when the step needs them:
    each doc step wrapped in `with step("N. ...", expected="..."):`, assertions = the doc's
    Expected lines. Assert on state (list contents, prefs, files on disk), not on timing.
 8. **Run it for real**: `python run.py --case <ID>`, then run it 3 times in a row to prove
-   it is stable. Fix until green every time. On failure read `artifacts/runs/<ts>/failures/<test>/`
+   it is stable. Fix until green every time. On failure open
+   `artifacts/runs/<ts>/failures/<test>/failure.txt` first (failed step, error, last element),
+   then look at `page.png` (the element the step used is outlined in red) and `screen.png`
+   (whole screen, shows native dialogs). `--screenshot-steps` saves a picture after every step. On failure read `artifacts/runs/<ts>/failures/<test>/`
    (`dom.txt`, `page.png`, `uia.txt`, `screen.png`) before changing code.
 9. **Record it**: set `- Automated: tests/...::test_name` under the case in the doc; re-run
    coverage. Report per case: automated / blocked (with the reason and what is needed).
@@ -72,6 +89,8 @@ when the step needs them:
 | bookmark bubble / "Add extension?" / any browser prompt | `native.wait_dialog("bookmark_added")` -> `.texts()`, `.click("Done")` |
 | Save As / Open file / choose folder | `native.file_dialog("save").save_as(path)`, `.open(file)`, `.select_folder(dir)` |
 | upload a file via `<input type=file>` | `web.upload(loc, path)` (no OS dialog needed) |
+| install add-on: Load unpacked / drop .crx / Web Store | `pages.extensions.load_unpacked(native, dir)`, `.drop_crx(native, crx)`, `pages.webstore.install(id, native)` |
+| drag a file from Explorer into the browser | `native.drag_file_from_explorer(path, web=web, target=loc)` |
 | drag item A onto B in a page | `web.drag_and_drop(a, b, method="html5"|"actions"|"native")` |
 | drag a link to the bookmarks bar | `native.drag_web_to_ui(web, loc, "bookmarks_bar")` |
 | restart the browser / check persistence | `session.restart()` then rebuild page objects from `session.web` |
@@ -90,8 +109,8 @@ when the step needs them:
   (exception: one-off selectors for local test-site pages).
 - Native names (Samsung may rename "Bookmark this tab" etc.) go in `config/native_ui.yaml`;
   verify with `uia_dump` on the real Samsung build, never trust upstream Chromium names.
-- Internal page URLs come from `cfg.page_url(name)` (config `pages`) - never hardcode `chrome://`
-  in tests, the fork may use another scheme.
+- Internal page URLs come from `cfg.page_url(name)` (config `pages`, scheme `internet://`) -
+  never hardcode `internet://` or `chrome://` in tests.
 - Don't weaken an assertion to make a test pass. If the product behaves differently from
   the doc, report it as a possible bug with evidence (paths under `artifacts/`).
 - A case you cannot automate (needs real account/sync, hardware, internet) -> leave the
