@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+artifacts/
+config/local.yaml
+drivers/*
+!drivers/README.md
+.venv/
+venv/
+*.log

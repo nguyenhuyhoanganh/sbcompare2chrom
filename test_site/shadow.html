@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shadow DOM page</title></head>
+<body>
+<h1>Shadow DOM</h1>
+<my-app id="app"></my-app>
+<script>
+customElements.define('my-card', class extends HTMLElement {
+  constructor() { super(); const r = this.attachShadow({mode: 'open'});
+    r.innerHTML = `<div class="card"><span id="label"><slot></slot></span>
+      <button id="action" aria-label="Card action">Do it</button><input id="field" placeholder="Card field"></div>`;
+    r.getElementById('action').onclick = () => this.setAttribute('clicked', 'yes'); }
+});
+customElements.define('my-app', class extends HTMLElement {
+  constructor() { super(); const r = this.attachShadow({mode: 'open'});
+    r.innerHTML = `<header id="hdr">Header text</header><section id="list">
+      <my-card class="item">First card</my-card><my-card class="item">Second card</my-card></section>`; }
+});
+</script>
+</body></html>

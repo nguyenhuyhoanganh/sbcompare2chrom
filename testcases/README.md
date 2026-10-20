@@ -1,0 +1,40 @@
+# Test case documents (input for test authors / agents)
+
+Put one markdown file per feature area (or per doc you receive) under the matching folder:
+
+```
+testcases/
+  bookmarks/   history/   downloads/   settings/   addons/   general/
+```
+
+Convert any source doc (Excel, Word, Confluence...) into this format. Each case **must** have
+a unique ID with the feature prefix; the automated test carries the same ID via
+`@pytest.mark.case("BM-001")`, so coverage can be tracked and a single case can be run
+with `python run.py --case BM-001`.
+
+| Feature    | Prefix | Folder              |
+|------------|--------|---------------------|
+| Bookmarks  | BM     | testcases/bookmarks |
+| History    | HIS    | testcases/history   |
+| Downloads  | DL     | testcases/downloads |
+| Settings   | SET    | testcases/settings  |
+| Add-ons    | ADD    | testcases/addons    |
+| General    | GEN    | testcases/general   |
+
+## Format
+
+```markdown
+## BM-001 Add a bookmark from the bookmark manager
+- Priority: High
+- Type: web | native | mixed          (optional hint: does it touch browser UI / OS dialogs?)
+- Precondition: Clean profile; local page "Static page 1" exists
+- Steps:
+  1. Open the bookmark manager
+  2. Open the Organize menu and choose "Add new bookmark"
+  3. Enter name "My new bookmark" and the URL, click Save
+- Expected:
+  - The bookmark "My new bookmark" is listed in Bookmarks bar
+- Automated: tests/bookmarks/test_bookmark_manager.py::test_add_bookmark   (filled in when automated)
+```
+
+`python -m sbtest.tools.coverage` lists which IDs are automated, missing, or orphaned.

@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Drag and drop page</title>
+<style>
+.box{width:120px;height:80px;border:2px dashed #888;display:inline-block;margin:10px;vertical-align:top}
+#drag-html5{width:80px;height:40px;background:#9cf;cursor:move}
+#sortable li{padding:8px;margin:4px;background:#eee;list-style:none;cursor:grab;width:200px}
+#mouse-drag{position:absolute;left:20px;top:300px;width:60px;height:60px;background:#f96;cursor:move}
+</style></head>
+<body>
+<h1>Drag and drop</h1>
+<div id="drag-html5" draggable="true">HTML5 item</div>
+<div id="drop-html5" class="box">Drop here</div>
+<p id="html5-result"></p>
+<ul id="sortable"><li draggable="true">Item A</li><li draggable="true">Item B</li><li draggable="true">Item C</li></ul>
+<div id="mouse-drag">Mouse</div>
+<p id="mouse-result" style="margin-top:120px"></p>
+<script>
+const src = document.getElementById('drag-html5'), dst = document.getElementById('drop-html5');
+src.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', 'html5'));
+dst.addEventListener('dragover', e => e.preventDefault());
+dst.addEventListener('drop', e => { e.preventDefault(); dst.appendChild(src);
+  document.getElementById('html5-result').textContent = 'dropped:' + e.dataTransfer.getData('text/plain'); });
+let dragged = null;
+document.querySelectorAll('#sortable li').forEach(li => {
+  li.addEventListener('dragstart', () => dragged = li);
+  li.addEventListener('dragover', e => e.preventDefault());
+  li.addEventListener('drop', e => { e.preventDefault(); if (dragged && dragged !== li) li.before(dragged); });
+});
+const m = document.getElementById('mouse-drag'); let down = null;
+m.addEventListener('mousedown', e => down = {x: e.clientX - m.offsetLeft, y: e.clientY - m.offsetTop});
+document.addEventListener('mousemove', e => { if (down) { m.style.left = (e.clientX - down.x) + 'px'; m.style.top = (e.clientY - down.y) + 'px'; }});
+document.addEventListener('mouseup', () => { if (down) document.getElementById('mouse-result').textContent = 'moved:' + m.style.left + ',' + m.style.top; down = null; });
+</script>
+</body></html>

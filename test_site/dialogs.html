@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Dialogs page</title></head>
+<body>
+<h1>JS dialogs</h1>
+<button id="alert" onclick="alert('Hello alert')">Alert</button>
+<button id="confirm" onclick="document.getElementById('result').textContent = confirm('Are you sure?') ? 'confirmed' : 'cancelled'">Confirm</button>
+<button id="prompt" onclick="document.getElementById('result').textContent = 'prompt:' + prompt('Your name?', 'default')">Prompt</button>
+<button id="arm-beforeunload" onclick="window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ''; }; document.getElementById('result').textContent = 'armed'">Arm leave-site dialog</button>
+<button id="print" onclick="window.print()">Print</button>
+<button id="html-dialog" onclick="document.getElementById('dlg').showModal()">HTML dialog</button>
+<dialog id="dlg"><p>In-page dialog</p><button id="dlg-close" onclick="this.closest('dialog').close()">Close</button></dialog>
+<p id="result"></p>
+</body></html>

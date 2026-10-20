@@ -1,0 +1,5 @@
+# Copy to config/local.yaml (git-ignored) and adjust for your machine.
+browser:
+  exe: 'C:\SamsungInternet\Application\SamsungInternet.exe'
+  # chromedriver: 'D:\fork\out\Release\chromedriver.exe'
+  # chromium_version: "141.0.7390.37"

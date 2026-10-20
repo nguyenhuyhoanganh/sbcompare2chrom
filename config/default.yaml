@@ -1,0 +1,83 @@
+# Default settings. Do NOT put machine-specific paths here: copy
+# config/local.example.yaml to config/local.yaml (git-ignored) or pass CLI flags.
+# Priority: CLI flags > environment variables (SB_*) > local.yaml > default.yaml
+
+browser:
+  # Path to SamsungInternet.exe (env: SB_EXE, flag: --exe)
+  exe: ""
+  # "launch": chromedriver starts the exe (default).
+  # "attach": we start the exe with --remote-debugging-port and chromedriver attaches.
+  #           Use it when the fork refuses to start under chromedriver.
+  mode: launch
+  # Explicit chromedriver path (env: SB_DRIVER, flag: --driver). Best option: build
+  # the `chromedriver` target from the SAME fork source tree, then the version always matches.
+  chromedriver: ""
+  # Chromium version the build is based on, e.g. "141.0.7390.37". Empty = auto-detect.
+  chromium_version: ""
+  headless: false
+  window_size: [1400, 900]
+  # Extra command line switches for the browser.
+  args:
+    - --no-first-run
+    - --no-default-browser-check
+    - --disable-background-networking
+    - --disable-component-update
+    - --disable-sync
+    - --password-store=basic
+    - --lang=en-US
+  # Removes the "controlled by automated test software" infobar.
+  exclude_switches: [enable-automation]
+  # Preferences merged into Default/Preferences of every fresh profile.
+  prefs:
+    intl.accept_languages: en-US,en
+    download.prompt_for_download: false
+    download.directory_upgrade: true
+    safebrowsing.enabled: false
+    credentials_enable_service: false
+    profile.password_manager_enabled: false
+  # function | module | session : how often a fresh browser + profile is created.
+  scope: function
+  # Keep the profile folder after the test (debugging).
+  keep_profile: false
+
+timeouts:
+  page_load: 30     # seconds, driver page load timeout
+  default: 10       # default explicit wait
+  long: 30          # downloads, heavy pages
+  poll: 0.2         # poll interval for waits
+  native: 10        # pywinauto window/dialog waits
+
+paths:
+  artifacts: artifacts        # reports, screenshots, profiles, downloads
+  test_site: test_site        # static pages served by the local HTTP server
+  test_data: test_data
+
+server:
+  host: 127.0.0.1
+  port: 0                     # 0 = random free port
+
+# Internal pages. Samsung Internet may use another scheme or path; change here only.
+pages:
+  scheme: chrome
+  bookmarks: bookmarks
+  history: history
+  downloads: downloads
+  settings: settings
+  extensions: extensions
+  newtab: newtab
+  version: version
+  flags: flags
+
+native:
+  # Enable pywinauto based checks (auto-disabled on non-Windows).
+  enabled: true
+  backend: uia
+  # Logical name -> UIA search criteria of the browser's own (Views) UI.
+  # Values are passed to pywinauto child_window(**criteria). Verify with:
+  #   python -m sbtest.tools.uia_dump
+  ui_map: config/native_ui.yaml
+
+report:
+  screenshot_on_failure: true
+  dom_on_failure: true
+  uia_on_failure: true

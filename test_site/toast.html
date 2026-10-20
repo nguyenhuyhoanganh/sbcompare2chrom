@@ -1,0 +1,10 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Toast page</title>
+<style>#toast{position:fixed;bottom:20px;left:20px;padding:10px 16px;background:#333;color:#fff;display:none}</style></head>
+<body>
+<h1>Toast</h1>
+<button id="show-toast" onclick="const t=document.getElementById('toast');t.textContent='Saved successfully';t.style.display='block';setTimeout(()=>t.style.display='none',3000)">Show toast</button>
+<button id="notify" onclick="Notification.requestPermission().then(p=>{document.getElementById('perm').textContent=p; if(p==='granted') new Notification('sbtest notification')})">Notification</button>
+<p id="perm"></p>
+<div id="toast" role="status"></div>
+</body></html>

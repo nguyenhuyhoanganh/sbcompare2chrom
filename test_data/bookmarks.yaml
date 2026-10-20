@@ -1,0 +1,26 @@
+# Test data for bookmarks. {site} = local test site base URL (http://127.0.0.1:<port>)
+seed_basic:
+  bookmark_bar:
+    - {name: Static page 1, url: "{site}/pages/page1.html"}
+    - {name: Static page 2, url: "{site}/pages/page2.html"}
+    - name: Work
+      children:
+        - {name: Form page, url: "{site}/form.html"}
+        - {name: Dialogs page, url: "{site}/dialogs.html"}
+  other:
+    - {name: Other page, url: "{site}/pages/page3.html"}
+
+seed_many:
+  bookmark_bar:
+    - {name: Alpha, url: "{site}/page?title=Alpha"}
+    - {name: Beta, url: "{site}/page?title=Beta"}
+    - {name: Gamma, url: "{site}/page?title=Gamma"}
+    - {name: Delta, url: "{site}/page?title=Delta"}
+    - {name: Folder X, children: []}
+
+new_bookmark:
+  name: My new bookmark
+  url: "{site}/page?title=New"
+
+new_folder:
+  name: My folder
