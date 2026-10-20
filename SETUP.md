@@ -129,7 +129,30 @@ Mở Claude Code trong thư mục repo trên chính máy này. Các skill trong 
 Để đẩy lên Confluence, agent cần skill/connector Confluence của bạn, cùng space hoặc trang
 cha nơi đặt báo cáo.
 
-## 8. Cập nhật
+## 8. Khi Samsung merge Chromium mới (141 -> 143 -> 151 ...)
+
+Không phải cập nhật chromedriver bằng tay. Mỗi lần chạy, framework làm như sau:
+1. đọc version Chromium thật của exe (khởi động exe một lần, đọc `/json/version`). Kết quả
+   được cache theo đường dẫn + kích thước + thời gian sửa của exe, nên exe mới (kể cả cùng
+   đường dẫn) luôn được dò lại;
+2. dùng `drivers\<major>\chromedriver.exe` nếu đã có, nếu chưa thì tải bản khớp major từ
+   Chrome for Testing (có đủ mọi milestone, kể cả bản beta/canary). Chỉ cần khớp **major**
+   (vd. driver 148.0.7778.178 chạy tốt với Samsung 148.0.7778.217).
+
+Chỉ phải động tay khi:
+- trong `config\local.yaml` có ghim `browser.chromedriver` hoặc `browser.chromium_version`:
+  cập nhật hoặc xoá hai dòng đó;
+- máy không ra được mạng: chép `drivers\<major mới>\chromedriver.exe` từ một máy khác vào;
+- chromedriver của Google không nhận bản fork (doctor báo lỗi ở bước `browser start`):
+  build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`;
+- muốn so sánh với Chrome cùng nền: chạy lại `python -m sbtest.tools.get_chrome` (lấy
+  Chrome for Testing cùng major với bản Samsung mới).
+
+Sau mỗi lần merge: chạy `doctor` để kiểm tra, rồi `python run.py --all`. Test fail vì UI
+đổi (đổi nhãn, đổi DOM) thì là việc của page object / ui map, không phải của driver; agent
+xử lý theo skill `sbtest-run` (phân loại lỗi) và `sbtest-explore`.
+
+## 9. Cập nhật
 
 ```bat
 git pull
