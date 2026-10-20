@@ -1,5 +1,7 @@
 # Test case documents (input for test authors / agents)
 
+Overview of every case (counts, target, last results on Samsung / Chrome): `TESTCASES.md`.
+
 Product test cases for Samsung Internet. Raw copies of source documents (Confluence pages,
 exports) go to `_inbox/`; the normalized cases below are what tests and coverage use.
 Put one markdown file per feature area (or per doc you receive) under the matching folder:
