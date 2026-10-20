@@ -29,15 +29,24 @@ python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 Native tests need an unlocked, visible Windows desktop (not a minimized RDP session).
 `--no-native` skips them; say so in the report when you use it.
 
+Run one feature only: `--feature addons` (or `bookmarks`, `downloads`, `history` ...);
+each feature's tests are in `tests/features/<feature>/` and its cases in `testcases/<feature>/`.
+
 ## Outputs: `artifacts/runs/<timestamp>/`
 
 | path | content |
 |------|---------|
-| `report.html` | self-contained HTML report, failure screenshots embedded |
-| `results.json` | every test: outcome, case ids, steps, failed step, error, evidence paths |
+| `report/index.html` | **the build's sanity report**: verdict BUILD PASSED / FAILED, build info (Samsung version, Chromium, machine, date, selection), one row per case: ID, name + precondition, steps, expected, result (failed step + error + executed steps on failure), screenshot of how it ended. The `report/` folder (with `img/`) can be zipped and shared |
+| `report/report.md` | same report in Markdown |
+| `confluence/` | the same report as a Confluence page: `manifest.json` (title), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test) |
+| `results.json` | every test: outcome, case ids, steps, failed step, error, screenshot, evidence paths |
 | `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (whole screen, native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
+| `results/<test>.png` | final screenshot of every passed test (used by the report) |
 | `steps/<test>/` | per-step screenshots (`--screenshot-steps`) |
-| `confluence/` | `manifest.json`, `page.storage.html`, `page.md`, `attachments/` |
+| `report.html` | raw pytest-html report |
+
+Rebuild the report (e.g. after editing case docs): `python -m sbtest.tools.report [run_dir] [--open]`.
+Refresh the case overview with the latest results: `python -m sbtest.tools.case_overview`.
 
 ## Triage: each failure into exactly one bucket
 
@@ -53,9 +62,13 @@ Native tests need an unlocked, visible Windows desktop (not a minimized RDP sess
 
 ## Report
 
-Use the **Confluence skill** to create a new page from `artifacts/runs/<ts>/confluence/`:
-title from `manifest.json`, body `page.storage.html` (Confluence storage format; use
-`page.md` if the skill takes Markdown), and upload every file in `attachments/` to that
-page (the body already references them by file name). Put it where the user asked
-(space / parent page). Then reply with a short table: case id | test | bucket | reason,
-totals per feature, and the page link.
+The verdict for a build is the header of `report/index.html`: **BUILD PASSED** = no failed or
+error case among those run (N/A = not applicable to the target, skipped = not run). Say which
+features were run (`Selection` row) - a `--feature bookmarks` run passes only bookmarks.
+
+To publish, use the **Confluence skill** to create a new page from `artifacts/runs/<ts>/confluence/`:
+title from `manifest.json`, body `page.storage.html` (Confluence storage format; use `page.md`
+if the skill takes Markdown), and upload every file in `attachments/` to that page (the body
+already references them by file name). Put it where the user asked (space / parent page).
+If failures were triaged, add a short "Triage" section to the page: case id | bucket | reason.
+Then reply with the verdict, totals per feature, the triage table and the page link.

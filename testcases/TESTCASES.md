@@ -1,75 +1,51 @@
 # Danh sách test case - sbtest
 
-Tổng hợp mọi test case trong `testcases/`. Nội dung từng case (bước, kết quả mong đợi) giữ
-nguyên tiếng Anh như file nguồn; file nguồn là bản chuẩn, file này chỉ để xem tổng quan.
+File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `testcases/**/*.md` và marker của test.
+Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.
 
-Kết quả lấy từ lần chạy ngày 2026-10-20 trên Windows 11 (arm64):
-- **Samsung**: Samsung Browser 31.0.0.55 (Chromium 148), bản public.
-- **Chrome**: Chrome for Testing 141.
+**81 test case**, tất cả đã có script tự động (59 web, 22 native).
 
-## Tổng quan
+| Feature | Prefix | Số case | Web | Native | Sanity | Cả hai target | Chỉ Samsung | Chỉ Chrome |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Add-ons | ADD | 20 | 11 | 9 | 7 | 9 | 11 | 0 |
+| Bookmarks | BM | 23 | 17 | 6 | 9 | 10 | 12 | 1 |
+| Downloads | DL | 16 | 11 | 5 | 4 | 10 | 6 | 0 |
+| History | HIS | 15 | 14 | 1 | 5 | 9 | 6 | 0 |
+| Settings | SET | 4 | 4 | 0 | 1 | 4 | 0 | 0 |
+| General | GEN | 3 | 2 | 1 | 1 | 3 | 0 | 0 |
+| **Tổng** | | **81** | **59** | **22** | **27** | **45** | **35** | **1** |
 
-**76 test case**, tất cả đã có script tự động hoá (59 web, 17 native).
-
-| Feature | Prefix | Số case | Web | Native | Sanity | Cả hai target | Chỉ Samsung | Chỉ Chrome | Trên Samsung |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---|
-| Add-ons | ADD | 17 | 11 | 6 | 5 | 9 | 8 | 0 | ✅ đã kiểm chứng |
-| Bookmarks | BM | 21 | 17 | 4 | 8 | 10 | 10 | 1 | ✅ đã kiểm chứng |
-| Downloads | DL | 16 | 11 | 5 | 4 | 10 | 6 | 0 | ✅ đã kiểm chứng |
-| History | HIS | 15 | 14 | 1 | 5 | 9 | 6 | 0 | ✅ đã kiểm chứng |
-| Settings | SET | 4 | 4 | 0 | 1 | 4 | 0 | 0 | ⏳ chưa kiểm chứng |
-| General | GEN | 3 | 2 | 1 | 1 | 3 | 0 | 0 | ⏳ chưa kiểm chứng |
-| **Tổng** | | **76** | **59** | **17** | **24** | **45** | **30** | **1** | |
-
-Lần chạy toàn bộ cuối trên Samsung (4 feature add-ons/bookmarks/downloads/history): **67 pass,
-1 fail, 1 skip**. Test fail là ADD-020 (Load unpacked), do hộp chọn thư mục của Windows làm rơi
-một phím khi gõ đường dẫn. Framework giờ tự kiểm tra và gõ lại; chạy lại 3 lần đều pass. Test
-bị skip là BM-010 (bubble Ctrl+D kiểu Chrome). Trên Chrome: 46 pass, 30 skip (case chỉ của Samsung).
-
-Settings và General chưa được kiểm chứng trên Samsung. Page object Settings của Samsung vẫn kế
-thừa bản Chromium nên chưa dùng được: SET-001 đã fail khi tình cờ chạy trên Samsung (không tìm
-thấy toggle `cr-toggle`). Đây là việc tiếp theo cần làm. Trên Chrome, toàn bộ case áp dụng đều pass.
-
-### Ý nghĩa các cột
-
-- **Type**: `web` = chỉ thao tác nội dung trang (Selenium); `native` = có bước dùng UI của browser
-  hoặc dialog của Windows (pywinauto, cần desktop Windows đang mở).
-- **Target**: `Cả hai` = cùng một test chạy trên Samsung và Chrome. `Samsung` / `Chrome` =
-  luồng chỉ một sản phẩm có, đánh dấu `@pytest.mark.targets(...)`, bị skip trên target còn lại.
+- **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).
+- **Target** `Cả hai`: cùng test chạy trên Samsung và Chrome; `Samsung`/`Chrome`: luồng chỉ một bên có.
 - **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).
-- Mã 1xx (BM-101, HIS-101...) là bộ sanity viết theo đúng UI của Samsung
-  (`testcases/<feature>/sanity.md`).
+- **Samsung / Chrome**: kết quả gần nhất trong `artifacts/runs/` của máy sinh file này.
 
-### Cách chạy
+Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-101,DL-104`.
 
-```bat
-python run.py --feature addons,bookmarks,downloads,history   & rem Samsung (mặc định)
-python run.py --case BM-101,DL-104                           & rem vài case
-python run.py --sanity                                       & rem lượt sanity
-python run.py --target chrome --feature bookmarks            & rem trên Chrome
-```
+## Add-ons (ADD) - 20 case
 
-## Add-ons (ADD) - 17 case
-
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| ADD-001 | Installed add-on is listed and active | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| ADD-002 | Disable an add-on | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-003 | Details page | Low | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-010 | Remove an add-on (native confirmation) | High | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-020 | Install an add-on with "Load unpacked" | High | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-021 | Install an add-on by dropping a .crx file | High | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-022 | Install an add-on from Chrome Web Store | High | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-101 | Card shows name, version, description and source | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| ADD-102 | Developer mode shows the developer tools | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| ADD-103 | Search add-ons | Low | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| ADD-104 | Disabled state is kept after restart | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| ADD-105 | Cancel removal keeps the add-on | Medium | native | Samsung |  | ✅ Pass | N/A |
-| ADD-106 | Open Add-ons from the app menu | Medium | native | Samsung |  | ✅ Pass | N/A |
-| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web | Samsung |  | ✅ Pass | N/A |
-| ADD-108 | Pack an add-on into a .crx | Medium | web | Samsung | ✔ | ✅ Pass | N/A |
-| ADD-109 | Reload an unpacked add-on | Medium | web | Samsung |  | ✅ Pass | N/A |
-| ADD-110 | "Get add-ons" opens the add-on store | Low | web | Samsung |  | ✅ Pass | N/A |
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| ADD-001 | Installed add-on is listed and active | High | web | Cả hai | ✔ | addons.md | ✅ Pass | ✅ Pass |
+| ADD-002 | Disable an add-on | High | web | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-003 | Details page | Low | web | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-010 | Remove an add-on (native confirmation) | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-020 | Install an add-on with "Load unpacked" | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-021 | Install an add-on by dropping a .crx file | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-022 | Install an add-on from Chrome Web Store | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
+| ADD-101 | Card shows name, version, description and source | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| ADD-102 | Developer mode shows the developer tools | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| ADD-103 | Search add-ons | Low | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| ADD-104 | Disabled state is kept after restart | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| ADD-105 | Cancel removal keeps the add-on | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
+| ADD-106 | Open Add-ons from the app menu | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
+| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| ADD-108 | Pack an add-on into a .crx | Medium | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| ADD-109 | Reload an unpacked add-on | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| ADD-110 | "Get add-ons" opens the add-on store | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| ADD-111 | Pin and unpin an add-on from the toolbar Add-ons menu | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
+| ADD-112 | Open the add-on popup from its toolbar icon | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
+| ADD-113 | Add-on "More options" menu opens the options page | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
 
 <details><summary><b>ADD-001</b> Installed add-on is listed and active</summary>
 
@@ -286,8 +262,8 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 - The Add-ons page opens
 
-**Nguồn:** `testcases/addons/sanity.md`  
-**Script:** `tests/features/addons/test_addons_sanity.py::test_open_from_app_menu`
+**Nguồn:** `testcases/addons/toolbar.md`  
+**Script:** `tests/features/addons/test_addons_toolbar.py::test_open_from_app_menu`
 
 </details>
 
@@ -317,7 +293,7 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 **Expected:**
 
-- The dialog asks for the extension root directory and an optional private key file;
+- The dialog asks for the extension root directory and an optional private key file; "Pack extension" is disabled while the directory is empty
 - <folder>.crx and <folder>.pem are created next to the folder
 
 **Nguồn:** `testcases/addons/sanity.md`  
@@ -358,31 +334,91 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
-## Bookmarks (BM) - 21 case
+<details><summary><b>ADD-111</b> Pin and unpin an add-on from the toolbar Add-ons menu</summary>
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| BM-001 | Add a bookmark from the bookmark manager | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| BM-002 | Add a folder | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| BM-003 | Edit a bookmark | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| BM-004 | Delete a bookmark and undo | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| BM-005 | Search bookmarks | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| BM-006 | Open a sub folder | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| BM-010 | Bookmark the current page with Ctrl+D | High | native | Chrome |  | N/A | ✅ Pass |
-| BM-101 | Bookmark the current page with Ctrl+D | High | native | Samsung | ✔ | ✅ Pass | N/A |
-| BM-102 | Remove a bookmark with the star | Medium | native | Samsung |  | ✅ Pass | N/A |
-| BM-103 | Edit name and web address | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| BM-104 | Edit from the right-click menu | Medium | web | Samsung |  | ✅ Pass | N/A |
-| BM-105 | Delete from the right-click menu and undo | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| BM-106 | Select all and delete | Medium | web | Samsung |  | ✅ Pass | N/A |
-| BM-107 | Open a bookmark from the manager | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| BM-108 | Bookmarks are kept after restarting the browser | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| BM-109 | Add a bookmark into a sub folder | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| BM-110 | Sort by name | Medium | web | Samsung |  | ✅ Pass | N/A |
-| BM-111 | Delete a folder with its bookmarks and undo | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web | Samsung |  | ✅ Pass | N/A |
-| BM-113 | Export bookmarks to an HTML file | Medium | native | Samsung |  | ✅ Pass | N/A |
-| BM-114 | "Import bookmarks" opens the import settings | Low | web | Samsung |  | ✅ Pass | N/A |
+**Precondition:** "SB Sample Addon" installed
+
+**Steps:**
+
+1. Click the toolbar "Add-ons" (puzzle) button
+2. Click "Pin" next to "SB Sample Addon"
+3. Open the menu again, click "Unpin"
+
+**Expected:**
+
+- The menu lists the add-on with Pin and "More options"
+- After Pin the add-on icon is in the toolbar; after Unpin it is gone
+
+**Nguồn:** `testcases/addons/toolbar.md`  
+**Script:** `tests/features/addons/test_addons_toolbar.py::test_pin_from_addons_menu`
+
+</details>
+
+<details><summary><b>ADD-112</b> Open the add-on popup from its toolbar icon</summary>
+
+**Precondition:** "SB Sample Addon" installed and pinned
+
+**Steps:**
+
+1. Click the add-on icon in the toolbar
+2. Click the "Clicked 0" button in the popup
+
+**Expected:**
+
+- The popup opens with "SB Sample Addon" and "Clicked 0"
+- The button turns into "Clicked 1" (the popup's script runs)
+
+**Nguồn:** `testcases/addons/toolbar.md`  
+**Script:** `tests/features/addons/test_addons_toolbar.py::test_popup_from_toolbar_icon`
+
+</details>
+
+<details><summary><b>ADD-113</b> Add-on "More options" menu opens the options page</summary>
+
+**Precondition:** "SB Sample Addon" installed
+
+**Steps:**
+
+1. Toolbar "Add-ons" > "More options" of the add-on
+2. Click "Options"
+
+**Expected:**
+
+- The menu offers Options, Remove from Samsung Browser, Manage add-on
+- A tab "SB options" opens with "SB Sample Addon options"
+
+**Nguồn:** `testcases/addons/toolbar.md`  
+**Script:** `tests/features/addons/test_addons_toolbar.py::test_more_options_opens_options_page`
+
+</details>
+
+## Bookmarks (BM) - 23 case
+
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| BM-001 | Add a bookmark from the bookmark manager | High | web | Cả hai | ✔ | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-002 | Add a folder | High | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-003 | Edit a bookmark | High | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-004 | Delete a bookmark and undo | High | web | Cả hai | ✔ | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-005 | Search bookmarks | Medium | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-006 | Open a sub folder | Medium | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
+| BM-010 | Bookmark the current page with Ctrl+D | High | native | Chrome |  | bookmark_manager.md | N/A | ✅ Pass |
+| BM-101 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
+| BM-102 | Remove a bookmark with the star | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
+| BM-103 | Edit name and web address | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| BM-104 | Edit from the right-click menu | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-105 | Delete from the right-click menu and undo | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| BM-106 | Select all and delete | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-107 | Open a bookmark from the manager | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| BM-108 | Bookmarks are kept after restarting the browser | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| BM-109 | Add a bookmark into a sub folder | High | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| BM-110 | Sort by name | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-111 | Delete a folder with its bookmarks and undo | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-113 | Export bookmarks to an HTML file | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-114 | "Import bookmarks" opens the import settings | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| BM-115 | Browse the Bookmarks panel and open a bookmark | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
+| BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
 
 <details><summary><b>BM-001</b> Add a bookmark from the bookmark manager</summary>
 
@@ -515,7 +551,7 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
-<details><summary><b>BM-101</b> Bookmark the current page with Ctrl+D</summary>
+<details><summary><b>BM-101</b> Bookmark the page with Ctrl+D and rename it from the toast</summary>
 
 **Precondition:** Clean profile; local page "Static page 1"
 
@@ -523,16 +559,17 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 1. Open "Static page 1"
 2. Press Ctrl+D
-3. Open the bookmark manager
+3. Click "Edit" on the toast, change the name, Save
+4. Open the bookmark manager
 
 **Expected:**
 
-- A "Page bookmarked." toast with an "Edit" button is shown
-- The star in the address bar turns into "Remove from Bookmarks"
-- "Static page 1" is listed in Bookmark bar
+- Step 2: toast "Page bookmarked." with an "Edit" button; the star turns into "Remove from Bookmarks"
+- Step 3: the edit bubble shows "Bookmark name" and "Bookmark URL" (address shown without http://)
+- Step 4: the bookmark is listed with the new name only
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_ctrl_d_bookmarks_current_page`
+**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_ctrl_d_toast_and_rename`
 
 </details>
 
@@ -550,8 +587,8 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 - The star is no longer shown as bookmarked
 - "Static page 1" is not listed
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_star_removes_bookmark`
+**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_star_removes_bookmark`
 
 </details>
 
@@ -775,26 +812,64 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 </details>
 
+<details><summary><b>BM-115</b> Browse the Bookmarks panel and open a bookmark</summary>
+
+**Precondition:** Bookmark bar contains Static page 1, Static page 2 and folder Work
+
+**Steps:**
+
+1. Click the toolbar "Bookmarks" button
+2. Open "Bookmark bar" in the panel
+3. Click "Static page 1"
+
+**Expected:**
+
+- The panel shows the tree "PC bookmarks" > "Bookmark bar" with Add bookmark, Create folder, Expand buttons
+- "Bookmark bar" lists Static page 1, Static page 2 and Work
+- "Static page 1" opens
+
+**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_panel_browse_and_open`
+
+</details>
+
+<details><summary><b>BM-116</b> Add the current page from the panel, open the manager with Expand</summary>
+
+**Steps:**
+
+1. Open a page, toolbar "Bookmarks" > "Add bookmark"
+2. Open the panel again, click "Expand"
+
+**Expected:**
+
+- Step 1: the page is bookmarked (star filled)
+- Step 2: the bookmark manager opens in a tab and finds the page
+
+**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_panel_add_page_and_expand`
+
+</details>
+
 ## Downloads (DL) - 16 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| DL-001 | Download a file | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| DL-002 | Remove an entry from the list | High | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-003 | Clear all | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-004 | Pause and resume | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-010 | Ask where to save -> Save As dialog | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-101 | Finished download shows name, size and source | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| DL-102 | Category filter | Medium | web | Samsung |  | ✅ Pass | N/A |
-| DL-103 | Search downloads | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-104 | Cancel a download in progress | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| DL-105 | Open Downloads with Ctrl+J | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-106 | "Show in folder" opens File Explorer on the file | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| DL-107 | Remove an entry and undo | Medium | web | Samsung |  | ✅ Pass | N/A |
-| DL-108 | Same file downloaded twice gets a new name | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| DL-109 | "Copy link" copies the download address | Low | native | Samsung |  | ✅ Pass | N/A |
-| DL-110 | Toolbar Downloads bubble lists the finished file | Medium | native | Samsung |  | ✅ Pass | N/A |
-| DL-111 | Link with a download attribute saves under that name | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| DL-001 | Download a file | High | web | Cả hai | ✔ | downloads.md | ✅ Pass | ✅ Pass |
+| DL-002 | Remove an entry from the list | High | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
+| DL-003 | Clear all | Medium | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
+| DL-004 | Pause and resume | Medium | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
+| DL-010 | Ask where to save -> Save As dialog | Medium | native | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
+| DL-101 | Finished download shows name, size and source | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| DL-102 | Category filter | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| DL-103 | Search downloads | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| DL-104 | Cancel a download in progress | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| DL-105 | Open Downloads with Ctrl+J | Medium | native | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| DL-106 | "Show in folder" opens File Explorer on the file | Medium | native | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| DL-107 | Remove an entry and undo | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| DL-108 | Same file downloaded twice gets a new name | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| DL-109 | "Copy link" copies the download address | Low | native | Samsung |  | sanity.md | ✅ Pass | N/A |
+| DL-110 | Toolbar Downloads bubble lists the finished file | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
+| DL-111 | Link with a download attribute saves under that name | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
 
 <details><summary><b>DL-001</b> Download a file</summary>
 
@@ -1055,23 +1130,23 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 ## History (HIS) - 15 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| HIS-001 | Visited pages are listed newest first | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| HIS-002 | Search history | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| HIS-003 | Delete selected entries | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| HIS-004 | Remove one entry from its menu | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| HIS-005 | Open a page from history | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| HIS-010 | Open History with Ctrl+H | Medium | native | Cả hai |  | ✅ Pass | ✅ Pass |
-| HIS-101 | Entries show title, domain and time under a day header | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| HIS-102 | Clear history | High | web | Samsung | ✔ | ✅ Pass | N/A |
-| HIS-103 | Time filter | Medium | web | Samsung |  | ✅ Pass | N/A |
-| HIS-104 | Delete a whole day | Medium | web | Samsung |  | ✅ Pass | N/A |
-| HIS-105 | History is kept after restarting the browser | High | web | Cả hai | ✔ | ✅ Pass | ✅ Pass |
-| HIS-106 | "Clear browsing data" link | Low | web | Samsung |  | ✅ Pass | N/A |
-| HIS-107 | Search with no match | Low | web | Cả hai |  | ✅ Pass | ✅ Pass |
-| HIS-108 | Cancel a selection | Low | web | Samsung |  | ✅ Pass | N/A |
-| HIS-109 | Visiting a page again moves it to the top | Medium | web | Cả hai |  | ✅ Pass | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| HIS-001 | Visited pages are listed newest first | High | web | Cả hai | ✔ | history.md | ✅ Pass | ✅ Pass |
+| HIS-002 | Search history | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
+| HIS-003 | Delete selected entries | High | web | Cả hai | ✔ | history.md | ✅ Pass | ✅ Pass |
+| HIS-004 | Remove one entry from its menu | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
+| HIS-005 | Open a page from history | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
+| HIS-010 | Open History with Ctrl+H | Medium | native | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
+| HIS-101 | Entries show title, domain and time under a day header | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| HIS-102 | Clear history | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
+| HIS-103 | Time filter | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| HIS-104 | Delete a whole day | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| HIS-105 | History is kept after restarting the browser | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
+| HIS-106 | "Clear browsing data" link | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| HIS-107 | Search with no match | Low | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| HIS-108 | Cancel a selection | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
+| HIS-109 | Visiting a page again moves it to the top | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
 
 <details><summary><b>HIS-001</b> Visited pages are listed newest first</summary>
 
@@ -1324,12 +1399,12 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 ## Settings (SET) - 4 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| SET-001 | Toggle "Ask where to save each file" | High | web | Cả hai | ✔ | ❌ Fail (page object chưa viết lại) | ✅ Pass |
-| SET-002 | Search settings | Medium | web | Cả hai |  | ⏳ Chưa kiểm chứng | ✅ Pass |
-| SET-003 | Setting persists after restart | High | web | Cả hai |  | ⏳ Chưa kiểm chứng | ✅ Pass |
-| SET-004 | On startup: open a specific page | Medium | web | Cả hai |  | ⏳ Chưa kiểm chứng | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| SET-001 | Toggle "Ask where to save each file" | High | web | Cả hai | ✔ | settings.md | ❌ Fail | ✅ Pass |
+| SET-002 | Search settings | Medium | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
+| SET-003 | Setting persists after restart | High | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
+| SET-004 | On startup: open a specific page | Medium | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
 
 <details><summary><b>SET-001</b> Toggle "Ask where to save each file"</summary>
 
@@ -1395,11 +1470,11 @@ python run.py --target chrome --feature bookmarks            & rem trên Chrome
 
 ## General (GEN) - 3 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | Samsung | Chrome |
-|---|---|---|---|---|:-:|---|---|
-| GEN-001 | Back and forward navigation | High | web | Cả hai | ✔ | ⏳ Chưa kiểm chứng | ✅ Pass |
-| GEN-002 | Link with target=_blank opens a new tab | Medium | web | Cả hai |  | ⏳ Chưa kiểm chứng | ✅ Pass |
-| GEN-010 | Type a URL in the address bar | High | native | Cả hai |  | ⏳ Chưa kiểm chứng | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
+|---|---|---|---|---|---|---|---|---|
+| GEN-001 | Back and forward navigation | High | web | Cả hai | ✔ | general.md | ✅ Pass | ✅ Pass |
+| GEN-002 | Link with target=_blank opens a new tab | Medium | web | Cả hai |  | general.md | ⏳ Chưa chạy | ✅ Pass |
+| GEN-010 | Type a URL in the address bar | High | native | Cả hai |  | general.md | ⏳ Chưa chạy | ✅ Pass |
 
 <details><summary><b>GEN-001</b> Back and forward navigation</summary>
 

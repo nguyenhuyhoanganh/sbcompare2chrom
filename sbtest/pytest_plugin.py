@@ -82,6 +82,10 @@ def pytest_configure(config):
     config._sb_cfg = cfg
     config._sb_run_dir = run_dir
     config._sb_results = Results(run_dir)
+    selection = [f"{opt}={config.getoption(opt)}" for opt in ("--feature", "--case") if config.getoption(opt)]
+    if config.getoption("-m"):
+        selection.append(f"-m {config.getoption('-m')}")
+    config._sb_results.meta["selection"] = " ".join(selection) or "all"
 
 
 def feature_of(item) -> str | None:
@@ -191,6 +195,10 @@ def _build_session(cfg, site, request) -> BrowserSession:
             bm = load_data(name or "bookmarks", site)[key]
         session.profile.bookmarks(format_data(bm, {"site": site.base}))
     session.start()
+    if session.native is not None:
+        # first-run bubbles (Samsung "has been updated") would cover the page and toolbar in
+        # every test and in the report screenshots: close them once, right after start
+        session.native.dismiss_startup_bubbles()
     request.config._sb_results.note_browser(session)
     return session
 
@@ -239,7 +247,6 @@ def web(session):
 def native(session):
     if session.native is None:
         pytest.skip(SKIP_NATIVE)
-    session.native.dismiss_startup_bubbles()
     return session.native
 
 
@@ -285,6 +292,9 @@ def pytest_runtest_makereport(item, call):
             res["failed_step"], res["expected"] = failed[-1]["title"], failed[-1]["expected"]
     if rep.when == "call" and rep.passed:  # also clears a failure from an earlier rerun
         res.update(outcome="passed", message="", failed_step="", expected="", evidence_dir="", evidence=[])
+        if item.config._sb_cfg.get("report.result_screenshot", True):
+            res["screenshot"] = evidence.result_screenshot(getattr(item, "_sb_session", None), item.config._sb_cfg,
+                                                           item.config._sb_run_dir, item.nodeid)
     if rep.skipped:
         res["outcome"] = "skipped"
         res["message"] = str(rep.longrepr[-1]) if isinstance(rep.longrepr, tuple) else str(rep.longrepr or "")
@@ -300,6 +310,8 @@ def pytest_runtest_makereport(item, call):
                 out, saved = evidence.collect_failure(getattr(item, "_sb_session", None), item.config._sb_cfg,
                                                       item.config._sb_run_dir, res)
                 res["evidence_dir"], res["evidence"] = str(out), saved
+                shot = next((out / n for n in ("screen.png", "page.png") if (out / n).exists()), None)
+                res["screenshot"] = str(shot) if shot else ""
                 rep.sections.append(("sbtest evidence", f"{out}\n" + ", ".join(saved)))
                 evidence.attach_to_html_report(rep, [out / "page.png", out / "screen.png"])
             except Exception as e:  # noqa: BLE001 - never let evidence break the run
@@ -312,8 +324,14 @@ def pytest_sessionfinish(session, exitstatus):
     path = config._sb_results.write(config._sb_cfg, int(exitstatus))
     if path and os.environ.get("SB_NO_EXPORT") != "1":
         try:
+            from sbtest.reporting.report import generate
+
+            log.info("sanity report: %s", generate(path.parent))
+        except Exception as e:  # noqa: BLE001 - the run result matters more than the report
+            log.warning("report generation failed: %s", e)
+        try:
             from sbtest.reporting.confluence_export import export
 
             export(path.parent)
-        except Exception as e:  # noqa: BLE001 - the run result matters more than the export
+        except Exception as e:  # noqa: BLE001
             log.warning("confluence export failed: %s", e)

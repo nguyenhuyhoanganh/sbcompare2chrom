@@ -9,3 +9,4 @@ drivers/*
 venv/
 *.log
 browsers/
+tests/_scratch/

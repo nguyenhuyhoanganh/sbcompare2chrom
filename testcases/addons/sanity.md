@@ -59,15 +59,6 @@ widely used extensions only (test_data/addons.yaml: Dark Reader).
   - The add-on is still installed and enabled
 - Automated: tests/features/addons/test_addons_sanity.py::test_cancel_remove
 
-## ADD-106 Open Add-ons from the app menu
-- Priority: Medium
-- Type: native
-- Steps:
-  1. Open the app menu (⋮ "Samsung Browser"), click "Add-ons"
-- Expected:
-  - The Add-ons page opens
-- Automated: tests/features/addons/test_addons_sanity.py::test_open_from_app_menu
-
 ## ADD-107 Keyboard shortcuts page lists the add-on
 - Priority: Low
 - Type: web

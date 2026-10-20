@@ -29,6 +29,9 @@ home_button:
   class_name: HomeButton
 bookmark_star:
   class_name: StarView
+bookmark_star_filled:        # the page is bookmarked; clicking removes the bookmark
+  class_name: StarView
+  title: Remove from Bookmarks
 bookmarks_button:            # toolbar star-list button -> bookmarks panel
   class_name: BookmarksButton
 app_menu_button:
@@ -37,9 +40,8 @@ tab_search_button:
   class_name: TabsToolbarButton
 side_bar:
   class_name: MobileSideBar
-extensions_button:
-  control_type: Button
-  title_re: "(?i)^extensions$|^add-ons$"
+extensions_button:           # puzzle icon "Add-ons" -> add-ons menu (pin / more options)
+  class_name: ExtensionsToolbarButton
 downloads_button:
   control_type: Button
   title_re: "(?i)^downloads?$"
@@ -47,6 +49,45 @@ tab_strip:
   control_type: Tab
 new_tab_button:
   class_name: NewTabButton
+# Bookmarks panel (toolbar "Bookmarks" button): header buttons + folder tree
+bookmarks_panel_add_page:    # adds the current page
+  control_type: Button
+  title: Add bookmark
+bookmarks_panel_create_folder:
+  auto_id: createFolderButton
+bookmarks_panel_expand:      # opens the bookmark manager
+  auto_id: expandButton
+bookmarks_panel_folder:      # params: name
+  control_type: Button
+  auto_id: folder
+  title: "{name}"
+bookmarks_panel_item:        # a bookmark row; params: name
+  control_type: TreeItem
+  title: "{name}"
+# Edit bubble (toast "Edit" after Ctrl+D)
+bookmark_edit_name:
+  control_type: Edit
+  title: Bookmark name
+bookmark_edit_url:
+  control_type: Edit
+  title: Bookmark URL
+bookmark_edit_save:
+  control_type: Button
+  class_name: OneUITextButton
+  title: Save
+# Add-ons toolbar menu (puzzle "Add-ons" button) and pinned add-on icons; params: name
+addons_menu_pin:
+  control_type: Button
+  title: "Pin {name}"
+addons_menu_unpin:
+  control_type: Button
+  title: "Unpin {name}"
+addons_menu_more:
+  control_type: Button
+  title: "More options for {name}"
+extension_action:            # pinned add-on icon: "<name>\nHas access to this site"
+  class_name: ToolbarActionView
+  title_re: "^{name}"
 download_bubble_item:        # row of the toolbar Downloads bubble: "<name> <size> • Done"
   class_name: DownloadBubbleTransparentButton
 bookmarks_bar:
@@ -55,7 +96,7 @@ bookmarks_bar:
 
 # Dialog / bubble names (title_re of the dialog container, or of a text inside it)
 dialogs:
-  bookmark_added: "(?i)page bookmarked"
+  bookmark_added: "(?i)page bookmarked|bookmark added to"   # toast: "Page bookmarked." / "Bookmark added to <folder>" [Edit]
   add_extension: "(?i)add .*\\?"
   remove_extension: "(?i)(delete|remove) .*\\?"   # Samsung: "Delete <name>?" [Remove] [Cancel]
   file_save: "(?i)save as"

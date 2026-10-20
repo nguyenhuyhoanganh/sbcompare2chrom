@@ -36,6 +36,20 @@ def step_screenshot(session, run_dir: Path, nodeid: str, rec: dict, n: int) -> N
         rec["screen"] = str(screen_grab(out / f"{name}_screen.png"))
 
 
+def result_screenshot(session, cfg, run_dir: Path, nodeid: str) -> str:
+    """Picture of how a test ENDED (pass or fail), for the per-build report: the whole screen
+    on Windows (native bubbles included), else the tab. Returns the path or ""."""
+    out = run_dir / "results" / f"{slug(nodeid, 150)}.png"
+    try:
+        if can_grab_screen(cfg):
+            return str(screen_grab(out))
+        if session is not None and session.driver is not None and not session.web.has_alert():
+            return str(session.web.screenshot(out))
+    except Exception as e:  # noqa: BLE001 - a missing picture must not fail the test
+        log.warning("result screenshot failed: %s", e)
+    return ""
+
+
 def collect_failure(session, cfg, run_dir: Path, res: dict) -> tuple[Path, list[str]]:
     """Write everything that helps explain a failure; returns (folder, saved file names)."""
     out = run_dir / "failures" / slug(res["nodeid"], 150)

@@ -130,26 +130,35 @@ class NativeBrowser:
         keyboard.send_keys(_escape_keys(text), with_spaces=True, pause=0.02)
 
     # -- elements by logical name ----------------------------------------------
-    def criteria(self, name_or_criteria) -> dict:
+    def criteria(self, name_or_criteria, **params) -> dict:
+        """UIA criteria of a logical name. Map values may hold ``{name}``-style placeholders,
+        filled from ``params`` (regex values get them escaped): ``criteria("addons_menu_pin", name="X")``."""
         if isinstance(name_or_criteria, dict):
-            return dict(name_or_criteria)
-        if name_or_criteria not in self.ui_map:
+            crit = dict(name_or_criteria)
+        elif name_or_criteria not in self.ui_map:
             raise KeyError(f"{name_or_criteria!r} not in {self.cfg.get('native.ui_map')}")
-        return dict(self.ui_map[name_or_criteria])
+        else:
+            crit = dict(self.ui_map[name_or_criteria])
+        if params:
+            for k, v in crit.items():
+                if isinstance(v, str) and "{" in v:
+                    vals = {p: re.escape(str(x)) if k == "title_re" else x for p, x in params.items()}
+                    crit[k] = v.format(**vals)
+        return crit
 
-    def element(self, name_or_criteria, timeout: float | None = None, in_main: bool = True):
+    def element(self, name_or_criteria, timeout: float | None = None, in_main: bool = True, **params):
         """Element of the browser UI by logical name (config/native_ui/<target>.yaml) or criteria dict."""
-        crit = self.criteria(name_or_criteria)
+        crit = self.criteria(name_or_criteria, **params)
         roots = (lambda: [self.main_window()]) if in_main else self.windows
         return uia.find_in(roots, self.timeout if timeout is None else timeout, **crit)
 
-    def exists(self, name_or_criteria, in_main: bool = True) -> bool:
-        crit = self.criteria(name_or_criteria)
+    def exists(self, name_or_criteria, in_main: bool = True, **params) -> bool:
+        crit = self.criteria(name_or_criteria, **params)
         roots = [self.main_window()] if in_main else self.windows()
         return uia.find_in(roots, 0, **crit) is not None
 
-    def click(self, name_or_criteria, real_mouse: bool = True, timeout: float | None = None) -> None:
-        el = self.element(name_or_criteria, timeout)
+    def click(self, name_or_criteria, real_mouse: bool = True, timeout: float | None = None, **params) -> None:
+        el = self.element(name_or_criteria, timeout, **params)
         if real_mouse:
             el.click_input()
         else:

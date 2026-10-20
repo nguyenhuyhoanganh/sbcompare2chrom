@@ -63,6 +63,7 @@ version`), hãy build `chromedriver` từ source fork rồi khai báo `browser.c
 
 ```bat
 python run.py --all                               & rem Samsung, toàn bộ tests\features
+python run.py --feature addons                    & rem chỉ một phần: addons | bookmarks | downloads | history ...
 python run.py --feature addons,bookmarks
 python run.py --case ADD-001,DL-004
 python run.py --sanity --reruns 1
@@ -75,14 +76,19 @@ Kết quả nằm ở `artifacts\runs\<thời gian>\`:
 
 | | |
 |---|---|
-| `report.html` | report HTML, có nhúng ảnh lỗi |
+| `report\index.html` | **báo cáo sanity của bản build**: kết luận BUILD PASSED / FAILED, thông tin build (phiên bản Samsung, Chromium, máy, thời gian, phần được chạy), mỗi case một dòng: ID, tên + mô tả, các bước, kết quả mong đợi, kết quả (bước fail + lỗi nếu fail), ảnh chụp lúc kết thúc. Nén cả thư mục `report\` để gửi |
+| `report\report.md` | cùng báo cáo dạng Markdown |
+| `confluence\` | cùng báo cáo dạng trang Confluence (`page.storage.html` + `attachments\`), agent dùng skill Confluence để tạo trang và upload |
+| `report.html` | report gốc của pytest |
 | `failures\<test>\failure.txt` | case, bước fail, kết quả mong đợi, lỗi, phần tử đang thao tác |
 | `failures\<test>\page.png` | ảnh tab, **phần tử lỗi được khoanh đỏ** |
 | `failures\<test>\screen.png` | **toàn màn hình Windows**, thấy được cả dialog native |
 | `failures\<test>\dom.txt`, `uia.txt` | cây DOM và cây UI native lúc fail |
 | `steps\<test>\` | ảnh từng bước (khi chạy với `--screenshot-steps`) |
 | `results.json`, `junit.xml` | kết quả dạng máy đọc |
-| `confluence\` | trang report đã soạn sẵn (`page.storage.html`/`page.md` + `attachments\`), dùng skill Confluence để tạo trang và upload |
+
+Sinh lại báo cáo của một lần chạy (ví dụ sau khi sửa mô tả case): `python -m sbtest.tools.report [thư mục run] --open`.
+Bảng tổng hợp mọi case kèm kết quả gần nhất: `python -m sbtest.tools.case_overview` -> `testcases\TESTCASES.md`.
 
 Test native cần desktop Windows đang mở và không bị khoá. Đừng chạy qua RDP đang thu nhỏ.
 
@@ -92,21 +98,26 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
   - `sbtest-intake` đọc link qua skill Confluence và chuẩn hoá thành `testcases\addons\*.md`.
   - `sbtest-author` tự mở browser, khám phá UI, sửa page object Samsung, viết test vào
     `tests\features\addons\` rồi chạy cho tới khi pass ổn định.
+- *"Viết test: mở add-on X từ toolbar, popup phải hiện thông tin Y"*: `sbtest-explore` khám phá UI
+  thật (ảnh + dump), tra bảng action (`.claude\skills\sbtest-explore\references\action-catalog.md`),
+  viết case + script, chạy tới khi ổn định.
 - *"Chạy sanity cho bản build mới và đẩy report lên Confluence"*: `sbtest-run` chạy test,
   phân loại lỗi rồi tạo trang Confluence từ thư mục `confluence\`.
 
 ## Ghi chú
 
 - Đã chạy thật trên Windows 11 (arm64) với **Samsung Browser 31.0.0.55 (Chromium 148)** bản
-  public (browser.samsung.com): add-ons, bookmarks, downloads, history pass hết (49 pass,
-  2 skip vì chỉ áp dụng cho Chrome). Page object Samsung của 4 trang này đã kiểm chứng; trang
-  Settings của Samsung chưa.
+  public (browser.samsung.com). 81 case; 4 phần add-ons, bookmarks, downloads, history đã kiểm
+  chứng trên Samsung, Settings/General chưa. Bảng đầy đủ: `testcases\TESTCASES.md`.
 - Chrome for Testing 141 trên Windows: test feature + toàn bộ bộ tham chiếu (web, files, native) pass.
-- Bộ sanity cho Samsung: `testcases\<feature>\sanity.md` (ID dạng BM-1xx, HIS-1xx, DL-1xx,
-  ADD-1xx) và `tests\features\<feature>\test_<feature>_sanity.py`.
+- Case chia theo feature và theo khu vực: `testcases\<feature>\<khu vực>.md` (trang quản lý,
+  `sanity.md`, `toolbar.md` cho icon/popup trên toolbar), test tương ứng
+  `tests\features\<feature>\test_<feature>_<khu vực>.py` - chạy riêng một phần bằng `--feature`.
+- Test native điều khiển chuột/bàn phím thật: đừng dùng máy trong lúc chạy (một cửa sổ khác nhảy
+  lên trước sẽ nhận phím gõ và làm fail các bước dialog).
 - Khác biệt Samsung cần biết (chi tiết trong `.claude\skills\sbtest-author\references\feature-notes.md`):
   - WebDriver phải mở `chrome://...`, thanh địa chỉ hiển thị `internet://...`.
   - chromedriver không tự khởi chạy được Samsung, nên target samsung dùng `browser.mode: attach`.
-  - Profile mới hiện bubble "Samsung Browser has been updated." và fixture `native` tự đóng nó.
+  - Profile mới hiện bubble "Samsung Browser has been updated."; framework tự đóng nó ngay khi mở browser.
 - Luồng chỉ một bên có (vd. Ctrl+D trên Samsung hiện toast thay vì bubble như Chrome): đánh dấu
   `@pytest.mark.targets("samsung")` hoặc `("chrome")`.

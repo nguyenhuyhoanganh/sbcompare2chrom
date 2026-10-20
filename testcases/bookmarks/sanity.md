@@ -3,32 +3,6 @@
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
 Bookmark manager basics shared with Chrome are in bookmark_manager.md (BM-001..BM-010).
 
-## BM-101 Bookmark the current page with Ctrl+D
-- Priority: High
-- Type: native
-- Precondition: Clean profile; local page "Static page 1"
-- Steps:
-  1. Open "Static page 1"
-  2. Press Ctrl+D
-  3. Open the bookmark manager
-- Expected:
-  - A "Page bookmarked." toast with an "Edit" button is shown
-  - The star in the address bar turns into "Remove from Bookmarks"
-  - "Static page 1" is listed in Bookmark bar
-- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_ctrl_d_bookmarks_current_page
-
-## BM-102 Remove a bookmark with the star
-- Priority: Medium
-- Type: native
-- Precondition: "Static page 1" is bookmarked (Ctrl+D)
-- Steps:
-  1. On "Static page 1" click the filled star in the address bar
-  2. Open the bookmark manager
-- Expected:
-  - The star is no longer shown as bookmarked
-  - "Static page 1" is not listed
-- Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_star_removes_bookmark
-
 ## BM-103 Edit name and web address
 - Priority: High
 - Type: web

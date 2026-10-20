@@ -44,6 +44,12 @@ Upstream bullets: Chromium 141 WebUI. **Samsung** bullets: Samsung Browser 31.0.
   "Create folder" adds "Folder N" in the selected folder, opens it and edits its name in the tree
   (`add_folder(name)` types over it). Delete is immediate: snack bar "1 bookmark deleted" + Undo.
   Clicking a bookmark opens it in a NEW TAB.
+- **Samsung** toolbar "Bookmarks" button -> panel: header buttons Add bookmark (adds the current
+  page), Create folder, Expand (opens the manager); tree "PC bookmarks" > "Bookmark bar" (folders
+  are Buttons `auto_id=folder`, bookmarks are TreeItems). Ui-map keys `bookmarks_panel_*`.
+- **Samsung** toast "Edit" -> edit bubble: Edits "Bookmark name" / "Bookmark URL" (URL shown
+  without `http://`), "Create folder in selected folder", Save / Cancel. Toast text is "Page
+  bookmarked." or "Bookmark added to <folder>" (page already bookmarked elsewhere).
 - **Samsung** Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`),
   star becomes `StarView` "Remove from Bookmarks"; clicking it removes the bookmark. The toast
   can cover the star: `native.click("bookmark_star", real_mouse=False)`.
@@ -99,6 +105,13 @@ Upstream bullets: Chromium 141 WebUI. **Samsung** bullets: Samsung Browser 31.0.
   Install prompt (store and .crx drop) -> 'Add "<name>"?' [Add] [Not now]; the store also shows
   Google's "Switch to Chrome?" bubble (ignore it). App menu has "Add-ons".
 - Store installs: free, popular extensions only (Dark Reader in `test_data/addons.yaml`).
+- **Samsung** toolbar "Add-ons" (puzzle, `ExtensionsToolbarButton`) -> menu: each add-on with
+  "Pin <name>" / "Unpin <name>" and "More options for <name>" (menu: Options, Remove from Samsung
+  Browser, Manage add-on, View web permissions). Pinned icon = `ToolbarActionView` named
+  "<name>\nHas access to this site"; its popup is a Document readable through UIA.
+- "Options" opens the add-on's options page in a BACKGROUND tab: WebDriver cannot read that
+  chrome-extension:// tab (renderer timeout) - check `native.tab_titles()`, bring it to front by
+  clicking its TabItem and read it with `native.wait_text(...)`.
 
 - Load with `browser(extensions=["sample_addon"])` (unpacked). `info()` returns state from
   `chrome.developerPrivate` (`ENABLED`/`DISABLED`).

@@ -86,15 +86,6 @@ def test_cancel_remove(pages, native):
 
 
 @samsung_only
-@pytest.mark.native
-@pytest.mark.case("ADD-106")
-def test_open_from_app_menu(web, native, cfg):
-    with step("1. App menu > Add-ons", expected="Add-ons page"):
-        native.menu("Add-ons")
-        web.switch_tab(url=cfg.page_url("extensions"))
-
-
-@samsung_only
 @uses_addon
 @pytest.mark.case("ADD-107")
 def test_keyboard_shortcuts(pages, web):

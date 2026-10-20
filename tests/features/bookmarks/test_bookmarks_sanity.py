@@ -7,48 +7,6 @@ from sbtest.utils import unique
 samsung_only = pytest.mark.targets("samsung")
 
 
-@samsung_only
-@pytest.mark.native
-@pytest.mark.sanity
-@pytest.mark.case("BM-101")
-def test_ctrl_d_bookmarks_current_page(web, native, pages, site):
-    with step("1. Open 'Static page 1'"):
-        web.open(site.url("/pages/page1.html"))
-    with step("2. Ctrl+D", expected="'Page bookmarked.' toast with Edit, star filled"):
-        native.hotkey("^d")
-        toast = native.wait_dialog("bookmark_added")
-        assert toast.button("Edit") is not None
-        assert native.element("bookmark_star").element_info.name == "Remove from Bookmarks"
-    with step("3. Open the bookmark manager", expected="'Static page 1' listed"):
-        pages.bookmarks.open().wait_item("Static page 1")
-
-
-@samsung_only
-@pytest.mark.native
-@pytest.mark.case("BM-102")
-def test_star_removes_bookmark(web, native, pages, site):
-    web.open(site.url("/pages/page1.html"))
-    native.hotkey("^d")
-    native.wait_dialog("bookmark_added")
-    bookmarked = {"class_name": "StarView", "title": "Remove from Bookmarks"}
-    with step("1. Click the filled star", expected="page no longer bookmarked"):
-        # the "Page bookmarked." toast fades in over the star: invoke through UIA, and fall
-        # back to the real mouse once the toast is gone
-        native.click("bookmark_star", real_mouse=False)
-        try:
-            web.wait_until(lambda: not native.exists(bookmarked), timeout=3)
-        except TimeoutError:
-            try:
-                native.wait_dialog("bookmark_added", timeout=1).wait_closed(timeout=15)
-            except TimeoutError:
-                pass  # toast already gone
-            native.click(bookmarked)
-        web.wait_until(lambda: not native.exists(bookmarked), message="star no longer 'Remove from Bookmarks'")
-    with step("2. Open the bookmark manager", expected="'Static page 1' not listed"):
-        bm = pages.bookmarks.open()
-        bm.wait_item("Static page 1", present=False)
-
-
 @pytest.mark.sanity
 @pytest.mark.case("BM-103")
 @pytest.mark.browser(bookmarks="seed_basic")

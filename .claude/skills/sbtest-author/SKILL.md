@@ -26,6 +26,11 @@ Chrome has no "Add-ons" menu entry...): mark the test `@pytest.mark.targets("sam
 it is skipped, with the reason, on the other target. Prefer one test for both when only the
 labels differ (put the labels in the page object / ui map).
 
+**Working method and action table:** the `sbtest-explore` skill - explore the real UI with
+`sbtest.tools.explore.Explorer`, read the screenshots, then map each step with
+`.claude/skills/sbtest-explore/references/action-catalog.md` (request -> call, every page,
+toolbar, bubble, dialog). Start there when the UI of the flow is not known yet.
+
 **Need an interaction you have not done before?** Find it in `tests/reference/README.md`
 (upload via Open dialog, Save As, folder picker, Explorer drag, prompts, print, shortcuts,
 menus, iframes, JS dialogs ...) - working examples on Chrome - and copy the pattern.

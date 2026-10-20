@@ -14,9 +14,13 @@ from `python -m sbtest.tools.get_chrome`, or any Chrome via --exe).
 Suites: features (tests/features, default for samsung), reference (tests/reference),
 all (default for chrome).
 
-Outputs in artifacts/runs/<timestamp>/: report.html, junit.xml, results.json,
-failures/<test>/ (failure.txt, page.png, screen.png, dom.txt, uia.txt ...), steps/ with
---screenshot-steps, and confluence/ ready to upload with the Confluence skill.
+Outputs in artifacts/runs/<timestamp>/:
+  report/index.html   the sanity report of the build: one row per case (ID, name, steps, expected,
+                      result, screenshot of how it ended) + verdict BUILD PASSED / FAILED
+  confluence/         the same report as a Confluence page + attachments (Confluence skill uploads it)
+  failures/<test>/    failure.txt, page.png (element outlined), screen.png, dom.txt, uia.txt
+  results.json, junit.xml, report.html (raw pytest report), steps/ with --screenshot-steps
+Rebuild the report of a run: python -m sbtest.tools.report [run_dir] [--open]
 """
 from __future__ import annotations
 
@@ -92,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
     print("pytest", " ".join(pargs))
     code = pytest.main(pargs)
     print(f"\nArtifacts: {run_dir}")
+    if (run_dir / "report" / "index.html").exists():
+        print(f"Sanity report: {run_dir / 'report' / 'index.html'}")
     if (run_dir / "confluence" / "manifest.json").exists():
         print(f"Confluence-ready report: {run_dir / 'confluence'} (upload with the Confluence skill)")
     return int(code)

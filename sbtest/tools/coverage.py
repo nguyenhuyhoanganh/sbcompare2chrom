@@ -9,34 +9,16 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import re
 from pathlib import Path
 
 from sbtest.config import ROOT
 
-CASE_HEADER = re.compile(r"^#{2,3}\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b\s*(.*)$")  # BM-001, SI-ADD-012
-
 
 def doc_cases(folder: Path = ROOT / "testcases") -> dict[str, dict]:
-    """``{id: {title, feature, file, type, priority}}`` from the markdown docs."""
-    out: dict[str, dict] = {}
-    for md in sorted(folder.rglob("*.md")):
-        if md.name.lower() == "readme.md" or "_inbox" in md.relative_to(folder).parts:
-            continue  # _inbox = raw Confluence/Jira copies, not normalized cases
-        feature = md.relative_to(folder).parts[0] if len(md.relative_to(folder).parts) > 1 else ""
-        current = None
-        for line in md.read_text(encoding="utf-8").splitlines():
-            m = CASE_HEADER.match(line.strip())
-            if m:
-                current = m.group(1)
-                out[current] = {"title": m.group(2).strip(), "feature": feature,
-                                "file": str(md.relative_to(ROOT)), "type": "", "priority": ""}
-                continue
-            if current:
-                kv = re.match(r"^\s*-\s*(Type|Priority):\s*(.+)$", line, re.I)
-                if kv:
-                    out[current][kv.group(1).lower()] = kv.group(2).strip()
-    return out
+    """``{id: {title, feature, file, type, priority, ...}}`` from the markdown docs."""
+    from sbtest.reporting.cases import load_cases
+
+    return {cid: c.to_dict() for cid, c in load_cases(folder).items()}
 
 
 def automated_cases(folder: Path = ROOT / "tests") -> dict[str, list[str]]:

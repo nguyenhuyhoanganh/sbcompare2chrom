@@ -11,6 +11,18 @@ def now() -> str:
     return dt.datetime.now().isoformat(timespec="seconds")
 
 
+def exe_version(path) -> str:
+    """Product version of a Windows exe (Samsung Browser 31.0.0.55 - the build under test)."""
+    try:
+        import win32api
+
+        info = win32api.GetFileVersionInfo(str(path), "\\")
+        ms, ls = info["ProductVersionMS"], info["ProductVersionLS"]
+        return f"{ms >> 16}.{ms & 0xFFFF}.{ls >> 16}.{ls & 0xFFFF}"
+    except Exception:  # noqa: BLE001 - not Windows / no version resource
+        return ""
+
+
 class Results:
     def __init__(self, run_dir: Path) -> None:
         self.run_dir = run_dir
@@ -22,7 +34,7 @@ class Results:
             self.tests[nodeid] = {
                 "nodeid": nodeid, "name": name, "feature": feature, "cases": cases, "native": native,
                 "outcome": "passed", "duration": 0.0, "message": "", "failed_step": "", "expected": "",
-                "steps": [], "evidence_dir": "", "evidence": [],
+                "steps": [], "evidence_dir": "", "evidence": [], "screenshot": "",
             }
         return self.tests[nodeid]
 
@@ -33,8 +45,9 @@ class Results:
         try:
             caps = session.driver.capabilities
             self.meta["browser_version"] = caps.get("browserVersion", "")
-            self.meta["chromedriver"] = (caps.get("chrome") or {}).get("chromedriverVersion", "")
+            self.meta["chromedriver"] = (caps.get("chrome") or {}).get("chromedriverVersion", "").split(" ")[0]
             self.meta["user_agent"] = session.web.js("return navigator.userAgent")
+            self.meta["product_version"] = exe_version(session.exe)
         except Exception:  # noqa: BLE001 - informative only
             pass
 
