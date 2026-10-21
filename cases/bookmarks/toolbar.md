@@ -3,7 +3,7 @@
 Bookmarking from the browser's own UI: Ctrl+D toast, star in the address bar, Bookmarks panel
 (toolbar "Bookmarks" button). All native (Windows). Verified on Samsung Browser 31.0.0.55.
 
-## BM-101 Bookmark the page with Ctrl+D and rename it from the toast
+## BM-113 Bookmark the page with Ctrl+D and rename it from the toast
 - Priority: High
 - Type: native
 - Precondition: Clean profile; local page "Static page 1"
@@ -18,7 +18,7 @@ Bookmarking from the browser's own UI: Ctrl+D toast, star in the address bar, Bo
   - Step 4: the bookmark is listed with the new name only
 - Automated: tests/features/bookmarks/test_bookmarks_toolbar.py::test_ctrl_d_toast_and_rename
 
-## BM-102 Remove a bookmark with the star
+## BM-114 Remove a bookmark with the star
 - Priority: Medium
 - Type: native
 - Precondition: "Static page 1" is bookmarked (Ctrl+D)

@@ -27,19 +27,19 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | ADD-001 | Installed add-on is listed and active | High | web | ✔ | addons.md | ✅ Pass |
 | ADD-002 | Disable an add-on | High | web |  | addons.md | ✅ Pass |
 | ADD-003 | Details page | Low | web |  | addons.md | ✅ Pass |
-| ADD-010 | Remove an add-on (native confirmation) | High | native |  | addons.md | ✅ Pass |
-| ADD-020 | Install an add-on with "Load unpacked" | High | native |  | addons.md | ✅ Pass |
-| ADD-022 | Install an add-on from Chrome Web Store | High | native |  | addons.md | ✅ Pass |
+| ADD-004 | Remove an add-on (native confirmation) | High | native |  | addons.md | ✅ Pass |
+| ADD-005 | Install an add-on with "Load unpacked" | High | native |  | addons.md | ✅ Pass |
+| ADD-006 | Install an add-on from Chrome Web Store | High | native |  | addons.md | ✅ Pass |
 | ADD-101 | Card shows name, version, description and source | High | web | ✔ | sanity.md | ✅ Pass |
 | ADD-102 | Developer mode shows the developer tools | High | web | ✔ | sanity.md | ✅ Pass |
 | ADD-103 | Search add-ons | Low | web |  | sanity.md | ✅ Pass |
 | ADD-104 | Disabled state is kept after restart | High | web | ✔ | sanity.md | ✅ Pass |
 | ADD-105 | Cancel removal keeps the add-on | Medium | native |  | sanity.md | ✅ Pass |
-| ADD-106 | Open Add-ons from the app menu | Medium | native |  | toolbar.md | ✅ Pass |
-| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web |  | sanity.md | ✅ Pass |
-| ADD-108 | Pack an add-on into a .crx | Medium | web | ✔ | sanity.md | ✅ Pass |
-| ADD-109 | Reload an unpacked add-on | Medium | web |  | sanity.md | ✅ Pass |
-| ADD-110 | "Get add-ons" opens the add-on store | Low | web |  | sanity.md | ✅ Pass |
+| ADD-106 | Keyboard shortcuts page lists the add-on | Low | web |  | sanity.md | ✅ Pass |
+| ADD-107 | Pack an add-on into a .crx | Medium | web | ✔ | sanity.md | ✅ Pass |
+| ADD-108 | Reload an unpacked add-on | Medium | web |  | sanity.md | ✅ Pass |
+| ADD-109 | "Get add-ons" opens the add-on store | Low | web |  | sanity.md | ✅ Pass |
+| ADD-110 | Open Add-ons from the app menu | Medium | native |  | toolbar.md | ✅ Pass |
 | ADD-111 | Pin and unpin an add-on from the toolbar Add-ons menu | High | native | ✔ | toolbar.md | ✅ Pass |
 | ADD-112 | Open the add-on popup from its toolbar icon | High | native | ✔ | toolbar.md | ✅ Pass |
 | ADD-113 | Add-on "More options" menu opens the options page | Medium | native |  | toolbar.md | ✅ Pass |
@@ -94,7 +94,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-010</b> Remove an add-on (native confirmation)</summary>
+<details><summary><b>ADD-004</b> Remove an add-on (native confirmation)</summary>
 
 **Steps:**
 
@@ -109,7 +109,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-020</b> Install an add-on with "Load unpacked"</summary>
+<details><summary><b>ADD-005</b> Install an add-on with "Load unpacked"</summary>
 
 **Steps:**
 
@@ -125,7 +125,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-022</b> Install an add-on from Chrome Web Store</summary>
+<details><summary><b>ADD-006</b> Install an add-on from Chrome Web Store</summary>
 
 **Precondition:** internet through the company proxy; extension id in resources/data/addons.yaml
 
@@ -232,22 +232,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-106</b> Open Add-ons from the app menu</summary>
-
-**Steps:**
-
-1. Open the app menu (⋮ "Samsung Browser"), click "Add-ons"
-
-**Expected:**
-
-- The Add-ons page opens
-
-**Nguồn:** `cases/addons/toolbar.md`  
-**Script:** `tests/features/addons/test_addons_toolbar.py::test_open_from_app_menu`
-
-</details>
-
-<details><summary><b>ADD-107</b> Keyboard shortcuts page lists the add-on</summary>
+<details><summary><b>ADD-106</b> Keyboard shortcuts page lists the add-on</summary>
 
 **Precondition:** "SB Sample Addon" installed
 
@@ -264,7 +249,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-108</b> Pack an add-on into a .crx</summary>
+<details><summary><b>ADD-107</b> Pack an add-on into a .crx</summary>
 
 **Steps:**
 
@@ -281,7 +266,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-109</b> Reload an unpacked add-on</summary>
+<details><summary><b>ADD-108</b> Reload an unpacked add-on</summary>
 
 **Precondition:** "SB Sample Addon" installed (unpacked), Developer mode on
 
@@ -299,7 +284,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>ADD-110</b> "Get add-ons" opens the add-on store</summary>
+<details><summary><b>ADD-109</b> "Get add-ons" opens the add-on store</summary>
 
 **Steps:**
 
@@ -311,6 +296,21 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_get_addons_opens_store`
+
+</details>
+
+<details><summary><b>ADD-110</b> Open Add-ons from the app menu</summary>
+
+**Steps:**
+
+1. Open the app menu (⋮ "Samsung Browser"), click "Add-ons"
+
+**Expected:**
+
+- The Add-ons page opens
+
+**Nguồn:** `cases/addons/toolbar.md`  
+**Script:** `tests/features/addons/test_addons_toolbar.py::test_open_from_app_menu`
 
 </details>
 
@@ -382,20 +382,20 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | BM-004 | Delete a bookmark and undo | High | web | ✔ | bookmark_manager.md | ✅ Pass |
 | BM-005 | Search bookmarks | Medium | web |  | bookmark_manager.md | ✅ Pass |
 | BM-006 | Open a sub folder | Medium | web |  | bookmark_manager.md | ✅ Pass |
-| BM-101 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | ✔ | toolbar.md | ✅ Pass |
-| BM-102 | Remove a bookmark with the star | Medium | native |  | toolbar.md | ✅ Pass |
-| BM-103 | Edit name and web address | High | web | ✔ | sanity.md | ✅ Pass |
-| BM-104 | Edit from the right-click menu | Medium | web |  | sanity.md | ✅ Pass |
-| BM-105 | Delete from the right-click menu and undo | High | web | ✔ | sanity.md | ✅ Pass |
-| BM-106 | Select all and delete | Medium | web |  | sanity.md | ✅ Pass |
-| BM-107 | Open a bookmark from the manager | High | web | ✔ | sanity.md | ✅ Pass |
-| BM-108 | Bookmarks are kept after restarting the browser | High | web | ✔ | sanity.md | ✅ Pass |
-| BM-109 | Add a bookmark into a sub folder | High | web |  | sanity.md | ✅ Pass |
-| BM-110 | Sort by name | Medium | web |  | sanity.md | ✅ Pass |
-| BM-111 | Delete a folder with its bookmarks and undo | High | web | ✔ | sanity.md | ✅ Pass |
-| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web |  | sanity.md | ✅ Pass |
-| BM-113 | Export bookmarks to an HTML file | Medium | native |  | sanity.md | ✅ Pass |
-| BM-114 | "Import bookmarks" opens the import settings | Low | web |  | sanity.md | ✅ Pass |
+| BM-101 | Edit name and web address | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-102 | Edit from the right-click menu | Medium | web |  | sanity.md | ✅ Pass |
+| BM-103 | Delete from the right-click menu and undo | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-104 | Select all and delete | Medium | web |  | sanity.md | ✅ Pass |
+| BM-105 | Open a bookmark from the manager | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-106 | Bookmarks are kept after restarting the browser | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-107 | Add a bookmark into a sub folder | High | web |  | sanity.md | ✅ Pass |
+| BM-108 | Sort by name | Medium | web |  | sanity.md | ✅ Pass |
+| BM-109 | Delete a folder with its bookmarks and undo | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-110 | Open all bookmarks of a folder in new tabs | Medium | web |  | sanity.md | ✅ Pass |
+| BM-111 | Export bookmarks to an HTML file | Medium | native |  | sanity.md | ✅ Pass |
+| BM-112 | "Import bookmarks" opens the import settings | Low | web |  | sanity.md | ✅ Pass |
+| BM-113 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | ✔ | toolbar.md | ✅ Pass |
+| BM-114 | Remove a bookmark with the star | Medium | native |  | toolbar.md | ✅ Pass |
 | BM-115 | Browse the Bookmarks panel and open a bookmark | High | native | ✔ | toolbar.md | ✅ Pass |
 | BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native |  | toolbar.md | ✅ Pass |
 
@@ -510,7 +510,227 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>BM-101</b> Bookmark the page with Ctrl+D and rename it from the toast</summary>
+<details><summary><b>BM-101</b> Edit name and web address</summary>
+
+**Precondition:** Bookmark bar contains "Static page 1"
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Tick "Static page 1", click Edit in the toolbar
+3. Change Name and Web address, click Save
+
+**Expected:**
+
+- The list shows the new name with the new address; the old name is gone
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_name_and_url`
+
+</details>
+
+<details><summary><b>BM-102</b> Edit from the right-click menu</summary>
+
+**Precondition:** Bookmark bar contains "Static page 2"
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Right click "Static page 2" > Edit, change the name, Save
+
+**Expected:**
+
+- The right-click menu offers Edit, Delete, Open all (1) in new tab / new window / Secret mode
+- The list shows the new name
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_from_context_menu`
+
+</details>
+
+<details><summary><b>BM-103</b> Delete from the right-click menu and undo</summary>
+
+**Precondition:** Bookmark bar contains "Static page 2"
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Right click "Static page 2" > Delete
+3. Click Undo on the snack bar
+
+**Expected:**
+
+- After step 2 the item is gone and a snack bar says "1 bookmark deleted"
+- After step 3 the item is back
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_from_context_menu_and_undo`
+
+</details>
+
+<details><summary><b>BM-104</b> Select all and delete</summary>
+
+**Precondition:** Bookmark bar contains Static page 1, Static page 2 and folder Work
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Click "Select all" in the toolbar, then "Delete all"
+
+**Expected:**
+
+- The header shows "3 selected"; the toolbar offers "Delete all" and "Deselect all"
+- The list is empty afterwards ("No bookmarks") and the snack bar reports the deletion
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_select_all_and_delete`
+
+</details>
+
+<details><summary><b>BM-105</b> Open a bookmark from the manager</summary>
+
+**Precondition:** Bookmark bar contains "Static page 1"
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Click "Static page 1"
+
+**Expected:**
+
+- "Static page 1" opens in a new tab
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_bookmark`
+
+</details>
+
+<details><summary><b>BM-106</b> Bookmarks are kept after restarting the browser</summary>
+
+**Precondition:** Clean profile
+
+**Steps:**
+
+1. Create a folder in Bookmark bar and rename a seeded bookmark
+2. Close and reopen the browser on the same profile
+3. Open the bookmark manager
+
+**Expected:**
+
+- The folder and the renamed bookmark are still listed
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_bookmarks_survive_restart`
+
+</details>
+
+<details><summary><b>BM-107</b> Add a bookmark into a sub folder</summary>
+
+**Precondition:** Bookmark bar contains folder "Work"
+
+**Steps:**
+
+1. Open the bookmark manager, select folder "Work" in the tree
+2. Right ⋮ > Add bookmark, enter Name and Web address, Save
+
+**Expected:**
+
+- The bookmark is listed in "Work" with the given address
+- It is not listed in Bookmark bar
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder`
+
+</details>
+
+<details><summary><b>BM-108</b> Sort by name</summary>
+
+**Precondition:** Bookmark bar contains Alpha, Beta, Gamma, Delta and folder "Folder X" (in that order)
+
+**Steps:**
+
+1. Open the bookmark manager
+2. Right ⋮ > Sort by name
+
+**Expected:**
+
+- The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name`
+
+</details>
+
+<details><summary><b>BM-109</b> Delete a folder with its bookmarks and undo</summary>
+
+**Precondition:** Folder "Work" contains "Form page" and "Dialogs page"
+
+**Steps:**
+
+1. Tick "Work", click Delete
+2. Click Undo on the snack bar
+
+**Expected:**
+
+- After step 1 "Work" is gone from the list and the tree
+- After step 2 "Work" is back with both bookmarks inside
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo`
+
+</details>
+
+<details><summary><b>BM-110</b> Open all bookmarks of a folder in new tabs</summary>
+
+**Precondition:** Folder "Work" contains 2 bookmarks
+
+**Steps:**
+
+1. Right click "Work" > Open all (2) in new tab
+
+**Expected:**
+
+- Two new tabs open: "Form page" and "Dialogs page"
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs`
+
+</details>
+
+<details><summary><b>BM-111</b> Export bookmarks to an HTML file</summary>
+
+**Precondition:** Bookmark bar contains Static page 1, Static page 2, Work
+
+**Steps:**
+
+1. Left ⋮ > Export bookmarks
+2. In the Windows Save As dialog (default name "bookmarks_<date>", HTML) save to a test folder
+
+**Expected:**
+
+- The HTML file is written and contains the bookmark titles and addresses
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks`
+
+</details>
+
+<details><summary><b>BM-112</b> "Import bookmarks" opens the import settings</summary>
+
+**Steps:**
+
+1. Left ⋮ > Import bookmarks
+
+**Expected:**
+
+- Settings opens in a new tab on the import page
+
+**Nguồn:** `cases/bookmarks/sanity.md`  
+**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_import_opens_settings`
+
+</details>
+
+<details><summary><b>BM-113</b> Bookmark the page with Ctrl+D and rename it from the toast</summary>
 
 **Precondition:** Clean profile; local page "Static page 1"
 
@@ -532,7 +752,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>BM-102</b> Remove a bookmark with the star</summary>
+<details><summary><b>BM-114</b> Remove a bookmark with the star</summary>
 
 **Precondition:** "Static page 1" is bookmarked (Ctrl+D)
 
@@ -548,226 +768,6 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Nguồn:** `cases/bookmarks/toolbar.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_star_removes_bookmark`
-
-</details>
-
-<details><summary><b>BM-103</b> Edit name and web address</summary>
-
-**Precondition:** Bookmark bar contains "Static page 1"
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Tick "Static page 1", click Edit in the toolbar
-3. Change Name and Web address, click Save
-
-**Expected:**
-
-- The list shows the new name with the new address; the old name is gone
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_name_and_url`
-
-</details>
-
-<details><summary><b>BM-104</b> Edit from the right-click menu</summary>
-
-**Precondition:** Bookmark bar contains "Static page 2"
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Right click "Static page 2" > Edit, change the name, Save
-
-**Expected:**
-
-- The right-click menu offers Edit, Delete, Open all (1) in new tab / new window / Secret mode
-- The list shows the new name
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_from_context_menu`
-
-</details>
-
-<details><summary><b>BM-105</b> Delete from the right-click menu and undo</summary>
-
-**Precondition:** Bookmark bar contains "Static page 2"
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Right click "Static page 2" > Delete
-3. Click Undo on the snack bar
-
-**Expected:**
-
-- After step 2 the item is gone and a snack bar says "1 bookmark deleted"
-- After step 3 the item is back
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_from_context_menu_and_undo`
-
-</details>
-
-<details><summary><b>BM-106</b> Select all and delete</summary>
-
-**Precondition:** Bookmark bar contains Static page 1, Static page 2 and folder Work
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Click "Select all" in the toolbar, then "Delete all"
-
-**Expected:**
-
-- The header shows "3 selected"; the toolbar offers "Delete all" and "Deselect all"
-- The list is empty afterwards ("No bookmarks") and the snack bar reports the deletion
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_select_all_and_delete`
-
-</details>
-
-<details><summary><b>BM-107</b> Open a bookmark from the manager</summary>
-
-**Precondition:** Bookmark bar contains "Static page 1"
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Click "Static page 1"
-
-**Expected:**
-
-- "Static page 1" opens in a new tab
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_bookmark`
-
-</details>
-
-<details><summary><b>BM-108</b> Bookmarks are kept after restarting the browser</summary>
-
-**Precondition:** Clean profile
-
-**Steps:**
-
-1. Create a folder in Bookmark bar and rename a seeded bookmark
-2. Close and reopen the browser on the same profile
-3. Open the bookmark manager
-
-**Expected:**
-
-- The folder and the renamed bookmark are still listed
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_bookmarks_survive_restart`
-
-</details>
-
-<details><summary><b>BM-109</b> Add a bookmark into a sub folder</summary>
-
-**Precondition:** Bookmark bar contains folder "Work"
-
-**Steps:**
-
-1. Open the bookmark manager, select folder "Work" in the tree
-2. Right ⋮ > Add bookmark, enter Name and Web address, Save
-
-**Expected:**
-
-- The bookmark is listed in "Work" with the given address
-- It is not listed in Bookmark bar
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder`
-
-</details>
-
-<details><summary><b>BM-110</b> Sort by name</summary>
-
-**Precondition:** Bookmark bar contains Alpha, Beta, Gamma, Delta and folder "Folder X" (in that order)
-
-**Steps:**
-
-1. Open the bookmark manager
-2. Right ⋮ > Sort by name
-
-**Expected:**
-
-- The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name`
-
-</details>
-
-<details><summary><b>BM-111</b> Delete a folder with its bookmarks and undo</summary>
-
-**Precondition:** Folder "Work" contains "Form page" and "Dialogs page"
-
-**Steps:**
-
-1. Tick "Work", click Delete
-2. Click Undo on the snack bar
-
-**Expected:**
-
-- After step 1 "Work" is gone from the list and the tree
-- After step 2 "Work" is back with both bookmarks inside
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo`
-
-</details>
-
-<details><summary><b>BM-112</b> Open all bookmarks of a folder in new tabs</summary>
-
-**Precondition:** Folder "Work" contains 2 bookmarks
-
-**Steps:**
-
-1. Right click "Work" > Open all (2) in new tab
-
-**Expected:**
-
-- Two new tabs open: "Form page" and "Dialogs page"
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs`
-
-</details>
-
-<details><summary><b>BM-113</b> Export bookmarks to an HTML file</summary>
-
-**Precondition:** Bookmark bar contains Static page 1, Static page 2, Work
-
-**Steps:**
-
-1. Left ⋮ > Export bookmarks
-2. In the Windows Save As dialog (default name "bookmarks_<date>", HTML) save to a test folder
-
-**Expected:**
-
-- The HTML file is written and contains the bookmark titles and addresses
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks`
-
-</details>
-
-<details><summary><b>BM-114</b> "Import bookmarks" opens the import settings</summary>
-
-**Steps:**
-
-1. Left ⋮ > Import bookmarks
-
-**Expected:**
-
-- Settings opens in a new tab on the import page
-
-**Nguồn:** `cases/bookmarks/sanity.md`  
-**Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_import_opens_settings`
 
 </details>
 
@@ -817,7 +817,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | DL-002 | Remove an entry from the list | High | web |  | downloads.md | ✅ Pass |
 | DL-003 | Clear all | Medium | web |  | downloads.md | ✅ Pass |
 | DL-004 | Pause and resume | Medium | web |  | downloads.md | ✅ Pass |
-| DL-010 | Ask where to save -> Save As dialog | Medium | native |  | downloads.md | ✅ Pass |
+| DL-005 | Ask where to save -> Save As dialog | Medium | native |  | downloads.md | ✅ Pass |
 | DL-101 | Finished download shows name, size and source | High | web | ✔ | sanity.md | ✅ Pass |
 | DL-102 | Category filter | Medium | web |  | sanity.md | ✅ Pass |
 | DL-103 | Search downloads | Medium | web |  | sanity.md | ✅ Pass |
@@ -894,7 +894,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>DL-010</b> Ask where to save -> Save As dialog</summary>
+<details><summary><b>DL-005</b> Ask where to save -> Save As dialog</summary>
 
 **Precondition:** Setting "Ask where to save each file" is on
 
@@ -1096,7 +1096,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | HIS-003 | Delete selected entries | High | web | ✔ | history.md | ✅ Pass |
 | HIS-004 | Remove one entry from its menu | Medium | web |  | history.md | ✅ Pass |
 | HIS-005 | Open a page from history | Medium | web |  | history.md | ✅ Pass |
-| HIS-010 | Open History with Ctrl+H | Medium | native |  | history.md | ✅ Pass |
+| HIS-006 | Open History with Ctrl+H | Medium | native |  | history.md | ✅ Pass |
 | HIS-101 | Entries show title, domain and time under a day header | High | web | ✔ | sanity.md | ✅ Pass |
 | HIS-102 | Clear history | High | web | ✔ | sanity.md | ✅ Pass |
 | HIS-103 | Time filter | Medium | web |  | sanity.md | ✅ Pass |
@@ -1186,7 +1186,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-<details><summary><b>HIS-010</b> Open History with Ctrl+H</summary>
+<details><summary><b>HIS-006</b> Open History with Ctrl+H</summary>
 
 **Steps:**
 

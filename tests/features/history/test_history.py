@@ -66,7 +66,7 @@ def test_open_from_history(web, pages, site):
 
 
 @pytest.mark.native
-@pytest.mark.case("HIS-010")
+@pytest.mark.case("HIS-006")
 def test_ctrl_h_opens_history(web, native, cfg):
     with step("1. Press Ctrl+H", expected="History opened"):
         native.hotkey("^h")

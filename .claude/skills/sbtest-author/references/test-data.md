@@ -97,4 +97,4 @@ state use `browser(prefs=...)`. Pref names: open `chrome://prefs-internals` in t
 Put unpacked add-ons in `resources/extensions/<name>/` (manifest v3); pack a `.crx` with
 `SamsungInternet.exe --pack-extension=<folder>` (or "Pack add-on" on the add-ons page). `sample_addon` has a
 popup, an options page and a content script that sets `<html data-sb-addon="active">` on
-`http://127.0.0.1/*`. Installing from the store (ADD-022) needs internet through the proxy.
+`http://127.0.0.1/*`. Installing from the store (ADD-006) needs internet through the proxy.

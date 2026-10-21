@@ -3,7 +3,7 @@
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
 Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
 
-## BM-103 Edit name and web address
+## BM-101 Edit name and web address
 - Priority: High
 - Type: web
 - Precondition: Bookmark bar contains "Static page 1"
@@ -15,7 +15,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The list shows the new name with the new address; the old name is gone
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_name_and_url
 
-## BM-104 Edit from the right-click menu
+## BM-102 Edit from the right-click menu
 - Priority: Medium
 - Type: web
 - Precondition: Bookmark bar contains "Static page 2"
@@ -27,7 +27,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The list shows the new name
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_from_context_menu
 
-## BM-105 Delete from the right-click menu and undo
+## BM-103 Delete from the right-click menu and undo
 - Priority: High
 - Type: web
 - Precondition: Bookmark bar contains "Static page 2"
@@ -40,7 +40,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - After step 3 the item is back
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_from_context_menu_and_undo
 
-## BM-106 Select all and delete
+## BM-104 Select all and delete
 - Priority: Medium
 - Type: web
 - Precondition: Bookmark bar contains Static page 1, Static page 2 and folder Work
@@ -52,7 +52,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The list is empty afterwards ("No bookmarks") and the snack bar reports the deletion
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_select_all_and_delete
 
-## BM-107 Open a bookmark from the manager
+## BM-105 Open a bookmark from the manager
 - Priority: High
 - Type: web
 - Precondition: Bookmark bar contains "Static page 1"
@@ -63,7 +63,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - "Static page 1" opens in a new tab
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_open_bookmark
 
-## BM-108 Bookmarks are kept after restarting the browser
+## BM-106 Bookmarks are kept after restarting the browser
 - Priority: High
 - Type: web
 - Precondition: Clean profile
@@ -75,7 +75,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The folder and the renamed bookmark are still listed
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_bookmarks_survive_restart
 
-## BM-109 Add a bookmark into a sub folder
+## BM-107 Add a bookmark into a sub folder
 - Priority: High
 - Type: web
 - Precondition: Bookmark bar contains folder "Work"
@@ -87,7 +87,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - It is not listed in Bookmark bar
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder
 
-## BM-110 Sort by name
+## BM-108 Sort by name
 - Priority: Medium
 - Type: web
 - Precondition: Bookmark bar contains Alpha, Beta, Gamma, Delta and folder "Folder X" (in that order)
@@ -98,7 +98,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name
 
-## BM-111 Delete a folder with its bookmarks and undo
+## BM-109 Delete a folder with its bookmarks and undo
 - Priority: High
 - Type: web
 - Precondition: Folder "Work" contains "Form page" and "Dialogs page"
@@ -110,7 +110,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - After step 2 "Work" is back with both bookmarks inside
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo
 
-## BM-112 Open all bookmarks of a folder in new tabs
+## BM-110 Open all bookmarks of a folder in new tabs
 - Priority: Medium
 - Type: web
 - Precondition: Folder "Work" contains 2 bookmarks
@@ -120,7 +120,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - Two new tabs open: "Form page" and "Dialogs page"
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs
 
-## BM-113 Export bookmarks to an HTML file
+## BM-111 Export bookmarks to an HTML file
 - Priority: Medium
 - Type: native
 - Precondition: Bookmark bar contains Static page 1, Static page 2, Work
@@ -131,7 +131,7 @@ Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
   - The HTML file is written and contains the bookmark titles and addresses
 - Automated: tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks
 
-## BM-114 "Import bookmarks" opens the import settings
+## BM-112 "Import bookmarks" opens the import settings
 - Priority: Low
 - Type: web
 - Steps:

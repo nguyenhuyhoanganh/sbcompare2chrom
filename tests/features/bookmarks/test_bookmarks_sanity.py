@@ -7,7 +7,7 @@ from sbtest.utils import unique
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-103")
+@pytest.mark.case("BM-101")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_edit_name_and_url(pages, site):
     bm = pages.bookmarks.open()
@@ -18,7 +18,7 @@ def test_edit_name_and_url(pages, site):
     assert bm.item_url(name) == url
 
 
-@pytest.mark.case("BM-104")
+@pytest.mark.case("BM-102")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_edit_from_context_menu(pages):
     bm = pages.bookmarks.open()
@@ -33,7 +33,7 @@ def test_edit_from_context_menu(pages):
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-105")
+@pytest.mark.case("BM-103")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_delete_from_context_menu_and_undo(pages):
     bm = pages.bookmarks.open()
@@ -46,7 +46,7 @@ def test_delete_from_context_menu_and_undo(pages):
         bm.wait_item("Static page 2")
 
 
-@pytest.mark.case("BM-106")
+@pytest.mark.case("BM-104")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_select_all_and_delete(pages, web):
     bm = pages.bookmarks.open()
@@ -62,7 +62,7 @@ def test_select_all_and_delete(pages, web):
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-107")
+@pytest.mark.case("BM-105")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_open_bookmark(pages, web):
     bm = pages.bookmarks.open()
@@ -72,7 +72,7 @@ def test_open_bookmark(pages, web):
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-108")
+@pytest.mark.case("BM-106")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_bookmarks_survive_restart(session, pages):
     bm = pages.bookmarks.open()
@@ -87,7 +87,7 @@ def test_bookmarks_survive_restart(session, pages):
         bm.wait_item(name)
 
 
-@pytest.mark.case("BM-109")
+@pytest.mark.case("BM-107")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_add_bookmark_into_folder(pages, site):
     bm = pages.bookmarks.open()
@@ -103,7 +103,7 @@ def test_add_bookmark_into_folder(pages, site):
         assert name not in bm.titles()
 
 
-@pytest.mark.case("BM-110")
+@pytest.mark.case("BM-108")
 @pytest.mark.browser(bookmarks="seed_many")
 def test_sort_by_name(pages):
     bm = pages.bookmarks.open()
@@ -114,7 +114,7 @@ def test_sort_by_name(pages):
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-111")
+@pytest.mark.case("BM-109")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_delete_folder_and_undo(pages, web):
     bm = pages.bookmarks.open()
@@ -128,7 +128,7 @@ def test_delete_folder_and_undo(pages, web):
         bm.wait_titles(["Form page", "Dialogs page"])
 
 
-@pytest.mark.case("BM-112")
+@pytest.mark.case("BM-110")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_open_all_in_new_tabs(pages, web):
     bm = pages.bookmarks.open()
@@ -141,7 +141,7 @@ def test_open_all_in_new_tabs(pages, web):
 
 
 @pytest.mark.native
-@pytest.mark.case("BM-113")
+@pytest.mark.case("BM-111")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_export_bookmarks(pages, native, web, site, tmp_path):
     bm = pages.bookmarks.open()
@@ -154,7 +154,7 @@ def test_export_bookmarks(pages, native, web, site, tmp_path):
         assert text in html, text
 
 
-@pytest.mark.case("BM-114")
+@pytest.mark.case("BM-112")
 def test_import_opens_settings(pages, web):
     bm = pages.bookmarks.open()
     with step("1. Left ⋮ > Import bookmarks", expected="Settings import page"):

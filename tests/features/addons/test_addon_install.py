@@ -1,5 +1,5 @@
 """Add-on install flows (native: folder picker, store prompt).
-Cases: cases/addons/addons.md (ADD-020, ADD-022). Selectors/labels must match the Samsung build."""
+Cases: cases/addons/addons.md (ADD-005, ADD-006). Selectors/labels must match the Samsung build."""
 import pytest
 
 from sbtest.steps import step
@@ -7,7 +7,7 @@ from sbtest.steps import step
 pytestmark = pytest.mark.native
 
 
-@pytest.mark.case("ADD-020")
+@pytest.mark.case("ADD-005")
 def test_load_unpacked(pages, native, data, cfg):
     d = data("addons")["sample"]
     e = pages.extensions.open()
@@ -18,7 +18,7 @@ def test_load_unpacked(pages, native, data, cfg):
 
 
 @pytest.mark.slow
-@pytest.mark.case("ADD-022")
+@pytest.mark.case("ADD-006")
 def test_install_from_web_store(pages, native, data):
     d = data("addons")["webstore"]
     with step("1-2. Store page, Add, confirm prompt", expected="store shows it installed"):

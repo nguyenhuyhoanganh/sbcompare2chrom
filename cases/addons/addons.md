@@ -31,7 +31,7 @@
   - The details view shows the description and version 1.0.0
 - Automated: tests/features/addons/test_addons.py::test_details_page
 
-## ADD-010 Remove an add-on (native confirmation)
+## ADD-004 Remove an add-on (native confirmation)
 - Priority: High
 - Type: native
 - Steps:
@@ -40,7 +40,7 @@
   - The add-on is gone from the list
 - Automated: tests/features/addons/test_addons.py::test_remove_addon_native_confirm
 
-## ADD-020 Install an add-on with "Load unpacked"
+## ADD-005 Install an add-on with "Load unpacked"
 - Priority: High
 - Type: native
 - Steps:
@@ -50,7 +50,7 @@
   - "SB Sample Addon" is listed and enabled
 - Automated: tests/features/addons/test_addon_install.py::test_load_unpacked
 
-## ADD-022 Install an add-on from Chrome Web Store
+## ADD-006 Install an add-on from Chrome Web Store
 - Priority: High
 - Type: native
 - Precondition: internet through the company proxy; extension id in resources/data/addons.yaml

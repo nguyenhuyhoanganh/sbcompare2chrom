@@ -97,7 +97,7 @@ Một số cảnh báo thường gặp:
 python run.py --sanity                         & rem lượt nhanh (case đánh dấu sanity)
 python run.py --all                            & rem toàn bộ test của Samsung
 python run.py --feature addons                 & rem chỉ một phần: addons | bookmarks | downloads | history
-python run.py --case BM-101,DL-104             & rem vài case
+python run.py --case BM-113,DL-104             & rem vài case
 ```
 
 Kết thúc mỗi lần chạy, màn hình in ra đường dẫn báo cáo:

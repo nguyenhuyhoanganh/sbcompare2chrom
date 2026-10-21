@@ -103,7 +103,7 @@ def render(results: dict[str, str] | None) -> str:
     if results is not None:
         w("- **Kết quả**: lần chạy gần nhất trong `artifacts/runs/` của máy sinh file này.")
     w("")
-    w("Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-101,DL-104`.")
+    w("Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-113,DL-104`.")
     w("")
     for key, name, prefix in FEATURES:
         cs = sorted(by_feature.get(key, []), key=lambda c: (c.id.split("-")[0], int(c.id.split("-")[-1])))

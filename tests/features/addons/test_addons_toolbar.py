@@ -22,7 +22,7 @@ def pin(native, name=ADDON):
     native.element("extension_action", name=name)
 
 
-@pytest.mark.case("ADD-106")
+@pytest.mark.case("ADD-110")
 def test_open_from_app_menu(web, native, cfg):
     with step("1. App menu > Add-ons", expected="Add-ons page"):
         native.menu("Add-ons")

@@ -63,7 +63,7 @@ def test_pause_resume(web, pages, site, downloads_dir):
 
 
 @pytest.mark.native
-@pytest.mark.case("DL-010")
+@pytest.mark.case("DL-005")
 @pytest.mark.browser(prefs={"download.prompt_for_download": True})
 def test_save_as_dialog(web, native, site, downloads_dir):
     with step("1. Click sample.txt", expected="Save As dialog"):

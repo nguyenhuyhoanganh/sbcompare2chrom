@@ -54,7 +54,7 @@ def test_details_page(pages, web):
 
 @uses_addon
 @pytest.mark.native
-@pytest.mark.case("ADD-010")
+@pytest.mark.case("ADD-004")
 def test_remove_addon_native_confirm(pages, native):
     e = pages.extensions.open()
     with step("1. Remove + confirm in native dialog", expected="add-on gone"):

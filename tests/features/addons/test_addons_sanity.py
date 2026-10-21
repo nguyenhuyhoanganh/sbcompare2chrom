@@ -82,7 +82,7 @@ def test_cancel_remove(pages, native):
 
 
 @uses_addon
-@pytest.mark.case("ADD-107")
+@pytest.mark.case("ADD-106")
 def test_keyboard_shortcuts(pages, web):
     e = pages.extensions.open()
     with step("1. Keyboard shortcuts", expected="'Activate add-on for SB Sample Addon': Not set"):
@@ -93,7 +93,7 @@ def test_keyboard_shortcuts(pages, web):
 
 
 @pytest.mark.sanity
-@pytest.mark.case("ADD-108")
+@pytest.mark.case("ADD-107")
 def test_pack_creates_crx(pages, web, tmp_path):
     import shutil
 
@@ -114,7 +114,7 @@ def test_pack_creates_crx(pages, web, tmp_path):
 
 
 @uses_addon
-@pytest.mark.case("ADD-109")
+@pytest.mark.case("ADD-108")
 def test_reload_unpacked(pages, web, site):
     e = pages.extensions.open()
     e.set_dev_mode(True)
@@ -126,7 +126,7 @@ def test_reload_unpacked(pages, web, site):
 
 
 @pytest.mark.slow
-@pytest.mark.case("ADD-110")
+@pytest.mark.case("ADD-109")
 def test_get_addons_opens_store(pages, web):
     e = pages.extensions.open()
     with step("1. Get add-ons", expected="Chrome Web Store extensions page in a new tab"):

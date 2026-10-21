@@ -40,7 +40,7 @@
   - Status shows "Paused" after pause, the download completes after resume
 - Automated: tests/features/downloads/test_downloads.py::test_pause_resume
 
-## DL-010 Ask where to save -> Save As dialog
+## DL-005 Ask where to save -> Save As dialog
 - Priority: Medium
 - Type: native
 - Precondition: Setting "Ask where to save each file" is on

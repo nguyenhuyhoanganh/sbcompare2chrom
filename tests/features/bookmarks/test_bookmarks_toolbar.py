@@ -16,7 +16,7 @@ def type_into(native, field: str, text: str) -> None:
 
 
 @pytest.mark.sanity
-@pytest.mark.case("BM-101")
+@pytest.mark.case("BM-113")
 def test_ctrl_d_toast_and_rename(web, native, pages, site):
     name = unique("Renamed from toast")
     with step("1. Open 'Static page 1'"):
@@ -38,7 +38,7 @@ def test_ctrl_d_toast_and_rename(web, native, pages, site):
         assert "Static page 1" not in bm.titles()
 
 
-@pytest.mark.case("BM-102")
+@pytest.mark.case("BM-114")
 def test_star_removes_bookmark(web, native, pages, site):
     web.open(site.url("/pages/page1.html"))
     native.hotkey("^d")

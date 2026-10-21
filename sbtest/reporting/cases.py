@@ -1,11 +1,11 @@
 """Read the normalized test case documents (cases/<feature>/*.md).
 
-    cases = load_cases()            # {"BM-101": Case(...), ...}
-    cases["BM-101"].steps           # ["Open 'Static page 1'", "Press Ctrl+D", ...]
+    cases = load_cases()            # {"BM-113": Case(...), ...}
+    cases["BM-113"].steps           # ["Open 'Static page 1'", "Press Ctrl+D", ...]
 
 Format of a case (see cases/README.md)::
 
-    ## BM-101 Title
+    ## BM-113 Title
     - Priority: High
     - Type: native
     - Precondition: ...

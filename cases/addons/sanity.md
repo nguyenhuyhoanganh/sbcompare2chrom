@@ -1,7 +1,7 @@
 # Add-ons - sanity pass after a Chromium merge (Samsung Browser for Windows)
 
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
-Install flows and basics are in addons.md (ADD-001..ADD-022). Store installs use free,
+Install flows and basics are in addons.md (ADD-001..ADD-006). Store installs use free,
 widely used extensions only (resources/data/addons.yaml: Dark Reader).
 
 ## ADD-101 Card shows name, version, description and source
@@ -59,7 +59,7 @@ widely used extensions only (resources/data/addons.yaml: Dark Reader).
   - The add-on is still installed and enabled
 - Automated: tests/features/addons/test_addons_sanity.py::test_cancel_remove
 
-## ADD-107 Keyboard shortcuts page lists the add-on
+## ADD-106 Keyboard shortcuts page lists the add-on
 - Priority: Low
 - Type: web
 - Precondition: "SB Sample Addon" installed
@@ -69,7 +69,7 @@ widely used extensions only (resources/data/addons.yaml: Dark Reader).
   - "Activate add-on for SB Sample Addon" is listed with "Not set" and an Edit button
 - Automated: tests/features/addons/test_addons_sanity.py::test_keyboard_shortcuts
 
-## ADD-108 Pack an add-on into a .crx
+## ADD-107 Pack an add-on into a .crx
 - Priority: Medium
 - Type: web
 - Steps:
@@ -81,7 +81,7 @@ widely used extensions only (resources/data/addons.yaml: Dark Reader).
   - <folder>.crx and <folder>.pem are created next to the folder
 - Automated: tests/features/addons/test_addons_sanity.py::test_pack_creates_crx
 
-## ADD-109 Reload an unpacked add-on
+## ADD-108 Reload an unpacked add-on
 - Priority: Medium
 - Type: web
 - Precondition: "SB Sample Addon" installed (unpacked), Developer mode on
@@ -92,7 +92,7 @@ widely used extensions only (resources/data/addons.yaml: Dark Reader).
   - The add-on stays enabled and its content script still runs
 - Automated: tests/features/addons/test_addons_sanity.py::test_reload_unpacked
 
-## ADD-110 "Get add-ons" opens the add-on store
+## ADD-109 "Get add-ons" opens the add-on store
 - Priority: Low
 - Type: web (needs internet)
 - Steps:

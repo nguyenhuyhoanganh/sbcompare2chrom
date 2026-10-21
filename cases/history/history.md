@@ -49,7 +49,7 @@
   - The page "Alpha" is loaded
 - Automated: tests/features/history/test_history.py::test_open_from_history
 
-## HIS-010 Open History with Ctrl+H
+## HIS-006 Open History with Ctrl+H
 - Priority: Medium
 - Type: native
 - Steps:
