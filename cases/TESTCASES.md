@@ -16,7 +16,7 @@ File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/
 
 - **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).
 - **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).
-- **Kết quả**: lần chạy gần nhất trong `artifacts/runs/` của máy sinh file này.
+- **Kết quả**: lần chạy gần nhất có chạy case đó, trên máy sinh file này.
 
 Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-113,DL-104`.
 

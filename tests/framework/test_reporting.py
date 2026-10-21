@@ -105,3 +105,43 @@ def test_confluence_export_folder(tmp_path):
     manifest = json.loads((out / "manifest.json").read_text())
     assert manifest["attachments"] and all((out / a).exists() for a in manifest["attachments"])
     assert (out / "page.md").exists() and (out / "page.storage.html").exists()
+
+def test_clean_previous_runs_keeps_only_the_latest(tmp_path):
+    import os
+    import time
+
+    from sbtest.reporting.cleanup import clean_previous_runs
+
+    runs = tmp_path / "runs"
+    for i, name in enumerate(["20260101_000000", "20260102_000000"]):
+        (runs / name).mkdir(parents=True)
+        (runs / name / "results.json").write_text("{}")
+        os.utime(runs / name, (time.time() - 100 + i, time.time() - 100 + i))
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "chromedriver_x.log").write_text("log")
+    (tmp_path / "profiles" / "test_x").mkdir(parents=True)
+    (tmp_path / ".cache").mkdir()
+    current = runs / "20260103_000000"
+
+    assert clean_previous_runs(tmp_path, 1, current=current) == []
+    assert list(runs.iterdir()) == []
+    assert not list((tmp_path / "logs").iterdir()) and not list((tmp_path / "profiles").iterdir())
+    assert (tmp_path / ".cache").exists()           # version cache is kept
+
+    for name in ["a", "b", "c"]:
+        (runs / name).mkdir()
+        time.sleep(0.01)
+    clean_previous_runs(tmp_path, 2, current=current)    # this run + the newest earlier one
+    assert [p.name for p in runs.iterdir()] == ["c"]
+    clean_previous_runs(tmp_path, 0, current=current)    # 0 keeps everything
+    assert [p.name for p in runs.iterdir()] == ["c"]
+
+
+def test_overview_keeps_results_of_cases_not_rerun(tmp_path):
+    from sbtest.tools import case_overview as co
+
+    md = tmp_path / "TESTCASES.md"
+    md.write_text("| BM-001 | A | High | web |  | x.md | ✅ Pass |\n| DL-003 | B | Medium | native |  | y.md | ⏳ Chưa chạy |\n",
+                  encoding="utf-8")
+    assert co.previous_results(md) == {"BM-001": "passed", "DL-003": None}
+    assert co.previous_results(tmp_path / "missing.md") == {}

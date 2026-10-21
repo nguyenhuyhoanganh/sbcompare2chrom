@@ -4,13 +4,15 @@ result, plus the full steps / expected of each case.
     python -m sbtest.tools.case_overview                     # latest results from artifacts/runs/
     python -m sbtest.tools.case_overview --no-results        # cases only
 
-A result is taken from the most recent run that executed the case.
+A result is taken from the most recent run that executed the case. run.py keeps only the
+latest run, so a case that run did not execute keeps the result already in TESTCASES.md.
 """
 from __future__ import annotations
 
 import argparse
 import ast
 import json
+import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -68,6 +70,18 @@ def latest_results() -> dict[str, str]:
     return out
 
 
+def previous_results(path: Path) -> dict[str, str | None]:
+    """``{case_id: outcome}`` read back from an existing TESTCASES.md (its result column)."""
+    if not path.exists():
+        return {}
+    outcome = {label: key for key, label in STATUS.items()}
+    out = {}
+    for m in re.finditer(r"^\| ([A-Z]+-\d+) \|.*\| ([^|]+) \|$", path.read_text(encoding="utf-8"), re.M):
+        if m.group(2).strip() in outcome:
+            out[m.group(1)] = outcome[m.group(2).strip()]
+    return out
+
+
 def render(results: dict[str, str] | None) -> str:
     cases = load_cases()
     marks = test_markers()
@@ -101,7 +115,7 @@ def render(results: dict[str, str] | None) -> str:
     w("- **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).")
     w("- **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).")
     if results is not None:
-        w("- **Kết quả**: lần chạy gần nhất trong `artifacts/runs/` của máy sinh file này.")
+        w("- **Kết quả**: lần chạy gần nhất có chạy case đó, trên máy sinh file này.")
     w("")
     w("Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-113,DL-104`.")
     w("")
@@ -151,7 +165,7 @@ def main(argv=None) -> int:
     p.add_argument("--no-results", action="store_true", help="leave out the result column")
     p.add_argument("--out", default=str(CASES_DIR / "TESTCASES.md"))
     args = p.parse_args(argv)
-    text = render(None if args.no_results else latest_results())
+    text = render(None if args.no_results else {**previous_results(Path(args.out)), **latest_results()})
     Path(args.out).write_text(text, encoding="utf-8", newline="\n")
     print(f"{args.out} ({len(load_cases())} cases)")
     return 0

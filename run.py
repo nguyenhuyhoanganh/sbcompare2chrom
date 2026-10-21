@@ -15,6 +15,8 @@ Outputs in artifacts/runs/<timestamp>/:
   confluence/         the same report as a Confluence page + attachments (Confluence skill uploads it)
   failures/<test>/    failure.txt, page.png (element outlined), screen.png, dom.txt, uia.txt
   results.json, junit.xml, report.html (raw pytest report), steps/ with --screenshot-steps
+Only the latest run is kept: each run first deletes the earlier runs/<timestamp>/ folders,
+chromedriver logs and leftover profiles (config report.keep_runs, or --keep-runs N; 0 = keep all).
 Rebuild the report of a run: python -m sbtest.tools.report [run_dir] [--open]
 """
 from __future__ import annotations
@@ -48,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scope", choices=["function", "module", "session"], help="browser reuse scope")
     p.add_argument("--reruns", type=int, default=0, help="re-run failed tests N times (separate flakes)")
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
+    p.add_argument("--keep-runs", type=int, help="runs kept in artifacts/runs incl. this one "
+                                                   "(default config report.keep_runs = 1; 0 = all)")
     p.add_argument("--screenshot-steps", action="store_true", help="screenshot after every test step")
     p.add_argument("--list", action="store_true", help="print test cases and automation status, then exit")
     args = p.parse_args(argv)
@@ -58,7 +62,16 @@ def main(argv: list[str] | None = None) -> int:
 
     import pytest
 
-    run_dir = ROOT / "artifacts" / "runs" / dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    from sbtest.config import load_config
+    from sbtest.reporting.cleanup import clean_previous_runs
+
+    cfg = load_config()
+    artifacts = cfg.path("paths.artifacts")
+    run_dir = artifacts / "runs" / dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    keep = args.keep_runs if args.keep_runs is not None else int(cfg.get("report.keep_runs", 1))
+    left = clean_previous_runs(artifacts, keep, current=run_dir)
+    if left:
+        print("Could not remove (in use, close it and delete by hand):", *left, sep="\n  ")
     run_dir.mkdir(parents=True, exist_ok=True)
     pargs = [str(ROOT / "tests" / "features"), "--run-dir", str(run_dir), f"--junitxml={run_dir / 'junit.xml'}",
               "-p", "no:cacheprovider"]

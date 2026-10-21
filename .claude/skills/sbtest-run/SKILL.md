@@ -29,6 +29,7 @@ python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
 python run.py --all --screenshot-steps             # picture after every step
 python run.py --list                               # cases and automation status
+python run.py --all --keep-runs 2                  # keep the previous run too (default: only this one)
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 ```
 
@@ -39,6 +40,10 @@ Run one feature only: `--feature addons` (or `bookmarks`, `downloads`, `history`
 each feature's tests are in `tests/features/<feature>/` and its cases in `cases/<feature>/`.
 
 ## Outputs: `artifacts/runs/<timestamp>/`
+
+Only the latest run is kept: `run.py` deletes earlier runs, chromedriver logs and leftover
+profiles first (config `report.keep_runs: 1`). To compare with the previous run (e.g. a
+re-run of failures), read its evidence first or run with `--keep-runs 2`.
 
 | path | content |
 |------|---------|

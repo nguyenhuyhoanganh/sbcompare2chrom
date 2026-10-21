@@ -68,7 +68,9 @@ python run.py --all --screenshot-steps            & rem chụp ảnh sau mỗi b
 python run.py --list                              & rem case nào đã được tự động hoá
 ```
 
-Kết quả nằm ở `artifacts\runs\<thời gian>\`:
+Kết quả nằm ở `artifacts\runs\<thời gian>\`. Chỉ giữ lần chạy mới nhất: mỗi lần chạy, `run.py` xoá
+các lần trước (kèm log chromedriver và profile còn sót). Muốn giữ nhiều hơn: `--keep-runs N`
+hoặc `report.keep_runs` trong `config\local.yaml` (0 = giữ tất cả).
 
 | | |
 |---|---|
