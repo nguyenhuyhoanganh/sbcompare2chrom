@@ -28,7 +28,7 @@ sbtest/
   steps.py                     step("N. ...", expected=...) context manager
   pytest_plugin.py             options, markers, fixtures, filters, evidence hooks
   tools/                       doctor, dom, uia_dump, explore, coverage, case_overview, report,
-                               confluence_export
+                               confluence_export, sync_skills
 tests/
   features/<feature>/          tests, one folder per feature (addons, bookmarks, downloads,
                                history, general); carry @case ids

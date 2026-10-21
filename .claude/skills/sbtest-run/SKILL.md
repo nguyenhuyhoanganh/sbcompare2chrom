@@ -60,7 +60,7 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
    failed step, screenshots. Do not touch the test.
 2. **UI changed, test outdated** - same behaviour, different markup/labels after the merge.
    Fix the page object (`sbtest/pages/`) or `config/native_ui.yaml`
-   (`.claude/skills/sbtest-author/references/debugging.md`), re-run the feature.
+   (`.agents/skills/sbtest-author/references/debugging.md`), re-run the feature.
 3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
    Fix the setup (`doctor`), re-run.
 4. **Flaky test** - passes on re-run with no product change: find the race (missing wait,

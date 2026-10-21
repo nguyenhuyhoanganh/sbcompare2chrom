@@ -148,5 +148,5 @@ and add a page-object method or ui-map entry, then add a row to this table.
 
 - `- Automated: tests/features/...::test_x` under the case; `python -m sbtest.tools.coverage`.
 - New UI names -> `config/native_ui.yaml` with a comment; new selectors -> the page
-  object class + its STATUS docstring; new behaviour -> `.claude/skills/sbtest-author/references/feature-notes.md`.
+  object class + its STATUS docstring; new behaviour -> `.agents/skills/sbtest-author/references/feature-notes.md`.
 - Add the row you needed to this catalogue.

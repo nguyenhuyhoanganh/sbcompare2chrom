@@ -37,7 +37,7 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 ## 2. Explore the real UI (always, before writing selectors)
 
 1. Machine ready? `python -m sbtest.tools.doctor` (once per session). Read
-   `.claude/skills/sbtest-author/references/feature-notes.md` for the feature (known traps).
+   `.agents/skills/sbtest-author/references/feature-notes.md` for the feature (known traps).
 2. Quick look at an internal page: `python -m sbtest.tools.dom <page> --interactive`
    (lines end with a ready locator), with data: `--seed-bookmarks resources/data/bookmarks.yaml:seed_basic`,
    `--extension resources/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
@@ -50,7 +50,7 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 4. **Read the screenshots** (open the PNGs) - they show what really happened: a toast instead
    of a bubble, a new tab instead of the same tab, a dialog that fades in, a label that differs.
 5. Write down what you learned (labels, where it opens, what changes) - it goes into the page
-   object docstring, the ui map comment and `.claude/skills/sbtest-author/references/feature-notes.md`.
+   object docstring, the ui map comment and `.agents/skills/sbtest-author/references/feature-notes.md`.
 6. Delete the scratch file when done.
 
 ## 3. Map each step to an action

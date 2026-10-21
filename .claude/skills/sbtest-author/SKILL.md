@@ -18,7 +18,7 @@ the build, fix the page object, update its STATUS docstring, keep method names a
 
 **Working method and action table:** the `sbtest-explore` skill - explore the real UI with
 `sbtest.tools.explore.Explorer`, read the screenshots, then map each step with
-`.claude/skills/sbtest-explore/references/action-catalog.md` (request -> call, every page,
+`.agents/skills/sbtest-explore/references/action-catalog.md` (request -> call, every page,
 toolbar, bubble, dialog). Start there when the UI of the flow is not known yet.
 
 **Need an interaction you have not done before?** The existing tests in `tests/features/`

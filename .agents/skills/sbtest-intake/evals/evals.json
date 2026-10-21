@@ -1,0 +1,31 @@
+[
+  {
+    "skills": ["sbtest-intake"],
+    "query": "Here are the history test cases: <Confluence link>. Bring them into the repo",
+    "files": [],
+    "expected_behavior": [
+      "Reads the page with the Confluence skill and saves the raw copy to cases/_inbox/ with the link on line 1",
+      "Writes cases/history/*.md in the cases/README.md format, keeping source IDs",
+      "Runs sbtest.tools.coverage --feature history and lists new cases and ambiguities"
+    ]
+  },
+  {
+    "skills": ["sbtest-intake"],
+    "query": "Pasted table: 'Open settings, turn off Show home button, home button disappears'",
+    "files": [],
+    "expected_behavior": [
+      "Creates a new settings feature folder and prefix and says so in the report",
+      "Writes numbered single-action steps and one Expected bullet per check",
+      "Sets Type native (toolbar button) and does not renumber existing IDs"
+    ]
+  },
+  {
+    "skills": ["sbtest-intake"],
+    "query": "Add these cases: sign in to Samsung account and sync bookmarks",
+    "files": [],
+    "expected_behavior": [
+      "Writes the cases but marks them 'Automated: no (real account)'",
+      "Explains in the report why they are not automatable"
+    ]
+  }
+]

@@ -1,0 +1,33 @@
+[
+  {
+    "skills": ["sbtest-explore"],
+    "query": "Write a test: from the toolbar Add-ons menu, 'More options' > 'Manage add-on' opens the add-on's details page",
+    "files": [],
+    "expected_behavior": [
+      "Explores the flow on the real build with a scratch Explorer test and reads the screenshots",
+      "Maps steps with the action catalogue (extensions_button, addons_menu_more, select_menu_items)",
+      "Writes the case in cases/addons/toolbar.md and the test in test_addons_toolbar.py",
+      "Adds any new ui-map key with a comment and a row to the action catalogue"
+    ]
+  },
+  {
+    "skills": ["sbtest-explore"],
+    "query": "Check that the Downloads bubble shows 'Canceled' after cancelling a slow download",
+    "files": [],
+    "expected_behavior": [
+      "Finds the existing downloads cases first and extends one instead of duplicating it",
+      "Uses site's slow download and d.action(name, 'Cancel') plus download_bubble_item",
+      "Waits for the bubble text with a wait, never time.sleep"
+    ]
+  },
+  {
+    "skills": ["sbtest-explore"],
+    "query": "DL-110 broke after the Chromium merge, fix it",
+    "files": [],
+    "expected_behavior": [
+      "Reproduces with python run.py --case DL-110 and reads the failure evidence",
+      "Uses uia_dump to see the new bubble structure before changing config/native_ui.yaml",
+      "Reports a product change instead of bending the test when behaviour really changed"
+    ]
+  }
+]

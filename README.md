@@ -6,7 +6,8 @@ test cơ bản theo từng feature: add-ons, bookmarks, downloads, history, duy�
 - **Lớp web (Selenium):** điều khiển nội dung trang, kể cả các trang nội bộ `internet://`.
 - **Lớp native (pywinauto):** điều khiển phần không phải web: toolbar, menu, bubble/prompt,
   dialog Open/Save As/chọn thư mục, File Explorer, print, toast của Windows, phím tắt, chuột thật.
-- **Skill cho agent** (`.claude/skills/`) để agent tự viết, chạy và báo cáo test.
+- **Skill cho agent** (`.agents/skills/`, chuẩn Agent Skills) để agent tự viết, chạy và báo cáo test.
+  Quy tắc chung cho mọi agent ở `AGENTS.md`.
 
 ## Cấu trúc
 
@@ -34,7 +35,9 @@ resources/                   tài nguyên test
   site/                      trang web test cục bộ (download, form, dialog...)
 docs/SETUP.md                cài đặt máy Windows mới, xử lý khi Samsung merge Chromium mới
 drivers/                     chromedriver cho máy offline (git-ignored, framework tự tải)
-.claude/skills/              skill cho agent: intake, explore, author, run
+.agents/skills/              skill cho agent: intake, explore, author, run (bản gốc, chỉ sửa ở đây)
+.claude/skills/              bản sao cho Claude Code, sinh bằng python -m sbtest.tools.sync_skills
+AGENTS.md  CLAUDE.md         quy tắc cho agent (CLAUDE.md chỉ import AGENTS.md)
 run.py  setup.bat            chạy test / cài đặt lần đầu
 ```
 
@@ -92,7 +95,7 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
   - `sbtest-author` tự mở browser, khám phá UI, sửa page object Samsung, viết test vào
     `tests\features\addons\` rồi chạy cho tới khi pass ổn định.
 - *"Viết test: mở add-on X từ toolbar, popup phải hiện thông tin Y"*: `sbtest-explore` khám phá UI
-  thật (ảnh + dump), tra bảng action (`.claude\skills\sbtest-explore\references\action-catalog.md`),
+  thật (ảnh + dump), tra bảng action (`.agents\skills\sbtest-explore\references\action-catalog.md`),
   viết case + script, chạy tới khi ổn định.
 - *"Chạy sanity cho bản build mới và đẩy report lên Confluence"*: `sbtest-run` chạy test,
   phân loại lỗi rồi tạo trang Confluence từ thư mục `confluence\`.
@@ -110,7 +113,7 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
   `tests\features\<feature>\test_<feature>_<khu vực>.py` - chạy riêng một phần bằng `--feature`.
 - Test native điều khiển chuột/bàn phím thật: đừng dùng máy trong lúc chạy (một cửa sổ khác nhảy
   lên trước sẽ nhận phím gõ và làm fail các bước dialog).
-- Khác biệt Samsung cần biết (chi tiết trong `.claude\skills\sbtest-author\references\feature-notes.md`):
+- Khác biệt Samsung cần biết (chi tiết trong `.agents\skills\sbtest-author\references\feature-notes.md`):
   - WebDriver phải mở `chrome://...`, thanh địa chỉ hiển thị `internet://...`.
   - chromedriver không tự khởi chạy được Samsung, nên framework dùng `browser.mode: attach`.
   - Profile mới hiện bubble "Samsung Browser has been updated."; framework tự đóng nó ngay khi mở browser.
