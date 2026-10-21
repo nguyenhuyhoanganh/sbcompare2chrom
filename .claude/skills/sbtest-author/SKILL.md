@@ -41,7 +41,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 
 ## Workflow (per test case)
 
-1. **Case doc.** It exists in `testcases/<feature>/<area>.md` with an ID (else `sbtest-intake`).
+1. **Case doc.** It exists in `cases/<feature>/<area>.md` with an ID (else `sbtest-intake`).
 2. **Coverage.** `python -m sbtest.tools.coverage --feature <feature>`; skip automated ones
    unless asked to fix them.
 3. **Classify each step** web or native (table below). Any native step -> `@pytest.mark.native`.
@@ -100,7 +100,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 ## Hard rules
 
 - No `time.sleep`; wait for a condition (`web.wait_*`, page `wait_*`, `web.wait_until`).
-- No internet except the Web Store case. Content comes from `site` / `test_data/`.
+- No internet except the Web Store case. Content comes from `site` / `resources/data/`.
 - Tests are independent (any order, any subset, fresh profile). Use `unique("Name")`.
 - No selectors, URLs (`internet://`), machine paths or native UI names in tests: page
   objects, `config/default.yaml`, `config/native_ui.yaml`, `config/local.yaml`.

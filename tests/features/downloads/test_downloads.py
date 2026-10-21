@@ -1,4 +1,4 @@
-"""Downloads. Cases: testcases/downloads/downloads.md
+"""Downloads. Cases: cases/downloads/downloads.md
 
 Files are served by the local site (site.download(...)) and land in the session's own
 download folder (downloads_dir), so checks on disk are deterministic.

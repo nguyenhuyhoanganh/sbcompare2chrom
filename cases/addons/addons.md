@@ -45,7 +45,7 @@
 - Type: native
 - Steps:
   1. Open the add-ons page, turn on Developer mode
-  2. Click "Load unpacked", choose the folder test_data/extensions/sample_addon
+  2. Click "Load unpacked", choose the folder resources/extensions/sample_addon
 - Expected:
   - "SB Sample Addon" is listed and enabled
 - Automated: tests/features/addons/test_addon_install.py::test_load_unpacked
@@ -55,7 +55,7 @@
 - Type: native
 - Steps:
   1. Open the add-ons page, turn on Developer mode
-  2. Drag test_data/extensions/sample_addon.crx from File Explorer onto the page
+  2. Drag resources/extensions/sample_addon.crx from File Explorer onto the page
   3. Confirm "Add extension" in the prompt
 - Expected:
   - "SB Sample Addon" is installed
@@ -64,7 +64,7 @@
 ## ADD-022 Install an add-on from Chrome Web Store
 - Priority: High
 - Type: native
-- Precondition: internet through the company proxy; extension id in test_data/addons.yaml
+- Precondition: internet through the company proxy; extension id in resources/data/addons.yaml
 - Steps:
   1. Open the store page of the extension, click "Add to ..."
   2. Confirm "Add extension" in the prompt

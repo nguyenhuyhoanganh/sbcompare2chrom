@@ -1,6 +1,6 @@
 """Deterministic local web content for tests (no internet needed).
 
-Static files come from ``test_site/``. Dynamic routes:
+Static files come from ``resources/site/``. Dynamic routes:
 
     /page?title=T&body=B          HTML page with that <title> (unique history/bookmark entries)
     /download?name=a.txt&size=N&type=text/plain   attachment download of N bytes

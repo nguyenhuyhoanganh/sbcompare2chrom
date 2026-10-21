@@ -8,5 +8,4 @@ drivers/*
 .venv/
 venv/
 *.log
-browsers/
 tests/_scratch/

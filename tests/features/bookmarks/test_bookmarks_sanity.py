@@ -1,4 +1,4 @@
-"""Bookmarks sanity on Samsung Browser. Cases: testcases/bookmarks/sanity.md"""
+"""Bookmarks sanity on Samsung Browser. Cases: cases/bookmarks/sanity.md"""
 import pytest
 
 from sbtest.steps import step

@@ -4,14 +4,14 @@
 
 - Tests: `tests/features/<feature>/test_<feature>_<area>.py` - feature = folder (`addons`,
   `bookmarks`, `downloads`, `history`, `general`). New feature area (e.g. `settings`) -> new
-  folder + `FEATURES` in `sbtest/pytest_plugin.py` + `testcases/<feature>/` + a row in
+  folder + `FEATURES` in `sbtest/pytest_plugin.py` + `cases/<feature>/` + a row in
   `FEATURES` of `sbtest/tools/case_overview.py`.
 - Native-only cases may live in `test_<area>_native.py` or in the same file with
   `@pytest.mark.native`; either is fine, be consistent within a feature.
 - Test name: `test_<what_it_verifies>` in snake case (`test_delete_and_undo`), not the ID.
 - One test function per case ID. A case may get extra helper tests without IDs only for
   framework behaviour; product checks always carry an ID.
-- Module docstring: what area + `Cases: testcases/<feature>/<file>.md`.
+- Module docstring: what area + `Cases: cases/<feature>/<file>.md`.
 
 ## Test shape
 
@@ -53,11 +53,11 @@ from sbtest.web import Keys                       # web.press(Keys.CONTROL, "a")
 
 ## Doc update
 
-Under the case in `testcases/<feature>/<file>.md` set
+Under the case in `cases/<feature>/<file>.md` set
 `- Automated: tests/features/<feature>/test_x.py::test_name` (or `no (<reason>)`).
 
 ## Before you finish
 
 - `python run.py --case <IDs>` green 3x in a row on the real build.
-- `python -m pytest framework_tests -q` green if you touched `sbtest/`.
+- `python -m pytest tests/framework -q` green if you touched `sbtest/`.
 - `python -m sbtest.tools.coverage --feature <feature>` shows the IDs as OK.

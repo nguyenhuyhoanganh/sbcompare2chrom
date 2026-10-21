@@ -4,8 +4,8 @@
     python -m sbtest.tools.dom chrome://downloads --interactive
     python -m sbtest.tools.dom /form.html --out artifacts/form_dom.txt
     python -m sbtest.tools.dom history --exec "web.type('history-app >>> #toolbar >>> cr-toolbar >>> cr-toolbar-search-field >>> input', 'abc')"
-    python -m sbtest.tools.dom bookmarks --seed-bookmarks test_data/bookmarks.yaml:seed_basic
-    python -m sbtest.tools.dom extensions --extension test_data/extensions/sample_addon
+    python -m sbtest.tools.dom bookmarks --seed-bookmarks resources/data/bookmarks.yaml:seed_basic
+    python -m sbtest.tools.dom extensions --extension resources/extensions/sample_addon
 
 Each line: ``<indent>tag#id.class [role] aria="..." "text"  =>  locator``.
 The locator after ``=>`` can be pasted into ``web.click(...)`` / page objects.

@@ -1,5 +1,5 @@
 """Add-on install flows (native: folder picker, OS drag & drop, store prompt).
-Cases: testcases/addons/addons.md (ADD-020..022). Selectors/labels must match the Samsung build."""
+Cases: cases/addons/addons.md (ADD-020..022). Selectors/labels must match the Samsung build."""
 import pytest
 
 from sbtest.steps import step
@@ -12,7 +12,7 @@ def test_load_unpacked(pages, native, data, cfg):
     d = data("addons")["sample"]
     e = pages.extensions.open()
     with step("1-2. Developer mode, Load unpacked, choose the folder", expected="add-on listed and enabled"):
-        e.load_unpacked(native, cfg.path("paths.test_data") / d["folder"])
+        e.load_unpacked(native, cfg.path("paths.extensions") / d["folder"])
         info = e.wait_installed(d["name"])
     assert info["state"] == "ENABLED"
 
@@ -22,7 +22,7 @@ def test_drop_crx(pages, native, data, cfg):
     d = data("addons")["sample"]
     e = pages.extensions.open()
     with step("1-3. Developer mode, drop the .crx from Explorer, confirm", expected="add-on installed"):
-        e.drop_crx(native, cfg.path("paths.test_data") / d["crx"])
+        e.drop_crx(native, cfg.path("paths.extensions") / d["crx"])
         e.wait_installed(d["name"])
 
 

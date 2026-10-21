@@ -34,7 +34,7 @@ echo.
 echo Setup done. Next:
 echo   1. notepad config\local.yaml        ^(path of the Samsung exe^)
 echo   2. .venv\Scripts\python -m sbtest.tools.doctor
-echo See SETUP.md for the whole checklist.
+echo See docs\SETUP.md for the whole checklist.
 exit /b 0
 
 :error

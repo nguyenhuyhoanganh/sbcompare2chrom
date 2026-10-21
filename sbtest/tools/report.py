@@ -4,7 +4,7 @@
     python -m sbtest.tools.report artifacts/runs/<ts>   # a given run
     python -m sbtest.tools.report --open                # and open index.html
 
-Runs write these automatically at the end; use this after editing testcases/*.md (the
+Runs write these automatically at the end; use this after editing cases/*.md (the
 report takes names, steps and expected results from there) or to rebuild an old run.
 """
 from __future__ import annotations

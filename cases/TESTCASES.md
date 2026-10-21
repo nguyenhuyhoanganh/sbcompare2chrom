@@ -1,6 +1,6 @@
 # Danh sách test case - sbtest
 
-File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `testcases/**/*.md` và marker của test.
+File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/**/*.md` và marker của test.
 Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.
 
 **74 test case**, tất cả đã có script tự động (54 web, 20 native).
@@ -59,7 +59,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - "SB Sample Addon" is listed and enabled
 - The page is marked by the add-on content script
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addons.py::test_addon_listed_and_active`
 
 </details>
@@ -75,7 +75,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The add-on state is DISABLED; the page is not marked
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addons.py::test_disable_addon`
 
 </details>
@@ -90,7 +90,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The details view shows the description and version 1.0.0
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addons.py::test_details_page`
 
 </details>
@@ -105,7 +105,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The add-on is gone from the list
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addons.py::test_remove_addon_native_confirm`
 
 </details>
@@ -115,13 +115,13 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 **Steps:**
 
 1. Open the add-ons page, turn on Developer mode
-2. Click "Load unpacked", choose the folder test_data/extensions/sample_addon
+2. Click "Load unpacked", choose the folder resources/extensions/sample_addon
 
 **Expected:**
 
 - "SB Sample Addon" is listed and enabled
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addon_install.py::test_load_unpacked`
 
 </details>
@@ -131,21 +131,21 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 **Steps:**
 
 1. Open the add-ons page, turn on Developer mode
-2. Drag test_data/extensions/sample_addon.crx from File Explorer onto the page
+2. Drag resources/extensions/sample_addon.crx from File Explorer onto the page
 3. Confirm "Add extension" in the prompt
 
 **Expected:**
 
 - "SB Sample Addon" is installed
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addon_install.py::test_drop_crx`
 
 </details>
 
 <details><summary><b>ADD-022</b> Install an add-on from Chrome Web Store</summary>
 
-**Precondition:** internet through the company proxy; extension id in test_data/addons.yaml
+**Precondition:** internet through the company proxy; extension id in resources/data/addons.yaml
 
 **Steps:**
 
@@ -156,7 +156,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The store shows the remove button; the add-on is listed on the add-ons page
 
-**Nguồn:** `testcases/addons/addons.md`  
+**Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addon_install.py::test_install_from_web_store`
 
 </details>
@@ -175,7 +175,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The card shows "SB Sample Addon", the manifest description, Details and Remove; the switch is on
 - With Developer mode on the card also shows the version "1.0.0"
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_card_details`
 
 </details>
@@ -192,7 +192,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - On: the toolbar shows Load Unpacked, Pack add-on, Update
 - Off: they are hidden
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_developer_mode_toolbar`
 
 </details>
@@ -209,7 +209,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - "Sample" lists the add-on; "zzz" lists nothing
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_search`
 
 </details>
@@ -227,7 +227,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The add-on is still off and does not run on pages
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_disabled_survives_restart`
 
 </details>
@@ -245,7 +245,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The add-on is still installed and enabled
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_cancel_remove`
 
 </details>
@@ -260,7 +260,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The Add-ons page opens
 
-**Nguồn:** `testcases/addons/toolbar.md`  
+**Nguồn:** `cases/addons/toolbar.md`  
 **Script:** `tests/features/addons/test_addons_toolbar.py::test_open_from_app_menu`
 
 </details>
@@ -277,7 +277,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - "Activate add-on for SB Sample Addon" is listed with "Not set" and an Edit button
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_keyboard_shortcuts`
 
 </details>
@@ -294,7 +294,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The dialog asks for the extension root directory and an optional private key file; "Pack extension" is disabled while the directory is empty
 - <folder>.crx and <folder>.pem are created next to the folder
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_pack_creates_crx`
 
 </details>
@@ -312,7 +312,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The add-on stays enabled and its content script still runs
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_reload_unpacked`
 
 </details>
@@ -327,7 +327,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - A new tab opens the Chrome Web Store extensions page
 
-**Nguồn:** `testcases/addons/sanity.md`  
+**Nguồn:** `cases/addons/sanity.md`  
 **Script:** `tests/features/addons/test_addons_sanity.py::test_get_addons_opens_store`
 
 </details>
@@ -347,7 +347,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The menu lists the add-on with Pin and "More options"
 - After Pin the add-on icon is in the toolbar; after Unpin it is gone
 
-**Nguồn:** `testcases/addons/toolbar.md`  
+**Nguồn:** `cases/addons/toolbar.md`  
 **Script:** `tests/features/addons/test_addons_toolbar.py::test_pin_from_addons_menu`
 
 </details>
@@ -366,7 +366,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The popup opens with "SB Sample Addon" and "Clicked 0"
 - The button turns into "Clicked 1" (the popup's script runs)
 
-**Nguồn:** `testcases/addons/toolbar.md`  
+**Nguồn:** `cases/addons/toolbar.md`  
 **Script:** `tests/features/addons/test_addons_toolbar.py::test_popup_from_toolbar_icon`
 
 </details>
@@ -385,7 +385,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The menu offers Options, Remove from Samsung Browser, Manage add-on
 - A tab "SB options" opens with "SB Sample Addon options"
 
-**Nguồn:** `testcases/addons/toolbar.md`  
+**Nguồn:** `cases/addons/toolbar.md`  
 **Script:** `tests/features/addons/test_addons_toolbar.py::test_more_options_opens_options_page`
 
 </details>
@@ -431,7 +431,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The new bookmark is listed with the given name
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_add_bookmark`
 
 </details>
@@ -449,7 +449,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The folder is listed in the list and in the folder tree
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_add_folder`
 
 </details>
@@ -468,7 +468,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The list shows the new name, the old name is gone
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_edit_bookmark`
 
 </details>
@@ -488,7 +488,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - After step 2 the item is gone and a toast says it was deleted
 - After step 3 the item is back
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_delete_and_undo`
 
 </details>
@@ -506,7 +506,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Only "Beta" and "Delta" are listed
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_search`
 
 </details>
@@ -523,7 +523,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The list shows exactly "Form page" and "Dialogs page"
 
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
+**Nguồn:** `cases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_open_folder`
 
 </details>
@@ -545,7 +545,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - Step 3: the edit bubble shows "Bookmark name" and "Bookmark URL" (address shown without http://)
 - Step 4: the bookmark is listed with the new name only
 
-**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Nguồn:** `cases/bookmarks/toolbar.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_ctrl_d_toast_and_rename`
 
 </details>
@@ -564,7 +564,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The star is no longer shown as bookmarked
 - "Static page 1" is not listed
 
-**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Nguồn:** `cases/bookmarks/toolbar.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_star_removes_bookmark`
 
 </details>
@@ -583,7 +583,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The list shows the new name with the new address; the old name is gone
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_name_and_url`
 
 </details>
@@ -602,7 +602,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The right-click menu offers Edit, Delete, Open all (1) in new tab / new window / Secret mode
 - The list shows the new name
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_edit_from_context_menu`
 
 </details>
@@ -622,7 +622,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - After step 2 the item is gone and a snack bar says "1 bookmark deleted"
 - After step 3 the item is back
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_from_context_menu_and_undo`
 
 </details>
@@ -641,7 +641,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The header shows "3 selected"; the toolbar offers "Delete all" and "Deselect all"
 - The list is empty afterwards ("No bookmarks") and the snack bar reports the deletion
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_select_all_and_delete`
 
 </details>
@@ -659,7 +659,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - "Static page 1" opens in a new tab
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_bookmark`
 
 </details>
@@ -678,7 +678,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The folder and the renamed bookmark are still listed
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_bookmarks_survive_restart`
 
 </details>
@@ -697,7 +697,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The bookmark is listed in "Work" with the given address
 - It is not listed in Bookmark bar
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_add_bookmark_into_folder`
 
 </details>
@@ -715,7 +715,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The order becomes Folder X, Alpha, Beta, Delta, Gamma (folders first, then A-Z)
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_sort_by_name`
 
 </details>
@@ -734,7 +734,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - After step 1 "Work" is gone from the list and the tree
 - After step 2 "Work" is back with both bookmarks inside
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_delete_folder_and_undo`
 
 </details>
@@ -751,7 +751,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Two new tabs open: "Form page" and "Dialogs page"
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_open_all_in_new_tabs`
 
 </details>
@@ -769,7 +769,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The HTML file is written and contains the bookmark titles and addresses
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_export_bookmarks`
 
 </details>
@@ -784,7 +784,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Settings opens in a new tab on the import page
 
-**Nguồn:** `testcases/bookmarks/sanity.md`  
+**Nguồn:** `cases/bookmarks/sanity.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_sanity.py::test_import_opens_settings`
 
 </details>
@@ -805,7 +805,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - "Bookmark bar" lists Static page 1, Static page 2 and Work
 - "Static page 1" opens
 
-**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Nguồn:** `cases/bookmarks/toolbar.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_panel_browse_and_open`
 
 </details>
@@ -822,7 +822,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - Step 1: the page is bookmarked (star filled)
 - Step 2: the bookmark manager opens in a tab and finds the page
 
-**Nguồn:** `testcases/bookmarks/toolbar.md`  
+**Nguồn:** `cases/bookmarks/toolbar.md`  
 **Script:** `tests/features/bookmarks/test_bookmarks_toolbar.py::test_panel_add_page_and_expand`
 
 </details>
@@ -860,7 +860,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The file exists on disk with the right size
 - "sample.txt" is listed
 
-**Nguồn:** `testcases/downloads/downloads.md`  
+**Nguồn:** `cases/downloads/downloads.md`  
 **Script:** `tests/features/downloads/test_downloads.py::test_download_file`
 
 </details>
@@ -876,7 +876,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The entry is gone from the list; the file stays on disk
 
-**Nguồn:** `testcases/downloads/downloads.md`  
+**Nguồn:** `cases/downloads/downloads.md`  
 **Script:** `tests/features/downloads/test_downloads.py::test_remove_entry_keeps_file`
 
 </details>
@@ -891,7 +891,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The list is empty
 
-**Nguồn:** `testcases/downloads/downloads.md`  
+**Nguồn:** `cases/downloads/downloads.md`  
 **Script:** `tests/features/downloads/test_downloads.py::test_clear_all`
 
 </details>
@@ -907,7 +907,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Status shows "Paused" after pause, the download completes after resume
 
-**Nguồn:** `testcases/downloads/downloads.md`  
+**Nguồn:** `cases/downloads/downloads.md`  
 **Script:** `tests/features/downloads/test_downloads.py::test_pause_resume`
 
 </details>
@@ -925,7 +925,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The file is saved with the chosen name
 
-**Nguồn:** `testcases/downloads/downloads.md`  
+**Nguồn:** `cases/downloads/downloads.md`  
 **Script:** `tests/features/downloads/test_downloads.py::test_save_as_dialog`
 
 </details>
@@ -942,7 +942,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - sample.txt is listed under "Today" with its size (2.05 KB) and source link 127.0.0.1
 - The file is in the download folder
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_entry_details`
 
 </details>
@@ -958,7 +958,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Document lists sample.txt only, Others data.bin only, Image photo.png only, Video nothing
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_category_filter`
 
 </details>
@@ -974,7 +974,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Only data.bin is listed
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_search`
 
 </details>
@@ -992,7 +992,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The toolbar Downloads bubble shows slow.bin as "Canceled"
 - No slow.bin is left in the download folder
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_cancel_in_progress`
 
 </details>
@@ -1007,7 +1007,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The Downloads page opens
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_ctrl_j_opens_downloads`
 
 </details>
@@ -1023,7 +1023,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - File Explorer opens the download folder with sample.txt selected
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_show_in_folder`
 
 </details>
@@ -1039,7 +1039,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - After X the row is gone; after Undo it is back
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_remove_and_undo`
 
 </details>
@@ -1054,7 +1054,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The folder has sample.txt and "sample (1).txt"; both are listed
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_duplicate_name`
 
 </details>
@@ -1070,7 +1070,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The Windows clipboard holds the address the file was downloaded from
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_copy_link`
 
 </details>
@@ -1085,7 +1085,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The toolbar Downloads bubble opens with "sample.txt 2,048 B • Done"
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_toolbar_bubble`
 
 </details>
@@ -1100,7 +1100,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - saved-page1.html is in the download folder and listed in Downloads
 
-**Nguồn:** `testcases/downloads/sanity.md`  
+**Nguồn:** `cases/downloads/sanity.md`  
 **Script:** `tests/features/downloads/test_downloads_sanity.py::test_download_attribute`
 
 </details>
@@ -1136,7 +1136,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - "Beta" is listed above "Alpha"
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_visited_pages_listed`
 
 </details>
@@ -1152,7 +1152,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Only "Gamma" is listed
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_search_history`
 
 </details>
@@ -1168,7 +1168,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - "Alpha" is gone, "Beta" stays
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_delete_selected`
 
 </details>
@@ -1184,7 +1184,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - History is empty
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_remove_from_menu`
 
 </details>
@@ -1199,7 +1199,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The page "Alpha" is loaded
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_open_from_history`
 
 </details>
@@ -1214,7 +1214,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - A tab with the History page is opened
 
-**Nguồn:** `testcases/history/history.md`  
+**Nguồn:** `cases/history/history.md`  
 **Script:** `tests/features/history/test_history.py::test_ctrl_h_opens_history`
 
 </details>
@@ -1234,7 +1234,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - Each entry shows its domain (127.0.0.1) and a visit time
 - The entries are grouped under "Today - <date>"
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_entry_details`
 
 </details>
@@ -1252,7 +1252,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - The list is empty
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_clear_history`
 
 </details>
@@ -1271,7 +1271,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 - The time filters are check boxes; several ranges can be ticked and add up
 - Last hour, Yesterday + Today and All time list the pages; Yesterday alone does not
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_time_filter`
 
 </details>
@@ -1289,7 +1289,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Both entries are gone
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_delete_whole_day`
 
 </details>
@@ -1306,7 +1306,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Alpha is listed
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_history_survives_restart`
 
 </details>
@@ -1321,7 +1321,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Settings > Clear browsing data opens
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_clear_browsing_data_link`
 
 </details>
@@ -1337,7 +1337,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - No entry is listed
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_search_no_match`
 
 </details>
@@ -1353,7 +1353,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - No entry is ticked; Delete is disabled again
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_cancel_selection`
 
 </details>
@@ -1369,7 +1369,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Alpha is listed above Beta
 
-**Nguồn:** `testcases/history/sanity.md`  
+**Nguồn:** `cases/history/sanity.md`  
 **Script:** `tests/features/history/test_history_sanity.py::test_revisit_moves_to_top`
 
 </details>
@@ -1391,7 +1391,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 - Titles follow page 1 -> page 2 -> page 1 -> page 2
 
-**Nguồn:** `testcases/general/general.md`  
+**Nguồn:** `cases/general/general.md`  
 **Script:** `tests/features/general/test_navigation.py::test_back_forward`
 
 </details>

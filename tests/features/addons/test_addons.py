@@ -1,6 +1,6 @@
-"""Add-ons (extensions). Cases: testcases/addons/addons.md
+"""Add-ons (extensions). Cases: cases/addons/addons.md
 
-The sample add-on (test_data/extensions/sample_addon) is loaded unpacked with
+The sample add-on (resources/extensions/sample_addon) is loaded unpacked with
 @pytest.mark.browser(extensions=[...]). Its content script sets
 <html data-sb-addon="active"> on local pages, which proves it is running.
 """

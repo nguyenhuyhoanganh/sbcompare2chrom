@@ -29,7 +29,7 @@ CASE_MD = """# Feature
 def test_parse_case_file(tmp_path):
     md = tmp_path / "x.md"
     md.write_text(CASE_MD, encoding="utf-8")
-    a, b = parse_file(md, "bookmarks", "testcases/bookmarks/x.md")
+    a, b = parse_file(md, "bookmarks", "cases/bookmarks/x.md")
     assert (a.id, a.title, a.priority, a.type, a.precondition) == ("BM-900", "Add a bookmark", "High", "web", "Clean profile")
     assert a.steps == ["Open the manager", 'Add "X", a long step that wraps']
     assert a.expected == ['"X" is listed'] and a.automated.endswith("::test_add")

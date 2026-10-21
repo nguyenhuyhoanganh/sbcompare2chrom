@@ -11,30 +11,36 @@ test cơ bản theo từng feature: add-ons, bookmarks, downloads, history, duy�
 ## Cấu trúc
 
 ```
-run.py                       chạy test (feature, case, sanity)
-setup.bat                    cài đặt lần đầu trên Windows
-config/
-  default.yaml               cấu hình (attach mode, điều hướng chrome:// - thanh địa chỉ hiện internet://)
-  native_ui.yaml             tên logic -> tiêu chí UIA của UI Samsung (toolbar, menu, bubble, dialog)
+config/                      cấu hình
+  default.yaml               attach mode, điều hướng chrome:// (thanh địa chỉ hiện internet://), timeout, paths, report, proxy
+  native_ui.yaml             tên logic -> tiêu chí UIA của UI Samsung (toolbar, menu, toast, dialog)
   local.yaml                 cấu hình riêng của máy (đường dẫn exe, proxy), không đưa lên git
-sbtest/                      framework
+sbtest/                      framework (package Python)
   browser/                   khởi động browser, profile, version Chromium, chromedriver
   web/                       lớp web: locator (xuyên Shadow DOM), wait, action, đọc nội dung, tab, iframe
   native/                    lớp native: UI của browser, dialog Windows, Explorer, toast
   pages/                     page object các trang internet:// (bookmarks, history, downloads, add-ons)
-  data/  server/             dữ liệu mẫu, web server local
+  data/  server/             đọc/sinh dữ liệu test, web server cục bộ
   reporting/                 bằng chứng lỗi, results.json, báo cáo, thư mục cho Confluence
   tools/                     doctor, dom, uia_dump, explore, coverage, case_overview, report
-tests/features/              test, mỗi feature một thư mục
-  addons/  bookmarks/  downloads/  history/  general/
-testcases/<feature>/*.md     test case dạng tài liệu, mỗi case có mã (ADD-101...)
-test_site/  test_data/       trang web test local, add-on mẫu (.crx + unpacked), dữ liệu
-framework_tests/             unit test của framework
+tests/
+  features/                  test sản phẩm, mỗi feature một thư mục: addons/ bookmarks/ downloads/ history/ general/
+  framework/                 unit test của framework (không cần browser)
+cases/                       test case dạng tài liệu, mỗi feature một thư mục + TESTCASES.md (bảng tổng hợp) + _inbox/
+resources/                   tài nguyên test
+  data/                      bookmarks.yaml, addons.yaml (seed bookmark, add-on mẫu, id Web Store)
+  extensions/                add-on mẫu (unpacked + .crx)
+  profiles/                  profile mẫu (tuỳ chọn)
+  site/                      trang web test cục bộ (download, form, dialog...)
+docs/SETUP.md                cài đặt máy Windows mới, xử lý khi Samsung merge Chromium mới
+drivers/                     chromedriver cho máy offline (git-ignored, framework tự tải)
+.claude/skills/              skill cho agent: intake, explore, author, run
+run.py  setup.bat            chạy test / cài đặt lần đầu
 ```
 
 ## Cài đặt (Windows)
 
-Hướng dẫn đầy đủ cho máy mới (yêu cầu, proxy, bộ gõ, kiểm tra, chạy, báo cáo): **[SETUP.md](SETUP.md)**. Tóm tắt:
+Hướng dẫn đầy đủ cho máy mới (yêu cầu, proxy, bộ gõ, kiểm tra, chạy, báo cáo): **[docs/SETUP.md](docs/SETUP.md)**. Tóm tắt:
 
 ```bat
 setup.bat
@@ -75,14 +81,14 @@ Kết quả nằm ở `artifacts\runs\<thời gian>\`:
 | `results.json`, `junit.xml` | kết quả dạng máy đọc |
 
 Sinh lại báo cáo của một lần chạy (ví dụ sau khi sửa mô tả case): `python -m sbtest.tools.report [thư mục run] --open`.
-Bảng tổng hợp mọi case kèm kết quả gần nhất: `python -m sbtest.tools.case_overview` -> `testcases\TESTCASES.md`.
+Bảng tổng hợp mọi case kèm kết quả gần nhất: `python -m sbtest.tools.case_overview` -> `cases\TESTCASES.md`.
 
 Test native cần desktop Windows đang mở và không bị khoá. Đừng chạy qua RDP đang thu nhỏ.
 
 ## Làm việc với agent (Claude Code chạy trên máy Windows có bản build)
 
 - *"Đọc test case add-ons ở <link Confluence> và tự động hoá"*:
-  - `sbtest-intake` đọc link qua skill Confluence và chuẩn hoá thành `testcases\addons\*.md`.
+  - `sbtest-intake` đọc link qua skill Confluence và chuẩn hoá thành `cases\addons\*.md`.
   - `sbtest-author` tự mở browser, khám phá UI, sửa page object Samsung, viết test vào
     `tests\features\addons\` rồi chạy cho tới khi pass ổn định.
 - *"Viết test: mở add-on X từ toolbar, popup phải hiện thông tin Y"*: `sbtest-explore` khám phá UI
@@ -94,10 +100,10 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
 ## Ghi chú
 
 - Đã chạy thật trên Windows 11 (arm64) với **Samsung Browser 31.0.0.55 (Chromium 148)** bản
-  public (browser.samsung.com): 74 case, tất cả pass. Bảng đầy đủ: `testcases\TESTCASES.md`.
+  public (browser.samsung.com): 74 case, tất cả pass. Bảng đầy đủ: `cases\TESTCASES.md`.
 - Settings chưa có test (các case cũ chưa kiểm chứng trên Samsung nên đã bỏ). Muốn thêm, dùng
   skill `sbtest-explore` để viết từ đầu trên Samsung.
-- Case chia theo feature và theo khu vực: `testcases\<feature>\<khu vực>.md` (trang quản lý,
+- Case chia theo feature và theo khu vực: `cases\<feature>\<khu vực>.md` (trang quản lý,
   `sanity.md`, `toolbar.md` cho icon/popup trên toolbar), test tương ứng
   `tests\features\<feature>\test_<feature>_<khu vực>.py` - chạy riêng một phần bằng `--feature`.
 - Test native điều khiển chuột/bàn phím thật: đừng dùng máy trong lúc chạy (một cửa sổ khác nhảy

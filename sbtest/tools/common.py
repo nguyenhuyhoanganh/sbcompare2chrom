@@ -33,7 +33,7 @@ def start(args, name: str = "tool", extensions=None, bookmarks_spec: str | None 
           ) -> tuple[BrowserSession, LocalSite]:
     """Start local site + browser. ``bookmarks_spec`` = ``file.yaml:key`` seeds the profile."""
     cfg = make_config(args)
-    site = LocalSite(cfg.path("paths.test_site"), cfg.get("server.host"), cfg.get("server.port")).start()
+    site = LocalSite(cfg.path("paths.site"), cfg.get("server.host"), cfg.get("server.port")).start()
     session = BrowserSession(cfg, name=name, extensions=extensions)
     if bookmarks_spec:
         file, _, key = bookmarks_spec.partition(":")

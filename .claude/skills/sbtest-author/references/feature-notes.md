@@ -1,7 +1,7 @@
 # Feature notes (what works, what bites)
 
 Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity suite
-(`testcases/<feature>/sanity.md`, `toolbar.md`). Re-check after a Samsung/Chromium update.
+(`cases/<feature>/sanity.md`, `toolbar.md`). Re-check after a Samsung/Chromium update.
 
 ## Whole product
 
@@ -91,10 +91,10 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
     Windows folder picker).
   - Drop .crx: `pages.extensions.drop_crx(native, crx)` - real drag from File Explorer;
     synthetic JS/CDP drops are ignored by the browser. Needs developer mode.
-    `test_data/extensions/sample_addon.crx` is packed from `sample_addon/`.
+    `resources/extensions/sample_addon.crx` is packed from `sample_addon/`.
   - Web Store: `pages.webstore.install(ext_id, native)` - through the company proxy; button
     text from config `webstore.add_button_texts`; free, popular extensions only (Dark Reader
-    in `test_data/addons.yaml`).
+    in `resources/data/addons.yaml`).
 - Off-store .crx installs can be blocked by policy - if the prompt never shows, check
   `internet://policy` and report it rather than working around it.
 - Toolbar "Add-ons" (puzzle, `ExtensionsToolbarButton`) -> menu: each add-on with "Pin <name>" /

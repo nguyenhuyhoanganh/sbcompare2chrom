@@ -1,5 +1,5 @@
 """Bookmarks from the browser toolbar (star, Ctrl+D toast, Bookmarks panel) on Samsung Browser.
-Cases: testcases/bookmarks/toolbar.md. Windows only (native UI)."""
+Cases: cases/bookmarks/toolbar.md. Windows only (native UI)."""
 import pytest
 
 from sbtest.steps import step

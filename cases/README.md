@@ -7,7 +7,7 @@ exports) go to `_inbox/`; the normalized cases below are what tests and coverage
 Put one markdown file per feature area (or per doc you receive) under the matching folder:
 
 ```
-testcases/
+cases/
   addons/   bookmarks/   downloads/   history/   general/
 ```
 
@@ -18,12 +18,12 @@ with `python run.py --case BM-001`.
 
 | Feature    | Prefix | Folder              |
 |------------|--------|---------------------|
-| Bookmarks  | BM     | testcases/bookmarks |
-| History    | HIS    | testcases/history   |
-| Downloads  | DL     | testcases/downloads |
+| Bookmarks  | BM     | cases/bookmarks |
+| History    | HIS    | cases/history   |
+| Downloads  | DL     | cases/downloads |
 | Settings   | SET    | (none yet - reserved prefix) |
-| Add-ons    | ADD    | testcases/addons    |
-| General    | GEN    | testcases/general   |
+| Add-ons    | ADD    | cases/addons    |
+| General    | GEN    | cases/general   |
 
 ## Format
 

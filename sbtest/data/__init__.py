@@ -1,7 +1,7 @@
 """Test data helpers.
 
     from sbtest.data import load_data, BookmarksSeed, Bm, Folder, files
-    d = load_data("bookmarks")              # test_data/bookmarks.yaml -> dict
+    d = load_data("bookmarks")              # resources/data/bookmarks.yaml -> dict
     files.text_file(tmp_path, "note.txt")   # generated files for upload tests
 """
 from sbtest.data.bookmarks import Bm, BookmarksSeed, Folder

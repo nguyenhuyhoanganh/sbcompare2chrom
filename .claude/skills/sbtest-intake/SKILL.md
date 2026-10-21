@@ -1,22 +1,22 @@
 ---
 name: sbtest-intake
-description: Turn test cases given as a Confluence/Jira link (or pasted text, a table, an export) into normalized testcases/<feature>/*.md files with IDs, ready to automate with sbtest. Use when the user hands over test cases for Samsung Internet sanity testing in any form.
+description: Turn test cases given as a Confluence/Jira link (or pasted text, a table, an export) into normalized cases/<feature>/*.md files with IDs, ready to automate with sbtest. Use when the user hands over test cases for Samsung Internet sanity testing in any form.
 ---
 
-# Intake: test cases -> testcases/<feature>/*.md
+# Intake: test cases -> cases/<feature>/*.md
 
 ## 1. Get the raw content
 
 - Confluence page / Jira issue link: use the **Confluence skill** to read it (include child
   pages or attachments when the user says so). Save the content, as Markdown with tables
-  kept, to `testcases/_inbox/<page title>.md`, and put the source link on the first line.
-- Pasted text / file: save it the same way under `testcases/_inbox/`.
+  kept, to `cases/_inbox/<page title>.md`, and put the source link on the first line.
+- Pasted text / file: save it the same way under `cases/_inbox/`.
 
 `_inbox/` is a raw copy for traceability; tests and coverage never read it.
 
 ## 2. Normalize
 
-Write `testcases/<feature>/<area>.md` in the format of `testcases/README.md`:
+Write `cases/<feature>/<area>.md` in the format of `cases/README.md`:
 
 - Feature folder: `addons`, `bookmarks`, `downloads`, `history`, `general`
   (a new area -> new folder and prefix; say so in the report).

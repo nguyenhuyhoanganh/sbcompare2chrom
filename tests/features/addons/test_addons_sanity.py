@@ -1,4 +1,4 @@
-"""Add-ons sanity on Samsung Browser. Cases: testcases/addons/sanity.md"""
+"""Add-ons sanity on Samsung Browser. Cases: cases/addons/sanity.md"""
 import pytest
 
 from sbtest.steps import step
@@ -97,10 +97,10 @@ def test_keyboard_shortcuts(pages, web):
 def test_pack_creates_crx(pages, web, tmp_path):
     import shutil
 
-    from sbtest.config import ROOT
+    from sbtest.config import EXTENSIONS_DIR
 
     src = tmp_path / "addon"
-    shutil.copytree(ROOT / "test_data" / "extensions" / "sample_addon", src)
+    shutil.copytree(EXTENSIONS_DIR / "sample_addon", src)
     e = pages.extensions.open()
     with step("1. Developer mode, Pack add-on", expected="'Pack extension' disabled while the directory is empty"):
         e.open_pack_dialog()

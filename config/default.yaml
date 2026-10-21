@@ -48,9 +48,12 @@ timeouts:
   native: 10        # pywinauto window/dialog waits
 
 paths:
-  artifacts: artifacts        # reports, screenshots, profiles, downloads
-  test_site: test_site        # static pages served by the local HTTP server
-  test_data: test_data
+  artifacts: artifacts            # reports, screenshots, profiles, downloads (git-ignored)
+  cases: cases                    # test case documents (<feature>/*.md)
+  data: resources/data            # <name>.yaml test data (bookmark seeds, add-on ids ...)
+  extensions: resources/extensions  # sample add-ons (unpacked folders + .crx)
+  profiles: resources/profiles    # profile templates for @browser(profile=...)
+  site: resources/site            # static pages served by the local HTTP server
 
 server:
   host: 127.0.0.1

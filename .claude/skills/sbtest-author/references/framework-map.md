@@ -22,22 +22,27 @@ sbtest/
     bookmarks.py history.py downloads.py extensions.py   one page object per internal page
     webstore.py                Chrome Web Store item page (text based)
   data/                        BookmarksSeed, load_data("feature"), files.* generators
-  server/local_site.py         LocalSite: test_site/ + dynamic routes (page, download, upload, auth...)
+  server/local_site.py         LocalSite: resources/site/ + dynamic routes (page, download, upload, auth...)
   reporting/                   evidence (failure files, step screenshots), results.json,
                                confluence_export (folder to upload with the Confluence skill)
   steps.py                     step("N. ...", expected=...) context manager
   pytest_plugin.py             options, markers, fixtures, filters, evidence hooks
   tools/                       doctor, dom, uia_dump, explore, coverage, case_overview, report,
                                confluence_export
-test_site/                     local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
-                               downloads, frames, permissions, toast, shadow, pages/1..3
-test_data/                     <feature>.yaml data, extensions/ (sample_addon + .crx), profiles/
-testcases/<feature>/*.md       manual cases with IDs (input); testcases/_inbox/ raw copies
 tests/
   features/<feature>/          tests, one folder per feature (addons, bookmarks, downloads,
                                history, general); carry @case ids
+  framework/                   unit tests of the framework (no browser)
   _scratch/                    throw-away exploration tests (git-ignored)
-framework_tests/               unit tests of the framework (no browser)
+cases/<feature>/*.md           manual cases with IDs (input); cases/TESTCASES.md overview;
+                               cases/_inbox/ raw copies
+resources/
+  data/                        <name>.yaml test data (bookmark seeds, add-on ids) -> data("name")
+  extensions/                  sample_addon/ (unpacked) + sample_addon.crx
+  profiles/                    profile templates for @browser(profile=...)
+  site/                        local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
+                               downloads, frames, permissions, toast, shadow, pages/1..3
+docs/SETUP.md                  new Windows machine, what to do after a Chromium merge
 artifacts/runs/<ts>/           report.html, results.json, junit.xml, failures/, steps/, confluence/
 ```
 
@@ -51,7 +56,7 @@ artifacts/runs/<ts>/           report.html, results.json, junit.xml, failures/, 
 | `site` | local web server: `site.page("Title")`, `site.url("/upload.html")`, `site.download("a.txt", 2048)` |
 | `session` | `BrowserSession` (`restart()`, `profile`, `driver`, `downloads_dir`) |
 | `downloads_dir` | download folder of this profile |
-| `data` | `data("addons")` -> `test_data/addons.yaml` with `{site}` resolved |
+| `data` | `data("addons")` -> `resources/data/addons.yaml` with `{site}` resolved |
 | `cfg` | configuration (`cfg.page_url("history")`, `cfg.display_url("history")`) |
 | `tmp_path` | pytest temp folder |
 

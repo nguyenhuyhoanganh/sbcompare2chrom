@@ -1,4 +1,4 @@
-"""Load per-feature test data from ``test_data/<feature>.yaml``.
+"""Load test data from ``resources/data/<name>.yaml``.
 
 String values may contain ``{site}`` which is replaced by the local test site base URL
 when ``site`` is given, e.g. ``url: "{site}/page?title=Docs"``.
@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from sbtest.config import ROOT
+from sbtest.config import DATA_DIR
 
 
 def format_data(value: Any, mapping: dict) -> Any:
@@ -25,6 +25,6 @@ def format_data(value: Any, mapping: dict) -> Any:
 
 
 def load_data(feature: str, site=None, data_dir=None) -> dict:
-    path = (data_dir or ROOT / "test_data") / f"{feature}.yaml"
+    path = (data_dir or DATA_DIR) / f"{feature}.yaml"
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return format_data(data, {"site": site.base}) if site is not None else data

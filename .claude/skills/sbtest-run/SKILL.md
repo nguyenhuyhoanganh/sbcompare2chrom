@@ -8,7 +8,7 @@ description: Run the Samsung Internet automated tests (all, by feature, or by te
 ## First time on a machine
 
 `setup.bat`, set `browser.exe` in `config/local.yaml`, then `python -m sbtest.tools.doctor`
-and fix every FAIL (step by step: `SETUP.md`).
+and fix every FAIL (step by step: `docs/SETUP.md`).
 
 ## Run
 
@@ -27,7 +27,7 @@ Native tests need an unlocked, visible Windows desktop (not a minimized RDP sess
 `--no-native` skips them; say so in the report when you use it.
 
 Run one feature only: `--feature addons` (or `bookmarks`, `downloads`, `history` ...);
-each feature's tests are in `tests/features/<feature>/` and its cases in `testcases/<feature>/`.
+each feature's tests are in `tests/features/<feature>/` and its cases in `cases/<feature>/`.
 
 ## Outputs: `artifacts/runs/<timestamp>/`
 

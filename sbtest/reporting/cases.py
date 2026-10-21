@@ -1,9 +1,9 @@
-"""Read the normalized test case documents (testcases/<feature>/*.md).
+"""Read the normalized test case documents (cases/<feature>/*.md).
 
     cases = load_cases()            # {"BM-101": Case(...), ...}
     cases["BM-101"].steps           # ["Open 'Static page 1'", "Press Ctrl+D", ...]
 
-Format of a case (see testcases/README.md)::
+Format of a case (see cases/README.md)::
 
     ## BM-101 Title
     - Priority: High
@@ -21,7 +21,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from sbtest.config import ROOT
+from sbtest.config import CASES_DIR, ROOT
 
 CASE_HEADER = re.compile(r"^#{2,3}\s+([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\b\s*(.*)$")  # BM-001, SI-ADD-012
 FIELD = re.compile(r"^-\s*(Priority|Type|Precondition|Steps|Expected|Automated)\s*:\s*(.*)$", re.I)
@@ -81,11 +81,11 @@ def parse_file(md: Path, feature: str, rel: str) -> list[Case]:
     return out
 
 
-def load_cases(folder: Path = ROOT / "testcases") -> dict[str, Case]:
+def load_cases(folder: Path = CASES_DIR) -> dict[str, Case]:
     out: dict[str, Case] = {}
     for md in sorted(folder.rglob("*.md")):
         rel_parts = md.relative_to(folder).parts
-        if md.name.lower() in ("readme.md", "testcases.md") or "_inbox" in rel_parts:
+        if md.name.lower() in ("readme.md", "cases.md") or "_inbox" in rel_parts:
             continue  # _inbox = raw Confluence/Jira copies; TESTCASES.md = generated overview
         feature = rel_parts[0] if len(rel_parts) > 1 else ""
         for case in parse_file(md, feature, str(md.relative_to(ROOT)).replace("\\", "/")):

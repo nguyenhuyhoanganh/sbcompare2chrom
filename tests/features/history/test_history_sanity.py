@@ -1,4 +1,4 @@
-"""History sanity on Samsung Browser. Cases: testcases/history/sanity.md"""
+"""History sanity on Samsung Browser. Cases: cases/history/sanity.md"""
 import pytest
 
 from sbtest.steps import step

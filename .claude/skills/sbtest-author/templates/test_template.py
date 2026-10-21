@@ -1,4 +1,4 @@
-"""<Area> of <feature>. Cases: testcases/<feature>/<file>.md
+"""<Area> of <feature>. Cases: cases/<feature>/<file>.md
 
 Copy to tests/features/<feature>/test_<area>.py, keep only what you need.
 """

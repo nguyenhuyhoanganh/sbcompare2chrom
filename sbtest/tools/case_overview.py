@@ -1,4 +1,4 @@
-"""Regenerate testcases/TESTCASES.md: every case with its type, sanity flag and the latest
+"""Regenerate cases/TESTCASES.md: every case with its type, sanity flag and the latest
 result, plus the full steps / expected of each case.
 
     python -m sbtest.tools.case_overview                     # latest results from artifacts/runs/
@@ -14,7 +14,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from sbtest.config import ROOT
+from sbtest.config import CASES_DIR, ROOT
 from sbtest.reporting.cases import load_cases
 
 FEATURES = [("addons", "Add-ons", "ADD"), ("bookmarks", "Bookmarks", "BM"), ("downloads", "Downloads", "DL"),
@@ -80,7 +80,7 @@ def render(results: dict[str, str] | None) -> str:
     native = sum(c.type.startswith("native") for c in cases.values())
     w("# Danh sách test case - sbtest")
     w("")
-    w("File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `testcases/**/*.md` và marker của test.")
+    w("File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/**/*.md` và marker của test.")
     w("Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.")
     w("")
     w(f"**{total} test case**, tất cả đã có script tự động ({total - native} web, {native} native).")
@@ -149,7 +149,7 @@ def render(results: dict[str, str] | None) -> str:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("--no-results", action="store_true", help="leave out the result column")
-    p.add_argument("--out", default=str(ROOT / "testcases" / "TESTCASES.md"))
+    p.add_argument("--out", default=str(CASES_DIR / "TESTCASES.md"))
     args = p.parse_args(argv)
     text = render(None if args.no_results else latest_results())
     Path(args.out).write_text(text, encoding="utf-8", newline="\n")

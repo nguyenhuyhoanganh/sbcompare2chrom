@@ -7,19 +7,19 @@ through the UI. Everything is local - no internet.
 ## Per-test browser preconditions: `@pytest.mark.browser(...)`
 
 ```python
-@pytest.mark.browser(bookmarks="seed_basic")                 # key in test_data/<feature>.yaml
+@pytest.mark.browser(bookmarks="seed_basic")                 # key in resources/data/<feature>.yaml
 @pytest.mark.browser(bookmarks="bookmarks:seed_many")        # explicit file:key
 @pytest.mark.browser(bookmarks={"bookmark_bar": [{"name": "A", "url": "{site}/page?title=A"}]})
 @pytest.mark.browser(prefs={"download.prompt_for_download": True, "bookmark_bar.show_on_all_tabs": True})
-@pytest.mark.browser(extensions=["sample_addon"])             # test_data/extensions/<dir>, unpacked
+@pytest.mark.browser(extensions=["sample_addon"])             # resources/extensions/<dir>, unpacked
 @pytest.mark.browser(args=["--start-maximized"])              # extra switches
-@pytest.mark.browser(profile="with_passwords")                # copy test_data/profiles/<name>/ first
+@pytest.mark.browser(profile="with_passwords")                # copy resources/profiles/<name>/ first
 ```
 
 A test with `browser(...)` always gets its own fresh browser, even when the run reuses
 browsers (`--browser-scope session`).
 
-## Data files: `test_data/<feature>.yaml`
+## Data files: `resources/data/<feature>.yaml`
 
 ```yaml
 seed_basic:                     # Bookmarks file structure
@@ -64,7 +64,7 @@ In code: `BookmarksSeed().url("A", url).folder("F", [Bm("B", url2), Folder("Empt
 | `site.url("/delayed", ms=1500, text="Ready")` | `#late` appears after a delay |
 | `/echo` (GET/POST form) , `/upload` (POST multipart) | server echoes what it received as JSON |
 
-Need a new page? Add an HTML file under `test_site/` (static) or a route in
+Need a new page? Add an HTML file under `resources/site/` (static) or a route in
 `sbtest/server/local_site.py` (dynamic), with ids on everything the tests touch.
 
 ## History
@@ -93,8 +93,8 @@ state use `browser(prefs=...)`. Pref names: open `chrome://prefs-internals` in t
 
 ## Add-ons
 
-`test_data/addons.yaml`: `sample` (name, unpacked folder, `.crx`) and `webstore` (id, name).
-Put unpacked add-ons in `test_data/extensions/<name>/` (manifest v3); pack a `.crx` with
+`resources/data/addons.yaml`: `sample` (name, unpacked folder, `.crx`) and `webstore` (id, name).
+Put unpacked add-ons in `resources/extensions/<name>/` (manifest v3); pack a `.crx` with
 `SamsungInternet.exe --pack-extension=<folder>` (or "Pack add-on" on the add-ons page). `sample_addon` has a
 popup, an options page and a content script that sets `<html data-sb-addon="active">` on
 `http://127.0.0.1/*`. Installing from a store needs internet - not used in automated tests;

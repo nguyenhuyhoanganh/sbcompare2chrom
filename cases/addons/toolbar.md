@@ -2,7 +2,7 @@
 
 Add-ons from the browser's own UI: app menu entry, toolbar "Add-ons" (puzzle) menu, pinned
 add-on icon and its popup. All native (Windows). Verified on Samsung Browser 31.0.0.55.
-The popup and options pages belong to the sample add-on (test_data/extensions/sample_addon).
+The popup and options pages belong to the sample add-on (resources/extensions/sample_addon).
 
 ## ADD-106 Open Add-ons from the app menu
 - Priority: Medium

@@ -1,4 +1,4 @@
-"""Navigation and tabs. Cases: testcases/general/general.md"""
+"""Navigation and tabs. Cases: cases/general/general.md"""
 import pytest
 
 from sbtest.steps import step

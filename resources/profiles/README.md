@@ -1,6 +1,6 @@
 # Profile templates
 
-A folder here (e.g. `test_data/profiles/with_history/`) is copied into the fresh
+A folder here (e.g. `resources/profiles/with_history/`) is copied into the fresh
 user-data-dir before the browser starts when a test uses
 `@pytest.mark.browser(profile="with_history")`.
 

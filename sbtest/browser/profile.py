@@ -3,7 +3,7 @@
 Seeding happens *before* the browser starts (files are read at startup):
     profile.prefs({...})            -> Default/Preferences (merged)
     profile.bookmarks(seed)         -> Default/Bookmarks
-    profile.copy_from(template_dir) -> any ready-made profile (e.g. test_data/profiles/<name>)
+    profile.copy_from(template_dir) -> any ready-made profile (e.g. resources/profiles/<name>)
 """
 from __future__ import annotations
 

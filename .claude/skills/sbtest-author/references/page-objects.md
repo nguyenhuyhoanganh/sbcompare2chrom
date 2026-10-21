@@ -14,7 +14,7 @@ from upstream Chromium.
 ## When a page changed (after a Samsung/Chromium update)
 
 1. Dump it: `python -m sbtest.tools.dom extensions --interactive --out ext.txt`
-   (with data: `--seed-bookmarks ...`, `--extension test_data/extensions/sample_addon`).
+   (with data: `--seed-bookmarks ...`, `--extension resources/extensions/sample_addon`).
 2. Fix class constants (`ROOT`, `ITEMS`, `DEV_MODE` ...) first, then methods whose flow
    changed (e.g. a confirmation that became a native prompt instead of a si-dialog).
 3. Keep method names, parameters and return types - tests must not change.

@@ -10,8 +10,8 @@ and add a page-object method or ui-map entry, then add a row to this table.
 
 | Request / precondition | Do |
 |---|---|
-| "bookmarks A, B and folder Work exist" | `@pytest.mark.browser(bookmarks="seed_basic")` (sets in `test_data/bookmarks.yaml`; add one if needed) |
-| "add-on X installed" | `@pytest.mark.browser(extensions=["sample_addon"])` (folders in `test_data/extensions/`) |
+| "bookmarks A, B and folder Work exist" | `@pytest.mark.browser(bookmarks="seed_basic")` (sets in `resources/data/bookmarks.yaml`; add one if needed) |
+| "add-on X installed" | `@pytest.mark.browser(extensions=["sample_addon"])` (folders in `resources/extensions/`) |
 | a setting already on | `@pytest.mark.browser(prefs={"download.prompt_for_download": True})` |
 | "pages visited" (history) | `web.open(site.page("Alpha")); web.wait_title("Alpha")` per page |
 | "file downloaded" | `web.open(site.url("/downloads.html")); web.click("#dl-txt"); web.wait_file(downloads_dir, "sample.txt")` (`#dl-bin`, `#dl-png`, `#dl-slow`, `#dl-attr`) |

@@ -7,11 +7,11 @@ Fixtures (ask only for what the test needs):
     web            session.web     - everything inside web content
     native         session.native  - browser UI / OS dialogs (test is skipped where unavailable)
     pages          page objects: pages.bookmarks, pages.extensions ...
-    data           data("bookmarks") -> test_data/bookmarks.yaml with {site} filled in
+    data           data("bookmarks") -> resources/data/bookmarks.yaml with {site} filled in
     downloads_dir  folder this browser profile downloads into
 
 Markers:
-    @pytest.mark.case("BM-001")   case ids from testcases/ (filter: --case)
+    @pytest.mark.case("BM-001")   case ids from cases/ (filter: --case)
     @pytest.mark.native           drives native UI (Windows, not headless)
     @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name")
                                   preconditions applied BEFORE the browser starts
@@ -58,7 +58,7 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     for f in FEATURES:
         config.addinivalue_line("markers", f"{f}: feature {f} (auto from tests/features/{f}/)")
-    for line in ("case(*ids): test case ids from testcases/", "native: drives native Windows UI (pywinauto)",
+    for line in ("case(*ids): test case ids from cases/", "native: drives native Windows UI (pywinauto)",
                  "browser(**opts): per-test browser preconditions", "slow: long running",
                  "sanity: part of the quick sanity pass"):
         config.addinivalue_line("markers", line)
@@ -136,14 +136,14 @@ def run_dir(request) -> Path:
 
 @pytest.fixture(scope="session")
 def site(cfg):
-    s = LocalSite(cfg.path("paths.test_site"), cfg.get("server.host"), int(cfg.get("server.port") or 0)).start()
+    s = LocalSite(cfg.path("paths.site"), cfg.get("server.host"), int(cfg.get("server.port") or 0)).start()
     yield s
     s.stop()
 
 
 @pytest.fixture
 def data(site):
-    """``data("bookmarks")`` -> dict from test_data/bookmarks.yaml, ``{site}`` resolved."""
+    """``data("bookmarks")`` -> dict from resources/data/bookmarks.yaml, ``{site}`` resolved."""
     return lambda name: load_data(name, site)
 
 
@@ -171,15 +171,15 @@ _shared = _Shared()
 def _build_session(cfg, site, request) -> BrowserSession:
     m = request.node.get_closest_marker("browser")
     opts = dict(m.kwargs) if m else {}
-    exts = [Path(e) if Path(e).is_absolute() else cfg.path("paths.test_data") / "extensions" / e
+    exts = [Path(e) if Path(e).is_absolute() else cfg.path("paths.extensions") / e
             for e in opts.get("extensions", [])]
     session = BrowserSession(cfg, name=request.node.name, extra_args=opts.get("args"), extensions=exts,
                              prefs=opts.get("prefs"))
     if opts.get("profile"):
-        session.profile.copy_from(cfg.path("paths.test_data") / "profiles" / opts["profile"])
+        session.profile.copy_from(cfg.path("paths.profiles") / opts["profile"])
     bm = opts.get("bookmarks")
     if bm:
-        if isinstance(bm, str):  # "key" in test_data/bookmarks.yaml, or "file:key"
+        if isinstance(bm, str):  # "key" in resources/data/bookmarks.yaml, or "file:key"
             name, _, key = bm.rpartition(":")
             bm = load_data(name or "bookmarks", site)[key]
         session.profile.bookmarks(format_data(bm, {"site": site.base}))

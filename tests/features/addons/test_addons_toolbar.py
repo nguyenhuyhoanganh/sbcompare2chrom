@@ -1,7 +1,7 @@
 """Add-ons from the browser toolbar (app menu, Add-ons menu, pinned icon, popup) on Samsung Browser.
-Cases: testcases/addons/toolbar.md. Windows only (native UI).
+Cases: cases/addons/toolbar.md. Windows only (native UI).
 
-The popup belongs to the sample add-on (test_data/extensions/sample_addon/popup.html):
+The popup belongs to the sample add-on (resources/extensions/sample_addon/popup.html):
 title "SB Sample Addon" and a button #count "Clicked N" that counts clicks.
 """
 import pytest

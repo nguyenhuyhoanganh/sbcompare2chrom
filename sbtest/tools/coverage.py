@@ -1,4 +1,4 @@
-"""Which test case ids (testcases/**/*.md) are automated (@pytest.mark.case in tests/)?
+"""Which test case ids (cases/**/*.md) are automated (@pytest.mark.case in tests/)?
 
     python -m sbtest.tools.coverage                 # table per feature
     python -m sbtest.tools.coverage --missing       # only ids without a test
@@ -11,10 +11,10 @@ import ast
 import json
 from pathlib import Path
 
-from sbtest.config import ROOT
+from sbtest.config import CASES_DIR, ROOT
 
 
-def doc_cases(folder: Path = ROOT / "testcases") -> dict[str, dict]:
+def doc_cases(folder: Path = CASES_DIR) -> dict[str, dict]:
     """``{id: {title, feature, file, type, priority, ...}}`` from the markdown docs."""
     from sbtest.reporting.cases import load_cases
 
@@ -69,7 +69,7 @@ def main(argv=None) -> int:
         for t in r["tests"]:
             print(f"        {t}")
     if orphans:
-        print("\nIds used in tests but missing in testcases/: " + ", ".join(orphans))
+        print("\nIds used in tests but missing in cases/: " + ", ".join(orphans))
     return 0
 
 

@@ -13,12 +13,12 @@ conventions, page objects), `sbtest-run` (run + report). This skill is the worki
 
 ## 1. Understand the request -> a case
 
-Rewrite the request as a case before touching code (format: `testcases/README.md`):
+Rewrite the request as a case before touching code (format: `cases/README.md`):
 ID with the feature prefix (next free number: `python -m sbtest.tools.coverage --feature X`),
 title, Type (web / native), Precondition, numbered Steps, Expected (observable facts).
 
-- **One behaviour per case.** Check the feature's docs (`testcases/<feature>/*.md`, overview
-  `testcases/TESTCASES.md`) first: if an existing case covers it, extend that case or reuse
+- **One behaviour per case.** Check the feature's docs (`cases/<feature>/*.md`, overview
+  `cases/TESTCASES.md`) first: if an existing case covers it, extend that case or reuse
   its test instead of adding a near-duplicate. Prefer a stronger existing case over a new one.
 - Put the case in the file of its area: `<feature>/<area>.md` (manager page cases,
   `sanity.md`, `toolbar.md` for browser-UI flows ...). Tests mirror it:
@@ -29,8 +29,8 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 
 1. Machine ready? `python -m sbtest.tools.doctor` (once per session).
 2. Quick look at an internal page: `python -m sbtest.tools.dom <page> --interactive`
-   (lines end with a ready locator), with data: `--seed-bookmarks test_data/bookmarks.yaml:seed_basic`,
-   `--extension test_data/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
+   (lines end with a ready locator), with data: `--seed-bookmarks resources/data/bookmarks.yaml:seed_basic`,
+   `--extension resources/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
 3. A flow (menus, bubbles, popups, dialogs): write a scratch test with `Explorer`
    (template: `templates/explore_template.py`) in `tests/_scratch/` (git-ignored) and run
    `python -m pytest tests/_scratch/test_x.py -s -p no:cacheprovider`.
@@ -70,7 +70,7 @@ Request: *"Write a test: open the add-on from the toolbar, its popup shows the a
 and a counter that increases when clicked."*
 
 1. Case: existing `ADD-112` already covers it -> extend, don't duplicate. (If it did not
-   exist: `testcases/addons/toolbar.md`, Type native, Precondition "SB Sample Addon installed
+   exist: `cases/addons/toolbar.md`, Type native, Precondition "SB Sample Addon installed
    and pinned", Steps "click the add-on icon / click the popup button", Expected "popup with
    name + Clicked 0 / becomes Clicked 1".)
 2. Explore: scratch test -> `native.click("extensions_button")`, `x.find_native("(?i)sb sample|pin")`

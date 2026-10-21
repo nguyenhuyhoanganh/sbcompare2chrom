@@ -1,13 +1,13 @@
 import json
 import urllib.request
 
-from sbtest.config import ROOT
+from sbtest.config import SITE_DIR
 from sbtest.server import LocalSite
 from sbtest.tools.coverage import automated_cases, doc_cases
 
 
 def test_local_site_routes():
-    s = LocalSite(ROOT / "test_site").start()
+    s = LocalSite(SITE_DIR).start()
     try:
         with urllib.request.urlopen(s.page("Hello")) as r:
             assert b"<title>Hello</title>" in r.read()
@@ -25,4 +25,4 @@ def test_local_site_routes():
 
 def test_every_automated_case_is_documented():
     docs, auto = doc_cases(), automated_cases()
-    assert not set(auto) - set(docs), "case ids used in tests but missing from testcases/"
+    assert not set(auto) - set(docs), "case ids used in tests but missing from cases/"
