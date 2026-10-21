@@ -1,6 +1,6 @@
 """<Area> of <feature>. Cases: cases/<feature>/<file>.md
 
-Copy to tests/features/<feature>/test_<area>.py, keep only what you need.
+Copy to tests/features/<feature>/test_<feature>_<area>.py, keep only what you need.
 """
 import pytest
 

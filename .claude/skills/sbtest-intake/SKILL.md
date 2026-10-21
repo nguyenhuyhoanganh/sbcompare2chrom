@@ -1,6 +1,6 @@
 ---
 name: sbtest-intake
-description: Turn test cases given as a Confluence/Jira link (or pasted text, a table, an export) into normalized cases/<feature>/*.md files with IDs, ready to automate with sbtest. Use when the user hands over test cases for Samsung Internet sanity testing in any form.
+description: Turns test cases given as a Confluence/Jira link (or pasted text, a table, an export) into normalized Markdown case files under cases/ (one folder per feature) with IDs, ready to automate with sbtest. Use when the user hands over test cases for Samsung Internet sanity testing in any form.
 ---
 
 # Intake: test cases -> cases/<feature>/*.md

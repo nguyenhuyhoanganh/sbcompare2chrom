@@ -1,9 +1,18 @@
 ---
 name: sbtest-run
-description: Run the Samsung Internet automated tests (all, by feature, or by test case id) against a build, triage the failures and publish the run report to Confluence. Use when asked to run/execute the tests, check a new build after a Chromium merge, re-run failures, explain failures, or share results.
+description: Runs the Samsung Internet automated tests (all, by feature, or by test case id) against a build, triages the failures and publishes the run report to Confluence. Use when asked to run/execute the tests, check a new build after a Chromium merge, re-run failures, explain failures, or share results.
 ---
 
 # Run, triage, report
+
+Copy this checklist into your reply and tick it off:
+
+```
+- [ ] doctor green (first run on the machine / new build)
+- [ ] tests run (selection noted)
+- [ ] every failure in one triage bucket, buckets 2-4 fixed and re-run
+- [ ] report published (if asked) and verdict + triage table + link sent
+```
 
 ## First time on a machine
 
@@ -51,7 +60,7 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
    failed step, screenshots. Do not touch the test.
 2. **UI changed, test outdated** - same behaviour, different markup/labels after the merge.
    Fix the page object (`sbtest/pages/`) or `config/native_ui.yaml`
-   (see `sbtest-author` -> `references/debugging.md`), re-run the feature.
+   (`.claude/skills/sbtest-author/references/debugging.md`), re-run the feature.
 3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
    Fix the setup (`doctor`), re-run.
 4. **Flaky test** - passes on re-run with no product change: find the race (missing wait,

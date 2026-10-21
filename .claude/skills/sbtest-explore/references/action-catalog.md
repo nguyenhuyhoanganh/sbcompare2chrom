@@ -1,10 +1,23 @@
 # Action catalogue - "the request says" -> "the test does"
 
 Verified on Samsung Browser 31.0.0.55 (Chromium 148). Fixtures: `web`, `native`, `pages`,
-`site`, `session`, `cfg`, `downloads_dir`, `data`, `tmp_path` (see sbtest-author SKILL.md).
+`site`, `session`, `cfg`, `downloads_dir`, `data`, `tmp_path`.
 Logical names in quotes (`"bookmarks_button"`) are keys of `config/native_ui.yaml`;
 `name=` fills their `{name}` placeholder. Anything missing here: explore it (SKILL.md step 2)
 and add a page-object method or ui-map entry, then add a row to this table.
+
+## Contents
+
+- Preconditions (before the browser starts)
+- Pages and navigation
+- Bookmarks - manager page (`pages.bookmarks`)
+- Bookmarks - browser UI (native)
+- History (`pages.history`)
+- Downloads (`pages.downloads`, files in `downloads_dir`)
+- Add-ons
+- Dialogs, bubbles, files
+- Reading and asserting
+- After writing
 
 ## Preconditions (before the browser starts)
 
@@ -83,12 +96,12 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | file on disk | `web.wait_file(downloads_dir, "x")` |
 | pause / resume / cancel | `d.action("slow.bin", "Pause" / "Resume" / "Cancel")`, `d.status("slow.bin")` ("Paused ...") |
 | remove + undo | `d.remove("x")`, `d.toast_action("Undo")` |
-| clear the list | `d.clear_all()` |
+| clear the list ("Clear all" = toolbar "Clear download history") | `native.close_download_bubble()` if a download just finished, then `d.clear_all()` |
 | category / search | `d.filter_category("Image")`, `d.search("data")` |
 | copy link | `d.action("x", "Copy link")` + `pywinauto.clipboard.GetData()` |
 | show in folder | `d.action("x", "Show in folder")`, `native.wait_explorer(downloads_dir.name)`, `native.explorer_has_selected(win, "x")` |
 | toolbar download bubble | `native.element("download_bubble_item", title_re=r"^x ")` -> name "x 2,048 B • Done" |
-| close the download bubble (it covers "Clear all") | `native.close_download_bubble()` (its X) |
+| close the download bubble (155+: it covers "Clear download history") | `native.close_download_bubble()` (its X) |
 | ask where to save | prefs `download.prompt_for_download` + `native.file_dialog("save").save_as(path)` |
 
 ## Add-ons
@@ -135,5 +148,5 @@ and add a page-object method or ui-map entry, then add a row to this table.
 
 - `- Automated: tests/features/...::test_x` under the case; `python -m sbtest.tools.coverage`.
 - New UI names -> `config/native_ui.yaml` with a comment; new selectors -> the page
-  object class + its STATUS docstring; new behaviour -> `sbtest-author/references/feature-notes.md`.
+  object class + its STATUS docstring; new behaviour -> `.claude/skills/sbtest-author/references/feature-notes.md`.
 - Add the row you needed to this catalogue.

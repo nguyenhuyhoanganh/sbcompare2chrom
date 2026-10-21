@@ -4,6 +4,13 @@ Use it for everything outside web content. Mark the test `@pytest.mark.native`; 
 `native` fixture skips the test automatically where it cannot work (Linux, headless,
 pywinauto missing).
 
+## Contents
+
+- Discover before you write
+- API
+- Patterns (runnable examples: `tests/features/*/test_*_toolbar.py`, `test_*_sanity.py`)
+- Traps
+
 ## Discover before you write
 
 ```

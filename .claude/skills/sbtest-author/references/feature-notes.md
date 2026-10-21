@@ -1,7 +1,17 @@
 # Feature notes (what works, what bites)
 
-Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity suite
-(`cases/<feature>/sanity.md`, `toolbar.md`). Re-check after a Samsung/Chromium update.
+Verified by the sanity suite (`cases/<feature>/sanity.md`, `toolbar.md`) on Samsung Browser
+31.0.0.55 (Chromium 148, Windows arm64); notes that say "155" come from build 155. Re-check
+after a Samsung/Chromium update and record what changed here.
+
+## Contents
+
+- Whole product
+- Bookmarks (`internet://bookmarks`, prefix BM)
+- History (`internet://history`, prefix HIS)
+- Downloads (`internet://downloads`, prefix DL)
+- Add-ons (`internet://extensions`, prefix ADD)
+- General browsing (prefix GEN)
 
 ## Whole product
 
@@ -13,6 +23,9 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
   it (`startup_bubbles` in `config/native_ui.yaml`). Web-only tests are not affected.
 - Native bubbles fade in and ignore UIA Invoke while animating: `Dialog.click()` waits and uses
   the real mouse for Views buttons. Bubbles with no title are found by a Text inside.
+- Terms used in these skills: **snack bar** = the in-page si-snack-bar ("1 bookmark deleted"
+  [Undo], `page.wait_toast`); **toast** = the native browser toast ("Page bookmarked." [Edit],
+  `native.wait_dialog`); **bubble** = any other native popup window of the browser.
 - Internal pages share `si-*` components: toolbar buttons (`page.toolbar("Delete")`),
   snack bar (`page.wait_toast("deleted")`), `si-dialog`, right-click `si-action-menu`,
   left side bar with search + filters (`page.side_bar("Image")`).
@@ -44,11 +57,11 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
 - Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`), no
   bubble; the star becomes "Remove from Bookmarks" (clicking it removes the bookmark). The
   toast can cover the star: `native.click("bookmark_star", real_mouse=False)`.
-- Star class: `StarView` up to build 31, `PageActionView` since build 155 (ui map matches both
-  with `class_name_re`). Since 155 the star only shows when the omnibox has NO focus (focused,
-  it shows other icons), and a page opened by `web.open` can leave the focus there: call
+- The star (`PageActionView`) only shows when the omnibox has NO focus (focused, it shows
+  other icons), and a page opened by `web.open` can leave the focus there: call
   `native.focus_page()` after opening the page and before Ctrl+D / any star check
-  (BM-113, BM-114, BM-116).
+  (BM-113, BM-114, BM-116). Old builds (31): class `StarView`, shown regardless of focus;
+  the ui map matches both classes with `class_name_re`.
 - Toast "Edit" -> edit bubble: Edits "Bookmark name" / "Bookmark URL" (URL shown without
   `http://`), "Create folder in selected folder", Save / Cancel. Toast text is "Page
   bookmarked." or "Bookmark added to <folder>" (page already bookmarked elsewhere).
@@ -75,7 +88,8 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
   Cancel (`action(name, "Pause")`). Cancel REMOVES the row ("x removed from Downloads." + Undo);
   the toolbar Downloads bubble shows "Canceled". Toolbar: "Clear download history".
 - A finished download opens the toolbar Downloads bubble over the page. Since build 155 it
-  covers the downloads page toolbar ("Clear download history"): close it first with
+  covers the downloads page toolbar button "Clear download history" (cases call it "Clear
+  all"): close it first with
   `native.close_download_bubble()` (clicks its X, ui map `download_bubble_close`), then click
   (DL-003). Any test that downloads and then uses that toolbar needs this (+ `native`).
 - "Show in folder"/"Open" launch Explorer / the default app (outside the browser): assert with

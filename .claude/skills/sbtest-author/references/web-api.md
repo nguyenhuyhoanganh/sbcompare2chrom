@@ -3,6 +3,14 @@
 Every method takes a **locator string** or a WebElement. Every finder waits (default
 `timeouts.default` = 10 s) for a *visible* element unless said otherwise.
 
+## Contents
+
+- Locators
+- Waits (never sleep)
+- Actions
+- Reading
+- Tabs, windows, JS dialogs, misc
+
 ## Locators
 
 | Syntax | Meaning |
@@ -99,4 +107,4 @@ with web.frame("#iframe"):       # inside an iframe, back to the page afterwards
 ```
 
 Browser-owned dialogs that are **not** JS dialogs (bubbles, permission prompts, Save As,
-print preview, "Add extension?") are native: see native-ui.md.
+print preview, "Add extension?") are native: use `native`, not `web`.

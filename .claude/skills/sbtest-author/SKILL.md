@@ -1,6 +1,6 @@
 ---
 name: sbtest-author
-description: Turn manual test cases for Samsung Internet for Windows (a Chromium fork) into automated pytest scripts with the sbtest framework (Selenium for web content, pywinauto for browser UI and Windows dialogs). Use when given test cases or case IDs for add-ons, bookmarks, downloads, history, settings or general browsing, or when asked to add, fix or extend a test, a page object, test data or native UI handling in this repo.
+description: Turns manual test cases for Samsung Internet for Windows (a Chromium fork) into automated pytest scripts with the sbtest framework (Selenium for web content, pywinauto for browser UI and Windows dialogs). Use when given test cases or case IDs for add-ons, bookmarks, downloads, history, settings or general browsing, or when asked to add, fix or extend a test, a page object, test data or native UI handling in this repo.
 ---
 
 # Writing sbtest scripts from test cases
@@ -41,6 +41,15 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 
 ## Workflow (per test case)
 
+Copy this checklist into your reply and tick it off per case:
+
+```
+Case <ID>:
+- [ ] 1 case doc exists     - [ ] 2 coverage checked   - [ ] 3 steps classified web/native
+- [ ] 4 preconditions as data - [ ] 5 UI explored       - [ ] 6 page object / ui map updated
+- [ ] 7 test written        - [ ] 8 green 4x in a row  - [ ] 9 doc + coverage updated
+```
+
 1. **Case doc.** It exists in `cases/<feature>/<area>.md` with an ID (else `sbtest-intake`).
 2. **Coverage.** `python -m sbtest.tools.coverage --feature <feature>`; skip automated ones
    unless asked to fix them.
@@ -53,7 +62,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
    (native UI).
 6. **Page object first**: reuse a method; else add one to the page object in `sbtest/pages/`.
    Selectors are class constants, never in tests.
-7. **Write the test** in `tests/features/<feature>/test_<area>.py` from
+7. **Write the test** in `tests/features/<feature>/test_<feature>_<area>.py` from
    `templates/test_template.py`: `@pytest.mark.case("ID")`, each doc step in
    `with step("N. ...", expected="..."):`, assertions = the doc's Expected lines, on state.
 8. **Run for real**: `python run.py --case <ID>`, then 3 more times - green every time. On a
@@ -71,7 +80,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 | open a web page | `web.open(site.page("Title"))`, `web.open(site.url("/form.html"))` |
 | click / type / select / check | `web.click(loc)`, `web.type(loc, text)`, `web.select(loc, text=..)`, `web.set_checked(loc, True)` |
 | row menu (⋮), toolbar menu | page object `item_menu(title, "Edit")`, `organize("Add new folder")` |
-| toast "... deleted" + Undo (internal page) | `page.wait_toast("deleted")`, `page.toast_action("Undo")` |
+| snack bar "... deleted" + Undo (internal page) | `page.wait_toast("deleted")`, `page.toast_action("Undo")` |
 | dialog inside an internal page | `page.open_dialog()`, `page.dialog_input("name")`, `page.dialog_button("Save")` |
 | JS alert / confirm / prompt | `web.accept_alert(prompt_text=..)`, `web.dismiss_alert()`; navigation behind a browser prompt: `web.open(url, blocking=False)` |
 | "Leave site?" (beforeunload) | not observable: chromedriver accepts it automatically -> `Automated: no (WebDriver auto-accepts beforeunload)` |

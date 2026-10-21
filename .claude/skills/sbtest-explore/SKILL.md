@@ -1,6 +1,6 @@
 ---
 name: sbtest-explore
-description: Turn a plain request about Samsung Browser for Windows ("test that opening the add-on shows info X", "check the bookmark panel lists Y", "write a test for this flow", "this test broke, fix it") into a working sbtest test - explore the real build first (screenshots, DOM and UIA dumps), map every step to the action catalogue, write the case doc and the script, run it until it is stable. Use whenever a test must be written, extended or repaired and the exact UI (labels, buttons, dialogs, toolbar icons, popups, internal pages) is not already known.
+description: Turns a plain request about Samsung Browser for Windows ("test that opening the add-on shows info X", "check the bookmark panel lists Y", "write a test for this flow", "this test broke, fix it") into a working sbtest test: explores the real build first (screenshots, DOM and UIA dumps), maps every step to the action catalogue, writes the case doc and the script, runs it until it is stable. Use whenever a test must be written, extended or repaired and the exact UI (labels, buttons, dialogs, toolbar icons, popups, internal pages) is not already known.
 ---
 
 # From a request to a stable test - explore, map, write, prove
@@ -10,6 +10,15 @@ behaviour: look at the real build, then write. This is how every test in this re
 
 Other skills: `sbtest-intake` (cases from Confluence/Jira), `sbtest-author` (framework API,
 conventions, page objects), `sbtest-run` (run + report). This skill is the working method.
+
+Copy this checklist into your reply and tick it off:
+
+```
+- [ ] 1 request rewritten as a case (or an existing case extended)
+- [ ] 2 UI explored, screenshots read, findings written down
+- [ ] 3 every step mapped to the action catalogue (missing rows added)
+- [ ] 4 green 4x in a row, whole feature green, case + overview updated
+```
 
 ## 1. Understand the request -> a case
 
@@ -27,7 +36,8 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 
 ## 2. Explore the real UI (always, before writing selectors)
 
-1. Machine ready? `python -m sbtest.tools.doctor` (once per session).
+1. Machine ready? `python -m sbtest.tools.doctor` (once per session). Read
+   `.claude/skills/sbtest-author/references/feature-notes.md` for the feature (known traps).
 2. Quick look at an internal page: `python -m sbtest.tools.dom <page> --interactive`
    (lines end with a ready locator), with data: `--seed-bookmarks resources/data/bookmarks.yaml:seed_basic`,
    `--extension resources/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
@@ -40,7 +50,7 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 4. **Read the screenshots** (open the PNGs) - they show what really happened: a toast instead
    of a bubble, a new tab instead of the same tab, a dialog that fades in, a label that differs.
 5. Write down what you learned (labels, where it opens, what changes) - it goes into the page
-   object docstring, the ui map comment and `sbtest-author/references/feature-notes.md`.
+   object docstring, the ui map comment and `.claude/skills/sbtest-author/references/feature-notes.md`.
 6. Delete the scratch file when done.
 
 ## 3. Map each step to an action

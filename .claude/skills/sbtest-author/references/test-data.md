@@ -4,6 +4,17 @@ Rule: preconditions are created **before** the browser starts (profile seeding) 
 the cheapest reliable action (visiting a local page). Only the behaviour under test goes
 through the UI. Everything is local - no internet.
 
+## Contents
+
+- Per-test browser preconditions: `@pytest.mark.browser(...)`
+- Data files: `resources/data/<feature>.yaml`
+- Local site (`site` fixture)
+- History
+- Files
+- Unique values
+- Settings state
+- Add-ons
+
 ## Per-test browser preconditions: `@pytest.mark.browser(...)`
 
 ```python
