@@ -8,7 +8,7 @@ Put one markdown file per feature area (or per doc you receive) under the matchi
 
 ```
 testcases/
-  bookmarks/   history/   downloads/   settings/   addons/   general/
+  addons/   bookmarks/   downloads/   history/   general/
 ```
 
 Convert any source doc (Excel, Word, Confluence...) into this format. Each case **must** have
@@ -21,7 +21,7 @@ with `python run.py --case BM-001`.
 | Bookmarks  | BM     | testcases/bookmarks |
 | History    | HIS    | testcases/history   |
 | Downloads  | DL     | testcases/downloads |
-| Settings   | SET    | testcases/settings  |
+| Settings   | SET    | (none yet - reserved prefix) |
 | Add-ons    | ADD    | testcases/addons    |
 | General    | GEN    | testcases/general   |
 

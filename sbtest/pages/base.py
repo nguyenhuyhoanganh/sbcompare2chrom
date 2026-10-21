@@ -174,7 +174,7 @@ class BasePage:
         return self.web.find(f"deep=#{input_id} >>> #input", within=self._dialog_host())
 
     def _dialog_host(self) -> WebElement:
-        """Component that owns the open cr-dialog (its inputs/buttons live in the same shadow root)."""
+        """Component that owns the open si-dialog (its inputs/buttons live in the same shadow root)."""
         return self.web.js("return arguments[0].getRootNode().host || arguments[0].parentElement",
                            self.open_dialog())
 

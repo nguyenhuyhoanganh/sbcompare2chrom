@@ -101,9 +101,9 @@ dialogs:
   remove_extension: "(?i)(delete|remove) .*\\?"   # Samsung: "Delete <name>?" [Remove] [Cancel]
   file_save: "(?i)save as"
   file_open: "(?i)^open$"
-  print: "(?i)^print$"
-  leave_site: "(?i)leave site\\?|reload site\\?"
   download_bubble: "(?i)downloads?"
+  # not exercised by any test yet - check with uia_dump before relying on them:
+  print: "(?i)^print$"
   http_auth: "(?i)sign in"
   permission_prompt: "(?i)wants to|show notifications|know your location|use your camera|use your microphone"
 

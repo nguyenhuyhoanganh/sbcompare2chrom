@@ -105,7 +105,7 @@ class HistoryPage(BasePage):
         self.wait_item(title, present=False)
 
     def open_clear_browsing_data(self) -> None:
-        """Opens chrome://settings/clearBrowserData (in a new tab in upstream Chromium)."""
+        """Side bar "Clear browsing data": opens Settings > Clear browsing data in a new tab."""
         self.web.click(self.CLEAR_DATA_LINK)
 
     TIME_FILTERS = ("All time", "Last hour", "Today", "Yesterday", "Older")

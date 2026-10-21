@@ -80,7 +80,7 @@ class ActionsMixin:
         self._with_retry(loc, lambda el: ActionChains(self.driver).double_click(self.scroll_to(el)).perform())
 
     def right_click(self, loc) -> None:
-        """Opens the *web* context menu (cr-action-menu etc.). Native context menus: use native.context_menu."""
+        """Opens the *web* context menu (cr-action-menu etc.). Native context menus: use native.context_menu_web."""
         self._with_retry(loc, lambda el: ActionChains(self.driver).context_click(self.scroll_to(el)).perform())
 
     def hover(self, loc) -> None:
