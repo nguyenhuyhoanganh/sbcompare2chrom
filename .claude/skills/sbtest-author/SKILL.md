@@ -88,7 +88,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 | choose a folder | `native.file_dialog("open").select_folder(dir)` |
 | drag a file from File Explorer | `native.drag_file_from_explorer(path, web=web, target=loc)` |
 | "Show in folder" | `native.wait_explorer(folder)`, `native.explorer_has_selected(win, "a.txt")` |
-| install add-on: unpacked / .crx / Web Store | `pages.extensions.load_unpacked(native, dir)`, `.drop_crx(native, crx)`, `pages.webstore.install(id, native)` |
+| install add-on: unpacked / Web Store | `pages.extensions.load_unpacked(native, dir)`, `pages.webstore.install(id, native)` |
 | drag & drop in a page | `web.drag_and_drop(a, b, method="html5"|"actions"|"native")` |
 | restart browser, check persistence | `session.restart()`; then `pages.of(session.web)` |
 | tabs | `before = web.tabs` ... `web.wait_new_tab(before)`, `web.switch_tab(title=..)`, `web.close_tab()` |

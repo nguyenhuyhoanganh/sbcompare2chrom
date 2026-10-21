@@ -93,9 +93,8 @@ state use `browser(prefs=...)`. Pref names: open `chrome://prefs-internals` in t
 
 ## Add-ons
 
-`resources/data/addons.yaml`: `sample` (name, unpacked folder, `.crx`) and `webstore` (id, name).
+`resources/data/addons.yaml`: `sample` (name, unpacked folder) and `webstore` (id, name).
 Put unpacked add-ons in `resources/extensions/<name>/` (manifest v3); pack a `.crx` with
 `SamsungInternet.exe --pack-extension=<folder>` (or "Pack add-on" on the add-ons page). `sample_addon` has a
 popup, an options page and a content script that sets `<html data-sb-addon="active">` on
-`http://127.0.0.1/*`. Installing from a store needs internet - not used in automated tests;
-test the install *flow* with a local `.crx` only if the build allows it.
+`http://127.0.0.1/*`. Installing from the store (ADD-022) needs internet through the proxy.

@@ -38,7 +38,7 @@ cases/<feature>/*.md           manual cases with IDs (input); cases/TESTCASES.md
                                cases/_inbox/ raw copies
 resources/
   data/                        <name>.yaml test data (bookmark seeds, add-on ids) -> data("name")
-  extensions/                  sample_addon/ (unpacked) + sample_addon.crx
+  extensions/                  sample_addon/ (unpacked add-on)
   profiles/                    profile templates for @browser(profile=...)
   site/                        local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
                                downloads, frames, permissions, toast, shadow, pages/1..3

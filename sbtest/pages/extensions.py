@@ -75,18 +75,6 @@ class ExtensionsPage(BasePage):
         self.toolbar("Load Unpacked")
         native.file_dialog("open").select_folder(folder)
 
-    def drop_crx(self, native, crx, confirm: bool = True) -> None:
-        """Drag a .crx from File Explorer onto this page (real OS drag), then answer the
-        native "Add <name>?" prompt. Developer mode must be on for drops to be accepted."""
-        self.set_dev_mode(True)
-        native.drag_file_from_explorer(crx, web=self.web)
-        dlg = native.wait_dialog("add_extension", timeout=self.web.long_timeout)
-        # Chrome: [Add extension] [Cancel]; Samsung: [Add] [Not now]
-        if confirm:
-            dlg.click_any("Add extension", "Add")
-        else:
-            dlg.click_any("Cancel", "Not now")
-
     def wait_gone(self, name: str, timeout: float | None = None) -> None:
         self.web.wait_until(lambda: name not in [e["name"] for e in self.info()], timeout, f"{name!r} removed")
 

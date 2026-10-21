@@ -2,7 +2,6 @@
 sample:
   name: SB Sample Addon
   folder: sample_addon          # unpacked (Load unpacked / browser marker)
-  crx: sample_addon.crx         # packed with: SamsungInternet.exe --pack-extension=<folder>
 
 # A small, stable public extension used for the Web Store install case.
 # Change it if the company proxy blocks it or the item is removed.

@@ -45,7 +45,7 @@ Prefer `id`, `data-*`, `aria-*`; never generated class names (`css-1x2y3z`).
 
 - `extensions`: `info() -> [{id,name,version,state,...}]`, `names`, `item`, `ext_id`, `is_enabled`,
   `set_enabled`, `set_dev_mode`, `open_details`, `click_remove`, `wait_installed`, `wait_gone`,
-  `load_unpacked(native, dir)`, `drop_crx(native, crx)`
+  `load_unpacked(native, dir)`
 - `webstore`: `open_item(id)`, `is_installed`, `install(id, native)`
 - `bookmarks`: `titles`, `item`, `has_item`, `wait_titles`, `wait_item`, `folders`, `expand_tree`,
   `open_folder`, `open_item`, `organize(action)`, `add_bookmark`, `add_folder`,

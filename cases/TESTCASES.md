@@ -3,16 +3,16 @@
 File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/**/*.md` và marker của test.
 Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.
 
-**74 test case**, tất cả đã có script tự động (54 web, 20 native).
+**73 test case**, tất cả đã có script tự động (54 web, 19 native).
 
 | Feature | Prefix | Số case | Web | Native | Sanity |
 |---|---|---:|---:|---:|---:|
-| Add-ons | ADD | 20 | 11 | 9 | 7 |
+| Add-ons | ADD | 19 | 11 | 8 | 7 |
 | Bookmarks | BM | 22 | 17 | 5 | 9 |
 | Downloads | DL | 16 | 11 | 5 | 4 |
 | History | HIS | 15 | 14 | 1 | 5 |
 | General | GEN | 1 | 1 | 0 | 1 |
-| **Tổng** | | **74** | **54** | **20** | **26** |
+| **Tổng** | | **73** | **54** | **19** | **26** |
 
 - **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).
 - **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).
@@ -20,7 +20,7 @@ File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/
 
 Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-101,DL-104`.
 
-## Add-ons (ADD) - 20 case
+## Add-ons (ADD) - 19 case
 
 | ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
 |---|---|---|---|---|---|---|
@@ -29,7 +29,6 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | ADD-003 | Details page | Low | web |  | addons.md | ✅ Pass |
 | ADD-010 | Remove an add-on (native confirmation) | High | native |  | addons.md | ✅ Pass |
 | ADD-020 | Install an add-on with "Load unpacked" | High | native |  | addons.md | ✅ Pass |
-| ADD-021 | Install an add-on by dropping a .crx file | High | native |  | addons.md | ✅ Pass |
 | ADD-022 | Install an add-on from Chrome Web Store | High | native |  | addons.md | ✅ Pass |
 | ADD-101 | Card shows name, version, description and source | High | web | ✔ | sanity.md | ✅ Pass |
 | ADD-102 | Developer mode shows the developer tools | High | web | ✔ | sanity.md | ✅ Pass |
@@ -123,23 +122,6 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Nguồn:** `cases/addons/addons.md`  
 **Script:** `tests/features/addons/test_addon_install.py::test_load_unpacked`
-
-</details>
-
-<details><summary><b>ADD-021</b> Install an add-on by dropping a .crx file</summary>
-
-**Steps:**
-
-1. Open the add-ons page, turn on Developer mode
-2. Drag resources/extensions/sample_addon.crx from File Explorer onto the page
-3. Confirm "Add extension" in the prompt
-
-**Expected:**
-
-- "SB Sample Addon" is installed
-
-**Nguồn:** `cases/addons/addons.md`  
-**Script:** `tests/features/addons/test_addon_install.py::test_drop_crx`
 
 </details>
 

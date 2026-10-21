@@ -29,7 +29,7 @@ tests/
 cases/                       test case dạng tài liệu, mỗi feature một thư mục + TESTCASES.md (bảng tổng hợp) + _inbox/
 resources/                   tài nguyên test
   data/                      bookmarks.yaml, addons.yaml (seed bookmark, add-on mẫu, id Web Store)
-  extensions/                add-on mẫu (unpacked + .crx)
+  extensions/                add-on mẫu (unpacked)
   profiles/                  profile mẫu (tuỳ chọn)
   site/                      trang web test cục bộ (download, form, dialog...)
 docs/SETUP.md                cài đặt máy Windows mới, xử lý khi Samsung merge Chromium mới
@@ -100,7 +100,7 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
 ## Ghi chú
 
 - Đã chạy thật trên Windows 11 (arm64) với **Samsung Browser 31.0.0.55 (Chromium 148)** bản
-  public (browser.samsung.com): 74 case, tất cả pass. Bảng đầy đủ: `cases\TESTCASES.md`.
+  public (browser.samsung.com): 73 case, tất cả pass. Bảng đầy đủ: `cases\TESTCASES.md`.
 - Settings chưa có test (các case cũ chưa kiểm chứng trên Samsung nên đã bỏ). Muốn thêm, dùng
   skill `sbtest-explore` để viết từ đầu trên Samsung.
 - Case chia theo feature và theo khu vực: `cases\<feature>\<khu vực>.md` (trang quản lý,

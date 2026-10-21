@@ -385,8 +385,8 @@ class NativeBrowser:
     def drag_file_from_explorer(self, path: str | Path, web=None, target=None) -> None:
         """Real OS drag of a file/folder from File Explorer into the browser.
 
-        This is the only way to test "drop a .crx (or an unpacked folder) on the add-ons
-        page": the browser installs from the OS drag data, synthetic JS/CDP drops are ignored.
+        Use it when the browser must receive real OS drag data (synthetic JS/CDP drops of
+        files are ignored by some pages, e.g. the add-ons page).
         Explorer is opened on the file and placed on the left, the browser on the right,
         then the item is dragged onto ``target`` (web locator) or the middle of the page.
         """
@@ -405,8 +405,8 @@ class NativeBrowser:
             HwndWrapper(explorer.handle).move_window(0, 0, 700, 600)
             HwndWrapper(main.handle).move_window(710, 0, 1200, 900)
             time.sleep(1.0)
-            # Explorer hides known extensions by default ("sample_addon" for sample_addon.crx,
-            # next to a folder of the same name): prefer the exact name, then the stem
+            # Explorer hides known extensions by default ("report" for report.pdf, maybe next
+            # to a folder of the same name): prefer the exact name, then the stem
             item = (uia.find_in([explorer], 2, control_type="ListItem", title=path.name)
                     if uia.find_in([explorer], 0, control_type="ListItem", title=path.name)
                     else _explorer_item(explorer, path))

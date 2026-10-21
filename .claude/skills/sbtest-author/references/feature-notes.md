@@ -79,7 +79,7 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
 - Page title "Add-ons". Developer mode is a toggle in the LEFT side bar; on, the toolbar shows
   Load Unpacked, Pack add-on, Update and cards show the version. Card buttons Details / Remove
   (si-flat-button). Remove -> native bubble 'Delete <name>?' [Remove] [Cancel].
-- Install prompt (store and .crx drop) -> 'Add "<name>"?' [Add] [Not now]; the store also shows
+- Install prompt (store) -> 'Add "<name>"?' [Add] [Not now]; the store also shows
   Google's "Switch to Chrome?" bubble (ignore it). App menu has "Add-ons".
 - Load with `browser(extensions=["sample_addon"])` (unpacked). `info()` returns state from
   `chrome.developerPrivate` (`ENABLED`/`DISABLED`).
@@ -89,14 +89,9 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
 - Install flows (all native):
   - Load unpacked: `pages.extensions.load_unpacked(native, folder)` (dev mode, button,
     Windows folder picker).
-  - Drop .crx: `pages.extensions.drop_crx(native, crx)` - real drag from File Explorer;
-    synthetic JS/CDP drops are ignored by the browser. Needs developer mode.
-    `resources/extensions/sample_addon.crx` is packed from `sample_addon/`.
   - Web Store: `pages.webstore.install(ext_id, native)` - through the company proxy; button
     text from config `webstore.add_button_texts`; free, popular extensions only (Dark Reader
     in `resources/data/addons.yaml`).
-- Off-store .crx installs can be blocked by policy - if the prompt never shows, check
-  `internet://policy` and report it rather than working around it.
 - Toolbar "Add-ons" (puzzle, `ExtensionsToolbarButton`) -> menu: each add-on with "Pin <name>" /
   "Unpin <name>" and "More options for <name>" (menu: Options, Remove from Samsung Browser,
   Manage add-on, View web permissions). Pinned icon = `ToolbarActionView` named

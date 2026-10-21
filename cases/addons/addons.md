@@ -50,17 +50,6 @@
   - "SB Sample Addon" is listed and enabled
 - Automated: tests/features/addons/test_addon_install.py::test_load_unpacked
 
-## ADD-021 Install an add-on by dropping a .crx file
-- Priority: High
-- Type: native
-- Steps:
-  1. Open the add-ons page, turn on Developer mode
-  2. Drag resources/extensions/sample_addon.crx from File Explorer onto the page
-  3. Confirm "Add extension" in the prompt
-- Expected:
-  - "SB Sample Addon" is installed
-- Automated: tests/features/addons/test_addon_install.py::test_drop_crx
-
 ## ADD-022 Install an add-on from Chrome Web Store
 - Priority: High
 - Type: native

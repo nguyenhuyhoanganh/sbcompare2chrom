@@ -100,7 +100,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | developer mode / tools | `e.set_dev_mode(True)`, `e.dev_toolbar()` -> Load Unpacked, Pack add-on, Update |
 | details / shortcuts | `e.open_details("X")`, `e.open_shortcuts()`, `e.shortcuts()` |
 | remove (+ cancel) | `e.click_remove("X")`, `dlg = native.wait_dialog("remove_extension")` ("Delete X?"), `dlg.click("Remove" / "Cancel")` |
-| install: unpacked / .crx / store | `e.load_unpacked(native, folder)`, `e.drop_crx(native, crx)`, `pages.webstore.install(id, native)` (free add-ons only) |
+| install: unpacked / store | `e.load_unpacked(native, folder)`, `pages.webstore.install(id, native)` (free add-ons only) |
 | pack | `e.open_pack_dialog()`, `e.pack_inputs()`, `e.pack_button_enabled()`, `e.pack(folder)` |
 | store link | `e.get_addons()` (new tab, Chrome Web Store) |
 | toolbar Add-ons menu | `native.click("extensions_button")`; pin `native.click("addons_menu_pin", name="X")`, unpin `"addons_menu_unpin"`, more `"addons_menu_more"` + `native.menu_items()` / `native.select_menu_items("Options")` |
