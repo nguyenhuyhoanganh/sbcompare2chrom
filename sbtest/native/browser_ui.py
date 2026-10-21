@@ -4,7 +4,7 @@
     nb.hotkey("^d")                          # Ctrl+D -> bookmark bubble
     bubble = nb.wait_dialog("bookmark_added")
     bubble.click("Done")
-    nb.click("bookmark_star")                # logical name from config/native_ui/<target>.yaml
+    nb.click("bookmark_star")                # logical name from config/native_ui.yaml
     nb.menu("History", "History")            # app menu path
     nb.context_menu_web(web, "#link", "Open link in new tab")
     nb.file_dialog("save").save_as(path)
@@ -147,7 +147,7 @@ class NativeBrowser:
         return crit
 
     def element(self, name_or_criteria, timeout: float | None = None, in_main: bool = True, **params):
-        """Element of the browser UI by logical name (config/native_ui/<target>.yaml) or criteria dict."""
+        """Element of the browser UI by logical name (config/native_ui.yaml) or criteria dict."""
         crit = self.criteria(name_or_criteria, **params)
         roots = (lambda: [self.main_window()]) if in_main else self.windows
         return uia.find_in(roots, self.timeout if timeout is None else timeout, **crit)
@@ -231,7 +231,7 @@ class NativeBrowser:
 
     # -- dialogs / bubbles -------------------------------------------------------
     def wait_dialog(self, name_or_regex: str, timeout: float | None = None) -> Dialog:
-        """A dialog/bubble/prompt by logical name (``config/native_ui/<target>.yaml: dialogs``) or title regex.
+        """A dialog/bubble/prompt by logical name (``config/native_ui.yaml: dialogs``) or title regex.
 
         Searches top-level windows of the process first, then panes/dialogs inside them
         (Views bubbles are often child panes of the frame)."""
@@ -435,7 +435,7 @@ class NativeBrowser:
 
     # -- evidence ----------------------------------------------------------------
     def dump(self, path: str | Path | None = None) -> str:
-        """UIA tree of every browser window. Use it to discover names for config/native_ui/<target>.yaml."""
+        """UIA tree of every browser window. Use it to discover names for config/native_ui.yaml."""
         text = "\n\n".join(uia.dump(w) for w in self.windows())
         if path:
             Path(path).parent.mkdir(parents=True, exist_ok=True)

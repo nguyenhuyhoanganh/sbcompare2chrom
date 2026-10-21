@@ -49,9 +49,9 @@ def _get_json(url: str) -> dict:
         return json.loads(r.read().decode("utf-8"))
 
 
-def chromedriver_url(chromium_version: str, plat: str | None = None, artifact: str = "chromedriver") -> tuple[str, str]:
-    """(version, download url) of the Chrome for Testing ``artifact`` (chromedriver | chrome)
-    closest to ``chromium_version``: same build (x.y.BUILD) if available, else latest of the milestone."""
+def chromedriver_url(chromium_version: str, plat: str | None = None) -> tuple[str, str]:
+    """(version, download url) of the Chrome for Testing chromedriver closest to ``chromium_version``:
+    same build (x.y.BUILD) if available, else the latest of the milestone."""
     plat = plat or cft_platform()
     build = ".".join(chromium_version.split(".")[:3])
     candidates = []
@@ -65,28 +65,10 @@ def chromedriver_url(chromium_version: str, plat: str | None = None, artifact: s
     if str(major(chromium_version)) in milestones:
         candidates.append(milestones[str(major(chromium_version))])
     for c in candidates:
-        for d in c.get("downloads", {}).get(artifact, []):
+        for d in c.get("downloads", {}).get("chromedriver", []):
             if d["platform"] == plat:
                 return c["version"], d["url"]
-    raise RuntimeError(f"No {artifact} for Chromium {chromium_version} ({plat}) on Chrome for Testing")
-
-
-def download_zip(url: str, target_dir: Path) -> None:
-    """Download a CfT zip and extract it into target_dir, dropping the top folder."""
-    with _open(url, 600) as r:
-        data = r.read()
-    target_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(data)) as z:
-        for info in z.infolist():
-            rel = Path(*Path(info.filename).parts[1:])
-            if info.is_dir() or not rel.parts:
-                continue
-            out = target_dir / rel
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(z.read(info))
-            mode = (info.external_attr >> 16) & 0o777
-            if mode:
-                out.chmod(mode)
+    raise RuntimeError(f"No chromedriver for Chromium {chromium_version} ({plat}) on Chrome for Testing")
 
 
 def download_chromedriver(chromium_version: str, target_dir: Path) -> Path:

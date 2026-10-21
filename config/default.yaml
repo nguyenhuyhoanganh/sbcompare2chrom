@@ -1,19 +1,14 @@
-# Common settings for every target. Layers, later wins:
-#   default.yaml < targets/<target>.yaml < local.yaml (+ its targets.<target> section)
-#   < environment variables (SB_*) < CLI flags
+# Settings for testing Samsung Browser / Samsung Internet for Windows. Layers, later wins:
+#   default.yaml < local.yaml < environment variables (SB_*) < CLI flags
 # Machine-specific paths go to config/local.yaml (git-ignored), see local.example.yaml.
 
-# samsung = Samsung Internet build under test; chrome = Google Chrome / Chrome for Testing,
-# the upstream reference (same Chromium base). Flag: --target, env: SB_TARGET.
-target: samsung
-
 browser:
-  # Path to SamsungInternet.exe (env: SB_EXE, flag: --exe)
+  # Path to SamsungInternet.exe - set it in config/local.yaml (env: SB_EXE, flag: --exe)
   exe: ""
-  # "launch": chromedriver starts the exe (default).
   # "attach": we start the exe with --remote-debugging-port and chromedriver attaches.
-  #           Use it when the fork refuses to start under chromedriver.
-  mode: launch
+  #           Needed for Samsung Browser: chromedriver hangs when it launches the exe itself.
+  # "launch": chromedriver starts the exe.
+  mode: attach
   # Explicit chromedriver path (env: SB_DRIVER, flag: --driver). Best option: build
   # the `chromedriver` target from the SAME fork source tree, then the version always matches.
   chromedriver: ""
@@ -61,8 +56,12 @@ server:
   host: 127.0.0.1
   port: 0                     # 0 = random free port
 
-# Internal page paths; the scheme (internet:// or chrome://) comes from the target file.
+# Internal pages. The address bar SHOWS internet://bookmarks, but WebDriver/CDP navigation
+# only accepts chrome://bookmarks (driver.get("internet://...") stays on about:blank).
+# Typing internet://... into the omnibox (native.navigate) works too.
 pages:
+  scheme: chrome
+  display_scheme: internet
   bookmarks: bookmarks
   history: history
   downloads: downloads
@@ -83,7 +82,8 @@ native:
   # Enable pywinauto based checks (auto-disabled on non-Windows).
   enabled: true
   backend: uia
-  # ui_map (logical name -> UIA criteria of the browser's own UI) is set per target.
+  # Logical name -> UIA criteria of the browser's own UI (toolbar, menus, bubbles, dialogs).
+  ui_map: config/native_ui.yaml
 
 report:
   screenshot_on_failure: true

@@ -1,7 +1,7 @@
 """Dump a page's DOM *through all shadow roots* with ready-to-use locators.
 
     python -m sbtest.tools.dom bookmarks                     # internal page by name
-    python -m sbtest.tools.dom chrome://settings/downloads --interactive
+    python -m sbtest.tools.dom chrome://downloads --interactive
     python -m sbtest.tools.dom /form.html --out artifacts/form_dom.txt
     python -m sbtest.tools.dom history --exec "web.type('history-app >>> #toolbar >>> cr-toolbar >>> cr-toolbar-search-field >>> input', 'abc')"
     python -m sbtest.tools.dom bookmarks --seed-bookmarks test_data/bookmarks.yaml:seed_basic

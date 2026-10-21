@@ -98,7 +98,5 @@ with web.frame("#iframe"):       # inside an iframe, back to the page afterwards
     web.click("#inner-button")
 ```
 
-Examples of all of these: `tests/reference/web/`.
-
 Browser-owned dialogs that are **not** JS dialogs (bubbles, permission prompts, Save As,
 print preview, "Add extension?") are native: see native-ui.md.

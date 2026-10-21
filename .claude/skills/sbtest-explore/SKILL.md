@@ -33,7 +33,7 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
    `--extension test_data/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
 3. A flow (menus, bubbles, popups, dialogs): write a scratch test with `Explorer`
    (template: `templates/explore_template.py`) in `tests/_scratch/` (git-ignored) and run
-   `python -m pytest tests/_scratch/test_x.py --target samsung -s -p no:cacheprovider`.
+   `python -m pytest tests/_scratch/test_x.py -s -p no:cacheprovider`.
    `x.snap(label)` saves `artifacts/explore/<name>/NN_label.png` (whole screen),
    `.dom.txt` (locators) and `.uia.txt`; `x.try_step(label, fn)` keeps going on errors;
    `x.find_native("(?i)text")` / `x.find_web("text")` print exact names and locators.
@@ -49,11 +49,9 @@ Use `references/action-catalog.md` - "the user says / the case says" -> the call
 for internal pages, toolbar and bubbles, add-ons, downloads, dialogs, tabs, keyboard, data
 setup, assertions. Rules that keep tests portable and readable:
 
-- Selectors live in page objects (`sbtest/pages/samsung/*`), browser-UI names in
-  `config/native_ui/samsung.yaml` (with `{name}` params for per-item names), never in tests.
+- Selectors live in page objects (`sbtest/pages/*.py`), browser-UI names in
+  `config/native_ui.yaml` (with `{name}` params for per-item names), never in tests.
   Missing? Add a page-object method / ui-map entry from what you explored.
-- Same flow on Samsung and Chrome -> one test; only one product has it ->
-  `@pytest.mark.targets("samsung")`.
 - Each doc step = `with step("N. ...", expected="..."):`; assertions = the doc's Expected.
 - Wait for conditions (`web.wait_until`, page `wait_*`, `native.element(..., timeout)`), no sleeps.
 

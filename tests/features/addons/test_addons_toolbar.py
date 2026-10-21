@@ -11,7 +11,7 @@ from sbtest.steps import step
 ADDON = "SB Sample Addon"
 POPUP_COUNTER = {"control_type": "Button", "auto_id": "count"}   # content of the sample add-on popup
 
-pytestmark = [pytest.mark.native, pytest.mark.targets("samsung")]
+pytestmark = pytest.mark.native
 uses_addon = pytest.mark.browser(extensions=["sample_addon"])
 
 

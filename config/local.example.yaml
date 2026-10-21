@@ -1,19 +1,13 @@
 # Copy to config/local.yaml (git-ignored) and adjust for this machine.
-# target: samsung                       # default target when --target is not given
 
-targets:
-  samsung:
-    browser:
-      exe: 'C:\build\out\Release\SamsungInternet.exe'
-      # public build (browser.samsung.com): 'C:\Program Files\Samsung\Internet\Application\samsunginternet.exe'
-      # chromedriver: 'C:\tools\chromedriver\148\chromedriver.exe'
-      # chromium_version: "148.0.7778.217"   # skip auto-detection
-    # pages:
-    #   scheme: internet     # only if your build accepts internet:// from WebDriver (public 31.0 does not)
-  chrome:
-    browser:
-      # exe: 'C:\Program Files\Google\Chrome\Application\chrome.exe'   # branded Chrome
-      exe: browsers/chrome/chrome.exe                                     # Chrome for Testing
+browser:
+  exe: 'C:\build\out\Release\SamsungInternet.exe'
+  # public build (browser.samsung.com): 'C:\Program Files\Samsung\Internet\Application\samsunginternet.exe'
+  # chromedriver: 'C:\tools\chromedriver\148\chromedriver.exe'
+  # chromium_version: "148.0.7778.217"   # skip auto-detection
+
+# pages:
+#   scheme: internet     # only if your build accepts internet:// from WebDriver (public 31.0 does not)
 
 network:
   # browser_proxy: http://proxy.company.com:8080

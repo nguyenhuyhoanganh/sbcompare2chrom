@@ -66,40 +66,28 @@ def test_png_is_valid(tmp_path):
     assert f.read_bytes().startswith(b"\x89PNG")
 
 
-def test_target_layers(tmp_path, monkeypatch):
-    monkeypatch.delenv("SB_TARGET", raising=False)
-    (tmp_path / "targets").mkdir()
-    (tmp_path / "default.yaml").write_text(yaml.safe_dump({"target": "samsung", "pages": {"history": "history"}}))
-    (tmp_path / "targets" / "samsung.yaml").write_text(yaml.safe_dump({"pages": {"scheme": "internet"}, "page_objects": "samsung"}))
-    (tmp_path / "targets" / "chrome.yaml").write_text(yaml.safe_dump({"pages": {"scheme": "chrome"}, "page_objects": "chromium"}))
-    (tmp_path / "local.yaml").write_text(yaml.safe_dump({"targets": {"chrome": {"browser": {"exe": "c.exe"}},
-                                                                    "samsung": {"browser": {"exe": "s.exe"}}}}))
-    sam = load_config(config_dir=tmp_path)
-    chrome = load_config({"target": "chrome"}, config_dir=tmp_path)
-    assert (sam.target, sam.page_url("history"), sam.get("browser.exe")) == ("samsung", "internet://history", "s.exe")
-    assert (chrome.target, chrome.page_url("history"), chrome.get("browser.exe")) == ("chrome", "chrome://history", "c.exe")
-    import pytest
-    with pytest.raises(ValueError):
-        load_config({"target": "edge"}, config_dir=tmp_path)
+def test_local_yaml_layers(tmp_path, monkeypatch):
+    monkeypatch.delenv("SB_EXE", raising=False)
+    (tmp_path / "default.yaml").write_text(yaml.safe_dump(
+        {"pages": {"scheme": "chrome", "display_scheme": "internet", "history": "history"}, "browser": {"exe": ""}}))
+    (tmp_path / "local.yaml").write_text(yaml.safe_dump({"browser": {"exe": "a.exe"}}))
+    assert load_config(config_dir=tmp_path).get("browser.exe") == "a.exe"
+    # older layout: targets.samsung section still applies
+    (tmp_path / "local.yaml").write_text(yaml.safe_dump({"targets": {"samsung": {"browser": {"exe": "s.exe"}}}}))
+    assert load_config(config_dir=tmp_path).get("browser.exe") == "s.exe"
+    assert load_config({"browser.exe": "cli.exe"}, config_dir=tmp_path).get("browser.exe") == "cli.exe"
 
 
-def test_pages_factory_picks_target_implementation():
+def test_pages_factory():
     from types import SimpleNamespace
 
-    from sbtest.pages import Pages, chromium, samsung
-    web = SimpleNamespace(cfg=SimpleNamespace(get=lambda k, d=None: "samsung" if k == "page_objects" else d))
-    page = Pages(web).extensions
-    assert isinstance(page, samsung.ExtensionsPage) and isinstance(page, chromium.ExtensionsPage)
+    from sbtest.pages import ExtensionsPage, Pages
+    web = SimpleNamespace(cfg=SimpleNamespace(get=lambda k, d=None: d))
+    assert isinstance(Pages(web).extensions, ExtensionsPage)
 
 
-def test_display_url_vs_navigation_url(tmp_path, monkeypatch):
-    monkeypatch.delenv("SB_TARGET", raising=False)
-    (tmp_path / "targets").mkdir()
-    (tmp_path / "default.yaml").write_text(yaml.safe_dump({"target": "samsung", "pages": {"history": "history"}}))
-    (tmp_path / "targets" / "samsung.yaml").write_text(
-        yaml.safe_dump({"pages": {"scheme": "chrome", "display_scheme": "internet"}}))
-    (tmp_path / "targets" / "chrome.yaml").write_text(yaml.safe_dump({"pages": {"scheme": "chrome"}}))
-    sam = load_config(config_dir=tmp_path)
-    assert (sam.page_url("history"), sam.display_url("history")) == ("chrome://history", "internet://history")
-    chrome = load_config({"target": "chrome"}, config_dir=tmp_path)
-    assert chrome.display_url("history") == "chrome://history"
+def test_display_url_vs_navigation_url(tmp_path):
+    (tmp_path / "default.yaml").write_text(yaml.safe_dump(
+        {"pages": {"scheme": "chrome", "display_scheme": "internet", "history": "history"}}))
+    cfg = load_config(config_dir=tmp_path)
+    assert (cfg.page_url("history"), cfg.display_url("history")) == ("chrome://history", "internet://history")

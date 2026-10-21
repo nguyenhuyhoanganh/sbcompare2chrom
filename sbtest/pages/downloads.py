@@ -11,8 +11,10 @@ How it differs from Chromium:
 """
 from __future__ import annotations
 
-from sbtest.pages.chromium.downloads import DownloadsPage as ChromiumDownloadsPage
-from sbtest.pages.samsung.base import SamsungPageMixin
+from selenium.webdriver.remote.webelement import WebElement
+
+from sbtest.pages.base import BasePage
+
 
 _JS_ITEM_INFO = r"""
 const r = arguments[0].shadowRoot;
@@ -31,14 +33,40 @@ return {
 """
 
 
-class DownloadsPage(SamsungPageMixin, ChromiumDownloadsPage):
+class DownloadsPage(BasePage):
+    page = "downloads"
     ROOT = "downloads-manager >>> #mainContainer"
-    TOOLBAR = "downloads-manager >>> #toolbar"
-    CATEGORIES = ("All", "Image", "Video", "Audio", "Document", "Others")
+    ITEMS = "downloads-manager >>> downloads-item"
+    CLEAR_ALL = "downloads-manager >>> #toolbar >>> #clearAll"
+
+    def items(self) -> list[WebElement]:
+        return self.web.find_all(self.ITEMS)
 
     def info(self, item) -> dict:
         """``{name, url, size, description, tag, in_progress}`` of one row."""
         return self.web.js(_JS_ITEM_INFO, item)
+
+    def names(self) -> list[str]:
+        return [self.info(i)["name"] for i in self.items()]
+
+    def item(self, name: str, timeout: float | None = None) -> WebElement:
+        def _f():
+            for i in self.items():
+                if self.info(i)["name"] == name:
+                    return i
+            return None
+        return self.web.wait_until(_f, timeout, f"download item {name!r}")
+
+    def wait_item(self, name: str, present: bool = True, timeout: float | None = None) -> None:
+        self.web.wait_until(lambda: (name in self.names()) == present, timeout,
+                            f"download {name!r} {'present' if present else 'absent'}")
+
+    def wait_complete(self, name: str, timeout: float | None = None) -> dict:
+        def _done():
+            i = self.info(self.item(name, timeout=1))
+            return i if not i["in_progress"] else None
+        return self.web.wait_until(_done, self.web.long_timeout if timeout is None else timeout,
+                                   f"download {name!r} complete")
 
     def status(self, name: str) -> str:
         i = self.info(self.item(name))
@@ -67,6 +95,9 @@ class DownloadsPage(SamsungPageMixin, ChromiumDownloadsPage):
         self.toolbar("Clear download history")
         self.confirm_dialog_if_open("Clear", "Delete", "OK")
         self.web.wait_until(lambda: not self.items(), message="downloads list empty")
+
+    TOOLBAR = "downloads-manager >>> #toolbar"
+    CATEGORIES = ("All", "Image", "Video", "Audio", "Document", "Others")
 
     def filter_category(self, label: str) -> None:
         """Side bar category: one of ``CATEGORIES``."""

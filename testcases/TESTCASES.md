@@ -3,49 +3,47 @@
 File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `testcases/**/*.md` và marker của test.
 Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.
 
-**81 test case**, tất cả đã có script tự động (59 web, 22 native).
+**74 test case**, tất cả đã có script tự động (54 web, 20 native).
 
-| Feature | Prefix | Số case | Web | Native | Sanity | Cả hai target | Chỉ Samsung | Chỉ Chrome |
-|---|---|---:|---:|---:|---:|---:|---:|---:|
-| Add-ons | ADD | 20 | 11 | 9 | 7 | 9 | 11 | 0 |
-| Bookmarks | BM | 23 | 17 | 6 | 9 | 10 | 12 | 1 |
-| Downloads | DL | 16 | 11 | 5 | 4 | 10 | 6 | 0 |
-| History | HIS | 15 | 14 | 1 | 5 | 9 | 6 | 0 |
-| Settings | SET | 4 | 4 | 0 | 1 | 4 | 0 | 0 |
-| General | GEN | 3 | 2 | 1 | 1 | 3 | 0 | 0 |
-| **Tổng** | | **81** | **59** | **22** | **27** | **45** | **35** | **1** |
+| Feature | Prefix | Số case | Web | Native | Sanity |
+|---|---|---:|---:|---:|---:|
+| Add-ons | ADD | 20 | 11 | 9 | 7 |
+| Bookmarks | BM | 22 | 17 | 5 | 9 |
+| Downloads | DL | 16 | 11 | 5 | 4 |
+| History | HIS | 15 | 14 | 1 | 5 |
+| General | GEN | 1 | 1 | 0 | 1 |
+| **Tổng** | | **74** | **54** | **20** | **26** |
 
 - **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).
-- **Target** `Cả hai`: cùng test chạy trên Samsung và Chrome; `Samsung`/`Chrome`: luồng chỉ một bên có.
 - **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).
-- **Samsung / Chrome**: kết quả gần nhất trong `artifacts/runs/` của máy sinh file này.
+- **Kết quả**: lần chạy gần nhất trong `artifacts/runs/` của máy sinh file này.
 
 Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-101,DL-104`.
 
 ## Add-ons (ADD) - 20 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| ADD-001 | Installed add-on is listed and active | High | web | Cả hai | ✔ | addons.md | ✅ Pass | ✅ Pass |
-| ADD-002 | Disable an add-on | High | web | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-003 | Details page | Low | web | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-010 | Remove an add-on (native confirmation) | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-020 | Install an add-on with "Load unpacked" | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-021 | Install an add-on by dropping a .crx file | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-022 | Install an add-on from Chrome Web Store | High | native | Cả hai |  | addons.md | ✅ Pass | ✅ Pass |
-| ADD-101 | Card shows name, version, description and source | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| ADD-102 | Developer mode shows the developer tools | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| ADD-103 | Search add-ons | Low | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| ADD-104 | Disabled state is kept after restart | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| ADD-105 | Cancel removal keeps the add-on | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
-| ADD-106 | Open Add-ons from the app menu | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
-| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| ADD-108 | Pack an add-on into a .crx | Medium | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| ADD-109 | Reload an unpacked add-on | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| ADD-110 | "Get add-ons" opens the add-on store | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| ADD-111 | Pin and unpin an add-on from the toolbar Add-ons menu | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
-| ADD-112 | Open the add-on popup from its toolbar icon | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
-| ADD-113 | Add-on "More options" menu opens the options page | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
+| ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
+|---|---|---|---|---|---|---|
+| ADD-001 | Installed add-on is listed and active | High | web | ✔ | addons.md | ✅ Pass |
+| ADD-002 | Disable an add-on | High | web |  | addons.md | ✅ Pass |
+| ADD-003 | Details page | Low | web |  | addons.md | ✅ Pass |
+| ADD-010 | Remove an add-on (native confirmation) | High | native |  | addons.md | ✅ Pass |
+| ADD-020 | Install an add-on with "Load unpacked" | High | native |  | addons.md | ✅ Pass |
+| ADD-021 | Install an add-on by dropping a .crx file | High | native |  | addons.md | ✅ Pass |
+| ADD-022 | Install an add-on from Chrome Web Store | High | native |  | addons.md | ✅ Pass |
+| ADD-101 | Card shows name, version, description and source | High | web | ✔ | sanity.md | ✅ Pass |
+| ADD-102 | Developer mode shows the developer tools | High | web | ✔ | sanity.md | ✅ Pass |
+| ADD-103 | Search add-ons | Low | web |  | sanity.md | ✅ Pass |
+| ADD-104 | Disabled state is kept after restart | High | web | ✔ | sanity.md | ✅ Pass |
+| ADD-105 | Cancel removal keeps the add-on | Medium | native |  | sanity.md | ✅ Pass |
+| ADD-106 | Open Add-ons from the app menu | Medium | native |  | toolbar.md | ✅ Pass |
+| ADD-107 | Keyboard shortcuts page lists the add-on | Low | web |  | sanity.md | ✅ Pass |
+| ADD-108 | Pack an add-on into a .crx | Medium | web | ✔ | sanity.md | ✅ Pass |
+| ADD-109 | Reload an unpacked add-on | Medium | web |  | sanity.md | ✅ Pass |
+| ADD-110 | "Get add-ons" opens the add-on store | Low | web |  | sanity.md | ✅ Pass |
+| ADD-111 | Pin and unpin an add-on from the toolbar Add-ons menu | High | native | ✔ | toolbar.md | ✅ Pass |
+| ADD-112 | Open the add-on popup from its toolbar icon | High | native | ✔ | toolbar.md | ✅ Pass |
+| ADD-113 | Add-on "More options" menu opens the options page | Medium | native |  | toolbar.md | ✅ Pass |
 
 <details><summary><b>ADD-001</b> Installed add-on is listed and active</summary>
 
@@ -392,33 +390,32 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-## Bookmarks (BM) - 23 case
+## Bookmarks (BM) - 22 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| BM-001 | Add a bookmark from the bookmark manager | High | web | Cả hai | ✔ | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-002 | Add a folder | High | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-003 | Edit a bookmark | High | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-004 | Delete a bookmark and undo | High | web | Cả hai | ✔ | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-005 | Search bookmarks | Medium | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-006 | Open a sub folder | Medium | web | Cả hai |  | bookmark_manager.md | ✅ Pass | ✅ Pass |
-| BM-010 | Bookmark the current page with Ctrl+D | High | native | Chrome |  | bookmark_manager.md | N/A | ✅ Pass |
-| BM-101 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
-| BM-102 | Remove a bookmark with the star | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
-| BM-103 | Edit name and web address | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| BM-104 | Edit from the right-click menu | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-105 | Delete from the right-click menu and undo | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| BM-106 | Select all and delete | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-107 | Open a bookmark from the manager | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| BM-108 | Bookmarks are kept after restarting the browser | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| BM-109 | Add a bookmark into a sub folder | High | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| BM-110 | Sort by name | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-111 | Delete a folder with its bookmarks and undo | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-113 | Export bookmarks to an HTML file | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-114 | "Import bookmarks" opens the import settings | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| BM-115 | Browse the Bookmarks panel and open a bookmark | High | native | Samsung | ✔ | toolbar.md | ✅ Pass | N/A |
-| BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native | Samsung |  | toolbar.md | ✅ Pass | N/A |
+| ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
+|---|---|---|---|---|---|---|
+| BM-001 | Add a bookmark from the bookmark manager | High | web | ✔ | bookmark_manager.md | ✅ Pass |
+| BM-002 | Add a folder | High | web |  | bookmark_manager.md | ✅ Pass |
+| BM-003 | Edit a bookmark | High | web |  | bookmark_manager.md | ✅ Pass |
+| BM-004 | Delete a bookmark and undo | High | web | ✔ | bookmark_manager.md | ✅ Pass |
+| BM-005 | Search bookmarks | Medium | web |  | bookmark_manager.md | ✅ Pass |
+| BM-006 | Open a sub folder | Medium | web |  | bookmark_manager.md | ✅ Pass |
+| BM-101 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | ✔ | toolbar.md | ✅ Pass |
+| BM-102 | Remove a bookmark with the star | Medium | native |  | toolbar.md | ✅ Pass |
+| BM-103 | Edit name and web address | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-104 | Edit from the right-click menu | Medium | web |  | sanity.md | ✅ Pass |
+| BM-105 | Delete from the right-click menu and undo | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-106 | Select all and delete | Medium | web |  | sanity.md | ✅ Pass |
+| BM-107 | Open a bookmark from the manager | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-108 | Bookmarks are kept after restarting the browser | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-109 | Add a bookmark into a sub folder | High | web |  | sanity.md | ✅ Pass |
+| BM-110 | Sort by name | Medium | web |  | sanity.md | ✅ Pass |
+| BM-111 | Delete a folder with its bookmarks and undo | High | web | ✔ | sanity.md | ✅ Pass |
+| BM-112 | Open all bookmarks of a folder in new tabs | Medium | web |  | sanity.md | ✅ Pass |
+| BM-113 | Export bookmarks to an HTML file | Medium | native |  | sanity.md | ✅ Pass |
+| BM-114 | "Import bookmarks" opens the import settings | Low | web |  | sanity.md | ✅ Pass |
+| BM-115 | Browse the Bookmarks panel and open a bookmark | High | native | ✔ | toolbar.md | ✅ Pass |
+| BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native |  | toolbar.md | ✅ Pass |
 
 <details><summary><b>BM-001</b> Add a bookmark from the bookmark manager</summary>
 
@@ -528,26 +525,6 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
 **Script:** `tests/features/bookmarks/test_bookmark_manager.py::test_open_folder`
-
-</details>
-
-<details><summary><b>BM-010</b> Bookmark the current page with Ctrl+D</summary>
-
-**Precondition:** Clean profile, a page is open
-
-**Steps:**
-
-1. Open "Static page 1"
-2. Press Ctrl+D, the bookmark bubble appears, click Done
-3. Open the bookmark manager
-
-**Expected:**
-
-- The bubble is shown after step 2
-- "Static page 1" is listed in the bookmark manager
-
-**Nguồn:** `testcases/bookmarks/bookmark_manager.md`  
-**Script:** `tests/features/bookmarks/test_bookmark_native.py::test_ctrl_d_bookmarks_page`
 
 </details>
 
@@ -852,24 +829,24 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 ## Downloads (DL) - 16 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| DL-001 | Download a file | High | web | Cả hai | ✔ | downloads.md | ✅ Pass | ✅ Pass |
-| DL-002 | Remove an entry from the list | High | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
-| DL-003 | Clear all | Medium | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
-| DL-004 | Pause and resume | Medium | web | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
-| DL-010 | Ask where to save -> Save As dialog | Medium | native | Cả hai |  | downloads.md | ✅ Pass | ✅ Pass |
-| DL-101 | Finished download shows name, size and source | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| DL-102 | Category filter | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| DL-103 | Search downloads | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| DL-104 | Cancel a download in progress | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| DL-105 | Open Downloads with Ctrl+J | Medium | native | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| DL-106 | "Show in folder" opens File Explorer on the file | Medium | native | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| DL-107 | Remove an entry and undo | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| DL-108 | Same file downloaded twice gets a new name | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| DL-109 | "Copy link" copies the download address | Low | native | Samsung |  | sanity.md | ✅ Pass | N/A |
-| DL-110 | Toolbar Downloads bubble lists the finished file | Medium | native | Samsung |  | sanity.md | ✅ Pass | N/A |
-| DL-111 | Link with a download attribute saves under that name | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
+|---|---|---|---|---|---|---|
+| DL-001 | Download a file | High | web | ✔ | downloads.md | ✅ Pass |
+| DL-002 | Remove an entry from the list | High | web |  | downloads.md | ✅ Pass |
+| DL-003 | Clear all | Medium | web |  | downloads.md | ✅ Pass |
+| DL-004 | Pause and resume | Medium | web |  | downloads.md | ✅ Pass |
+| DL-010 | Ask where to save -> Save As dialog | Medium | native |  | downloads.md | ✅ Pass |
+| DL-101 | Finished download shows name, size and source | High | web | ✔ | sanity.md | ✅ Pass |
+| DL-102 | Category filter | Medium | web |  | sanity.md | ✅ Pass |
+| DL-103 | Search downloads | Medium | web |  | sanity.md | ✅ Pass |
+| DL-104 | Cancel a download in progress | High | web | ✔ | sanity.md | ✅ Pass |
+| DL-105 | Open Downloads with Ctrl+J | Medium | native |  | sanity.md | ✅ Pass |
+| DL-106 | "Show in folder" opens File Explorer on the file | Medium | native |  | sanity.md | ✅ Pass |
+| DL-107 | Remove an entry and undo | Medium | web |  | sanity.md | ✅ Pass |
+| DL-108 | Same file downloaded twice gets a new name | High | web | ✔ | sanity.md | ✅ Pass |
+| DL-109 | "Copy link" copies the download address | Low | native |  | sanity.md | ✅ Pass |
+| DL-110 | Toolbar Downloads bubble lists the finished file | Medium | native |  | sanity.md | ✅ Pass |
+| DL-111 | Link with a download attribute saves under that name | Medium | web |  | sanity.md | ✅ Pass |
 
 <details><summary><b>DL-001</b> Download a file</summary>
 
@@ -1130,23 +1107,23 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 ## History (HIS) - 15 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| HIS-001 | Visited pages are listed newest first | High | web | Cả hai | ✔ | history.md | ✅ Pass | ✅ Pass |
-| HIS-002 | Search history | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
-| HIS-003 | Delete selected entries | High | web | Cả hai | ✔ | history.md | ✅ Pass | ✅ Pass |
-| HIS-004 | Remove one entry from its menu | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
-| HIS-005 | Open a page from history | Medium | web | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
-| HIS-010 | Open History with Ctrl+H | Medium | native | Cả hai |  | history.md | ✅ Pass | ✅ Pass |
-| HIS-101 | Entries show title, domain and time under a day header | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| HIS-102 | Clear history | High | web | Samsung | ✔ | sanity.md | ✅ Pass | N/A |
-| HIS-103 | Time filter | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| HIS-104 | Delete a whole day | Medium | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| HIS-105 | History is kept after restarting the browser | High | web | Cả hai | ✔ | sanity.md | ✅ Pass | ✅ Pass |
-| HIS-106 | "Clear browsing data" link | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| HIS-107 | Search with no match | Low | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
-| HIS-108 | Cancel a selection | Low | web | Samsung |  | sanity.md | ✅ Pass | N/A |
-| HIS-109 | Visiting a page again moves it to the top | Medium | web | Cả hai |  | sanity.md | ✅ Pass | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
+|---|---|---|---|---|---|---|
+| HIS-001 | Visited pages are listed newest first | High | web | ✔ | history.md | ✅ Pass |
+| HIS-002 | Search history | Medium | web |  | history.md | ✅ Pass |
+| HIS-003 | Delete selected entries | High | web | ✔ | history.md | ✅ Pass |
+| HIS-004 | Remove one entry from its menu | Medium | web |  | history.md | ✅ Pass |
+| HIS-005 | Open a page from history | Medium | web |  | history.md | ✅ Pass |
+| HIS-010 | Open History with Ctrl+H | Medium | native |  | history.md | ✅ Pass |
+| HIS-101 | Entries show title, domain and time under a day header | High | web | ✔ | sanity.md | ✅ Pass |
+| HIS-102 | Clear history | High | web | ✔ | sanity.md | ✅ Pass |
+| HIS-103 | Time filter | Medium | web |  | sanity.md | ✅ Pass |
+| HIS-104 | Delete a whole day | Medium | web |  | sanity.md | ✅ Pass |
+| HIS-105 | History is kept after restarting the browser | High | web | ✔ | sanity.md | ✅ Pass |
+| HIS-106 | "Clear browsing data" link | Low | web |  | sanity.md | ✅ Pass |
+| HIS-107 | Search with no match | Low | web |  | sanity.md | ✅ Pass |
+| HIS-108 | Cancel a selection | Low | web |  | sanity.md | ✅ Pass |
+| HIS-109 | Visiting a page again moves it to the top | Medium | web |  | sanity.md | ✅ Pass |
 
 <details><summary><b>HIS-001</b> Visited pages are listed newest first</summary>
 
@@ -1397,84 +1374,11 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 </details>
 
-## Settings (SET) - 4 case
+## General (GEN) - 1 case
 
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| SET-001 | Toggle "Ask where to save each file" | High | web | Cả hai | ✔ | settings.md | ❌ Fail | ✅ Pass |
-| SET-002 | Search settings | Medium | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
-| SET-003 | Setting persists after restart | High | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
-| SET-004 | On startup: open a specific page | Medium | web | Cả hai |  | settings.md | ⏳ Chưa chạy | ✅ Pass |
-
-<details><summary><b>SET-001</b> Toggle "Ask where to save each file"</summary>
-
-**Steps:**
-
-1. Open Settings > Downloads
-2. Turn on "Ask where to save each file before downloading"
-
-**Expected:**
-
-- The toggle is on and the preference download.prompt_for_download is true
-
-**Nguồn:** `testcases/settings/settings.md`  
-**Script:** `tests/features/settings/test_settings.py::test_toggle_ask_where_to_save`
-
-</details>
-
-<details><summary><b>SET-002</b> Search settings</summary>
-
-**Steps:**
-
-1. Open Settings, search "downloads"
-
-**Expected:**
-
-- The Downloads section is shown in the results
-
-**Nguồn:** `testcases/settings/settings.md`  
-**Script:** `tests/features/settings/test_settings.py::test_search_settings`
-
-</details>
-
-<details><summary><b>SET-003</b> Setting persists after restart</summary>
-
-**Steps:**
-
-1. Turn on "Ask where to save each file before downloading"
-2. Restart the browser, open Settings > Downloads
-
-**Expected:**
-
-- The toggle is still on
-
-**Nguồn:** `testcases/settings/settings.md`  
-**Script:** `tests/features/settings/test_settings.py::test_setting_persists_after_restart`
-
-</details>
-
-<details><summary><b>SET-004</b> On startup: open a specific page</summary>
-
-**Steps:**
-
-1. Settings > On startup: choose "Open a specific page or set of pages"
-
-**Expected:**
-
-- The radio is selected and session.restore_on_startup == 4
-
-**Nguồn:** `testcases/settings/settings.md`  
-**Script:** `tests/features/settings/test_settings.py::test_on_startup_specific_pages`
-
-</details>
-
-## General (GEN) - 3 case
-
-| ID | Tên | Ưu tiên | Type | Target | Sanity | File | Samsung | Chrome |
-|---|---|---|---|---|---|---|---|---|
-| GEN-001 | Back and forward navigation | High | web | Cả hai | ✔ | general.md | ✅ Pass | ✅ Pass |
-| GEN-002 | Link with target=_blank opens a new tab | Medium | web | Cả hai |  | general.md | ⏳ Chưa chạy | ✅ Pass |
-| GEN-010 | Type a URL in the address bar | High | native | Cả hai |  | general.md | ⏳ Chưa chạy | ✅ Pass |
+| ID | Tên | Ưu tiên | Type | Sanity | File | Kết quả |
+|---|---|---|---|---|---|---|
+| GEN-001 | Back and forward navigation | High | web | ✔ | general.md | ✅ Pass |
 
 <details><summary><b>GEN-001</b> Back and forward navigation</summary>
 
@@ -1489,35 +1393,5 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Nguồn:** `testcases/general/general.md`  
 **Script:** `tests/features/general/test_navigation.py::test_back_forward`
-
-</details>
-
-<details><summary><b>GEN-002</b> Link with target=_blank opens a new tab</summary>
-
-**Steps:**
-
-1. On the popups page click "Open page 2 in new tab"
-
-**Expected:**
-
-- A new tab shows "Static page 2"; closing it returns to the first tab
-
-**Nguồn:** `testcases/general/general.md`  
-**Script:** `tests/features/general/test_navigation.py::test_link_opens_new_tab`
-
-</details>
-
-<details><summary><b>GEN-010</b> Type a URL in the address bar</summary>
-
-**Steps:**
-
-1. Focus the address bar, type a local URL, press Enter
-
-**Expected:**
-
-- The page loads and the address bar shows its URL
-
-**Nguồn:** `testcases/general/general.md`  
-**Script:** `tests/features/general/test_navigation.py::test_omnibox_navigation`
 
 </details>

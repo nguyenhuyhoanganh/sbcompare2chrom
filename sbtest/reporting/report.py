@@ -20,7 +20,7 @@ from pathlib import Path
 from sbtest.reporting.cases import Case, load_cases
 from sbtest.utils import slug
 
-RESULT_LABEL = {"passed": "PASS", "failed": "FAIL", "error": "ERROR", "skipped": "SKIP", "na": "N/A"}
+RESULT_LABEL = {"passed": "PASS", "failed": "FAIL", "error": "ERROR", "skipped": "SKIP"}
 FEATURE_ORDER = ("addons", "bookmarks", "downloads", "history", "settings", "general", "reference", "other")
 
 
@@ -32,7 +32,7 @@ class Row:
     description: str
     steps: list[str]
     expected: list[str]
-    result: str                     # passed | failed | error | skipped | na
+    result: str                     # passed | failed | error | skipped
     test: str
     duration: float
     failed_step: str = ""
@@ -44,12 +44,6 @@ class Row:
     type: str = ""
 
 
-def _result(test: dict) -> str:
-    if test["outcome"] == "skipped" and "not applicable to target" in (test.get("message") or ""):
-        return "na"
-    return test["outcome"]
-
-
 def build_rows(results: dict, cases: dict[str, Case]) -> list[Row]:
     rows: list[Row] = []
     for t in results["tests"]:
@@ -59,7 +53,7 @@ def build_rows(results: dict, cases: dict[str, Case]) -> list[Row]:
             rows.append(Row(
                 case_id=cid or "-", title=c.title if c else t["name"], feature=(c.feature if c else t.get("feature")) or "other",
                 description=c.precondition if c else "", steps=list(c.steps) if c else [],
-                expected=list(c.expected) if c else [], result=_result(t), test=t["nodeid"],
+                expected=list(c.expected) if c else [], result=t["outcome"], test=t["nodeid"],
                 duration=t.get("duration", 0.0), failed_step=t.get("failed_step", ""), error=t.get("message", ""),
                 executed=t.get("steps") or [], screenshot=t.get("screenshot") or "",
                 priority=c.priority if c else "", type=c.type if c else ""))
@@ -72,18 +66,17 @@ def summary(rows: list[Row], meta: dict) -> dict:
     counts = Counter(r.result for r in rows)
     failed = counts["failed"] + counts["error"]
     product = meta.get("product_version") or ""
-    name = "Samsung Browser" if meta.get("target") == "samsung" else "Chrome"
     return {
         "counts": counts, "total": len(rows), "failed": failed,
         "verdict": "PASSED" if failed == 0 and counts["passed"] else ("FAILED" if failed else "NO RESULT"),
-        "build": f"{name} {product}".strip() + (f" (Chromium {meta.get('browser_version')})" if meta.get("browser_version") else ""),
+        "build": f"Samsung Browser {product}".strip() + (f" (Chromium {meta.get('browser_version')})" if meta.get("browser_version") else ""),
     }
 
 
 def build_info(meta: dict) -> list[tuple[str, str]]:
     return [
         ("Build", f"{meta.get('product_version') or '?'}"), ("Chromium", meta.get("browser_version") or "?"),
-        ("Target", meta.get("target") or ""), ("Executable", meta.get("exe") or ""),
+        ("Executable", meta.get("exe") or ""),
         ("chromedriver", meta.get("chromedriver") or ""), ("Machine", f"{meta.get('machine', '')} - {meta.get('os', '')}"),
         ("Started", (meta.get("started") or "").replace("T", " ")), ("Finished", (meta.get("finished") or "").replace("T", " ")),
         ("Selection", meta.get("selection") or "all"),
@@ -123,7 +116,7 @@ def _e(text) -> str:
 
 
 CSS = """
-:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--muted:#5b6475;--line:#e3e6eb;--pass:#1a7f37;--fail:#cf222e;--skip:#6e7781;--na:#8c959f}
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2330;--muted:#5b6475;--line:#e3e6eb;--pass:#1a7f37;--fail:#cf222e;--skip:#6e7781}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,sans-serif}
 main{max-width:1500px;margin:0 auto;padding:24px 16px}h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
 .sub{color:var(--muted);margin-bottom:16px}.verdict{display:inline-block;padding:6px 14px;border-radius:6px;color:#fff;font-weight:700;font-size:16px}
@@ -136,7 +129,7 @@ table.cases th{background:#eef0f3;text-align:left;padding:8px;font-weight:600;po
 table.cases td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
 td ol,td ul{margin:0;padding-left:18px}.id{font-weight:700;white-space:nowrap}.muted{color:var(--muted);font-size:12px}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
-.r-passed{background:var(--pass)}.r-failed,.r-error{background:var(--fail)}.r-skipped{background:var(--skip)}.r-na{background:var(--na)}
+.r-passed{background:var(--pass)}.r-failed,.r-error{background:var(--fail)}.r-skipped{background:var(--skip)}
 .err{color:var(--fail);margin-top:6px;white-space:pre-wrap;word-break:break-word}.shot img{width:220px;border:1px solid var(--line);border-radius:4px}
 .feat{color:var(--muted);font-weight:400;font-size:14px}tr.fail-row td{background:#fff5f5}
 """
@@ -151,7 +144,7 @@ def write_html(rows: list[Row], meta: dict, out: Path) -> Path:
              f"<div class='sub'>{_e((meta.get('started') or '').replace('T', ' '))} on {_e(meta.get('machine'))}</div>",
              f"<span class='verdict v-{s['verdict'].split()[0]}'>BUILD {_e(s['verdict'])}</span>",
              "<div class='cards'>"]
-    for key, label in (("passed", "Passed"), ("failed", "Failed"), ("error", "Error"), ("skipped", "Skipped"), ("na", "N/A")):
+    for key, label in (("passed", "Passed"), ("failed", "Failed"), ("error", "Error"), ("skipped", "Skipped")):
         parts.append(f"<div class='card'><b>{c.get(key, 0)}</b>{label}</div>")
     parts.append(f"<div class='card'><b>{s['total']}</b>Cases</div></div>")
     parts.append("<table class='info'>" + "".join(f"<tr><th>{_e(k)}</th><td>{_e(v)}</td></tr>" for k, v in build_info(meta))
@@ -176,7 +169,7 @@ def write_html(rows: list[Row], meta: dict, out: Path) -> Path:
                 res += f"<div class='err'>{_e(r.error)}</div>"
                 if r.executed:
                     res += "<ol class='muted'>" + "".join(f"<li>[{_e(x['status'])}] {_e(x['title'])}</li>" for x in r.executed) + "</ol>"
-            elif r.result in ("skipped", "na"):
+            elif r.result == "skipped":
                 res += f"<div class='muted'>{_e(r.error)}</div>"
             shot = f"<a href='{_e(r.image)}' target='_blank'><img src='{_e(r.image)}' loading='lazy' alt='result'></a>" if r.image else ""
             desc = f"<div>{_e(r.title)}</div>" + (f"<div class='muted'>{_e(r.description)}</div>" if r.description else "") \
@@ -200,7 +193,7 @@ def write_markdown(rows: list[Row], meta: dict, out: Path) -> Path:
     s = summary(rows, meta)
     c = s["counts"]
     md = [f"# Sanity report - {s['build']}", "", f"**BUILD {s['verdict']}** - "
-          + ", ".join(f"{RESULT_LABEL[k]} {c.get(k, 0)}" for k in ("passed", "failed", "error", "skipped", "na"))
+          + ", ".join(f"{RESULT_LABEL[k]} {c.get(k, 0)}" for k in ("passed", "failed", "error", "skipped"))
           + f" (total {s['total']})", "", "| | |", "|---|---|"]
     md += [f"| {k} | {_md(v)} |" for k, v in build_info(meta)]
     by_feature: dict[str, list[Row]] = defaultdict(list)

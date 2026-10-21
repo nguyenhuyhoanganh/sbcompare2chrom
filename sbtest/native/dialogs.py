@@ -1,6 +1,6 @@
 """Wrappers for native dialogs: generic browser prompts/bubbles and Windows common dialogs.
 
-    dlg = native.wait_dialog("add_extension")      # logical name from config/native_ui/<target>.yaml
+    dlg = native.wait_dialog("add_extension")      # logical name from config/native_ui.yaml
     assert "Read and change" in " ".join(dlg.texts())
     dlg.click("Add extension")
 

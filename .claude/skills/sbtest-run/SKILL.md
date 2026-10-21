@@ -1,27 +1,24 @@
 ---
 name: sbtest-run
-description: Run the Samsung Internet automated tests (all, by feature, or by test case id) against a build, or the Chrome reference suite, triage the failures and publish the run report to Confluence. Use when asked to run/execute the tests, check a new build after a Chromium merge, re-run failures, explain failures, or share results.
+description: Run the Samsung Internet automated tests (all, by feature, or by test case id) against a build, triage the failures and publish the run report to Confluence. Use when asked to run/execute the tests, check a new build after a Chromium merge, re-run failures, explain failures, or share results.
 ---
 
 # Run, triage, report
 
 ## First time on a machine
 
-`setup.bat`, set `targets.samsung.browser.exe` in `config/local.yaml`, then
-`python -m sbtest.tools.doctor` and fix every FAIL. For the Chrome reference target:
-`python -m sbtest.tools.get_chrome` then `python -m sbtest.tools.doctor --target chrome`.
+`setup.bat`, set `browser.exe` in `config/local.yaml`, then `python -m sbtest.tools.doctor`
+and fix every FAIL (step by step: `SETUP.md`).
 
 ## Run
 
 ```
-python run.py --all                                # Samsung build, tests/features
+python run.py --all                                # every feature (tests/features)
 python run.py --feature addons,bookmarks
 python run.py --case ADD-001,BM-004
 python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
 python run.py --all --screenshot-steps             # picture after every step
-python run.py --target chrome --suite reference    # interaction reference suite on Chrome
-python run.py --target chrome                      # reference + feature tests on Chrome
 python run.py --list                               # cases and automation status
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 ```
@@ -53,7 +50,7 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
 1. **Product regression** - behaviour differs from the case's Expected. Evidence: case id,
    failed step, screenshots. Do not touch the test.
 2. **UI changed, test outdated** - same behaviour, different markup/labels after the merge.
-   Fix the Samsung page object (`sbtest/pages/samsung/`) or `config/native_ui/samsung.yaml`
+   Fix the page object (`sbtest/pages/`) or `config/native_ui.yaml`
    (see `sbtest-author` -> `references/debugging.md`), re-run the feature.
 3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
    Fix the setup (`doctor`), re-run.
@@ -63,7 +60,7 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
 ## Report
 
 The verdict for a build is the header of `report/index.html`: **BUILD PASSED** = no failed or
-error case among those run (N/A = not applicable to the target, skipped = not run). Say which
+error case among those run (skipped = not run, e.g. native tests without a desktop). Say which
 features were run (`Selection` row) - a `--feature bookmarks` run passes only bookmarks.
 
 To publish, use the **Confluence skill** to create a new page from `artifacts/runs/<ts>/confluence/`:

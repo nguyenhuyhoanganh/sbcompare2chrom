@@ -3,7 +3,6 @@ import pytest
 
 from sbtest.steps import step
 
-samsung_only = pytest.mark.targets("samsung")
 
 
 def visit(web, site, *titles):
@@ -12,7 +11,6 @@ def visit(web, site, *titles):
         web.wait_title(t)
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("HIS-101")
 def test_entry_details(web, pages, site):
@@ -26,7 +24,6 @@ def test_entry_details(web, pages, site):
         assert any(d.startswith("Today") for d in h.days())
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("HIS-102")
 def test_clear_history(web, pages, site):
@@ -38,7 +35,6 @@ def test_clear_history(web, pages, site):
         web.wait_until(h.is_empty, message="history empty")
 
 
-@samsung_only
 @pytest.mark.case("HIS-103")
 def test_time_filter(web, pages, site):
     visit(web, site, "Alpha")
@@ -58,7 +54,6 @@ def test_time_filter(web, pages, site):
         h.wait_item("Alpha")
 
 
-@samsung_only
 @pytest.mark.case("HIS-104")
 def test_delete_whole_day(web, pages, site):
     visit(web, site, "Alpha", "Beta")
@@ -79,7 +74,6 @@ def test_history_survives_restart(session, web, pages, site):
         pages.of(session.web).history.open().wait_item("Alpha")
 
 
-@samsung_only
 @pytest.mark.case("HIS-106")
 def test_clear_browsing_data_link(web, pages):
     h = pages.history.open()
@@ -98,7 +92,6 @@ def test_search_no_match(web, pages, site):
         web.wait_until(lambda: not h.titles(), message="no entry listed")
 
 
-@samsung_only
 @pytest.mark.case("HIS-108")
 def test_cancel_selection(web, pages, site):
     visit(web, site, "Alpha")

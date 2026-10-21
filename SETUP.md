@@ -40,11 +40,9 @@ Báo `Python 3.10+ not found`? Cài Python từ python.org. Nếu đã cài mà 
 Mở `config\local.yaml` (file này chỉ ở trên máy, không commit) và sửa đường dẫn exe:
 
 ```yaml
-targets:
-  samsung:
-    browser:
-      exe: 'C:\build\out\Release\SamsungInternet.exe'
-      # bản public: 'C:\Program Files\Samsung\Internet\Application\samsunginternet.exe'
+browser:
+  exe: 'C:\build\out\Release\SamsungInternet.exe'
+  # bản public: 'C:\Program Files\Samsung\Internet\Application\samsunginternet.exe'
 network:
   # download_proxy: http://proxy.company.com:8080   # nếu không dùng biến HTTPS_PROXY
 ```
@@ -54,8 +52,9 @@ Không cần chỉnh gì thêm:
   version vào `drivers\<major>\` (qua proxy nếu có). Máy không ra mạng được thì chép sẵn
   `drivers\<major>\chromedriver.exe` từ một máy khác vào. Nếu chromedriver của Google không
   nhận bản fork, build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`.
-- Target samsung đã cấu hình sẵn chế độ `attach` và điều hướng `chrome://` (thanh địa chỉ
-  vẫn hiển thị `internet://`), xem `config\targets\samsung.yaml`.
+- Cấu hình sẵn chế độ `attach` và điều hướng `chrome://` (thanh địa chỉ vẫn hiển thị
+  `internet://`), xem `config\default.yaml`.
+- `config\local.yaml` theo mẫu cũ (`targets: samsung: browser: exe: ...`) vẫn dùng được.
 
 ## 4. Chuẩn bị Windows trước khi chạy
 
@@ -87,16 +86,9 @@ Một số cảnh báo thường gặp:
 |---|---|
 | `input method: UniKey running` | tắt UniKey (hoặc chuyển English) trước khi chạy |
 | `browser exe ... not found` | sửa đường dẫn ở mục 3 |
-| `browser start: ReadTimeoutError` | browser không cho chromedriver kết nối: kiểm tra `browser.mode: attach` (mặc định của target samsung), đóng hết Samsung đang mở |
+| `browser start: ReadTimeoutError` | browser không cho chromedriver kết nối: kiểm tra `browser.mode: attach` (mặc định), đóng hết Samsung đang mở |
 | `page chrome://...` WARN | bản build không mở được trang qua WebDriver: xem `pages.scheme` |
-| `native ui_map ...: not found` | giao diện bản build khác bản đã kiểm chứng: báo cho agent (skill `sbtest-explore`) cập nhật `config\native_ui\samsung.yaml` |
-
-Phần tuỳ chọn: bản Chrome đối chiếu (cùng nền Chromium), dùng để so sánh khi một test fail.
-
-```bat
-.venv\Scripts\python -m sbtest.tools.get_chrome                 & rem cùng major Chromium với bản Samsung
-.venv\Scripts\python -m sbtest.tools.doctor --target chrome
-```
+| `native ui_map ...: not found` | giao diện bản build khác bản đã kiểm chứng: báo cho agent (skill `sbtest-explore`) cập nhật `config\native_ui.yaml` |
 
 ## 6. Chạy và lấy báo cáo
 
@@ -144,9 +136,7 @@ Chỉ phải động tay khi:
   cập nhật hoặc xoá hai dòng đó;
 - máy không ra được mạng: chép `drivers\<major mới>\chromedriver.exe` từ một máy khác vào;
 - chromedriver của Google không nhận bản fork (doctor báo lỗi ở bước `browser start`):
-  build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`;
-- muốn so sánh với Chrome cùng nền: chạy lại `python -m sbtest.tools.get_chrome` (lấy
-  Chrome for Testing cùng major với bản Samsung mới).
+  build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`.
 
 Sau mỗi lần merge: chạy `doctor` để kiểm tra, rồi `python run.py --all`. Test fail vì UI
 đổi (đổi nhãn, đổi DOM) thì là việc của page object / ui map, không phải của driver; agent

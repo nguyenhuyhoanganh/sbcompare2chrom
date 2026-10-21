@@ -70,4 +70,4 @@ def test_open_from_history(web, pages, site):
 def test_ctrl_h_opens_history(web, native, cfg):
     with step("1. Press Ctrl+H", expected="History opened"):
         native.hotkey("^h")
-        web.switch_tab(url=cfg.page_url("history"))  # new tab (Samsung) or the blank tab (Chrome)
+        web.switch_tab(url=cfg.page_url("history"))  # opens in a new tab

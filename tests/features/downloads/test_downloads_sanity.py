@@ -3,7 +3,6 @@ import pytest
 
 from sbtest.steps import step
 
-samsung_only = pytest.mark.targets("samsung")
 
 
 def download(web, site, downloads_dir, link_id, name):
@@ -12,7 +11,6 @@ def download(web, site, downloads_dir, link_id, name):
     return web.wait_file(downloads_dir, name, timeout=web.long_timeout)
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("DL-101")
 def test_entry_details(web, pages, site, downloads_dir):
@@ -25,7 +23,6 @@ def test_entry_details(web, pages, site, downloads_dir):
     assert f.stat().st_size == 2048
 
 
-@samsung_only
 @pytest.mark.case("DL-102")
 def test_category_filter(web, pages, site, downloads_dir):
     download(web, site, downloads_dir, "dl-txt", "sample.txt")
@@ -51,7 +48,6 @@ def test_search(web, pages, site, downloads_dir):
         web.wait_until(lambda: d.names() == ["data.bin"], message="only data.bin listed")
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("DL-104")
 def test_cancel_in_progress(web, pages, site, downloads_dir):
@@ -71,7 +67,7 @@ def test_cancel_in_progress(web, pages, site, downloads_dir):
 def test_ctrl_j_opens_downloads(web, native, cfg):
     with step("1. Ctrl+J", expected="Downloads page"):
         native.hotkey("^j")
-        web.switch_tab(url=cfg.page_url("downloads"))  # new tab, or the blank tab on Chrome
+        web.switch_tab(url=cfg.page_url("downloads"))  # opens in a new tab
 
 
 @pytest.mark.native
@@ -89,7 +85,6 @@ def test_show_in_folder(web, native, pages, site, downloads_dir):
         explorer.close()
 
 
-@samsung_only
 @pytest.mark.case("DL-107")
 def test_remove_and_undo(web, pages, site, downloads_dir):
     download(web, site, downloads_dir, "dl-png", "photo.png")
@@ -114,7 +109,6 @@ def test_duplicate_name(web, pages, site, downloads_dir):
     assert "sample.txt" in d.names()
 
 
-@samsung_only
 @pytest.mark.native
 @pytest.mark.case("DL-109")
 def test_copy_link(web, pages, site, downloads_dir):
@@ -128,7 +122,6 @@ def test_copy_link(web, pages, site, downloads_dir):
         web.wait_until(lambda: clipboard.GetData() == url, message="download address on the clipboard")
 
 
-@samsung_only
 @pytest.mark.native
 @pytest.mark.case("DL-110")
 def test_toolbar_bubble(web, native, site, downloads_dir):

@@ -40,15 +40,15 @@ def test_report_rows_verdict_and_files(tmp_path):
     md = tmp_path / "x.md"
     md.write_text(CASE_MD, encoding="utf-8")
     cases = {c.id: c for c in parse_file(md, "bookmarks", "x.md")}
-    results = {"meta": {"target": "samsung", "product_version": "31.0.0.55", "browser_version": "148.0"},
+    results = {"meta": {"product_version": "31.0.0.55", "browser_version": "148.0"},
                "tests": [
                    {"nodeid": "t.py::test_add", "name": "test_add", "feature": "bookmarks", "cases": ["BM-900"],
                     "outcome": "passed", "duration": 1.0, "message": "", "steps": [], "screenshot": ""},
                    {"nodeid": "t.py::test_two", "name": "test_two", "feature": "bookmarks", "cases": ["BM-901"],
-                    "outcome": "skipped", "duration": 0, "message": "not applicable to target samsung (only chrome)",
+                    "outcome": "skipped", "duration": 0, "message": "native UI not available",
                     "steps": []}]}
     rows = build_rows(results, cases)
-    assert [(r.case_id, r.result) for r in rows] == [("BM-900", "passed"), ("BM-901", "na")]
+    assert [(r.case_id, r.result) for r in rows] == [("BM-900", "passed"), ("BM-901", "skipped")]
     s = summary(rows, results["meta"])
     assert s["verdict"] == "PASSED" and s["build"] == "Samsung Browser 31.0.0.55 (Chromium 148.0)"
     results["tests"][0].update(outcome="failed", failed_step="2. Add", message="boom")
@@ -68,7 +68,7 @@ def _run_with_failure(tmp_path):
     from PIL import Image
 
     Image.new("RGB", (40, 20), "white").save(shot)
-    results = {"meta": {"started": "2026-10-20T10:00:00", "browser_version": "148.0.1.2", "target": "samsung",
+    results = {"meta": {"started": "2026-10-20T10:00:00", "browser_version": "148.0.1.2",
                         "product_version": "31.0.0.55"},
                "tests": [
                    {"nodeid": "a.py::test_a", "name": "test_a", "feature": "addons", "cases": ["ADD-001"],

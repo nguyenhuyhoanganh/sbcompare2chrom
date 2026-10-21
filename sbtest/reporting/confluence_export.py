@@ -21,7 +21,7 @@ from pathlib import Path
 from sbtest.reporting.cases import load_cases
 from sbtest.reporting.report import RESULT_LABEL, Row, _copy_images, build_info, build_rows, summary, write_markdown
 
-COLORS = {"passed": "Green", "failed": "Red", "error": "Red", "skipped": "Grey", "na": "Grey"}
+COLORS = {"passed": "Green", "failed": "Red", "error": "Red", "skipped": "Grey"}
 
 
 def esc(text) -> str:
@@ -42,7 +42,7 @@ def build(rows: list[Row], meta: dict) -> dict:
     color = "Green" if s["verdict"] == "PASSED" else "Red"
     st = [f'<p><ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">{color}</ac:parameter>'
           f'<ac:parameter ac:name="title">BUILD {esc(s["verdict"])}</ac:parameter></ac:structured-macro> '
-          + " ".join(f"{_status(k)} {c.get(k, 0)}" for k in ("passed", "failed", "error", "skipped", "na"))
+          + " ".join(f"{_status(k)} {c.get(k, 0)}" for k in ("passed", "failed", "error", "skipped"))
           + f" &#160; {s['total']} cases</p>",
           "<table><tbody>" + "".join(f"<tr><th>{esc(k)}</th><td>{esc(v)}</td></tr>" for k, v in build_info(meta))
           + "</tbody></table>"]
@@ -62,7 +62,7 @@ def build(rows: list[Row], meta: dict) -> dict:
             res = _status(r.result) + f" {r.duration:.1f}s"
             if r.result in ("failed", "error"):
                 res += f"<p><strong>Failed at:</strong> {esc(r.failed_step or '-')}</p><p>{esc(r.error[:500])}</p>"
-            elif r.result in ("skipped", "na"):
+            elif r.result == "skipped":
                 res += f"<p>{esc(r.error[:200])}</p>"
             shot = ""
             if r.image:

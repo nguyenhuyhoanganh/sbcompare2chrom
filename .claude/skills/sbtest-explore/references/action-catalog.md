@@ -2,7 +2,7 @@
 
 Verified on Samsung Browser 31.0.0.55 (Chromium 148). Fixtures: `web`, `native`, `pages`,
 `site`, `session`, `cfg`, `downloads_dir`, `data`, `tmp_path` (see sbtest-author SKILL.md).
-Logical names in quotes (`"bookmarks_button"`) are keys of `config/native_ui/samsung.yaml`;
+Logical names in quotes (`"bookmarks_button"`) are keys of `config/native_ui.yaml`;
 `name=` fills their `{name}` placeholder. Anything missing here: explore it (SKILL.md step 2)
 and add a page-object method or ui-map entry, then add a row to this table.
 
@@ -17,7 +17,6 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | "file downloaded" | `web.open(site.url("/downloads.html")); web.click("#dl-txt"); web.wait_file(downloads_dir, "sample.txt")` (`#dl-bin`, `#dl-png`, `#dl-slow`, `#dl-attr`) |
 | a local file to upload / import | `files.text_file(tmp_path, "a.txt")`, `files.png_file(...)`, `files.bookmarks_html(...)` |
 | unique names | `unique("Folder")` |
-| only Samsung has this flow | `@pytest.mark.targets("samsung")` |
 | touches browser UI or OS dialogs | `@pytest.mark.native` |
 
 ## Pages and navigation
@@ -134,6 +133,6 @@ and add a page-object method or ui-map entry, then add a row to this table.
 ## After writing
 
 - `- Automated: tests/features/...::test_x` under the case; `python -m sbtest.tools.coverage`.
-- New UI names -> `config/native_ui/samsung.yaml` with a comment; new selectors -> the page
+- New UI names -> `config/native_ui.yaml` with a comment; new selectors -> the page
   object class + its STATUS docstring; new behaviour -> `sbtest-author/references/feature-notes.md`.
 - Add the row you needed to this catalogue.

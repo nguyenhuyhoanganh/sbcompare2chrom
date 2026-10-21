@@ -4,7 +4,6 @@ import pytest
 from sbtest.steps import step
 from sbtest.utils import unique
 
-samsung_only = pytest.mark.targets("samsung")
 
 
 @pytest.mark.sanity
@@ -19,7 +18,6 @@ def test_edit_name_and_url(pages, site):
     assert bm.item_url(name) == url
 
 
-@samsung_only
 @pytest.mark.case("BM-104")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_edit_from_context_menu(pages):
@@ -34,7 +32,6 @@ def test_edit_from_context_menu(pages):
         bm.wait_item(name)
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("BM-105")
 @pytest.mark.browser(bookmarks="seed_basic")
@@ -49,7 +46,6 @@ def test_delete_from_context_menu_and_undo(pages):
         bm.wait_item("Static page 2")
 
 
-@samsung_only
 @pytest.mark.case("BM-106")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_select_all_and_delete(pages, web):
@@ -107,7 +103,6 @@ def test_add_bookmark_into_folder(pages, site):
         assert name not in bm.titles()
 
 
-@samsung_only
 @pytest.mark.case("BM-110")
 @pytest.mark.browser(bookmarks="seed_many")
 def test_sort_by_name(pages):
@@ -118,7 +113,6 @@ def test_sort_by_name(pages):
         bm.wait_titles(["Folder X", "Alpha", "Beta", "Delta", "Gamma"])
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("BM-111")
 @pytest.mark.browser(bookmarks="seed_basic")
@@ -134,7 +128,6 @@ def test_delete_folder_and_undo(pages, web):
         bm.wait_titles(["Form page", "Dialogs page"])
 
 
-@samsung_only
 @pytest.mark.case("BM-112")
 @pytest.mark.browser(bookmarks="seed_basic")
 def test_open_all_in_new_tabs(pages, web):
@@ -147,7 +140,6 @@ def test_open_all_in_new_tabs(pages, web):
     web.switch_tab(title="Dialogs page")
 
 
-@samsung_only
 @pytest.mark.native
 @pytest.mark.case("BM-113")
 @pytest.mark.browser(bookmarks="seed_basic")
@@ -162,7 +154,6 @@ def test_export_bookmarks(pages, native, web, site, tmp_path):
         assert text in html, text
 
 
-@samsung_only
 @pytest.mark.case("BM-114")
 def test_import_opens_settings(pages, web):
     bm = pages.bookmarks.open()

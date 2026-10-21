@@ -1,7 +1,7 @@
 # History - sanity pass after a Chromium merge (Samsung Browser for Windows)
 
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
-Basics shared with Chrome are in history.md (HIS-001..HIS-010).
+Basics are in history.md (HIS-0xx).
 
 ## HIS-101 Entries show title, domain and time under a day header
 - Priority: High

@@ -14,8 +14,7 @@ python -m sbtest.tools.dom bookmarks --uia artifacts/uia.txt   # DOM + UIA in on
 ```
 
 Lines look like `Button 'Done' auto_id='' class='MdTextButton' rect=(..)`. Put stable
-criteria into the target's map - `config/native_ui/samsung.yaml` (Samsung) or
-`config/native_ui/chromium.yaml` (Chrome) - and use the logical name:
+criteria into `config/native_ui.yaml` and use the logical name:
 
 ```yaml
 bookmark_star:
@@ -36,7 +35,7 @@ browser is forced to en-US by `--lang=en-US` in config.
 native.hotkey("^d")            # browser shortcut (focuses the frame first). ^ Ctrl, + Shift, % Alt
 native.hotkey("^+{DELETE}")    # Ctrl+Shift+Del ; {ENTER} {ESC} {TAB} {F5} {DOWN}
 native.type_text("literal text")
-native.click("bookmark_star")  # logical name from the target native_ui map, or a criteria dict
+native.click("bookmark_star")  # logical name from config/native_ui.yaml, or a criteria dict
 native.element("omnibox") / native.exists("downloads_button")
 native.navigate(url)           # Ctrl+L, type, Enter - like a user in the address bar
 native.omnibox_text()
@@ -71,14 +70,14 @@ native.drag_file_from_explorer(path, web=web, target=loc)   # real OS file drag 
 native.screenshot(path) / native.dump(path) / native.close_stray_dialogs()
 ```
 
-## Patterns (complete runnable examples: `tests/reference/files/` and `tests/reference/native/`)
+## Patterns (runnable examples: `tests/features/*/test_*_toolbar.py`, `test_*_sanity.py`)
 
-**Bubble after a shortcut**
+**Toast / bubble after a shortcut** (Samsung: Ctrl+D shows a "Page bookmarked." toast with Edit)
 ```python
 native.hotkey("^d")
-bubble = native.wait_dialog("bookmark_added")
-assert "Static page 1" in bubble.texts()      # name field value is included (Edit values)
-bubble.click("Done"); bubble.wait_closed()
+toast = native.wait_dialog("bookmark_added")
+assert any("bookmarked" in t.lower() for t in toast.texts())
+toast.click("Edit")                           # -> edit bubble: Bookmark name / URL, Save
 ```
 
 **Download with "Ask where to save" on**

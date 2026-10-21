@@ -1,53 +1,49 @@
-"""Page objects.
+"""Page objects of Samsung Browser's internal pages (internet://..., opened as chrome://...).
 
-    sbtest/pages/base.py       BasePage: helpers shared by all internal pages (search, toast, dialogs, menus)
-    sbtest/pages/chromium/     upstream Chromium / Chrome implementation (reference, verified)
-    sbtest/pages/samsung/      Samsung Internet implementation (subclasses, override what differs)
-    sbtest/pages/webstore.py   Chrome Web Store (a public website, same for both targets)
+    base.py          BasePage - helpers for Samsung's si-* components (side bar search,
+                     toolbar buttons, snack bar, si-dialog, context menu)
+    bookmarks.py  history.py  downloads.py  extensions.py
+    webstore.py      Chrome Web Store item page (public website)
 
-Tests never import a target-specific class: they use the ``pages`` fixture, which picks the
-implementation from config ``page_objects`` (set by the target):
-
-    pages.bookmarks.open()      pages.extensions.info()      pages.webstore.install(id, native)
+Tests use the ``pages`` fixture: ``pages.bookmarks.open()``, ``pages.extensions.info()`` ...
 """
-from importlib import import_module
-
 from sbtest.pages.base import BasePage, q
+from sbtest.pages.bookmarks import BookmarksPage
+from sbtest.pages.downloads import DownloadsPage
+from sbtest.pages.extensions import ExtensionsPage
+from sbtest.pages.history import HistoryPage
 from sbtest.pages.webstore import WebStorePage
 
 PAGE_CLASSES = {
-    "bookmarks": "BookmarksPage",
-    "history": "HistoryPage",
-    "downloads": "DownloadsPage",
-    "settings": "SettingsPage",
-    "extensions": "ExtensionsPage",
+    "bookmarks": BookmarksPage,
+    "history": HistoryPage,
+    "downloads": DownloadsPage,
+    "extensions": ExtensionsPage,
+    "webstore": WebStorePage,
 }
 
 
-def page_class(name: str, implementation: str = "chromium"):
-    """Class of page ``name`` for an implementation (``chromium`` | ``samsung``)."""
-    if name == "webstore":
-        return WebStorePage
+def page_class(name: str):
     if name not in PAGE_CLASSES:
-        raise AttributeError(f"No page object {name!r}; add it to sbtest/pages/<impl>/ and PAGE_CLASSES")
-    return getattr(import_module(f"sbtest.pages.{implementation}"), PAGE_CLASSES[name])
+        raise AttributeError(f"No page object {name!r}; add it to sbtest/pages/ and PAGE_CLASSES")
+    return PAGE_CLASSES[name]
 
 
 class Pages:
-    """Lazy factory bound to one ``Web``: ``pages.history``, ``pages.settings`` ..."""
+    """Lazy factory bound to one ``Web``: ``pages.history``, ``pages.extensions`` ..."""
 
     def __init__(self, web) -> None:
         self.web = web
-        self.implementation = web.cfg.get("page_objects") or "chromium"
 
     def __getattr__(self, name: str):
         if name.startswith("_"):
             raise AttributeError(name)
-        return page_class(name, self.implementation)(self.web)
+        return page_class(name)(self.web)
 
     def of(self, web):
         """Same factory for another Web (e.g. after ``session.restart()``)."""
         return Pages(web)
 
 
-__all__ = ["BasePage", "Pages", "WebStorePage", "page_class", "q"]
+__all__ = ["BasePage", "BookmarksPage", "DownloadsPage", "ExtensionsPage", "HistoryPage", "Pages",
+           "WebStorePage", "page_class", "q"]

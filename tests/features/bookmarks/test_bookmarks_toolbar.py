@@ -5,7 +5,7 @@ import pytest
 from sbtest.steps import step
 from sbtest.utils import unique
 
-pytestmark = [pytest.mark.native, pytest.mark.targets("samsung")]
+pytestmark = pytest.mark.native
 
 
 def type_into(native, field: str, text: str) -> None:

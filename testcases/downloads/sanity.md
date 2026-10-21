@@ -1,7 +1,7 @@
 # Downloads - sanity pass after a Chromium merge (Samsung Browser for Windows)
 
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
-Basics shared with Chrome are in downloads.md (DL-001..DL-010).
+Basics are in downloads.md (DL-0xx).
 
 ## DL-101 Finished download shows name, size and source
 - Priority: High

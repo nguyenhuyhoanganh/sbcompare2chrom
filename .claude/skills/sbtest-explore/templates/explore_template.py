@@ -1,6 +1,6 @@
 """Scratch exploration - copy to tests/_scratch/test_explore_<topic>.py (git-ignored), edit, run:
 
-    python -m pytest tests/_scratch/test_explore_<topic>.py --target samsung -s -p no:cacheprovider
+    python -m pytest tests/_scratch/test_explore_<topic>.py -s -p no:cacheprovider
 
 then open artifacts/explore/<topic>/*.png and read the printed [explore] lines.
 Delete the file when the test is written.

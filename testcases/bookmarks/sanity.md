@@ -1,7 +1,7 @@
 # Bookmarks - sanity pass after a Chromium merge (Samsung Browser for Windows)
 
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
-Bookmark manager basics shared with Chrome are in bookmark_manager.md (BM-001..BM-010).
+Bookmark manager basics are in bookmark_manager.md (BM-001..BM-006).
 
 ## BM-103 Edit name and web address
 - Priority: High

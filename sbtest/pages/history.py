@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from selenium.webdriver.remote.webelement import WebElement
 
-from sbtest.pages.chromium.history import HistoryPage as ChromiumHistoryPage
-from sbtest.pages.samsung.base import SamsungPageMixin
+from sbtest.pages.base import BasePage
+
 
 _JS_ROWS = r"""
 return arguments[0].map(i => {
@@ -28,10 +28,16 @@ return arguments[0].map(i => {
 """
 
 
-class HistoryPage(SamsungPageMixin, ChromiumHistoryPage):
+class HistoryPage(BasePage):
+    page = "history"
+    ROOT = "#history-app >>> #history"
+    ITEMS = "#history-app >>> #history >>> history-item"
     TOOLBAR = "#history-app >>> #toolbar"
     CLEAR_DATA_LINK = "#history-app >>> #content-side-bar >>> #clear-browsing-data"
-    TIME_FILTERS = ("All time", "Last hour", "Today", "Yesterday", "Older")
+
+    # -- reading -----------------------------------------------------------------
+    def items(self) -> list[WebElement]:
+        return self.web.find_all(self.ITEMS)
 
     def rows(self) -> list[dict]:
         """``[{title, url, domain, time, day}]`` of the listed entries (newest first)."""
@@ -45,6 +51,12 @@ class HistoryPage(SamsungPageMixin, ChromiumHistoryPage):
                     raise
         return []
 
+    def titles(self) -> list[str]:
+        return [r["title"] for r in self.rows()]
+
+    def urls(self) -> list[str]:
+        return [r["url"] for r in self.rows()]
+
     def item(self, title: str, timeout: float | None = None) -> WebElement:
         def _f():
             for i in self.items():
@@ -54,8 +66,15 @@ class HistoryPage(SamsungPageMixin, ChromiumHistoryPage):
             return None
         return self.web.wait_until(_f, timeout, f"history item {title!r}")
 
-    def days(self) -> list[str]:
-        return [r["day"] for r in self.rows() if r["day"]]
+    def has_item(self, title: str) -> bool:
+        return title in self.titles()
+
+    def wait_item(self, title: str, present: bool = True, timeout: float | None = None) -> None:
+        self.web.wait_until(lambda: self.has_item(title) == present, timeout,
+                            f"history item {title!r} {'present' if present else 'absent'}")
+
+    def is_empty(self) -> bool:
+        return not self.items()
 
     # -- actions -----------------------------------------------------------------
     def open_item(self, title: str) -> None:
@@ -75,10 +94,24 @@ class HistoryPage(SamsungPageMixin, ChromiumHistoryPage):
                 self.dialog_button("Cancel")
                 self.wait_dialog_closed()
 
+    def item_menu(self, title: str, action: str) -> None:
+        """``Remove from history`` | ``More from this site`` ..."""
+        self.web.click(self.web.find("deep=#menu-button", within=self.item(title)))
+        self.click_menu_item(action)
+
     def remove(self, title: str) -> None:
         self.select(title)
         self.delete_selected()
         self.wait_item(title, present=False)
+
+    def open_clear_browsing_data(self) -> None:
+        """Opens chrome://settings/clearBrowserData (in a new tab in upstream Chromium)."""
+        self.web.click(self.CLEAR_DATA_LINK)
+
+    TIME_FILTERS = ("All time", "Last hour", "Today", "Yesterday", "Older")
+
+    def days(self) -> list[str]:
+        return [r["day"] for r in self.rows() if r["day"]]
 
     def clear_history(self, confirm: bool = True) -> None:
         """Toolbar "Clear history" (-> confirmation)."""

@@ -18,7 +18,7 @@ description: Turn test cases given as a Confluence/Jira link (or pasted text, a 
 
 Write `testcases/<feature>/<area>.md` in the format of `testcases/README.md`:
 
-- Feature folder: `addons`, `bookmarks`, `downloads`, `history`, `settings`, `general`
+- Feature folder: `addons`, `bookmarks`, `downloads`, `history`, `general`
   (a new area -> new folder and prefix; say so in the report).
 - **Keep the source IDs** when the doc has them (e.g. `SI-ADD-012`) in the heading. Without
   IDs, assign `<PREFIX>-<next number>` and add `- Source: <link> (section/row)`.

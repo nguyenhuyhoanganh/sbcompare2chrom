@@ -57,12 +57,10 @@ class BrowserSession:
     @property
     def exe(self) -> str:
         if not self.cfg.get("browser.exe"):
-            raise RuntimeError(f"Browser exe not set for target {self.cfg.target!r}: use --exe, SB_EXE or "
-                               f"config/local.yaml targets.{self.cfg.target}.browser.exe")
+            raise RuntimeError("Browser exe not set: use --exe, SB_EXE or browser.exe in config/local.yaml")
         exe = self.cfg.path("browser.exe")  # relative paths are relative to the repo root
         if not exe.exists():
-            hint = " (run: python -m sbtest.tools.get_chrome)" if self.cfg.target == "chrome" else ""
-            raise FileNotFoundError(f"Browser exe not found: {exe}{hint}")
+            raise FileNotFoundError(f"Browser exe not found: {exe}")
         return str(exe)
 
     def resolve(self) -> tuple[str, str]:

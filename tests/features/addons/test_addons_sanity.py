@@ -5,7 +5,6 @@ from sbtest.steps import step
 
 ADDON = "SB Sample Addon"
 uses_addon = pytest.mark.browser(extensions=["sample_addon"])
-samsung_only = pytest.mark.targets("samsung")
 
 
 def page_marked(web, site) -> bool:
@@ -13,7 +12,6 @@ def page_marked(web, site) -> bool:
     return web.js("return document.documentElement.getAttribute('data-sb-addon')") == "active"
 
 
-@samsung_only
 @uses_addon
 @pytest.mark.sanity
 @pytest.mark.case("ADD-101")
@@ -30,7 +28,6 @@ def test_card_details(pages, web):
         assert web.text(web.find("deep=#version", within=e.item(ADDON))) == "1.0.0"
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("ADD-102")
 def test_developer_mode_toolbar(pages, web):
@@ -70,7 +67,6 @@ def test_disabled_survives_restart(session, pages, web, site):
         assert not page_marked(session.web, site)
 
 
-@samsung_only
 @uses_addon
 @pytest.mark.native
 @pytest.mark.case("ADD-105")
@@ -85,7 +81,6 @@ def test_cancel_remove(pages, native):
     assert e.is_enabled(ADDON)
 
 
-@samsung_only
 @uses_addon
 @pytest.mark.case("ADD-107")
 def test_keyboard_shortcuts(pages, web):
@@ -97,7 +92,6 @@ def test_keyboard_shortcuts(pages, web):
         assert web.find(f'deepcss=[aria-label="Edit shortcut Activate add-on for {ADDON}"]')
 
 
-@samsung_only
 @pytest.mark.sanity
 @pytest.mark.case("ADD-108")
 def test_pack_creates_crx(pages, web, tmp_path):
@@ -119,7 +113,6 @@ def test_pack_creates_crx(pages, web, tmp_path):
         web.wait_file(tmp_path, "addon.pem")
 
 
-@samsung_only
 @uses_addon
 @pytest.mark.case("ADD-109")
 def test_reload_unpacked(pages, web, site):
@@ -132,7 +125,6 @@ def test_reload_unpacked(pages, web, site):
         web.wait_until(lambda: page_marked(web, site), message="content script ran")
 
 
-@samsung_only
 @pytest.mark.slow
 @pytest.mark.case("ADD-110")
 def test_get_addons_opens_store(pages, web):

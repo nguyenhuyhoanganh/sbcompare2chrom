@@ -54,7 +54,7 @@ class Results:
     def write(self, cfg, exit_status: int) -> Path | None:
         if not self.tests:
             return None
-        self.meta.update({"finished": now(), "exit_status": int(exit_status), "target": cfg.target,
+        self.meta.update({"finished": now(), "exit_status": int(exit_status),
                           "exe": cfg.get("browser.exe"), "machine": platform.node(), "os": platform.platform(),
                           "run_dir": str(self.run_dir)})
         self.run_dir.mkdir(parents=True, exist_ok=True)

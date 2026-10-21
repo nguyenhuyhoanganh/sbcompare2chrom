@@ -17,26 +17,3 @@ def test_back_forward(web, site):
     with step("Forward", expected="page 2"):
         web.forward()
         web.wait_title("Static page 2")
-
-
-@pytest.mark.case("GEN-002")
-def test_link_opens_new_tab(web, site):
-    web.open(site.url("/popups.html"))
-    before = web.tabs
-    with step("click target=_blank link", expected="new tab with page 2"):
-        web.click("#blank-link")
-        web.wait_new_tab(before)
-        web.wait_title("Static page 2")
-    assert len(web.tabs) == len(before) + 1
-    web.close_tab()
-    assert web.title == "Popups page"
-
-
-@pytest.mark.native
-@pytest.mark.case("GEN-010")
-def test_omnibox_navigation(web, native, site):
-    url = site.url("/pages/page2.html")
-    with step("1. Type the URL in the address bar + Enter", expected="page loads, URL shown"):
-        native.navigate(url)
-        web.wait_title("Static page 2")
-    assert "page2.html" in native.omnibox_text()

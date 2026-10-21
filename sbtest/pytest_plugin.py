@@ -1,12 +1,12 @@
 """pytest integration: options, markers, fixtures, results and failure evidence.
 
 Fixtures (ask only for what the test needs):
-    cfg            merged Config (target samsung | chrome)
+    cfg            merged Config
     site           LocalSite - local deterministic web content
     session        BrowserSession for this test (fresh profile unless a shared scope is configured)
     web            session.web     - everything inside web content
     native         session.native  - browser UI / OS dialogs (test is skipped where unavailable)
-    pages          page objects of the current target: pages.bookmarks, pages.extensions ...
+    pages          page objects: pages.bookmarks, pages.extensions ...
     data           data("bookmarks") -> test_data/bookmarks.yaml with {site} filled in
     downloads_dir  folder this browser profile downloads into
 
@@ -15,10 +15,8 @@ Markers:
     @pytest.mark.native           drives native UI (Windows, not headless)
     @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name")
                                   preconditions applied BEFORE the browser starts
-    @pytest.mark.targets("samsung")  only on these targets (a flow the other product does not have)
     @pytest.mark.sanity / slow
-    Feature markers come from the folder: tests/features/<feature>/ -> <feature>;
-    tests/reference/** -> reference.
+    Feature markers come from the folder: tests/features/<feature>/ -> <feature>.
 """
 from __future__ import annotations
 
@@ -37,21 +35,20 @@ from sbtest.reporting.results import Results, now
 from sbtest.server import LocalSite
 from sbtest.utils import log
 
-FEATURES = ("addons", "bookmarks", "downloads", "history", "settings", "general")
+FEATURES = ("addons", "bookmarks", "downloads", "history", "general")
 SKIP_NATIVE = "native UI not available (needs Windows, pywinauto, non-headless)"
 
 
 # ------------------------------------------------------------------ options / markers
 def pytest_addoption(parser):
     g = parser.getgroup("sbtest")
-    g.addoption("--target", choices=["samsung", "chrome"], help="browser under test (default from config)")
-    g.addoption("--exe", help="browser executable (overrides the target's configured exe)")
+    g.addoption("--exe", help="SamsungInternet.exe (overrides browser.exe of the config)")
     g.addoption("--driver", help="chromedriver path")
     g.addoption("--mode", choices=["launch", "attach"], help="how chromedriver connects to the browser")
     g.addoption("--headless", action="store_true", default=None, help="headless (native tests are skipped)")
     g.addoption("--browser-scope", choices=["function", "module", "session"],
                 help="reuse one browser per module/session for tests without @browser marker")
-    g.addoption("--feature", help="comma list: addons,bookmarks,downloads,history,settings,general,reference")
+    g.addoption("--feature", help="comma list: addons,bookmarks,downloads,history,general")
     g.addoption("--case", help="comma list of test case ids, e.g. BM-001,DL-004")
     g.addoption("--keep-profile", action="store_true", default=None, help="keep profile folders for debugging")
     g.addoption("--run-dir", help="artifacts folder of this run (default artifacts/runs/<timestamp>)")
@@ -61,14 +58,11 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     for f in FEATURES:
         config.addinivalue_line("markers", f"{f}: feature {f} (auto from tests/features/{f}/)")
-    for line in ("reference: interaction reference suite (auto from tests/reference/)",
-                 "case(*ids): test case ids from testcases/", "native: drives native Windows UI (pywinauto)",
+    for line in ("case(*ids): test case ids from testcases/", "native: drives native Windows UI (pywinauto)",
                  "browser(**opts): per-test browser preconditions", "slow: long running",
-                 "targets(*names): only run on these targets (samsung, chrome) - flows one product lacks",
                  "sanity: part of the quick sanity pass"):
         config.addinivalue_line("markers", line)
     cfg = load_config({
-        "target": config.getoption("--target"),
         "browser.exe": config.getoption("--exe"),
         "browser.chromedriver": config.getoption("--driver"),
         "browser.mode": config.getoption("--mode"),
@@ -95,8 +89,6 @@ def feature_of(item) -> str | None:
         return None
     if parts[0] == "features" and len(parts) > 2:
         return parts[1]
-    if parts[0] == "reference":
-        return "reference"
     return None
 
 
@@ -115,9 +107,6 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(getattr(pytest.mark, feat))
         if item.get_closest_marker("native") and not cfg.native_enabled:
             item.add_marker(pytest.mark.skip(reason=SKIP_NATIVE))
-        only = item.get_closest_marker("targets")
-        if only and cfg.target not in only.args:
-            item.add_marker(pytest.mark.skip(reason=f"not applicable to target {cfg.target} (only {', '.join(only.args)})"))
         keep = (not features or feat in features) and (not cases or cases & {c.upper() for c in case_ids(item)})
         (selected if keep else deselected).append(item)
     if deselected:
@@ -127,7 +116,7 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_report_header(config):
     cfg = config._sb_cfg
-    return [f"sbtest: target={cfg.target} exe={cfg.get('browser.exe') or '<not set>'} mode={cfg.get('browser.mode')} "
+    return [f"sbtest: exe={cfg.get('browser.exe') or '<not set>'} mode={cfg.get('browser.mode')} "
             f"headless={cfg.get('browser.headless')} native={cfg.native_enabled} scope={cfg.get('browser.scope')}",
             f"sbtest: artifacts={config._sb_run_dir}"]
 

@@ -89,14 +89,13 @@ name a test creates so reruns and shared browsers never collide.
 ## Settings state
 
 Fresh profile = default settings + `browser.prefs` from config. For a non-default start
-state use `browser(prefs=...)`. To verify, use `pages.settings.get_pref(name)` (on a
-settings page). Pref names: open `chrome://prefs-internals` in the browser.
+state use `browser(prefs=...)`. Pref names: open `chrome://prefs-internals` in the browser.
 
 ## Add-ons
 
 `test_data/addons.yaml`: `sample` (name, unpacked folder, `.crx`) and `webstore` (id, name).
 Put unpacked add-ons in `test_data/extensions/<name>/` (manifest v3); pack a `.crx` with
-`chrome.exe --pack-extension=<folder>` (Chrome for Testing from `browsers/chrome/` works). `sample_addon` has a
+`SamsungInternet.exe --pack-extension=<folder>` (or "Pack add-on" on the add-ons page). `sample_addon` has a
 popup, an options page and a content script that sets `<html data-sb-addon="active">` on
 `http://127.0.0.1/*`. Installing from a store needs internet - not used in automated tests;
 test the install *flow* with a local `.crx` only if the build allows it.

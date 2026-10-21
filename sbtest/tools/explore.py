@@ -1,6 +1,6 @@
 """Exploration helper: drive the real browser through a flow and record every state.
 
-Write a throw-away test in ``tests/_scratch/`` (git-ignored), run it on the target, then read
+Write a throw-away test in ``tests/_scratch/`` (git-ignored), run it on the build, then read
 the pictures and dumps to learn names, selectors and behaviour before writing page objects:
 
     # tests/_scratch/test_explore_bookmarks.py
@@ -14,7 +14,7 @@ the pictures and dumps to learn names, selectors and behaviour before writing pa
         x.find_native("(?i)static page")                      # print UIA elements whose name matches
         x.esc()
 
-    python -m pytest tests/_scratch/test_explore_bookmarks.py --target samsung -s -p no:cacheprovider
+    python -m pytest tests/_scratch/test_explore_bookmarks.py -s -p no:cacheprovider
 
 Each ``snap(name)`` writes ``NN_name.png`` (whole screen: native bubbles included),
 ``NN_name.dom.txt`` (DOM through shadow roots, every line ends with a ready locator) and

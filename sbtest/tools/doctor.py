@@ -2,11 +2,10 @@
 
     python -m sbtest.tools.doctor                 # uses config/local.yaml
     python -m sbtest.tools.doctor --exe "C:\\build\\SamsungInternet.exe"
-    python -m sbtest.tools.doctor --target chrome     # check the Chrome reference setup
 
 Checks: Python + packages, exe, Chromium version detection, chromedriver, browser start,
-internal page scheme (internet://... / chrome://...), native UI (pywinauto finds the window
-and the toolbar entries of the target's native_ui map), proxy variables. Screenshots of the browser and the screen are saved
+internal pages, native UI (pywinauto finds the window and the toolbar entries of
+config/native_ui.yaml), proxy variables. Screenshots of the browser and the screen are saved
 to artifacts/doctor/ so a human or agent can see what the browser looked like.
 """
 from __future__ import annotations
@@ -37,7 +36,6 @@ def main(argv=None) -> int:
     out = ROOT / "artifacts" / "doctor"
     out.mkdir(parents=True, exist_ok=True)
 
-    report(OK, "target", f"{cfg.target} (page objects: {cfg.get('page_objects')}, ui map: {cfg.get('native.ui_map')})")
     report(OK if sys.version_info >= (3, 10) else FAIL, "python", sys.version.split()[0] + " (need 3.10+)")
     for mod in ("selenium", "pytest", "yaml", "psutil", "PIL", "pytest_html"):
         report(OK if importlib.util.find_spec(mod) else FAIL, f"package {mod}",
@@ -53,9 +51,7 @@ def main(argv=None) -> int:
 
     exe = str(cfg.path("browser.exe")) if cfg.get("browser.exe") else ""
     if not exe or not os.path.exists(exe):
-        hint = "python -m sbtest.tools.get_chrome" if cfg.target == "chrome" else \
-            "set targets.samsung.browser.exe in config/local.yaml or --exe"
-        report(FAIL, "browser exe", f"{exe!r} not found - {hint}")
+        report(FAIL, "browser exe", f"{exe!r} not found - set browser.exe in config/local.yaml or --exe")
         return _summary()
     report(OK, "browser exe", exe)
 
@@ -113,7 +109,7 @@ def main(argv=None) -> int:
                     for key in ("omnibox", "back_button", "reload_button", "app_menu_button"):
                         found = nb.exists(key)
                         report(OK if found else WARN, f"native ui_map {key}",
-                               "" if found else "not found - fix config/native_ui/<target>.yaml (python -m sbtest.tools.uia_dump)")
+                               "" if found else "not found - fix config/native_ui.yaml (python -m sbtest.tools.uia_dump)")
                     nb.dump(out / "uia.txt")
                     nb.screenshot(out / "screen.png")
             except Exception as e:  # noqa: BLE001
