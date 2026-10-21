@@ -3,22 +3,22 @@
 File sinh tự động bởi `python -m sbtest.tools.case_overview` từ `cases/**/*.md` và marker của test.
 Đừng sửa tay: sửa file case gốc rồi chạy lại lệnh. Nội dung case giữ nguyên tiếng Anh như file gốc.
 
-**73 test case**, tất cả đã có script tự động (54 web, 19 native).
+**73 test case**, tất cả đã có script tự động (53 web, 20 native).
 
 | Feature | Prefix | Số case | Web | Native | Sanity |
 |---|---|---:|---:|---:|---:|
 | Add-ons | ADD | 19 | 11 | 8 | 7 |
 | Bookmarks | BM | 22 | 17 | 5 | 9 |
-| Downloads | DL | 16 | 11 | 5 | 4 |
+| Downloads | DL | 16 | 10 | 6 | 4 |
 | History | HIS | 15 | 14 | 1 | 5 |
 | General | GEN | 1 | 1 | 0 | 1 |
-| **Tổng** | | **73** | **54** | **19** | **26** |
+| **Tổng** | | **73** | **53** | **20** | **26** |
 
 - **Type** `web`: chỉ nội dung trang (Selenium); `native`: có UI của browser / dialog Windows (pywinauto).
 - **Sanity**: thuộc lượt kiểm tra nhanh (`python run.py --sanity`).
 - **Kết quả**: lần chạy gần nhất trong `artifacts/runs/` của máy sinh file này.
 
-Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-101,DL-104`.
+Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python run.py --case BM-113,DL-104`.
 
 ## Add-ons (ADD) - 19 case
 
@@ -394,10 +394,10 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 | BM-110 | Open all bookmarks of a folder in new tabs | Medium | web |  | sanity.md | ✅ Pass |
 | BM-111 | Export bookmarks to an HTML file | Medium | native |  | sanity.md | ✅ Pass |
 | BM-112 | "Import bookmarks" opens the import settings | Low | web |  | sanity.md | ✅ Pass |
-| BM-113 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | ✔ | toolbar.md | ✅ Pass |
-| BM-114 | Remove a bookmark with the star | Medium | native |  | toolbar.md | ✅ Pass |
+| BM-113 | Bookmark the page with Ctrl+D and rename it from the toast | High | native | ✔ | toolbar.md | ⏳ Chưa chạy |
+| BM-114 | Remove a bookmark with the star | Medium | native |  | toolbar.md | ⏳ Chưa chạy |
 | BM-115 | Browse the Bookmarks panel and open a bookmark | High | native | ✔ | toolbar.md | ✅ Pass |
-| BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native |  | toolbar.md | ✅ Pass |
+| BM-116 | Add the current page from the panel, open the manager with Expand | Medium | native |  | toolbar.md | ⏳ Chưa chạy |
 
 <details><summary><b>BM-001</b> Add a bookmark from the bookmark manager</summary>
 
@@ -736,7 +736,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Steps:**
 
-1. Open "Static page 1"
+1. Open "Static page 1", click into the page (the star only shows when the address bar has no focus, build 155+)
 2. Press Ctrl+D
 3. Click "Edit" on the toast, change the name, Save
 4. Open the bookmark manager
@@ -754,7 +754,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 <details><summary><b>BM-114</b> Remove a bookmark with the star</summary>
 
-**Precondition:** "Static page 1" is bookmarked (Ctrl+D)
+**Precondition:** "Static page 1" is bookmarked (Ctrl+D after clicking into the page: the star only shows when the address bar has no focus, build 155+)
 
 **Steps:**
 
@@ -796,7 +796,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Steps:**
 
-1. Open a page, toolbar "Bookmarks" > "Add bookmark"
+1. Open a page, toolbar "Bookmarks" > "Add bookmark", click into the page (the star only shows when the address bar has no focus, build 155+)
 2. Open the panel again, click "Expand"
 
 **Expected:**
@@ -815,7 +815,7 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 |---|---|---|---|---|---|---|
 | DL-001 | Download a file | High | web | ✔ | downloads.md | ✅ Pass |
 | DL-002 | Remove an entry from the list | High | web |  | downloads.md | ✅ Pass |
-| DL-003 | Clear all | Medium | web |  | downloads.md | ✅ Pass |
+| DL-003 | Clear all | Medium | native |  | downloads.md | ⏳ Chưa chạy |
 | DL-004 | Pause and resume | Medium | web |  | downloads.md | ✅ Pass |
 | DL-005 | Ask where to save -> Save As dialog | Medium | native |  | downloads.md | ✅ Pass |
 | DL-101 | Finished download shows name, size and source | High | web | ✔ | sanity.md | ✅ Pass |
@@ -867,7 +867,9 @@ Chạy theo feature: `python run.py --feature bookmarks` · theo case: `python r
 
 **Steps:**
 
-1. Download two files; open Downloads; click "Clear all"
+1. Download two files; open Downloads
+2. Close the Downloads bubble with its X (since build 155 it covers "Clear all")
+3. Click "Clear all"
 
 **Expected:**
 

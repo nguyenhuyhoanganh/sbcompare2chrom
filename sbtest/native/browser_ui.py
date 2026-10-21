@@ -173,6 +173,25 @@ class NativeBrowser:
             name = el.element_info.name or el.window_text() or ""
             return name.split(", ", 1)[1] if re.match(r"(?i)address and search bar, ", name) else name
 
+    def focus_page(self) -> None:
+        """Move keyboard focus out of the omnibox into the web content, like clicking the page.
+
+        Since build 155 the omnibox shows other icons while it has focus and the bookmark star
+        (``PageActionView``) only appears once it loses focus; a page opened by WebDriver can
+        leave the focus in the omnibox."""
+        main = self.main_window()
+        content = [h for h in uia.descendants(main, class_name="Chrome_RenderWidgetHostHWND") if h.is_visible()]
+        if content:
+            try:
+                content[0].set_focus()
+                return
+            except Exception as e:  # noqa: BLE001 - fall back to a real click
+                log.debug("set_focus on web content failed: %s", e)
+        from pywinauto import mouse
+
+        r = self.viewport_rect()
+        mouse.click(coords=(r.left + 5, r.bottom - 5))   # blank bottom-left corner of the page
+
     def navigate(self, url: str) -> None:
         """Type a URL into the omnibox like a user (Ctrl+L, text, Enter)."""
         self.hotkey("^l")
@@ -480,6 +499,24 @@ class NativeBrowser:
                     break
             time.sleep(0.3)
         return closed
+
+    def close_download_bubble(self, timeout: float = 3) -> bool:
+        """Close the toolbar Downloads bubble that opens when a download finishes (since build
+        155 it covers the toolbar of the downloads page, e.g. "Clear download history"): click
+        its X, Esc when it has none. False when no bubble showed up within ``timeout``."""
+        try:
+            row = self.element("download_bubble_item", timeout=timeout, in_main=False)
+        except TimeoutError:
+            return False
+        bubble = Dialog(_bubble_of(row) or row, self.timeout)
+        close = uia.find_in([bubble.el], 1, **self.criteria("download_bubble_close"))
+        if close is not None:
+            close.click_input()
+        else:
+            bubble.press("{ESC}")
+        poll(lambda: not self.exists("download_bubble_item", in_main=False), self.timeout, 0.3,
+             "Downloads bubble closed")
+        return True
 
     def close_stray_dialogs(self) -> int:
         """Press Esc on leftover bubbles/dialogs so the next step starts clean."""

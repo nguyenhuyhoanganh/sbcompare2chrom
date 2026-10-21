@@ -5,7 +5,9 @@
 # Differences from Chrome worth knowing:
 # - the omnibox is a Group named "Address and search bar, <url>" (no Edit control)
 # - Ctrl+D bookmarks at once and shows a "Page bookmarked. [Edit]" toast (no bubble)
-# - the star (StarView) only exists while the page is bookmarked ("Remove from Bookmarks")
+# - the star only exists while the page is bookmarked ("Remove from Bookmarks"); it is
+#   StarView up to build 31, PageActionView since build 155, where it only shows once the
+#   omnibox has lost focus (native.focus_page())
 # - app menu button is named "Samsung Browser"; menu items carry the shortcut in their
 #   name ("Downloads Ctrl+J"), menus match by prefix so "Downloads" works
 # - the address bar shows internet://..., WebDriver/CDP report chrome://...
@@ -27,11 +29,12 @@ reload_button:
   title_re: "(?i)^reload$"
 home_button:
   class_name: HomeButton
-bookmark_star:
-  class_name: StarView
+bookmark_star:               # StarView (<= 31) / PageActionView (155+, shared by other page actions)
+  class_name_re: "^(StarView|PageActionView)$"
+  title_re: "(?i)bookmark"
 bookmark_star_filled:        # the page is bookmarked; clicking removes the bookmark
-  class_name: StarView
-  title: Remove from Bookmarks
+  class_name_re: "^(StarView|PageActionView)$"
+  title_re: "(?i)^remove from bookmarks"
 bookmarks_button:            # toolbar star-list button -> bookmarks panel
   class_name: BookmarksButton
 app_menu_button:
@@ -90,6 +93,9 @@ extension_action:            # pinned add-on icon: "<name>\nHas access to this s
   title_re: "^{name}"
 download_bubble_item:        # row of the toolbar Downloads bubble: "<name> <size> • Done"
   class_name: DownloadBubbleTransparentButton
+download_bubble_close:       # X of that bubble (build 155: it covers "Clear download history");
+  control_type: Button       # native.close_download_bubble() presses Esc if it is not found
+  title_re: "(?i)^close$"
 bookmarks_bar:
   control_type: ToolBar
   title_re: "(?i)bookmarks"

@@ -75,3 +75,12 @@ def test_dialog_click_views_button_uses_mouse():
 
 def test_escape_keys():
     assert _escape_keys("a+b^c%(x)") == "a{+}b{^}c{%}{(}x{)}"
+
+
+def test_class_name_re_matches_renamed_classes():
+    old, new = Fake("Button", "Remove from Bookmarks", class_name="StarView"), \
+        Fake("Button", "Remove from Bookmarks", class_name="PageActionView")
+    root = Fake("Window", kids=[Fake("Button", "Zoom", class_name="PageActionView"), old, new])
+    crit = {"class_name_re": "^(StarView|PageActionView)$", "title_re": "(?i)^remove from bookmarks"}
+    assert uia.descendants(root, **crit) == [old, new]
+    assert not uia.matches(Fake("Button", "Remove from Bookmarks", class_name="StarViewX"), **crit)

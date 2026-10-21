@@ -22,13 +22,16 @@ def info(el) -> dict:
 
 
 def matches(el, title: str | None = None, title_re: str | None = None, control_type: str | None = None,
-            auto_id: str | None = None, class_name: str | None = None, **_ignored) -> bool:
+            auto_id: str | None = None, class_name: str | None = None, class_name_re: str | None = None,
+            **_ignored) -> bool:
     ei = el.element_info
     if control_type and ei.control_type != control_type:
         return False
     if auto_id and ei.automation_id != auto_id:
         return False
     if class_name and ei.class_name != class_name:
+        return False
+    if class_name_re and not re.search(class_name_re, ei.class_name or ""):
         return False
     if title is not None and (ei.name or "") != title:
         return False
@@ -43,7 +46,8 @@ _NATIVE_KEYS = ("control_type", "class_name", "title")
 
 
 def descendants(root, **criteria) -> list:
-    """``root`` and its descendants matching criteria (title/title_re/control_type/auto_id/class_name).
+    """``root`` and its descendants matching criteria (title/title_re/control_type/auto_id/
+    class_name/class_name_re).
     ``found_index`` selects one of several matches."""
     idx = criteria.pop("found_index", None)
     native = {k: criteria[k] for k in _NATIVE_KEYS if criteria.get(k) is not None}

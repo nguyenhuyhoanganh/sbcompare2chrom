@@ -23,9 +23,11 @@
 
 ## DL-003 Clear all
 - Priority: Medium
-- Type: web
+- Type: native
 - Steps:
-  1. Download two files; open Downloads; click "Clear all"
+  1. Download two files; open Downloads
+  2. Close the Downloads bubble with its X (since build 155 it covers "Clear all")
+  3. Click "Clear all"
 - Expected:
   - The list is empty
 - Automated: tests/features/downloads/test_downloads.py::test_clear_all

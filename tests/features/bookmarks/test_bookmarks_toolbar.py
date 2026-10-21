@@ -19,12 +19,13 @@ def type_into(native, field: str, text: str) -> None:
 @pytest.mark.case("BM-113")
 def test_ctrl_d_toast_and_rename(web, native, pages, site):
     name = unique("Renamed from toast")
-    with step("1. Open 'Static page 1'"):
+    with step("1. Open 'Static page 1', click into the page"):
         web.open(site.url("/pages/page1.html"))
+        native.focus_page()
     with step("2. Ctrl+D", expected="toast 'Page bookmarked.' with Edit, star filled"):
         native.hotkey("^d")
         toast = native.wait_dialog("bookmark_added")
-        assert native.exists("bookmark_star_filled")
+        web.wait_until(lambda: native.exists("bookmark_star_filled"), message="star filled")
     with step("3. Edit on the toast, new name, Save", expected="edit bubble with name and address"):
         toast.click("Edit")
         native.element("bookmark_edit_name", in_main=False)
@@ -41,6 +42,7 @@ def test_ctrl_d_toast_and_rename(web, native, pages, site):
 @pytest.mark.case("BM-114")
 def test_star_removes_bookmark(web, native, pages, site):
     web.open(site.url("/pages/page1.html"))
+    native.focus_page()   # the star only shows once the omnibox has lost focus
     native.hotkey("^d")
     native.wait_dialog("bookmark_added")
     with step("1. Click the filled star", expected="page no longer bookmarked"):
@@ -85,6 +87,7 @@ def test_panel_add_page_and_expand(web, native, pages, site):
     with step("1. Bookmarks panel > Add bookmark", expected="current page bookmarked, star filled"):
         native.click("bookmarks_button")
         native.click("bookmarks_panel_add_page")
+        native.focus_page()   # the star only shows once the omnibox has lost focus
         web.wait_until(lambda: native.exists("bookmark_star_filled"), message="star filled")
     with step("2. Panel > Expand", expected="bookmark manager opens and lists the page"):
         native.hotkey("{ESC}")

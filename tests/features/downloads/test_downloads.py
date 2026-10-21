@@ -35,15 +35,19 @@ def test_remove_entry_keeps_file(web, pages, site, downloads_dir):
     assert f.exists()
 
 
+@pytest.mark.native
 @pytest.mark.case("DL-003")
-def test_clear_all(web, pages, site, downloads_dir):
-    start_download(web, site, "dl-txt")
-    web.wait_file(downloads_dir, "sample.txt")
-    start_download(web, site, "dl-bin")
-    web.wait_file(downloads_dir, "data.bin")
-    d = pages.downloads.open()
-    d.wait_item("data.bin")
-    with step("1. Clear all", expected="list empty"):
+def test_clear_all(web, native, pages, site, downloads_dir):
+    with step("1. Download two files, open Downloads"):
+        start_download(web, site, "dl-txt")
+        web.wait_file(downloads_dir, "sample.txt")
+        start_download(web, site, "dl-bin")
+        web.wait_file(downloads_dir, "data.bin")
+        d = pages.downloads.open()
+        d.wait_item("data.bin")
+    with step("2. Close the Downloads bubble with its X", expected="bubble gone, Clear all visible"):
+        native.close_download_bubble()
+    with step("3. Clear all", expected="list empty"):
         d.clear_all()
 
 

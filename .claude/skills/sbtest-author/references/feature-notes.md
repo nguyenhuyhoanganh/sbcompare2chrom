@@ -42,8 +42,13 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
   Create folder, Expand (opens the manager); tree "PC bookmarks" > "Bookmark bar" (folders are
   Buttons `auto_id=folder`, bookmarks are TreeItems). Ui-map keys `bookmarks_panel_*`.
 - Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`), no
-  bubble; the star becomes `StarView` "Remove from Bookmarks" (clicking it removes the
-  bookmark). The toast can cover the star: `native.click("bookmark_star", real_mouse=False)`.
+  bubble; the star becomes "Remove from Bookmarks" (clicking it removes the bookmark). The
+  toast can cover the star: `native.click("bookmark_star", real_mouse=False)`.
+- Star class: `StarView` up to build 31, `PageActionView` since build 155 (ui map matches both
+  with `class_name_re`). Since 155 the star only shows when the omnibox has NO focus (focused,
+  it shows other icons), and a page opened by `web.open` can leave the focus there: call
+  `native.focus_page()` after opening the page and before Ctrl+D / any star check
+  (BM-113, BM-114, BM-116).
 - Toast "Edit" -> edit bubble: Edits "Bookmark name" / "Bookmark URL" (URL shown without
   `http://`), "Create folder in selected folder", Save / Cancel. Toast text is "Page
   bookmarked." or "Bookmark added to <folder>" (page already bookmarked elsewhere).
@@ -69,7 +74,10 @@ Samsung Browser 31.0.0.55 (Chromium 148, Windows arm64), verified by the sanity 
   X (remove, snack bar + Undo). In-progress row: progress bar + text buttons Pause/Resume,
   Cancel (`action(name, "Pause")`). Cancel REMOVES the row ("x removed from Downloads." + Undo);
   the toolbar Downloads bubble shows "Canceled". Toolbar: "Clear download history".
-- A finished download opens the toolbar Downloads bubble over the page.
+- A finished download opens the toolbar Downloads bubble over the page. Since build 155 it
+  covers the downloads page toolbar ("Clear download history"): close it first with
+  `native.close_download_bubble()` (clicks its X, ui map `download_bubble_close`), then click
+  (DL-003). Any test that downloads and then uses that toolbar needs this (+ `native`).
 - "Show in folder"/"Open" launch Explorer / the default app (outside the browser): assert with
   `native.wait_explorer(...)` and close the window afterwards.
 - Dangerous/blocked file types show a warning instead of finishing - pick safe types.

@@ -24,7 +24,8 @@ dialogs:
   bookmark_added: "(?i)bookmark added|edit bookmark"
 ```
 
-Criteria keys: `title`, `title_re`, `control_type`, `auto_id`, `class_name`, `found_index`.
+Criteria keys: `title`, `title_re`, `control_type`, `auto_id`, `class_name`, `class_name_re`
+(regex, e.g. a class renamed between builds: `"^(StarView|PageActionView)$"`), `found_index`.
 Prefer `control_type` + `title_re` (case-insensitive) over `found_index`. Samsung's UI
 strings can differ from Chromium's - always verify on the real build; locale of the
 browser is forced to en-US by `--lang=en-US` in config.
@@ -38,6 +39,8 @@ native.type_text("literal text")
 native.click("bookmark_star")  # logical name from config/native_ui.yaml, or a criteria dict
 native.element("omnibox") / native.exists("downloads_button")
 native.navigate(url)           # Ctrl+L, type, Enter - like a user in the address bar
+native.focus_page()            # focus out of the omnibox into the page (155+: star hidden while omnibox focused)
+native.close_download_bubble() # X of the Downloads bubble that opens after a download (covers the page toolbar)
 native.omnibox_text()
 native.tab_titles()
 native.menu("Bookmarks", "Bookmark manager")   # app menu path (regex prefix per item)

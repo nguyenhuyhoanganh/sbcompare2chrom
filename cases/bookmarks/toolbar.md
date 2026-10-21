@@ -8,7 +8,8 @@ Bookmarking from the browser's own UI: Ctrl+D toast, star in the address bar, Bo
 - Type: native
 - Precondition: Clean profile; local page "Static page 1"
 - Steps:
-  1. Open "Static page 1"
+  1. Open "Static page 1", click into the page (the star only shows when the address bar
+     has no focus, build 155+)
   2. Press Ctrl+D
   3. Click "Edit" on the toast, change the name, Save
   4. Open the bookmark manager
@@ -21,7 +22,8 @@ Bookmarking from the browser's own UI: Ctrl+D toast, star in the address bar, Bo
 ## BM-114 Remove a bookmark with the star
 - Priority: Medium
 - Type: native
-- Precondition: "Static page 1" is bookmarked (Ctrl+D)
+- Precondition: "Static page 1" is bookmarked (Ctrl+D after clicking into the page: the star
+  only shows when the address bar has no focus, build 155+)
 - Steps:
   1. On "Static page 1" click the filled star in the address bar
   2. Open the bookmark manager
@@ -48,7 +50,8 @@ Bookmarking from the browser's own UI: Ctrl+D toast, star in the address bar, Bo
 - Priority: Medium
 - Type: native
 - Steps:
-  1. Open a page, toolbar "Bookmarks" > "Add bookmark"
+  1. Open a page, toolbar "Bookmarks" > "Add bookmark", click into the page (the star only
+     shows when the address bar has no focus, build 155+)
   2. Open the panel again, click "Expand"
 - Expected:
   - Step 1: the page is bookmarked (star filled)

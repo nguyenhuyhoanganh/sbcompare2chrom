@@ -101,6 +101,8 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
 
 - Đã chạy thật trên Windows 11 (arm64) với **Samsung Browser 31.0.0.55 (Chromium 148)** bản
   public (browser.samsung.com): 73 case, tất cả pass. Bảng đầy đủ: `cases\TESTCASES.md`.
+- Bản build 155: BM-113/114/116 (sao bookmark thành `PageActionView`, chỉ hiện khi omnibox không
+  focus) và DL-003 (bubble Downloads che nút Clear all) đã sửa theo, chưa chạy lại trên 155.
 - Settings chưa có test (các case cũ chưa kiểm chứng trên Samsung nên đã bỏ). Muốn thêm, dùng
   skill `sbtest-explore` để viết từ đầu trên Samsung.
 - Case chia theo feature và theo khu vực: `cases\<feature>\<khu vực>.md` (trang quản lý,

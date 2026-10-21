@@ -78,7 +78,7 @@ Read first: `references/framework-map.md`. Then only what the step needs:
 | iframe content | `with web.frame("#frame"): ...` |
 | Ctrl+D / Ctrl+H / Ctrl+J / Ctrl+T / Ctrl+W / Ctrl+L | `native.hotkey("^d")` (never `web.press`) |
 | Enter / Esc / Ctrl+A inside a page | `web.press("ENTER")`, `web.press(Keys.CONTROL, "a")` |
-| star / back / reload / new tab button / address bar | `native.click("bookmark_star")`, `native.navigate(url)`, `native.omnibox_text()` |
+| star / back / reload / new tab button / address bar | `native.click("bookmark_star")` (after `native.focus_page()`), `native.navigate(url)`, `native.omnibox_text()` |
 | app menu > X > Y | `native.menu("X", "Y")` |
 | right click > menu item | `native.context_menu_web(web, loc, "Open link in new tab")` |
 | bubble / prompt / permission / sign-in dialog | `native.wait_dialog("bookmark_added")` -> `.texts()`, `.set_text(..)`, `.click("Done")`, `.click_any("Allow", ..)` |

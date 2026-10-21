@@ -58,7 +58,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 |---|---|
 | Ctrl+D -> toast "Page bookmarked." / "Bookmark added to ..." | `native.hotkey("^d"); toast = native.wait_dialog("bookmark_added")` |
 | toast > Edit -> rename | `toast.click("Edit")`, field `native.element("bookmark_edit_name", in_main=False)` (focus, `native.hotkey("^a", focus=False)`, `native.type_text(...)`), `native.click("bookmark_edit_save")` |
-| is the page bookmarked (star) | `native.exists("bookmark_star_filled")` |
+| is the page bookmarked (star) | `native.focus_page()` first (155+: no star while the omnibox has focus), then `native.exists("bookmark_star_filled")` |
 | remove with the star | `native.click("bookmark_star", real_mouse=False)` (the toast can cover it) |
 | Bookmarks panel (toolbar) | `native.click("bookmarks_button")`; folder `native.click("bookmarks_panel_folder", name="Bookmark bar")`; bookmark `native.click("bookmarks_panel_item", name="X")`; buttons `"bookmarks_panel_add_page"`, `"bookmarks_panel_create_folder"`, `"bookmarks_panel_expand"` (opens the manager) |
 
@@ -88,6 +88,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | copy link | `d.action("x", "Copy link")` + `pywinauto.clipboard.GetData()` |
 | show in folder | `d.action("x", "Show in folder")`, `native.wait_explorer(downloads_dir.name)`, `native.explorer_has_selected(win, "x")` |
 | toolbar download bubble | `native.element("download_bubble_item", title_re=r"^x ")` -> name "x 2,048 B • Done" |
+| close the download bubble (it covers "Clear all") | `native.close_download_bubble()` (its X) |
 | ask where to save | prefs `download.prompt_for_download` + `native.file_dialog("save").save_as(path)` |
 
 ## Add-ons
