@@ -72,11 +72,15 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
 
 ## Report
 
+`python -m sbtest.tools.summary` prints the verdict, totals per feature and every failure
+with its evidence path (`--json` for the same data as JSON). For the guided end-to-end flow
+(questions, doctor, run, publish) use the `sbtest-sanity-workflow` skill.
+
 The verdict for a build is the header of `report/index.html`: **BUILD PASSED** = no failed or
 error case among those run (skipped = not run, e.g. native tests without a desktop). Say which
 features were run (`Selection` row) - a `--feature bookmarks` run passes only bookmarks.
 
-To publish, use the **Confluence skill** to create a new page from `artifacts/test-results/confluence/`:
+To publish, use the **managing-jira-confluence** skill to create a new page from `artifacts/test-results/confluence/`:
 title from `manifest.json`, body `page.storage.html` (Confluence storage format; use `page.md`
 if the skill takes Markdown), and upload every file in `attachments/` to that page (the body
 already references them by file name). Put it where the user asked (space / parent page).

@@ -1,0 +1,33 @@
+[
+  {
+    "skills": ["sbtest-sanity-workflow"],
+    "query": "/sbtest-sanity-workflow",
+    "files": [],
+    "expected_behavior": [
+      "Asks which part to test, then the SamsungInternet.exe path, then the Confluence destination, waiting for each answer",
+      "Runs sbtest.tools.doctor with --exe before the tests and stops on a FAIL",
+      "Runs run.py with the chosen arguments and --exe, then reads sbtest.tools.summary",
+      "Asks for confirmation before creating the Confluence page"
+    ]
+  },
+  {
+    "skills": ["sbtest-sanity-workflow"],
+    "query": "Test bookmarks and downloads of the build in D:/builds/155/SamsungInternet.exe and put it under SBQA > Sanity",
+    "files": [],
+    "expected_behavior": [
+      "Does not ask again for what the user already gave (scope, exe, destination)",
+      "Runs python run.py --feature bookmarks,downloads --exe \"D:/builds/155/SamsungInternet.exe\"",
+      "Publishes with the managing-jira-confluence skill: manifest title, page.storage.html, every attachment, a Triage section if there are failures"
+    ]
+  },
+  {
+    "skills": ["sbtest-sanity-workflow"],
+    "query": "Run the sanity pass, I need to keep using this machine",
+    "files": [],
+    "expected_behavior": [
+      "Uses --sanity --no-native and says in the report that native tests were skipped",
+      "After a fix, re-runs the same full selection instead of only the failed cases",
+      "Quotes verdict and totals from sbtest.tools.summary instead of guessing"
+    ]
+  }
+]

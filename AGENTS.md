@@ -7,9 +7,11 @@
 - Skills (Agent Skills format) in `.agents/skills/<name>/SKILL.md`: `sbtest-intake` (test
   cases/links -> cases/*.md), `sbtest-explore` (request -> explore the real UI -> case + test;
   action catalogue), `sbtest-author` (framework API, conventions), `sbtest-run` (run, triage,
-  per-build report, Confluence). If your agent does not load skills itself, read the SKILL.md
+  per-build report, Confluence), `sbtest-sanity-workflow` (step by step: ask scope, exe and
+  Confluence target -> doctor -> run -> triage -> publish with `managing-jira-confluence`;
+  slash command `/sbtest-sanity-workflow` in Cline / Claude Code). If your agent does not load skills itself, read the SKILL.md
   that matches the task first, then the reference files it points to. Confluence itself is
-  handled by the Confluence skill.
+  handled by the Confluence skill `managing-jira-confluence`.
 - Edit skills only in `.agents/skills/`, then `python -m sbtest.tools.sync_skills` (copies
   them to `.claude/skills/` for Claude Code; a framework test fails while the copy is stale).
 - Results of the latest run (emptied when a run starts): `artifacts/test-results/`, report

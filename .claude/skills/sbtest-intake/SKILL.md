@@ -7,7 +7,7 @@ description: Turns test cases given as a Confluence/Jira link (or pasted text, a
 
 ## 1. Get the raw content
 
-- Confluence page / Jira issue link: use the **Confluence skill** to read it (include child
+- Confluence page / Jira issue link: use the **managing-jira-confluence** skill to read it (include child
   pages or attachments when the user says so). Save the content, as Markdown with tables
   kept, to `cases/_inbox/<page title>.md`, and put the source link on the first line.
 - Pasted text / file: save it the same way under `cases/_inbox/`.

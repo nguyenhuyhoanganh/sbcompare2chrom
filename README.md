@@ -35,7 +35,7 @@ resources/                   tài nguyên test
   site/                      trang web test cục bộ (download, form, dialog...)
 docs/SETUP.md                cài đặt máy Windows mới, xử lý khi Samsung merge Chromium mới
 drivers/                     chromedriver cho máy offline (git-ignored, framework tự tải)
-.agents/skills/              skill cho agent: intake, explore, author, run (bản gốc, chỉ sửa ở đây)
+.agents/skills/              skill cho agent: intake, explore, author, run, sanity-workflow (bản gốc, chỉ sửa ở đây)
 .claude/skills/              bản sao cho Claude Code, sinh bằng python -m sbtest.tools.sync_skills
 AGENTS.md  CLAUDE.md         quy tắc cho agent (CLAUDE.md chỉ import AGENTS.md)
 run.py  setup.bat            chạy test / cài đặt lần đầu
@@ -103,7 +103,12 @@ Bảng tổng hợp mọi case kèm kết quả gần nhất: `python -m sbtest.
 
 Test native cần desktop Windows đang mở và không bị khoá. Đừng chạy qua RDP đang thu nhỏ.
 
-## Làm việc với agent (Claude Code chạy trên máy Windows có bản build)
+## Làm việc với agent (Claude Code, Cline... chạy trên máy Windows có bản build)
+
+- **`/sbtest-sanity-workflow`** (Cline, Claude Code; agent khác: "chạy workflow sanity"): agent
+  làm từng bước - hỏi muốn test phần nào, hỏi đường dẫn `SamsungInternet.exe`, hỏi đăng
+  Confluence ở đâu -> chạy `doctor` -> chạy test -> đọc kết quả, phân loại lỗi -> hỏi xác nhận
+  -> tạo trang Confluence bằng skill `managing-jira-confluence` -> trả về kết luận và link.
 
 - *"Đọc test case add-ons ở <link Confluence> và tự động hoá"*:
   - `sbtest-intake` đọc link qua skill Confluence và chuẩn hoá thành `cases\addons\*.md`.

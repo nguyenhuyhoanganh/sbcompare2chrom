@@ -135,3 +135,26 @@ def test_overview_keeps_results_of_cases_not_rerun(tmp_path):
                   encoding="utf-8")
     assert co.previous_results(md) == {"BM-001": "passed", "DL-003": None}
     assert co.previous_results(tmp_path / "missing.md") == {}
+
+
+def test_summary_lists_failures_with_evidence(tmp_path):
+    import json
+
+    from sbtest.tools.summary import collect
+
+    ev = tmp_path / "failures" / "t2"
+    ev.mkdir(parents=True)
+    tests = [
+        {"nodeid": "tests/features/general/test_navigation.py::test_back_forward", "name": "test_back_forward",
+         "feature": "general", "cases": ["GEN-001"], "outcome": "passed", "duration": 1.0},
+        {"nodeid": "tests/features/downloads/test_downloads.py::test_clear_all", "name": "test_clear_all",
+         "feature": "downloads", "cases": ["DL-003"], "outcome": "failed", "duration": 2.0,
+         "failed_step": "3. Clear all", "message": "Timed out", "evidence_dir": str(ev)},
+    ]
+    (tmp_path / "results.json").write_text(json.dumps({"meta": {"selection": "all"}, "tests": tests}))
+    data = collect(tmp_path)
+    assert data["verdict"] == "BUILD FAILED"
+    assert data["per_feature"] == {"downloads": {"failed": 1}, "general": {"passed": 1}}
+    assert data["failures"] == [{"case": "DL-003", "title": "Clear all", "outcome": "failed",
+                                 "test": tests[1]["nodeid"], "failed_step": "3. Clear all", "error": "Timed out",
+                                 "evidence": str(ev / "failure.txt")}]
