@@ -84,3 +84,18 @@ def test_class_name_re_matches_renamed_classes():
     crit = {"class_name_re": "^(StarView|PageActionView)$", "title_re": "(?i)^remove from bookmarks"}
     assert uia.descendants(root, **crit) == [old, new]
     assert not uia.matches(Fake("Button", "Remove from Bookmarks", class_name="StarViewX"), **crit)
+
+
+def test_class_name_re_alternatives_search_natively_per_class():
+    star = Fake("Button", "Remove from Bookmarks", class_name="PageActionView")
+    root = Fake("Window", kids=[Fake("Pane", "web", kids=[Fake("Text", "x")] * 3), star])
+    calls = []
+    orig = root.descendants
+
+    def spy(**cond):
+        calls.append(cond)
+        return orig(**cond)
+
+    root.descendants = spy
+    assert uia.descendants(root, class_name_re="^(StarView|PageActionView)$", title_re="(?i)remove") == [star]
+    assert calls == [{"class_name": "StarView"}, {"class_name": "PageActionView"}]

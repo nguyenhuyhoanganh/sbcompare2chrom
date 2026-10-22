@@ -78,6 +78,8 @@ Các thư mục khác trong `artifacts\` (đều không lên git):
 | `test-results\` | kết quả lần chạy test mới nhất (bảng dưới), kèm `logs\` (chromedriver) và `profiles\` (`--keep-profile`) |
 | `doctor\` | ảnh và log của lần `doctor` gần nhất |
 | `explore\<chủ đề>\` | ảnh và dump của lần khám phá UI gần nhất cho chủ đề đó |
+| `explore\scratch-run\` | bằng chứng lỗi và log của lần chạy test nháp (`tests\_scratch\`) gần nhất |
+| `explore\tools\` | log chromedriver của lần chạy `dom` / `uia_dump` gần nhất |
 | `.cache\` | version Chromium đã dò của exe (giữ lại để lần sau khỏi dò) |
 
 Trong `artifacts\test-results\`:

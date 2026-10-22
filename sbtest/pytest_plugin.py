@@ -79,6 +79,7 @@ def pytest_configure(config):
     config._sb_cfg = cfg
     config._sb_run_dir = run_dir
     config._sb_results = Results(run_dir)
+    config._sb_write_results = True
     selection = [f"{opt}={config.getoption(opt)}" for opt in ("--feature", "--case") if config.getoption(opt)]
     if config.getoption("-m"):
         selection.append(f"-m {config.getoption('-m')}")
@@ -117,29 +118,39 @@ def pytest_collection_modifyitems(config, items):
         items[:] = selected
 
 
+BROWSER_FIXTURES = {"web", "native", "pages", "session", "site", "downloads_dir"}
+
+
 def pytest_collection_finish(session):
-    """A browser test run starts: empty the results folder so it only holds this run.
-    Framework tests, --collect-only and a custom --run-dir leave it alone."""
+    """Decide where this run writes. A run of product tests (tests/features) owns the results
+    folder: it is emptied first and gets results.json + the report. Other runs never touch
+    it: framework tests write nothing, scratch browser tests (tests/_scratch) write to
+    artifacts/explore/scratch-run/. A --run-dir is used as given."""
     config = session.config
-    if config.option.collectonly or hasattr(config, "workerinput") or not session.items:
-        return
-    if not any(feature_of(i) for i in session.items):
+    if config.option.collectonly or hasattr(config, "workerinput") or config.getoption("--run-dir"):
         return
     cfg = config._sb_cfg
-    if config._sb_run_dir.resolve() != cfg.path("paths.results").resolve():
-        return
     artifacts = cfg.path("paths.artifacts")
-    for p in clear_dir(config._sb_run_dir, artifacts):
-        log.warning("left from the previous run (in use, delete it by hand): %s", p)
-    for old in ("runs", "logs", "profiles"):   # earlier layout: runs/<timestamp>/, shared logs/profiles
-        shutil.rmtree(artifacts / old, ignore_errors=True)
+    if any(feature_of(i) for i in session.items):
+        for p in clear_dir(config._sb_run_dir, artifacts):
+            log.warning("left from the previous run (in use, delete it by hand): %s", p)
+        for old in ("runs", "logs", "profiles"):   # earlier layout: runs/<timestamp>/, shared logs/profiles
+            shutil.rmtree(artifacts / old, ignore_errors=True)
+        return
+    uses_browser = any(BROWSER_FIXTURES & set(getattr(i, "fixturenames", ())) for i in session.items)
+    config._sb_write_results = uses_browser
+    if uses_browser:
+        scratch = artifacts / "explore" / "scratch-run"
+        clear_dir(scratch, artifacts)
+        config._sb_run_dir = scratch
+        config._sb_results.run_dir = scratch
 
 
 def pytest_report_header(config):
     cfg = config._sb_cfg
     return [f"sbtest: exe={cfg.get('browser.exe') or '<not set>'} mode={cfg.get('browser.mode')} "
             f"headless={cfg.get('browser.headless')} native={cfg.native_enabled} scope={cfg.get('browser.scope')}",
-            f"sbtest: artifacts={config._sb_run_dir}"]
+            f"sbtest: results={config._sb_run_dir}"]
 
 
 # ------------------------------------------------------------------ fixtures
@@ -331,6 +342,8 @@ def pytest_runtest_makereport(item, call):
 def pytest_sessionfinish(session, exitstatus):
     _shared.close_except(None)
     config = session.config
+    if not config._sb_write_results:
+        return
     path = config._sb_results.write(config._sb_cfg, int(exitstatus))
     if path and os.environ.get("SB_NO_EXPORT") != "1":
         try:

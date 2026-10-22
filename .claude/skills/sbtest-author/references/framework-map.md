@@ -44,7 +44,8 @@ resources/
                                downloads, frames, permissions, toast, shadow, pages/1..3
 docs/SETUP.md                  new Windows machine, what to do after a Chromium merge
 artifacts/test-results/        latest run only: report/, confluence/, failures/, steps/, logs/,
-                               results.json, junit.xml (doctor/, explore/<topic>/ beside it)
+                               results.json, junit.xml (doctor/, explore/<topic>/, explore/scratch-run/
+                               beside it; framework and scratch runs never write here)
 ```
 
 ## Fixtures

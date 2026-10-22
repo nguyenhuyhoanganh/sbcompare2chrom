@@ -508,8 +508,11 @@ class NativeBrowser:
             row = self.element("download_bubble_item", timeout=timeout, in_main=False)
         except TimeoutError:
             return False
-        bubble = Dialog(_bubble_of(row) or row, self.timeout)
-        close = uia.find_in([bubble.el], 1, **self.criteria("download_bubble_close"))
+        frame = _bubble_of(row)
+        if frame is not None and frame.element_info.handle == self.main_window().element_info.handle:
+            frame = None   # never search the browser frame: tab close buttons are named "Close" too
+        bubble = Dialog(frame or row, self.timeout)
+        close = uia.find_in([bubble.el], 1, **self.criteria("download_bubble_close")) if frame else None
         if close is not None:
             close.click_input()
         else:

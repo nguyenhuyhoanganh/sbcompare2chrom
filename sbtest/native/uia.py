@@ -51,8 +51,13 @@ def descendants(root, **criteria) -> list:
     ``found_index`` selects one of several matches."""
     idx = criteria.pop("found_index", None)
     native = {k: criteria[k] for k in _NATIVE_KEYS if criteria.get(k) is not None}
+    # "^(A|B)$" (a class renamed between builds) -> one native search per class name, not
+    # a walk over the whole tree (web content has thousands of nodes)
+    names = re.fullmatch(r"\^\(?([\w|]+)\)?\$", criteria.get("class_name_re") or "")
+    queries = [{**native, "class_name": n} for n in names.group(1).split("|")] if names and not native.get(
+        "class_name") else [native]
     try:
-        items = [root] + root.descendants(**native)
+        items = [root] + [e for q in queries for e in root.descendants(**q)]
     except Exception:  # noqa: BLE001 - window closed while walking, or condition unsupported
         try:
             items = [root] + root.descendants()

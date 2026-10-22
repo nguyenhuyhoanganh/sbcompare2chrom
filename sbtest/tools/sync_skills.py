@@ -19,6 +19,9 @@ from sbtest.config import ROOT
 SOURCE = ROOT / ".agents" / "skills"
 MIRRORS = [ROOT / ".claude" / "skills"]
 IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc")
+# names of the skills this tool copied: other skills in the mirror (installed for Claude Code
+# only, e.g. a Confluence skill) are never touched
+MANIFEST = ".synced-skills"
 
 
 def _files(folder: Path) -> dict[str, bytes]:
@@ -28,19 +31,38 @@ def _files(folder: Path) -> dict[str, bytes]:
             if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"}
 
 
+def skills(folder: Path) -> list[str]:
+    return sorted(p.name for p in folder.glob("*") if (p / "SKILL.md").is_file()) if folder.is_dir() else []
+
+
+def _synced_before(mirror: Path) -> set[str]:
+    f = mirror / MANIFEST
+    return set(f.read_text(encoding="utf-8").split()) if f.exists() else set()
+
+
 def diff(source: Path = SOURCE, mirror: Path = MIRRORS[0]) -> list[str]:
-    """Paths that differ between the source and a mirror ('+' missing, '-' extra, '~' changed)."""
-    src, dst = _files(source), _files(mirror)
-    out = [f"+ {p}" for p in src if p not in dst]
-    out += [f"- {p}" for p in dst if p not in src]
-    out += [f"~ {p}" for p in src if p in dst and src[p] != dst[p]]
+    """Paths that differ between the source skills and their copy ('+' missing, '-' a skill
+    removed from the source, '~' changed). Skills the tool did not copy are ignored."""
+    out = []
+    for name in skills(source):
+        src, dst = _files(source / name), _files(mirror / name)
+        out += [f"+ {name}/{p}" for p in src if p not in dst]
+        out += [f"- {name}/{p}" for p in dst if p not in src]
+        out += [f"~ {name}/{p}" for p in src if p in dst and src[p] != dst[p]]
+    out += [f"- {name}/" for name in sorted(_synced_before(mirror) - set(skills(source))) if (mirror / name).exists()]
+    if _synced_before(mirror) != set(skills(source)):
+        out.append(f"~ {MANIFEST}")
     return sorted(out, key=lambda s: s[2:])
 
 
 def sync(source: Path = SOURCE, mirror: Path = MIRRORS[0]) -> None:
-    if mirror.exists():
-        shutil.rmtree(mirror)
-    shutil.copytree(source, mirror, ignore=IGNORE)
+    names = skills(source)
+    for name in sorted((_synced_before(mirror) - set(names)) | set(names)):
+        if (mirror / name).exists():
+            shutil.rmtree(mirror / name)
+    for name in names:
+        shutil.copytree(source / name, mirror / name, ignore=IGNORE)
+    (mirror / MANIFEST).write_text("\n".join(names) + "\n", encoding="utf-8")
 
 
 def main(argv=None) -> int:

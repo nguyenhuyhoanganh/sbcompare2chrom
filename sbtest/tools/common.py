@@ -10,6 +10,7 @@ import yaml
 from sbtest.browser.session import BrowserSession
 from sbtest.config import load_config
 from sbtest.data.loader import format_data
+from sbtest.reporting.cleanup import clear_dir
 from sbtest.server import LocalSite
 
 
@@ -34,7 +35,10 @@ def start(args, name: str = "tool", extensions=None, bookmarks_spec: str | None 
     """Start local site + browser. ``bookmarks_spec`` = ``file.yaml:key`` seeds the profile."""
     cfg = make_config(args)
     site = LocalSite(cfg.path("paths.site"), cfg.get("server.host"), cfg.get("server.port")).start()
-    session = BrowserSession(cfg, name=name, extensions=extensions)
+    # tool runs (dom, uia_dump) keep their chromedriver log out of the test results
+    out = cfg.path("paths.artifacts") / "explore" / "tools"
+    clear_dir(out, cfg.path("paths.artifacts"))
+    session = BrowserSession(cfg, name=name, extensions=extensions, out_dir=out)
     if bookmarks_spec:
         file, _, key = bookmarks_spec.partition(":")
         data = yaml.safe_load(Path(file).read_text(encoding="utf-8"))

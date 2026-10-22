@@ -43,7 +43,8 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
    `--extension resources/extensions/sample_addon`. Native UI: `python -m sbtest.tools.uia_dump --find "(?i)text"`.
 3. A flow (menus, bubbles, popups, dialogs): write a scratch test with `Explorer`
    (template: `templates/explore_template.py`) in `tests/_scratch/` (git-ignored) and run
-   `python -m pytest tests/_scratch/test_x.py -s -p no:cacheprovider`.
+   `python -m pytest tests/_scratch/test_x.py -s -p no:cacheprovider` (its failure evidence and
+   chromedriver log: `artifacts/explore/scratch-run/`; `test-results/` is left alone).
    `x.snap(label)` saves `artifacts/explore/<name>/NN_label.png` (whole screen),
    `.dom.txt` (locators) and `.uia.txt`; `x.try_step(label, fn)` keeps going on errors;
    `x.find_native("(?i)text")` / `x.find_web("text")` print exact names and locators.

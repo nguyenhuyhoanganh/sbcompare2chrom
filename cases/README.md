@@ -25,6 +25,11 @@ with `python run.py --case BM-001`.
 | Add-ons    | ADD    | cases/addons    |
 | General    | GEN    | cases/general   |
 
+Numbers: area files (`addons.md`, `bookmark_manager.md` ...) use x-001.., `sanity.md` x-101..,
+`toolbar.md` continues after `sanity.md`. A new case takes the next free number of its range
+(`python -m sbtest.tools.coverage --feature <feature>`), so 1xx numbers can alternate between
+`sanity.md` and `toolbar.md` later. Never change the number of an existing case.
+
 ## Format
 
 ```markdown

@@ -15,7 +15,8 @@
 - Results of the latest run (emptied when a run starts): `artifacts/test-results/`, report
   `report/index.html` (+ `confluence/`, `failures/`, `logs/`); case overview:
   `python -m sbtest.tools.case_overview` -> `cases/TESTCASES.md`.
-- Scratch exploration tests go in `tests/_scratch/` (git-ignored), helper `sbtest.tools.explore`.
+- Scratch exploration tests go in `tests/_scratch/` (git-ignored), helper `sbtest.tools.explore`;
+  their failures/logs go to `artifacts/explore/scratch-run/` (never into `test-results/`).
 - Browser: attach mode; navigation uses chrome://, the address bar shows internet://
   (`config/default.yaml`). Page objects: `sbtest/pages/`; browser UI names: `config/native_ui.yaml`.
 - Tests: one folder per feature in `tests/features/<feature>/`; cases in `cases/<feature>/`
