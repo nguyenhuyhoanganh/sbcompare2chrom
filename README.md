@@ -92,7 +92,7 @@ Trong `artifacts\test-results\`:
 | `report.html` | report gốc của pytest |
 | `failures\<test>\failure.txt` | case, bước fail, kết quả mong đợi, lỗi, phần tử đang thao tác |
 | `failures\<test>\page.png` | ảnh tab, **phần tử lỗi được khoanh đỏ** |
-| `failures\<test>\screen.png` | **toàn màn hình Windows**, thấy được cả dialog native |
+| `failures\<test>\screen.png` | **chỉ các cửa sổ Samsung Browser** (khung chính + bubble, menu, dialog Save As/Open của nó), không lấy app khác hay màn hình khác. Muốn chụp mọi màn hình (ví dụ để thấy File Explorer): `report.screen_capture: screen` trong `config\local.yaml` |
 | `failures\<test>\dom.txt`, `uia.txt` | cây DOM và cây UI native lúc fail |
 | `steps\<test>\` | ảnh từng bước (khi chạy với `--screenshot-steps`) |
 | `results.json`, `junit.xml` | kết quả dạng máy đọc |

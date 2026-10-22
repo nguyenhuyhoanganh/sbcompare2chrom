@@ -99,3 +99,35 @@ def test_class_name_re_alternatives_search_natively_per_class():
     root.descendants = spy
     assert uia.descendants(root, class_name_re="^(StarView|PageActionView)$", title_re="(?i)remove") == [star]
     assert calls == [{"class_name": "StarView"}, {"class_name": "PageActionView"}]
+
+
+def test_window_rect_covers_browser_windows_only():
+    from sbtest.native.browser_ui import NativeBrowser
+
+    def win(l, t, r, b):
+        return SimpleNamespace(rectangle=lambda: SimpleNamespace(left=l, top=t, right=r, bottom=b,
+                                                                 width=lambda: r - l, height=lambda: b - t))
+    nb = NativeBrowser.__new__(NativeBrowser)
+    nb.pid = 1
+    frame, bubble, minimized, helper = win(0, 0, 1200, 900), win(1000, 50, 1400, 300), \
+        win(-32000, -32000, -31840, -31972), win(5, 5, 5, 5)
+    nb.windows = lambda: [frame, bubble, minimized, helper]
+    assert nb.window_rect() == (0, 0, 1400, 900)
+    nb.windows = lambda: [minimized]
+    try:
+        nb.window_rect()
+        raise AssertionError("expected LookupError")
+    except LookupError:
+        pass
+
+
+def test_screen_grab_prefers_the_browser_windows(tmp_path):
+    from sbtest.reporting import evidence
+
+    shots = []
+    native = SimpleNamespace(screenshot=lambda p: shots.append(p) or p)
+    session = SimpleNamespace(native=native)
+    cfg = {"report.screen_capture": "window"}
+    conf = SimpleNamespace(get=lambda k, d=None: cfg.get(k, d))
+    assert evidence.screen_grab(tmp_path / "s.png", session, conf) == tmp_path / "s.png"
+    assert shots == [tmp_path / "s.png"]

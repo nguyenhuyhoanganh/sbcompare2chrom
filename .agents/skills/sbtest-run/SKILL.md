@@ -49,7 +49,7 @@ elsewhere) the evidence of a failure before re-running it.
 | `report/report.md` | same report in Markdown |
 | `confluence/` | the same report as a Confluence page: `manifest.json` (title), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test) |
 | `results.json` | every test: outcome, case ids, steps, failed step, error, screenshot, evidence paths |
-| `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (whole screen, native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
+| `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (browser windows incl. native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
 | `results/<test>.png` | final screenshot of every passed test (used by the report) |
 | `steps/<test>/` | per-step screenshots (`--screenshot-steps`) |
 | `report.html` | raw pytest-html report |

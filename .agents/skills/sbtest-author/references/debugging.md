@@ -11,7 +11,7 @@ Every failed test writes `artifacts/test-results/failures/<test id>/` (latest ru
 | `dom.txt` | URL, title, tab count + full shadow-piercing DOM dump with locators |
 | `page.html` | light DOM page source |
 | `alert.txt` | text of an open JS dialog (when one blocked everything) |
-| `screen.png` | whole Windows screen (shows native dialogs/bubbles/prompts) |
+| `screen.png` | the browser's windows as on screen: frame + native dialogs/bubbles/prompts/menus (other apps and monitors left out; `report.screen_capture: screen` for every monitor, e.g. to see File Explorer) |
 | `uia.txt` | UIA tree of all browser windows - Windows |
 
 `--screenshot-steps` (run.py or pytest) also writes `steps/<test>/NN_<status>_<step>.png`

@@ -67,7 +67,7 @@ Case <ID>:
    `with step("N. ...", expected="..."):`, assertions = the doc's Expected lines, on state.
 8. **Run for real**: `python run.py --case <ID>`, then 3 more times - green every time. On a
    failure read `artifacts/test-results/failures/<test>/failure.txt`, then `page.png` (the
-   element used is outlined red) and `screen.png` (whole screen). `--screenshot-steps` shows
+   element used is outlined red) and `screen.png` (the browser windows with their native bubbles/dialogs). `--screenshot-steps` shows
    every step.
 9. **Record**: `- Automated: tests/features/...::test_name` under the case; re-run coverage.
    Report per case: automated / blocked (reason, what is needed).

@@ -94,6 +94,10 @@ report:
   # red outline on the element the failing step was using (visible in page.png)
   highlight_on_failure: true
   dom_on_failure: true
+  # screen.png / result pictures on Windows: window = only the browser's windows (frame,
+  # bubbles, menus, its Save As/Open dialogs), other apps and monitors left out;
+  # screen = every monitor (to also see File Explorer or Windows notifications)
+  screen_capture: window
   uia_on_failure: true
   # screenshot after every step(...) block, pass or fail (flag: --screenshot-steps)
   screenshot_steps: false

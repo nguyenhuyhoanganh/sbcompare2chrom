@@ -16,7 +16,7 @@ the pictures and dumps to learn names, selectors and behaviour before writing pa
 
     python -m pytest tests/_scratch/test_explore_bookmarks.py -s -p no:cacheprovider
 
-Each ``snap(name)`` writes ``NN_name.png`` (whole screen: native bubbles included),
+Each ``snap(name)`` writes ``NN_name.png`` (the browser windows: native bubbles included),
 ``NN_name.dom.txt`` (DOM through shadow roots, every line ends with a ready locator) and
 ``NN_name.uia.txt`` (browser windows as UIA). ``try_step`` snaps after the action and keeps
 going when it fails, so one run shows the whole flow. Delete the scratch file afterwards.

@@ -461,13 +461,30 @@ class NativeBrowser:
             Path(path).write_text(text, encoding="utf-8")
         return text
 
-    def screenshot(self, path: str | Path) -> Path:
-        """Whole-screen capture (shows native dialogs that a WebDriver screenshot misses)."""
+    def window_rect(self) -> tuple[int, int, int, int]:
+        """Screen box (left, top, right, bottom) around every visible window of the browser:
+        the frame plus its bubbles, menus, prompts and file dialogs (other apps excluded)."""
+        boxes = []
+        for w in self.windows():
+            try:
+                r = w.rectangle()
+            except Exception:  # noqa: BLE001 - window vanished
+                continue
+            # minimized windows sit at -32000; zero-size ones are helper windows
+            if r.width() > 0 and r.height() > 0 and r.left > -30000 and r.top > -30000:
+                boxes.append((r.left, r.top, r.right, r.bottom))
+        if not boxes:
+            raise LookupError(f"no visible window of browser pid {self.pid}")
+        return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+    def screenshot(self, path: str | Path, whole_screen: bool = False) -> Path:
+        """Picture of the browser's windows as they are on screen (native bubbles and dialogs
+        included, which a WebDriver screenshot misses). ``whole_screen`` = every monitor."""
         from PIL import ImageGrab
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        ImageGrab.grab(all_screens=True).save(path)
+        ImageGrab.grab(bbox=None if whole_screen else self.window_rect(), all_screens=True).save(path)
         return path
 
     def dismiss_startup_bubbles(self, timeout: float = 3) -> list[str]:

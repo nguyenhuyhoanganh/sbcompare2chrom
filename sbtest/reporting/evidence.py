@@ -12,11 +12,20 @@ from sbtest.utils import log, slug
 WEB_EVIDENCE_BUDGET = 30
 
 
-def screen_grab(path: Path) -> Path:
-    """Whole Windows screen - shows native dialogs/bubbles a WebDriver screenshot cannot see."""
+def screen_grab(path: Path, session=None, cfg=None) -> Path:
+    """What the user sees: the browser's windows (frame + native bubbles/dialogs), which a
+    WebDriver screenshot cannot show. ``report.screen_capture: screen``, or no browser window
+    to find -> every monitor."""
     from PIL import ImageGrab
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    if session is not None and (cfg is None or cfg.get("report.screen_capture", "window") == "window"):
+        try:
+            native = session.native
+            if native is not None:
+                return native.screenshot(path)
+        except Exception as e:  # noqa: BLE001 - fall back to the whole screen
+            log.warning("browser window capture failed (%s), capturing the screen", e)
     ImageGrab.grab(all_screens=True).save(path)
     return path
 
@@ -26,23 +35,23 @@ def can_grab_screen(cfg) -> bool:
 
 
 def step_screenshot(session, run_dir: Path, nodeid: str, rec: dict, n: int) -> None:
-    """``--screenshot-steps``: picture of the tab (and the screen on Windows) after a step."""
+    """``--screenshot-steps``: picture of the tab (and the browser windows on Windows) after a step."""
     if session is None or session.driver is None or session.web.has_alert():
         return
     out = run_dir / "steps" / slug(nodeid, 150)
     name = f"{n:02d}_{rec['status']}_{slug(rec['title'], 50)}"
     rec["screenshot"] = str(session.web.screenshot(out / f"{name}.png"))
     if can_grab_screen(session.cfg):
-        rec["screen"] = str(screen_grab(out / f"{name}_screen.png"))
+        rec["screen"] = str(screen_grab(out / f"{name}_screen.png", session, session.cfg))
 
 
 def result_screenshot(session, cfg, run_dir: Path, nodeid: str) -> str:
-    """Picture of how a test ENDED (pass or fail), for the per-build report: the whole screen
-    on Windows (native bubbles included), else the tab. Returns the path or ""."""
+    """Picture of how a test ENDED (pass or fail), for the per-build report: the browser
+    windows on Windows (native bubbles included), else the tab. Returns the path or ""."""
     out = run_dir / "results" / f"{slug(nodeid, 150)}.png"
     try:
         if can_grab_screen(cfg):
-            return str(screen_grab(out))
+            return str(screen_grab(out, session, cfg))
         if session is not None and session.driver is not None and not session.web.has_alert():
             return str(session.web.screenshot(out))
     except Exception as e:  # noqa: BLE001 - a missing picture must not fail the test
@@ -67,7 +76,7 @@ def collect_failure(session, cfg, run_dir: Path, res: dict) -> tuple[Path, list[
     # OS-level evidence first: it never depends on the page (a print preview or another
     # modal browser UI can block every WebDriver command)
     if can_grab_screen(cfg) and cfg.get("report.screenshot_on_failure", True):
-        _try("screen.png", lambda: screen_grab(out / "screen.png"))
+        _try("screen.png", lambda: screen_grab(out / "screen.png", session, cfg))
     if alive and session.native is not None and cfg.get("report.uia_on_failure", True):
         _try("uia.txt", lambda: session.native.dump(out / "uia.txt"))
 
