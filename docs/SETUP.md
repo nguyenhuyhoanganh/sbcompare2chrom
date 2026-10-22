@@ -101,9 +101,8 @@ python run.py --case BM-113,DL-104             & rem vài case
 ```
 
 Kết thúc mỗi lần chạy, màn hình in ra đường dẫn báo cáo:
-`artifacts\runs\<thời gian>\report\index.html`. Chỉ lần chạy mới nhất được giữ lại: lần chạy
-sau tự xoá kết quả, log và profile của lần trước (giữ nhiều hơn: `--keep-runs N`, hoặc
-`report.keep_runs` trong `config\local.yaml`; 0 = giữ tất cả). Báo cáo gồm:
+`artifacts\test-results\report\index.html`. Thư mục `artifacts\test-results\` chỉ chứa lần chạy
+mới nhất: lần chạy sau làm trống nó trước (cần giữ thì chép đi chỗ khác). Báo cáo gồm:
 - kết luận **BUILD PASSED / FAILED**, thông tin bản build và máy chạy,
 - mỗi case một dòng: các bước, kết quả mong đợi, kết quả thực tế, ảnh chụp.
 

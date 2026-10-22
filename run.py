@@ -9,20 +9,18 @@
 
 The exe comes from browser.exe in config/local.yaml (or --exe / SB_EXE).
 
-Outputs in artifacts/runs/<timestamp>/:
+Outputs in artifacts/test-results/ (the latest run only: emptied when a run starts):
   report/index.html   the sanity report of the build: one row per case (ID, name, steps, expected,
                       result, screenshot of how it ended) + verdict BUILD PASSED / FAILED
   confluence/         the same report as a Confluence page + attachments (Confluence skill uploads it)
   failures/<test>/    failure.txt, page.png (element outlined), screen.png, dom.txt, uia.txt
   results.json, junit.xml, report.html (raw pytest report), steps/ with --screenshot-steps
-Only the latest run is kept: each run first deletes the earlier runs/<timestamp>/ folders,
-chromedriver logs and leftover profiles (config report.keep_runs, or --keep-runs N; 0 = keep all).
-Rebuild the report of a run: python -m sbtest.tools.report [run_dir] [--open]
+  logs/               chromedriver logs; profiles/ with --keep-profile
+Rebuild the report: python -m sbtest.tools.report [--open]
 """
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import importlib.util
 import sys
 from pathlib import Path
@@ -50,8 +48,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scope", choices=["function", "module", "session"], help="browser reuse scope")
     p.add_argument("--reruns", type=int, default=0, help="re-run failed tests N times (separate flakes)")
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
-    p.add_argument("--keep-runs", type=int, help="runs kept in artifacts/runs incl. this one "
-                                                   "(default config report.keep_runs = 1; 0 = all)")
     p.add_argument("--screenshot-steps", action="store_true", help="screenshot after every test step")
     p.add_argument("--list", action="store_true", help="print test cases and automation status, then exit")
     args = p.parse_args(argv)
@@ -63,17 +59,9 @@ def main(argv: list[str] | None = None) -> int:
     import pytest
 
     from sbtest.config import load_config
-    from sbtest.reporting.cleanup import clean_previous_runs
 
-    cfg = load_config()
-    artifacts = cfg.path("paths.artifacts")
-    run_dir = artifacts / "runs" / dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    keep = args.keep_runs if args.keep_runs is not None else int(cfg.get("report.keep_runs", 1))
-    left = clean_previous_runs(artifacts, keep, current=run_dir)
-    if left:
-        print("Could not remove (in use, close it and delete by hand):", *left, sep="\n  ")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    pargs = [str(ROOT / "tests" / "features"), "--run-dir", str(run_dir), f"--junitxml={run_dir / 'junit.xml'}",
+    run_dir = load_config().path("paths.results")   # emptied by the plugin when the tests start
+    pargs = [str(ROOT / "tests" / "features"), f"--junitxml={run_dir / 'junit.xml'}",
               "-p", "no:cacheprovider"]
     if importlib.util.find_spec("pytest_html"):  # optional; find_spec avoids importing it too early
         pargs += [f"--html={run_dir / 'report.html'}", "--self-contained-html"]
@@ -93,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     pargs += extra
     print("pytest", " ".join(pargs))
     code = pytest.main(pargs)
-    print(f"\nArtifacts: {run_dir}")
+    print(f"\nResults: {run_dir}")
     if (run_dir / "report" / "index.html").exists():
         print(f"Sanity report: {run_dir / 'report' / 'index.html'}")
     if (run_dir / "confluence" / "manifest.json").exists():

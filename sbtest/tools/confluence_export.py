@@ -1,4 +1,4 @@
-"""Prepare a run for Confluence: python -m sbtest.tools.confluence_export artifacts/runs/<ts>
+"""Prepare a run for Confluence: python -m sbtest.tools.confluence_export artifacts/test-results
 
 Writes <run_dir>/confluence/ (manifest.json, page.storage.html, page.md, attachments/).
 Then use the Confluence skill to create a page from it and upload the attachments.

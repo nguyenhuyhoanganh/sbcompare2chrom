@@ -106,35 +106,25 @@ def test_confluence_export_folder(tmp_path):
     assert manifest["attachments"] and all((out / a).exists() for a in manifest["attachments"])
     assert (out / "page.md").exists() and (out / "page.storage.html").exists()
 
-def test_clean_previous_runs_keeps_only_the_latest(tmp_path):
-    import os
-    import time
+def test_clear_dir_empties_only_folders_inside_artifacts(tmp_path):
+    import pytest
 
-    from sbtest.reporting.cleanup import clean_previous_runs
+    from sbtest.reporting.cleanup import clear_dir
 
-    runs = tmp_path / "runs"
-    for i, name in enumerate(["20260101_000000", "20260102_000000"]):
-        (runs / name).mkdir(parents=True)
-        (runs / name / "results.json").write_text("{}")
-        os.utime(runs / name, (time.time() - 100 + i, time.time() - 100 + i))
-    (tmp_path / "logs").mkdir()
-    (tmp_path / "logs" / "chromedriver_x.log").write_text("log")
-    (tmp_path / "profiles" / "test_x").mkdir(parents=True)
+    results = tmp_path / "test-results"
+    (results / "failures" / "test_x").mkdir(parents=True)
+    (results / "results.json").write_text("{}")
+    (results / "logs").mkdir()
+    (results / "logs" / "chromedriver_x.log").write_text("log")
     (tmp_path / ".cache").mkdir()
-    current = runs / "20260103_000000"
 
-    assert clean_previous_runs(tmp_path, 1, current=current) == []
-    assert list(runs.iterdir()) == []
-    assert not list((tmp_path / "logs").iterdir()) and not list((tmp_path / "profiles").iterdir())
-    assert (tmp_path / ".cache").exists()           # version cache is kept
-
-    for name in ["a", "b", "c"]:
-        (runs / name).mkdir()
-        time.sleep(0.01)
-    clean_previous_runs(tmp_path, 2, current=current)    # this run + the newest earlier one
-    assert [p.name for p in runs.iterdir()] == ["c"]
-    clean_previous_runs(tmp_path, 0, current=current)    # 0 keeps everything
-    assert [p.name for p in runs.iterdir()] == ["c"]
+    assert clear_dir(results, tmp_path) == []
+    assert results.is_dir() and not list(results.iterdir())
+    assert (tmp_path / ".cache").exists()                      # outside the cleared folder
+    assert clear_dir(tmp_path / "doctor", tmp_path) == []      # missing folder: created empty
+    for bad in (tmp_path, tmp_path.parent / "elsewhere"):
+        with pytest.raises(ValueError):
+            clear_dir(bad, tmp_path)
 
 
 def test_overview_keeps_results_of_cases_not_rerun(tmp_path):

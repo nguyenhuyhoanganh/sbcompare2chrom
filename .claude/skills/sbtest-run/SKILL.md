@@ -29,7 +29,6 @@ python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
 python run.py --all --screenshot-steps             # picture after every step
 python run.py --list                               # cases and automation status
-python run.py --all --keep-runs 2                  # keep the previous run too (default: only this one)
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 ```
 
@@ -39,11 +38,10 @@ Native tests need an unlocked, visible Windows desktop (not a minimized RDP sess
 Run one feature only: `--feature addons` (or `bookmarks`, `downloads`, `history` ...);
 each feature's tests are in `tests/features/<feature>/` and its cases in `cases/<feature>/`.
 
-## Outputs: `artifacts/runs/<timestamp>/`
+## Outputs: `artifacts/test-results/`
 
-Only the latest run is kept: `run.py` deletes earlier runs, chromedriver logs and leftover
-profiles first (config `report.keep_runs: 1`). To compare with the previous run (e.g. a
-re-run of failures), read its evidence first or run with `--keep-runs 2`.
+The folder holds the latest run only: it is emptied when the next run starts. Read (or copy
+elsewhere) the evidence of a failure before re-running it.
 
 | path | content |
 |------|---------|
@@ -55,8 +53,9 @@ re-run of failures), read its evidence first or run with `--keep-runs 2`.
 | `results/<test>.png` | final screenshot of every passed test (used by the report) |
 | `steps/<test>/` | per-step screenshots (`--screenshot-steps`) |
 | `report.html` | raw pytest-html report |
+| `logs/` | chromedriver logs (`profiles/` too with `--keep-profile`) |
 
-Rebuild the report (e.g. after editing case docs): `python -m sbtest.tools.report [run_dir] [--open]`.
+Rebuild the report (e.g. after editing case docs): `python -m sbtest.tools.report [--open]`.
 Refresh the case overview with the latest results: `python -m sbtest.tools.case_overview`.
 
 ## Triage: each failure into exactly one bucket
@@ -77,7 +76,7 @@ The verdict for a build is the header of `report/index.html`: **BUILD PASSED** =
 error case among those run (skipped = not run, e.g. native tests without a desktop). Say which
 features were run (`Selection` row) - a `--feature bookmarks` run passes only bookmarks.
 
-To publish, use the **Confluence skill** to create a new page from `artifacts/runs/<ts>/confluence/`:
+To publish, use the **Confluence skill** to create a new page from `artifacts/test-results/confluence/`:
 title from `manifest.json`, body `page.storage.html` (Confluence storage format; use `page.md`
 if the skill takes Markdown), and upload every file in `attachments/` to that page (the body
 already references them by file name). Put it where the user asked (space / parent page).

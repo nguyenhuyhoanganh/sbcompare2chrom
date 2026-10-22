@@ -43,7 +43,8 @@ resources/
   site/                        local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
                                downloads, frames, permissions, toast, shadow, pages/1..3
 docs/SETUP.md                  new Windows machine, what to do after a Chromium merge
-artifacts/runs/<ts>/           report.html, results.json, junit.xml, failures/, steps/, confluence/
+artifacts/test-results/        latest run only: report/, confluence/, failures/, steps/, logs/,
+                               results.json, junit.xml (doctor/, explore/<topic>/ beside it)
 ```
 
 ## Fixtures

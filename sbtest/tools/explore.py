@@ -29,6 +29,7 @@ import traceback
 from pathlib import Path
 
 from sbtest.config import ROOT
+from sbtest.reporting.cleanup import clear_dir
 from sbtest.native import uia
 from sbtest.tools.dom import dump_dom
 
@@ -37,6 +38,8 @@ class Explorer:
     def __init__(self, web, native=None, name: str = "explore", out: Path | None = None, settle: float = 1.0) -> None:
         self.web, self.native, self.settle = web, native, settle
         self.out = Path(out) if out else ROOT / "artifacts" / "explore" / name
+        if not out:   # the latest exploration of this topic only
+            clear_dir(self.out, ROOT / "artifacts")
         self.out.mkdir(parents=True, exist_ok=True)
         self.n = 0
 

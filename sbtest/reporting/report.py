@@ -6,7 +6,7 @@ result, actual result and a screenshot of how it ended.
     <run_dir>/report/img/           result screenshots (JPEG, one per test)
 
 Built from <run_dir>/results.json (written by the pytest plugin) + cases/**/*.md.
-Regenerate any time:  python -m sbtest.tools.report artifacts/runs/<ts>
+Regenerate any time:  python -m sbtest.tools.report
 """
 from __future__ import annotations
 

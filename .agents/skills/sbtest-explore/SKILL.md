@@ -68,7 +68,7 @@ setup, assertions. Rules that keep tests portable and readable:
 ## 4. Prove it
 
 `python run.py --case <ID>` until green, then 3 more runs. On failure read
-`artifacts/runs/<ts>/failures/<test>/failure.txt`, then `screen.png` / `page.png`, fix,
+`artifacts/test-results/failures/<test>/failure.txt`, then `screen.png` / `page.png`, fix,
 repeat. If the product behaves differently from the request, do not bend the test: report it
 with the screenshot. Run the whole feature once at the end (`--feature X`) so nothing else broke,
 add `- Automated: tests/...::test_x` to the case, and regenerate the overview if you changed

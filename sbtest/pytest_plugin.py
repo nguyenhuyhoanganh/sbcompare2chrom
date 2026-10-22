@@ -21,6 +21,7 @@ Markers:
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,8 @@ from sbtest.config import ROOT, load_config
 from sbtest.data.loader import format_data, load_data
 from sbtest.pages import Pages
 from sbtest.reporting import evidence
-from sbtest.reporting.results import Results, now
+from sbtest.reporting.cleanup import clear_dir
+from sbtest.reporting.results import Results
 from sbtest.server import LocalSite
 from sbtest.utils import log
 
@@ -51,7 +53,8 @@ def pytest_addoption(parser):
     g.addoption("--feature", help="comma list: addons,bookmarks,downloads,history,general")
     g.addoption("--case", help="comma list of test case ids, e.g. BM-001,DL-004")
     g.addoption("--keep-profile", action="store_true", default=None, help="keep profile folders for debugging")
-    g.addoption("--run-dir", help="artifacts folder of this run (default artifacts/runs/<timestamp>)")
+    g.addoption("--run-dir", help="output folder of this run (default paths.results = artifacts/test-results, "
+                                  "emptied when the run starts)")
     g.addoption("--screenshot-steps", action="store_true", default=False, help="screenshot after every step()")
 
 
@@ -72,7 +75,7 @@ def pytest_configure(config):
         "report.screenshot_steps": True if config.getoption("--screenshot-steps") else None,
     })
     run_dir = config.getoption("--run-dir")
-    run_dir = Path(run_dir) if run_dir else cfg.path("paths.artifacts") / "runs" / now().replace(":", "").replace("-", "")
+    run_dir = Path(run_dir) if run_dir else cfg.path("paths.results")
     config._sb_cfg = cfg
     config._sb_run_dir = run_dir
     config._sb_results = Results(run_dir)
@@ -112,6 +115,24 @@ def pytest_collection_modifyitems(config, items):
     if deselected:
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
+
+
+def pytest_collection_finish(session):
+    """A browser test run starts: empty the results folder so it only holds this run.
+    Framework tests, --collect-only and a custom --run-dir leave it alone."""
+    config = session.config
+    if config.option.collectonly or hasattr(config, "workerinput") or not session.items:
+        return
+    if not any(feature_of(i) for i in session.items):
+        return
+    cfg = config._sb_cfg
+    if config._sb_run_dir.resolve() != cfg.path("paths.results").resolve():
+        return
+    artifacts = cfg.path("paths.artifacts")
+    for p in clear_dir(config._sb_run_dir, artifacts):
+        log.warning("left from the previous run (in use, delete it by hand): %s", p)
+    for old in ("runs", "logs", "profiles"):   # earlier layout: runs/<timestamp>/, shared logs/profiles
+        shutil.rmtree(artifacts / old, ignore_errors=True)
 
 
 def pytest_report_header(config):
@@ -174,7 +195,7 @@ def _build_session(cfg, site, request) -> BrowserSession:
     exts = [Path(e) if Path(e).is_absolute() else cfg.path("paths.extensions") / e
             for e in opts.get("extensions", [])]
     session = BrowserSession(cfg, name=request.node.name, extra_args=opts.get("args"), extensions=exts,
-                             prefs=opts.get("prefs"))
+                             prefs=opts.get("prefs"), out_dir=request.config._sb_run_dir)
     if opts.get("profile"):
         session.profile.copy_from(cfg.path("paths.profiles") / opts["profile"])
     bm = opts.get("bookmarks")

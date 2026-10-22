@@ -48,7 +48,8 @@ timeouts:
   native: 10        # pywinauto window/dialog waits
 
 paths:
-  artifacts: artifacts            # reports, screenshots, profiles, downloads (git-ignored)
+  artifacts: artifacts            # everything a run or a tool writes (git-ignored)
+  results: artifacts/test-results # the latest test run only: emptied when a run starts
   cases: cases                    # test case documents (<feature>/*.md)
   data: resources/data            # <name>.yaml test data (bookmark seeds, add-on ids ...)
   extensions: resources/extensions  # sample add-ons (unpacked folders)
@@ -96,9 +97,6 @@ report:
   uia_on_failure: true
   # screenshot after every step(...) block, pass or fail (flag: --screenshot-steps)
   screenshot_steps: false
-  # runs kept in artifacts/runs/ (the new one included): run.py deletes older runs, the
-  # chromedriver logs and leftover profiles before it starts. 0 = keep everything (--keep-runs)
-  keep_runs: 1
 
 # Company proxy. The browser uses the Windows system proxy by default; set
 # browser_proxy only to force one. driver downloads use HTTPS_PROXY/HTTP_PROXY env vars

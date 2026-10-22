@@ -68,9 +68,19 @@ python run.py --all --screenshot-steps            & rem chụp ảnh sau mỗi b
 python run.py --list                              & rem case nào đã được tự động hoá
 ```
 
-Kết quả nằm ở `artifacts\runs\<thời gian>\`. Chỉ giữ lần chạy mới nhất: mỗi lần chạy, `run.py` xoá
-các lần trước (kèm log chromedriver và profile còn sót). Muốn giữ nhiều hơn: `--keep-runs N`
-hoặc `report.keep_runs` trong `config\local.yaml` (0 = giữ tất cả).
+Kết quả nằm ở `artifacts\test-results\`, chỉ chứa lần chạy mới nhất: mỗi lần chạy test, thư mục
+này được làm trống trước. Cần giữ một lần chạy thì chép thư mục đi chỗ khác trước khi chạy tiếp.
+
+Các thư mục khác trong `artifacts\` (đều không lên git):
+
+| | |
+|---|---|
+| `test-results\` | kết quả lần chạy test mới nhất (bảng dưới), kèm `logs\` (chromedriver) và `profiles\` (`--keep-profile`) |
+| `doctor\` | ảnh và log của lần `doctor` gần nhất |
+| `explore\<chủ đề>\` | ảnh và dump của lần khám phá UI gần nhất cho chủ đề đó |
+| `.cache\` | version Chromium đã dò của exe (giữ lại để lần sau khỏi dò) |
+
+Trong `artifacts\test-results\`:
 
 | | |
 |---|---|
@@ -84,8 +94,9 @@ hoặc `report.keep_runs` trong `config\local.yaml` (0 = giữ tất cả).
 | `failures\<test>\dom.txt`, `uia.txt` | cây DOM và cây UI native lúc fail |
 | `steps\<test>\` | ảnh từng bước (khi chạy với `--screenshot-steps`) |
 | `results.json`, `junit.xml` | kết quả dạng máy đọc |
+| `logs\` | log chromedriver của lần chạy |
 
-Sinh lại báo cáo của một lần chạy (ví dụ sau khi sửa mô tả case): `python -m sbtest.tools.report [thư mục run] --open`.
+Sinh lại báo cáo (ví dụ sau khi sửa mô tả case): `python -m sbtest.tools.report --open`.
 Bảng tổng hợp mọi case kèm kết quả gần nhất: `python -m sbtest.tools.case_overview` -> `cases\TESTCASES.md`.
 
 Test native cần desktop Windows đang mở và không bị khoá. Đừng chạy qua RDP đang thu nhỏ.

@@ -38,11 +38,13 @@ def _bypass_proxy_for_localhost() -> None:
 class BrowserSession:
     def __init__(self, cfg: Config, name: str = "", profile: Profile | None = None,
                  extra_args: list[str] | None = None, extensions: list[str | Path] | None = None,
-                 prefs: dict | None = None) -> None:
+                 prefs: dict | None = None, out_dir: Path | None = None) -> None:
         self.cfg = cfg
         self.name = name
         self.artifacts = cfg.path("paths.artifacts")
-        self.profile = profile or Profile(self.artifacts / "profiles", name)
+        # chromedriver logs and temporary profiles go with the output they belong to
+        self.out_dir = Path(out_dir) if out_dir else cfg.path("paths.results")
+        self.profile = profile or Profile(self.out_dir / "profiles", name)
         self.extra_args = list(extra_args or [])
         self.extensions = [str(Path(e).resolve()) for e in (extensions or [])]
         self.extra_prefs = prefs or {}
@@ -111,7 +113,7 @@ class BrowserSession:
         _, driver_path = self.resolve()
         self._seed_prefs()
         opts = webdriver.ChromeOptions()
-        log_dir = self.artifacts / "logs"
+        log_dir = self.out_dir / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         service = Service(driver_path, log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
         if self.cfg.get("browser.mode") == "attach":

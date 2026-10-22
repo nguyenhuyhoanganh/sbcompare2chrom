@@ -2,7 +2,7 @@
 
 ## Evidence first
 
-Every failed test writes `artifacts/runs/<timestamp>/failures/<test id>/`:
+Every failed test writes `artifacts/test-results/failures/<test id>/` (latest run only):
 
 | file | content |
 |------|---------|
@@ -19,7 +19,7 @@ Every failed test writes `artifacts/runs/<timestamp>/failures/<test id>/`:
 and evidence paths (used by the Confluence report).
 
 The pytest output also has a `sbtest steps` section (which doc step failed) and the
-chromedriver log is in `artifacts/logs/`. Read these before editing code.
+chromedriver log is in `artifacts/test-results/logs/`. Read these before editing code.
 
 ## Typical failures
 
@@ -47,7 +47,7 @@ python -m sbtest.tools.uia_dump --url <page> --keys "^d" --find "(?i)done"
 python run.py --case BM-004 --keep-profile -- -x -s --log-cli-level=INFO
 ```
 
-`--keep-profile` leaves `artifacts/profiles/<test>_xxxx` - open it with the exe
+`--keep-profile` leaves `artifacts/test-results/profiles/<test>_xxxx` - open it with the exe
 (`SamsungInternet.exe --user-data-dir=<dir>`) to look at the state by hand.
 
 ## After a Chromium merge

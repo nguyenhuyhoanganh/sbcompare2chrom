@@ -16,7 +16,7 @@ import sys
 import time
 import traceback
 
-from sbtest.config import ROOT
+from sbtest.reporting.cleanup import clear_dir
 from sbtest.tools.common import base_parser, make_config
 
 OK, WARN, FAIL = "OK  ", "WARN", "FAIL"
@@ -33,8 +33,8 @@ def main(argv=None) -> int:
     p.add_argument("--skip-native", action="store_true")
     args = p.parse_args(argv)
     cfg = make_config(args)
-    out = ROOT / "artifacts" / "doctor"
-    out.mkdir(parents=True, exist_ok=True)
+    out = cfg.path("paths.artifacts") / "doctor"     # the latest check only
+    clear_dir(out, cfg.path("paths.artifacts"))
 
     report(OK if sys.version_info >= (3, 10) else FAIL, "python", sys.version.split()[0] + " (need 3.10+)")
     for mod in ("selenium", "pytest", "yaml", "psutil", "PIL", "pytest_html"):
@@ -57,7 +57,7 @@ def main(argv=None) -> int:
 
     from sbtest.browser.session import BrowserSession
 
-    session = BrowserSession(cfg, name="doctor")
+    session = BrowserSession(cfg, name="doctor", out_dir=out)
     try:
         version, driver = session.resolve()
         report(OK, "chromium version", version or "(not needed: chromedriver configured)")
@@ -73,7 +73,7 @@ def main(argv=None) -> int:
                                     f"chromedriver={(caps.get('chrome') or {}).get('chromedriverVersion', '')[:20]}")
         report(OK, "user agent", session.web.js("return navigator.userAgent"))
     except Exception as e:  # noqa: BLE001
-        report(FAIL, "browser start", f"{type(e).__name__}: {str(e).splitlines()[0]} - see artifacts/logs/; "
+        report(FAIL, "browser start", f"{type(e).__name__}: {str(e).splitlines()[0]} - see artifacts/doctor/logs/; "
                                       "try --mode attach or a chromedriver built from the fork")
         traceback.print_exc()
         session.stop()
@@ -93,7 +93,7 @@ def main(argv=None) -> int:
             except Exception as e:  # noqa: BLE001
                 crashed = "invalid session" in str(e).lower()
                 report(FAIL, f"page {url}", f"{type(e).__name__}: {str(e).splitlines()[0]} - "
-                       + ("the browser crashed/closed: see artifacts/logs/" if crashed else "check pages.scheme"))
+                       + ("the browser crashed/closed: see artifacts/doctor/logs/" if crashed else "check pages.scheme"))
                 if crashed:
                     break
 

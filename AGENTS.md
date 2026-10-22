@@ -12,7 +12,8 @@
   handled by the Confluence skill.
 - Edit skills only in `.agents/skills/`, then `python -m sbtest.tools.sync_skills` (copies
   them to `.claude/skills/` for Claude Code; a framework test fails while the copy is stale).
-- Report of a run: `artifacts/runs/<ts>/report/index.html` (+ `confluence/`); case overview:
+- Results of the latest run (emptied when a run starts): `artifacts/test-results/`, report
+  `report/index.html` (+ `confluence/`, `failures/`, `logs/`); case overview:
   `python -m sbtest.tools.case_overview` -> `cases/TESTCASES.md`.
 - Scratch exploration tests go in `tests/_scratch/` (git-ignored), helper `sbtest.tools.explore`.
 - Browser: attach mode; navigation uses chrome://, the address bar shows internet://

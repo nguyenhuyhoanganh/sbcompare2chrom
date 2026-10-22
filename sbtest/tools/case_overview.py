@@ -1,11 +1,11 @@
 """Regenerate cases/TESTCASES.md: every case with its type, sanity flag and the latest
 result, plus the full steps / expected of each case.
 
-    python -m sbtest.tools.case_overview                     # latest results from artifacts/runs/
+    python -m sbtest.tools.case_overview                     # + results of artifacts/test-results/
     python -m sbtest.tools.case_overview --no-results        # cases only
 
-A result is taken from the most recent run that executed the case. run.py keeps only the
-latest run, so a case that run did not execute keeps the result already in TESTCASES.md.
+Results come from the latest run (artifacts/test-results/); a case that run did not execute
+keeps the result already in TESTCASES.md.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from sbtest.config import CASES_DIR, ROOT
+from sbtest.config import CASES_DIR, ROOT, load_config
 from sbtest.reporting.cases import load_cases
 
 FEATURES = [("addons", "Add-ons", "ADD"), ("bookmarks", "Bookmarks", "BM"), ("downloads", "Downloads", "DL"),
@@ -57,16 +57,14 @@ def test_markers(folder: Path = ROOT / "tests" / "features") -> dict[str, dict]:
 
 
 def latest_results() -> dict[str, str]:
-    """``{case_id: outcome}``, newest run wins per case (runs of other browsers are ignored)."""
-    runs = sorted((p for p in (ROOT / "artifacts" / "runs").glob("*/results.json")), key=lambda p: p.stat().st_mtime)
+    """``{case_id: outcome}`` of the latest run (empty when there is none)."""
+    path = load_config().path("paths.results") / "results.json"
+    if not path.exists():
+        return {}
     out: dict[str, str] = {}
-    for path in runs:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if data["meta"].get("target", "samsung") != "samsung":   # runs made before Chrome was dropped
-            continue
-        for t in data["tests"]:
-            for cid in t.get("cases") or []:
-                out[cid] = t["outcome"]
+    for t in json.loads(path.read_text(encoding="utf-8"))["tests"]:
+        for cid in t.get("cases") or []:
+            out[cid] = t["outcome"]
     return out
 
 
