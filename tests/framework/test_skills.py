@@ -2,6 +2,7 @@
 import re
 
 import pytest
+import yaml
 
 from sbtest.config import ROOT
 from sbtest.tools import sync_skills
@@ -10,9 +11,17 @@ SKILLS = sorted(sync_skills.SOURCE.glob("*/SKILL.md"))
 
 
 def frontmatter(path):
-    m = re.match(r"---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.S)
+    text = path.read_text(encoding="utf-8")
+    m = re.match(r"---\n(.*?)\n---\n", text, re.S)
     assert m, f"{path}: no frontmatter"
-    return dict(re.findall(r"^(\w+): (.*)$", m.group(1), re.M)), path.read_text(encoding="utf-8")[m.end():]
+    # parse it as YAML like the agents do: an unquoted ": " in the description breaks the
+    # mapping and the agent silently loses the description (the skill is then not triggered)
+    try:
+        meta = yaml.safe_load(m.group(1))
+    except yaml.YAMLError as e:
+        pytest.fail(f"{path}: frontmatter is not valid YAML ({str(e).splitlines()[0]}); quote the value or drop ': '")
+    assert isinstance(meta, dict), f"{path}: frontmatter must be a mapping"
+    return meta, text[m.end():]
 
 
 def test_skills_found():

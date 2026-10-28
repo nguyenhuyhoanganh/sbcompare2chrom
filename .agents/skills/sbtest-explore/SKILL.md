@@ -1,6 +1,6 @@
 ---
 name: sbtest-explore
-description: Turns a plain request about Samsung Browser for Windows ("test that opening the add-on shows info X", "check the bookmark panel lists Y", "write a test for this flow", "this test broke, fix it") into a working sbtest test: explores the real build first (screenshots, DOM and UIA dumps), maps every step to the action catalogue, writes the case doc and the script, runs it until it is stable. Use whenever a test must be written, extended or repaired and the exact UI (labels, buttons, dialogs, toolbar icons, popups, internal pages) is not already known.
+description: Turns a plain request about Samsung Browser for Windows ("test that opening the add-on shows info X", "check the bookmark panel lists Y", "write a test for this flow", "this test broke, fix it") into a working sbtest test - explores the real build first (screenshots, DOM and UIA dumps), maps every step to the action catalogue, writes the case doc and the script, runs it until it is stable. Use whenever a test must be written, extended or repaired and the exact UI (labels, buttons, dialogs, toolbar icons, popups, internal pages) is not already known.
 ---
 
 # From a request to a stable test - explore, map, write, prove
