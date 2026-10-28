@@ -28,7 +28,7 @@ if not exist .venv (
 
 if not exist config\local.yaml (
   copy config\local.example.yaml config\local.yaml >nul
-  echo Created config\local.yaml - set targets.samsung.browser.exe to the SamsungInternet.exe to test
+  echo Created config\local.yaml - set browser.exe to the SamsungInternet.exe to test
 )
 echo.
 echo Setup done. Next:
