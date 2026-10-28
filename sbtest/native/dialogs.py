@@ -23,6 +23,7 @@ class Dialog:
     def __init__(self, element, timeout: float = 10) -> None:
         self.el = element
         self.timeout = timeout
+        self.seen_at = time.monotonic()   # the dialog is shown at the latest now (see _press)
 
     @property
     def title(self) -> str:
@@ -41,14 +42,15 @@ class Dialog:
         crit = {"title": name} if exact else {"title_re": f"(?i){re.escape(name)}"}
         return self.find(control_type="Button", **crit)
 
-    def click(self, name: str, exact: bool = False, real_mouse: bool = False) -> None:
-        """Click a button by (partial, case-insensitive) name."""
-        b = self.button(name, exact)
+    def _press(self, b, real_mouse: bool = False) -> None:
+        uia.wait_actionable(b)
         if real_mouse or b.element_info.class_name != "Button":
-            # browser (Views) bubbles fade in and ignore UIA Invoke until they are fully shown,
-            # so wait for the animation and use the real mouse; Win32 buttons ("Button") invoke fine
-            if not real_mouse:
-                time.sleep(0.5)
+            # browser (Views) bubbles drop clicks that come too soon after they are shown and
+            # ignore UIA Invoke: wait until that window is over, then use the real mouse.
+            # Win32 buttons ("Button") invoke fine
+            left = self.seen_at + uia.input_protection() - time.monotonic()
+            if left > 0:
+                time.sleep(left)
             b.click_input()
         else:
             try:
@@ -56,20 +58,17 @@ class Dialog:
             except Exception:  # noqa: BLE001 - some Views buttons only react to real input
                 b.click_input()
 
+    def click(self, name: str, exact: bool = False, real_mouse: bool = False) -> None:
+        """Click a button by (partial, case-insensitive) name."""
+        self._press(self.button(name, exact), real_mouse)
+
     def click_any(self, *names: str) -> str:
         """Click the first button whose name matches one of ``names`` (labels change between
         versions, e.g. "Allow" / "Allow while visiting the site"). Returns the label used."""
         for name in names:
             b = uia.find_in([self.el], 0, control_type="Button", title_re=f"(?i){re.escape(name)}")
             if b is not None:
-                if b.element_info.class_name != "Button":  # Views bubble: see click()
-                    time.sleep(0.5)
-                    b.click_input()
-                else:
-                    try:
-                        b.invoke()
-                    except Exception:  # noqa: BLE001
-                        b.click_input()
+                self._press(b)
                 return b.element_info.name
         raise LookupError(f"none of the buttons {names} in dialog {self.title!r}: {self.texts()}")
 
@@ -160,17 +159,25 @@ class FileDialog(Dialog):
         if btn is None:
             self.press("{ENTER}")
         else:
-            btn.click_input()
+            uia.wait_actionable(btn).click_input()
 
     def save_as(self, path: str | Path, overwrite: bool = True) -> Path:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self.set_filename(path)
         self._confirm("save")
-        time.sleep(0.5)
-        confirm = uia.find_in(lambda: [self.el], 0, control_type="Button", title_re="(?i)^yes$")
-        if confirm is not None:  # "already exists. Replace?"
-            (confirm if overwrite else uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^no$")).click_input()
+
+        def _outcome():   # the dialog closes, or asks "already exists. Replace?"
+            if not self.is_open():
+                return "closed"
+            return uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^yes$")
+        try:
+            confirm = poll(_outcome, 3, 0.1, "Save As closed or asked to replace")
+        except TimeoutError:
+            return path   # still busy: the caller waits for the file
+        if confirm != "closed":
+            answer = confirm if overwrite else uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^no$")
+            uia.wait_actionable(answer).click_input()
         return path
 
     def open(self, *paths: str | Path) -> None:
@@ -181,7 +188,7 @@ class FileDialog(Dialog):
             folder = Path(paths[0]).resolve().parent
             self.set_filename(folder)
             self.press("{ENTER}")
-            time.sleep(0.5)
+            self._wait_in_folder(folder)
             self.set_filename(" ".join(f'"{Path(p).name}"' for p in paths))
         self._confirm("open")
 
@@ -191,16 +198,30 @@ class FileDialog(Dialog):
         the path autocomplete drop-down)."""
         self.set_filename(Path(folder).resolve())
         self._filename_edit().type_keys("{ENTER}")
-        time.sleep(0.8)
+        self._wait_in_folder(Path(folder).resolve())
         edit = self._filename_edit()
         edit.set_focus()
         edit.type_keys("^a{BACKSPACE}")
         self._confirm("select folder", "ok")
 
+    def _wait_in_folder(self, folder: Path) -> None:
+        """After Enter on a folder path: wait until the dialog shows that folder (its address
+        bar is a ToolBar named "Address: <path>")."""
+        want = str(folder).rstrip("\\").lower()
+
+        def _there():
+            bars = uia.descendants(self.el, control_type="ToolBar", title_re="(?i)^address: ")
+            return any(b.element_info.name.split(": ", 1)[1].rstrip("\\").lower() == want for b in bars)
+        try:
+            poll(_there, 5, 0.1, f"dialog in folder {folder}")
+        except TimeoutError:
+            names = [b.element_info.name for b in uia.descendants(self.el, control_type="ToolBar")]
+            log.warning("file dialog address bar does not show %s (tool bars: %s)", folder, names)
+
     def cancel(self) -> None:
         btn = uia.find_in([self.el], 0, auto_id="2", control_type="Button")
         if btn is not None:
-            btn.click_input()
+            uia.wait_actionable(btn).click_input()
         else:
             self.press("{ESC}")
 

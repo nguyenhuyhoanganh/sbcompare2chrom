@@ -26,6 +26,12 @@ class Fake:
     def rectangle(self):
         return SimpleNamespace(left=0, top=0, right=10, bottom=10)
 
+    def is_enabled(self):
+        return True
+
+    def is_visible(self):
+        return True
+
     def get_value(self):
         if self.value is None:
             raise AttributeError
@@ -71,6 +77,41 @@ def test_dialog_click_views_button_uses_mouse():
     root, done = tree(button_class="OneUITextButton")  # browser bubble: ignores Invoke while fading in
     Dialog(root, timeout=0.5).click("done")
     assert getattr(done, "clicked", False) and not done.invoked
+
+
+def test_views_button_waits_out_the_input_protection(monkeypatch):
+    import time
+
+    monkeypatch.setattr(uia, "input_protection", lambda: 0.3)
+    root, done = tree(button_class="OneUITextButton")
+    dlg = Dialog(root, timeout=0.5)
+    start = time.monotonic()
+    dlg.click("done")
+    assert time.monotonic() - start >= 0.25   # the bubble was just shown: Chromium drops early clicks
+    dlg.seen_at -= 1
+    start = time.monotonic()
+    dlg.click("done")
+    assert time.monotonic() - start < 0.25    # shown long ago: no extra wait
+
+
+def test_wait_actionable_waits_until_the_element_stops_moving():
+    el = Fake("Button", "Pin")
+    lefts = iter([0, 40, 80, 100, 100])
+    el.rectangle = lambda: SimpleNamespace(left=(x := next(lefts, 100)), top=0, right=x + 10, bottom=10)
+    assert uia.wait_actionable(el, timeout=2, interval=0.01) is el
+    assert next(lefts, "done") == "done"      # it kept sampling until two equal rectangles
+
+
+def test_wait_actionable_says_why_it_gave_up():
+    import pytest
+
+    el = Fake("Button", "Save")
+    el.is_enabled = lambda: False
+    with pytest.raises(TimeoutError, match="Button 'Save' not ready to click.*disabled"):
+        uia.wait_actionable(el, timeout=0.1, interval=0.02)
+    el.is_enabled, el.is_visible = (lambda: True), (lambda: False)
+    with pytest.raises(TimeoutError, match="off screen"):
+        uia.wait_actionable(el, timeout=0.1, interval=0.02)
 
 
 def test_escape_keys():

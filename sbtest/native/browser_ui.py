@@ -158,7 +158,7 @@ class NativeBrowser:
         return uia.find_in(roots, 0, **crit) is not None
 
     def click(self, name_or_criteria, real_mouse: bool = True, timeout: float | None = None, **params) -> None:
-        el = self.element(name_or_criteria, timeout, **params)
+        el = uia.wait_actionable(self.element(name_or_criteria, timeout, **params))
         if real_mouse:
             el.click_input()
         else:
@@ -224,8 +224,7 @@ class NativeBrowser:
             mi = poll(_next(f"(?i)^{item}"), self.timeout if timeout is None else timeout, 0.3,
                       f"menu item /{item}/ (open items: {self.menu_items()})")
             clicked.append(mi.element_info.runtime_id)
-            mi.click_input()
-            time.sleep(0.3)
+            uia.wait_actionable(mi).click_input()   # a sub menu slides open: wait until it stands still
 
     def menu(self, *path: str) -> None:
         """App menu (the "..." / hamburger button) then items, e.g. ``menu("Bookmarks", "Bookmark manager")``."""
@@ -254,28 +253,39 @@ class NativeBrowser:
 
         Searches top-level windows of the process first, then panes/dialogs inside them
         (Views bubbles are often child panes of the frame)."""
-        pattern = (self.ui_map.get("dialogs") or {}).get(name_or_regex, name_or_regex)
-        rx = re.compile(pattern)
-
-        def _find():
-            wins = self.windows()
-            for w in wins:
-                if rx.search(w.element_info.name or ""):
-                    return w
-            for w in wins:
-                for ct in ("Dialog", "Window", "Pane", "Group"):
-                    hits = uia.descendants(w, control_type=ct, title_re=pattern)
-                    if hits:
-                        return hits[0]
-            # unnamed bubbles (Samsung: "Delete X?", "Page bookmarked."): match a text inside
-            # and return the bubble's own widget window
-            for w in wins:
-                for label in uia.descendants(w, control_type="Text", title_re=pattern):
-                    return _bubble_of(label) or w
-            return None
-
-        el = poll(_find, self.timeout if timeout is None else timeout, 0.3, f"native dialog /{pattern}/")
+        pattern = self._dialog_pattern(name_or_regex)
+        el = poll(lambda: self._find_dialog(pattern), self.timeout if timeout is None else timeout, 0.3,
+                  f"native dialog /{pattern}/")
         return Dialog(el, self.timeout)
+
+    def wait_dialog_gone(self, name_or_regex: str, timeout: float | None = None) -> None:
+        """Wait until no dialog/bubble/toast ``name_or_regex`` is shown any more. Use it before
+        clicking the button a bubble is anchored to: while the bubble is open, that click only
+        closes the bubble."""
+        pattern = self._dialog_pattern(name_or_regex)
+        poll(lambda: self._find_dialog(pattern) is None, self.timeout if timeout is None else timeout, 0.3,
+             f"native dialog /{pattern}/ gone")
+
+    def _dialog_pattern(self, name_or_regex: str) -> str:
+        return (self.ui_map.get("dialogs") or {}).get(name_or_regex, name_or_regex)
+
+    def _find_dialog(self, pattern: str):
+        rx = re.compile(pattern)
+        wins = self.windows()
+        for w in wins:
+            if rx.search(w.element_info.name or ""):
+                return w
+        for w in wins:
+            for ct in ("Dialog", "Window", "Pane", "Group"):
+                hits = uia.descendants(w, control_type=ct, title_re=pattern)
+                if hits:
+                    return hits[0]
+        # unnamed bubbles (Samsung: "Delete X?", "Page bookmarked."): match a text inside
+        # and return the bubble's own widget window
+        for w in wins:
+            for label in uia.descendants(w, control_type="Text", title_re=pattern):
+                return _bubble_of(label) or w
+        return None
 
     def file_dialog(self, kind: str = "save", timeout: float | None = None) -> FileDialog:
         """Windows Save As / Open / folder picker opened by the browser."""
@@ -423,12 +433,12 @@ class NativeBrowser:
         try:
             HwndWrapper(explorer.handle).move_window(0, 0, 700, 600)
             HwndWrapper(main.handle).move_window(710, 0, 1200, 900)
-            time.sleep(1.0)
             # Explorer hides known extensions by default ("report" for report.pdf, maybe next
             # to a folder of the same name): prefer the exact name, then the stem
             item = (uia.find_in([explorer], 2, control_type="ListItem", title=path.name)
                     if uia.find_in([explorer], 0, control_type="ListItem", title=path.name)
                     else _explorer_item(explorer, path))
+            uia.wait_actionable(item)   # Explorer lays its items out again after the resize
             # the item rectangle can span past the (just shrunk) window in Details view: press
             # on the start of the name, clamped inside the Explorer window
             ir, er = item.rectangle(), explorer.rectangle()
@@ -531,7 +541,7 @@ class NativeBrowser:
         bubble = Dialog(frame or row, self.timeout)
         close = uia.find_in([bubble.el], 1, **self.criteria("download_bubble_close")) if frame else None
         if close is not None:
-            close.click_input()
+            uia.wait_actionable(close).click_input()
         else:
             bubble.press("{ESC}")
         poll(lambda: not self.exists("download_bubble_item", in_main=False), self.timeout, 0.3,

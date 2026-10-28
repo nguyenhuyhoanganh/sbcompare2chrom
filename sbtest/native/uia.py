@@ -83,6 +83,57 @@ def find_in(roots: Iterable, timeout: float = 0, **criteria):
     return poll(_find, timeout, 0.3, f"UIA element {criteria}")
 
 
+def _rect(el) -> tuple[int, int, int, int]:
+    r = el.rectangle()
+    return (r.left, r.top, r.right, r.bottom)
+
+
+def wait_actionable(el, timeout: float = 5, interval: float = 0.1):
+    """Wait until ``el`` can take a click like a user would: enabled, on screen, with a size,
+    and at the same place on two checks in a row (menus, bubbles and panels slide or grow
+    while they open, so a click aimed at a moving rectangle lands next to the button).
+    Returns ``el``; raises TimeoutError saying which condition never held."""
+    state = {"rect": None, "why": "not checked yet"}
+
+    def _ready():
+        if not el.is_enabled():
+            state["why"] = "disabled"
+            return False
+        if not el.is_visible():
+            state["why"] = "off screen / hidden"
+            return False
+        rect = _rect(el)
+        if rect[2] <= rect[0] or rect[3] <= rect[1]:
+            state["why"] = f"no size {rect}"
+            return False
+        moved, state["rect"] = rect != state["rect"], rect
+        if moved:
+            state["why"] = f"still moving (now at {rect})"
+            return False
+        return True
+
+    name = f"{el.element_info.control_type} {el.element_info.name!r}"
+    try:
+        poll(_ready, timeout, interval, f"{name} ready to click")
+    except TimeoutError as e:
+        raise TimeoutError(f"{name} not ready to click after {timeout}s: {state['why']}") from e
+    return el
+
+
+def input_protection() -> float:
+    """Seconds a Chromium dialog/bubble ignores clicks after it is shown.
+
+    Chromium drops clicks on dialog buttons that come sooner than the double-click time after
+    the dialog appears (InputEventActivationProtector, against clicks meant for the page
+    below), so a click on a just-opened bubble does nothing. Windows setting + margin."""
+    try:
+        import ctypes
+
+        return ctypes.windll.user32.GetDoubleClickTime() / 1000 + 0.1
+    except Exception:  # noqa: BLE001 - not Windows
+        return 0.6
+
+
 def texts(root, control_types=("Text", "Edit", "Button", "CheckBox", "ListItem", "MenuItem", "Hyperlink")) -> list[str]:
     """Readable strings in a window: names of text-like controls (plus Edit values)."""
     out = []

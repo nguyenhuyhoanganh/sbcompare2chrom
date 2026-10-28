@@ -21,8 +21,13 @@ after a Samsung/Chromium update and record what changed here.
 - chromedriver cannot launch the exe (hangs on DevTools) -> `browser.mode: attach` (default).
 - Fresh profiles show a "Samsung Browser has been updated." bubble: the `native` fixture closes
   it (`startup_bubbles` in `config/native_ui.yaml`). Web-only tests are not affected.
-- Native bubbles fade in and ignore UIA Invoke while animating: `Dialog.click()` waits and uses
-  the real mouse for Views buttons. Bubbles with no title are found by a Text inside.
+- Chromium drops clicks on a bubble's buttons for the double-click time after it shows, and Views
+  buttons ignore UIA Invoke: `Dialog.click()` waits out that time (counted from when the dialog
+  was found) and uses the real mouse. Every native click first waits until the element is
+  enabled, on screen and no longer moving (`uia.wait_actionable`) - no sleeps needed.
+- A click on the button a bubble/toast is anchored to (the star under "Page bookmarked.") only
+  closes the bubble: `native.wait_dialog_gone("bookmark_added")` first.
+- Bubbles with no title are found by a Text inside.
 - Terms used in these skills: **snack bar** = the in-page si-snack-bar ("1 bookmark deleted"
   [Undo], `page.wait_toast`); **toast** = the native browser toast ("Page bookmarked." [Edit],
   `native.wait_dialog`); **bubble** = any other native popup window of the browser.

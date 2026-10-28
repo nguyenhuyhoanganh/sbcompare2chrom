@@ -125,6 +125,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | Request | Do |
 |---|---|
 | a browser bubble / prompt | `dlg = native.wait_dialog("<ui-map dialogs key>" or "(?i)regex")` -> `.texts()`, `.click("Label")`, `.click_any("A", "B")`, `.wait_closed()` |
+| wait until a bubble / toast is gone (before clicking what it is anchored to) | `native.wait_dialog_gone("bookmark_added")` |
 | dialog inside an internal page | `page.open_dialog()`, `page.dialog_text()`, `page.dialog_input("name")`, `page.dialog_button("Save")` |
 | upload through Windows Open | `web.click(button)`, `native.file_dialog("open").open(f1, f2)` |
 | Save As | `native.file_dialog("save").save_as(path)` |

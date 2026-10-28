@@ -46,16 +46,9 @@ def test_star_removes_bookmark(web, native, pages, site):
     native.hotkey("^d")
     native.wait_dialog("bookmark_added")
     with step("1. Click the filled star", expected="page no longer bookmarked"):
-        # the toast fades in over the star: UIA invoke first, real mouse once the toast is gone
-        native.click("bookmark_star", real_mouse=False)
-        try:
-            web.wait_until(lambda: not native.exists("bookmark_star_filled"), timeout=3)
-        except TimeoutError:
-            try:
-                native.wait_dialog("bookmark_added", timeout=1).wait_closed(timeout=15)
-            except TimeoutError:
-                pass  # toast already gone
-            native.click("bookmark_star_filled")
+        # the toast is anchored to the star: while it shows, a click on the star only closes it
+        native.wait_dialog_gone("bookmark_added", timeout=20)
+        native.click("bookmark_star_filled")
         web.wait_until(lambda: not native.exists("bookmark_star_filled"), message="star no longer filled")
     with step("2. Open the bookmark manager", expected="'Static page 1' not listed"):
         pages.bookmarks.open().wait_item("Static page 1", present=False)
