@@ -1,5 +1,5 @@
 ---
-name: sbtest-sanity-workflow
+name: sbtest
 description: Guides a full sanity check of a Samsung Internet / Samsung Browser for Windows build step by step - asks which part to test (all, sanity pass, features, case IDs), asks for the SamsungInternet.exe path and the Confluence destination, checks the machine, runs the sbtest suite, triages failures and publishes the report as a Confluence page with the managing-jira-confluence skill. Use when the user wants to test a build end to end, check a new build after a Chromium merge, or "run the tests and put the result on Confluence".
 ---
 

@@ -1,7 +1,7 @@
 [
   {
-    "skills": ["sbtest-sanity-workflow"],
-    "query": "/sbtest-sanity-workflow",
+    "skills": ["sbtest"],
+    "query": "/sbtest",
     "files": [],
     "expected_behavior": [
       "Asks which part to test, then the SamsungInternet.exe path, then the Confluence destination, waiting for each answer",
@@ -11,7 +11,7 @@
     ]
   },
   {
-    "skills": ["sbtest-sanity-workflow"],
+    "skills": ["sbtest"],
     "query": "Test bookmarks and downloads of the build in D:/builds/155/SamsungInternet.exe and put it under SBQA > Sanity",
     "files": [],
     "expected_behavior": [
@@ -21,7 +21,7 @@
     ]
   },
   {
-    "skills": ["sbtest-sanity-workflow"],
+    "skills": ["sbtest"],
     "query": "Run the sanity pass, I need to keep using this machine",
     "files": [],
     "expected_behavior": [

@@ -74,7 +74,7 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
 
 `python -m sbtest.tools.summary` prints the verdict, totals per feature and every failure
 with its evidence path (`--json` for the same data as JSON). For the guided end-to-end flow
-(questions, doctor, run, publish) use the `sbtest-sanity-workflow` skill.
+(questions, doctor, run, publish) use the `sbtest` skill.
 
 The verdict for a build is the header of `report/index.html`: **BUILD PASSED** = no failed or
 error case among those run (skipped = not run, e.g. native tests without a desktop). Say which

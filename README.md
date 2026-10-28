@@ -105,7 +105,7 @@ Test native cần desktop Windows đang mở và không bị khoá. Đừng ch�
 
 ## Làm việc với agent (Claude Code, Cline... chạy trên máy Windows có bản build)
 
-- **`/sbtest-sanity-workflow`** (Cline, Claude Code; agent khác: "chạy workflow sanity"): agent
+- **`/sbtest`** (Cline, Claude Code; agent khác: "chạy workflow sanity"): agent
   làm từng bước - hỏi muốn test phần nào, hỏi đường dẫn `SamsungInternet.exe`, hỏi đăng
   Confluence ở đâu -> chạy `doctor` -> chạy test -> đọc kết quả, phân loại lỗi -> hỏi xác nhận
   -> tạo trang Confluence bằng skill `managing-jira-confluence` -> trả về kết luận và link.

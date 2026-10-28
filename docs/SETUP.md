@@ -116,14 +116,14 @@ Thời gian tham khảo: khoảng 8-9 phút cho 4 phần add-ons, bookmarks, dow
 Mở agent trong thư mục repo trên chính máy này.
 - Claude Code tự nạp skill từ `.claude\skills\` và quy tắc từ `CLAUDE.md`.
 - Cline nạp skill từ `.claude\skills\` và quy tắc từ `AGENTS.md`; gọi skill bằng `/` (ví dụ
-  `/sbtest-sanity-workflow`).
+  `/sbtest`).
 - Agent khác theo chuẩn Agent Skills đọc `.agents\skills\` và `AGENTS.md`. Agent không tự nạp
   skill thì bảo nó đọc `AGENTS.md` trước.
 - Sửa skill thì chỉ sửa trong `.agents\skills\`, rồi chạy `python -m sbtest.tools.sync_skills`
   để cập nhật bản sao cho Claude Code.
 
 Ví dụ:
-- `/sbtest-sanity-workflow`: agent hỏi phần cần test, đường dẫn exe, chỗ đăng Confluence, rồi tự
+- `/sbtest`: agent hỏi phần cần test, đường dẫn exe, chỗ đăng Confluence, rồi tự
   chạy doctor, chạy test, phân loại lỗi và (sau khi bạn xác nhận) tạo trang Confluence bằng skill
   `managing-jira-confluence`.
 - "Chạy sanity cho bản build mới và đẩy báo cáo lên Confluence" (skill `sbtest-run`).
