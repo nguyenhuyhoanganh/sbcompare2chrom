@@ -70,8 +70,13 @@ class BrowserSession:
         if exe not in _RESOLVED:
             version = self.cfg.get("browser.chromium_version") or ""
             driver = self.cfg.get("browser.chromedriver") or ""
-            if not driver and not version:
-                version = detect_chromium_version(exe, self.artifacts / ".cache", self._browser_args(probe=True))
+            if not version:
+                try:   # also with a configured driver: its version is checked against it
+                    version = detect_chromium_version(exe, self.artifacts / ".cache", self._browser_args(probe=True))
+                except Exception as e:  # noqa: BLE001
+                    if not driver:
+                        raise
+                    log.warning("Chromium version not detected (%s): configured chromedriver not checked", e)
             _RESOLVED[exe] = (version, resolve_chromedriver(driver, version,
                                                             proxy=self.cfg.get("network.download_proxy") or ""))
             log.info("Browser %s | chromium %s | chromedriver %s", exe, *_RESOLVED[exe])
@@ -115,7 +120,10 @@ class BrowserSession:
         opts = webdriver.ChromeOptions()
         log_dir = self.out_dir / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        service = Service(driver_path, log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
+        # chromedriver's version check reads the DevTools "Browser" field, which holds the Samsung
+        # product version on some builds ("31.0.1.21" on Chromium 157): resolve() checks the
+        # driver against the real Chromium version instead (driver_resolver.check_driver)
+        service = Service(driver_path, service_args=["--disable-build-check"], log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
         if self.cfg.get("browser.mode") == "attach":
             # restart(): the previous run's port file would point chromedriver at a dead port
             (self.profile.dir / "DevToolsActivePort").unlink(missing_ok=True)

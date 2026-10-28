@@ -29,6 +29,36 @@ def test_parse_version():
     assert parse_chromium_version("nothing") is None
 
 
+def test_chromium_version_when_browser_field_holds_the_product_version():
+    from sbtest.browser.version import chromium_version_from
+
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+          "SamsungBrowser/31.0 Chrome/{} Safari/537.36")
+    # Samsung 31.0.0.55: Browser holds the full Chromium version, the UA a reduced one
+    assert chromium_version_from({"Browser": "Chrome/148.0.7778.217",
+                                  "User-Agent": ua.format("148.0.0.0")}) == "148.0.7778.217"
+    # a Samsung 31.0.2 build on Chromium 157: Browser holds the product version
+    assert chromium_version_from({"Browser": "Chrome/31.0.1.21",
+                                  "User-Agent": ua.format("157.0.0.0")}) == "157.0.0.0"
+    assert chromium_version_from({"Browser": "", "User-Agent": ua.format("157.0.0.0")}) == "157.0.0.0"
+
+
+def test_driver_major_checked_against_chromium(tmp_path, monkeypatch):
+    import pytest
+
+    from sbtest.browser import driver_resolver as dr
+
+    local = tmp_path / "157" / dr.EXE_NAME
+    local.parent.mkdir()
+    local.write_text("")
+    monkeypatch.setattr(dr, "driver_version", lambda p: "148.0.7778.97")
+    with pytest.raises(RuntimeError, match="version 148.*Chromium 157.*chromedriver 157"):
+        dr.resolve_chromedriver("", "157.0.0.0", drivers_dir=tmp_path)
+    assert dr.resolve_chromedriver(str(local), "157.0.0.0") == str(local)   # configured: warning only
+    monkeypatch.setattr(dr, "driver_version", lambda p: "157.0.7900.2")
+    assert dr.resolve_chromedriver("", "157.0.0.0", drivers_dir=tmp_path) == str(local)
+
+
 def test_bookmarks_seed_ids_unique():
     seed = BookmarksSeed().url("A", "http://a").folder("F", [Bm("B", "http://b"), Folder("E")])
     data = seed.to_json()

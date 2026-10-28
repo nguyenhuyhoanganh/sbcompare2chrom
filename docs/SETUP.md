@@ -138,10 +138,14 @@ cha nơi đặt báo cáo.
 Không phải cập nhật chromedriver bằng tay. Mỗi lần chạy, framework làm như sau:
 1. đọc version Chromium thật của exe (khởi động exe một lần, đọc `/json/version`). Kết quả
    được cache theo đường dẫn + kích thước + thời gian sửa của exe, nên exe mới (kể cả cùng
-   đường dẫn) luôn được dò lại;
+   đường dẫn) luôn được dò lại. Thường lấy trường `Browser` (vd. `Chrome/148.0.7778.217`);
+   một số bản Samsung lại ghi version sản phẩm vào đó (vd. `Chrome/31.0.1.21` trên bản
+   Chromium 157), khi đó lấy số Chromium trong `User-Agent` (`Chrome/157.0.0.0`);
 2. dùng `drivers\<major>\chromedriver.exe` nếu đã có, nếu chưa thì tải bản khớp major từ
    Chrome for Testing (có đủ mọi milestone, kể cả bản beta/canary). Chỉ cần khớp **major**
    (vd. driver 148.0.7778.178 chạy tốt với Samsung 148.0.7778.217).
+   Framework tự so major của driver với Chromium và báo rõ khi lệch; bước kiểm tra riêng của
+   chromedriver được tắt (`--disable-build-check`) vì nó đọc nhầm trường `Browser` ở trên.
 
 Chỉ phải động tay khi:
 - trong `config\local.yaml` có ghim `browser.chromedriver` hoặc `browser.chromium_version`:

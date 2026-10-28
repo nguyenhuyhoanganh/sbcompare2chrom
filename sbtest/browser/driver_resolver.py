@@ -13,7 +13,9 @@ import io
 import json
 import os
 import platform
+import re
 import stat
+import subprocess
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -86,6 +88,32 @@ def download_chromedriver(chromium_version: str, target_dir: Path) -> Path:
     return out
 
 
+def driver_version(path: str | Path) -> str | None:
+    """``chromedriver --version`` -> "148.0.7778.97" (None when it cannot be read)."""
+    try:
+        out = subprocess.run([str(path), "--version"], capture_output=True, text=True, timeout=15).stdout
+    except Exception as e:  # noqa: BLE001
+        log.warning("cannot run %s --version: %s", path, e)
+        return None
+    m = re.search(r"ChromeDriver (\d+(?:\.\d+){1,3})", out)
+    return m.group(1) if m else None
+
+
+def check_driver(path: str | Path, chromium_version: str | None, strict: bool) -> None:
+    """Compare the driver major with the Chromium major ourselves, with a clear message.
+
+    chromedriver's own check is switched off (``--disable-build-check``, see session) because it
+    reads the DevTools ``Browser`` field, which holds the Samsung product version on some builds."""
+    found = driver_version(path) if chromium_version else None
+    if not found or major(found) == major(chromium_version):
+        return
+    msg = (f"chromedriver {path} is version {found} but the browser is Chromium {chromium_version}: "
+           f"use a chromedriver {major(chromium_version)}")
+    if strict:
+        raise RuntimeError(msg + f" (delete {Path(path).parent} to download the right one)")
+    log.warning(msg + " (configured driver kept - a driver built from the fork may number itself differently)")
+
+
 def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_dir: Path = ROOT / "drivers",
                          proxy: str = "") -> str:
     global _PROXY
@@ -93,11 +121,13 @@ def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_
     if configured:
         if not Path(configured).exists():
             raise FileNotFoundError(f"Configured chromedriver not found: {configured}")
+        check_driver(configured, chromium_version, strict=False)
         return configured
     if not chromium_version:
         raise RuntimeError("Cannot resolve chromedriver: no chromium version and no configured driver")
     local = drivers_dir / str(major(chromium_version)) / EXE_NAME
     if local.exists():
+        check_driver(local, chromium_version, strict=True)
         return str(local)
     try:
         return str(download_chromedriver(chromium_version, local.parent))

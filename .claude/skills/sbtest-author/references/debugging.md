@@ -31,6 +31,8 @@ chromedriver log is in `artifacts/test-results/logs/`. Read these before editing
 | `ElementClickInterceptedException` | overlay/toast/menu over it: wait for it to close; `web.click` already falls back to JS click |
 | native dialog not found | different title in Samsung build -> `uia_dump --find`, fix `config/native_ui.yaml`; window not foreground (RDP/lock screen) |
 | typing into cr-input does nothing | target the inner `>>> input` |
+| `chromedriver ... is version X but the browser is Chromium Y` | wrong driver in `drivers/<major>/` (delete the folder, it is downloaded again) or a pinned `browser.chromedriver` |
+| detected Chromium = the Samsung product version (31.x) | the build puts its product version in DevTools `Browser`; `chromium_version_from` then uses the User-Agent `Chrome/N.0.0.0` - check the `DevTools /json/version` log line, or pin `browser.chromium_version` |
 | `session not created: This version of ChromeDriver only supports Chrome version N` | driver/browser mismatch: set `browser.chromedriver` or `browser.chromium_version`, or delete `artifacts/.cache/chromium_version.json` after a new build |
 | `unrecognized Chrome version` / `cannot parse ... Browser` with Google's chromedriver | the fork reports a non-Chrome product name in DevTools `/json/version`: use a chromedriver built from the fork (`browser.chromedriver`) |
 | chromedriver download fails | proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `drivers/<major>/chromedriver.exe` |

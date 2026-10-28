@@ -2,7 +2,8 @@
 
 The Samsung Internet product version differs from its Chromium base, and chromedriver
 must match the Chromium major. We start the exe once with remote debugging, read
-``/json/version`` and take the ``Chrome/x.y.z.w`` token. The result is cached per exe
+``/json/version`` and take the ``Chrome/x.y.z.w`` token of ``Browser``, or of the
+User-Agent when ``Browser`` holds the product version (``chromium_version_from``). The result is cached per exe
 (path + size + mtime) so it costs a few seconds only after a new build is dropped in.
 """
 from __future__ import annotations
@@ -34,9 +35,30 @@ def major(version: str) -> int:
     return int(version.split(".")[0])
 
 
+def chromium_version_from(info: dict) -> str | None:
+    """Chromium version from DevTools ``/json/version``.
+
+    ``Browser`` normally holds the full Chromium version ("Chrome/148.0.7778.217"), but some
+    Samsung builds put the product version there ("Chrome/31.0.1.21" on a Chromium 157 build).
+    The User-Agent keeps the real Chromium major, reduced to "Chrome/157.0.0.0" (UA reduction):
+    when the two majors differ, trust the User-Agent (the driver lookup falls back from the
+    exact build to the latest driver of that major)."""
+    browser = parse_chromium_version(info.get("Browser", ""))
+    ua = parse_chromium_version(info.get("User-Agent", ""))
+    if browser and ua and major(browser) != major(ua):
+        log.warning("DevTools Browser field says %s but the User-Agent says Chrome %s: using the "
+                    "User-Agent (the Browser field holds the product version)", browser, ua)
+        return ua
+    return browser or ua
+
+
+# bump when the detection changes, so versions cached by an older rule are probed again
+_CACHE_VERSION = 2
+
+
 def _cache_key(exe: Path) -> str:
     st = exe.stat()
-    return f"{exe.resolve()}|{st.st_size}|{int(st.st_mtime)}"
+    return f"v{_CACHE_VERSION}|{exe.resolve()}|{st.st_size}|{int(st.st_mtime)}"
 
 
 def read_devtools_version(port: int, host: str = "127.0.0.1", timeout: float = 5) -> dict:
@@ -75,7 +97,7 @@ def probe_version(exe: Path, extra_args: list[str] | None = None, timeout: float
         port = wait_devtools_port(tmp, timeout)
         info = read_devtools_version(port)
         log.info("DevTools /json/version: %s", info)
-        version = parse_chromium_version(info.get("Browser", ""), info.get("User-Agent", ""))
+        version = chromium_version_from(info)
         if not version:
             raise RuntimeError(f"No Chrome/x.y.z.w token in DevTools version info: {info}")
         return version
