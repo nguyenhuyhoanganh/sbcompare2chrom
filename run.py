@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -49,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--reruns", type=int, default=0, help="re-run failed tests N times (separate flakes)")
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
     p.add_argument("--screenshot-steps", action="store_true", help="screenshot after every test step")
+    p.add_argument("--raw", action="store_true",
+                   help="pytest's own output (tracebacks, captured logs) instead of one line per test")
     p.add_argument("--list", action="store_true", help="print test cases and automation status, then exit")
     args = p.parse_args(argv)
 
@@ -78,14 +81,21 @@ def main(argv: list[str] | None = None) -> int:
         pargs += ["-m", " and ".join(marks)]
     if args.reruns:
         pargs += ["--reruns", str(args.reruns)]
+    if args.raw:
+        print("Running tests:", " ".join(a for a in argv if a not in ("--exe", args.exe, "--raw")) or "--all",
+              flush=True)
+    else:   # one readable line per test (sbtest/reporting/live.py) instead of pytest's own output;
+        # -ra of pytest.ini belongs to the terminal plugin that is switched off
+        pargs += ["--sb-live", "-p", "no:terminal", "-o", "addopts=--strict-markers"]
     pargs += extra
-    print("pytest", " ".join(pargs))
+    started = time.time()
     code = pytest.main(pargs)
-    print(f"\nResults: {run_dir}")
-    if (run_dir / "report" / "index.html").exists():
-        print(f"Sanity report: {run_dir / 'report' / 'index.html'}")
-    if (run_dir / "confluence" / "manifest.json").exists():
-        print(f"Confluence-ready report: {run_dir / 'confluence'} (upload with the Confluence skill)")
+    results = run_dir / "results.json"
+    if results.exists() and results.stat().st_mtime >= started:   # never the summary of an older run
+        from sbtest.tools import summary
+
+        print()
+        summary.main([])   # verdict, totals per feature, failures, report and Confluence folder
     return int(code)
 
 

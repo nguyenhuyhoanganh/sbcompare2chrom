@@ -4,7 +4,7 @@
     "query": "New build is in D:/builds/155, run the sanity pass and tell me if it is OK",
     "files": [],
     "expected_behavior": [
-      "Points browser.exe to the new build and runs sbtest.tools.doctor first",
+      "Points to the new build (--exe or browser.exe) and runs setup.bat first, then run.py",
       "Runs python run.py --sanity and reads report/index.html for the verdict",
       "Reports BUILD PASSED/FAILED with the selection that was run"
     ]

@@ -56,6 +56,8 @@ def pytest_addoption(parser):
     g.addoption("--run-dir", help="output folder of this run (default paths.results = artifacts/test-results, "
                                   "emptied when the run starts)")
     g.addoption("--screenshot-steps", action="store_true", default=False, help="screenshot after every step()")
+    g.addoption("--sb-live", action="store_true", default=False,
+                help="readable one-line-per-test output (run.py uses it with -p no:terminal)")
 
 
 def pytest_configure(config):
@@ -84,6 +86,10 @@ def pytest_configure(config):
     if config.getoption("-m"):
         selection.append(f"-m {config.getoption('-m')}")
     config._sb_results.meta["selection"] = " ".join(selection) or "all"
+    if config.getoption("--sb-live"):
+        from sbtest.reporting.live import LiveReport
+
+        config.pluginmanager.register(LiveReport(config), "sbtest-live")
 
 
 def feature_of(item) -> str | None:
@@ -136,6 +142,11 @@ def pytest_collection_finish(session):
             log.warning("left from the previous run (in use, delete it by hand): %s", p)
         for old in ("runs", "logs", "profiles"):   # earlier layout: runs/<timestamp>/, shared logs/profiles
             shutil.rmtree(artifacts / old, ignore_errors=True)
+        from sbtest.browser.profile import SHORT_ROOT, profiles_root
+
+        if profiles_root(config._sb_run_dir / "profiles") == SHORT_ROOT:   # repo in a deep folder
+            log.info("browser profiles in %s (the repo path is too long for them)", SHORT_ROOT)
+            shutil.rmtree(SHORT_ROOT, ignore_errors=True)                  # leftovers of the last run
         return
     uses_browser = any(BROWSER_FIXTURES & set(getattr(i, "fixturenames", ())) for i in session.items)
     config._sb_write_results = uses_browser
@@ -325,6 +336,8 @@ def pytest_runtest_makereport(item, call):
         lines = (rep.longreprtext or "").strip().splitlines()
         message = crash.message if crash else (lines[-1] if lines else "")
         # chromedriver appends a native stacktrace ("Stacktrace:\n#0 0x...") - keep the readable part
+        # the "[sbtest] failed at step" note repeats failed_step / expected, stored on their own
+        message = message.split("\n[sbtest] failed at step")[0]
         res["message"] = message.split("\nStacktrace:")[0].split("; For documentation")[0].strip()[:600]
         if rep.when in ("setup", "call"):
             try:

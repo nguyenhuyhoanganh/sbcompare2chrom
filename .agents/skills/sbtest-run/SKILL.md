@@ -8,13 +8,16 @@ description: Runs the Samsung Internet automated tests (all, by feature, or by t
 Copy this checklist into your reply and tick it off:
 
 ```
-- [ ] doctor green (first run on the machine / new build)
+- [ ] setup.bat READY (new machine / new build)
 - [ ] tests run (selection noted)
 - [ ] every failure in one triage bucket, buckets 2-4 fixed and re-run
 - [ ] report published (if asked) and verdict + triage table + link sent
 ```
 
-New machine or new build: `python -m sbtest.tools.doctor` must show no FAIL (`docs/SETUP.md`).
+New machine or new build: `.\setup.bat --exe "<path>"` must end with READY.
+`python` below = `.venv\Scripts\python.exe`, created by setup.bat; how to call both from
+PowerShell / cmd / Git Bash: the `sbtest` skill, top. `--all` takes 8-10 minutes: run it in
+the background or with a timeout of at least 20 minutes.
 
 ## Run
 
@@ -27,7 +30,13 @@ python run.py --all --reruns 1                     # re-run failures once to sep
 python run.py --all --screenshot-steps             # picture after every step
 python run.py --list                               # cases and automation status
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
+python run.py --case BM-004 --raw                  # pytest's own output (tracebacks, logs) to debug
 ```
+
+The output is one line per test, grouped by feature: `[PASS]` / `[FAIL]` / `[ERR ]` / `[SKIP]`,
+case id, case title, time, progress (`12/73`). Under a failure: `step:` (the case step that
+failed), `expected:`, `error:` (one line) and `evidence:` (its `failure.txt`, read it next).
+The run ends with the summary (verdict, totals per feature, failures, report paths).
 
 Native tests need an unlocked, visible Windows desktop (not a minimized RDP session).
 `--no-native` skips them; say so in the report when you use it.
@@ -60,14 +69,15 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
    Fix the page object (`sbtest/pages/`) or `config/native_ui.yaml`
    (`.agents/skills/sbtest-author/references/debugging.md`), re-run the feature.
 3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
-   Fix the setup (`doctor`), re-run.
+   Fix it as the `fix:` lines of `setup.bat` say, re-run.
 4. **Flaky test** - passes on re-run with no product change: find the race (missing wait,
    stale list read, shared data) and fix it; never add sleeps.
 
 ## Report
 
-`python -m sbtest.tools.summary` prints the verdict, totals per feature and every failure
-with its evidence path (`--json` for the same data as JSON); quote it, never infer numbers.
+`run.py` ends with a summary: verdict, totals per feature, every failure with its evidence
+path. `python -m sbtest.tools.summary` prints it again (`--json` for the same data as
+JSON). Quote it, never infer numbers.
 **BUILD PASSED** = no failed or error case among those run (skipped = not run). Say which
 features were run - a `--feature bookmarks` run passes only bookmarks.
 

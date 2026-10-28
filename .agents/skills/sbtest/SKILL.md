@@ -5,16 +5,28 @@ description: Guides a full sanity check of a Samsung Internet / Samsung Browser 
 
 # Sanity workflow: questions -> run -> report -> Confluence
 
-Ask in the user's language. Use your question tool (Cline: `ask_followup_question` with
-options; Claude Code: `AskUserQuestion`) and **wait for each answer** - never guess a path,
+Ask in the user's language. Use your agent's question tool when it has one (with the options
+below), else ask in plain text, and **wait for each answer** - never guess a path,
 a selection or a Confluence location. Commands run in the repo root on the Windows machine;
-`python` means `.venv\Scripts\python.exe` (missing `.venv` -> run `setup.bat` first).
+`python` means `.venv\Scripts\python.exe` (created by `setup.bat` in step 4).
+
+How to call the two commands from your shell (repo root; agent shells often do not run
+programs from the current folder, so always keep the `.\` / `./`):
+
+| shell | prepare the machine | run tests |
+|---|---|---|
+| PowerShell | `.\setup.bat --exe "<path>"` | `.\.venv\Scripts\python.exe run.py ...` |
+| cmd | `.\setup.bat --exe "<path>"` | `.venv\Scripts\python run.py ...` |
+| Git Bash | `./setup.bat --exe "<path>"` | `.venv/Scripts/python.exe run.py ...` |
+
+`setup.bat` never waits for input when nobody can answer: without `--exe` it uses
+`browser.exe` of `config/local.yaml` or the installed Samsung Browser.
 
 Copy this checklist into your reply and tick it off:
 
 ```
 - [ ] 1 scope chosen          - [ ] 2 exe path confirmed   - [ ] 3 Confluence target known
-- [ ] 4 doctor green          - [ ] 5 tests run            - [ ] 6 result read + triaged
+- [ ] 4 setup READY          - [ ] 5 tests run            - [ ] 6 result read + triaged
 - [ ] 7 publish confirmed     - [ ] 8 page created + attachments uploaded
 - [ ] 9 final answer sent (verdict, totals, triage, link)
 ```
@@ -45,14 +57,16 @@ to confirm it or give the full path of `SamsungInternet.exe` of the build to tes
 Confluence space and parent page (or a page link to put it under), or "do not publish".
 Asking now lets the run finish without waiting for the user.
 
-## 4. Check the machine
+## 4. Prepare and check the machine
 
 ```
-python -m sbtest.tools.doctor --exe "<path>"
+.\setup.bat --exe "<path>"
 ```
 
-Every line must be OK. A FAIL -> fix it as `docs/SETUP.md` says (driver, proxy, desktop) and
-run doctor again; do not start the tests on a red doctor. Report what you fixed.
+It installs the packages, then checks the machine (keyboard, Chromium version, chromedriver -
+downloaded when missing -, browser start, internal pages, toolbar) and ends with READY or
+NOT READY. Every `[FAIL]` line has a `fix:` line: apply it (more: `README.md`) and run
+`setup.bat` again; never start the tests on NOT READY. Report the WARN lines and what you fixed.
 
 ## 5. Run
 
@@ -60,16 +74,20 @@ run doctor again; do not start the tests on a red doctor. Report what you fixed.
 python run.py <arguments from step 1> --exe "<path>"
 ```
 
-`--all` takes about 8-10 minutes. The run first empties `artifacts/test-results/` - copy that
+`--all` takes about 8-10 minutes (more on a slow machine), a feature 1-3 minutes: start long
+runs in the background or with a timeout of at least 20 minutes - a default 2-minute tool
+timeout kills the run halfway. The run first empties `artifacts/test-results/` - copy that
 folder elsewhere beforehand if the previous result must be kept.
 
 ## 6. Read the result and triage
+
+`run.py` ended with a summary; print it again any time with:
 
 ```
 python -m sbtest.tools.summary
 ```
 
-It prints the verdict (BUILD PASSED / FAILED), totals per feature, each failure with its
+It shows the verdict (BUILD PASSED / FAILED), totals per feature, each failure with its
 failed step, error and `failure.txt`. Quote these numbers; never infer them.
 For each failure read `failure.txt`, `page.png`, `screen.png` and put it in exactly one bucket
 of the `sbtest-run` skill (`.agents/skills/sbtest-run/SKILL.md`, section "Triage"):

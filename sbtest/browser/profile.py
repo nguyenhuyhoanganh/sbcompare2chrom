@@ -8,7 +8,9 @@ Seeding happens *before* the browser starts (files are read at startup):
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import tempfile
 from pathlib import Path
 
 from sbtest.config import deep_merge
@@ -30,9 +32,23 @@ def expand_dotted(prefs: dict) -> dict:
     return out
 
 
+# Chromium writes files ~110 characters deep inside a profile (IndexedDB, Service Worker
+# caches, extension settings) and does not use Windows long paths: a profile folder longer
+# than this makes the browser show "Profile error occurred" and stop answering WebDriver.
+MAX_PROFILE_DIR = 140   # 149 worked, 236 failed (Samsung 31): keep a margin
+SHORT_ROOT = Path(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()) / "sbtest" / "profiles"
+
+
+def profiles_root(preferred: Path) -> Path:
+    """``preferred`` (next to the run output), or a short folder when the repo lives so deep
+    that profile files would pass Windows' 260-character path limit."""
+    longest = len(str(Path(preferred).resolve())) + 1 + 30 + 7     # + "\" + name (30) + "_xxxxxx"
+    return Path(preferred) if longest <= MAX_PROFILE_DIR else SHORT_ROOT
+
+
 class Profile:
     def __init__(self, base_dir: Path, name: str = "") -> None:
-        self.dir = Path(base_dir) / unique(slug(name or "profile", 60))
+        self.dir = profiles_root(base_dir) / unique(slug(name or "profile", 30))
         self.default = self.dir / "Default"
         self.downloads = self.dir / "_downloads"
         self.default.mkdir(parents=True, exist_ok=True)

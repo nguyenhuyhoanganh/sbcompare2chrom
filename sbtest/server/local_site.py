@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import sys
 import threading
 import time
 from email.parser import BytesParser
@@ -138,16 +139,25 @@ class _Handler(SimpleHTTPRequestHandler):
             pass  # browser cancelled / paused
 
 
+class _Server(ThreadingHTTPServer):
+    def handle_error(self, request, client_address) -> None:
+        # the browser drops connections on purpose (a cancelled or paused download, a closed
+        # tab): not an error, and its traceback would land in the middle of the test output
+        if isinstance(sys.exc_info()[1], (ConnectionError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
+
+
 class LocalSite:
     def __init__(self, root: Path, host: str = "127.0.0.1", port: int = 0) -> None:
         self.root = Path(root)
         self.host = host
         self.port = port
-        self._server: ThreadingHTTPServer | None = None
+        self._server: _Server | None = None
 
     def start(self) -> "LocalSite":
         handler = partial(_Handler, directory=str(self.root))
-        self._server = ThreadingHTTPServer((self.host, self.port), handler)
+        self._server = _Server((self.host, self.port), handler)
         self._server.daemon_threads = True
         self.port = self._server.server_address[1]
         threading.Thread(target=self._server.serve_forever, daemon=True).start()

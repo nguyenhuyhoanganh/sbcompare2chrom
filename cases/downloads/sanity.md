@@ -29,7 +29,7 @@ Basics are in downloads.md (DL-0xx).
 - Type: web
 - Steps:
   1. Download sample.txt and data.bin
-  2. Type "data" in the search box
+  2. Type "ta.bin" (part of the name) in the search box
 - Expected:
   - Only data.bin is listed
 - Automated: tests/features/downloads/test_downloads_sanity.py::test_search

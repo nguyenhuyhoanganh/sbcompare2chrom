@@ -164,21 +164,31 @@ class FileDialog(Dialog):
     def save_as(self, path: str | Path, overwrite: bool = True) -> Path:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if overwrite and path.is_file():
+            # no "already exists. Replace?" prompt then: its Yes/No labels follow the Windows
+            # display language, which differs between test machines
+            path.unlink()
         self.set_filename(path)
         self._confirm("save")
 
         def _outcome():   # the dialog closes, or asks "already exists. Replace?"
             if not self.is_open():
                 return "closed"
-            return uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^yes$")
+            return self._replace_button(yes=True)
         try:
             confirm = poll(_outcome, 3, 0.1, "Save As closed or asked to replace")
         except TimeoutError:
             return path   # still busy: the caller waits for the file
         if confirm != "closed":
-            answer = confirm if overwrite else uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^no$")
+            answer = confirm if overwrite else self._replace_button(yes=False)
             uia.wait_actionable(answer).click_input()
         return path
+
+    def _replace_button(self, yes: bool):
+        """Yes / No of the "Confirm Save As" task dialog: by id (CommandButton_6 = IDYES,
+        CommandButton_7 = IDNO, any Windows language), then by English label."""
+        found = uia.find_in([self.el], 0, control_type="Button", auto_id=f"CommandButton_{6 if yes else 7}")
+        return found or uia.find_in([self.el], 0, control_type="Button", title_re="(?i)^yes$" if yes else "(?i)^no$")
 
     def open(self, *paths: str | Path) -> None:
         """Choose one or more files (multi-select uses quoted names in the same folder)."""
@@ -206,12 +216,12 @@ class FileDialog(Dialog):
 
     def _wait_in_folder(self, folder: Path) -> None:
         """After Enter on a folder path: wait until the dialog shows that folder (its address
-        bar is a ToolBar named "Address: <path>")."""
+        bar is a ToolBar named "<Address>: <path>", the word in the Windows display language)."""
         want = str(folder).rstrip("\\").lower()
 
         def _there():
-            bars = uia.descendants(self.el, control_type="ToolBar", title_re="(?i)^address: ")
-            return any(b.element_info.name.split(": ", 1)[1].rstrip("\\").lower() == want for b in bars)
+            bars = uia.descendants(self.el, control_type="ToolBar")
+            return any((b.element_info.name or "").split(": ", 1)[-1].rstrip("\\").lower() == want for b in bars)
         try:
             poll(_there, 5, 0.1, f"dialog in folder {folder}")
         except TimeoutError:

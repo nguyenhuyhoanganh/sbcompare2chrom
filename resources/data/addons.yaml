@@ -3,8 +3,9 @@ sample:
   name: SB Sample Addon
   folder: sample_addon          # unpacked (Load unpacked / browser marker)
 
-# A small, stable public extension used for the Web Store install case.
-# Change it if the company proxy blocks it or the item is removed.
+# A small, free public extension by Google for the Web Store install case. Its install prompt
+# only asks for scholar.google.com (popular extensions such as Dark Reader or Google Translate
+# ask for "all your data on all websites"). Change it if the company proxy blocks it.
 webstore:
-  id: eimadpbcbfnmbkopoojfekhnkhdbieeh     # Dark Reader
-  name: Dark Reader
+  id: ldipcbpaocekfooobnbcddclnhejkcpn     # Google Scholar Button (Google)
+  name: Google Scholar Button

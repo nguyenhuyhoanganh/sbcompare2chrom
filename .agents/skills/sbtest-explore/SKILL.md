@@ -36,7 +36,8 @@ title, Type (web / native), Precondition, numbered Steps, Expected (observable f
 
 ## 2. Explore the real UI (always, before writing selectors)
 
-1. Machine ready? `python -m sbtest.tools.doctor` (once per session). Read
+1. Machine ready? `python -m sbtest.tools.doctor` ends with READY (once per session; new
+   machine: `setup.bat`). Read
    `.agents/skills/sbtest-author/references/feature-notes.md` for the feature (known traps).
 2. Quick look at an internal page: `python -m sbtest.tools.dom <page> --interactive`
    (lines end with a ready locator), with data: `--seed-bookmarks resources/data/bookmarks.yaml:seed_basic`,

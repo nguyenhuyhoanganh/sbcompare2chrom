@@ -2,7 +2,7 @@
 
 Flows as the Samsung UI does them (verified on Samsung Browser 31.0.0.55 / Chromium 148).
 Install flows and basics are in addons.md (ADD-001..ADD-006). Store installs use free,
-widely used extensions only (resources/data/addons.yaml: Dark Reader).
+small extensions by Google that ask for little (resources/data/addons.yaml: Google Scholar Button).
 
 ## ADD-101 Card shows name, version, description and source
 - Priority: High

@@ -26,3 +26,19 @@ def test_local_site_routes():
 def test_every_automated_case_is_documented():
     docs, auto = doc_cases(), automated_cases()
     assert not set(auto) - set(docs), "case ids used in tests but missing from cases/"
+
+
+def test_dropped_connections_are_not_printed(capsys):
+    from sbtest.server.local_site import _Server
+
+    server = _Server(("127.0.0.1", 0), lambda *a: None)
+    try:
+        for exc in (ConnectionAbortedError(10053, "aborted by the browser"), ValueError("a real bug")):
+            try:
+                raise exc
+            except Exception:
+                server.handle_error(None, ("127.0.0.1", 1))
+    finally:
+        server.server_close()
+    err = capsys.readouterr().err
+    assert "ConnectionAbortedError" not in err and "a real bug" in err

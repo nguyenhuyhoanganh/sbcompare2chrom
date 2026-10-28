@@ -131,7 +131,7 @@ def test_overview_keeps_results_of_cases_not_rerun(tmp_path):
     from sbtest.tools import case_overview as co
 
     md = tmp_path / "TESTCASES.md"
-    md.write_text("| BM-001 | A | High | web |  | x.md | ✅ Pass |\n| DL-003 | B | Medium | native |  | y.md | ⏳ Chưa chạy |\n",
+    md.write_text("| BM-001 | A | High | web |  | x.md | ✅ Pass |\n| DL-003 | B | Medium | native |  | y.md | ⏳ Not run |\n",
                   encoding="utf-8")
     assert co.previous_results(md) == {"BM-001": "passed", "DL-003": None}
     assert co.previous_results(tmp_path / "missing.md") == {}

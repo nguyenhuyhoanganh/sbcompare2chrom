@@ -79,8 +79,9 @@ pages:
 webstore:
   item_url: "https://chromewebstore.google.com/detail/{id}"
   # visible text of the install / remove button - Samsung may rebrand it
-  add_button_texts: ["Add to Chrome", "Add to Samsung Internet", "Add to browser"]
-  remove_button_texts: ["Remove from Chrome", "Remove from Samsung Internet", "Remove from browser"]
+  # (the store shows "Install" on some item pages, "Add to Chrome" on others)
+  add_button_texts: ["Add to Chrome", "Install", "Add to Samsung Internet", "Add to browser"]
+  remove_button_texts: ["Remove from Chrome", "Uninstall", "Remove from Samsung Internet", "Remove from browser"]
 
 native:
   # Enable pywinauto based checks (auto-disabled on non-Windows).

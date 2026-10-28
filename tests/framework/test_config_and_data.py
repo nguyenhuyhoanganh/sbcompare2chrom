@@ -148,3 +148,40 @@ def test_display_url_vs_navigation_url(tmp_path):
         {"pages": {"scheme": "chrome", "display_scheme": "internet", "history": "history"}}))
     cfg = load_config(config_dir=tmp_path)
     assert (cfg.page_url("history"), cfg.display_url("history")) == ("chrome://history", "internet://history")
+
+
+def test_setup_saves_the_exe_keeping_local_yaml(tmp_path):
+    import yaml
+
+    from sbtest.tools.setup import save_exe
+
+    example = tmp_path / "local.example.yaml"
+    example.write_text("# comment kept\nbrowser:\n  exe: 'C:/build/SamsungInternet.exe'\n  # chromedriver: x\n"
+                       "network:\n  # download_proxy: y\n", encoding="utf-8")
+    local = tmp_path / "local.yaml"
+    save_exe(r"D:\sb\SamsungInternet.exe", local)          # new file: starts from the example
+    text = local.read_text(encoding="utf-8")
+    assert "# comment kept" in text and "# chromedriver: x" in text
+    assert yaml.safe_load(text)["browser"]["exe"] == r"D:\sb\SamsungInternet.exe"
+    save_exe(r"E:\new\SamsungInternet.exe", local)         # existing file: only that line changes
+    assert yaml.safe_load(local.read_text(encoding="utf-8"))["browser"]["exe"] == r"E:\new\SamsungInternet.exe"
+    assert local.read_text(encoding="utf-8").count("exe:") == 1
+
+    other = tmp_path / "other" / "local.yaml"
+    other.parent.mkdir()
+    other.write_text("network:\n  browser_proxy: http://p:8080\n", encoding="utf-8")
+    save_exe(r"C:\x\SamsungInternet.exe", other)           # no browser: section -> appended
+    data = yaml.safe_load(other.read_text(encoding="utf-8"))
+    assert data == {"network": {"browser_proxy": "http://p:8080"}, "browser": {"exe": r"C:\x\SamsungInternet.exe"}}
+
+
+def test_profiles_leave_a_deep_repo_folder(tmp_path):
+    from pathlib import Path
+
+    from sbtest.browser.profile import MAX_PROFILE_DIR, SHORT_ROOT, profiles_root
+
+    short = Path("C:/sbtest/artifacts/test-results/profiles")
+    assert profiles_root(short) == short                     # usual repo folders keep them
+    deep = Path("C:/" + "deep/" * 30) / "artifacts" / "test-results" / "profiles"
+    assert profiles_root(deep) == SHORT_ROOT                 # past the 260-character limit otherwise
+    assert len(str(SHORT_ROOT)) + 38 <= MAX_PROFILE_DIR

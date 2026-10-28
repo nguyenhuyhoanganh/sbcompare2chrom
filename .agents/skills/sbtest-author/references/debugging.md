@@ -18,8 +18,9 @@ Every failed test writes `artifacts/test-results/failures/<test id>/` (latest ru
 (+ `_screen.png`) after every `step()`. `results.json` holds every test's outcome, steps
 and evidence paths (used by the Confluence report).
 
-The pytest output also has a `sbtest steps` section (which doc step failed) and the
-chromedriver log is in `artifacts/test-results/logs/`. Read these before editing code.
+The run output names the failed step under each `[FAIL]`; `run.py --raw` shows pytest's own
+output instead (traceback, a `sbtest steps` section, captured logs). The chromedriver log is
+in `artifacts/test-results/logs/`. Read these before editing code.
 
 ## Typical failures
 
@@ -37,6 +38,7 @@ chromedriver log is in `artifacts/test-results/logs/`. Read these before editing
 | chromedriver download fails | it uses Windows' `curl.exe` (Windows certificate store, so company TLS inspection is fine; urllib only as fallback): read the `curl exit N` line; proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `drivers/<major>/chromedriver.exe` |
 | `X did not render at ... expected internet://...` | wrong `pages.scheme`/path, or the page object's ROOT no longer matches the rewritten page |
 | browser starts but chromedriver can't connect | try `--mode attach`; check that the fork keeps `--remote-debugging-port` and reports `Chrome/x.y.z.w` in `/json/version` |
+| `the browser shows "Profile error occurred"` (a message box on screen, then "cannot connect to chrome") | profile files past Windows' 260-character limit: profiles move to `%LOCALAPPDATA%\sbtest\profiles` when the repo is deep; still failing -> move the repo to a short folder such as `C:\sbtest` |
 | `invalid session id ... Unable to receive message from renderer` | browser/renderer crashed: real bug (save the log!) or an unstable machine; re-run once to tell them apart |
 | page objects fail right after `session.restart()` | they hold the old `web`: rebuild from `session.web` |
 
@@ -45,7 +47,7 @@ chromedriver log is in `artifacts/test-results/logs/`. Read these before editing
 ```
 python -m sbtest.tools.dom <page> --interactive --exec "<python using web/site/session>"
 python -m sbtest.tools.uia_dump --url <page> --keys "^d" --find "(?i)done"
-python run.py --case BM-004 --keep-profile -- -x -s --log-cli-level=INFO
+python run.py --case BM-004 --raw --keep-profile -- -x -s --log-cli-level=INFO
 ```
 
 `--keep-profile` leaves `artifacts/test-results/profiles/<test>_xxxx` - open it with the exe

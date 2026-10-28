@@ -14,6 +14,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import psutil
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 
@@ -138,12 +139,54 @@ class BrowserSession:
             if self.cfg.get("browser.exclude_switches"):
                 opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
         _bypass_proxy_for_localhost()
-        self.driver = webdriver.Chrome(options=opts, service=service)
+        try:
+            self.driver = webdriver.Chrome(options=opts, service=service)
+        except Exception as e:
+            blocking = self._blocking_dialogs()
+            if self._attach_proc:   # a browser stuck on a message box would stay on screen
+                kill_tree(self._attach_proc.pid)
+            if blocking:
+                raise RuntimeError(
+                    f"the browser shows {', '.join(blocking)} instead of starting"
+                    + (f" - its profile path is too long ({len(str(self.profile.dir))} characters: "
+                       f"{self.profile.dir}); move the repo to a shorter folder such as C:\\sbtest"
+                       if any("profile" in t.lower() for t in blocking) else "")) from e
+            raise
         self.driver.set_page_load_timeout(float(self.cfg.get("timeouts.page_load", 30)))
         self.pid = self._attach_proc.pid if self._attach_proc else find_browser_pid(str(self.profile.dir))
         self.web = Web(self.driver, self.cfg, native_factory=lambda: self.native)
         log.info("Started browser pid=%s profile=%s", self.pid, self.profile.dir)
         return self
+
+    def _blocking_dialogs(self) -> list[str]:
+        """Titles of message boxes the browser shows on start ("Profile error occurred"), which
+        keep it from answering chromedriver. Windows only; [] when there are none."""
+        pid = self._attach_proc.pid if self._attach_proc else find_browser_pid(str(self.profile.dir))
+        if os.name != "nt" or not pid:
+            return []
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            pids = {pid} | {c.pid for c in psutil.Process(pid).children(recursive=True)}
+            user32, titles = ctypes.windll.user32, []
+
+            @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+            def _each(hwnd, _):
+                owner = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+                cls = ctypes.create_unicode_buffer(64)
+                user32.GetClassNameW(hwnd, cls, 64)
+                if owner.value in pids and cls.value == "#32770" and user32.IsWindowVisible(hwnd):
+                    text = ctypes.create_unicode_buffer(256)
+                    user32.GetWindowTextW(hwnd, text, 256)
+                    titles.append(f'"{text.value}"')
+                return True
+
+            user32.EnumWindows(_each, 0)
+            return titles
+        except Exception:  # noqa: BLE001 - only a better error message
+            return []
 
     @property
     def native(self):

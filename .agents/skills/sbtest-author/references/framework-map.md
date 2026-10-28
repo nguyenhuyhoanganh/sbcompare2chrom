@@ -2,7 +2,8 @@
 
 ```
 run.py                         CLI: --all | --feature a,b | --case ID,ID, --sanity, --reruns, --screenshot-steps
-setup.bat                      one-time setup on Windows (venv, requirements, config/local.yaml)
+setup.bat                      prepare a machine: venv + requirements, browser.exe, doctor check
+                               (gets chromedriver) -> READY / NOT READY; tests run separately
 config/
   default.yaml                 settings: attach mode, chrome:// navigation (shown as internet://),
                                args, prefs, timeouts, page paths, report, network
@@ -27,8 +28,9 @@ sbtest/
                                confluence_export (folder to upload with the Confluence skill)
   steps.py                     step("N. ...", expected=...) context manager
   pytest_plugin.py             options, markers, fixtures, filters, evidence hooks
-  tools/                       doctor, dom, uia_dump, explore, coverage, case_overview, report,
-                               confluence_export, summary, sync_skills
+  tools/                       setup (second half of setup.bat), doctor, dom, uia_dump, explore,
+                               coverage, case_overview, report, confluence_export, summary,
+                               console (the readable [ OK ]/[WARN]/[FAIL] output)
 tests/
   features/<feature>/          tests, one folder per feature (addons, bookmarks, downloads,
                                history, general); carry @case ids
@@ -42,7 +44,7 @@ resources/
   profiles/                    profile templates for @browser(profile=...)
   site/                        local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
                                downloads, frames, permissions, toast, shadow, pages/1..3
-docs/SETUP.md                  new Windows machine, what to do after a Chromium merge
+README.md                      requirements, setup, run, results, a new Chromium merge
 artifacts/test-results/        latest run only: report/, confluence/, failures/, steps/, logs/,
                                results.json, junit.xml (doctor/, explore/<topic>/, explore/scratch-run/
                                beside it; framework and scratch runs never write here)

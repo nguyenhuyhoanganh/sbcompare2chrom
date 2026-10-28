@@ -43,8 +43,10 @@ def test_search(web, pages, site, downloads_dir):
     download(web, site, downloads_dir, "dl-bin", "data.bin")
     d = pages.downloads.open()
     d.wait_item("sample.txt")
-    with step("2. Search 'data'", expected="only data.bin"):
-        d.search("data")
+    # the search also matches the folder of the file ("AppData", "D:\data\..."): search a part of
+    # the name that no folder has
+    with step("2. Search 'ta.bin'", expected="only data.bin"):
+        d.search("ta.bin")
         web.wait_until(lambda: d.names() == ["data.bin"], message="only data.bin listed")
 
 

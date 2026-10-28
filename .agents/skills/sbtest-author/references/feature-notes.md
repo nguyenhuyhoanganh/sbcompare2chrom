@@ -88,6 +88,8 @@ after a Samsung/Chromium update and record what changed here.
 - The session downloads into its own folder (`downloads_dir`); prompt is off by default.
   Turn on Save As with `browser(prefs={"download.prompt_for_download": True})` + native `file_dialog`.
 - Side bar search + categories (All, Image, Video, Audio, Document, Others: `filter_category()`).
+  The search also matches the file's folder path: search a part of the name no folder has
+  ("ta.bin", not "data" - the downloads folder can be under AppData or D:\data).
 - Finished row: name, size ("2.05 KB"), source link, icons "Copy link", "Show in folder",
   X (remove, snack bar + Undo). In-progress row: progress bar + text buttons Pause/Resume,
   Cancel (`action(name, "Pause")`). Cancel REMOVES the row ("x removed from Downloads." + Undo);
@@ -117,8 +119,9 @@ after a Samsung/Chromium update and record what changed here.
   - Load unpacked: `pages.extensions.load_unpacked(native, folder)` (dev mode, button,
     Windows folder picker).
   - Web Store: `pages.webstore.install(ext_id, native)` - through the company proxy; button
-    text from config `webstore.add_button_texts`; free, popular extensions only (Dark Reader
-    in `resources/data/addons.yaml`).
+    text from config `webstore.add_button_texts`; free extensions with a small install prompt only
+    (Google Scholar Button in `resources/data/addons.yaml`). The store button reads "Add to
+    Chrome" on some item pages and "Install" on others (both in the config).
 - Toolbar "Add-ons" (puzzle, `ExtensionsToolbarButton`) -> menu: each add-on with "Pin <name>" /
   "Unpin <name>" and "More options for <name>" (menu: Options, Remove from Samsung Browser,
   Manage add-on, View web permissions). Pinned icon = `ToolbarActionView` named
