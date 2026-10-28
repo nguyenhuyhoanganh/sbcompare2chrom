@@ -20,16 +20,21 @@ python -m sbtest.tools.uia_dump --pid <pid>          # attach to a browser you o
 python -m sbtest.tools.dom bookmarks --uia artifacts/uia.txt   # DOM + UIA in one go
 ```
 
-Lines look like `Button 'Done' auto_id='' class='MdTextButton' rect=(..)`. Put stable
-criteria into `config/native_ui.yaml` and use the logical name:
+Lines look like `Button 'Bookmarks' auto_id='view_1023' class='BookmarksButton' rect=(..)`.
+Put stable criteria into `config/native_ui.yaml` and use the logical name:
 
 ```yaml
-bookmark_star:
+bookmarks_button:
+  class_name: BookmarksButton          # Views class names are stable
+addons_menu_pin:                       # {name} is filled by native.click("addons_menu_pin", name="X")
   control_type: Button
-  title_re: "(?i)bookmark this tab|add to bookmarks"
+  title: "Pin {name}"
 dialogs:
-  bookmark_added: "(?i)bookmark added|edit bookmark"
+  bookmark_added: "(?i)page bookmarked|bookmark added to"
 ```
+
+Never use `auto_id='view_NNN'`: Chromium numbers its views in creation order, so the
+number changes between builds and states. Ids from WebUI pages (`createFolderButton`) are fine.
 
 Criteria keys: `title`, `title_re`, `control_type`, `auto_id`, `class_name`, `class_name_re`
 (regex, e.g. a class renamed between builds: `"^(StarView|PageActionView)$"`), `found_index`.
@@ -130,8 +135,9 @@ dlg.set_text("sbtest", title_re="(?i)user"); dlg.set_text("sbtest", title_re="(?
   Do not run native tests over RDP minimized / with screen locked; use a real or VM session.
 - Keep windows unique: the framework identifies windows by the browser PID; don't
   run a manual Samsung Internet instance with the same profile.
-- `invoke()` vs real click: `Dialog.click` tries UIA invoke, then a real click. For Views
-  buttons that ignore invoke use `real_mouse=True`.
+- Clicks: every native click waits until the element is enabled, on screen and still;
+  `Dialog.click` uses UIA Invoke for Win32 buttons and the real mouse for browser (Views)
+  buttons, after the bubble's click protection - see `feature-notes.md` "Whole product".
 - DPI scaling: coordinates from `web_point` already multiply by `devicePixelRatio`.
 - Menus are separate top-level windows of the browser process; `select_menu_items`
   searches all of them.

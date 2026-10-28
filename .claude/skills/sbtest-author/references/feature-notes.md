@@ -60,8 +60,8 @@ after a Samsung/Chromium update and record what changed here.
   Create folder, Expand (opens the manager); tree "PC bookmarks" > "Bookmark bar" (folders are
   Buttons `auto_id=folder`, bookmarks are TreeItems). Ui-map keys `bookmarks_panel_*`.
 - Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`), no
-  bubble; the star becomes "Remove from Bookmarks" (clicking it removes the bookmark). The
-  toast can cover the star: `native.click("bookmark_star", real_mouse=False)`.
+  bubble; the star becomes "Remove from Bookmarks" (clicking it removes the bookmark, once
+  the toast is gone - see "Whole product").
 - The star (`PageActionView`) only shows when the omnibox has NO focus (focused, it shows
   other icons), and a page opened by `web.open` can leave the focus there: call
   `native.focus_page()` after opening the page and before Ctrl+D / any star check

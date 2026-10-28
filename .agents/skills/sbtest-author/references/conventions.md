@@ -58,6 +58,6 @@ Under the case in `cases/<feature>/<file>.md` set
 
 ## Before you finish
 
-- `python run.py --case <IDs>` green 3x in a row on the real build.
+- `python run.py --case <IDs>` green 4x in a row on the real build.
 - `python -m pytest tests/framework -q` green if you touched `sbtest/`.
 - `python -m sbtest.tools.coverage --feature <feature>` shows the IDs as OK.

@@ -41,21 +41,8 @@ Prefer `id`, `data-*`, `aria-*`; never generated class names (`css-1x2y3z`).
 | `open_dialog()` / `dialog_text()` / `dialog_input(id)` / `dialog_button(text)` / `wait_dialog_closed()` | in-page dialog |
 | `q(value)` | quote for CSS attribute selectors: `f"[aria-label={q(name)}]"` |
 
-## Existing page APIs
-
-- `extensions`: `info() -> [{id,name,version,state,...}]`, `names`, `item`, `ext_id`, `is_enabled`,
-  `set_enabled`, `set_dev_mode`, `open_details`, `click_remove`, `wait_installed`, `wait_gone`,
-  `load_unpacked(native, dir)`
-- `webstore`: `open_item(id)`, `is_installed`, `install(id, native)`
-- `bookmarks`: `titles`, `item`, `has_item`, `wait_titles`, `wait_item`, `folders`, `expand_tree`,
-  `open_folder`, `open_item`, `organize(action)`, `add_bookmark`, `add_folder`,
-  `item_menu(title, action)`, `edit`, `delete -> toast`, `select(*titles)`, `delete_selected`, `undo`
-- `history`: `rows -> [{title,url,domain,time}]`, `titles`, `urls`, `item`, `has_item`, `wait_item`,
-  `is_empty`, `open_item`, `select`, `delete_selected(confirm)`, `item_menu`, `remove`,
-  `open_clear_browsing_data`
-- `downloads`: `items`, `info(item) -> {name,url,description,tag,in_progress}`, `names`, `item`,
-  `wait_item`, `wait_complete`, `status`, `action(name, "Pause"|"Resume"|"Cancel"|"Show in folder"...)`,
-  `remove`, `clear_all`
+Each page object's methods: the action catalogue of the `sbtest-explore` skill, or the
+class itself in `sbtest/pages/`.
 
 ## Adding a new page
 

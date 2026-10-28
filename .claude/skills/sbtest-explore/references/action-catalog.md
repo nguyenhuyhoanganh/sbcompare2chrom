@@ -42,6 +42,9 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | read the address bar | `native.omnibox_text()` (Samsung shows `internet://`; compare with `cfg.display_url("history")`) |
 | back / forward / reload / home | `native.click("back_button")` / `"forward_button"` / `"reload_button"` / `"home_button"` |
 | keyboard shortcut (Ctrl+D/H/J/T/W/L, F5...) | `native.hotkey("^d")` - never `web.press` for browser shortcuts |
+| Enter / Esc / Ctrl+A inside a page | `web.press("ENTER")`, `web.press(Keys.CONTROL, "a")` |
+| iframe content | `with web.frame("#frame"): ...` |
+| navigation that stops at a browser prompt (HTTP sign-in) | `web.open(url, blocking=False)`, then `native.wait_dialog("http_auth")` |
 | something opens "in a tab" | `web.switch_tab(url=cfg.page_url("history"))` or `web.switch_tab(title="X")` (new tab or same tab) |
 | new tab expected | `before = web.tabs` ... `web.wait_new_tab(before)` |
 | tab opened in the background (extension pages) | `"X" in native.tab_titles()`, then `native.click({"control_type": "TabItem", "title": "X"})`, read with UIA (`native.wait_text("^...$")`) |
@@ -72,7 +75,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | Ctrl+D -> toast "Page bookmarked." / "Bookmark added to ..." | `native.hotkey("^d"); toast = native.wait_dialog("bookmark_added")` |
 | toast > Edit -> rename | `toast.click("Edit")`, field `native.element("bookmark_edit_name", in_main=False)` (focus, `native.hotkey("^a", focus=False)`, `native.type_text(...)`), `native.click("bookmark_edit_save")` |
 | is the page bookmarked (star) | `native.focus_page()` first (155+: no star while the omnibox has focus), then `native.exists("bookmark_star_filled")` |
-| remove with the star | `native.click("bookmark_star", real_mouse=False)` (the toast can cover it) |
+| remove with the star | `native.wait_dialog_gone("bookmark_added")` (while the toast shows, a click on the star only closes it), then `native.click("bookmark_star_filled")` |
 | Bookmarks panel (toolbar) | `native.click("bookmarks_button")`; folder `native.click("bookmarks_panel_folder", name="Bookmark bar")`; bookmark `native.click("bookmarks_panel_item", name="X")`; buttons `"bookmarks_panel_add_page"`, `"bookmarks_panel_create_folder"`, `"bookmarks_panel_expand"` (opens the manager) |
 
 ## History (`pages.history`)
@@ -128,10 +131,14 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | wait until a bubble / toast is gone (before clicking what it is anchored to) | `native.wait_dialog_gone("bookmark_added")` |
 | dialog inside an internal page | `page.open_dialog()`, `page.dialog_text()`, `page.dialog_input("name")`, `page.dialog_button("Save")` |
 | upload through Windows Open | `web.click(button)`, `native.file_dialog("open").open(f1, f2)` |
+| upload through `<input type=file>` | `web.upload(loc, path)` (no OS dialog) |
 | Save As | `native.file_dialog("save").save_as(path)` |
 | choose a folder | `native.file_dialog("open").select_folder(path)` |
 | drag a file from Explorer | `native.drag_file_from_explorer(path, web=web, target="#drop-zone")` |
 | JS alert / confirm / prompt | `web.accept_alert(prompt_text=...)`, `web.dismiss_alert()` |
+| "Leave site?" (beforeunload) | not observable: chromedriver accepts it -> `Automated: no (WebDriver auto-accepts beforeunload)` |
+| drag & drop inside a page | `web.drag_and_drop(a, b, method="html5" / "actions" / "native")` |
+| Windows notification | `native.wait_os_toast("(?i)text")` |
 | print preview | `native.wait_dialog("print")`, `.press("{ESC}")` (the page is blocked meanwhile: no `web.*`) |
 | right-click on a page | `native.context_menu_web(web, "#link", "Open link in new tab")` |
 

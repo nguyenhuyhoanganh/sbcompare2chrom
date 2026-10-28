@@ -60,7 +60,7 @@ run doctor again; do not start the tests on a red doctor. Report what you fixed.
 python run.py <arguments from step 1> --exe "<path>"
 ```
 
-`--all` takes about 10 minutes. The run first empties `artifacts/test-results/` - copy that
+`--all` takes about 8-10 minutes. The run first empties `artifacts/test-results/` - copy that
 folder elsewhere beforehand if the previous result must be kept.
 
 ## 6. Read the result and triage
