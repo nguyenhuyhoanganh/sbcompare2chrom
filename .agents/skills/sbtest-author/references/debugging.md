@@ -35,7 +35,7 @@ chromedriver log is in `artifacts/test-results/logs/`. Read these before editing
 | detected Chromium = the Samsung product version (31.x) | the build puts its product version in DevTools `Browser`; `chromium_version_from` then uses the User-Agent `Chrome/N.0.0.0` - check the `DevTools /json/version` log line, or pin `browser.chromium_version` |
 | `session not created: This version of ChromeDriver only supports Chrome version N` | driver/browser mismatch: set `browser.chromedriver` or `browser.chromium_version`, or delete `artifacts/.cache/chromium_version.json` after a new build |
 | `unrecognized Chrome version` / `cannot parse ... Browser` with Google's chromedriver | the fork reports a non-Chrome product name in DevTools `/json/version`: use a chromedriver built from the fork (`browser.chromedriver`) |
-| chromedriver download fails | proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `drivers/<major>/chromedriver.exe` |
+| chromedriver download fails | it uses Windows' `curl.exe` (Windows certificate store, so company TLS inspection is fine; urllib only as fallback): read the `curl exit N` line; proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `drivers/<major>/chromedriver.exe` |
 | `X did not render at ... expected internet://...` | wrong `pages.scheme`/path, or the page object's ROOT no longer matches the rewritten page |
 | browser starts but chromedriver can't connect | try `--mode attach`; check that the fork keeps `--remote-debugging-port` and reports `Chrome/x.y.z.w` in `/json/version` |
 | `invalid session id ... Unable to receive message from renderer` | browser/renderer crashed: real bug (save the log!) or an unstable machine; re-run once to tell them apart |

@@ -48,6 +48,11 @@ def main(argv=None) -> int:
     for var in ("HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"):
         if os.environ.get(var) or os.environ.get(var.lower()):
             report(OK, f"env {var}", os.environ.get(var) or os.environ.get(var.lower()))
+    from sbtest.browser.driver_resolver import curl_exe
+
+    curl = curl_exe()
+    report(OK if curl else WARN, "download tool", f"curl {curl} (chromedriver downloads)" if curl
+           else "no curl.exe: chromedriver is downloaded with Python urllib (may fail behind TLS inspection)")
 
     exe = str(cfg.path("browser.exe")) if cfg.get("browser.exe") else ""
     if not exe or not os.path.exists(exe):

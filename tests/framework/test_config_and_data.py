@@ -43,6 +43,33 @@ def test_chromium_version_when_browser_field_holds_the_product_version():
     assert chromium_version_from({"Browser": "", "User-Agent": ua.format("157.0.0.0")}) == "157.0.0.0"
 
 
+def test_download_uses_curl_then_urllib(monkeypatch):
+    from sbtest.browser import driver_resolver as dr
+
+    calls = []
+    monkeypatch.setattr(dr, "curl_exe", lambda: "curl.exe")
+    monkeypatch.setattr(dr, "_curl", lambda c, url, t: calls.append(("curl", url)) or b"zip")
+    assert dr.fetch("https://x/a.zip") == b"zip" and calls == [("curl", "https://x/a.zip")]
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"from urllib"
+
+    def broken(*a):
+        raise RuntimeError("curl exit 35")
+    monkeypatch.setattr(dr, "_curl", broken)
+    monkeypatch.setattr(dr, "_open", lambda url, t: Resp())
+    assert dr.fetch("https://x/a.zip") == b"from urllib"
+    monkeypatch.setattr(dr, "curl_exe", lambda: None)
+    assert dr.fetch("https://x/a.zip") == b"from urllib"
+
+
 def test_driver_major_checked_against_chromium(tmp_path, monkeypatch):
     import pytest
 

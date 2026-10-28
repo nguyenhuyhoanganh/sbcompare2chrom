@@ -49,7 +49,10 @@ network:
 
 Không cần chỉnh gì thêm:
 - **chromedriver**: framework tự đọc version Chromium của exe rồi tải chromedriver khớp
-  version vào `drivers\<major>\` (qua proxy nếu có). Máy không ra mạng được thì chép sẵn
+  version vào `drivers\<major>\` (qua proxy nếu có). Việc tải dùng `curl.exe` có sẵn của
+  Windows (`C:\Windows\System32\curl.exe`): nó tin các chứng chỉ công ty đã cài vào Windows,
+  nên vẫn tải được trong mạng công ty có kiểm soát SSL, nơi Python tự tải bị lỗi chứng chỉ
+  (doctor in dòng `download tool`). Máy không ra mạng được thì chép sẵn
   `drivers\<major>\chromedriver.exe` từ một máy khác vào. Nếu chromedriver của Google không
   nhận bản fork, build `chromedriver` từ source fork rồi khai báo `browser.chromedriver`.
 - Cấu hình sẵn chế độ `attach` và điều hướng `chrome://` (thanh địa chỉ vẫn hiển thị

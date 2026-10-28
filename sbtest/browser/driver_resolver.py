@@ -4,7 +4,7 @@ Order:
 1. ``browser.chromedriver`` from config/env/CLI (recommended: built from the fork itself)
 2. ``drivers/<major>/chromedriver[.exe]`` already in the repo folder (offline machines)
 3. Download from Chrome for Testing for the same Chromium *build* (x.y.BUILD), cached into
-   ``drivers/<major>/``. Selenium Manager is not used for this on purpose: it would read the
+   ``drivers/<major>/``, with Windows' curl.exe (urllib when there is no curl or it fails). Selenium Manager is not used for this on purpose: it would read the
    Samsung product version from the exe instead of the Chromium one.
 """
 from __future__ import annotations
@@ -14,6 +14,7 @@ import json
 import os
 import platform
 import re
+import shutil
 import stat
 import subprocess
 import urllib.request
@@ -46,9 +47,44 @@ def _open(url: str, timeout: float):
     return urllib.request.build_opener(*handlers).open(url, timeout=timeout)
 
 
+def curl_exe() -> str | None:
+    """Windows' own curl.exe (System32, Windows 10 1803+) first, else any curl on PATH."""
+    system = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "curl.exe"
+    if os.name == "nt" and system.exists():
+        return str(system)
+    return shutil.which("curl")
+
+
+def _curl(curl: str, url: str, timeout: float) -> bytes:
+    """Download with curl. On Windows it uses Schannel and the Windows certificate store, so it
+    works where company TLS inspection makes Python's own certificates fail."""
+    base = [curl, "-fsSL", "--retry", "2", "--max-time", str(int(timeout))]
+    if _PROXY:
+        base += ["--proxy", _PROXY]   # else curl reads HTTPS_PROXY / HTTP_PROXY itself
+    r = subprocess.run([*base, url], capture_output=True, timeout=timeout + 30)
+    if r.returncode == 35 and os.name == "nt":
+        # Schannel cannot reach the certificate revocation server (closed company networks)
+        log.warning("curl: certificate revocation check failed, retrying with --ssl-no-revoke")
+        r = subprocess.run([*base, "--ssl-no-revoke", url], capture_output=True, timeout=timeout + 30)
+    if r.returncode != 0:
+        raise RuntimeError(f"curl exit {r.returncode}: {r.stderr.decode(errors='replace').strip()}")
+    return r.stdout
+
+
+def fetch(url: str, timeout: float = 60) -> bytes:
+    """Bytes of ``url``: curl.exe first, Python's urllib when there is no curl or curl fails."""
+    curl = curl_exe()
+    if curl:
+        try:
+            return _curl(curl, url, timeout)
+        except Exception as e:  # noqa: BLE001 - try urllib before giving up
+            log.warning("download with %s failed (%s), trying Python urllib", curl, e)
+    with _open(url, timeout) as r:
+        return r.read()
+
+
 def _get_json(url: str) -> dict:
-    with _open(url, 60) as r:
-        return json.loads(r.read().decode("utf-8"))
+    return json.loads(fetch(url, 60).decode("utf-8"))
 
 
 def chromedriver_url(chromium_version: str, plat: str | None = None) -> tuple[str, str]:
@@ -76,8 +112,7 @@ def chromedriver_url(chromium_version: str, plat: str | None = None) -> tuple[st
 def download_chromedriver(chromium_version: str, target_dir: Path) -> Path:
     version, url = chromedriver_url(chromium_version)
     log.info("Downloading chromedriver %s for Chromium %s: %s", version, chromium_version, url)
-    with _open(url, 300) as r:
-        data = r.read()
+    data = fetch(url, 300)
     target_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         member = next(n for n in z.namelist() if n.endswith("/" + EXE_NAME) or n == EXE_NAME)
