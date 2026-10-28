@@ -15,7 +15,10 @@ from sbtest.reporting.confluence_export import export
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("run_dir")
-    out = export(Path(p.parse_args(argv).run_dir))
+    p.add_argument("--step-pictures", choices=["failed", "all", "none"],
+                   help="cases whose step pictures go on the page (default: report.confluence_step_pictures)")
+    args = p.parse_args(argv)
+    out = export(Path(args.run_dir), args.step_pictures)
     print(f"Confluence export: {out}")
     return 0
 

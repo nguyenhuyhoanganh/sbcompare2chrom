@@ -35,7 +35,8 @@ chromedriver (downloaded when missing), browser start, internal pages, toolbar. 
 ```
 
 Add `--exe "<path>"` when setup used it. Other options: `--no-native` (skip tests that drive
-the real UI), `--reruns 1`, `--screenshot-steps`, `--raw` (pytest's own output).
+the real UI), `--reruns 1`, `--screenshot-steps` (a picture before every click / typing with
+the target framed in red, plus one per step; shown in the report), `--raw` (pytest's own output).
 
 While tests run: keep hands off the mouse and keyboard, keep the keyboard on English (US) with
 Vietnamese input tools in English mode, and keep the screen unlocked.
@@ -46,7 +47,9 @@ Vietnamese input tools in English mode, and keep the screen unlocked.
 
 - `report\index.html` - verdict BUILD PASSED / FAILED, one row per case with steps, expected,
   result and screenshot
-- `confluence\` - the same report as a Confluence page with attachments
+- `confluence\` - the same report as a Confluence page with attachments; with
+  `--screenshot-steps` it also carries the step pictures of failed cases in a collapsed
+  block per case (`--confluence-steps all` for every case, `none` for none)
 - `failures\<test>\` - `failure.txt`, screenshots, DOM and UI Automation dumps
 
 Case overview with the latest results: `python -m sbtest.tools.case_overview` -> `cases\TESTCASES.md`.

@@ -46,6 +46,16 @@ Not sure which cases exist? `python run.py --list` prints them per feature. Also
 the desktop stays free during the run: native tests drive the real mouse and keyboard; if the
 user needs the machine, add `--no-native` (and say so in the report).
 
+Then ask about step pictures (a picture right before every click / typing with the target
+framed in red, plus one per step; the run takes ~10% longer):
+
+| answer | arguments |
+|---|---|
+| no | (nothing) |
+| yes, on Confluence for failed cases only (recommended) | `--screenshot-steps` |
+| yes, on Confluence for every case (~22 MB for a full run) | `--screenshot-steps --confluence-steps all` |
+| yes, only in the local report | `--screenshot-steps --confluence-steps none` |
+
 ## 2. Ask for the exe
 
 Show the current value first (`browser.exe` in `config/local.yaml`, if any) and ask the user
@@ -109,7 +119,10 @@ Use the **managing-jira-confluence** skill to create a NEW page under the destin
 - title: `title` in `artifacts/test-results/confluence/manifest.json`
 - body: `page.storage.html` (Confluence storage format); use `page.md` only if the skill
   takes Markdown
-- upload every file of `attachments/` to that page - the body references them by file name
+- upload every file listed in `attachments` of `manifest.json` (= every file of `attachments/`)
+  to that page - the body references them by file name; with step pictures these include
+  `<case>_NN-I_<kind>.jpg`, shown in one collapsed "Expand" block per case under each table.
+  Many files: upload them in batches if the skill limits a call, and check the count
 - failures triaged -> add a "Triage" section: case id | bucket | reason
 
 The skill is not available -> stop and give the user the folder
@@ -119,4 +132,5 @@ The skill is not available -> stop and give the user the folder
 
 Verdict, build (Samsung + Chromium version), selection, totals per feature, the triage table,
 skipped tests and why (`--no-native`, no desktop), the Confluence page link, and the local
-report `artifacts/test-results/report/index.html`.
+report `artifacts/test-results/report/index.html` ("Step pictures" under each case when they
+were taken).

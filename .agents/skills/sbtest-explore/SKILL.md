@@ -69,7 +69,10 @@ setup, assertions. Rules that keep tests portable and readable:
 
 ## 4. Prove it
 
-`python run.py --case <ID>` until green, then 3 more runs. On failure read
+`python run.py --case <ID>` until green, then 3 more runs. Run it once with
+`--screenshot-steps` and open `artifacts/test-results/steps/<test>/` (or "Step pictures" in
+the report): every `NN-I_<kind>.jpg` frames what the step is about to touch - check it is the
+right element, the frame tells you even when the test passes. On failure read
 `artifacts/test-results/failures/<test>/failure.txt`, then `screen.png` / `page.png`, fix,
 repeat. If the product behaves differently from the request, do not bend the test: report it
 with the screenshot. Run the whole feature once at the end (`--feature X`) so nothing else broke,

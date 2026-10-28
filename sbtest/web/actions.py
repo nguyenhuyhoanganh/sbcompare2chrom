@@ -63,6 +63,7 @@ class ActionsMixin:
 
         def _click(el: WebElement):
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+            self._mark("click", el)
             try:
                 el.click()
             except (ElementClickInterceptedException, ElementNotInteractableException):
@@ -74,17 +75,31 @@ class ActionsMixin:
         self._with_retry(loc, _click)
 
     def js_click(self, loc) -> None:
-        self.driver.execute_script("arguments[0].click();", self.find(loc, visible=False))
+        el = self.find(loc, visible=False)
+        self._mark("click", el)
+        self.driver.execute_script("arguments[0].click();", el)
 
     def double_click(self, loc) -> None:
-        self._with_retry(loc, lambda el: ActionChains(self.driver).double_click(self.scroll_to(el)).perform())
+        def _double(el):
+            self._mark("double-click", self.scroll_to(el))
+            ActionChains(self.driver).double_click(el).perform()
+
+        self._with_retry(loc, _double)
 
     def right_click(self, loc) -> None:
         """Opens the *web* context menu (cr-action-menu etc.). Native context menus: use native.context_menu_web."""
-        self._with_retry(loc, lambda el: ActionChains(self.driver).context_click(self.scroll_to(el)).perform())
+        def _right(el):
+            self._mark("right-click", self.scroll_to(el))
+            ActionChains(self.driver).context_click(el).perform()
+
+        self._with_retry(loc, _right)
 
     def hover(self, loc) -> None:
-        self._with_retry(loc, lambda el: ActionChains(self.driver).move_to_element(self.scroll_to(el)).perform())
+        def _hover(el):
+            self._mark("hover", self.scroll_to(el))
+            ActionChains(self.driver).move_to_element(el).perform()
+
+        self._with_retry(loc, _hover)
 
     def type(self, loc, text: str, clear: bool = True, enter: bool = False) -> None:
         """Type into an input. For Polymer ``cr-input`` target its inner ``input``:
@@ -92,6 +107,7 @@ class ActionsMixin:
 
         def _type(el: WebElement):
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+            self._mark("type", el, repr(text))
             if el.is_displayed():
                 el.click()
             if clear:
@@ -118,6 +134,7 @@ class ActionsMixin:
     def set_value(self, loc, value: str) -> None:
         """Set value via JS + input/change events (for inputs that ignore send_keys)."""
         el = self.find(loc, visible=False)
+        self._mark("type", el, repr(value))
         self.driver.execute_script(
             "arguments[0].value = arguments[1];"
             "arguments[0].dispatchEvent(new Event('input', {bubbles: true, composed: true}));"
@@ -132,7 +149,9 @@ class ActionsMixin:
         """
         keys = tuple(getattr(Keys, k.upper(), k) if isinstance(k, str) and len(k) > 1 else k for k in keys)
         if loc is not None:
-            self.find(loc).send_keys(*keys)
+            el = self.find(loc)
+            self._mark("keys", el)
+            el.send_keys(*keys)
             return
         chain = ActionChains(self.driver)
         mods = [k for k in keys[:-1] if k in (Keys.CONTROL, Keys.SHIFT, Keys.ALT, Keys.COMMAND)]
@@ -145,7 +164,9 @@ class ActionsMixin:
 
     def select(self, loc, text: str | None = None, value: str | None = None, index: int | None = None) -> None:
         """Native ``<select>``. For Chromium ``cr-select``/``md-select`` (wrapping a select) target the inner select."""
-        s = Select(self.find(loc))
+        el = self.find(loc)
+        self._mark("select", el, text or value or (str(index) if index is not None else ""))
+        s = Select(el)
         if text is not None:
             s.select_by_visible_text(text)
         elif value is not None:
@@ -169,6 +190,9 @@ class ActionsMixin:
           "native"  real OS mouse via pywinauto (anything, incl. drop on browser UI) - needs native
         """
         src, dst = self.scroll_to(source), self.find(target)
+        if method != "native":   # the native drag records its own screen points
+            self._mark("drag", src)
+            self._mark("drop", dst)
         if method == "html5":
             self.driver.execute_script(JS_HTML5_DND, src, dst)
         elif method == "actions":
@@ -188,4 +212,5 @@ class ActionsMixin:
         """Set files on ``<input type=file>`` without opening the OS file picker.
         If the page only opens a picker from a button, use ``native.file_dialog().open(path)``."""
         el = self.find(loc, visible=False)
+        self._mark("upload", el, ", ".join(Path(f).name for f in files))
         el.send_keys("\n".join(str(Path(f).resolve()) for f in files))

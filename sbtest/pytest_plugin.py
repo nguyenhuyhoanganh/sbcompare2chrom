@@ -55,7 +55,10 @@ def pytest_addoption(parser):
     g.addoption("--keep-profile", action="store_true", default=None, help="keep profile folders for debugging")
     g.addoption("--run-dir", help="output folder of this run (default paths.results = artifacts/test-results, "
                                   "emptied when the run starts)")
-    g.addoption("--screenshot-steps", action="store_true", default=False, help="screenshot after every step()")
+    g.addoption("--screenshot-steps", action="store_true", default=False,
+                help="a picture before every interaction (target framed) and after every step()")
+    g.addoption("--confluence-steps", choices=["failed", "all", "none"],
+                help="step pictures on the Confluence page (default report.confluence_step_pictures: failed)")
     g.addoption("--sb-live", action="store_true", default=False,
                 help="readable one-line-per-test output (run.py uses it with -p no:terminal)")
 
@@ -75,6 +78,7 @@ def pytest_configure(config):
         "browser.scope": config.getoption("--browser-scope"),
         "browser.keep_profile": config.getoption("--keep-profile"),
         "report.screenshot_steps": True if config.getoption("--screenshot-steps") else None,
+        "report.confluence_step_pictures": config.getoption("--confluence-steps"),
     })
     run_dir = config.getoption("--run-dir")
     run_dir = Path(run_dir) if run_dir else cfg.path("paths.results")
@@ -296,8 +300,11 @@ def downloads_dir(session) -> Path:
 def _steps_tracking(request, cfg):
     steps.reset()
     if cfg.get("report.screenshot_steps"):
-        steps.set_listener(lambda rec, n: evidence.step_screenshot(
-            getattr(request.node, "_sb_session", None), request.config._sb_run_dir, request.node.nodeid, rec, n))
+        def session():
+            return getattr(request.node, "_sb_session", None)
+        run_dir, nodeid = request.config._sb_run_dir, request.node.nodeid
+        steps.set_listener(lambda rec, n: evidence.step_screenshot(session(), run_dir, nodeid, rec, n),
+                           on_mark=lambda rec, n, i, m: evidence.action_picture(session(), run_dir, nodeid, rec, n, i, m))
     yield
     steps.set_listener(None)
 
@@ -316,7 +323,7 @@ def pytest_runtest_makereport(item, call):
     res["duration"] = round(res["duration"] + rep.duration, 2)
     if rep.when == "call" or (rep.when == "setup" and rep.failed):
         hist = steps.history()
-        res["steps"] = [{k: v for k, v in s.items() if k != "start"} for s in hist]
+        res["steps"] = [{k: v for k, v in s.items() if k not in ("start", "marks", "_viewport")} for s in hist]
         if hist:
             rep.sections.append(("sbtest steps", _steps_section(hist)))
         failed = [s for s in hist if s["status"] == "failed"]
@@ -354,6 +361,7 @@ def pytest_runtest_makereport(item, call):
 
 def pytest_sessionfinish(session, exitstatus):
     _shared.close_except(None)
+    evidence.flush_pictures()   # step pictures are written in the background
     config = session.config
     if not config._sb_write_results:
         return
@@ -368,6 +376,6 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             from sbtest.reporting.confluence_export import export
 
-            export(path.parent)
+            export(path.parent, config._sb_cfg.get("report.confluence_step_pictures") or "failed")
         except Exception as e:  # noqa: BLE001
             log.warning("confluence export failed: %s", e)

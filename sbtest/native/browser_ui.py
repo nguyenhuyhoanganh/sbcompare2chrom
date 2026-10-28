@@ -119,6 +119,7 @@ class NativeBrowser:
 
         if focus:
             self.focus()
+        uia.mark("keys", label=keys)
         keyboard.send_keys(keys, pause=0.05)
 
     def type_text(self, text: str) -> None:
@@ -127,6 +128,7 @@ class NativeBrowser:
 
         from sbtest.native.dialogs import _escape_keys
 
+        uia.mark("type", label=repr(text))
         keyboard.send_keys(_escape_keys(text), with_spaces=True, pause=0.02)
 
     # -- elements by logical name ----------------------------------------------
@@ -157,8 +159,12 @@ class NativeBrowser:
         roots = [self.main_window()] if in_main else self.windows()
         return uia.find_in(roots, 0, **crit) is not None
 
-    def click(self, name_or_criteria, real_mouse: bool = True, timeout: float | None = None, **params) -> None:
-        el = uia.wait_actionable(self.element(name_or_criteria, timeout, **params))
+    def click(self, name_or_criteria, real_mouse: bool = True, timeout: float | None = None,
+              in_main: bool = True, **params) -> None:
+        """Click browser UI by logical name or criteria; ``in_main=False`` also searches the
+        browser's other windows (add-on popups, bubbles shown as their own window)."""
+        el = uia.wait_actionable(self.element(name_or_criteria, timeout, in_main=in_main, **params))
+        uia.mark("click", el)
         if real_mouse:
             el.click_input()
         else:
@@ -224,7 +230,9 @@ class NativeBrowser:
             mi = poll(_next(f"(?i)^{item}"), self.timeout if timeout is None else timeout, 0.3,
                       f"menu item /{item}/ (open items: {self.menu_items()})")
             clicked.append(mi.element_info.runtime_id)
-            uia.wait_actionable(mi).click_input()   # a sub menu slides open: wait until it stands still
+            uia.wait_actionable(mi)   # a sub menu slides open: wait until it stands still
+            uia.mark("menu", mi)
+            mi.click_input()
 
     def menu(self, *path: str) -> None:
         """App menu (the "..." / hamburger button) then items, e.g. ``menu("Bookmarks", "Bookmark manager")``."""
@@ -236,6 +244,7 @@ class NativeBrowser:
         from pywinauto import mouse
 
         x, y = self.web_point(web, web.find(loc))
+        uia.mark("right-click", point=(x, y))
         mouse.right_click(coords=(x, y))
         if path:
             self.select_menu_items(*path)
@@ -372,6 +381,8 @@ class NativeBrowser:
         """Real mouse drag between two screen points."""
         from pywinauto import mouse
 
+        uia.mark("drag", point=start)
+        uia.mark("drop", point=end)
         mouse.press(coords=start)
         for i in range(1, steps + 1):
             mouse.move(coords=(start[0] + (end[0] - start[0]) * i // steps,
@@ -541,7 +552,9 @@ class NativeBrowser:
         bubble = Dialog(frame or row, self.timeout)
         close = uia.find_in([bubble.el], 1, **self.criteria("download_bubble_close")) if frame else None
         if close is not None:
-            uia.wait_actionable(close).click_input()
+            uia.wait_actionable(close)
+            uia.mark("click", close)
+            close.click_input()
         else:
             bubble.press("{ESC}")
         poll(lambda: not self.exists("download_bubble_item", in_main=False), self.timeout, 0.3,

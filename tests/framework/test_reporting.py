@@ -158,3 +158,60 @@ def test_summary_lists_failures_with_evidence(tmp_path):
     assert data["failures"] == [{"case": "DL-003", "title": "Clear all", "outcome": "failed",
                                  "test": tests[1]["nodeid"], "failed_step": "3. Clear all", "error": "Timed out",
                                  "evidence": str(ev / "failure.txt")}]
+
+
+def test_marks_are_recorded_only_while_step_pictures_are_on():
+    from sbtest import steps
+
+    steps.reset()
+    with steps.step("1. Off"):
+        steps.mark("click", "A", screen=(0, 0, 10, 10))
+    assert "marks" not in steps.history()[0]
+    seen = []
+    steps.set_listener(lambda rec, n: None, on_mark=lambda rec, n, i, m: seen.append((n, i, m["kind"])))
+    try:
+        with steps.step("2. On"):
+            steps.mark("click", "Save", screen=(0, 0, 10, 10))
+            steps.mark("keys", "^d")
+    finally:
+        steps.set_listener(None)
+        steps.reset()
+    assert seen == [(2, 1, "click"), (2, 2, "keys")]   # each interaction is announced before it runs
+
+
+def test_draw_marks_frames_targets_and_lists_shortcuts():
+    from PIL import Image
+
+    from sbtest.reporting.evidence import draw_marks
+
+    img = Image.new("RGB", (800, 600), "white")
+    marks = [{"kind": "click", "label": "Save", "web": None, "screen": (1100, 400, 1200, 440)},   # screen px
+             {"kind": "type", "label": "'abc'", "web": (10, 20, 100, 30, 2.0), "screen": None},  # CSS px, dpr 2
+             {"kind": "keys", "label": "^d", "web": None, "screen": None}]                       # no place
+    draw_marks(img, marks, origin=(1000, 300), viewport=(50, 60))
+    red = lambda xy: img.getpixel(xy)[0] > 200 and img.getpixel(xy)[1] < 60
+    # frames sit 3 px outside the target so they never hide it
+    assert red((100 - 2, 120)) and not red((100 + 5, 120))     # click: left edge at 1100-1000
+    assert red((50 + 20 - 2, 60 + 40 + 30))                    # type: viewport + x*dpr, mid height
+    assert img.getpixel((5, 5)) != (255, 255, 255)   # shortcut listed in the strip at the top
+
+
+def test_confluence_step_pictures_of_failed_cases_by_default(tmp_path):
+    from PIL import Image
+
+    from sbtest.reporting.confluence_export import export
+
+    run, results = _run_with_failure(tmp_path)
+    pics = []
+    for t in results["tests"]:
+        p = tmp_path / f"{t['name']}_01-1_click.jpg"
+        Image.new("RGB", (40, 20), "white").save(p)
+        pics.append(p)
+        t["steps"] = [{"status": t["outcome"], "title": "1. Do", "pictures": [str(p)]}]
+    (run / "results.json").write_text(json.dumps(results), encoding="utf-8")
+    for mode, expected in (("failed", {"ADD-002"}), ("all", {"ADD-001", "ADD-002"}), ("none", set())):
+        out = export(run, mode)
+        names = json.loads((out / "manifest.json").read_text())["attachments"]
+        cases = {n.split("/")[-1].split("_")[0] for n in names if "_01-1_" in n}
+        assert cases == expected, mode
+        assert (('ac:name="expand"' in (out / "page.storage.html").read_text(encoding="utf-8")) == bool(expected))

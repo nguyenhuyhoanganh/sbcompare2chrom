@@ -34,15 +34,150 @@ def can_grab_screen(cfg) -> bool:
     return os.name == "nt" and not cfg.get("browser.headless")
 
 
-def step_screenshot(session, run_dir: Path, nodeid: str, rec: dict, n: int) -> None:
-    """``--screenshot-steps``: picture of the tab (and the browser windows on Windows) after a step."""
-    if session is None or session.driver is None or session.web.has_alert():
+# --screenshot-steps pictures: the screen is grabbed on the test's thread (it must show the
+# moment), frames are drawn and the JPEG written on one background thread (flush_pictures()).
+STEP_PICTURE_WIDTH = 1600
+_pool = None
+_pending: list = []
+
+
+def _save_later(img, marks, path: Path, first: int = 1, **where) -> None:
+    global _pool
+    if _pool is None:
+        from concurrent.futures import ThreadPoolExecutor
+
+        _pool = ThreadPoolExecutor(1, thread_name_prefix="sbtest-pictures")
+
+    def job():
+        try:
+            draw_marks(img, marks, first=first, **where)
+        except Exception as e:  # noqa: BLE001 - a picture aid never fails a test
+            log.warning("step picture frames failed: %s", e)
+        out = img.convert("RGB")
+        if out.width > STEP_PICTURE_WIDTH:
+            out = out.resize((STEP_PICTURE_WIDTH, out.height * STEP_PICTURE_WIDTH // out.width))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        out.save(path, "JPEG", quality=85)
+
+    _pending.append(_pool.submit(job))
+
+
+def flush_pictures() -> None:
+    """Wait until every step picture is written (before the report reads them)."""
+    while _pending:
+        try:
+            _pending.pop(0).result(timeout=60)
+        except Exception as e:  # noqa: BLE001
+            log.warning("step picture not written: %s", e)
+
+
+def _grab(session, rec: dict, need_viewport: bool) -> tuple | None:
+    """(image, where) of what the user sees now: the browser windows on Windows (page, toolbar,
+    bubbles, dialogs), else the tab. ``where`` places the frames (see draw_marks)."""
+    from io import BytesIO
+
+    from PIL import Image, ImageGrab
+
+    if can_grab_screen(session.cfg) and session.native is not None:
+        try:
+            native = session.native
+            box = native.window_rect()
+            img = ImageGrab.grab(bbox=box, all_screens=True)
+            viewport = None
+            if need_viewport:   # a UIA lookup: once per step and window position
+                cache = rec.setdefault("_viewport", {})
+                if box not in cache:
+                    vx, vy = native.viewport_origin()
+                    cache[box] = (vx - box[0], vy - box[1])
+                viewport = cache[box]
+            return img, {"origin": box[:2], "viewport": viewport}
+        except Exception as e:  # noqa: BLE001 - fall back to the tab picture
+            log.debug("step screen grab failed: %s", e)
+    if session.web.has_alert():
+        return None
+    img = Image.open(BytesIO(session.driver.get_screenshot_as_png()))
+    return img, {"origin": (0, 0), "viewport": (0, 0), "web_only": True}
+
+
+def action_picture(session, run_dir: Path, nodeid: str, rec: dict, n: int, i: int, mark: dict) -> None:
+    """Picture taken right BEFORE interaction ``i`` of step ``n``, with a red frame on its
+    target (the menu or dialog is still open then) -> ``steps/<test>/NN-I_<kind>.jpg``."""
+    if session is None or session.driver is None:
         return
-    out = run_dir / "steps" / slug(nodeid, 150)
-    name = f"{n:02d}_{rec['status']}_{slug(rec['title'], 50)}"
-    rec["screenshot"] = str(session.web.screenshot(out / f"{name}.png"))
-    if can_grab_screen(session.cfg):
-        rec["screen"] = str(screen_grab(out / f"{name}_screen.png", session, session.cfg))
+    grabbed = _grab(session, rec, need_viewport=bool(mark.get("web")))
+    if grabbed is None:
+        return
+    path = run_dir / "steps" / slug(nodeid, 150) / f"{n:02d}-{i}_{slug(mark['kind'], 20)}.jpg"
+    rec.setdefault("pictures", []).append(str(path))
+    _save_later(grabbed[0], [mark], path, first=i, **grabbed[1])
+
+
+def step_screenshot(session, run_dir: Path, nodeid: str, rec: dict, n: int) -> None:
+    """Picture of how step ``n`` ended -> ``steps/<test>/NN_<status>_<step>.jpg`` (its
+    interactions have their own pictures, see action_picture)."""
+    if session is None or session.driver is None:
+        return
+    grabbed = _grab(session, rec, need_viewport=False)
+    if grabbed is None:
+        return
+    path = run_dir / "steps" / slug(nodeid, 150) / f"{n:02d}_{rec['status']}_{slug(rec['title'], 50)}.jpg"
+    rec["screenshot"] = str(path)
+    _save_later(grabbed[0], [], path, **grabbed[1])
+
+
+def _font(size: int):
+    from PIL import ImageFont
+
+    for name in ("segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf"):
+        try:
+            return ImageFont.truetype(name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def draw_marks(img, marks: list[dict], origin: tuple[int, int] = (0, 0),
+               viewport: tuple[int, int] | None = None, web_only: bool = False, first: int = 1):
+    """Draw a numbered red frame + "N kind label" tag for each mark on the PIL image ``img``.
+
+    ``web`` marks (viewport CSS px + devicePixelRatio) are placed at ``viewport`` (the page's
+    top-left corner in the picture); ``screen`` marks are shifted by ``origin`` (the screen
+    point of the picture's top-left corner). Marks without a place (keyboard shortcuts) and
+    marks outside the picture are listed in a strip at the top."""
+    if not marks:
+        return img
+    from PIL import ImageDraw
+
+    draw = ImageDraw.Draw(img)
+    width = max(3, img.width // 500)
+    font = _font(max(14, img.width // 90))
+    listed: list[str] = []
+    for i, m in enumerate(marks, first):
+        tag = f"{i} {m['kind']}" + (f" {m['label']}" if m.get("label") else "")
+        box = None
+        if m.get("web") and viewport is not None:
+            x, y, w, h, dpr = m["web"]
+            box = (viewport[0] + x * dpr, viewport[1] + y * dpr, viewport[0] + (x + w) * dpr, viewport[1] + (y + h) * dpr)
+        elif m.get("screen") and not web_only:
+            l, t, r, b = m["screen"]
+            box = (l - origin[0], t - origin[1], r - origin[0], b - origin[1])
+        inside = box is not None and box[2] > 0 and box[3] > 0 and box[0] < img.width and box[1] < img.height
+        if not inside:
+            if not (web_only and m.get("screen")):   # browser-UI marks belong to the screen picture
+                listed.append(tag)
+            continue
+        l, t, r, b = (int(v) for v in box)
+        draw.rectangle((l - width, t - width, r + width, b + width), outline=(230, 0, 0), width=width)
+        tw, th = draw.textbbox((0, 0), tag, font=font)[2:]
+        ty = t - th - 2 * width - 4 if t - th - 2 * width - 4 >= 0 else b + width + 2   # above, else below
+        draw.rectangle((l - width, ty, l - width + tw + 8, ty + th + 4), fill=(230, 0, 0))
+        draw.text((l - width + 4, ty + 1), tag, fill="white", font=font)
+    if listed:
+        text = "   ".join(listed)
+        tw, th = draw.textbbox((0, 0), text, font=font)[2:]
+        draw.rectangle((0, 0, tw + 12, th + 8), fill=(30, 30, 30))
+        draw.text((6, 3), text, fill="white", font=font)
+    return img
 
 
 def result_screenshot(session, cfg, run_dir: Path, nodeid: str) -> str:

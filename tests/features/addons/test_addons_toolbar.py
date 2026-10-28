@@ -57,10 +57,9 @@ def test_popup_from_toolbar_icon(web, native, site):
     pin(native)
     with step("1. Click the add-on icon", expected="popup 'SB Sample Addon' with 'Clicked 0'"):
         native.click("extension_action", name=ADDON)
-        counter = native.element(POPUP_COUNTER, in_main=False)
-        assert counter.element_info.name == "Clicked 0"
+        assert native.element(POPUP_COUNTER, in_main=False).element_info.name == "Clicked 0"
     with step("2. Click the popup button", expected="'Clicked 1' - the popup page runs"):
-        counter.click_input()
+        native.click(POPUP_COUNTER, in_main=False)
         web.wait_until(lambda: native.element(POPUP_COUNTER, in_main=False).element_info.name == "Clicked 1",
                        message="popup counter incremented")
 

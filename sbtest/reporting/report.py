@@ -108,6 +108,27 @@ def _copy_images(rows: list[Row], out: Path, max_width: int = 1600) -> None:
             name = name[:-4] + src.suffix
             shutil.copyfile(src, img_dir / name)
         r.image = done[str(src)] = f"img/{name}"
+    _copy_step_pictures(rows, img_dir)
+
+
+def _copy_step_pictures(rows: list[Row], img_dir: Path) -> None:
+    """``--screenshot-steps`` pictures (already small JPEGs) -> report/img/steps/<test>/, and
+    each executed step gets ``imgs``: [(label, path inside report/)] for the HTML gallery."""
+    for r in rows:
+        for st in r.executed:
+            pics = [(Path(p).stem.split("_", 1)[-1], p) for p in st.get("pictures") or []]   # "click", "type" ...
+            if st.get("screenshot"):
+                pics.append(("result", st["screenshot"]))
+            st["imgs"] = []
+            for label, src in pics:
+                src = Path(src)
+                if not src.exists():
+                    continue
+                dst = img_dir / "steps" / slug(r.test, 120) / src.name
+                if not dst.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(src, dst)
+                st["imgs"].append((label, dst.relative_to(img_dir.parent).as_posix()))
 
 
 # ---------------------------------------------------------------------------------- HTML
@@ -131,6 +152,7 @@ td ol,td ul{margin:0;padding-left:18px}.id{font-weight:700;white-space:nowrap}.m
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
 .r-passed{background:var(--pass)}.r-failed,.r-error{background:var(--fail)}.r-skipped{background:var(--skip)}
 .err{color:var(--fail);margin-top:6px;white-space:pre-wrap;word-break:break-word}.shot img{width:220px;border:1px solid var(--line);border-radius:4px}
+.stepsbox{margin-top:6px}.stepsbox .step{margin:6px 0}.thumbs img{width:150px;margin:2px 4px 0 0;border:1px solid var(--line);border-radius:3px}
 .feat{color:var(--muted);font-weight:400;font-size:14px}tr.fail-row td{background:#fff5f5}
 """
 
@@ -167,10 +189,18 @@ def write_html(rows: list[Row], meta: dict, out: Path) -> Path:
                 if r.failed_step:
                     res += f"<div class='err'><b>Failed at:</b> {_e(r.failed_step)}</div>"
                 res += f"<div class='err'>{_e(r.error)}</div>"
-                if r.executed:
+                if r.executed and not any(x.get("imgs") for x in r.executed):
                     res += "<ol class='muted'>" + "".join(f"<li>[{_e(x['status'])}] {_e(x['title'])}</li>" for x in r.executed) + "</ol>"
             elif r.result == "skipped":
                 res += f"<div class='muted'>{_e(r.error)}</div>"
+            if any(x.get("imgs") for x in r.executed):   # --screenshot-steps: a picture per interaction
+                n = sum(len(x["imgs"]) for x in r.executed)
+                res += f"<details class='stepsbox'><summary>Step pictures ({n})</summary>"
+                for x in r.executed:
+                    thumbs = "".join(f"<a href='{_e(src)}' target='_blank' title='{_e(label)}'>"
+                                     f"<img src='{_e(src)}' loading='lazy' alt='{_e(label)}'></a>" for label, src in x.get("imgs", []))
+                    res += f"<div class='step'><b>[{_e(x['status'])}]</b> {_e(x['title'])}<div class='thumbs'>{thumbs}</div></div>"
+                res += "</details>"
             shot = f"<a href='{_e(r.image)}' target='_blank'><img src='{_e(r.image)}' loading='lazy' alt='result'></a>" if r.image else ""
             desc = f"<div>{_e(r.title)}</div>" + (f"<div class='muted'>{_e(r.description)}</div>" if r.description else "") \
                    + f"<div class='muted'>{_e(r.priority)} {_e(r.type)}</div>"

@@ -27,7 +27,8 @@ python run.py --feature addons,bookmarks           # addons, bookmarks, download
 python run.py --case ADD-001,BM-004
 python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
-python run.py --all --screenshot-steps             # picture after every step
+python run.py --all --screenshot-steps             # picture per interaction (framed) + per step
+python run.py --all --screenshot-steps --confluence-steps all   # ... all of them on Confluence
 python run.py --list                               # cases and automation status
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 python run.py --case BM-004 --raw                  # pytest's own output (tracebacks, logs) to debug
@@ -50,11 +51,11 @@ elsewhere) the evidence of a failure before re-running it.
 |------|---------|
 | `report/index.html` | **the build's sanity report**: verdict, build info, one row per case (steps, expected, result, screenshot); the `report/` folder can be zipped and shared |
 | `report/report.md` | same report in Markdown |
-| `confluence/` | the same report as a Confluence page: `manifest.json` (title), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test) |
+| `confluence/` | the same report as a Confluence page: `manifest.json` (title, attachments), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test + step pictures of failed cases, or of all / none: `--confluence-steps`, config `report.confluence_step_pictures`) |
 | `results.json` | every test: outcome, case ids, steps, failed step, error, screenshot, evidence paths |
 | `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (browser windows incl. native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
 | `results/<test>.png` | final screenshot of every passed test (used by the report) |
-| `steps/<test>/` | per-step screenshots (`--screenshot-steps`) |
+| `steps/<test>/` | `--screenshot-steps`: `NN-I_<kind>.jpg` right before each interaction, its target framed in red; `NN_<status>_<step>.jpg` how each step ended (also in the report) |
 | `report.html` | raw pytest-html report |
 | `logs/` | chromedriver logs (`profiles/` too with `--keep-profile`) |
 

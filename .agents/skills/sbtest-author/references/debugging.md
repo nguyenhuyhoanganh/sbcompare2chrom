@@ -14,9 +14,17 @@ Every failed test writes `artifacts/test-results/failures/<test id>/` (latest ru
 | `screen.png` | the browser's windows as on screen: frame + native dialogs/bubbles/prompts/menus (other apps and monitors left out; `report.screen_capture: screen` for every monitor, e.g. to see File Explorer) |
 | `uia.txt` | UIA tree of all browser windows - Windows |
 
-`--screenshot-steps` (run.py or pytest) also writes `steps/<test>/NN_<status>_<step>.png`
-(+ `_screen.png`) after every `step()`. `results.json` holds every test's outcome, steps
-and evidence paths (used by the Confluence report).
+`--screenshot-steps` (run.py or pytest) writes `steps/<test>/` (also linked from the report,
+"Step pictures" under each case):
+- `NN-I_<kind>.jpg` - taken right BEFORE interaction I of step NN, with a numbered red frame
+  on its target ("2 click Add bookmark", "1 type 'renamed.txt'"); the menu, toast or dialog it
+  acts on is still open. Shortcuts and typed keys without a target are listed in a dark strip
+  at the top ("1 keys ^d").
+- `NN_<status>_<step>.jpg` - how step NN ended.
+
+Use them to see what a test really touched: a frame on the wrong element = a wrong locator or
+ui-map entry even when the test passes. `results.json` holds every test's outcome, steps
+and evidence paths (used by the report and the Confluence page).
 
 The run output names the failed step under each `[FAIL]`; `run.py --raw` shows pytest's own
 output instead (traceback, a `sbtest steps` section, captured logs). The chromedriver log is

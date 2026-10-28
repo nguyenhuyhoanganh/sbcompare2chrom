@@ -88,6 +88,25 @@ def _rect(el) -> tuple[int, int, int, int]:
     return (r.left, r.top, r.right, r.bottom)
 
 
+def mark(kind: str, el=None, label: str = "", point: tuple[int, int] | None = None) -> None:
+    """Record where a native action happens for the step screenshot (only while recording):
+    the element's screen rectangle, a small box around ``point``, or no box (shortcuts)."""
+    from sbtest import steps
+
+    if not steps.recording():
+        return
+    screen = None
+    try:
+        if el is not None:
+            screen = _rect(el)
+            label = label or (el.element_info.name or "").split("\n")[0]
+        elif point is not None:
+            screen = (point[0] - 12, point[1] - 12, point[0] + 12, point[1] + 12)
+    except Exception:  # noqa: BLE001 - only a picture aid
+        pass
+    steps.mark(kind, label, screen=screen)
+
+
 def wait_actionable(el, timeout: float = 5, interval: float = 0.1):
     """Wait until ``el`` can take a click like a user would: enabled, on screen, with a size,
     and at the same place on two checks in a row (menus, bubbles and panels slide or grow

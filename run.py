@@ -49,7 +49,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scope", choices=["function", "module", "session"], help="browser reuse scope")
     p.add_argument("--reruns", type=int, default=0, help="re-run failed tests N times (separate flakes)")
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
-    p.add_argument("--screenshot-steps", action="store_true", help="screenshot after every test step")
+    p.add_argument("--screenshot-steps", action="store_true",
+                   help="a picture before every click/typing (target framed in red) and after every step")
+    p.add_argument("--confluence-steps", choices=["failed", "all", "none"],
+                   help="which cases get their step pictures on the Confluence page (default: failed)")
     p.add_argument("--raw", action="store_true",
                    help="pytest's own output (tracebacks, captured logs) instead of one line per test")
     p.add_argument("--list", action="store_true", help="print test cases and automation status, then exit")
@@ -69,7 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     if importlib.util.find_spec("pytest_html"):  # optional; find_spec avoids importing it too early
         pargs += [f"--html={run_dir / 'report.html'}", "--self-contained-html"]
     for flag, value in (("--exe", args.exe), ("--driver", args.driver), ("--feature", args.feature),
-                        ("--case", args.case), ("--browser-scope", args.scope)):
+                        ("--case", args.case), ("--browser-scope", args.scope),
+                        ("--confluence-steps", args.confluence_steps)):
         if value:
             pargs += [flag, value]
     for flag, on in (("--headless", args.headless), ("--keep-profile", args.keep_profile),

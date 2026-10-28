@@ -122,6 +122,7 @@ class BookmarksPage(BasePage):
             "let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement)"
             " a = a.shadowRoot.activeElement; return a && a.id === 'input' && a.getAttribute('aria-label') === arguments[0]",
             new), message=f"{new!r} name field focused")
+        self.web._mark("type", self.web.focused(), repr(name))   # frame for --screenshot-steps
         ActionChains(self.web.driver).key_down(Keys.CONTROL).send_keys("a").key_up(Keys.CONTROL) \
             .send_keys(name).send_keys(Keys.ENTER).perform()
         self.web.wait_until(lambda: name in self.folders(), message=f"folder {name!r} in tree")

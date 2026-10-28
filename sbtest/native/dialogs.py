@@ -44,6 +44,7 @@ class Dialog:
 
     def _press(self, b, real_mouse: bool = False) -> None:
         uia.wait_actionable(b)
+        uia.mark("click", b)
         if real_mouse or b.element_info.class_name != "Button":
             # browser (Views) bubbles drop clicks that come too soon after they are shown and
             # ignore UIA Invoke: wait until that window is over, then use the real mouse.
@@ -139,6 +140,7 @@ class FileDialog(Dialog):
         # Keystrokes are occasionally dropped while the path autocomplete pops up: check the
         # field and type again, slower, when it does not hold the full path.
         edit = self._filename_edit()
+        uia.mark("type", edit, Path(str(path)).name)
         for pause in (0.01, 0.04, 0.08):
             edit.set_focus()
             edit.type_keys("^a{BACKSPACE}" + _escape_keys(str(path)), with_spaces=True, pause=pause)
@@ -159,7 +161,9 @@ class FileDialog(Dialog):
         if btn is None:
             self.press("{ENTER}")
         else:
-            uia.wait_actionable(btn).click_input()
+            uia.wait_actionable(btn)
+            uia.mark("click", btn)
+            btn.click_input()
 
     def save_as(self, path: str | Path, overwrite: bool = True) -> Path:
         path = Path(path)

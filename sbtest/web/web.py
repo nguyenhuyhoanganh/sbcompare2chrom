@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+from sbtest import steps
 from sbtest.web.actions import ActionsMixin
 from sbtest.web.navigation import NavigationMixin
 from sbtest.web.reader import ReaderMixin
@@ -36,6 +37,18 @@ class Web(WaitsMixin, ActionsMixin, ReaderMixin, NavigationMixin):
             return True
         except Exception:  # noqa: BLE001 - stale / detached element
             return False
+
+    def _mark(self, kind: str, el, label: str = "") -> None:
+        """Record where this action happens, for the step screenshot (only when recording)."""
+        if not steps.recording() or el is None:
+            return
+        try:
+            rect = self.driver.execute_script(
+                "const r = arguments[0].getBoundingClientRect();"
+                "return [r.left, r.top, r.width, r.height, window.devicePixelRatio];", el)
+            steps.mark(kind, label, web=tuple(rect))
+        except Exception:  # noqa: BLE001 - only a picture aid
+            pass
 
     @property
     def native(self):
