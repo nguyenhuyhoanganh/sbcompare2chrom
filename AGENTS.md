@@ -26,6 +26,7 @@
 - One folder per feature in `tests/features/<feature>/`: its case docs (`<area>.md`, sanity
   cases `sanity.md`, browser-UI flows `toolbar.md`; case IDs are given by the team) and its tests (`test_*.py`).
 - Framework self-tests (no browser): `python -m pytest tests/framework -q`.
-- Never put selectors, internet:// URLs, machine paths or native UI names in tests.
+- Never put product selectors, internet:// URLs, machine paths or UIA criteria in tests (what a
+  test may contain: `sbtest-author`, "Hard rules").
 - Explore before writing selectors: `python -m sbtest.tools.dom <page> --interactive`,
   `python -m sbtest.tools.uia_dump`.

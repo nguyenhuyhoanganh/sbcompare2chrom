@@ -1,6 +1,6 @@
 ---
 name: sbtest
-description: Guides a full sanity check of a Samsung Internet / Samsung Browser for Windows build step by step - asks which part to test (all, sanity pass, features, case IDs), asks for the SamsungInternet.exe path and the Confluence destination, checks the machine, runs the sbtest suite, triages failures and publishes the report as a Confluence page with the managing-jira-confluence skill. Use when the user wants to test a build end to end, check a new build after a Chromium merge, or "run the tests and put the result on Confluence".
+description: Guides a full sanity check of a Samsung Internet / Samsung Browser for Windows build step by step - asks which part to test (all, sanity pass, features, case IDs) and whether to record a video or pictures of each test, asks for the SamsungInternet.exe path and the Confluence destination, checks the machine, runs the sbtest suite, triages failures and publishes the report as a Confluence page with the managing-jira-confluence skill. Use when the user wants to test a build end to end, check a new build after a Chromium merge, or "run the tests and put the result on Confluence".
 ---
 
 # Sanity workflow: questions -> run -> report -> Confluence
@@ -132,9 +132,10 @@ Use the **managing-jira-confluence** skill to create a NEW page under the destin
 - body: `page.storage.html` (Confluence storage format); use `page.md` only if the skill
   takes Markdown
 - upload every file listed in `attachments` of `manifest.json` (= every file of `attachments/`)
-  to that page - the body references them by file name; with step pictures these include
-  `<case>_NN-I_<kind>.jpg`, shown in one collapsed "Expand" block per case under each table.
-  Many files: upload them in batches if the skill limits a call, and check the count
+  to that page - the body references them by file name: result screenshots, and when recorded
+  `<case>_<test>.mp4` videos (played by the Multimedia macro) and `<case>_NN-I_<kind>.jpg`
+  step pictures, in one collapsed "Expand" block per case under each table. Many files:
+  upload them in batches if the skill limits a call, and check the count
 - failures triaged -> add a "Triage" section: case id | bucket | reason
 
 The skill is not available -> stop and give the user the folder

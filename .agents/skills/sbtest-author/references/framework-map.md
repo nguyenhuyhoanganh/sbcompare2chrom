@@ -1,7 +1,8 @@
 # Framework map
 
 ```
-run.py                         CLI: --all | --feature a,b | --case ID,ID, --sanity, --reruns, --screenshot-steps
+run.py                         CLI: --all | --feature a,b | --case ID,ID, --sanity, --reruns, --record,
+                               --screenshot-steps, --confluence-steps, --raw
 setup.bat                      prepare a machine: venv + requirements, browser.exe, doctor check
                                (gets chromedriver) -> READY / NOT READY; tests run separately
 config/

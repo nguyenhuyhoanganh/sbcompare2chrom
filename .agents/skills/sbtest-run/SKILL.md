@@ -29,7 +29,6 @@ python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
 python run.py --all --record                       # a video per test (step caption, framed clicks)
 python run.py --all --screenshot-steps             # picture per interaction (framed) + per step
-python run.py --all --screenshot-steps --confluence-steps all   # ... all of them on Confluence
 python run.py --list                               # cases and automation status
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 python run.py --case BM-004 --raw                  # pytest's own output (tracebacks, logs) to debug
@@ -52,7 +51,7 @@ elsewhere) the evidence of a failure before re-running it.
 |------|---------|
 | `report/index.html` | **the build's sanity report**: verdict, build info, one row per case (steps, expected, result, screenshot); the `report/` folder can be zipped and shared |
 | `report/report.md` | same report in Markdown |
-| `confluence/` | the same report as a Confluence page: `manifest.json` (title, attachments), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test + step pictures of failed cases, or of all / none: `--confluence-steps`, config `report.confluence_step_pictures`) |
+| `confluence/` | the same report as a Confluence page: `manifest.json` (title, attachments), `page.storage.html`, `page.md`, `attachments/` (one screenshot per test + videos / step pictures of failed cases, or of all / none: `--confluence-steps`) |
 | `results.json` | every test: outcome, case ids, steps, failed step, error, screenshot, evidence paths |
 | `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (browser windows incl. native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
 | `results/<test>.png` | final screenshot of every passed test (used by the report) |
@@ -71,8 +70,9 @@ Refresh the case overview with the latest results: `python -m sbtest.tools.case_
 2. **UI changed, test outdated** - same behaviour, different markup/labels after the merge.
    Fix the page object (`sbtest/pages/`) or `config/native_ui.yaml`
    (`.agents/skills/sbtest-author/references/debugging.md`), re-run the feature.
-3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine.
-   Fix it as the `fix:` lines of `setup.bat` say, re-run.
+3. **Environment** - driver/browser mismatch, locked desktop, proxy, crash of the machine,
+   another window in front ("keyboard input would go to <process>"). Fix it as the `fix:`
+   lines of `setup.bat` say (or free the desktop), re-run.
 4. **Flaky test** - passes on re-run with no product change: find the race (missing wait,
    stale list read, shared data) and fix it; never add sleeps.
 

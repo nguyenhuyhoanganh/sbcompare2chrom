@@ -8,7 +8,6 @@ pywinauto missing).
 
 - Discover before you write
 - API
-- Patterns (runnable examples: `tests/features/*/test_*_toolbar.py`, `test_*_sanity.py`)
 - Traps
 
 ## Discover before you write
@@ -49,22 +48,24 @@ native.hotkey("^d")            # browser shortcut (focuses the frame first). ^ C
 native.hotkey("^+{DELETE}")    # Ctrl+Shift+Del ; {ENTER} {ESC} {TAB} {F5} {DOWN}
 native.type_text("literal text")
 native.click("bookmark_star")  # logical name from config/native_ui.yaml, or a criteria dict
+native.click(criteria, in_main=False)   # an element in another browser window (add-on popup)
 native.element("omnibox") / native.exists("downloads_button")
 native.navigate(url)           # Ctrl+L, type, Enter - like a user in the address bar
-native.focus_page()            # focus out of the omnibox into the page (155+: star hidden while omnibox focused)
+native.focus_page()            # focus out of the omnibox into the page (the star is hidden while it has focus)
 native.close_download_bubble() # X of the Downloads bubble that opens after a download (covers the page toolbar)
 native.omnibox_text()
 native.tab_titles()
 native.menu("Bookmarks", "Bookmark manager")   # app menu path (regex prefix per item)
-native.select_menu_items("Open link in new tab")   # in an already open native menu
+native.select_menu_items("Open in new tab")   # in an already open native menu
 native.menu_items()            # names in the open menu(s)
-native.context_menu_web(web, "#link", "Open link in new tab")   # real right click on DOM element
+native.context_menu_web(web, "#next", "Open in new tab")   # real right click on DOM element
 
 dlg = native.wait_dialog("bookmark_added")     # logical name (native_ui map "dialogs") or regex
 dlg.texts() / dlg.text() / dlg.title
 dlg.click("Done") / dlg.click_any("Allow while visiting", "Allow") / dlg.set_checkbox("Show bookmarks bar", True)
 dlg.set_text("x") (first Edit) / dlg.set_text("x", title_re="(?i)user") / dlg.set_text("x", auto_id="..")
 dlg.press("{ESC}") / dlg.close() / dlg.wait_closed() / dlg.dump()
+native.wait_dialog_gone("bookmark_added")      # before clicking what a toast/bubble is anchored to
 
 fd = native.file_dialog("save")   # Windows common dialog opened by the browser
 fd.save_as(tmp_path / "page.html")  # handles "replace?" confirmation
@@ -85,54 +86,14 @@ native.drag_file_from_explorer(path, web=web, target=loc)   # real OS file drag 
 native.screenshot(path) / native.dump(path) / native.close_stray_dialogs()
 ```
 
-## Patterns (runnable examples: `tests/features/*/test_*_toolbar.py`, `test_*_sanity.py`)
-
-**Toast / bubble after a shortcut** (Samsung: Ctrl+D shows a "Page bookmarked." toast with Edit)
-```python
-native.hotkey("^d")
-toast = native.wait_dialog("bookmark_added")
-assert any("bookmarked" in t.lower() for t in toast.texts())
-toast.click("Edit")                           # -> edit bubble: Bookmark name / URL, Save
-```
-
-**Download with "Ask where to save" on**
-```python
-@pytest.mark.browser(prefs={"download.prompt_for_download": True})
-...
-web.click("#dl-txt")
-native.file_dialog("save").save_as(downloads_dir / "renamed.txt")
-web.wait_file(downloads_dir, "renamed.txt")
-```
-
-**Native action that opens a tab** -> sync Selenium:
-```python
-before = web.tabs; native.hotkey("^h"); web.wait_new_tab(before)
-```
-
-**Native confirmation from a WebUI page** (e.g. Remove extension):
-```python
-pages.extensions.click_remove(name)
-native.wait_dialog("remove_extension").click("Remove")
-pages.extensions.wait_gone(name)
-```
-
-**Upload through a page button (Windows Open dialog)**
-```python
-web.click("#pick")                         # page calls input.click()
-native.file_dialog("open").open(f1, f2)    # one or several files of one folder
-```
-
-**HTTP sign-in prompt**
-```python
-web.open(site.url("/basic-auth"), blocking=False)
-dlg = native.wait_dialog("http_auth")
-dlg.set_text("sbtest", title_re="(?i)user"); dlg.set_text("sbtest", title_re="(?i)pass"); dlg.click("Sign in")
-```
+Runnable examples of every interaction: the tests in `tests/features/` (`test_*_toolbar.py`
+for toolbar, bubbles and popups) and the action catalogue of the `sbtest-explore` skill.
 
 ## Traps
 
-- Native input needs the browser window in the foreground on an unlocked desktop.
-  Do not run native tests over RDP minimized / with screen locked; use a real or VM session.
+- Native input needs the browser window in the foreground on an unlocked desktop (not a
+  minimized RDP session). Shortcuts bring the browser back first; typing fails with "keyboard
+  input would go to <process>" when another window is in front.
 - Keep windows unique: the framework identifies windows by the browser PID; don't
   run a manual Samsung Internet instance with the same profile.
 - Clicks: every native click waits until the element is enabled, on screen and still;

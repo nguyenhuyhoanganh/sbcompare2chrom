@@ -43,11 +43,11 @@ def test_delete_and_undo(pages):
   outside the profile you created (files outside `tmp_path`/`downloads_dir`, windows of
   other apps).
 
-## Act through the framework (step pictures)
+## Act through the framework (step pictures, videos)
 
 Tests and page objects act only through `web.*`, `native.click` / `menu` / `hotkey` /
 `type_text` / `file_dialog(...)` and dialog helpers: these record each interaction, so
-`--screenshot-steps` frames it. A raw `element.click_input()`, `invoke()`, `send_keys` or
+`--screenshot-steps` and `--record` frame it. A raw `element.click_input()`, `invoke()`, `send_keys` or
 `ActionChains` gets no frame - use `native.click(criteria, in_main=False)` for elements in
 other browser windows (add-on popups).
 
@@ -55,8 +55,9 @@ Adding a new action to the framework: record it right before it acts -
 `self._mark("kind", element, "label")` in `sbtest/web/*` (web element),
 `uia.mark("kind", element_or_None, "label", point=(x, y))` in `sbtest/native/*` (screen).
 The picture is taken at that moment and the frame drawn later on a background thread
-(`sbtest/reporting/evidence.py`); recording costs nothing unless `--screenshot-steps` is on.
-Self-tests: `tests/framework/test_reporting.py` (marks, frame drawing).
+(`sbtest/reporting/evidence.py`, video: `sbtest/reporting/video.py`); recording costs
+nothing unless `--screenshot-steps` or `--record` is on. Self-tests:
+`tests/framework/test_reporting.py` (marks, frame drawing, videos in the report).
 
 ## Imports used by tests
 
@@ -75,6 +76,5 @@ Under the case in `tests/features/<feature>/<file>.md` set
 
 ## Before you finish
 
-- `python run.py --case <IDs>` green 4x in a row on the real build.
-- `python -m pytest tests/framework -q` green if you touched `sbtest/`.
-- `python -m sbtest.tools.coverage --feature <feature>` shows the IDs as OK.
+Step 4 of the `sbtest-explore` skill (green 4x, feature green, case + overview updated), and
+`python -m pytest tests/framework -q` green if you touched `sbtest/` or the skills.

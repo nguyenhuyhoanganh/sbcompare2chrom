@@ -22,9 +22,10 @@ Every failed test writes `artifacts/test-results/failures/<test id>/` (latest ru
   at the top ("1 keys ^d").
 - `NN_<status>_<step>.jpg` - how step NN ended.
 
-Use them to see what a test really touched: a frame on the wrong element = a wrong locator or
-ui-map entry even when the test passes. `results.json` holds every test's outcome, steps
-and evidence paths (used by the report and the Confluence page).
+`--record` writes `videos/<test>.mp4` instead: the same frames and the running step as a
+caption. Use either to see what a test really touched: a frame on the wrong element = a
+wrong locator or ui-map entry even when the test passes. `results.json` holds every test's
+outcome, steps and evidence paths (used by the report and the Confluence page).
 
 The run output names the failed step under each `[FAIL]`; `run.py --raw` shows pytest's own
 output instead (traceback, a `sbtest steps` section, captured logs). The chromedriver log is
@@ -59,7 +60,8 @@ python -m sbtest.tools.uia_dump --url <page> --keys "^d" --find "(?i)done"
 python run.py --case BM-004 --raw --keep-profile -- -x -s --log-cli-level=INFO
 ```
 
-`--keep-profile` leaves `artifacts/test-results/profiles/<test>_xxxx` - open it with the exe
+`--keep-profile` leaves `artifacts/test-results/profiles/<test>_xxxx` (or
+`%LOCALAPPDATA%\sbtest\profiles\` when the repo folder is deep) - open it with the exe
 (`SamsungInternet.exe --user-data-dir=<dir>`) to look at the state by hand.
 
 ## After a Chromium merge

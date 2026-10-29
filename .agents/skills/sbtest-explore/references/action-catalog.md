@@ -74,7 +74,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 |---|---|
 | Ctrl+D -> toast "Page bookmarked." / "Bookmark added to ..." | `native.hotkey("^d"); toast = native.wait_dialog("bookmark_added")` |
 | toast > Edit -> rename | `toast.click("Edit")`, field `native.element("bookmark_edit_name", in_main=False)` (focus, `native.hotkey("^a", focus=False)`, `native.type_text(...)`), `native.click("bookmark_edit_save")` |
-| is the page bookmarked (star) | `native.focus_page()` first (155+: no star while the omnibox has focus), then `native.exists("bookmark_star_filled")` |
+| is the page bookmarked (star) | `native.focus_page()` first (no star while the omnibox has focus; it takes the focus back when a toast closes - wait for the star, refocusing: BM-114), then `native.exists("bookmark_star_filled")` |
 | remove with the star | `native.wait_dialog_gone("bookmark_added")` (while the toast shows, a click on the star only closes it), then `native.click("bookmark_star_filled")` |
 | Bookmarks panel (toolbar) | `native.click("bookmarks_button")`; folder `native.click("bookmarks_panel_folder", name="Bookmark bar")`; bookmark `native.click("bookmarks_panel_item", name="X")`; buttons `"bookmarks_panel_add_page"`, `"bookmarks_panel_create_folder"`, `"bookmarks_panel_expand"` (opens the manager) |
 

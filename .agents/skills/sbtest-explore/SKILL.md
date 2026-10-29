@@ -61,23 +61,23 @@ Use `references/action-catalog.md` - "the user says / the case says" -> the call
 for internal pages, toolbar and bubbles, add-ons, downloads, dialogs, tabs, keyboard, data
 setup, assertions. Rules that keep tests portable and readable:
 
-- Selectors live in page objects (`sbtest/pages/*.py`), browser-UI names in
-  `config/native_ui.yaml` (with `{name}` params for per-item names), never in tests.
-  Missing? Add a page-object method / ui-map entry from what you explored.
+- Selectors live in page objects (`sbtest/pages/*.py`), UIA criteria in `config/native_ui.yaml`
+  (with `{name}` params for per-item names); what a test may contain: `sbtest-author`, "Hard
+  rules". Missing? Add a page-object method / ui-map entry from what you explored.
 - Each doc step = `with step("N. ...", expected="..."):`; assertions = the doc's Expected.
 - Wait for conditions (`web.wait_until`, page `wait_*`, `native.element(..., timeout)`), no sleeps.
 
 ## 4. Prove it
 
-`python run.py --case <ID>` until green, then 3 more runs. Run it once with
-`--screenshot-steps` (or watch `--record`'s video in `artifacts/test-results/videos/`) and open `artifacts/test-results/steps/<test>/` (or "Step pictures" in
-the report): every `NN-I_<kind>.jpg` frames what the step is about to touch - check it is the
-right element, the frame tells you even when the test passes. On failure read
-`artifacts/test-results/failures/<test>/failure.txt`, then `screen.png` / `page.png`, fix,
-repeat. If the product behaves differently from the request, do not bend the test: report it
-with the screenshot. Run the whole feature once at the end (`--feature X`) so nothing else broke,
-add `- Automated: tests/...::test_x` to the case, and regenerate the overview if you changed
-cases (see `references/action-catalog.md` -> "After writing").
+1. `python run.py --case <ID>` until green, then 3 more runs.
+2. Run it once with `--screenshot-steps` and open `artifacts/test-results/steps/<test>/` (or
+   watch the `--record` video in `videos/`): each `NN-I_<kind>.jpg` frames what the step is
+   about to touch - check it is the right element; a wrong one shows even when the test passes.
+3. On failure read `artifacts/test-results/failures/<test>/failure.txt`, then `screen.png` /
+   `page.png`, fix, repeat. The product behaves differently from the request -> do not bend the
+   test: report it with the screenshot.
+4. `--feature X` once (nothing else broke), add `- Automated: tests/...::test_x` to the case,
+   regenerate the overview (`references/action-catalog.md` -> "After writing").
 
 ## Worked example
 
