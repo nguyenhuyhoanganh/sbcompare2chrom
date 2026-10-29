@@ -39,6 +39,9 @@ class Row:
     error: str = ""
     executed: list[dict] = field(default_factory=list)
     screenshot: str = ""            # absolute path of the source picture
+    video: str = ""                 # absolute path of the --record video
+    video_rel: str = ""             # path inside report/ (videos/x.mp4)
+    video_file: str = ""            # Confluence attachment name
     image: str = ""                 # path inside report/ (img/x.jpg)
     priority: str = ""
     type: str = ""
@@ -55,7 +58,7 @@ def build_rows(results: dict, cases: dict[str, Case]) -> list[Row]:
                 description=c.precondition if c else "", steps=list(c.steps) if c else [],
                 expected=list(c.expected) if c else [], result=t["outcome"], test=t["nodeid"],
                 duration=t.get("duration", 0.0), failed_step=t.get("failed_step", ""), error=t.get("message", ""),
-                executed=t.get("steps") or [], screenshot=t.get("screenshot") or "",
+                executed=t.get("steps") or [], screenshot=t.get("screenshot") or "", video=t.get("video") or "",
                 priority=c.priority if c else "", type=c.type if c else ""))
     rank = {f: i for i, f in enumerate(FEATURE_ORDER)}
     rows.sort(key=lambda r: (rank.get(r.feature, 99), r.feature, r.case_id))
@@ -109,6 +112,13 @@ def _copy_images(rows: list[Row], out: Path, max_width: int = 1600) -> None:
             shutil.copyfile(src, img_dir / name)
         r.image = done[str(src)] = f"img/{name}"
     _copy_step_pictures(rows, img_dir)
+    for r in rows:   # --record videos (already small H.264) -> report/videos/
+        if r.video and Path(r.video).exists():
+            dst = out / "videos" / Path(r.video).name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if not dst.exists():
+                shutil.copyfile(r.video, dst)
+            r.video_rel = f"videos/{dst.name}"
 
 
 def _copy_step_pictures(rows: list[Row], img_dir: Path) -> None:
@@ -151,7 +161,7 @@ table.cases td{padding:8px;border-top:1px solid var(--line);vertical-align:top}
 td ol,td ul{margin:0;padding-left:18px}.id{font-weight:700;white-space:nowrap}.muted{color:var(--muted);font-size:12px}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;color:#fff;font-weight:700;font-size:12px}
 .r-passed{background:var(--pass)}.r-failed,.r-error{background:var(--fail)}.r-skipped{background:var(--skip)}
-.err{color:var(--fail);margin-top:6px;white-space:pre-wrap;word-break:break-word}.shot img{width:220px;border:1px solid var(--line);border-radius:4px}
+.err{color:var(--fail);margin-top:6px;white-space:pre-wrap;word-break:break-word}.shot img{width:220px;border:1px solid var(--line);border-radius:4px}.shot video{width:220px;display:block;margin-top:6px}
 .stepsbox{margin-top:6px}.stepsbox .step{margin:6px 0}.thumbs img{width:150px;margin:2px 4px 0 0;border:1px solid var(--line);border-radius:3px}
 .feat{color:var(--muted);font-weight:400;font-size:14px}tr.fail-row td{background:#fff5f5}
 """
@@ -202,6 +212,8 @@ def write_html(rows: list[Row], meta: dict, out: Path) -> Path:
                     res += f"<div class='step'><b>[{_e(x['status'])}]</b> {_e(x['title'])}<div class='thumbs'>{thumbs}</div></div>"
                 res += "</details>"
             shot = f"<a href='{_e(r.image)}' target='_blank'><img src='{_e(r.image)}' loading='lazy' alt='result'></a>" if r.image else ""
+            if r.video_rel:
+                shot += f"<video controls preload='metadata' src='{_e(r.video_rel)}'></video>"
             desc = f"<div>{_e(r.title)}</div>" + (f"<div class='muted'>{_e(r.description)}</div>" if r.description else "") \
                    + f"<div class='muted'>{_e(r.priority)} {_e(r.type)}</div>"
             cls = " class='fail-row'" if r.result in ("failed", "error") else ""

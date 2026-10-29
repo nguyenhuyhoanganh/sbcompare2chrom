@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--keep-profile", action="store_true", help="keep profile folders")
     p.add_argument("--screenshot-steps", action="store_true",
                    help="a picture before every click/typing (target framed in red) and after every step")
+    p.add_argument("--record", action="store_true",
+                   help="a video of every test (browser windows, step caption, framed clicks) instead of pictures")
     p.add_argument("--confluence-steps", choices=["failed", "all", "none"],
                    help="which cases get their step pictures on the Confluence page (default: failed)")
     p.add_argument("--raw", action="store_true",
@@ -77,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         if value:
             pargs += [flag, value]
     for flag, on in (("--headless", args.headless), ("--keep-profile", args.keep_profile),
-                     ("--screenshot-steps", args.screenshot_steps)):
+                     ("--screenshot-steps", args.screenshot_steps), ("--record", args.record)):
         if on:
             pargs.append(flag)
     marks = (["sanity"] if args.sanity else []) + (["not native"] if args.no_native or args.headless else [])

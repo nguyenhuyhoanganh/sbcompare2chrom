@@ -41,14 +41,20 @@ def _status(result: str) -> str:
 
 
 def _wants_steps(r: Row, mode: str) -> bool:
-    return any(x.get("files") for x in r.executed) and (
+    """Does this case get its step pictures / video on the page (mode failed | all | none)?"""
+    return (any(x.get("files") for x in r.executed) or bool(r.video_rel or r.video_file)) and (
         mode == "all" or (mode == "failed" and r.result in ("failed", "error")))
 
 
 def _steps_block(r: Row, files: list[str]) -> str:
-    """Collapsed "Expand" block with the step pictures of one case (titles + full-width images)."""
+    """Collapsed "Expand" block with the video and the step pictures of one case."""
     n = sum(len(x["files"]) for x in r.executed)
     body = []
+    if r.video_file:   # the Multimedia macro plays an attached video on the page
+        files.append(r.video_file)
+        body.append('<p><ac:structured-macro ac:name="multimedia"><ac:parameter ac:name="name">'
+                    f'<ri:attachment ri:filename="{esc(r.video_file)}"/></ac:parameter>'
+                    '<ac:parameter ac:name="width">800</ac:parameter></ac:structured-macro></p>')
     for x in r.executed:
         if not x.get("files"):
             continue
@@ -57,7 +63,8 @@ def _steps_block(r: Row, files: list[str]) -> str:
             files.append(name)
             body.append(f'<ac:image ac:width="600" ac:title="{esc(label)}"><ri:attachment ri:filename="{esc(name)}"/></ac:image> ')
         body.append("</p>")
-    title = f"{r.case_id} {r.title} - step pictures ({n}) - {RESULT_LABEL.get(r.result, r.result.upper())}"
+    what = " + ".join(x for x in ("video" if r.video_file else "", f"step pictures ({n})" if n else "") if x)
+    title = f"{r.case_id} {r.title} - {what} - {RESULT_LABEL.get(r.result, r.result.upper())}"
     return ('<ac:structured-macro ac:name="expand"><ac:parameter ac:name="title">' + esc(title[:200])
             + '</ac:parameter><ac:rich-text-body>' + "".join(body) + "</ac:rich-text-body></ac:structured-macro>")
 
@@ -150,15 +157,22 @@ def export(run_dir: Path, step_pictures: str | None = None) -> Path:
         for x in r.executed:
             x["files"] = list(x.get("imgs") or [])
     _flatten_step_pictures(rows, out, step_pictures)
+    for r in rows:   # videos of the chosen cases -> attachments/<case>_<video>.mp4
+        if r.video_rel and _wants_steps(r, step_pictures):
+            r.video_file = f"{slug(r.case_id, 30)}_{Path(r.video_rel).name}"
+            shutil.copyfile(out / r.video_rel, out / "attachments" / r.video_file)
+    shutil.rmtree(out / "videos", ignore_errors=True)
     page = build(rows, results["meta"], step_pictures)
     (out / "page.storage.html").write_text(page["storage"], encoding="utf-8")
     write_markdown(rows, results["meta"], out)
     (out / "report.md").rename(out / "page.md")
-    shown = [r for r in rows if any(x.get("files") for x in r.executed)]
+    shown = [r for r in rows if any(x.get("files") for x in r.executed) or r.video_file]
     if shown:   # Markdown pages get the step pictures as a plain list
         md = ["", "## Step pictures", ""]
         for r in shown:
             md += [f"### {r.case_id} {r.title} - {RESULT_LABEL.get(r.result, r.result.upper())}", ""]
+            if r.video_file:
+                md += [f"[video](attachments/{r.video_file})", ""]
             for x in r.executed:
                 if x.get("files"):
                     md += [f"**[{x['status']}] {x['title']}**", ""]

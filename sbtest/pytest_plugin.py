@@ -35,7 +35,7 @@ from sbtest.reporting import evidence
 from sbtest.reporting.cleanup import clear_dir
 from sbtest.reporting.results import Results
 from sbtest.server import LocalSite
-from sbtest.utils import log
+from sbtest.utils import log, slug
 
 FEATURES = ("addons", "bookmarks", "downloads", "history", "general")
 SKIP_NATIVE = "native UI not available (needs Windows, pywinauto, non-headless)"
@@ -57,8 +57,11 @@ def pytest_addoption(parser):
                                   "emptied when the run starts)")
     g.addoption("--screenshot-steps", action="store_true", default=False,
                 help="a picture before every interaction (target framed) and after every step()")
+    g.addoption("--record", action="store_true", default=False,
+                help="record a video of every test (browser windows, step caption, framed interactions)")
     g.addoption("--confluence-steps", choices=["failed", "all", "none"],
-                help="step pictures on the Confluence page (default report.confluence_step_pictures: failed)")
+                help="cases whose step pictures / videos go on the Confluence page "
+                     "(default report.confluence_step_pictures: failed)")
     g.addoption("--sb-live", action="store_true", default=False,
                 help="readable one-line-per-test output (run.py uses it with -p no:terminal)")
 
@@ -78,6 +81,7 @@ def pytest_configure(config):
         "browser.scope": config.getoption("--browser-scope"),
         "browser.keep_profile": config.getoption("--keep-profile"),
         "report.screenshot_steps": True if config.getoption("--screenshot-steps") else None,
+        "report.record_video": True if config.getoption("--record") else None,
         "report.confluence_step_pictures": config.getoption("--confluence-steps"),
     })
     run_dir = config.getoption("--run-dir")
@@ -305,12 +309,23 @@ def downloads_dir(session) -> Path:
 @pytest.fixture(autouse=True)
 def _steps_tracking(request, cfg):
     steps.reset()
-    if cfg.get("report.screenshot_steps"):
+    pictures, video = cfg.get("report.screenshot_steps"), cfg.get("report.record_video")
+    if pictures or video:   # interactions are recorded (steps.mark) only while one of them is on
         def session():
             return getattr(request.node, "_sb_session", None)
         run_dir, nodeid = request.config._sb_run_dir, request.node.nodeid
-        steps.set_listener(lambda rec, n: evidence.step_screenshot(session(), run_dir, nodeid, rec, n),
-                           on_mark=lambda rec, n, i, m: evidence.action_picture(session(), run_dir, nodeid, rec, n, i, m))
+
+        def step_end(rec, n):
+            if pictures:
+                evidence.step_screenshot(session(), run_dir, nodeid, rec, n)
+
+        def on_mark(rec, n, i, m):
+            if pictures:
+                evidence.action_picture(session(), run_dir, nodeid, rec, n, i, m)
+            recorder = getattr(request.node, "_sb_recorder", None)
+            if recorder is not None:
+                recorder.mark(m)
+        steps.set_listener(step_end, on_mark=on_mark)
     yield
     steps.set_listener(None)
 
@@ -322,11 +337,35 @@ def _steps_section(hist: list[dict]) -> str:
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """``--record``: a video of the test body (videos/<test>.mp4), Windows desktop only."""
+    recorder = None
+    session = getattr(item, "_sb_session", None)
+    if item.config._sb_cfg.get("report.record_video") and session is not None and evidence.can_grab_screen(
+            item.config._sb_cfg):
+        try:
+            from sbtest.reporting.video import Recorder
+
+            if session.native is not None:
+                recorder = Recorder(session, item.config._sb_run_dir / "videos" / f"{slug(item.nodeid, 150)}.mp4")
+                item._sb_recorder = recorder.start()
+        except Exception as e:  # noqa: BLE001 - a missing video never fails a test
+            log.warning("video recording not started: %s", e)
+            recorder = item._sb_recorder = None
+    yield
+    if recorder is not None:
+        item._sb_video = recorder.stop()
+        item._sb_recorder = None
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     rep = (yield).get_result()
     res = item.config._sb_results.record(item.nodeid, item.name, feature_of(item), case_ids(item),
                                          bool(item.get_closest_marker("native")))
     res["duration"] = round(res["duration"] + rep.duration, 2)
+    if rep.when == "call" and getattr(item, "_sb_video", None):
+        res["video"] = str(item._sb_video)
     if rep.when == "call" or (rep.when == "setup" and rep.failed):
         hist = steps.history()
         res["steps"] = [{k: v for k, v in s.items() if k not in ("start", "marks", "_viewport")} for s in hist]

@@ -25,7 +25,7 @@ results: list[str] = []
 SECTIONS = 5
 
 PACKAGES = {"selenium": "selenium", "pytest": "pytest", "yaml": "PyYAML", "psutil": "psutil", "PIL": "Pillow",
-            "pytest_html": "pytest-html"}
+            "pytest_html": "pytest-html", "imageio_ffmpeg": "imageio-ffmpeg"}
 WINDOWS_PACKAGES = {"pywinauto": "pywinauto", "win32api": "pywin32"}
 PAGES = {"extensions": "Add-ons", "bookmarks": "Bookmarks", "history": "History", "downloads": "Downloads",
          "settings": "Settings", "version": "About version"}

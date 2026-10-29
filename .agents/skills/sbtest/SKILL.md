@@ -46,15 +46,19 @@ Not sure which cases exist? `python run.py --list` prints them per feature. Also
 the desktop stays free during the run: native tests drive the real mouse and keyboard; if the
 user needs the machine, add `--no-native` (and say so in the report).
 
-Then ask about step pictures (a picture right before every click / typing with the target
-framed in red, plus one per step; the run takes ~10% longer):
+Then ask how each test should be shown - a video, or pictures - and where:
 
 | answer | arguments |
 |---|---|
-| no | (nothing) |
-| yes, on Confluence for failed cases only (recommended) | `--screenshot-steps` |
-| yes, on Confluence for every case (~22 MB for a full run) | `--screenshot-steps --confluence-steps all` |
-| yes, only in the local report | `--screenshot-steps --confluence-steps none` |
+| nothing extra | (nothing) |
+| video of each test, on Confluence for failed cases (recommended) | `--record` |
+| pictures of every click / typing, on Confluence for failed cases | `--screenshot-steps` |
+| ... on Confluence for every case | add `--confluence-steps all` |
+| ... only in the local report | add `--confluence-steps none` |
+
+The video shows the browser windows, the running case step as a caption and each click /
+typing framed in red; the pictures are one per interaction plus one per step. Either makes
+the run ~10% longer.
 
 ## 2. Ask for the exe
 

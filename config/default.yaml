@@ -102,6 +102,9 @@ report:
   uia_on_failure: true
   # a picture before every interaction (target framed in red) + one per step (flag: --screenshot-steps)
   screenshot_steps: false
+  # a video per test instead of pictures: browser windows, step caption, framed interactions
+  # (videos/<test>.mp4, in the report; on Confluence like the step pictures; flag: --record)
+  record_video: false
   # step pictures attached to the Confluence page: failed (failed/error cases only), all, none
   # (a full run with step pictures is ~280 pictures / ~22 MB; flag: --confluence-steps)
   confluence_step_pictures: failed

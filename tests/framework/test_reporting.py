@@ -215,3 +215,28 @@ def test_confluence_step_pictures_of_failed_cases_by_default(tmp_path):
         cases = {n.split("/")[-1].split("_")[0] for n in names if "_01-1_" in n}
         assert cases == expected, mode
         assert (('ac:name="expand"' in (out / "page.storage.html").read_text(encoding="utf-8")) == bool(expected))
+
+
+def test_videos_in_the_report_and_on_confluence_for_failed_cases(tmp_path):
+    import xml.etree.ElementTree as ET
+
+    from sbtest.reporting.confluence_export import export
+    from sbtest.reporting.report import generate
+
+    run, results = _run_with_failure(tmp_path)
+    for t in results["tests"]:
+        video = run / "videos" / f"{t['name']}.mp4"
+        video.parent.mkdir(exist_ok=True)
+        video.write_bytes(b"\x00\x00\x00\x18ftypmp42")   # stands in for an H.264 file
+        t["video"] = str(video)
+    (run / "results.json").write_text(json.dumps(results), encoding="utf-8")
+    html = generate(run).read_text(encoding="utf-8")
+    assert html.count("<video ") == 2 and (run / "report" / "videos" / "test_b.mp4").exists()
+    out = export(run, "failed")
+    names = json.loads((out / "manifest.json").read_text())["attachments"]
+    assert [n for n in names if n.endswith(".mp4")] == ["attachments/ADD-002_test_b.mp4"]   # the failed case only
+    storage = (out / "page.storage.html").read_text(encoding="utf-8")
+    assert 'ac:name="multimedia"' in storage and "ADD-002_test_b.mp4" in storage
+    ET.fromstring(f'<r xmlns:ac="a" xmlns:ri="r">{storage.replace("&#160;", " ")}</r>')
+    assert not [n for n in json.loads((export(run, "none") / "manifest.json").read_text())["attachments"]
+                if n.endswith(".mp4")]

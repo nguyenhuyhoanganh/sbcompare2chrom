@@ -27,6 +27,7 @@ python run.py --feature addons,bookmarks           # addons, bookmarks, download
 python run.py --case ADD-001,BM-004
 python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
+python run.py --all --record                       # a video per test (step caption, framed clicks)
 python run.py --all --screenshot-steps             # picture per interaction (framed) + per step
 python run.py --all --screenshot-steps --confluence-steps all   # ... all of them on Confluence
 python run.py --list                               # cases and automation status
@@ -55,6 +56,7 @@ elsewhere) the evidence of a failure before re-running it.
 | `results.json` | every test: outcome, case ids, steps, failed step, error, screenshot, evidence paths |
 | `failures/<test>/` | `failure.txt` (read first), `page.png` (failing element outlined in red), `screen.png` (browser windows incl. native dialogs), `dom.txt`, `page.html`, `uia.txt`, `alert.txt` |
 | `results/<test>.png` | final screenshot of every passed test (used by the report) |
+| `videos/<test>.mp4` | `--record`: video of the test body - browser windows, the running case step at the bottom, each click / typing framed in red (also played in the report) |
 | `steps/<test>/` | `--screenshot-steps`: `NN-I_<kind>.jpg` right before each interaction, its target framed in red; `NN_<status>_<step>.jpg` how each step ended (also in the report) |
 | `report.html` | raw pytest-html report |
 | `logs/` | chromedriver logs (`profiles/` too with `--keep-profile`) |
