@@ -5,6 +5,8 @@
     "files": [],
     "expected_behavior": [
       "Asks which part to test, then the SamsungInternet.exe path, then the Confluence destination, waiting for each answer",
+      "Asks whether to record each test (video / pictures / no) as options, and only then which cases get them on Confluence",
+      "Adds --record (or --screenshot-steps, --confluence-steps) to run.py exactly as answered",
       "Runs setup.bat with --exe before the tests and stops on NOT READY",
       "Runs run.py with the chosen arguments and --exe, then reads sbtest.tools.summary",
       "Asks for confirmation before creating the Confluence page"

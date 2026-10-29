@@ -25,7 +25,7 @@ programs from the current folder, so always keep the `.\` / `./`):
 Copy this checklist into your reply and tick it off:
 
 ```
-- [ ] 1 scope chosen          - [ ] 2 exe path confirmed   - [ ] 3 Confluence target known
+- [ ] 1 scope + evidence chosen  - [ ] 2 exe path confirmed   - [ ] 3 Confluence target known
 - [ ] 4 setup READY          - [ ] 5 tests run            - [ ] 6 result read + triaged
 - [ ] 7 publish confirmed     - [ ] 8 page created + attachments uploaded
 - [ ] 9 final answer sent (verdict, totals, triage, link)
@@ -46,19 +46,27 @@ Not sure which cases exist? `python run.py --list` prints them per feature. Also
 the desktop stays free during the run: native tests drive the real mouse and keyboard; if the
 user needs the machine, add `--no-native` (and say so in the report).
 
-Then ask how each test should be shown - a video, or pictures - and where:
+Then two questions about the evidence of each test (offer them as options):
+
+a. "Record each test?" - every answer keeps the final screenshot of each case.
 
 | answer | arguments |
 |---|---|
-| nothing extra | (nothing) |
-| video of each test, on Confluence for failed cases (recommended) | `--record` |
-| pictures of every click / typing, on Confluence for failed cases | `--screenshot-steps` |
-| ... on Confluence for every case | add `--confluence-steps all` |
-| ... only in the local report | add `--confluence-steps none` |
+| video of each test (recommended) | `--record` |
+| a picture of every click / typing + one per step | `--screenshot-steps` |
+| no, the final screenshot is enough | (nothing) |
 
-The video shows the browser windows, the running case step as a caption and each click /
-typing framed in red; the pictures are one per interaction plus one per step. Either makes
-the run ~10% longer.
+   The video shows the browser windows, the running case step as a caption and each click /
+   typing framed in red (~10 MB for a full run); the pictures show the same as stills (~22 MB).
+   Either makes the run ~10% longer.
+
+b. Only after a video or pictures: "Which cases get them on the Confluence page?"
+
+| answer | arguments |
+|---|---|
+| failed cases only (recommended) | (nothing) |
+| every case | `--confluence-steps all` |
+| none - local report only | `--confluence-steps none` |
 
 ## 2. Ask for the exe
 
@@ -136,5 +144,5 @@ The skill is not available -> stop and give the user the folder
 
 Verdict, build (Samsung + Chromium version), selection, totals per feature, the triage table,
 skipped tests and why (`--no-native`, no desktop), the Confluence page link, and the local
-report `artifacts/test-results/report/index.html` ("Step pictures" under each case when they
-were taken).
+report `artifacts/test-results/report/index.html` (videos next to each case's screenshot,
+"Step pictures" under each case, when they were taken; files in `videos/` and `steps/`).
