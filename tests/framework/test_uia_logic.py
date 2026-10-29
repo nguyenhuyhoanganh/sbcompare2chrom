@@ -172,3 +172,42 @@ def test_screen_grab_prefers_the_browser_windows(tmp_path):
     conf = SimpleNamespace(get=lambda k, d=None: cfg.get(k, d))
     assert evidence.screen_grab(tmp_path / "s.png", session, conf) == tmp_path / "s.png"
     assert shots == [tmp_path / "s.png"]
+
+
+def test_keyboard_goes_only_to_the_browser(monkeypatch):
+    import pytest
+
+    from sbtest.native import browser_ui
+    from sbtest.native.browser_ui import NativeBrowser
+
+    monkeypatch.setattr(browser_ui, "poll", lambda fn, *a, **k: fn() or (_ for _ in ()).throw(TimeoutError()))
+    nb = NativeBrowser.__new__(NativeBrowser)
+    nb.pids = lambda: {10, 11}
+    front = {"pid": 11}
+    nb.foreground_owner = lambda: (front["pid"], {10: "samsunginternet.exe", 11: "samsunginternet.exe", 99: "Widgets.exe"}[front["pid"]])
+    focused = []
+    nb.focus = lambda: focused.append(True) or front.update(pid=10)
+    nb.ensure_keyboard_target()                        # a browser window is in front: nothing to do
+    assert not focused
+    front["pid"] = 99
+    nb.ensure_keyboard_target(refocus=True)            # shortcut: bring the browser back
+    assert focused and front["pid"] == 10
+    front["pid"] = 99
+    with pytest.raises(RuntimeError, match="Widgets.exe"):
+        nb.ensure_keyboard_target(refocus=False)       # typing into a field: never move the focus
+
+
+def test_only_test_browsers_left_by_a_crash_are_closed(monkeypatch):
+    from types import SimpleNamespace as NS
+
+    from sbtest import utils
+
+    procs = [NS(info={"pid": 1, "cmdline": ["sb.exe", r"--user-data-dir=C:\repo\artifacts\test-results\profiles\t_1"]}),
+             NS(info={"pid": 2, "cmdline": ["sb.exe", r"--user-data-dir=C:\repo\artifacts\test-results\profiles\t_1",
+                                            "--type=renderer"]}),                         # child: goes with pid 1
+             NS(info={"pid": 3, "cmdline": ["sb.exe", r"--user-data-dir=C:\Users\me\AppData\Samsung\User Data"]}),
+             NS(info={"pid": 4, "cmdline": ["sb.exe"]})]                                  # the user's own browser
+    killed = []
+    monkeypatch.setattr(utils.psutil, "process_iter", lambda attrs: procs)
+    monkeypatch.setattr(utils, "kill_tree", killed.append)
+    assert utils.kill_browsers_using([r"C:\repo\artifacts\test-results\profiles"]) == [1] and killed == [1]

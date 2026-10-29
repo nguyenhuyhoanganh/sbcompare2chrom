@@ -1,4 +1,4 @@
-"""Downloads sanity on Samsung Browser. Cases: cases/downloads/sanity.md"""
+"""Downloads sanity on Samsung Browser. Cases: sanity.md"""
 import pytest
 
 from sbtest.steps import step

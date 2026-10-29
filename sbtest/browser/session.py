@@ -125,26 +125,27 @@ class BrowserSession:
         # product version on some builds ("31.0.1.21" on Chromium 157): resolve() checks the
         # driver against the real Chromium version instead (driver_resolver.check_driver)
         service = Service(driver_path, service_args=["--disable-build-check"], log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
-        if self.cfg.get("browser.mode") == "attach":
-            # restart(): the previous run's port file would point chromedriver at a dead port
-            (self.profile.dir / "DevToolsActivePort").unlink(missing_ok=True)
-            self._attach_proc = subprocess.Popen([self.exe, *self._browser_args(), "--remote-debugging-port=0",
-                                                  "about:blank"])
-            port = wait_devtools_port(self.profile.dir)
-            opts.debugger_address = f"127.0.0.1:{port}"
-        else:
-            opts.binary_location = self.exe
-            for a in self._browser_args():
-                opts.add_argument(a)
-            if self.cfg.get("browser.exclude_switches"):
-                opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
-        _bypass_proxy_for_localhost()
-        try:
+        try:   # whatever fails while starting, the browser launched here must not stay on screen
+            if self.cfg.get("browser.mode") == "attach":
+                # restart(): the previous run's port file would point chromedriver at a dead port
+                (self.profile.dir / "DevToolsActivePort").unlink(missing_ok=True)
+                self._attach_proc = subprocess.Popen([self.exe, *self._browser_args(), "--remote-debugging-port=0",
+                                                      "about:blank"])
+                port = wait_devtools_port(self.profile.dir)
+                opts.debugger_address = f"127.0.0.1:{port}"
+            else:
+                opts.binary_location = self.exe
+                for a in self._browser_args():
+                    opts.add_argument(a)
+                if self.cfg.get("browser.exclude_switches"):
+                    opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
+            _bypass_proxy_for_localhost()
             self.driver = webdriver.Chrome(options=opts, service=service)
         except Exception as e:
             blocking = self._blocking_dialogs()
-            if self._attach_proc:   # a browser stuck on a message box would stay on screen
+            if self._attach_proc:   # a leftover window would cover the next tests (their clicks land on it)
                 kill_tree(self._attach_proc.pid)
+                self._attach_proc = None
             if blocking:
                 raise RuntimeError(
                     f"the browser shows {', '.join(blocking)} instead of starting"

@@ -25,7 +25,7 @@ def test_local_site_routes():
 
 def test_every_automated_case_is_documented():
     docs, auto = doc_cases(), automated_cases()
-    assert not set(auto) - set(docs), "case ids used in tests but missing from cases/"
+    assert not set(auto) - set(docs), "case ids used in tests but missing from the case docs"
 
 
 def test_dropped_connections_are_not_printed(capsys):
@@ -42,3 +42,20 @@ def test_dropped_connections_are_not_printed(capsys):
         server.server_close()
     err = capsys.readouterr().err
     assert "ConnectionAbortedError" not in err and "a real bug" in err
+
+
+def test_step_titles_start_with_the_case_step_number():
+    """``with step("2. Add a bookmark", ...)`` - the report maps each step to the case doc by its
+    number ("1-3." for merged steps); a check of the Expected belongs to the step it verifies."""
+    import ast
+    import re
+
+    from sbtest.config import ROOT
+
+    bad = []
+    for py in sorted((ROOT / "tests" / "features").rglob("test_*.py")):
+        for node in ast.walk(ast.parse(py.read_text(encoding="utf-8"))):
+            if (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "step" and node.args
+                    and isinstance(node.args[0], ast.Constant) and not re.match(r"\d+[a-z]?(-\d+[a-z]?)?\. ", node.args[0].value)):
+                bad.append(f"{py.relative_to(ROOT).as_posix()}:{node.lineno} {node.args[0].value!r}")
+    assert not bad, "step titles must start with the case step number:\n" + "\n".join(bad)

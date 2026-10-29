@@ -1,6 +1,6 @@
 """Readable live output of a test run - what run.py shows instead of pytest's own output.
 
-One line per test, grouped by feature: result tag, case id, case title (cases/*.md), time,
+One line per test, grouped by feature: result tag, case id, case title (the case docs), time,
 progress. A failed test gets four more lines: the step that failed, what was expected, the
 error in one line and the evidence folder - enough for a person or an agent to know what to
 open next. ``run.py --raw`` gives pytest's own output back (tracebacks, captured logs).

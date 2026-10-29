@@ -114,7 +114,7 @@ def _keyboard_and_network() -> None:
     curl = curl_exe()
     report(OK if curl else WARN, f"Download tool: {curl}" if curl else "No curl.exe found",
            "chromedriver will be downloaded with Python, which fails behind a company SSL check; "
-           "copy drivers\\<major>\\chromedriver.exe from another machine if it does")
+           "copy artifacts\\drivers\\<major>\\chromedriver.exe from another machine if it does")
 
 
 def _check_typing() -> None:
@@ -160,10 +160,10 @@ def _browser_files(cfg, out):
     from sbtest.browser.driver_resolver import driver_version
 
     from sbtest.browser.session import BrowserSession
-    from sbtest.config import ROOT
+    from sbtest.config import DRIVERS_DIR, ROOT
 
     console.note("finding the Chromium version and chromedriver (downloaded if this machine has none)")
-    had = set((ROOT / "drivers").glob("*/chromedriver*"))
+    had = set(DRIVERS_DIR.glob("*/chromedriver*"))
     session = BrowserSession(cfg, name="doctor", out_dir=out)
     try:
         chromium, driver = session.resolve()

@@ -11,7 +11,7 @@ Fixtures (ask only for what the test needs):
     downloads_dir  folder this browser profile downloads into
 
 Markers:
-    @pytest.mark.case("BM-001")   case ids from cases/ (filter: --case)
+    @pytest.mark.case("BM-001")   case ids from the *.md case docs (filter: --case)
     @pytest.mark.native           drives native UI (Windows, not headless)
     @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name")
                                   preconditions applied BEFORE the browser starts
@@ -66,7 +66,7 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     for f in FEATURES:
         config.addinivalue_line("markers", f"{f}: feature {f} (auto from tests/features/{f}/)")
-    for line in ("case(*ids): test case ids from cases/", "native: drives native Windows UI (pywinauto)",
+    for line in ("case(*ids): test case ids from tests/features/<feature>/*.md", "native: drives native Windows UI (pywinauto)",
                  "browser(**opts): per-test browser preconditions", "slow: long running",
                  "sanity: part of the quick sanity pass"):
         config.addinivalue_line("markers", line)
@@ -142,6 +142,12 @@ def pytest_collection_finish(session):
     cfg = config._sb_cfg
     artifacts = cfg.path("paths.artifacts")
     if any(feature_of(i) for i in session.items):
+        from sbtest.browser.profile import SHORT_ROOT
+        from sbtest.utils import kill_browsers_using
+
+        stale = kill_browsers_using([config._sb_run_dir / "profiles", SHORT_ROOT])
+        if stale:
+            log.warning("closed %d test browser(s) left by an earlier run: %s", len(stale), stale)
         for p in clear_dir(config._sb_run_dir, artifacts):
             log.warning("left from the previous run (in use, delete it by hand): %s", p)
         for old in ("runs", "logs", "profiles"):   # earlier layout: runs/<timestamp>/, shared logs/profiles

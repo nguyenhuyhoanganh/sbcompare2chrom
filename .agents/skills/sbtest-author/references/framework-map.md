@@ -32,12 +32,13 @@ sbtest/
                                coverage, case_overview, report, confluence_export, summary,
                                console (the readable [ OK ]/[WARN]/[FAIL] output)
 tests/
-  features/<feature>/          tests, one folder per feature (addons, bookmarks, downloads,
-                               history, general); carry @case ids
+  features/<feature>/          one folder per feature (addons, bookmarks, downloads, history,
+                               general): case docs <area>.md (IDs, input) + tests test_*.py
+                               (carry @case ids)
+  features/TESTCASES.md        overview of every case; features/README.md the case format;
+  features/_inbox/             raw copies of source docs
   framework/                   unit tests of the framework (no browser)
   _scratch/                    throw-away exploration tests (git-ignored)
-cases/<feature>/*.md           manual cases with IDs (input); cases/TESTCASES.md overview;
-                               cases/_inbox/ raw copies
 resources/
   data/                        <name>.yaml test data (bookmark seeds, add-on ids) -> data("name")
   extensions/                  sample_addon/ (unpacked add-on)
@@ -45,6 +46,7 @@ resources/
   site/                        local pages: form, inputs, mouse, upload, dialogs, dragdrop, popups,
                                downloads, frames, permissions, toast, shadow, pages/1..3
 README.md                      requirements, setup, run, results, a new Chromium merge
+artifacts/drivers/<major>/     chromedriver per Chromium major (downloaded by setup)
 artifacts/test-results/        latest run only: report/, confluence/, failures/, steps/, logs/,
                                results.json, junit.xml (doctor/, explore/<topic>/, explore/scratch-run/
                                beside it; framework and scratch runs never write here)

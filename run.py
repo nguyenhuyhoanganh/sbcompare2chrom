@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
               flush=True)
     else:   # one readable line per test (sbtest/reporting/live.py) instead of pytest's own output;
         # -ra of pytest.ini belongs to the terminal plugin that is switched off
-        pargs += ["--sb-live", "-p", "no:terminal", "-o", "addopts=--strict-markers"]
+        pargs += ["--sb-live", "-p", "no:terminal", "-o", "addopts=-p sbtest.pytest_plugin --strict-markers"]
     pargs += extra
     started = time.time()
     code = pytest.main(pargs)

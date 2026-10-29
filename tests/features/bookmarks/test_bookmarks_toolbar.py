@@ -1,5 +1,5 @@
 """Bookmarks from the browser toolbar (star, Ctrl+D toast, Bookmarks panel) on Samsung Browser.
-Cases: cases/bookmarks/toolbar.md. Windows only (native UI)."""
+Cases: toolbar.md. Windows only (native UI)."""
 import pytest
 
 from sbtest.steps import step
@@ -48,6 +48,15 @@ def test_star_removes_bookmark(web, native, pages, site):
     with step("1. Click the filled star", expected="page no longer bookmarked"):
         # the toast is anchored to the star: while it shows, a click on the star only closes it
         native.wait_dialog_gone("bookmark_added", timeout=20)
+
+        # when the toast closes the focus goes back to the omnibox (a moment later), and the
+        # star is hidden while the omnibox has the focus: focus the page until the star shows
+        def star_shown():
+            if native.exists("bookmark_star_filled"):
+                return True
+            native.focus_page()
+            return False
+        web.wait_until(star_shown, message="filled star shown with the page focused")
         native.click("bookmark_star_filled")
         web.wait_until(lambda: not native.exists("bookmark_star_filled"), message="star no longer filled")
     with step("2. Open the bookmark manager", expected="'Static page 1' not listed"):

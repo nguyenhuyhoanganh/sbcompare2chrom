@@ -1,9 +1,9 @@
-"""Read the normalized test case documents (cases/<feature>/*.md).
+"""Read the normalized test case documents (tests/features/<feature>/*.md).
 
     cases = load_cases()            # {"BM-113": Case(...), ...}
     cases["BM-113"].steps           # ["Open 'Static page 1'", "Press Ctrl+D", ...]
 
-Format of a case (see cases/README.md)::
+Format of a case (see tests/features/README.md)::
 
     ## BM-113 Title
     - Priority: High
@@ -85,7 +85,7 @@ def load_cases(folder: Path = CASES_DIR) -> dict[str, Case]:
     out: dict[str, Case] = {}
     for md in sorted(folder.rglob("*.md")):
         rel_parts = md.relative_to(folder).parts
-        if md.name.lower() in ("readme.md", "cases.md") or "_inbox" in rel_parts:
+        if md.name.lower() in ("readme.md", "testcases.md") or "_inbox" in rel_parts or len(rel_parts) < 2:
             continue  # _inbox = raw Confluence/Jira copies; TESTCASES.md = generated overview
         feature = rel_parts[0] if len(rel_parts) > 1 else ""
         for case in parse_file(md, feature, str(md.relative_to(ROOT)).replace("\\", "/")):

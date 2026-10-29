@@ -38,6 +38,22 @@ def kill_tree(pid: int, timeout: float = 5) -> None:
     psutil.wait_procs(procs, timeout=timeout)
 
 
+def kill_browsers_using(folders) -> list[int]:
+    """Kill browsers whose --user-data-dir lies in one of ``folders`` (test profiles left by a
+    crashed run: their windows would cover the next tests). Other browsers are left alone."""
+    roots = [str(f).rstrip("\\/").lower() for f in folders]
+    killed = []
+    for p in psutil.process_iter(["pid", "cmdline"]):
+        args = p.info.get("cmdline") or []
+        if any(a.startswith("--type=") for a in args):   # child processes go with their parent
+            continue
+        data = next((a.split("=", 1)[1].strip('"') for a in args if a.startswith("--user-data-dir=")), "")
+        if data and any(data.lower().startswith(r) for r in roots):
+            kill_tree(p.info["pid"])
+            killed.append(p.info["pid"])
+    return killed
+
+
 def find_browser_pid(user_data_dir: str) -> int | None:
     """PID of the top browser process started with this --user-data-dir.
 

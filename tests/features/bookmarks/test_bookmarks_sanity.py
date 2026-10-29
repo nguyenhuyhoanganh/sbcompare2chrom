@@ -1,4 +1,4 @@
-"""Bookmarks sanity on Samsung Browser. Cases: cases/bookmarks/sanity.md"""
+"""Bookmarks sanity on Samsung Browser. Cases: sanity.md"""
 import pytest
 
 from sbtest.steps import step
@@ -94,10 +94,10 @@ def test_add_bookmark_into_folder(pages, site):
     name, url = unique("In Work"), site.page("In Work page")
     with step("1. Select folder 'Work'"):
         bm.open_folder("Work")
-    with step("2. Add bookmark: name + address, Save", expected="listed in Work with its address"):
+    with step("2. Add bookmark: name + address, Save",
+              expected="listed in Work with its address, not in the bookmarks bar folder"):
         bm.add_bookmark(name, url)
         assert bm.item_url(name) == url
-    with step("check the bookmarks bar folder", expected="not listed there"):
         bm.open_folder(bm.BAR_FOLDER)
         bm.wait_item("Static page 1")
         assert name not in bm.titles()

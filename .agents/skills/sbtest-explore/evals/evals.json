@@ -6,7 +6,7 @@
     "expected_behavior": [
       "Explores the flow on the real build with a scratch Explorer test and reads the screenshots",
       "Maps steps with the action catalogue (extensions_button, addons_menu_more, select_menu_items)",
-      "Writes the case in cases/addons/toolbar.md and the test in test_addons_toolbar.py",
+      "Writes the case in tests/features/addons/toolbar.md and the test in test_addons_toolbar.py",
       "Adds any new ui-map key with a comment and a row to the action catalogue"
     ]
   },

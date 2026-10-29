@@ -4,7 +4,7 @@
     python -m sbtest.tools.report <folder>              # a copied run folder
     python -m sbtest.tools.report --open                # and open index.html
 
-Runs write these automatically at the end; use this after editing cases/*.md (the
+Runs write these automatically at the end; use this after editing the case docs (*.md) (the
 report takes names, steps and expected results from there).
 """
 from __future__ import annotations

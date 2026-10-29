@@ -38,8 +38,12 @@ Explorer, real mouse -> `native`, and mark the test `@pytest.mark.native`.
 - No `time.sleep`; wait for a condition (`web.wait_*`, page `wait_*`, `web.wait_until`).
 - No internet except the Web Store case. Content comes from `site` / `resources/data/`.
 - Tests are independent (any order, any subset, fresh profile). Use `unique("Name")`.
-- No selectors, URLs (`internet://`), machine paths or native UI names in tests: page
-  objects, `config/default.yaml`, `config/native_ui.yaml`, `config/local.yaml`.
+- No product selectors, URLs (`internet://`), machine paths or UIA criteria in tests: they
+  go to page objects, `config/default.yaml`, `config/native_ui.yaml`, `config/local.yaml`.
+  Allowed in tests: what our own test content defines - ids of the local pages
+  (`resources/site`, e.g. `web.click("#next")`) and of the sample add-on (`auto_id="count"`),
+  ui-map names (`native.click("bookmarks_button")`) and the labels a user reads in the case
+  (`native.menu("Add-ons")`, `dlg.click("Remove")`).
 - Never weaken an assertion to pass. Product differs from the doc -> report it with the
   evidence paths.
 - Not automatable -> `- Automated: no (<reason>)` in the doc and in your report.

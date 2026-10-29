@@ -16,7 +16,8 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = ROOT / "config"
 # repo layout (also in config/default.yaml `paths`, which tests and fixtures read)
-CASES_DIR = ROOT / "cases"
+CASES_DIR = ROOT / "tests" / "features"   # case docs (*.md) live next to their tests
+DRIVERS_DIR = ROOT / "artifacts" / "drivers"  # chromedriver per Chromium major (downloaded, not committed)
 RESOURCES_DIR = ROOT / "resources"
 DATA_DIR = RESOURCES_DIR / "data"
 EXTENSIONS_DIR = RESOURCES_DIR / "extensions"

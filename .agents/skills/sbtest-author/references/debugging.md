@@ -38,12 +38,13 @@ in `artifacts/test-results/logs/`. Read these before editing code.
 | works alone, fails in a run | shared state: use `unique()` names, don't depend on order, avoid `--browser-scope session` for this test (add a `browser()` marker) |
 | `StaleElementReferenceException` | list re-rendered: re-find inside the wait, read rows in one JS call |
 | `ElementClickInterceptedException` | overlay/toast/menu over it: wait for it to close; `web.click` already falls back to JS click |
+| `keyboard input would go to <process> ..., not the browser` | another window was in front when a shortcut or typing was sent (Windows Widgets, a notification, someone using the machine); the browser is brought back once for shortcuts, typing never moves the focus - environment: re-run, keep the desktop free |
 | native dialog not found | different title in Samsung build -> `uia_dump --find`, fix `config/native_ui.yaml`; window not foreground (RDP/lock screen) |
 | typing into cr-input does nothing | target the inner `>>> input` |
-| `chromedriver ... is version X but the browser is Chromium Y` | wrong driver in `drivers/<major>/` (delete the folder, it is downloaded again) or a pinned `browser.chromedriver` |
+| `chromedriver ... is version X but the browser is Chromium Y` | wrong driver in `artifacts/drivers/<major>/` (delete the folder, it is downloaded again) or a pinned `browser.chromedriver` |
 | detected Chromium = the Samsung product version (31.x) | the build puts its product version in DevTools `Browser`; `chromium_version_from` then uses the User-Agent `Chrome/N.0.0.0` - check the `DevTools /json/version` log line, or pin `browser.chromium_version` |
 | `unrecognized Chrome version` / `cannot parse ... Browser` with Google's chromedriver | the fork reports a non-Chrome product name in DevTools `/json/version`: use a chromedriver built from the fork (`browser.chromedriver`) |
-| chromedriver download fails | it uses Windows' `curl.exe` (Windows certificate store, so company TLS inspection is fine; urllib only as fallback): read the `curl exit N` line; proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `drivers/<major>/chromedriver.exe` |
+| chromedriver download fails | it uses Windows' `curl.exe` (Windows certificate store, so company TLS inspection is fine; urllib only as fallback): read the `curl exit N` line; proxy: set `HTTPS_PROXY` or `network.download_proxy`; or copy the driver to `artifacts/drivers/<major>/chromedriver.exe` |
 | `X did not render at ... expected internet://...` | wrong `pages.scheme`/path, or the page object's ROOT no longer matches the rewritten page |
 | browser starts but chromedriver can't connect | try `--mode attach`; check that the fork keeps `--remote-debugging-port` and reports `Chrome/x.y.z.w` in `/json/version` |
 | `the browser shows "Profile error occurred"` (a message box on screen, then "cannot connect to chrome") | profile files past Windows' 260-character limit: profiles move to `%LOCALAPPDATA%\sbtest\profiles` when the repo is deep; still failing -> move the repo to a short folder such as `C:\sbtest` |

@@ -4,14 +4,14 @@
 
 - Tests: `tests/features/<feature>/test_<feature>_<area>.py` - feature = folder (`addons`,
   `bookmarks`, `downloads`, `history`, `general`). New feature area (e.g. `settings`) -> new
-  folder + `FEATURES` in `sbtest/pytest_plugin.py` + `cases/<feature>/` + a row in
-  `FEATURES` of `sbtest/tools/case_overview.py`.
+  folder `tests/features/<feature>/` (case docs + tests) + `FEATURES` in
+  `sbtest/pytest_plugin.py` + a row in `FEATURES` of `sbtest/tools/case_overview.py`.
 - Native-only cases may live in `test_<area>_native.py` or in the same file with
   `@pytest.mark.native`; either is fine, be consistent within a feature.
 - Test name: `test_<what_it_verifies>` in snake case (`test_delete_and_undo`), not the ID.
 - One test function per case ID. A case may get extra helper tests without IDs only for
   framework behaviour; product checks always carry an ID.
-- Module docstring: what area + `Cases: cases/<feature>/<file>.md`.
+- Module docstring: what area + `Cases: <file>.md` (the case doc in the same folder).
 
 ## Test shape
 
@@ -30,7 +30,9 @@ def test_delete_and_undo(pages):
         bm.wait_item("Static page 2")
 ```
 
-- Step titles start with the doc's step number(s): `"2-3. ..."` when merged.
+- Step titles start with the doc's step number(s): `"2-3. ..."` when merged, `"2a. ..."` / `"2b. ..."`
+  when one doc step is split; checks of an Expected go inside the step they verify
+  (a framework test enforces the numbering).
 - `expected=` copies the doc's expected result for that step (shown in the report on failure).
 - Assertions: plain `assert` with a clear left side; for "eventually" conditions use a
   `wait_*` (it raises with a message) instead of `assert` + retry loops.
@@ -68,7 +70,7 @@ from sbtest.web import Keys                       # web.press(Keys.CONTROL, "a")
 
 ## Doc update
 
-Under the case in `cases/<feature>/<file>.md` set
+Under the case in `tests/features/<feature>/<file>.md` set
 `- Automated: tests/features/<feature>/test_x.py::test_name` (or `no (<reason>)`).
 
 ## Before you finish

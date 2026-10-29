@@ -50,7 +50,7 @@ timeouts:
 paths:
   artifacts: artifacts            # everything a run or a tool writes (git-ignored)
   results: artifacts/test-results # the latest test run only: emptied when a run starts
-  cases: cases                    # test case documents (<feature>/*.md)
+  cases: tests/features           # test case documents (<feature>/*.md, next to their tests)
   data: resources/data            # <name>.yaml test data (bookmark seeds, add-on ids ...)
   extensions: resources/extensions  # sample add-ons (unpacked folders)
   profiles: resources/profiles    # profile templates for @browser(profile=...)

@@ -4,8 +4,8 @@
     "query": "Here are the history test cases: <Confluence link>. Bring them into the repo",
     "files": [],
     "expected_behavior": [
-      "Reads the page with the Confluence skill and saves the raw copy to cases/_inbox/ with the link on line 1",
-      "Writes cases/history/*.md in the cases/README.md format, keeping source IDs",
+      "Reads the page with the Confluence skill and saves the raw copy to tests/features/_inbox/ with the link on line 1",
+      "Writes tests/features/history/*.md in the tests/features/README.md format, keeping source IDs",
       "Runs sbtest.tools.coverage --feature history and lists new cases and ambiguities"
     ]
   },

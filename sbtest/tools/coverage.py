@@ -1,4 +1,4 @@
-"""Which test case ids (cases/**/*.md) are automated (@pytest.mark.case in tests/)?
+"""Which test case ids (tests/features/<feature>/*.md) are automated (@pytest.mark.case in tests/)?
 
     python -m sbtest.tools.coverage                 # table per feature
     python -m sbtest.tools.coverage --missing       # only ids without a test
@@ -69,7 +69,7 @@ def main(argv=None) -> int:
         for t in r["tests"]:
             print(f"        {t}")
     if orphans:
-        print("\nIds used in tests but missing in cases/: " + ", ".join(orphans))
+        print("\nIds used in tests but missing in the case docs: " + ", ".join(orphans))
     return 0
 
 

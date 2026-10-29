@@ -2,9 +2,9 @@
 
 Order:
 1. ``browser.chromedriver`` from config/env/CLI (recommended: built from the fork itself)
-2. ``drivers/<major>/chromedriver[.exe]`` already in the repo folder (offline machines)
+2. ``artifacts/drivers/<major>/chromedriver[.exe]`` already on this machine (offline: copy it there)
 3. Download from Chrome for Testing for the same Chromium *build* (x.y.BUILD), cached into
-   ``drivers/<major>/``, with Windows' curl.exe (urllib when there is no curl or it fails). Selenium Manager is not used for this on purpose: it would read the
+   ``artifacts/drivers/<major>/``, with Windows' curl.exe (urllib when there is no curl or it fails). Selenium Manager is not used for this on purpose: it would read the
    Samsung product version from the exe instead of the Chromium one.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ import zipfile
 from pathlib import Path
 
 from sbtest.browser.version import major
-from sbtest.config import ROOT
+from sbtest.config import DRIVERS_DIR
 from sbtest.utils import log
 
 EXE_NAME = "chromedriver.exe" if os.name == "nt" else "chromedriver"
@@ -149,7 +149,7 @@ def check_driver(path: str | Path, chromium_version: str | None, strict: bool) -
     log.warning(msg + " (configured driver kept - a driver built from the fork may number itself differently)")
 
 
-def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_dir: Path = ROOT / "drivers",
+def resolve_chromedriver(configured: str, chromium_version: str | None, drivers_dir: Path = DRIVERS_DIR,
                          proxy: str = "") -> str:
     global _PROXY
     _PROXY = proxy or ""

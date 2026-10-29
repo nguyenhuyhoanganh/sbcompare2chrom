@@ -1,6 +1,6 @@
 # Feature notes (what works, what bites)
 
-Verified by the sanity suite (`cases/<feature>/sanity.md`, `toolbar.md`) on Samsung Browser
+Verified by the sanity suite (`tests/features/<feature>/sanity.md`, `toolbar.md`) on Samsung Browser
 31.0.0.55 (Chromium 148, Windows arm64); notes that say "155" come from build 155. Re-check
 after a Samsung/Chromium update and record what changed here.
 
@@ -62,11 +62,11 @@ after a Samsung/Chromium update and record what changed here.
 - Ctrl+D bookmarks at once: toast "Page bookmarked." [Edit] (`dialogs.bookmark_added`), no
   bubble; the star becomes "Remove from Bookmarks" (clicking it removes the bookmark, once
   the toast is gone - see "Whole product").
-- The star (`PageActionView`) only shows when the omnibox has NO focus (focused, it shows
-  other icons), and a page opened by `web.open` can leave the focus there: call
-  `native.focus_page()` after opening the page and before Ctrl+D / any star check
-  (BM-113, BM-114, BM-116). Old builds (31): class `StarView`, shown regardless of focus;
-  the ui map matches both classes with `class_name_re`.
+- The star (`StarView` on 31, `PageActionView` on 155; the ui map matches both) only shows
+  when the omnibox has NO focus. A page opened by `web.open` leaves the focus there, and when
+  the "Page bookmarked." toast closes the focus goes back to the omnibox a moment later: call
+  `native.focus_page()` after opening the page and before Ctrl+D, and before a star check wait
+  until the star shows, focusing the page again while it does not (BM-114).
 - Toast "Edit" -> edit bubble: Edits "Bookmark name" / "Bookmark URL" (URL shown without
   `http://`), "Create folder in selected folder", Save / Cancel. Toast text is "Page
   bookmarked." or "Bookmark added to <folder>" (page already bookmarked elsewhere).
@@ -133,6 +133,9 @@ after a Samsung/Chromium update and record what changed here.
 ## General browsing (prefix GEN)
 
 - Tabs opened by the page: capture `before = web.tabs` first, then `web.wait_new_tab(before)`.
+- Link right-click menu (native): "Open in new tab" (not Chrome's "Open link in new tab"),
+  "Open in new window", "Open in Secret mode", "Open in side panel", "Save link as", "Copy link",
+  "Share link", "Inspect". "Open in new tab" opens it in the BACKGROUND: the current tab stays.
 - `window.open` popups are windows; they also appear in `web.tabs`.
 - `beforeunload` "Leave site?" is accepted automatically by chromedriver (WebDriver spec): the
   prompt can't be observed or dismissed; cases about it are not automatable with this stack.

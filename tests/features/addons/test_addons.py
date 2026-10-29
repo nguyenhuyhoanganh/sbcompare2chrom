@@ -1,4 +1,4 @@
-"""Add-ons (extensions). Cases: cases/addons/addons.md
+"""Add-ons (extensions). Cases: addons.md
 
 The sample add-on (resources/extensions/sample_addon) is loaded unpacked with
 @pytest.mark.browser(extensions=[...]). Its content script sets

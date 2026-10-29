@@ -52,7 +52,7 @@ Vietnamese input tools in English mode, and keep the screen unlocked.
   block per case (`--confluence-steps all` for every case, `none` for none)
 - `failures\<test>\` - `failure.txt`, screenshots, DOM and UI Automation dumps
 
-Case overview with the latest results: `python -m sbtest.tools.case_overview` -> `cases\TESTCASES.md`.
+Case overview with the latest results: `python -m sbtest.tools.case_overview` -> `tests\features\TESTCASES.md`.
 
 ## New Chromium merge
 
@@ -65,10 +65,10 @@ in the page object (`sbtest\pages\`) or `config\native_ui.yaml`, not in the test
 ```
 config/          settings: default.yaml, native_ui.yaml (browser UI names), local.yaml (this machine)
 sbtest/          framework: browser, web, native, pages, reporting, tools
-tests/features/  tests, one folder per feature
+tests/features/  one folder per feature: case docs (*.md) + their tests; TESTCASES.md overview
 tests/framework/ self-tests without a browser: python -m pytest tests/framework -q
-cases/           test case docs, one folder per feature
 resources/       test data, sample add-on, profile templates, local test site
+artifacts/       output of runs and tools, downloaded chromedriver (git-ignored)
 AGENTS.md        rules for coding agents
 .agents/skills/  agent skills (Agent Skills format)
 ```

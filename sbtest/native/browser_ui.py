@@ -112,6 +112,43 @@ class NativeBrowser:
             log.debug("set_focus failed: %s", e)
 
     # -- keyboard ----------------------------------------------------------------
+    def foreground_owner(self) -> tuple[int, str]:
+        """(pid, process name) of the window that receives the keyboard now."""
+        import ctypes
+        from ctypes import wintypes
+
+        import psutil
+
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        pid = wintypes.DWORD()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        try:
+            name = psutil.Process(pid.value).name() if pid.value else "nothing (locked screen?)"
+        except psutil.Error:
+            name = "?"
+        return pid.value, name
+
+    def ensure_keyboard_target(self, refocus: bool = True) -> None:
+        """Real keystrokes go to the foreground window: make sure it is one of the browser's
+        (frame, bubble, its Save As dialog). Another window in front (Windows Widgets, a
+        notification, someone using the machine) -> bring the browser back once, then fail
+        with the name of the intruder instead of typing into it."""
+        def _ours():
+            return self.foreground_owner()[0] in self.pids()
+
+        if _ours():
+            return
+        pid, name = self.foreground_owner()
+        log.warning("%s (pid %s) is in front of the browser%s", name, pid, ", bringing the browser back" if refocus else "")
+        if refocus:
+            self.focus()
+        try:
+            poll(_ours, 3, 0.1, "browser window in the foreground")
+        except TimeoutError:
+            pid, name = self.foreground_owner()
+            raise RuntimeError(f"keyboard input would go to {name} (pid {pid}), not the browser: another window "
+                               "took the foreground - keep the desktop free while native tests run") from None
+
     def hotkey(self, keys: str, focus: bool = True) -> None:
         """Browser-level shortcut, e.g. ``"^d"`` bookmark, ``"^h"`` history, ``"^j"`` downloads,
         ``"^t"`` new tab, ``"^+{DELETE}"`` clear browsing data, ``"{F11}"`` fullscreen."""
@@ -119,6 +156,7 @@ class NativeBrowser:
 
         if focus:
             self.focus()
+        self.ensure_keyboard_target(refocus=focus)
         uia.mark("keys", label=keys)
         keyboard.send_keys(keys, pause=0.05)
 
@@ -128,6 +166,7 @@ class NativeBrowser:
 
         from sbtest.native.dialogs import _escape_keys
 
+        self.ensure_keyboard_target(refocus=False)   # typing goes to the focused field: never move it
         uia.mark("type", label=repr(text))
         keyboard.send_keys(_escape_keys(text), with_spaces=True, pause=0.02)
 

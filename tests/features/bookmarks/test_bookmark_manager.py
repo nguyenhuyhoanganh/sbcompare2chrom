@@ -1,4 +1,4 @@
-"""Bookmark manager - web layer only (runs headless too). Cases: cases/bookmarks/bookmark_manager.md"""
+"""Bookmark manager - web layer only (runs headless too). Cases: bookmark_manager.md"""
 import pytest
 
 from sbtest.steps import step

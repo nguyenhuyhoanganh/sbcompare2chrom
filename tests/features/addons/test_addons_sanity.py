@@ -1,4 +1,4 @@
-"""Add-ons sanity on Samsung Browser. Cases: cases/addons/sanity.md"""
+"""Add-ons sanity on Samsung Browser. Cases: sanity.md"""
 import pytest
 
 from sbtest.steps import step

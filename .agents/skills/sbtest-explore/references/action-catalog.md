@@ -140,7 +140,7 @@ and add a page-object method or ui-map entry, then add a row to this table.
 | drag & drop inside a page | `web.drag_and_drop(a, b, method="html5" / "actions" / "native")` |
 | Windows notification | `native.wait_os_toast("(?i)text")` |
 | print preview | `native.wait_dialog("print")`, `.press("{ESC}")` (the page is blocked meanwhile: no `web.*`) |
-| right-click on a page | `native.context_menu_web(web, "#link", "Open link in new tab")` |
+| right-click on a page | `native.context_menu_web(web, "#next", "Open in new tab")` - Samsung labels: Open in new tab / new window / Secret mode / side panel, Save link as, Copy link (GEN-002) |
 
 ## Reading and asserting
 

@@ -72,10 +72,12 @@ def wait_devtools_port(user_data_dir: Path, timeout: float = 30) -> int:
     f = user_data_dir / "DevToolsActivePort"
     end = time.time() + timeout
     while time.time() < end:
-        if f.exists():
-            first = f.read_text(errors="ignore").splitlines()[:1]
-            if first and first[0].strip().isdigit():
-                return int(first[0])
+        try:
+            first = f.read_text(errors="ignore").splitlines()[:1] if f.exists() else []
+        except OSError:   # the browser holds the file while it writes it (Windows: Permission denied)
+            first = []
+        if first and first[0].strip().isdigit():
+            return int(first[0])
         time.sleep(0.2)
     raise TimeoutError(f"Browser did not write {f} within {timeout}s")
 

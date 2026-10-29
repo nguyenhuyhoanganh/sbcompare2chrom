@@ -1,4 +1,4 @@
-"""History. Cases: cases/history/history.md
+"""History. Cases: history.md
 
 History is seeded by really visiting local pages (site.page(title) gives unique titles).
 """

@@ -5,7 +5,7 @@ result, actual result and a screenshot of how it ended.
     <run_dir>/report/report.md      same content in Markdown
     <run_dir>/report/img/           result screenshots (JPEG, one per test)
 
-Built from <run_dir>/results.json (written by the pytest plugin) + cases/**/*.md.
+Built from <run_dir>/results.json (written by the pytest plugin) + the case docs (tests/features/<feature>/*.md).
 Regenerate any time:  python -m sbtest.tools.report
 """
 from __future__ import annotations

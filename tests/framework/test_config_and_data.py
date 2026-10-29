@@ -185,3 +185,45 @@ def test_profiles_leave_a_deep_repo_folder(tmp_path):
     deep = Path("C:/" + "deep/" * 30) / "artifacts" / "test-results" / "profiles"
     assert profiles_root(deep) == SHORT_ROOT                 # past the 260-character limit otherwise
     assert len(str(SHORT_ROOT)) + 38 <= MAX_PROFILE_DIR
+
+
+def test_native_ui_map_uses_stable_criteria():
+    """Views number their AutomationIds in creation order (``view_1023``): they change between
+    builds, so the ui map must not use them. Each entry names a class, an id, or a control
+    type plus its title - a title alone matches too much."""
+    import re
+
+    import yaml
+
+    from sbtest.config import ROOT
+
+    ONE_PER_WINDOW = {"Tab"}   # the frame has one tab strip
+    ui = yaml.safe_load((ROOT / "config" / "native_ui.yaml").read_text(encoding="utf-8"))
+    for key, crit in ui.items():
+        if key in ("dialogs", "startup_bubbles") or not isinstance(crit, dict):
+            continue
+        assert not re.fullmatch(r"view_\d+", str(crit.get("auto_id", ""))), f"{key}: auto_id view_N changes per build"
+        stable = {"class_name", "class_name_re", "auto_id"} & set(crit) or (
+            "control_type" in crit and {"title", "title_re"} & set(crit)) or (
+            crit.get("control_type") in ONE_PER_WINDOW and len(crit) == 1)
+        assert stable, f"{key}: add class_name, auto_id or control_type + title ({crit})"
+
+
+def test_devtools_port_file_read_while_the_browser_writes_it(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from sbtest.browser import version
+
+    port_file = tmp_path / "DevToolsActivePort"
+    port_file.write_text("51234\n/devtools/browser/x\n")
+    real, calls = Path.read_text, []
+
+    def locked_once(self, *a, **k):   # the browser holds the file on the first read
+        calls.append(1)
+        if len(calls) == 1:
+            raise PermissionError(13, "Permission denied")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(Path, "read_text", locked_once)
+    monkeypatch.setattr(version.time, "sleep", lambda s: None)
+    assert version.wait_devtools_port(tmp_path, timeout=5) == 51234 and len(calls) == 2

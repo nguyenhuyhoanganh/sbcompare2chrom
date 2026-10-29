@@ -3,8 +3,6 @@ __pycache__/
 .pytest_cache/
 artifacts/
 config/local.yaml
-drivers/*
-!drivers/README.md
 .venv/
 venv/
 *.log

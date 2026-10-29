@@ -1,8 +1,8 @@
 [
   {
     "skills": ["sbtest-author"],
-    "query": "Automate HIS-005 from cases/history/history.md",
-    "files": ["cases/history/history.md"],
+    "query": "Automate HIS-005 from tests/features/history/history.md",
+    "files": ["tests/features/history/history.md"],
     "expected_behavior": [
       "Checks coverage first and finds the existing test instead of writing a duplicate",
       "Uses pages.history methods; no selector, internet:// URL or native UI name appears in the test",
@@ -12,9 +12,9 @@
   {
     "skills": ["sbtest-author"],
     "query": "Add a case: rename a bookmark folder from the bookmark manager, then automate it",
-    "files": ["cases/bookmarks/bookmark_manager.md"],
+    "files": ["tests/features/bookmarks/bookmark_manager.md"],
     "expected_behavior": [
-      "Writes the case in cases/bookmarks/ with the next free BM-0xx ID, Type web",
+      "Asks the user for the case ID (does not invent one), then writes the case in tests/features/bookmarks/, Type web",
       "Seeds the folder with @pytest.mark.browser(bookmarks=...) instead of creating it through the UI",
       "Adds any missing selector to sbtest/pages/bookmarks.py, not to the test",
       "Uses unique() for the new name and asserts on the list content"
