@@ -46,9 +46,6 @@ timeouts:
   long: 30          # downloads, heavy pages
   poll: 0.2         # poll interval for waits
   native: 10        # pywinauto window/dialog waits
-  # every passed step() of a test lasts at least this long: the browser UI settles before the
-  # next step and the run can be followed by eye. 0 = no minimum (flag: --min-step)
-  min_step: 0.5
 
 paths:
   artifacts: artifacts            # everything a run or a tool writes (git-ignored)

@@ -63,8 +63,6 @@ def pytest_addoption(parser):
     g.addoption("--confluence-steps", choices=["failed", "all", "none"],
                 help="cases whose step pictures / videos go on the Confluence page "
                      "(default report.confluence_step_pictures: failed)")
-    g.addoption("--min-step", type=float,
-                help="minimum seconds per passed step() (default timeouts.min_step = 0.5; 0 = none)")
     g.addoption("--sb-live", action="store_true", default=False,
                 help="readable one-line-per-test output (run.py uses it with -p no:terminal)")
 
@@ -86,7 +84,6 @@ def pytest_configure(config):
         "report.screenshot_steps": True if config.getoption("--screenshot-steps") else None,
         "report.record_video": True if config.getoption("--record") else None,
         "report.confluence_step_pictures": config.getoption("--confluence-steps"),
-        "timeouts.min_step": config.getoption("--min-step"),
     })
     run_dir = config.getoption("--run-dir")
     run_dir = Path(run_dir) if run_dir else cfg.path("paths.results")
@@ -145,9 +142,6 @@ def pytest_collection_finish(session):
     it: framework tests write nothing, scratch browser tests (tests/_scratch) write to
     artifacts/explore/scratch-run/. A --run-dir is used as given."""
     config = session.config
-    # browser tests: each passed step lasts at least timeouts.min_step; framework tests: no minimum
-    browser_run = any(BROWSER_FIXTURES & set(getattr(i, "fixturenames", ())) for i in session.items)
-    steps.set_min_duration(float(config._sb_cfg.get("timeouts.min_step") or 0) if browser_run else 0)
     if config.option.collectonly or hasattr(config, "workerinput") or config.getoption("--run-dir"):
         return
     cfg = config._sb_cfg

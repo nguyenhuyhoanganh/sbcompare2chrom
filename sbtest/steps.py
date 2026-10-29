@@ -19,8 +19,6 @@ _current: list[dict] = []
 _listener = None
 # called with (step record, step number, mark number, mark) right BEFORE an interaction
 _mark_listener = None
-# a passed step lasts at least this long (seconds; config timeouts.min_step, set by the plugin)
-_min_duration = 0.0
 
 
 def reset() -> None:
@@ -31,13 +29,6 @@ def set_listener(fn, on_mark=None) -> None:
     """``fn(rec, n)`` when a step ends; ``on_mark(rec, n, i, mark)`` before each interaction."""
     global _listener, _mark_listener
     _listener, _mark_listener = fn, on_mark
-
-
-def set_min_duration(seconds: float) -> None:
-    """Every passed step takes at least ``seconds``: the browser UI settles (animations,
-    bubbles, focus) before the next step, and a person can follow the run. 0 = no minimum."""
-    global _min_duration
-    _min_duration = max(0.0, float(seconds or 0))
 
 
 def history() -> list[dict]:
@@ -81,9 +72,6 @@ def step(title: str, expected: str = ""):
         raise
     else:
         rec["status"] = "passed"
-        left = _min_duration - (time.time() - rec["start"])
-        if left > 0:   # a failed step does not wait: its evidence is collected right away
-            time.sleep(left)
     finally:
         rec["duration"] = round(time.time() - rec["start"], 2)
         if _listener is not None:
