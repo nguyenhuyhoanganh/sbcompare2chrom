@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from pathlib import Path
 
 import psutil
@@ -54,6 +55,7 @@ class BrowserSession:
         self._native = None
         self._attach_proc: subprocess.Popen | None = None
         self._prefs_seeded = False
+        self.timings: dict[str, float] = {}
         self.pid: int | None = None
 
     # -- resolution --------------------------------------------------------------
@@ -116,7 +118,9 @@ class BrowserSession:
 
     # -- lifecycle ---------------------------------------------------------------
     def start(self) -> "BrowserSession":
-        _, driver_path = self.resolve()
+        t_lookup = time.monotonic()
+        _, driver_path = self.resolve()   # once per run: Chromium version (cached) + chromedriver
+        t0 = time.monotonic()
         self._seed_prefs()
         opts = webdriver.ChromeOptions()
         log_dir = self.out_dir / "logs"
@@ -133,14 +137,21 @@ class BrowserSession:
                                                       "about:blank"])
                 port = wait_devtools_port(self.profile.dir)
                 opts.debugger_address = f"127.0.0.1:{port}"
+                t_browser = time.monotonic()
             else:
                 opts.binary_location = self.exe
                 for a in self._browser_args():
                     opts.add_argument(a)
                 if self.cfg.get("browser.exclude_switches"):
                     opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
+                t_browser = t0
             _bypass_proxy_for_localhost()
             self.driver = webdriver.Chrome(options=opts, service=service)
+            # where the start time goes (shown per test by run.py and in the summary)
+            self.timings = {"browser": round(t_browser - t0, 1),
+                            "chromedriver": round(time.monotonic() - t_browser, 1)}
+            if t0 - t_lookup >= 0.1:
+                self.timings["driver lookup"] = round(t0 - t_lookup, 1)
         except Exception as e:
             blocking = self._blocking_dialogs()
             if self._attach_proc:   # a leftover window would cover the next tests (their clicks land on it)

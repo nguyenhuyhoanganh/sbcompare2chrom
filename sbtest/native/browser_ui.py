@@ -43,6 +43,10 @@ def _explorer_item(explorer, path: Path):
     return hits[0]
 
 
+# per run: browser starts so far and startup bubbles closed (see dismiss_startup_bubbles)
+_STARTUP_BUBBLES = {"starts": 0, "seen": 0}
+
+
 def _bubble_of(el):
     """Nearest ancestor that is a Views bubble (its own Chrome_WidgetWin_1 / RootView)."""
     node = el
@@ -82,6 +86,18 @@ class NativeBrowser:
     def windows(self, visible_only: bool = True) -> list:
         """All top-level windows of the browser (main windows, bubbles, menus, dialogs)."""
         pids = self.pids()
+        try:
+            # the window handles of the browser processes only (Win32, fast); wrapping every
+            # window of the desktop in UIA first costs seconds with many apps open
+            from pywinauto import findwindows
+            from pywinauto.controls.uiawrapper import UIAWrapper
+            from pywinauto.uia_element_info import UIAElementInfo
+
+            handles = [h for pid in pids for h in findwindows.find_windows(
+                process=pid, visible_only=visible_only, top_level_only=True, backend="win32")]
+            return [UIAWrapper(UIAElementInfo(h)) for h in handles]
+        except Exception as e:  # noqa: BLE001 - fall back to the UIA desktop walk
+            log.debug("fast window lookup failed (%s), walking the desktop", e)
         try:
             wins = self.desktop.windows(visible_only=visible_only)
         except Exception:  # noqa: BLE001
@@ -549,16 +565,30 @@ class NativeBrowser:
 
     def dismiss_startup_bubbles(self, timeout: float = 3) -> list[str]:
         """Close the bubbles a fresh profile shows on start (``startup_bubbles`` in the
-        ui map, e.g. Samsung's "has been updated"), so they do not cover the page or toolbar."""
+        ui map, e.g. Samsung's "has been updated"), so they do not cover the page or toolbar.
+
+        Waits up to ``timeout`` for them only while this run has seen one (or has not started
+        enough browsers to know): on a build that never shows them, later starts look once and
+        go on instead of waiting the full timeout before every test."""
         rules = self.ui_map.get("startup_bubbles") or []
         closed: list[str] = []
+        if _STARTUP_BUBBLES["seen"] == 0 and _STARTUP_BUBBLES["starts"] >= 2:
+            timeout = 0
+        _STARTUP_BUBBLES["starts"] += 1
         deadline = time.time() + timeout
-        while rules and time.time() < deadline and len(closed) < len(rules):
+        attempt = 0
+        while rules and len(closed) < len(rules):
+            last = time.time() >= deadline
+            attempt += 1
             for rule in rules:
                 if rule["text"] in closed:
                     continue
                 for w in self.windows():
-                    label = uia.find_in([w], 0, title_re=rule["text"])
+                    # the label is a Text (views::Label): a native UIA search; only the last
+                    # look walks every element, in case a build names another control
+                    crit = {"title_re": rule["text"]} if last and attempt > 1 else {
+                        "control_type": "Text", "title_re": rule["text"]}
+                    label = uia.find_in([w], 0, **crit)
                     if label is None:
                         continue
                     # the button lives in the same bubble: walk up until a container has it
@@ -571,9 +601,12 @@ class NativeBrowser:
                         if btn is not None:
                             btn.invoke()
                             closed.append(rule["text"])
+                            _STARTUP_BUBBLES["seen"] += 1
                             log.info("dismissed startup bubble /%s/", rule["text"])
                             break
                     break
+            if last:
+                break
             time.sleep(0.3)
         return closed
 

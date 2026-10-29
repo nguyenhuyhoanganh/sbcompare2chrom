@@ -33,12 +33,22 @@ def collect(run_dir: Path) -> dict:
                  "evidence": str(Path(tests[r.test]["evidence_dir"]) / "failure.txt") if tests[r.test].get("evidence_dir")
                  else ""}
                 for r in rows if r.result in ("failed", "error")]
+    starts = [(r["cases"][0] if r.get("cases") else r["name"], r["startup"]) for r in results["tests"] if r.get("startup")]
+    startup = {}
+    if starts:
+        phases = sorted({k for _, t in starts for k in t})
+        slowest = max(starts, key=lambda s: sum(s[1].values()))
+        startup = {"browsers": len(starts),
+                   "average": round(sum(sum(t.values()) for _, t in starts) / len(starts), 1),
+                   "phases": {k: round(sum(t.get(k, 0) for _, t in starts) / len(starts), 1) for k in phases},
+                   "slowest": {"case": slowest[0], "seconds": round(sum(slowest[1].values()), 1), **slowest[1]}}
     manifest = run_dir / "confluence" / "manifest.json"
     return {
         "build": s["build"], "selection": results["meta"].get("selection", ""), "verdict": f"BUILD {s['verdict']}",
         "totals": dict(s["counts"]), "per_feature": {f: dict(c) for f, c in per_feature.items()},
         "failures": failures,
         "skipped": [{"case": r.case_id, "reason": r.error} for r in rows if r.result == "skipped"],
+        "startup": startup,
         "report": str(run_dir / "report" / "index.html"),
         "confluence": str(manifest.parent) if manifest.exists() else "",
         "confluence_title": json.loads(manifest.read_text(encoding="utf-8"))["title"] if manifest.exists() else "",
@@ -68,6 +78,11 @@ def main(argv=None) -> int:
             print(f"  read:  {f['evidence']}")
     if data["skipped"]:
         print(f"\nskipped: {', '.join(s['case'] for s in data['skipped'])}")
+    st = data["startup"]
+    if st:
+        phases = ", ".join(f"{k} {v}s" for k, v in st["phases"].items())
+        print(f"\nbrowser start: {st['average']}s on average for {st['browsers']} start(s) ({phases}); "
+              f"slowest {st['slowest']['case']} {st['slowest']['seconds']}s")
     print(f"\nreport:     {data['report']}")
     if data["confluence"]:
         print(f"confluence: {data['confluence']}  title: {data['confluence_title']}")

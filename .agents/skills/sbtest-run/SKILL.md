@@ -35,9 +35,13 @@ python run.py --case BM-004 --raw                  # pytest's own output (traceb
 ```
 
 The output is one line per test, grouped by feature: `[PASS]` / `[FAIL]` / `[ERR ]` / `[SKIP]`,
-case id, case title, time, progress (`12/73`). Under a failure: `step:` (the case step that
+case id, case title, time, `(start Xs)` = the part of it spent starting the browser, progress
+(`12/73`). Under a failure: `step:` (the case step that
 failed), `expected:`, `error:` (one line) and `evidence:` (its `failure.txt`, read it next).
-The run ends with the summary (verdict, totals per feature, failures, report paths).
+The run ends with the summary (verdict, totals per feature, failures, report paths) and
+`browser start: <avg>s (browser, chromedriver, startup bubbles)`: which part of the start is
+slow. Each test gets a fresh browser; `--scope module` reuses one per test file (much faster,
+tests of a file then share state - not for the build verdict unless the user accepts it).
 
 Native tests need an unlocked, visible Windows desktop (not a minimized RDP session).
 `--no-native` skips them; say so in the report when you use it.

@@ -6,7 +6,7 @@ error in one line and the evidence folder - enough for a person or an agent to k
 open next. ``run.py --raw`` gives pytest's own output back (tracebacks, captured logs).
 
     addons
-      [PASS] ADD-112  Pinned add-on icon opens its popup                     6.1s   12/73
+      [PASS] ADD-112  Pinned add-on icon opens its popup                     6.1s  (start 2.4s)  12/73
       [FAIL] BM-114   Remove a bookmark with the filled star                21.0s   13/73
              step:     1. Click the filled star
              expected: page no longer bookmarked
@@ -99,7 +99,11 @@ class LiveReport:
         tag, style = TAGS[outcome]
         title = title if len(title) <= 58 else title[:55] + "..."
         progress = console.paint(f"{self.done}/{self.total}", "dim")
-        print(f"  {console.paint(tag, style)} {ids:<8} {title:<58} {res.get('duration', report.duration):5.1f}s  {progress}", flush=True)
+        # time spent starting the browser before the test body (included in the duration)
+        start = sum((res.get("startup") or {}).values())
+        start = console.paint(f"(start {start:.1f}s)  ", "dim") if start else ""
+        print(f"  {console.paint(tag, style)} {ids:<8} {title:<58} {res.get('duration', report.duration):5.1f}s  "
+              f"{start}{progress}", flush=True)
         if outcome == "skipped":
             reason = report.longrepr[-1] if isinstance(report.longrepr, tuple) else str(report.longrepr or "")
             console.note(_one_line(reason.removeprefix("Skipped: ")))

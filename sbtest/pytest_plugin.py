@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -244,7 +245,9 @@ def _build_session(cfg, site, request) -> BrowserSession:
     if session.native is not None:
         # first-run bubbles (Samsung "has been updated") would cover the page and toolbar in
         # every test and in the report screenshots: close them once, right after start
+        t = time.monotonic()
         session.native.dismiss_startup_bubbles()
+        session.timings["startup bubbles"] = round(time.monotonic() - t, 1)
     request.config._sb_results.note_browser(session)
     return session
 
@@ -364,6 +367,10 @@ def pytest_runtest_makereport(item, call):
     res = item.config._sb_results.record(item.nodeid, item.name, feature_of(item), case_ids(item),
                                          bool(item.get_closest_marker("native")))
     res["duration"] = round(res["duration"] + rep.duration, 2)
+    session = getattr(item, "_sb_session", None)
+    if rep.when == "setup" and getattr(session, "timings", None):
+        # only the test that started the browser gets them (a shared browser starts once)
+        res["startup"], session.timings = session.timings, {}
     if rep.when == "call" and getattr(item, "_sb_video", None):
         res["video"] = str(item._sb_video)
     if rep.when == "call" or (rep.when == "setup" and rep.failed):

@@ -211,3 +211,21 @@ def test_only_test_browsers_left_by_a_crash_are_closed(monkeypatch):
     monkeypatch.setattr(utils.psutil, "process_iter", lambda attrs: procs)
     monkeypatch.setattr(utils, "kill_tree", killed.append)
     assert utils.kill_browsers_using([r"C:\repo\artifacts\test-results\profiles"]) == [1] and killed == [1]
+
+
+def test_startup_bubbles_stop_waiting_when_the_build_never_shows_them():
+    import time
+
+    from sbtest.native import browser_ui
+
+    nb = browser_ui.NativeBrowser.__new__(browser_ui.NativeBrowser)
+    nb.ui_map = {"startup_bubbles": [{"text": "(?i)has been updated", "button": "Close"}]}
+    nb.windows = lambda: []
+    browser_ui._STARTUP_BUBBLES.update(starts=0, seen=0)
+    took = []
+    for _ in range(3):
+        t = time.monotonic()
+        assert nb.dismiss_startup_bubbles(timeout=0.4) == []
+        took.append(time.monotonic() - t)
+    assert took[0] >= 0.4 and took[1] >= 0.4 and took[2] < 0.1, took
+    browser_ui._STARTUP_BUBBLES.update(starts=0, seen=0)
