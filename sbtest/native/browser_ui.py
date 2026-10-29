@@ -43,10 +43,6 @@ def _explorer_item(explorer, path: Path):
     return hits[0]
 
 
-# per run: browser starts so far and startup bubbles closed (see dismiss_startup_bubbles)
-_STARTUP_BUBBLES = {"starts": 0, "seen": 0}
-
-
 def _bubble_of(el):
     """Nearest ancestor that is a Views bubble (its own Chrome_WidgetWin_1 / RootView)."""
     node = el
@@ -72,6 +68,8 @@ class NativeBrowser:
         self.timeout = float(cfg.get("timeouts.native", 10))
         self.desktop = Desktop(backend=cfg.get("native.backend", "uia"))
         self.ui_map: dict = yaml.safe_load(cfg.path("native.ui_map").read_text(encoding="utf-8")) or {}
+        self._bubbles_until = 0.0     # watch_startup_bubbles: look for them until then
+        self._bubbles_next = 0.0      # next look (at most every 0.5 s)
 
     # -- windows -----------------------------------------------------------------
     def pids(self) -> set[int]:
@@ -170,6 +168,7 @@ class NativeBrowser:
         ``"^t"`` new tab, ``"^+{DELETE}"`` clear browsing data, ``"{F11}"`` fullscreen."""
         from pywinauto import keyboard
 
+        self._close_late_bubbles()
         if focus:
             self.focus()
         self.ensure_keyboard_target(refocus=focus)
@@ -205,11 +204,13 @@ class NativeBrowser:
 
     def element(self, name_or_criteria, timeout: float | None = None, in_main: bool = True, **params):
         """Element of the browser UI by logical name (config/native_ui.yaml) or criteria dict."""
+        self._close_late_bubbles()
         crit = self.criteria(name_or_criteria, **params)
         roots = (lambda: [self.main_window()]) if in_main else self.windows
         return uia.find_in(roots, self.timeout if timeout is None else timeout, **crit)
 
     def exists(self, name_or_criteria, in_main: bool = True, **params) -> bool:
+        self._close_late_bubbles()
         crit = self.criteria(name_or_criteria, **params)
         roots = [self.main_window()] if in_main else self.windows()
         return uia.find_in(roots, 0, **crit) is not None
@@ -317,6 +318,7 @@ class NativeBrowser:
 
         Searches top-level windows of the process first, then panes/dialogs inside them
         (Views bubbles are often child panes of the frame)."""
+        self._close_late_bubbles()
         pattern = self._dialog_pattern(name_or_regex)
         el = poll(lambda: self._find_dialog(pattern), self.timeout if timeout is None else timeout, 0.3,
                   f"native dialog /{pattern}/")
@@ -420,6 +422,7 @@ class NativeBrowser:
 
     def web_point(self, web, el, offset: tuple[int, int] = (0, 0)) -> tuple[int, int]:
         """Screen coordinates of the center of a web element (top-level document only)."""
+        self._close_late_bubbles()   # a real mouse action on the page: nothing may cover it
         web.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
         x, y, dpr = web.driver.execute_script(
             "const r = arguments[0].getBoundingClientRect();"
@@ -563,32 +566,20 @@ class NativeBrowser:
         ImageGrab.grab(bbox=None if whole_screen else self.window_rect(), all_screens=True).save(path)
         return path
 
-    def dismiss_startup_bubbles(self, timeout: float = 3) -> list[str]:
-        """Close the bubbles a fresh profile shows on start (``startup_bubbles`` in the
+    def dismiss_startup_bubbles(self, timeout: float = 0) -> list[str]:
+        """Close the bubbles a fresh profile can show on start (``startup_bubbles`` in the
         ui map, e.g. Samsung's "has been updated"), so they do not cover the page or toolbar.
-
-        Waits up to ``timeout`` for them only while this run has seen one (or has not started
-        enough browsers to know): on a build that never shows them, later starts look once and
-        go on instead of waiting the full timeout before every test."""
+        One quick look by default; ``timeout`` > 0 keeps looking that long."""
         rules = self.ui_map.get("startup_bubbles") or []
         closed: list[str] = []
-        if _STARTUP_BUBBLES["seen"] == 0 and _STARTUP_BUBBLES["starts"] >= 2:
-            timeout = 0
-        _STARTUP_BUBBLES["starts"] += 1
-        deadline = time.time() + timeout
-        attempt = 0
+        deadline = time.monotonic() + timeout
         while rules and len(closed) < len(rules):
-            last = time.time() >= deadline
-            attempt += 1
             for rule in rules:
                 if rule["text"] in closed:
                     continue
                 for w in self.windows():
-                    # the label is a Text (views::Label): a native UIA search; only the last
-                    # look walks every element, in case a build names another control
-                    crit = {"title_re": rule["text"]} if last and attempt > 1 else {
-                        "control_type": "Text", "title_re": rule["text"]}
-                    label = uia.find_in([w], 0, **crit)
+                    # the label is a Text (views::Label): a native UIA search, not a full walk
+                    label = uia.find_in([w], 0, control_type="Text", title_re=rule["text"])
                     if label is None:
                         continue
                     # the button lives in the same bubble: walk up until a container has it
@@ -601,14 +592,34 @@ class NativeBrowser:
                         if btn is not None:
                             btn.invoke()
                             closed.append(rule["text"])
-                            _STARTUP_BUBBLES["seen"] += 1
                             log.info("dismissed startup bubble /%s/", rule["text"])
                             break
                     break
-            if last:
+            if time.monotonic() >= deadline:
                 break
             time.sleep(0.3)
         return closed
+
+    def watch_startup_bubbles(self, seconds: float) -> None:
+        """For the next ``seconds``, every native action first closes a startup bubble that
+        has shown up meanwhile - nobody waits for a bubble that may never come (the test starts
+        right away; it shows on some starts only)."""
+        if self.ui_map.get("startup_bubbles"):
+            self._bubbles_until = time.monotonic() + seconds
+
+    def _close_late_bubbles(self) -> None:
+        now = time.monotonic()
+        if not self._bubbles_until or now < self._bubbles_next:
+            return
+        if now >= self._bubbles_until:
+            self._bubbles_until = 0.0
+            return
+        self._bubbles_next = now + 0.5
+        try:
+            if self.dismiss_startup_bubbles():
+                self._bubbles_until = 0.0   # closed: nothing more to watch
+        except Exception as e:  # noqa: BLE001 - never fail an action because of this check
+            log.debug("startup bubble check failed: %s", e)
 
     def close_download_bubble(self, timeout: float = 3) -> bool:
         """Close the toolbar Downloads bubble that opens when a download finishes (since build

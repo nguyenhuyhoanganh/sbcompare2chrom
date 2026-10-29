@@ -113,7 +113,8 @@ dialogs:
   http_auth: "(?i)sign in"
   permission_prompt: "(?i)wants to|show notifications|know your location|use your camera|use your microphone"
 
-# Bubbles a fresh profile may show on start; dismissed by the `native` fixture.
+# Bubbles a fresh profile may show on start: closed by the first native actions after start
+# (nothing waits for them, see native.startup_bubble_watch in default.yaml).
 # Each entry: text (regex of a label inside the bubble) + button to press.
 startup_bubbles:
   - text: "(?i)has been updated"

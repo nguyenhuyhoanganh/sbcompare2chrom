@@ -89,6 +89,9 @@ native:
   backend: uia
   # Logical name -> UIA criteria of the browser's own UI (toolbar, menus, bubbles, dialogs).
   ui_map: config/native_ui.yaml
+  # seconds after a browser start during which native actions first close a startup bubble
+  # (startup_bubbles in the ui map) that has shown up; nothing waits for it
+  startup_bubble_watch: 10
 
 report:
   screenshot_on_failure: true

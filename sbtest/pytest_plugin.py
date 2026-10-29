@@ -243,10 +243,12 @@ def _build_session(cfg, site, request) -> BrowserSession:
         session.profile.bookmarks(format_data(bm, {"site": site.base}))
     session.start()
     if session.native is not None:
-        # first-run bubbles (Samsung "has been updated") would cover the page and toolbar in
-        # every test and in the report screenshots: close them once, right after start
+        # first-run bubbles (Samsung "has been updated", on some starts only) would cover the
+        # toolbar: one quick look now, then the next native actions close a late one - the test
+        # starts right away instead of waiting for a bubble that may not come
         t = time.monotonic()
         session.native.dismiss_startup_bubbles()
+        session.native.watch_startup_bubbles(float(cfg.get("native.startup_bubble_watch", 10)))
         session.timings["startup bubbles"] = round(time.monotonic() - t, 1)
     request.config._sb_results.note_browser(session)
     return session

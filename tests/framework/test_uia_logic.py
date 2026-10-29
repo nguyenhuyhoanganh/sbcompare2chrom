@@ -213,19 +213,25 @@ def test_only_test_browsers_left_by_a_crash_are_closed(monkeypatch):
     assert utils.kill_browsers_using([r"C:\repo\artifacts\test-results\profiles"]) == [1] and killed == [1]
 
 
-def test_startup_bubbles_stop_waiting_when_the_build_never_shows_them():
+def test_startup_bubbles_never_hold_up_the_test():
     import time
 
     from sbtest.native import browser_ui
 
     nb = browser_ui.NativeBrowser.__new__(browser_ui.NativeBrowser)
     nb.ui_map = {"startup_bubbles": [{"text": "(?i)has been updated", "button": "Close"}]}
-    nb.windows = lambda: []
-    browser_ui._STARTUP_BUBBLES.update(starts=0, seen=0)
-    took = []
-    for _ in range(3):
-        t = time.monotonic()
-        assert nb.dismiss_startup_bubbles(timeout=0.4) == []
-        took.append(time.monotonic() - t)
-    assert took[0] >= 0.4 and took[1] >= 0.4 and took[2] < 0.1, took
-    browser_ui._STARTUP_BUBBLES.update(starts=0, seen=0)
+    nb._bubbles_until = nb._bubbles_next = 0.0
+    looks = []
+    nb.windows = lambda: looks.append(1) or []
+    t = time.monotonic()
+    assert nb.dismiss_startup_bubbles() == []           # one quick look, no waiting
+    assert time.monotonic() - t < 0.1 and len(looks) == 1
+
+    nb.watch_startup_bubbles(0.6)
+    nb._close_late_bubbles()
+    nb._close_late_bubbles()                             # within 0.5 s: not looked again
+    assert len(looks) == 2
+    time.sleep(0.7)
+    nb._close_late_bubbles()                             # watch window over: stops looking
+    nb._close_late_bubbles()
+    assert len(looks) == 2 and nb._bubbles_until == 0.0

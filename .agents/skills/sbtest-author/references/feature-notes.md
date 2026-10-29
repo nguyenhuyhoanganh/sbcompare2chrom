@@ -19,8 +19,10 @@ after a Samsung/Chromium update and record what changed here.
   `internet://...` (`pages.display_scheme`, `cfg.display_url(name)` for omnibox asserts).
   `driver.get("internet://...")` does nothing; typing it in the omnibox (`native.navigate`) works.
 - chromedriver cannot launch the exe (hangs on DevTools) -> `browser.mode: attach` (default).
-- Fresh profiles show a "Samsung Browser has been updated." bubble: the `native` fixture closes
-  it (`startup_bubbles` in `config/native_ui.yaml`). Web-only tests are not affected.
+- Fresh profiles may show a "Samsung Browser has been updated." bubble (some starts only):
+  nothing waits for it - one quick look after start, then for 10 s every native action first
+  closes it if it has shown up (`startup_bubbles` in `config/native_ui.yaml`,
+  `native.startup_bubble_watch`). Web-only tests are not affected.
 - Chromium drops clicks on a bubble's buttons for the double-click time after it shows, and Views
   buttons ignore UIA Invoke: `Dialog.click()` waits out that time (counted from when the dialog
   was found) and uses the real mouse. Every native click first waits until the element is
