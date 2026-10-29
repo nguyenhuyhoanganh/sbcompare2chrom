@@ -35,7 +35,8 @@ Explorer, real mouse -> `native`, and mark the test `@pytest.mark.native`.
 
 - Preconditions as data (`@pytest.mark.browser(bookmarks=..., prefs=..., extensions=[...])`,
   visited local pages); only the step under test goes through the UI.
-- No `time.sleep`; wait for a condition (`web.wait_*`, page `wait_*`, `web.wait_until`).
+- No `time.sleep`; wait for a condition (`web.wait_*`, page `wait_*`, `web.wait_until`). Every
+  passed `step()` already lasts at least `timeouts.min_step` (0.5 s): never add pauses for that.
 - No internet except the Web Store case. Content comes from `site` / `resources/data/`.
 - Tests are independent (any order, any subset, fresh profile). Use `unique("Name")`.
 - No product selectors, URLs (`internet://`), machine paths or UIA criteria in tests: they

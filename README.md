@@ -37,7 +37,8 @@ chromedriver (downloaded when missing), browser start, internal pages, toolbar. 
 Add `--exe "<path>"` when setup used it. Other options: `--no-native` (skip tests that drive
 the real UI), `--reruns 1`, `--record` (a video of every test: browser windows, the running
 case step as a caption, clicks and typing framed in red), `--screenshot-steps` (the same as
-pictures: one before every click / typing, plus one per step), `--raw` (pytest's own output).
+pictures: one before every click / typing, plus one per step), `--min-step 1` (every test step
+lasts at least 1 s; default 0.5 s, `0` = no pause), `--raw` (pytest's own output).
 
 While tests run: keep hands off the mouse and keyboard, keep the keyboard on English (US) with
 Vietnamese input tools in English mode, and keep the screen unlocked.

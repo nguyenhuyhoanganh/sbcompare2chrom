@@ -240,3 +240,27 @@ def test_videos_in_the_report_and_on_confluence_for_failed_cases(tmp_path):
     ET.fromstring(f'<r xmlns:ac="a" xmlns:ri="r">{storage.replace("&#160;", " ")}</r>')
     assert not [n for n in json.loads((export(run, "none") / "manifest.json").read_text())["attachments"]
                 if n.endswith(".mp4")]
+
+
+def test_passed_steps_last_at_least_the_minimum():
+    import time
+
+    import pytest
+
+    from sbtest import steps
+
+    steps.reset()
+    steps.set_min_duration(0.3)
+    try:
+        t = time.monotonic()
+        with steps.step("1. Quick"):
+            pass
+        assert time.monotonic() - t >= 0.3
+        assert steps.history()[-1]["duration"] >= 0.3
+        t = time.monotonic()
+        with pytest.raises(ValueError), steps.step("2. Fails"):
+            raise ValueError("x")
+        assert time.monotonic() - t < 0.2          # a failed step does not wait
+    finally:
+        steps.set_min_duration(0)
+        steps.reset()

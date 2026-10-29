@@ -29,6 +29,7 @@ python run.py --sanity                             # quick pass
 python run.py --all --reruns 1                     # re-run failures once to separate flakes
 python run.py --all --record                       # a video per test (step caption, framed clicks)
 python run.py --all --screenshot-steps             # picture per interaction (framed) + per step
+python run.py --all --min-step 1                   # each step lasts >= 1 s (default 0.5, 0 = none)
 python run.py --list                               # cases and automation status
 python run.py --feature downloads -- -x -k pause   # raw pytest args after --
 python run.py --case BM-004 --raw                  # pytest's own output (tracebacks, logs) to debug
