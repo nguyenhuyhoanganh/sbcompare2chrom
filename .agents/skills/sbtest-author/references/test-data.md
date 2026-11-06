@@ -25,7 +25,12 @@ through the UI. Everything is local - no internet.
 @pytest.mark.browser(extensions=["sample_addon"])             # resources/extensions/<dir>, unpacked
 @pytest.mark.browser(args=["--start-maximized"])              # extra switches
 @pytest.mark.browser(profile="with_passwords")                # copy resources/profiles/<name>/ first
+@pytest.mark.browser(start_page="history")                   # first tab opens it while chromedriver attaches
 ```
+
+`start_page` (a `pages` name, not `newtab`: DevTools is blocked on the home page) only saves
+the page load at start: the test still calls `pages.history.open()`, which then does not
+load the page again. Default for every browser: `browser.start_page` in `config/default.yaml`.
 
 A test with `browser(...)` always gets its own fresh browser, even when the run reuses
 browsers (`--browser-scope session`).

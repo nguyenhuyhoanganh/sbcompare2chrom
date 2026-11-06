@@ -15,6 +15,11 @@ browser:
   # Chromium version the build is based on, e.g. "141.0.7390.37". Empty = auto-detect.
   chromium_version: ""
   headless: false
+  # Page the first tab opens right after start, while chromedriver attaches (attach mode):
+  # a `pages` name (history, bookmarks...) or a URL; "" = stay on about:blank. The browser
+  # starts on about:blank anyway (the command line cannot open chrome:// pages) and the home
+  # page (newtab) cannot be used (Samsung blocks DevTools there). Per test: browser(start_page=...).
+  start_page: ""
   window_size: [1400, 900]
   # Extra command line switches for the browser.
   args:

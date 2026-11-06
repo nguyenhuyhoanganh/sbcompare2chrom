@@ -227,3 +227,26 @@ def test_devtools_port_file_read_while_the_browser_writes_it(tmp_path, monkeypat
     monkeypatch.setattr(Path, "read_text", locked_once)
     monkeypatch.setattr(version.time, "sleep", lambda s: None)
     assert version.wait_devtools_port(tmp_path, timeout=5) == 51234 and len(calls) == 2
+
+
+def test_start_page_url_and_first_open_skips_the_reload(tmp_path):
+    from types import SimpleNamespace
+
+    from sbtest.browser.session import BrowserSession
+    from sbtest.web.navigation import NavigationMixin
+
+    (tmp_path / "default.yaml").write_text(yaml.safe_dump(
+        {"browser": {"start_page": "history"}, "pages": {"scheme": "chrome", "history": "history", "newtab": "newtab"}}))
+    cfg = load_config(config_dir=tmp_path)
+    s = BrowserSession(cfg, out_dir=tmp_path)
+    assert s._start_url() == "chrome://history"
+    assert BrowserSession(cfg, out_dir=tmp_path, start_page="newtab")._preload_start_page(1) == ""  # blocked
+
+    gets = []
+    nav = NavigationMixin()
+    nav.driver = SimpleNamespace(current_url="chrome://history/", get=gets.append)
+    nav.wait_ready = lambda: None
+    nav.preloaded_url = "chrome://history"
+    nav.open("chrome://history")      # already there: no reload
+    nav.open("chrome://history")      # later opens load as usual
+    assert gets == ["chrome://history"]

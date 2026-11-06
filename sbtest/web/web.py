@@ -24,6 +24,9 @@ class Web(WaitsMixin, ActionsMixin, ReaderMixin, NavigationMixin):
         self.interval = float(cfg.get("timeouts.poll", 0.2))
         #: (locator text, element or None) of the last element looked up - used by failure reports
         self.last_target: tuple[str, object] | None = None
+        #: URL the browser start opened in the first tab (browser.start_page); the first open()
+        #: of exactly that URL does not load it again
+        self.preloaded_url = ""
 
     def highlight(self, el=None, color: str = "red") -> bool:
         """Outline an element (default: the last one used) so it shows in a screenshot."""

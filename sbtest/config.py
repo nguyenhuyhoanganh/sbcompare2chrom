@@ -31,6 +31,7 @@ ENV_MAP = {
     "SB_CHROMIUM_VERSION": "browser.chromium_version",
     "SB_HEADLESS": "browser.headless",
     "SB_SCOPE": "browser.scope",
+    "SB_START_PAGE": "browser.start_page",
     "SB_ARTIFACTS": "paths.artifacts",
 }
 

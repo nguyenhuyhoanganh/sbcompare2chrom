@@ -21,6 +21,12 @@ class NavigationMixin:
         when the navigation stops at a browser prompt (HTTP sign-in, leave-site dialog),
         otherwise WebDriver would wait for a page load that only happens after the prompt.
         """
+        preloaded, self.preloaded_url = getattr(self, "preloaded_url", ""), ""
+        if blocking and wait and preloaded and url.rstrip("/") == preloaded.rstrip("/") \
+                and self.driver.current_url.rstrip("/") == url.rstrip("/"):
+            # the browser start already sent the first tab here (browser.start_page): no reload
+            self.wait_ready()
+            return
         if blocking:
             self.driver.get(url)
         else:

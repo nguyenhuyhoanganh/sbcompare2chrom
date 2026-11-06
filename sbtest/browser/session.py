@@ -10,9 +10,11 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import time
+import urllib.request
 from pathlib import Path
 
 import psutil
@@ -40,7 +42,7 @@ def _bypass_proxy_for_localhost() -> None:
 class BrowserSession:
     def __init__(self, cfg: Config, name: str = "", profile: Profile | None = None,
                  extra_args: list[str] | None = None, extensions: list[str | Path] | None = None,
-                 prefs: dict | None = None, out_dir: Path | None = None) -> None:
+                 prefs: dict | None = None, out_dir: Path | None = None, start_page: str = "") -> None:
         self.cfg = cfg
         self.name = name
         self.artifacts = cfg.path("paths.artifacts")
@@ -50,6 +52,8 @@ class BrowserSession:
         self.extra_args = list(extra_args or [])
         self.extensions = [str(Path(e).resolve()) for e in (extensions or [])]
         self.extra_prefs = prefs or {}
+        #: internal page name (``history``) or URL the first tab opens before chromedriver attaches
+        self.start_page = start_page if start_page is not None else ""
         self.driver: webdriver.Chrome | None = None
         self.web: Web | None = None
         self._native = None
@@ -129,6 +133,7 @@ class BrowserSession:
         # product version on some builds ("31.0.1.21" on Chromium 157): resolve() checks the
         # driver against the real Chromium version instead (driver_resolver.check_driver)
         service = Service(driver_path, service_args=["--disable-build-check"], log_output=str(log_dir / f"chromedriver_{self.profile.dir.name}.log"))
+        _bypass_proxy_for_localhost()
         try:   # whatever fails while starting, the browser launched here must not stay on screen
             if self.cfg.get("browser.mode") == "attach":
                 # restart(): the previous run's port file would point chromedriver at a dead port
@@ -138,6 +143,7 @@ class BrowserSession:
                 port = wait_devtools_port(self.profile.dir)
                 opts.debugger_address = f"127.0.0.1:{port}"
                 t_browser = time.monotonic()
+                start_url = self._preload_start_page(port)
             else:
                 opts.binary_location = self.exe
                 for a in self._browser_args():
@@ -145,7 +151,9 @@ class BrowserSession:
                 if self.cfg.get("browser.exclude_switches"):
                     opts.add_experimental_option("excludeSwitches", list(self.cfg.get("browser.exclude_switches")))
                 t_browser = t0
-            _bypass_proxy_for_localhost()
+                start_url = ""
+                if self._start_url():
+                    log.warning("browser.start_page needs browser.mode attach: ignored")
             self.driver = webdriver.Chrome(options=opts, service=service)
             # where the start time goes (shown per test by run.py and in the summary)
             self.timings = {"browser": round(t_browser - t0, 1),
@@ -167,8 +175,51 @@ class BrowserSession:
         self.driver.set_page_load_timeout(float(self.cfg.get("timeouts.page_load", 30)))
         self.pid = self._attach_proc.pid if self._attach_proc else find_browser_pid(str(self.profile.dir))
         self.web = Web(self.driver, self.cfg, native_factory=lambda: self.native)
+        self.web.preloaded_url = start_url
         log.info("Started browser pid=%s profile=%s", self.pid, self.profile.dir)
         return self
+
+    # -- start page --------------------------------------------------------------
+    def _start_url(self) -> str:
+        page = self.start_page or self.cfg.get("browser.start_page") or ""
+        return self.cfg.page_url(page) if page else ""
+
+    def _preload_start_page(self, port: int) -> str:
+        """Send the first tab from about:blank to the start page over DevTools right away, so
+        it loads while chromedriver starts. The command line cannot open chrome:// pages
+        (Chromium drops them); the home page (newtab) cannot be used: Samsung blocks DevTools
+        on it and chromedriver then fails to attach. Returns the URL, "" when not preloaded."""
+        url = self._start_url()
+        if not url:
+            return ""
+        if "newtab" in url:
+            log.warning("start page %s skipped: DevTools is blocked on the home page", url)
+            return ""
+        try:
+            import websocket   # websocket-client, a dependency of selenium
+
+            def page_target():
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/list", timeout=2) as r:
+                    return next((t for t in json.load(r) if t.get("type") == "page"
+                                 and t.get("webSocketDebuggerUrl")), None)
+
+            target = poll(page_target, 5, 0.05, "first tab")
+            ws = websocket.create_connection(target["webSocketDebuggerUrl"], timeout=5, suppress_origin=True)
+            try:
+                ws.send(json.dumps({"id": 1, "method": "Page.navigate", "params": {"url": url}}))
+                while True:
+                    reply = json.loads(ws.recv())
+                    if reply.get("id") == 1:
+                        break
+            finally:
+                ws.close()
+            if "error" in reply or reply.get("result", {}).get("errorText"):
+                raise RuntimeError(reply.get("error") or reply["result"]["errorText"])
+            log.info("start page %s loading before chromedriver attaches", url)
+            return url
+        except Exception as e:  # noqa: BLE001 - the test opens the page itself then
+            log.warning("start page %s not preloaded (%s)", url, e)
+            return ""
 
     def _blocking_dialogs(self) -> list[str]:
         """Titles of message boxes the browser shows on start ("Profile error occurred"), which

@@ -13,8 +13,10 @@ Fixtures (ask only for what the test needs):
 Markers:
     @pytest.mark.case("BM-001")   case ids from the *.md case docs (filter: --case)
     @pytest.mark.native           drives native UI (Windows, not headless)
-    @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name")
+    @pytest.mark.browser(bookmarks=..., prefs={...}, args=[...], extensions=["sample_addon"], profile="name",
+                         start_page="history")
                                   preconditions applied BEFORE the browser starts
+                                  (start_page: page the first tab opens while chromedriver attaches)
     @pytest.mark.sanity / slow
     Feature markers come from the folder: tests/features/<feature>/ -> <feature>.
 """
@@ -232,7 +234,8 @@ def _build_session(cfg, site, request) -> BrowserSession:
     exts = [Path(e) if Path(e).is_absolute() else cfg.path("paths.extensions") / e
             for e in opts.get("extensions", [])]
     session = BrowserSession(cfg, name=request.node.name, extra_args=opts.get("args"), extensions=exts,
-                             prefs=opts.get("prefs"), out_dir=request.config._sb_run_dir)
+                             prefs=opts.get("prefs"), out_dir=request.config._sb_run_dir,
+                             start_page=opts.get("start_page", ""))
     if opts.get("profile"):
         session.profile.copy_from(cfg.path("paths.profiles") / opts["profile"])
     bm = opts.get("bookmarks")

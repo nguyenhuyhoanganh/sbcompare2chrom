@@ -71,7 +71,7 @@ artifacts/test-results/        latest run only: report/, confluence/, failures/,
 
 - `@pytest.mark.case("ADD-001")` - required on product tests; links to the doc
 - `@pytest.mark.native` - any step uses `native`
-- `@pytest.mark.browser(bookmarks=..., prefs=..., extensions=[...], args=[...], profile=...)`
+- `@pytest.mark.browser(bookmarks=..., prefs=..., extensions=[...], args=[...], profile=..., start_page=...)`
 - `@pytest.mark.sanity`, `@pytest.mark.slow`
 - automatic: `addons`/`bookmarks`/... from `tests/features/<feature>/`
 
